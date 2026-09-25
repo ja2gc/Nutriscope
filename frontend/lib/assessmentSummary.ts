@@ -38,6 +38,14 @@ const INTAKE_METHODS: Record<string, string> = {
   other: "another documented method",
 };
 
+const MATERNAL_STATUS_LABELS: Record<string, string> = {
+  pregnant_t1: "Pregnant — first trimester",
+  pregnant_t2: "Pregnant — second trimester",
+  pregnant_t3: "Pregnant — third trimester",
+  pregnant_unspecified: "Pregnant — trimester not confirmed",
+  lactating: "Lactating",
+};
+
 function cleanText(value: unknown): string {
   return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
 }
@@ -58,6 +66,14 @@ function numberValue(value: unknown): number | null {
 function formatNumber(value: unknown): string | null {
   const parsed = numberValue(value);
   return parsed === null ? null : String(parsed);
+}
+
+function formatWeightChangePeriod(assessment: Partial<Assessment>): string {
+  const value = numberValue(assessment.weight_change_period_value);
+  const unit = assessment.weight_change_period_unit;
+  if (value === null || value <= 0 || (unit !== "weeks" && unit !== "months")) return "";
+  const singularUnit = unit === "weeks" ? "week" : "month";
+  return `${value} ${value === 1 ? singularUnit : unit}`;
 }
 
 function lowerFirst(value: string): string {
@@ -91,7 +107,7 @@ export function buildAssessmentSummary(input: AssessmentSummaryInput): string {
   }
   if (anthropometrics.weightChangePercent !== null && anthropometrics.weightChangePercent !== undefined) {
     const direction = anthropometrics.weightChangeDirection === "gain" ? "gain" : anthropometrics.weightChangeDirection === "loss" ? "loss" : "change";
-    const period = cleanText(assessment.weight_loss_period);
+    const period = formatWeightChangePeriod(assessment);
     anthropometricParts.push(`${anthropometrics.weightChangePercent}% weight ${direction}${period ? ` over ${period}` : ""}`);
   }
   const muac = formatNumber(assessment.muac_mm);
@@ -145,7 +161,9 @@ export function buildAssessmentSummary(input: AssessmentSummaryInput): string {
   const pregnancy = cleanText(assessment.pregnancy_lactation_status);
   if (medicalHistory) clinicalParts.push(sentence(`Medical history: ${medicalHistory}`));
   if (functional) clinicalParts.push(sentence(`Functional status: ${functional}`));
-  if (pregnancy && pregnancy !== "none") clinicalParts.push(sentence(`Pregnancy/lactation: ${pregnancy}`));
+  if (pregnancy && pregnancy !== "none") {
+    clinicalParts.push(sentence(`Pregnancy/lactation: ${MATERNAL_STATUS_LABELS[pregnancy] ?? pregnancy}`));
+  }
   if (assessment.edema_present) clinicalParts.push("Edema is present.");
   if (assessment.edema_present && dryWeight) clinicalParts.push(`Dry weight is ${dryWeight} kg.`);
   if (assessment.allergies?.length) clinicalParts.push(`Allergies: ${assessment.allergies.join(", ")}.`);

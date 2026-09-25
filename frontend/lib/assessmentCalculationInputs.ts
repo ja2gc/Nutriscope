@@ -10,8 +10,8 @@ export const CALCULATION_INPUT_HELPERS = {
   muac_mm: { required: false },
   waist_cm: { required: false },
   hip_cm: { required: false },
-  weight_loss_period: { required: false },
-  stress_factor: { required: false },
+  weight_change_period_value: { required: false },
+  weight_change_period_unit: { required: false },
   pregnancy_lactation_status: { required: false },
   edema_present: { required: false },
 } satisfies Record<string, CalculationInputHelper>;

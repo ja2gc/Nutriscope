@@ -7,6 +7,21 @@ export class AssessmentValidationError extends Error {
   }
 }
 
+export const PRIMARY_DIAGNOSIS_CATEGORIES = [
+  "Cardiovascular",
+  "Renal",
+  "Diabetes",
+  "Obesity",
+  "Malnutrition",
+  "Surgery / Trauma",
+  "Liver",
+  "Cancer",
+  "Pregnancy / Lactation",
+  "Other",
+] as const;
+
+export type PrimaryDiagnosisCategory = (typeof PRIMARY_DIAGNOSIS_CATEGORIES)[number];
+
 export interface Assessment {
   id?: number;
   ncp_record_id?: number;
@@ -30,7 +45,11 @@ export interface Assessment {
   usual_weight: number | string | null;
   nutritional_status: "Normal" | "Moderate Malnutrition" | "Severe Malnutrition" | null;
   weight_loss_percentage: number | string | null;
-  weight_loss_period: string | null;
+  weight_change_period_value: number | null;
+  weight_change_period_unit: "weeks" | "months" | null;
+  weight_change_period?: string | null;
+  primary_diagnosis_category: PrimaryDiagnosisCategory | null;
+  primary_diagnosis_other: string | null;
   functional_assessment: "Bed ridden" | "Needs assistance" | "Ambulatory" | null;
   energy_intake_status: "No change" | "Mostly liquids" | "Sub-optimal" | "Starvation" | "Poor intake prior to admission" | null;
   ibw_percentage: number | string | null;
@@ -47,11 +66,17 @@ export interface Assessment {
   muac_mm: number | string | null;
   waist_cm: number | string | null;
   hip_cm: number | string | null;
-  // Phase 5 — nutrition engine inputs
-  stress_factor: number | string | null;
+  /** Legacy read compatibility only. New Assessment writes remove this field. */
+  stress_factor?: number | string | null;
   edema_present: boolean | null;
   dry_weight_kg: number | string | null;
-  pregnancy_lactation_status: "none" | "pregnant" | "lactating" | null;
+  pregnancy_lactation_status:
+    | "none"
+    | "pregnant_t1"
+    | "pregnant_t2"
+    | "pregnant_t3"
+    | "pregnant_unspecified"
+    | "lactating";
   risk_score?: number | null;
   checked_factors?: string[] | null;
   risk_score_manual_override?: boolean | null;
@@ -122,13 +147,16 @@ export async function saveAssessment(
   exists: boolean
 ): Promise<Assessment> {
   const method = exists ? "PATCH" : "POST";
+  const payload: Record<string, unknown> = { ...data };
+  delete payload.weight_loss_period;
+  delete payload.stress_factor;
   const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/assessment`, {
     method,
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
     },
-    body: JSON.stringify(data),
+    body: JSON.stringify(payload),
   });
 
   if (!res.ok) {

@@ -77,4 +77,31 @@ describe("Assessment page UX", () => {
     expect(page).toContain("Albumin below 3.5 g/dL");
     expect(page).toContain("Glucose below 70 or above 125 mg/dL");
   });
+
+  test("uses one structured weight duration control without legacy or fixed-period copy", () => {
+    expect(page.match(/<Field label="Weight Change Duration"/g)).toHaveLength(1);
+    expect(page).toContain('updateField("weight_change_period_value"');
+    expect(page).toContain('updateField("weight_change_period_unit"');
+    expect(page).not.toContain("weight_loss_period");
+    expect(page).not.toContain("3 months");
+    expect(page).not.toContain('label="Over Period"');
+  });
+
+  test("keeps physician diagnosis separate from required census category", () => {
+    expect(page).toContain('<Field label="Medical Diagnosis"');
+    expect(page).toContain('<Field label="Primary Diagnosis Category" required>');
+    expect(page).toContain('primary_diagnosis_category');
+    expect(page).toContain('<Field label="Specify category" required>');
+    expect(page).toContain('assessment.primary_diagnosis_category === "Other"');
+  });
+
+  test("removes stress input and offers explicit maternal states", () => {
+    expect(page).not.toContain('label="Stress Factor"');
+    expect(page).not.toContain("stress_factor");
+    expect(page).toContain('value: "pregnant_t1", label: "Pregnant — first trimester"');
+    expect(page).toContain('value: "pregnant_t2", label: "Pregnant — second trimester"');
+    expect(page).toContain('value: "pregnant_t3", label: "Pregnant — third trimester"');
+    expect(page).toContain('value: "lactating", label: "Lactating"');
+    expect(page).toContain("Confirm the pregnancy trimester before automatic maternal targets are available.");
+  });
 });

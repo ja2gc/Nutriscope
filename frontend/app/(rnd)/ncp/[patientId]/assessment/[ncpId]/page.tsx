@@ -20,7 +20,7 @@ import { changedPersonNameFields, personDisplayName } from "@/lib/personName";
 import {
   Assessment, AssessmentValidationError, fetchAssessment, saveAssessment,
   AttachmentRecord, uploadAttachment, fetchAttachments, deleteAttachment,
-  getAttachmentFileUrl,
+  getAttachmentFileUrl, PRIMARY_DIAGNOSIS_CATEGORIES,
 } from "@/services/assessmentService";
 import { coerceBiochemicalValue } from "@/services/biochemical";
 import { deriveRiskScore, RISK_FACTORS, scoreRiskFactors } from "@/lib/assessmentRiskScoring";
@@ -39,6 +39,8 @@ const ASSESSMENT_FIELD_LABELS: Record<string, string> = {
   dry_weight_kg: "Dry weight",
   height: "Height",
   physical_activity_level: "Physical activity level",
+  primary_diagnosis_category: "Primary diagnosis category",
+  primary_diagnosis_other: "Specified diagnosis category",
 };
 
 function formatAssessmentValidationError(error: AssessmentValidationError): string {
@@ -144,7 +146,7 @@ const PEDIATRIC_CLINICAL_CONDITIONS = [
 ];
 
 const ADULT_INTAKE_WEIGHT_HISTORY = [
-  "Unintentional weight loss in the past 3 months",
+  "Recent unintentional weight loss",
   "Reduced dietary intake in the past week",
   "BMI below 18.5 and above 30 (to be computed by the RND)",
   "Others",
@@ -155,7 +157,7 @@ const ADULT_INTAKE_WEIGHT_HISTORY = [
 ];
 
 const PEDIATRIC_INTAKE_WEIGHT_HISTORY = [
-  "Unintentional weight loss in the past 3 months",
+  "Recent unintentional weight loss",
   "Patient on breastmilk feeding",
   "Reduced dietary intake in the past week",
   "Reduction of dietary intake in the past week/s and/or during the hospital stay",
@@ -659,14 +661,15 @@ function defaultAssessment(): Assessment {
     bmi: null, body_composition: null, medical_history: null, social_history: null,
     lifestyle: null, allergies: null, food_dislikes: null, medications: null,
     rnd_summary: null, usual_weight: null, nutritional_status: null,
-    weight_loss_percentage: null, weight_loss_period: null,
+    weight_loss_percentage: null, weight_change_period_value: null, weight_change_period_unit: null,
+    primary_diagnosis_category: null, primary_diagnosis_other: null,
     functional_assessment: null, energy_intake_status: null, ibw_percentage: null,
     present_diet: null, physical_assessment: null,
     chewing_swallowing_difficulties: null, constipation: null, diarrhea_notes: null,
     food_intolerance: null, nutrient_drug_interaction: null,
     dietary_intake_method: null, dietary_record_file: null,
     physical_activity_level: null, muac_mm: null, waist_cm: null, hip_cm: null,
-    stress_factor: null, edema_present: false, dry_weight_kg: null, pregnancy_lactation_status: "none",
+    edema_present: false, dry_weight_kg: null, pregnancy_lactation_status: "none",
     risk_score_manual_override: false, risk_score_manual_factors: null,
     religion: null,
   };
@@ -1287,8 +1290,23 @@ export default function NcpAssessmentPage({
         <Field label="Hip Circumference (cm)" required={CALCULATION_INPUT_HELPERS.hip_cm.required}>
           <TextInput type="number" value={String(assessment.hip_cm ?? "")} onChange={v => updateField("hip_cm", v ? Number(v) : null)} />
         </Field>
-        <Field label="Weight Loss/Gain Period" required={CALCULATION_INPUT_HELPERS.weight_loss_period.required}>
-          <TextInput value={s("weight_loss_period")} onChange={v => updateField("weight_loss_period", v)} />
+        <Field label="Weight Change Duration" required={CALCULATION_INPUT_HELPERS.weight_change_period_value.required || CALCULATION_INPUT_HELPERS.weight_change_period_unit.required}>
+          <div className="grid grid-cols-[minmax(0,1fr)_minmax(8rem,0.65fr)] gap-2">
+            <TextInput
+              type="number"
+              min={0.1}
+              value={String(assessment.weight_change_period_value ?? "")}
+              onChange={v => updateField("weight_change_period_value", v ? Number(v) : null)}
+            />
+            <SelectInput
+              value={assessment.weight_change_period_unit ?? ""}
+              onChange={v => updateField("weight_change_period_unit", v || null)}
+              options={[
+                { value: "weeks", label: "Weeks" },
+                { value: "months", label: "Months" },
+              ]}
+            />
+          </div>
         </Field>
         <Field label="Functional Assessment">
           <SelectInput
@@ -1322,7 +1340,7 @@ export default function NcpAssessmentPage({
       </AssessmentSection>
 
       <AssessmentSection legend="Calculation context">
-        <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-4">
       <Field label="Physical Activity Level (PAL)" required={CALCULATION_INPUT_HELPERS.physical_activity_level.required}>
         <SelectInput
           value={s("physical_activity_level")}
@@ -1333,19 +1351,24 @@ export default function NcpAssessmentPage({
           }))}
         />
       </Field>
-      <Field label="Stress Factor" required={CALCULATION_INPUT_HELPERS.stress_factor.required}>
-        <TextInput type="number" value={String(assessment.stress_factor ?? "")} onChange={v => updateField("stress_factor", v ? Number(v) : null)} />
-      </Field>
       <Field label="Pregnancy / Lactation" required={CALCULATION_INPUT_HELPERS.pregnancy_lactation_status.required}>
         <SelectInput
           value={(assessment.pregnancy_lactation_status as string) || "none"}
           onChange={v => updateField("pregnancy_lactation_status", v || "none")}
           options={[
             { value: "none", label: "None" },
-            { value: "pregnant", label: "Pregnant (2nd/3rd trimester)" },
+            { value: "pregnant_t1", label: "Pregnant — first trimester" },
+            { value: "pregnant_t2", label: "Pregnant — second trimester" },
+            { value: "pregnant_t3", label: "Pregnant — third trimester" },
+            { value: "pregnant_unspecified", label: "Pregnant — trimester not confirmed" },
             { value: "lactating", label: "Lactating" },
           ]}
         />
+        {assessment.pregnancy_lactation_status === "pregnant_unspecified" && (
+          <p className="mt-1 text-xs text-amber-700">
+            Confirm the pregnancy trimester before automatic maternal targets are available.
+          </p>
+        )}
       </Field>
       <Field label="Edema Present" required={CALCULATION_INPUT_HELPERS.edema_present.required}>
         <SelectInput
@@ -1585,6 +1608,24 @@ export default function NcpAssessmentPage({
                   rows={2}
                 />
               </Field>
+              <Field label="Primary Diagnosis Category" required>
+                <SelectInput
+                  value={assessment.primary_diagnosis_category ?? ""}
+                  onChange={v => {
+                    updateField("primary_diagnosis_category", v || null);
+                    if (v !== "Other") updateField("primary_diagnosis_other", null);
+                  }}
+                  options={PRIMARY_DIAGNOSIS_CATEGORIES.map(category => ({ value: category, label: category }))}
+                />
+              </Field>
+              {assessment.primary_diagnosis_category === "Other" && (
+                <Field label="Specify category" required>
+                  <TextInput
+                    value={assessment.primary_diagnosis_other ?? ""}
+                    onChange={v => updateField("primary_diagnosis_other", v || null)}
+                  />
+                </Field>
+              )}
               <Field label="Hospital Number">
                 <TextInput value={draft?.hospitalNumber ?? ""} onChange={v => updateScreeningDraftField("hospitalNumber", v)} />
               </Field>
@@ -1751,7 +1792,7 @@ export default function NcpAssessmentPage({
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+      <div className="grid grid-cols-1 gap-3 pt-1 sm:max-w-sm">
         <Field label="Weight Loss/Gain %">
           <TextInput
             type="number"
@@ -1759,9 +1800,6 @@ export default function NcpAssessmentPage({
             onChange={v => updateField("weight_loss_percentage", v ? Number(v) : null)}
             disabled={computedWeightChangePct !== null}
           />
-        </Field>
-        <Field label="Over Period">
-          <TextInput value={s("weight_loss_period")} onChange={v => updateField("weight_loss_period", v)} />
         </Field>
       </div>
     </div>

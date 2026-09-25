@@ -70,6 +70,24 @@ describe("buildAssessmentSummary", () => {
     expect(result).not.toMatch(/undefined|null|NaN|IBW \(|BMI ;/);
   });
 
+  test("formats structured weight duration and readable maternal status", () => {
+    const result = buildAssessmentSummary(input({
+      assessment: {
+        weight_change_period_value: 1,
+        weight_change_period_unit: "months",
+        pregnancy_lactation_status: "pregnant_t2",
+      },
+      anthropometrics: {
+        weightChangePercent: 4.5,
+        weightChangeDirection: "loss",
+      },
+    }));
+
+    expect(result).toContain("4.5% weight loss over 1 month");
+    expect(result).toContain("Pregnancy/lactation: Pregnant — second trimester.");
+    expect(result).not.toContain("pregnant_t2");
+  });
+
   test("normalizes and compacts long source notes without changing the source", () => {
     const note = "Poor intake   for three days.\nNeeds feeding assistance and close review because fatigue limits every meal and snacks are usually refused despite repeated encouragement.";
     const result = buildAssessmentSummary(input({
