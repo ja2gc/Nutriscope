@@ -25,6 +25,8 @@ class Assessment extends Model
         'allergies', 'food_dislikes', 'medications',
         'rnd_summary',
         'usual_weight', 'nutritional_status', 'weight_loss_percentage', 'weight_loss_period',
+        'weight_change_period_value', 'weight_change_period_unit',
+        'primary_diagnosis_category', 'primary_diagnosis_other',
         'functional_assessment', 'energy_intake_status', 'ibw_percentage', 'present_diet',
         'physical_assessment', 'chewing_swallowing_difficulties', 'constipation', 'diarrhea_notes',
         'food_intolerance', 'nutrient_drug_interaction', 'dietary_intake_method', 'dietary_record_file',
@@ -47,6 +49,7 @@ class Assessment extends Model
         'stress_factor' => 'float',
         'edema_present' => 'boolean',
         'dry_weight_kg' => 'decimal:2',
+        'weight_change_period_value' => 'integer',
     ];
 
     protected function auditAttributes(): array
@@ -56,7 +59,9 @@ class Assessment extends Model
             'supplements', 'knowledge_notes', 'weight', 'height', 'bmi', 'body_composition',
             'medical_history', 'social_history', 'religion', 'lifestyle', 'allergies',
             'food_dislikes', 'medications', 'rnd_summary', 'usual_weight', 'nutritional_status',
-            'weight_loss_percentage', 'weight_loss_period', 'functional_assessment',
+            'weight_loss_percentage', 'weight_loss_period', 'weight_change_period_value',
+            'weight_change_period_unit', 'primary_diagnosis_category', 'primary_diagnosis_other',
+            'functional_assessment',
             'energy_intake_status', 'ibw_percentage', 'present_diet', 'physical_assessment',
             'chewing_swallowing_difficulties', 'constipation', 'diarrhea_notes',
             'food_intolerance', 'nutrient_drug_interaction', 'dietary_intake_method',

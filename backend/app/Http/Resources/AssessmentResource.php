@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Services\RiskScoreCalculator;
+use App\Support\WeightChangePeriod;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -39,6 +40,14 @@ class AssessmentResource extends JsonResource
             'nutritional_status' => $this->nutritional_status,
             'weight_loss_percentage' => $this->weight_loss_percentage,
             'weight_loss_period' => $this->weight_loss_period,
+            'weight_change_period_value' => $this->weight_change_period_value,
+            'weight_change_period_unit' => $this->weight_change_period_unit,
+            'weight_change_period' => WeightChangePeriod::format(
+                $this->weight_change_period_value,
+                $this->weight_change_period_unit,
+            ),
+            'primary_diagnosis_category' => $this->primary_diagnosis_category,
+            'primary_diagnosis_other' => $this->primary_diagnosis_other,
             'functional_assessment' => $this->functional_assessment,
             'energy_intake_status' => $this->energy_intake_status,
             'ibw_percentage' => $this->ibw_percentage,
@@ -58,7 +67,6 @@ class AssessmentResource extends JsonResource
             'muac_mm' => $this->muac_mm,
             'waist_cm' => $this->waist_cm,
             'hip_cm' => $this->hip_cm,
-            'stress_factor' => $this->stress_factor,
             'edema_present' => $this->edema_present,
             'dry_weight_kg' => $this->dry_weight_kg,
             'pregnancy_lactation_status' => $this->pregnancy_lactation_status,

@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\RND;
 
+use App\Support\PrimaryDiagnosisCategory;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class StoreAssessmentRequest extends FormRequest
@@ -44,6 +46,10 @@ class StoreAssessmentRequest extends FormRequest
             'nutritional_status' => ['nullable', 'string', 'in:Normal,Moderate Malnutrition,Severe Malnutrition'],
             'weight_loss_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'weight_loss_period' => ['nullable', 'string'],
+            'weight_change_period_value' => ['nullable', 'required_with:weight_change_period_unit', 'integer', 'min:1', 'max:65535'],
+            'weight_change_period_unit' => ['nullable', 'required_with:weight_change_period_value', Rule::in(['weeks', 'months'])],
+            'primary_diagnosis_category' => ['required', 'string', Rule::in(PrimaryDiagnosisCategory::values())],
+            'primary_diagnosis_other' => ['nullable', 'required_if:primary_diagnosis_category,'.PrimaryDiagnosisCategory::OTHER, 'string', 'max:160'],
             'functional_assessment' => ['nullable', 'string', 'in:Bed ridden,Needs assistance,Ambulatory'],
             'energy_intake_status' => ['nullable', 'string', 'in:No change,Mostly liquids,Sub-optimal,Starvation,Poor intake prior to admission'],
             'ibw_percentage' => ['nullable', 'numeric', 'min:0'],
@@ -64,10 +70,9 @@ class StoreAssessmentRequest extends FormRequest
             'waist_cm' => ['nullable', 'numeric', 'min:0'],
             'hip_cm' => ['nullable', 'numeric', 'min:0'],
             // Phase 5 — engine inputs
-            'stress_factor' => ['nullable', 'numeric', 'min:0.5', 'max:3.0'],
             'edema_present' => ['nullable', 'boolean'],
             'dry_weight_kg' => ['nullable', 'numeric', "between:{$bounds['dry_weight_kg']['min']},{$bounds['dry_weight_kg']['max']}"],
-            'pregnancy_lactation_status' => ['nullable', 'string', 'in:none,pregnant,lactating'],
+            'pregnancy_lactation_status' => ['nullable', 'string', Rule::in(['none', 'pregnant_t1', 'pregnant_t2', 'pregnant_t3', 'pregnant_unspecified', 'lactating'])],
             'biochemical_data' => ['nullable', 'array'],
             'biochemical_data.albumin' => ['nullable', 'numeric'],
             'biochemical_data.hematocrit' => ['nullable', 'numeric'],
@@ -134,6 +139,17 @@ class StoreAssessmentRequest extends FormRequest
             'dry_weight_kg' => 'dry weight',
             'height' => 'height',
             'physical_activity_level' => 'physical activity level',
+            'weight_change_period_value' => 'weight change duration',
+            'weight_change_period_unit' => 'weight change duration unit',
+            'primary_diagnosis_category' => 'primary diagnosis category',
+            'primary_diagnosis_other' => 'specified category',
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        if ($this->input('primary_diagnosis_category') !== PrimaryDiagnosisCategory::OTHER) {
+            $this->merge(['primary_diagnosis_other' => null]);
+        }
     }
 }

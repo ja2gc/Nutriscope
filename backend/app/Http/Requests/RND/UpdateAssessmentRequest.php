@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\RND;
 
+use App\Support\PrimaryDiagnosisCategory;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class UpdateAssessmentRequest extends FormRequest
@@ -44,6 +46,10 @@ class UpdateAssessmentRequest extends FormRequest
             'nutritional_status' => ['nullable', 'string', 'in:Normal,Moderate Malnutrition,Severe Malnutrition'],
             'weight_loss_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'weight_loss_period' => ['nullable', 'string'],
+            'weight_change_period_value' => ['nullable', 'integer', 'min:1', 'max:65535'],
+            'weight_change_period_unit' => ['nullable', Rule::in(['weeks', 'months'])],
+            'primary_diagnosis_category' => ['nullable', 'string', Rule::in(PrimaryDiagnosisCategory::values())],
+            'primary_diagnosis_other' => ['nullable', 'string', 'max:160'],
             'functional_assessment' => ['nullable', 'string', 'in:Bed ridden,Needs assistance,Ambulatory'],
             'energy_intake_status' => ['nullable', 'string', 'in:No change,Mostly liquids,Sub-optimal,Starvation,Poor intake prior to admission'],
             'ibw_percentage' => ['nullable', 'numeric', 'min:0'],
@@ -62,10 +68,9 @@ class UpdateAssessmentRequest extends FormRequest
             'waist_cm' => ['nullable', 'numeric', 'min:0'],
             'hip_cm' => ['nullable', 'numeric', 'min:0'],
             // Phase 5 — engine inputs
-            'stress_factor' => ['nullable', 'numeric', 'min:0.5', 'max:3.0'],
             'edema_present' => ['nullable', 'boolean'],
             'dry_weight_kg' => ['nullable', 'numeric', "between:{$bounds['dry_weight_kg']['min']},{$bounds['dry_weight_kg']['max']}"],
-            'pregnancy_lactation_status' => ['nullable', 'string', 'in:none,pregnant,lactating'],
+            'pregnancy_lactation_status' => ['nullable', 'string', Rule::in(['none', 'pregnant_t1', 'pregnant_t2', 'pregnant_t3', 'pregnant_unspecified', 'lactating'])],
             'biochemical_data' => ['nullable', 'array'],
             'biochemical_data.albumin' => ['nullable', 'numeric'],
             'biochemical_data.hematocrit' => ['nullable', 'numeric'],
@@ -132,12 +137,54 @@ class UpdateAssessmentRequest extends FormRequest
                 if ($edemaPresent && blank($dryWeight)) {
                     $validator->errors()->add('dry_weight_kg', 'Dry weight is required when edema is present.');
                 }
+
+                $category = $this->exists('primary_diagnosis_category')
+                    ? $this->input('primary_diagnosis_category')
+                    : $assessment?->primary_diagnosis_category;
+                if (blank($category)) {
+                    $validator->errors()->add('primary_diagnosis_category', 'The primary diagnosis category field is required.');
+                }
+
+                $other = $this->exists('primary_diagnosis_other')
+                    ? $this->input('primary_diagnosis_other')
+                    : $assessment?->primary_diagnosis_other;
+                if ($category === PrimaryDiagnosisCategory::OTHER && blank($other)) {
+                    $validator->errors()->add('primary_diagnosis_other', 'The specified category field is required when primary diagnosis category is Other.');
+                }
+
+                $periodValue = $this->exists('weight_change_period_value')
+                    ? $this->input('weight_change_period_value')
+                    : $assessment?->weight_change_period_value;
+                $periodUnit = $this->exists('weight_change_period_unit')
+                    ? $this->input('weight_change_period_unit')
+                    : $assessment?->weight_change_period_unit;
+                if (blank($periodValue) xor blank($periodUnit)) {
+                    $missingField = blank($periodValue) ? 'weight_change_period_value' : 'weight_change_period_unit';
+                    $validator->errors()->add($missingField, 'Weight change duration requires both a value and unit.');
+                }
             },
         ];
     }
 
     public function attributes(): array
     {
-        return self::PRESCRIPTION_INPUTS;
+        return array_merge(self::PRESCRIPTION_INPUTS, [
+            'weight_change_period_value' => 'weight change duration',
+            'weight_change_period_unit' => 'weight change duration unit',
+            'primary_diagnosis_category' => 'primary diagnosis category',
+            'primary_diagnosis_other' => 'specified category',
+        ]);
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $assessment = $this->route('ncpRecord')?->assessment;
+        $category = $this->exists('primary_diagnosis_category')
+            ? $this->input('primary_diagnosis_category')
+            : $assessment?->primary_diagnosis_category;
+
+        if ($category !== PrimaryDiagnosisCategory::OTHER) {
+            $this->merge(['primary_diagnosis_other' => null]);
+        }
     }
 }

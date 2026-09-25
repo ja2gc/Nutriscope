@@ -4,6 +4,9 @@ namespace Tests\Unit;
 
 use App\Http\Requests\RND\StoreAssessmentRequest;
 use App\Models\Assessment;
+use App\Models\Patient;
+use App\Support\PrimaryDiagnosisCategory;
+use App\Support\WeightChangePeriod;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -133,5 +136,61 @@ class AssessmentModelTest extends TestCase
             Schema::hasColumn('assessments', 'hip_cm'),
             'assessments table must have hip_cm column'
         );
+    }
+
+    public function test_primary_diagnosis_category_exposes_exact_allowed_values(): void
+    {
+        $this->assertSame([
+            'Cardiovascular',
+            'Renal',
+            'Diabetes',
+            'Obesity',
+            'Malnutrition',
+            'Surgery / Trauma',
+            'Liver',
+            'Cancer',
+            'Pregnancy / Lactation',
+            'Other',
+        ], PrimaryDiagnosisCategory::values());
+        $this->assertTrue(PrimaryDiagnosisCategory::isAllowed('Cancer'));
+        $this->assertFalse(PrimaryDiagnosisCategory::isAllowed('Oncology'));
+    }
+
+    public function test_weight_change_period_parses_only_explicit_legacy_values(): void
+    {
+        $this->assertSame(['value' => 3, 'unit' => 'weeks'], WeightChangePeriod::parseLegacy('3 weeks'));
+        $this->assertSame(['value' => 1, 'unit' => 'months'], WeightChangePeriod::parseLegacy('1 month'));
+        $this->assertSame(['value' => 6, 'unit' => 'months'], WeightChangePeriod::parseLegacy(' 6 months '));
+        $this->assertNull(WeightChangePeriod::parseLegacy('about three months'));
+        $this->assertNull(WeightChangePeriod::parseLegacy('0 weeks'));
+    }
+
+    public function test_weight_change_period_formats_natural_singular_and_plural_labels(): void
+    {
+        $this->assertSame('1 week', WeightChangePeriod::format(1, 'weeks'));
+        $this->assertSame('3 months', WeightChangePeriod::format(3, 'months'));
+        $this->assertNull(WeightChangePeriod::format(null, null));
+        $this->assertNull(WeightChangePeriod::format(3, null));
+    }
+
+    public function test_new_clinical_fields_are_fillable_cast_and_present_in_schema(): void
+    {
+        $assessment = new Assessment;
+
+        foreach ([
+            'weight_change_period_value',
+            'weight_change_period_unit',
+            'primary_diagnosis_category',
+            'primary_diagnosis_other',
+        ] as $field) {
+            $this->assertContains($field, $assessment->getFillable());
+            $this->assertTrue(Schema::hasColumn('assessments', $field), "Missing assessments.{$field}");
+        }
+
+        $this->assertSame('integer', $assessment->getCasts()['weight_change_period_value']);
+        $this->assertTrue(Schema::hasColumn('patients', 'is_demo'));
+        $this->assertSame('boolean', (new Patient)->getCasts()['is_demo']);
+        $this->assertNotContains('is_demo', (new Patient)->getFillable());
+        $this->assertFalse((new Patient)->is_demo);
     }
 }
