@@ -6,6 +6,7 @@ use App\Models\Intervention;
 use App\Models\InterventionRevision;
 use App\Models\Monitoring;
 use App\Models\User;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -87,8 +88,9 @@ class InterventionRevisionService
         array $attributes,
         User $actor,
         string $reason,
+        string|\DateTimeInterface|null $effectiveAt = null,
     ): InterventionRevision {
-        return DB::transaction(function () use ($intervention, $monitoring, $attributes, $actor, $reason): InterventionRevision {
+        return DB::transaction(function () use ($intervention, $monitoring, $attributes, $actor, $reason, $effectiveAt): InterventionRevision {
             $locked = Intervention::query()->lockForUpdate()->findOrFail($intervention->getKey());
             if ($monitoring->ncp_record_id !== $locked->ncp_record_id) {
                 throw ValidationException::withMessages([
@@ -96,16 +98,27 @@ class InterventionRevisionService
                 ]);
             }
 
+            if ($monitoring->intervention_revision_id !== null
+                || $locked->revisions()->where('monitoring_id', $monitoring->getKey())->exists()) {
+                throw ValidationException::withMessages([
+                    'intervention_revision' => ['This monitoring visit already has an intervention revision.'],
+                ]);
+            }
+
+            $this->activeFor($locked);
+
             $nextVersion = ((int) $locked->revisions()->lockForUpdate()->max('version')) + 1;
             $locked->applyRevisionAttributes($attributes);
 
             $revision = $locked->revisions()->create([
                 'monitoring_id' => $monitoring->getKey(),
                 'version' => $nextVersion,
-                'effective_at' => $monitoring->created_at ?? now(),
+                'effective_at' => $effectiveAt === null
+                    ? ($monitoring->created_at ?? now())
+                    : Carbon::parse($effectiveAt),
                 'reason' => $reason,
                 'actor_user_id' => $actor->getKey(),
-                'source' => 'monitoring',
+                'source' => 'monitoring_revision',
                 'snapshot' => $this->snapshotFields($locked),
             ]);
 

@@ -134,7 +134,7 @@ export default function NcpMonitoringPage({
     await loadData();
   }
 
-  async function handleDeleteEntry(id: number) {
+  async function handleDeleteEntry(id: string) {
     await deleteMonitoring(ncpId, id);
     await loadData();
   }

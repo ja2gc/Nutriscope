@@ -8,7 +8,7 @@ import { MonitoringEntry } from "@/services/monitoringService";
 interface EncounterLogProps {
   entries: MonitoringEntry[];
   onLogNew: () => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: string) => void;
 }
 
 const COMPLIANCE_BADGE: Record<string, { label: string; cls: string }> = {
@@ -30,7 +30,7 @@ function formatDate(dateStr: string): string {
 }
 
 export default function EncounterLog({ entries, onLogNew, onDelete }: EncounterLogProps) {
-  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const sorted = [...entries].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -125,6 +125,17 @@ export default function EncounterLog({ entries, onLogNew, onDelete }: EncounterL
                           }
                         </span>
                       </button>
+
+                      {entry.intervention_revision && (
+                        <div className="mx-5 mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                          <span className="font-bold">
+                            Intervention revised · Version {entry.intervention_revision.version}
+                          </span>
+                          <span className="block mt-0.5 text-emerald-700">
+                            {formatDate(entry.intervention_revision.effective_at)} · {entry.intervention_revision.reason}
+                          </span>
+                        </div>
+                      )}
 
                       {/* Expanded detail */}
                       {isExpanded && (

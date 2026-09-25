@@ -125,6 +125,7 @@ class InterventionRevisionTest extends TestCase
             ['energy_kcal' => 1900],
             $this->rnd,
             'Energy target adjusted after review',
+            '2026-09-20',
         );
         $versionThree = $service->reviseFromMonitoring(
             $intervention,
@@ -136,6 +137,8 @@ class InterventionRevisionTest extends TestCase
 
         $this->assertSame([1, 2, 3], $intervention->revisions()->orderBy('version')->pluck('version')->all());
         $this->assertSame($versionTwo->id, $firstMonitoring->fresh()->intervention_revision_id);
+        $this->assertSame('monitoring_revision', $versionTwo->source);
+        $this->assertSame('2026-09-20', $versionTwo->effective_at->toDateString());
         $this->assertSame($versionThree->id, $secondMonitoring->fresh()->intervention_revision_id);
         $this->assertSame('1900.00', $versionThree->snapshot['energy_kcal']);
         $this->assertSame('80.00', $versionThree->snapshot['protein_g']);

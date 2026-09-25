@@ -16,11 +16,13 @@ import {
   GOAL_LAB_FLAGS,
   CLINICAL_LAB_META,
   type ClinicalLabKey,
+  buildInterventionRevisionPayload,
   calculateBmi,
 } from "@/services/monitoringService";
 import type { Intervention } from "@/services/interventionService";
 import type { MonitoringPlan } from "@/services/monitoringPlan";
 import { GOAL_MICRO_FLAGS, ALL_MICROS } from "@/lib/nutritionCalculations";
+import { GOALS, visibleStagesForGoal } from "../../../intervention/[ncpId]/_components/goals";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -64,6 +66,24 @@ const MACRO_FIELDS = [
 ] as const;
 
 type MacroKey = typeof MACRO_FIELDS[number]["key"];
+
+interface RevisionFormState {
+  goal_type: string;
+  disease_stage: string;
+  energy_kcal: string;
+  protein_g: string;
+  carbs_g: string;
+  fat_g: string;
+  fluid_ml: string;
+  education_notes: string;
+  counseling_goals: string;
+  barriers: string;
+  strategies: string;
+  session_type: string;
+  next_followup_date: string;
+}
+
+const fieldValue = (value: string | number | null | undefined) => value == null ? "" : String(value);
 
 // ─── UnitInput — with optional target hint ────────────────────────────────────
 
@@ -236,6 +256,24 @@ export default function LogVisitForm({
   const [macrosOpen, setMacrosOpen] = useState(true);
   const [labsOpen, setLabsOpen]     = useState(false);
   const [microsOpen, setMicrosOpen] = useState(false);
+  const [revisionOpen, setRevisionOpen] = useState(false);
+  const [revisionEffectiveDate, setRevisionEffectiveDate] = useState("");
+  const [revisionReason, setRevisionReason] = useState("");
+  const [revision, setRevision] = useState<RevisionFormState>(() => ({
+    goal_type: intervention?.goal_type ?? "",
+    disease_stage: intervention?.disease_stage ?? "",
+    energy_kcal: fieldValue(intervention?.energy_kcal),
+    protein_g: fieldValue(intervention?.protein_g),
+    carbs_g: fieldValue(intervention?.carbs_g),
+    fat_g: fieldValue(intervention?.fat_g),
+    fluid_ml: fieldValue(intervention?.fluid_ml),
+    education_notes: intervention?.education_notes ?? "",
+    counseling_goals: intervention?.counseling_goals ?? "",
+    barriers: intervention?.barriers ?? "",
+    strategies: intervention?.strategies ?? "",
+    session_type: intervention?.session_type ?? "",
+    next_followup_date: intervention?.next_followup_date ?? "",
+  }));
 
   const [macros, setMacros] = useState<Record<MacroKey, string>>({
     energy_kcal: "",
@@ -297,7 +335,7 @@ export default function LogVisitForm({
     if (giTolerance) goalAchievement.gi_tolerance = giTolerance;
     if (decision)    goalAchievement.continuation_decision = decision;
 
-    return {
+    const payload: MonitoringPayload = {
       weight:               weight ? parseFloat(weight) : null,
       bmi:                  bmi ? parseFloat(bmi) : null,
       lab_values:           Object.keys(labValues).length > 0
@@ -306,6 +344,30 @@ export default function LogVisitForm({
       clinical_summary:     clinicalSummary.trim() || null,
       goal_achievement:     Object.keys(goalAchievement).length > 0 ? goalAchievement : null,
     };
+
+    if (revisionOpen && intervention) {
+      payload.intervention_revision = buildInterventionRevisionPayload(intervention, {
+        effectiveDate: revisionEffectiveDate,
+        reason: revisionReason,
+        changes: {
+          goal_type: revision.goal_type,
+          disease_stage: revision.disease_stage || null,
+          energy_kcal: Number(revision.energy_kcal),
+          protein_g: Number(revision.protein_g),
+          carbs_g: Number(revision.carbs_g),
+          fat_g: Number(revision.fat_g),
+          fluid_ml: revision.fluid_ml ? Number(revision.fluid_ml) : null,
+          education_notes: revision.education_notes || null,
+          counseling_goals: revision.counseling_goals || null,
+          barriers: revision.barriers || null,
+          strategies: revision.strategies || null,
+          session_type: revision.session_type || null,
+          next_followup_date: revision.next_followup_date || null,
+        },
+      });
+    }
+
+    return payload;
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -480,6 +542,136 @@ export default function LogVisitForm({
             className="w-full px-3.5 py-2.5 text-base border border-warm-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-white transition-all placeholder:text-warm-400 resize-none"
           />
         </div>
+
+        {intervention && (
+          <CollapsibleSection
+            title="Revise intervention"
+            subtitle="optional"
+            open={revisionOpen}
+            onOpenChange={setRevisionOpen}
+          >
+            <div className="space-y-4">
+              <p className="text-sm text-warm-500">
+                Use only when this visit changes the active care plan. The previous version remains read-only.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <label className="text-sm font-semibold text-warm-600">
+                  Effective date
+                  <input
+                    type="date"
+                    required={revisionOpen}
+                    value={revisionEffectiveDate}
+                    onChange={(event) => setRevisionEffectiveDate(event.target.value)}
+                    className="mt-1.5 w-full px-3.5 py-2.5 border border-warm-200 rounded-xl bg-white text-base"
+                  />
+                </label>
+                <label className="text-sm font-semibold text-warm-600">
+                  Clinical reason
+                  <input
+                    type="text"
+                    required={revisionOpen}
+                    maxLength={500}
+                    value={revisionReason}
+                    onChange={(event) => setRevisionReason(event.target.value)}
+                    className="mt-1.5 w-full px-3.5 py-2.5 border border-warm-200 rounded-xl bg-white text-base"
+                  />
+                </label>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <label className="text-sm font-semibold text-warm-600">
+                  Goal
+                  <select
+                    required={revisionOpen}
+                    value={revision.goal_type}
+                    onChange={(event) => setRevision((current) => ({
+                      ...current,
+                      goal_type: event.target.value,
+                      disease_stage: "",
+                    }))}
+                    className="mt-1.5 w-full px-3.5 py-2.5 border border-warm-200 rounded-xl bg-white text-base"
+                  >
+                    <option value="">Select goal</option>
+                    {GOALS.map((goal) => <option key={goal.value} value={goal.value}>{goal.label}</option>)}
+                  </select>
+                </label>
+                {visibleStagesForGoal(revision.goal_type) && (
+                  <label className="text-sm font-semibold text-warm-600">
+                    Stage
+                    <select
+                      required={revisionOpen}
+                      value={revision.disease_stage}
+                      onChange={(event) => setRevision((current) => ({ ...current, disease_stage: event.target.value }))}
+                      className="mt-1.5 w-full px-3.5 py-2.5 border border-warm-200 rounded-xl bg-white text-base"
+                    >
+                      <option value="">Select stage</option>
+                      {visibleStagesForGoal(revision.goal_type)?.map((stage) => (
+                        <option key={stage.value} value={stage.value}>{stage.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {([
+                  ["energy_kcal", "Energy", "kcal"],
+                  ["protein_g", "Protein", "g"],
+                  ["carbs_g", "Carbohydrate", "g"],
+                  ["fat_g", "Fat", "g"],
+                  ["fluid_ml", "Fluid guidance", "mL"],
+                ] as const).map(([key, label, unit]) => (
+                  <UnitInput
+                    key={key}
+                    label={label}
+                    unit={unit}
+                    value={revision[key]}
+                    onChange={(value) => setRevision((current) => ({ ...current, [key]: value }))}
+                  />
+                ))}
+              </div>
+
+              {([
+                ["education_notes", "Education"],
+                ["counseling_goals", "Counseling"],
+                ["barriers", "Barriers"],
+                ["strategies", "Strategies"],
+              ] as const).map(([key, label]) => (
+                <label key={key} className="block text-sm font-semibold text-warm-600">
+                  {label}
+                  <textarea
+                    rows={2}
+                    value={revision[key]}
+                    onChange={(event) => setRevision((current) => ({ ...current, [key]: event.target.value }))}
+                    className="mt-1.5 w-full px-3.5 py-2.5 border border-warm-200 rounded-xl bg-white text-base resize-y"
+                  />
+                </label>
+              ))}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <label className="text-sm font-semibold text-warm-600">
+                  Session type
+                  <input
+                    type="text"
+                    value={revision.session_type}
+                    onChange={(event) => setRevision((current) => ({ ...current, session_type: event.target.value }))}
+                    className="mt-1.5 w-full px-3.5 py-2.5 border border-warm-200 rounded-xl bg-white text-base"
+                  />
+                </label>
+                <label className="text-sm font-semibold text-warm-600">
+                  Next follow-up
+                  <input
+                    type="date"
+                    value={revision.next_followup_date}
+                    onChange={(event) => setRevision((current) => ({ ...current, next_followup_date: event.target.value }))}
+                    className="mt-1.5 w-full px-3.5 py-2.5 border border-warm-200 rounded-xl bg-white text-base"
+                  />
+                </label>
+              </div>
+            </div>
+          </CollapsibleSection>
+        )}
 
         {/* ── Next Follow-up Date ──────────────────────────────────────────── */}
 

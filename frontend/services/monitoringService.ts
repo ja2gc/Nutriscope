@@ -1,6 +1,7 @@
 ﻿import { apiFetch } from "@/lib/apiFetch";
 import type { MonitoringPlan } from "@/services/monitoringPlan";
 import type { PaginationMeta } from "@/components/ui/Pagination";
+import type { Intervention } from "@/services/interventionService";
 export type { MonitoringPlan, PlanIndicator, PlanVisit, PlanSeriesPoint, IndicatorStatus, IndicatorCategory } from "@/services/monitoringPlan";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -31,8 +32,41 @@ export type ComplianceStatus = 'compliant' | 'partial' | 'non_compliant';
 export type GiToleranceStatus = 'tolerating' | 'not_tolerating';
 export type ContinuationDecision = 'continue' | 'modify' | 'discontinue' | null;
 
+export type InterventionSnapshot = Pick<Intervention,
+  | 'goal_type'
+  | 'disease_stage'
+  | 'displayed_nutrients'
+  | 'energy_kcal'
+  | 'protein_g'
+  | 'carbs_g'
+  | 'fat_g'
+  | 'fluid_ml'
+  | 'micronutrient_limits'
+  | 'education_notes'
+  | 'counseling_goals'
+  | 'barriers'
+  | 'strategies'
+  | 'session_type'
+  | 'next_followup_date'
+>;
+
+export interface InterventionRevisionInput {
+  effective_date: string;
+  reason: string;
+  snapshot: InterventionSnapshot;
+}
+
+export interface InterventionRevisionMetadata {
+  id: string;
+  version: number;
+  effective_at: string;
+  reason: string;
+  source: string;
+  snapshot: InterventionSnapshot;
+}
+
 export interface MonitoringEntry {
-  id: number;
+  id: string;
   ncp_record_id: number;
   weight: number | null;
   bmi: number | null;
@@ -42,6 +76,7 @@ export interface MonitoringEntry {
   goal_achievement: Record<string, string> | null;
   clinical_summary: string | null;
   ai_decision: string | null;
+  intervention_revision?: InterventionRevisionMetadata | null;
   next_monitoring_date: string | null;
   created_at: string;
   updated_at: string;
@@ -56,6 +91,36 @@ export interface MonitoringPayload {
   goal_achievement?: Record<string, string> | null;
   clinical_summary?: string | null;
   ai_decision?: string | null;
+  intervention_revision?: InterventionRevisionInput;
+}
+
+const INTERVENTION_SNAPSHOT_FIELDS: (keyof InterventionSnapshot)[] = [
+  'goal_type', 'disease_stage', 'displayed_nutrients', 'energy_kcal',
+  'protein_g', 'carbs_g', 'fat_g', 'fluid_ml', 'micronutrient_limits',
+  'education_notes', 'counseling_goals', 'barriers', 'strategies',
+  'session_type', 'next_followup_date',
+];
+
+export function buildInterventionRevisionPayload(
+  intervention: Intervention,
+  input: {
+    effectiveDate: string;
+    reason: string;
+    changes: Partial<InterventionSnapshot>;
+  },
+): InterventionRevisionInput {
+  const snapshot = Object.fromEntries(
+    INTERVENTION_SNAPSHOT_FIELDS.map((field) => [
+      field,
+      field in input.changes ? input.changes[field] : intervention[field],
+    ]),
+  ) as InterventionSnapshot;
+
+  return {
+    effective_date: input.effectiveDate,
+    reason: input.reason.trim(),
+    snapshot,
+  };
 }
 
 // ─── API Functions ─────────────────────────────────────────────────────────────
