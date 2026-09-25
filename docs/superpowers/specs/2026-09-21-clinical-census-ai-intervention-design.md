@@ -183,7 +183,9 @@ Legacy `pregnant` values become `pregnant_unspecified` during migration and requ
 
 ### Verified PDRI modifiers
 
-Use FNRI-DOST *Philippine Dietary Reference Intakes 2015: Summary Tables*, revised September 2018:
+Use FNRI-DOST *Philippine Dietary Reference Intakes 2015: Summary Tables*, revised September 2018,
+Summary Table 1 (PDF page 1, `Recommended Energy Intakes per day`) and Summary Table 2
+(PDF page 2, `Recommended Nutrient Intakes per day (Macronutrients)`):
 
 - first-trimester pregnancy: `+0 kcal`; pregnancy protein guidance remains `+27 g/day`;
 - second- and third-trimester pregnancy: `+300 kcal/day`, `+27 g protein/day`;
@@ -225,7 +227,10 @@ For restricted-fluid goals, display the RND-prescribed limit prominently. Detail
 
 Replace broad free-form diagnosis generation with an `Assessment-based PES drafts` assistant. It proposes drafts; it does not diagnose autonomously. Manual PES builder remains available for all supported terms.
 
-The Academy describes nutrition diagnosis as professional critical reasoning using a problem the RND can address, an addressable root cause, and specific measurable assessment evidence. NutriScope therefore uses rule eligibility first and AI wording second.
+The Academy's `Nutrition Diagnosis` and `Critical Thinking in Nutrition Diagnosis` sections
+describe a PES statement as a problem the RND can address, an addressable root cause, and specific
+measurable assessment evidence. NutriScope therefore uses rule eligibility first and AI wording
+second.
 
 ### Initial eligible candidate families
 

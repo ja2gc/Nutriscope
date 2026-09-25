@@ -14,7 +14,7 @@
 > **Authority hierarchy:** This document → `prescription-targets.json` (machine-readable contract) →
 > PHP backend (authoritative runtime) → TypeScript mirror.
 
-**Last updated:** 2026-09-20
+**Last updated:** 2026-09-21
 **References:** PDRI 2015 (FNRI-DOST, rev. Sept 2018) · WHO Asia-Pacific Perspective (2000) ·
 KDOQI 2020 · ADA 2024/2026 · ESPEN 2019 · NICE CG32 · GLIM 2019/2025
 
@@ -51,7 +51,8 @@ themselves certify HIPAA or Philippine Data Privacy Act compliance.
 
 **Sources:**
 
-- Academy of Nutrition and Dietetics, [Nutrition Care Process Overview](https://www.eatrightpro.org/practice/nutrition-care-process/ncp-overview)
+- Academy of Nutrition and Dietetics, [Nutrition Care Process Overview](https://www.eatrightpro.org/practice/nutrition-care-process/ncp-overview), sections `Nutrition Care Process Overview` and `The Four Steps of the Nutrition Care Process`
+- Academy of Nutrition and Dietetics, [Nutrition Diagnosis](https://www.eatrightpro.org/practice/nutrition-care-process/ncp-overview/nutrition-diagnosis), sections `Key Points`, `Nutrition Diagnosis`, and `Critical Thinking in Nutrition Diagnosis`
 - Academy Evidence Analysis Library, [Oncology Evidence-Based Nutrition Practice Guideline](https://www.andeal.org/vault/pq113.pdf)
 - FNRI-DOST, [Philippine Dietary Reference Intakes 2015, revised 2018](https://www.fnri.dost.gov.ph/images/images/news/PDRI-2018.pdf)
 - U.S. HHS, [Minimum Necessary Requirement](https://www.hhs.gov/hipaa/for-professionals/privacy/guidance/minimum-necessary-requirement/index.html)
@@ -95,15 +96,17 @@ proxy and fed nothing).
 | `age_years` | Computed from `dob` at assessment date | Required | Never entered as a second independent age value |
 | `sex` | `patients.sex` | Required | `Male` \| `Female` in the current runtime |
 | `physical_activity_level` | Assessment | Required by the workflow | Maps to PAL factor (§2); legacy fallback is sedentary (`1.2`) |
-| `goal_type` | RND selection | Required | Determines which section applies; `custom` uses manual targets |
+| `goal_type` | RND selection | Required | Determines which section applies; `custom` uses manual targets. The UI shows no stage list before goal selection and only the selected goal's stages afterward. |
 | `disease_stage` | RND selection | Required when the selected goal defines stages | Must be valid for the selected `goal_type` |
 | `edema_present` | Assessment boolean | Required, default `false` | If true, auto-fill is blocked until the RND enters confirmed dry weight |
-| `pregnancy_lactation_status` | Assessment | Required, default `none` | `none` \| `pregnant` \| `lactating`; applies PDRI add-ons |
+| `pregnancy_lactation_status` | Assessment | Required, default `none` | `none` \| `pregnant_t1` \| `pregnant_t2` \| `pregnant_t3` \| `pregnant_unspecified` \| `lactating`; confirmed statuses apply PDRI add-ons |
 
 The current prescription runtime does not apply a separate assessment `stress_factor` multiplier.
 Stress is represented by the selected `high_protein` stage where clinically appropriate; applying
-both would double-count stress. Every non-custom goal must produce energy, protein, carbohydrate,
-fat, and fluid targets. `custom` requires the RND to enter and confirm those targets manually.
+both would double-count stress. Goal/stage calculation is the final non-maternal prescription;
+the engine must not add a second maintenance target. Every non-custom goal must produce energy,
+protein, carbohydrate, fat, and fluid guidance. `custom` requires the RND to enter and confirm
+those targets manually.
 
 **Derived within the engine (not stored as inputs):**
 
@@ -270,6 +273,11 @@ Fluid = 30–35 mL/kg working_weight/day
 These are two equivalent estimation methods — not additive. Apply clinical judgment for patients
 with fever, diarrhea, edema, cardiac or renal conditions, or ICU status.
 
+Fluid is daily guidance, including beverages. It is displayed in the Intervention and patient
+report but excluded from meal generation, candidate selection, scaling, variance, and success
+matching. Food-water metadata may remain stored, but the listed foods do not guarantee beverage
+intake or compliance with a prescribed fluid limit.
+
 **Source:** ASPEN/AND Clinical Nutrition Guidelines; NICE CG32.
 
 ---
@@ -280,10 +288,20 @@ Applied after goal-specific targets are computed:
 
 | Status | Energy add-on | Protein add-on |
 |---|---|---|
-| `pregnant` (2nd/3rd trimester) | +300 kcal/day | +27 g/day |
+| `pregnant_t1` | +0 kcal/day | +27 g/day |
+| `pregnant_t2` | +300 kcal/day | +27 g/day |
+| `pregnant_t3` | +300 kcal/day | +27 g/day |
 | `lactating` | +500 kcal/day | +27 g/day |
 
-> **Source:** PDRI 2015 (FNRI-DOST). These add-ons apply over the goal-calculated baseline.
+`pregnant_unspecified` is a migrated legacy value. It blocks automatic maternal calculation until
+the RND confirms a trimester. Maternal water references (+300 mL/day during pregnancy and
++700 mL/day during lactation) are guidance only and never replace a goal-specific fluid limit.
+
+> **Source:** Food and Nutrition Research Institute, Department of Science and Technology,
+> *Philippine Dietary Reference Intakes 2015: Summary Tables*, revised September 2018,
+> Summary Table 1 (PDF page 1), `Recommended Energy Intakes per day`, and Summary Table 2
+> (PDF page 2), `Recommended Nutrient Intakes per day (Macronutrients)`. These add-ons apply
+> over the goal-calculated baseline.
 > CKD and cardiac disease-specific protein restrictions take precedence over the lactation add-on
 > if they conflict — flag for RND review.
 
@@ -1010,6 +1028,7 @@ Both goal types may involve underweight patients and caloric surpluses. They are
 
 | Date | Change |
 |---|---|
+| 2026-09-21 | **Maternal and fluid runtime contract locked.** TEE remains BMR × PAL; trimester-specific energy and +27 g/day protein modifiers use PDRI 2015 Summary Tables 1–2 (rev. Sept 2018); fluid is guidance outside meal-plan scaling; goal stages remain progressively disclosed. |
 | 2026-09-20 | **Clinical/reporting/privacy boundary documented.** Diagnosis categories remain separate from nutrition diagnoses and intervention goals; pregnancy/lactation remains a PDRI modifier; oncology requires individualized goal selection. Required calculation inputs and privacy limitations are explicit. Runtime pregnancy values and TEE inputs were reconciled with current code. |
 | 2026-07-17 | **Severe prescriptions changed to flat full targets.** Removed staged low-calorie output and phase metadata. Severe `malnutrition` and `weight_gain` use 32.5 kcal/kg by default; micronutrients appear only with numeric targets. |
 | 2026-06-28 | **Calf circumference removed from assessment entirely** (column dropped, UI/request/resource fields removed). Was an AWGS muscle-mass proxy that fed no calculation. |
