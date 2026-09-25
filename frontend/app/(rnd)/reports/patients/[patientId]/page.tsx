@@ -116,7 +116,7 @@ export default function PatientNcpReportsPage() {
                   className="min-w-0 flex-1 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded-lg"
                 >
                   <span className="block text-base font-semibold text-warm-900 truncate">{instance.label}</span>
-                  <span className="block text-xs text-warm-500 mt-0.5">{instance.type === "ncp_summary" ? "NCP Summary" : "Patient Menu Plan"}</span>
+                  <span className="block text-xs text-warm-500 mt-0.5">{instance.type === "ncp_summary" ? "NCP Summary" : "Nutrition Intervention Plan"}</span>
                 </button>
                 <div className="flex items-center gap-2 shrink-0">
                   <Badge tone="zinc">{instance.status}</Badge>

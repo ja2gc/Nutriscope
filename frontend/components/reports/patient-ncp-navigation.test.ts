@@ -29,4 +29,14 @@ describe("Patients NCP report navigation", () => {
     expect(page).not.toContain("Only reports belonging to this ADIME cycle are shown.");
     expect(page).not.toContain("Current and completed cycles stay separate.");
   });
+
+  test("uses the patient-facing Nutrition Intervention Plan name without changing its internal type", () => {
+    const browser = readFileSync(join(root, "components", "reports", "ReportsBrowser.tsx"), "utf8");
+    const patients = readFileSync(join(root, "components", "reports", "PatientsNcpTab.tsx"), "utf8");
+
+    expect(browser).toContain("Nutrition Intervention Plan");
+    expect(browser).toContain("patient_menu_plan");
+    expect(patients).toContain("Nutrition Intervention Plan");
+    expect(browser).not.toContain('name: "Patient Menu Plan"');
+  });
 });

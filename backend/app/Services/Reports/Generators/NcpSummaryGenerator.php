@@ -44,7 +44,8 @@ class NcpSummaryGenerator implements ReportGenerator
         $identifier = $params['ncp_record_id'] ?? null;
         $ncp = NcpRecord::with([
             'patient', 'assessment.biochemicalData',
-            'diagnoses', 'intervention.mealPlans', 'monitorings',
+            'diagnoses', 'intervention.mealPlans', 'intervention.revisions.monitoring',
+            'monitorings.interventionRevision',
         ])->when(
             is_int($identifier) || ctype_digit((string) $identifier),
             fn ($query) => $query->whereKey((int) $identifier),
@@ -92,6 +93,17 @@ class NcpSummaryGenerator implements ReportGenerator
                     ?: Diagnosis::buildPes((string) $d->problem, (string) $d->etiology, (string) $d->signs_symptoms),
             ])->all(),
             'intervention' => $ncp->intervention,
+            'intervention_revisions' => $ncp->intervention?->revisions
+                ?->sortBy('version')
+                ->map(fn ($revision): array => [
+                    'id' => $revision->uuid,
+                    'version' => $revision->version,
+                    'effective_at' => $revision->effective_at,
+                    'reason' => $revision->reason,
+                    'source' => $revision->source,
+                    'monitoring_id' => $revision->monitoring?->uuid,
+                    'snapshot' => $revision->snapshot,
+                ])->values()->all() ?? [],
             'monitorings' => $ncp->monitorings->sortBy('created_at')->values(),
             // Attachments are cycle-scoped (AS-02) — load by ncp_record_id, not assessment.
             'attachments' => $attachments = ScreeningDocument::where('ncp_record_id', $ncp->id)

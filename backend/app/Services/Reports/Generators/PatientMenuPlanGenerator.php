@@ -3,8 +3,10 @@
 namespace App\Services\Reports\Generators;
 
 use App\Models\MealPlan;
+use App\Models\MealPlanItem;
 use App\Models\Report;
 use App\Services\Reports\Contracts\ReportGenerator;
+use App\Support\UnitConverter;
 
 /**
  * Patient Menu Plan — a patient's ADIME meal plan rendered as a Mon→Sun calendar PDF
@@ -51,7 +53,10 @@ class PatientMenuPlanGenerator implements ReportGenerator
         }
 
         $identifier = $params['meal_plan_id'];
-        $plan = MealPlan::with(['patient', 'intervention', 'days.items.foodItem', 'days.items.recipe.ingredients.foodItem'])
+        $plan = MealPlan::with([
+            'patient', 'revision', 'intervention.revisions', 'intervention.ncpRecord.assessment',
+            'days.items.foodItem', 'days.items.recipe.ingredients.foodItem',
+        ])
             ->when(
                 is_int($identifier) || ctype_digit((string) $identifier),
                 fn ($query) => $query->whereKey((int) $identifier),
@@ -66,6 +71,8 @@ class PatientMenuPlanGenerator implements ReportGenerator
             }
         }
 
+        $portionDetails = [];
+        $portionIds = [];
         foreach ($plan->days as $day) {
             // meal_type is stored raw ('breakfast'); the grid is keyed by display
             // labels ('Breakfast'). Map before lookup or every item is dropped.
@@ -78,37 +85,28 @@ class PatientMenuPlanGenerator implements ReportGenerator
                     ?? $item->recipe?->name
                     ?? ($item->nutrient_snapshot['name'] ?? null);
                 if ($name && isset($grid[$label][$day->day_of_week])) {
+                    $portion = $this->portionFor($item, $name);
+                    $portionKey = hash('sha256', json_encode($portion, JSON_THROW_ON_ERROR));
+                    if (! isset($portionIds[$portionKey])) {
+                        $portionIds[$portionKey] = 'P'.(count($portionDetails) + 1);
+                        $portionDetails[] = [
+                            'id' => $portionIds[$portionKey],
+                            ...$portion,
+                        ];
+                    }
                     $grid[$label][$day->day_of_week][] = [
                         'name' => $name,
-                        'quantity' => $item->quantity,
-                        'unit' => $item->unit,
+                        'portion_id' => $portionIds[$portionKey],
                     ];
                 }
             }
         }
 
-        // Collect unique recipes used in the plan with their ingredients and prep notes.
-        $recipeDetails = [];
-        foreach ($plan->days as $day) {
-            foreach ($day->items as $item) {
-                if ($item->recipe && ! array_key_exists($item->recipe->id, $recipeDetails)) {
-                    $ings = [];
-                    foreach ($item->recipe->ingredients as $ing) {
-                        $ings[] = [
-                            'name' => $ing->foodItem?->name ?? '—',
-                            'quantity' => $ing->quantity,
-                            'unit' => $ing->unit,
-                        ];
-                    }
-                    $recipeDetails[$item->recipe->id] = [
-                        'name' => $item->recipe->name,
-                        'servings' => $item->recipe->servings,
-                        'prep_notes' => $item->recipe->prep_notes,
-                        'ingredients' => $ings,
-                    ];
-                }
-            }
-        }
+        $revision = $plan->revision
+            ?? $plan->intervention->revisions->firstWhere('source', 'legacy_baseline')
+            ?? $plan->intervention->revisions->firstWhere('version', 1);
+        $snapshot = $revision?->snapshot ?? $this->currentSnapshot($plan);
+        $maternalStatus = $plan->intervention->ncpRecord?->assessment?->pregnancy_lactation_status;
 
         return [
             'plan' => $plan,
@@ -116,15 +114,122 @@ class PatientMenuPlanGenerator implements ReportGenerator
             'meals' => self::MEALS,
             'days' => self::WEEK,
             'grid' => $grid,
-            'recipe_details' => array_values($recipeDetails),
+            'portion_details' => $portionDetails,
+            'revision' => $revision ? [
+                'id' => $revision->uuid,
+                'version' => $revision->version,
+                'effective_at' => $revision->effective_at,
+            ] : null,
             'prescription' => [
-                'energy_kcal' => (float) $plan->intervention->energy_kcal,
-                'protein_g' => (float) $plan->intervention->protein_g,
-                'carbs_g' => (float) $plan->intervention->carbs_g,
-                'fat_g' => (float) $plan->intervention->fat_g,
-                'fluid_ml' => (float) $plan->intervention->fluid_ml,
-                'micronutrient_limits' => $plan->intervention->micronutrient_limits ?? [],
+                'energy_kcal' => (float) ($snapshot['energy_kcal'] ?? 0),
+                'protein_g' => (float) ($snapshot['protein_g'] ?? 0),
+                'carbs_g' => (float) ($snapshot['carbs_g'] ?? 0),
+                'fat_g' => (float) ($snapshot['fat_g'] ?? 0),
+                'fluid_ml' => (float) ($snapshot['fluid_ml'] ?? 0),
+                'micronutrient_limits' => $snapshot['micronutrient_limits'] ?? [],
             ],
+            'patient_guidance' => [
+                'education' => $snapshot['education_notes'] ?? null,
+                'counseling' => $snapshot['counseling_goals'] ?? null,
+                'strategies' => $snapshot['strategies'] ?? null,
+            ],
+            'maternal_note' => $this->maternalNote($maternalStatus),
         ];
+    }
+
+    /** @return array{dish:string,foods:array<int,array{food:string,household_measure:?string,metric_amount:float,metric_unit:string}>} */
+    private function portionFor(MealPlanItem $item, string $name): array
+    {
+        if ($item->recipe) {
+            $foods = [];
+            $scale = (float) $item->quantity / max((float) ($item->recipe->servings ?? 1), 1);
+            foreach ($item->recipe->ingredients as $ingredient) {
+                $amount = (float) $ingredient->quantity * $scale;
+                $metric = $this->metricAmount(
+                    $amount,
+                    (string) $ingredient->unit,
+                    (float) ($ingredient->foodItem?->serving_size ?? 0),
+                    (string) ($ingredient->foodItem?->serving_unit ?? ''),
+                );
+                if ($metric !== null) {
+                    $foods[] = [
+                        'food' => $ingredient->foodItem?->name ?? 'Ingredient',
+                        'household_measure' => $this->householdMeasure($amount, (string) $ingredient->unit),
+                        ...$metric,
+                    ];
+                }
+            }
+
+            if ($foods !== []) {
+                return ['dish' => $name, 'foods' => $foods];
+            }
+        }
+
+        $snapshot = $item->nutrient_snapshot ?? [];
+        $metric = $this->metricAmount(
+            (float) $item->quantity,
+            (string) $item->unit,
+            (float) ($snapshot['serving_size'] ?? $item->foodItem?->serving_size ?? 0),
+            (string) ($snapshot['serving_unit'] ?? $item->foodItem?->serving_unit ?? ''),
+        ) ?? ['metric_amount' => round((float) $item->quantity, 1), 'metric_unit' => 'g'];
+
+        return [
+            'dish' => $name,
+            'foods' => [[
+                'food' => $item->foodItem?->name ?? $name,
+                'household_measure' => $this->householdMeasure((float) $item->quantity, (string) $item->unit),
+                ...$metric,
+            ]],
+        ];
+    }
+
+    /** @return array{metric_amount:float,metric_unit:string}|null */
+    private function metricAmount(float $amount, string $unit, float $fallbackSize, string $fallbackUnit): ?array
+    {
+        if (UnitConverter::isMass($unit)) {
+            return ['metric_amount' => round(UnitConverter::convert($amount, $unit, 'g'), 1), 'metric_unit' => 'g'];
+        }
+        if (UnitConverter::isVolume($unit)) {
+            return ['metric_amount' => round(UnitConverter::convert($amount, $unit, 'ml'), 1), 'metric_unit' => 'mL'];
+        }
+        if ($fallbackSize > 0 && UnitConverter::isMass($fallbackUnit)) {
+            return ['metric_amount' => round(UnitConverter::convert($amount * $fallbackSize, $fallbackUnit, 'g'), 1), 'metric_unit' => 'g'];
+        }
+        if ($fallbackSize > 0 && UnitConverter::isVolume($fallbackUnit)) {
+            return ['metric_amount' => round(UnitConverter::convert($amount * $fallbackSize, $fallbackUnit, 'ml'), 1), 'metric_unit' => 'mL'];
+        }
+
+        return null;
+    }
+
+    private function householdMeasure(float $amount, string $unit): ?string
+    {
+        $normalized = UnitConverter::normalize($unit);
+        if (! in_array($normalized, ['cup', 'tbsp', 'tablespoon', 'tsp', 'teaspoon'], true)) {
+            return null;
+        }
+
+        return rtrim(rtrim(number_format($amount, 2, '.', ''), '0'), '.').' '.$unit;
+    }
+
+    /** @return array<string,mixed> */
+    private function currentSnapshot(MealPlan $plan): array
+    {
+        return collect([
+            'energy_kcal', 'protein_g', 'carbs_g', 'fat_g', 'fluid_ml',
+            'micronutrient_limits', 'education_notes', 'counseling_goals', 'strategies',
+        ])->mapWithKeys(fn (string $field): array => [$field => $plan->intervention->getAttribute($field)])->all();
+    }
+
+    private function maternalNote(?string $status): ?string
+    {
+        return match ($status) {
+            'pregnant_trimester_1' => 'Final targets include the confirmed first trimester maternal adjustment.',
+            'pregnant_trimester_2' => 'Final targets include the confirmed second trimester maternal adjustment.',
+            'pregnant_trimester_3' => 'Final targets include the confirmed third trimester maternal adjustment.',
+            'lactating_0_6_months' => 'Final targets include the confirmed early lactation adjustment.',
+            'lactating_7_12_months' => 'Final targets include the confirmed later lactation adjustment.',
+            default => null,
+        };
     }
 }

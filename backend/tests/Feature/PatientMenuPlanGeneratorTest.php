@@ -2,15 +2,20 @@
 
 namespace Tests\Feature;
 
+use App\Models\Assessment;
+use App\Models\FoodItem;
 use App\Models\Intervention;
 use App\Models\MealPlan;
 use App\Models\MealPlanDay;
 use App\Models\MealPlanItem;
 use App\Models\NcpRecord;
 use App\Models\Patient;
+use App\Models\Recipe;
+use App\Models\RecipeIngredient;
 use App\Models\Report;
 use App\Models\ReportBranding;
 use App\Models\User;
+use App\Services\InterventionRevisionService;
 use App\Services\Reports\Generators\PatientMenuPlanGenerator;
 use App\Services\Reports\ReportBrowser;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -41,15 +46,128 @@ class PatientMenuPlanGeneratorTest extends TestCase
                 'sodium' => ['max' => 2000, 'unit' => 'mg'],
                 'fiber' => ['min' => 25, 'unit' => 'g'],
             ],
+            'education_notes' => 'Choose lower-sodium foods.',
+            'counseling_goals' => 'Follow the planned meal pattern.',
+            'strategies' => 'Prepare measured portions before meals.',
+            'barriers' => 'INTERNAL BARRIER SENTINEL',
         ]);
+
+        $revision = app(InterventionRevisionService::class)->activeFor($intervention);
 
         return MealPlan::create([
             'intervention_id' => $intervention->id,
+            'intervention_revision_id' => $revision->id,
             'patient_id' => $patient->id,
             'week_start_date' => '2026-06-15',
             'generation_type' => 'manual',
             'status' => 'draft',
         ]);
+    }
+
+    public function test_selected_plan_uses_linked_revision_not_mutable_current_intervention(): void
+    {
+        $plan = $this->makePlan();
+        $plan->intervention->update([
+            'energy_kcal' => 2400,
+            'education_notes' => 'Later education that must not leak backward.',
+        ]);
+
+        $report = new Report([
+            'type' => 'patient_menu_plan',
+            'parameters' => ['meal_plan_id' => $plan->id],
+        ]);
+        $data = app(PatientMenuPlanGenerator::class)->data($report);
+
+        $this->assertSame(1800.0, $data['prescription']['energy_kcal']);
+        $this->assertSame('Choose lower-sodium foods.', $data['patient_guidance']['education']);
+        $this->assertSame($plan->revision->uuid, $data['revision']['id']);
+    }
+
+    public function test_report_uses_patient_title_guidance_and_short_maternal_note_without_internal_barriers(): void
+    {
+        $plan = $this->makePlan();
+        Assessment::factory()->create([
+            'ncp_record_id' => $plan->intervention->ncp_record_id,
+            'pregnancy_lactation_status' => 'pregnant_trimester_2',
+        ]);
+        $report = new Report([
+            'title' => 'Nutrition Intervention Plan',
+            'type' => 'patient_menu_plan',
+            'parameters' => ['meal_plan_id' => $plan->id],
+        ]);
+        $generator = app(PatientMenuPlanGenerator::class);
+        $html = view($generator->view(), [
+            ...$generator->data($report),
+            'branding' => ReportBranding::singleton(),
+            'signatories' => [],
+            'generated_at' => now(),
+            'report' => $report,
+        ])->render();
+        $plain = preg_replace('/\s+/', ' ', strip_tags($html));
+
+        $this->assertStringContainsString('NUTRITION INTERVENTION PLAN', $plain);
+        $this->assertStringContainsString('Choose lower-sodium foods.', $plain);
+        $this->assertStringContainsString('Follow the planned meal pattern.', $plain);
+        $this->assertStringContainsString('Prepare measured portions before meals.', $plain);
+        $this->assertStringContainsString('second trimester', strtolower($plain));
+        $this->assertStringNotContainsString('INTERNAL BARRIER SENTINEL', $plain);
+        $this->assertStringNotContainsString('Recipe Details', $plain);
+        $this->assertStringNotContainsString('USDA source', $plain);
+    }
+
+    public function test_portion_details_are_metric_precise_linked_and_deduplicated(): void
+    {
+        $plan = $this->makePlan();
+        $rice = FoodItem::factory()->create([
+            'name' => 'Cooked rice',
+            'serving_size' => 100,
+            'serving_unit' => 'g',
+        ]);
+        $recipe = Recipe::factory()->create([
+            'name' => 'Rice bowl',
+            'servings' => 2,
+            'prepared_portion_amount' => 1,
+            'prepared_portion_unit' => 'medium piece',
+            'prep_notes' => 'PREPARATION SENTINEL',
+        ]);
+        RecipeIngredient::create([
+            'recipe_id' => $recipe->id,
+            'food_item_id' => $rice->id,
+            'quantity' => 400,
+            'unit' => 'g',
+        ]);
+
+        foreach (['Monday', 'Tuesday'] as $dayName) {
+            $day = MealPlanDay::create([
+                'meal_plan_id' => $plan->id,
+                'day_of_week' => $dayName,
+                'meal_type' => 'lunch',
+            ]);
+            MealPlanItem::create([
+                'meal_plan_day_id' => $day->id,
+                'recipe_id' => $recipe->id,
+                'quantity' => 1,
+                'unit' => 'serving',
+                'nutrient_snapshot' => [
+                    'name' => 'Rice bowl',
+                    'serving_size' => 1,
+                    'serving_unit' => 'medium piece',
+                ],
+            ]);
+        }
+
+        $report = new Report(['type' => 'patient_menu_plan', 'parameters' => ['meal_plan_id' => $plan->id]]);
+        $data = app(PatientMenuPlanGenerator::class)->data($report);
+
+        $this->assertCount(1, $data['portion_details']);
+        $detail = $data['portion_details'][0];
+        $this->assertSame('Rice bowl', $detail['dish']);
+        $this->assertSame('Cooked rice', $detail['foods'][0]['food']);
+        $this->assertSame(200.0, $detail['foods'][0]['metric_amount']);
+        $this->assertSame('g', $detail['foods'][0]['metric_unit']);
+        $this->assertNull($detail['foods'][0]['household_measure']);
+        $this->assertSame($detail['id'], $data['grid']['Lunch']['Monday'][0]['portion_id']);
+        $this->assertSame($detail['id'], $data['grid']['Lunch']['Tuesday'][0]['portion_id']);
     }
 
     public function test_usda_item_appears_in_the_grid(): void
@@ -157,14 +275,13 @@ class PatientMenuPlanGeneratorTest extends TestCase
         $this->assertStringContainsString('Fluid guidance is informational', $plainText);
     }
 
-    public function test_recipe_ingredient_tables_are_kept_together_during_pdf_pagination(): void
+    public function test_portion_blocks_are_kept_together_during_pdf_pagination(): void
     {
         $source = file_get_contents(resource_path('views/reports/patient-menu-plan.blade.php'));
-        $layout = file_get_contents(resource_path('views/reports/layout.blade.php'));
 
-        $this->assertStringContainsString('class="grid recipe-ingredients"', $source);
-        $this->assertStringContainsString('.recipe-ingredients', $layout);
-        $this->assertStringContainsString('page-break-inside: avoid', $layout);
+        $this->assertStringContainsString('class="portion-block"', $source);
+        $this->assertStringContainsString('page-break-inside:avoid', $source);
+        $this->assertStringNotContainsString('recipe-ingredients', $source);
     }
 
     public function test_prepare_persists_patient_menu_plan_and_view_and_download_stream_pdf(): void
@@ -178,7 +295,13 @@ class PatientMenuPlanGeneratorTest extends TestCase
         $id = $prepared->json('data.id');
 
         $this->assertDatabaseHas('reports', ['uuid' => $id, 'type' => 'patient_menu_plan']);
-        $this->get('/api/rnd/reports/'.$id.'/view')->assertOk()->assertHeader('content-type', 'application/pdf');
+        $before = $this->get('/api/rnd/reports/'.$id.'/view')
+            ->assertOk()
+            ->assertHeader('content-type', 'application/pdf')
+            ->streamedContent();
+        $plan->intervention->update(['energy_kcal' => 2600]);
+        $after = $this->get('/api/rnd/reports/'.$id.'/view')->assertOk()->streamedContent();
+        $this->assertSame(hash('sha256', $before), hash('sha256', $after));
         $this->get('/api/rnd/reports/'.$id.'/download')->assertOk()->assertHeader('content-type', 'application/pdf');
     }
 

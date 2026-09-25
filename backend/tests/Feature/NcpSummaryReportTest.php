@@ -10,8 +10,10 @@ use App\Models\Monitoring;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\Report;
+use App\Models\ReportBranding;
 use App\Models\ScreeningDocument;
 use App\Models\User;
+use App\Services\InterventionRevisionService;
 use App\Services\Reports\Generators\NcpSummaryGenerator;
 use Carbon\Carbon;
 use Database\Seeders\ReportTemplateSeeder;
@@ -71,6 +73,20 @@ class NcpSummaryReportTest extends TestCase
         ]);
 
         return $ncp;
+    }
+
+    private function reviseIntervention(NcpRecord $ncp, array $attributes): void
+    {
+        $service = app(InterventionRevisionService::class);
+        $service->createInitial($ncp->intervention, $this->rnd);
+        $monitoring = Monitoring::create(['ncp_record_id' => $ncp->id, 'clinical_summary' => 'Test revision.']);
+        $service->reviseFromMonitoring(
+            $ncp->intervention,
+            $monitoring,
+            $attributes,
+            $this->rnd,
+            'Test report state',
+        );
     }
 
     public function test_lists_one_instance_per_ncp_record(): void
@@ -219,6 +235,44 @@ class NcpSummaryReportTest extends TestCase
         $this->assertNotSame('LEGACY NCP PATIENT', $data['patient']['name']);
     }
 
+    public function test_summary_lists_initial_and_dated_monitoring_revisions_in_order(): void
+    {
+        $ncp = $this->makeRecord();
+        $service = app(InterventionRevisionService::class);
+        $versionOne = $service->createInitial($ncp->intervention, $this->rnd);
+        $monitoring = Monitoring::create([
+            'ncp_record_id' => $ncp->id,
+            'weight' => 61,
+            'clinical_summary' => 'Needs changed.',
+        ]);
+        $versionTwo = $service->reviseFromMonitoring(
+            $ncp->intervention,
+            $monitoring,
+            ['energy_kcal' => 2000],
+            $this->rnd,
+            'Increased energy after follow-up',
+            '2026-09-25',
+        );
+        $report = new Report(['type' => 'ncp_summary', 'parameters' => ['ncp_record_id' => $ncp->id]]);
+        $generator = app(NcpSummaryGenerator::class);
+        $data = $generator->data($report);
+
+        $this->assertSame([$versionOne->uuid, $versionTwo->uuid], collect($data['intervention_revisions'])->pluck('id')->all());
+        $this->assertSame('Increased energy after follow-up', $data['intervention_revisions'][1]['reason']);
+        $this->assertSame($monitoring->uuid, $data['intervention_revisions'][1]['monitoring_id']);
+
+        $html = view($generator->view(), [
+            ...$data,
+            'branding' => ReportBranding::singleton(),
+            'signatories' => [],
+            'generated_at' => now(),
+            'report' => $report,
+        ])->render();
+        $this->assertStringContainsString('Version 1', $html);
+        $this->assertStringContainsString('Version 2', $html);
+        $this->assertStringContainsString('Increased energy after follow-up', $html);
+    }
+
     public function test_report_query_count_does_not_grow_with_more_clinical_rows(): void
     {
         $ncp = $this->makeRecord();
@@ -255,7 +309,7 @@ class NcpSummaryReportTest extends TestCase
     {
         $ncp = $this->makeRecord();
         // makeRecord's intervention has no goal_type → still incomplete initial ADI.
-        $ncp->intervention->update(['goal_type' => 'renal_diet']);
+        $this->reviseIntervention($ncp, ['goal_type' => 'renal_diet']);
         $plan = MealPlan::create([
             'intervention_id' => $ncp->intervention->id,
             'patient_id' => $ncp->patient_id,
@@ -277,7 +331,7 @@ class NcpSummaryReportTest extends TestCase
     public function test_data_marks_incomplete_when_prescription_missing(): void
     {
         $ncp = $this->makeRecord();
-        $ncp->intervention->update(['goal_type' => null, 'energy_kcal' => null]);
+        $this->reviseIntervention($ncp, ['goal_type' => null, 'energy_kcal' => null]);
 
         $report = new Report;
         $report->type = 'ncp_summary';

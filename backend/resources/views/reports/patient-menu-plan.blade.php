@@ -1,7 +1,7 @@
 @extends('reports.layout')
 
 @section('body')
-    @include('reports.partials.letterhead', ['title' => 'PATIENT MENU PLAN'])
+    @include('reports.partials.letterhead', ['title' => 'NUTRITION INTERVENTION PLAN'])
 
     <table style="border:0; margin-top:6px;" class="meta">
         <tr>
@@ -26,7 +26,18 @@
             {{ $limit['unit'] ?? '' }}
         @endforeach
         <div class="muted" style="margin-top:2px;">Fluid guidance is informational and is not counted as satisfied by foods in this menu.</div>
+        @if($maternal_note)
+            <div class="muted" style="margin-top:2px;">{{ $maternal_note }}</div>
+        @endif
     </div>
+
+    @if(array_filter($patient_guidance))
+        <div style="margin-top:5px; padding:5px 7px; border:1px solid #d1d5db; font-size:7.5pt; page-break-inside:avoid;">
+            @if($patient_guidance['education'])<div><span class="bold">Education:</span> {{ $patient_guidance['education'] }}</div>@endif
+            @if($patient_guidance['counseling'])<div><span class="bold">Counseling:</span> {{ $patient_guidance['counseling'] }}</div>@endif
+            @if($patient_guidance['strategies'])<div><span class="bold">Practical strategies:</span> {{ $patient_guidance['strategies'] }}</div>@endif
+        </div>
+    @endif
 
     <table class="grid" style="margin-top:6px;">
         <thead>
@@ -42,7 +53,7 @@
                     @foreach($days as $day)
                         <td>
                             @forelse($grid[$meal][$day] ?? [] as $item)
-                                <div>{{ $item['name'] }}<span class="muted"> {{ $item['quantity'] ? rtrim(rtrim((string)$item['quantity'],'0'),'.') : '' }} {{ $item['unit'] }}</span></div>
+                                <div>{{ $item['name'] }} <span class="muted">[{{ $item['portion_id'] }}]</span></div>
                             @empty
                                 <span class="muted">—</span>
                             @endforelse
@@ -53,42 +64,23 @@
         </tbody>
     </table>
 
-    @if(!empty($recipe_details))
-        <div style="margin-top:14px;">
-            @foreach($recipe_details as $recipe)
-                <div style="margin-bottom:10px; page-break-inside:avoid;">
+    @if(!empty($portion_details))
+        <div style="margin-top:10px;">
+            @foreach($portion_details as $portion)
+                <div class="portion-block" style="margin-bottom:6px; page-break-inside:avoid;">
                     @if($loop->first)
-                        <p class="bold" style="border-bottom:1px solid #e5e7eb; padding-bottom:2px; margin-bottom:8px; font-size:8pt;">Recipe Details</p>
+                        <p class="bold" style="border-bottom:1px solid #e5e7eb; padding-bottom:2px; margin-bottom:6px; font-size:8pt;">Portion details</p>
                     @endif
-                    <p class="bold" style="font-size:8pt; margin-bottom:2px;">
-                        {{ $recipe['name'] }}
-                        @if($recipe['servings'])
-                            <span class="muted" style="font-weight:normal;"> — {{ $recipe['servings'] }} serving{{ $recipe['servings'] != 1 ? 's' : '' }}</span>
-                        @endif
-                    </p>
-                    @if($recipe['prep_notes'])
-                        <p style="font-style:italic; margin:0 0 4px 10px; color:#555; font-size:7.5pt;">{{ $recipe['prep_notes'] }}</p>
-                    @endif
-                    @if(!empty($recipe['ingredients']))
-                        <table class="grid recipe-ingredients" style="margin-left:10px; font-size:7.5pt;">
-                            <thead>
-                                <tr>
-                                    <th style="text-align:left;">Ingredient</th>
-                                    <th style="width:55px;">Qty</th>
-                                    <th style="width:50px;">Unit</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($recipe['ingredients'] as $ing)
-                                    <tr>
-                                        <td>{{ $ing['name'] }}</td>
-                                        <td>{{ $ing['quantity'] ? rtrim(rtrim((string)$ing['quantity'],'0'),'.') : '—' }}</td>
-                                        <td>{{ $ing['unit'] ?? '—' }}</td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    @endif
+                    <div style="padding:4px 6px; border:1px solid #e5e7eb;">
+                        <p class="bold" style="font-size:7.5pt; margin:0 0 2px;">[{{ $portion['id'] }}] {{ $portion['dish'] }}</p>
+                        @foreach($portion['foods'] as $food)
+                            <div style="font-size:7.25pt; margin-left:8px;">
+                                {{ $food['food'] }} —
+                                @if($food['household_measure']){{ $food['household_measure'] }} · @endif
+                                {{ rtrim(rtrim(number_format($food['metric_amount'], 1, '.', ''), '0'), '.') }} {{ $food['metric_unit'] }}
+                            </div>
+                        @endforeach
+                    </div>
                 </div>
             @endforeach
         </div>

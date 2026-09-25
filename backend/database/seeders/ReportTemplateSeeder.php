@@ -96,9 +96,9 @@ class ReportTemplateSeeder extends Seeder
                 ],
             ],
             [
-                'type' => 'patient_menu_plan', 'name' => 'Patient Menu Plan',
+                'type' => 'patient_menu_plan', 'name' => 'Nutrition Intervention Plan',
                 'blade_view' => 'reports.patient-menu-plan',
-                'description' => 'A patient ADIME meal plan as a weekly calendar.',
+                'description' => 'Patient-facing intervention guidance, prescription, weekly menu, and precise portions.',
                 'signatories' => [
                     ['role' => 'prepared_by', 'label' => 'Prepared by:', 'name' => $rnd[0], 'title' => $rnd[1]],
                     ['role' => 'noted_by', 'label' => 'Noted by:', 'name' => '', 'title' => 'Attending Physician'],

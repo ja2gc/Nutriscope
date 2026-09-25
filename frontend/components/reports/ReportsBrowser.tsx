@@ -579,10 +579,11 @@ function TemplateEditor({ onFlash }: { onFlash: (ok: boolean, msg: string) => vo
         {templates.map((saved) => {
           const t = editingTemplateId === saved.id && templateDraft ? templateDraft : saved;
           const protectedClinical = isClinicalAutoFilledSignatory(t);
+          const templateName = t.type === "patient_menu_plan" ? "Nutrition Intervention Plan" : t.name;
           return <Card key={t.id} padded className="space-y-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <h3 className="text-base font-bold text-warm-800">{t.name}</h3>
+                <h3 className="text-base font-bold text-warm-800">{templateName}</h3>
                 {t.description && <p className="text-xs text-warm-500">{t.description}</p>}
               </div>
               {!protectedClinical && editingTemplateId !== t.id && <Button variant="secondary" onClick={() => { setTemplateDraft({ ...saved, signatories: (saved.signatories ?? []).map((s) => ({ ...s })) }); setEditingTemplateId(saved.id); }} className="!w-auto shrink-0 !py-1.5 !px-3.5 text-sm">Edit</Button>}
