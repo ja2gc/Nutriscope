@@ -78,6 +78,30 @@ class AiServiceTest extends TestCase
         app(AIService::class)->draftPes($this->boundedPayload());
     }
 
+    public function test_pes_draft_instruction_is_compact_yaml_with_json_data_and_output_contract(): void
+    {
+        Http::fake(['api.anthropic.com/*' => Http::response([
+            'content' => [['type' => 'text', 'text' => json_encode($this->providerSuggestions())]],
+            'usage' => ['input_tokens' => 100, 'output_tokens' => 50],
+        ])]);
+
+        app(AIService::class)->draftPes($this->boundedPayload());
+
+        Http::assertSent(function ($request): bool {
+            $body = $request->data();
+            $system = $body['system'] ?? '';
+            $prompt = $body['messages'][0]['content'] ?? '';
+
+            $this->assertStringStartsWith('task:', $system);
+            $this->assertStringContainsString("rules:\n", $system);
+            $this->assertStringContainsString("input_json:\n", $prompt);
+            $this->assertStringContainsString("output_json_schema:\n", $prompt);
+            $this->assertLessThanOrEqual(1200, strlen($system.$prompt));
+
+            return true;
+        });
+    }
+
     public function test_ai_approve_uses_existing_authorized_audited_save_path(): void
     {
         $ncpRecord = $this->makeNcpRecord();

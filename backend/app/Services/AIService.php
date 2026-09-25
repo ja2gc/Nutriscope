@@ -27,10 +27,14 @@ class AIService
                 throw new \RuntimeException('The bounded PES evidence payload is too large.');
             }
 
-            $userPrompt = "Eligible PES candidates (JSON):\n{$encoded}\n\n"
-                .'Draft zero to three PES wordings. Use only supplied candidates, evidence keys/values, and source IDs. '
-                .'Do not add diagnoses, evidence, thresholds, sources, or patient details. '
-                .'Keep etiology and signs concise. Return raw JSON only: '
+            $systemPrompt = <<<'YAML'
+task: word server-selected PES drafts
+rules:
+- use only supplied candidates, evidence, and source_ids
+- never add diagnoses, evidence, thresholds, sources, or patient details
+- return 0..3 concise suggestions as raw JSON only
+YAML;
+            $userPrompt = "input_json:\n{$encoded}\noutput_json_schema:\n"
                 .'{"suggestions":[{"candidate_id":"supplied id","domain":"NC",'
                 .'"problem_key":"supplied problem","etiology":"cause text",'
                 .'"signs":"measurable evidence text","evidence_used":["supplied evidence key"],'
@@ -43,7 +47,7 @@ class AIService
             ])->post('https://api.anthropic.com/v1/messages', [
                 'model' => $model,
                 'max_tokens' => 650,
-                'system' => 'You only word deterministic PES candidates already selected by the server. Never diagnose, broaden eligibility, or invent evidence or sources. Return valid JSON only.',
+                'system' => $systemPrompt,
                 'messages' => [
                     [
                         'role' => 'user',

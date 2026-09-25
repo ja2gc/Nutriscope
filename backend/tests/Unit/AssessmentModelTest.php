@@ -188,9 +188,8 @@ class AssessmentModelTest extends TestCase
         }
 
         $this->assertSame('integer', $assessment->getCasts()['weight_change_period_value']);
-        $this->assertTrue(Schema::hasColumn('patients', 'is_demo'));
-        $this->assertSame('boolean', (new Patient)->getCasts()['is_demo']);
+        $this->assertFalse(Schema::hasColumn('patients', 'is_demo'));
+        $this->assertArrayNotHasKey('is_demo', (new Patient)->getCasts());
         $this->assertNotContains('is_demo', (new Patient)->getFillable());
-        $this->assertFalse((new Patient)->is_demo);
     }
 }

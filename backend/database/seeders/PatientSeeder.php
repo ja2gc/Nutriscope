@@ -197,8 +197,6 @@ class PatientSeeder extends Seeder
                 'age_group_category' => 'adult',
             ],
         );
-        $patient->forceFill(['is_demo' => true])->saveQuietly();
-
         // NCP Record — active (2 monitoring follow-ups done, ongoing)
         $record = NcpRecord::create([
             'patient_id' => $patient->id,
@@ -466,8 +464,6 @@ class PatientSeeder extends Seeder
                 'age_group_category' => 'adult',
             ],
         );
-        $patient->forceFill(['is_demo' => true])->saveQuietly();
-
         $record = NcpRecord::create([
             'patient_id' => $patient->id,
             'rnd_user_id' => $rndId,

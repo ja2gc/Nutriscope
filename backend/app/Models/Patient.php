@@ -26,11 +26,6 @@ class Patient extends Model
     protected $casts = [
         'dob' => 'date',
         'admission_date' => 'date',
-        'is_demo' => 'boolean',
-    ];
-
-    protected $attributes = [
-        'is_demo' => false,
     ];
 
     protected static function booted(): void

@@ -10,12 +10,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        $ownedDemoPatients = [
+        $seededPatients = [
             'HN-2026-0042' => 'Diabetes',
             'HN-2026-0078' => 'Malnutrition',
         ];
 
-        foreach ($ownedDemoPatients as $hospitalNumber => $category) {
+        foreach ($seededPatients as $hospitalNumber => $category) {
             $patientId = DB::table('patients')
                 ->where('hospital_number', $hospitalNumber)
                 ->value('id');
@@ -23,8 +23,6 @@ return new class extends Migration
             if ($patientId === null) {
                 continue;
             }
-
-            DB::table('patients')->where('id', $patientId)->update(['is_demo' => true]);
 
             $cycleIds = DB::table('ncp_records')
                 ->where('patient_id', $patientId)

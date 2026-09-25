@@ -7,23 +7,22 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Run the migrations.
+     * Remove the superseded patient marker from databases that ran the earlier draft migration.
      */
     public function up(): void
     {
-        Schema::table('patients', function (Blueprint $table) {
-            $table->boolean('is_demo')->default(false)->index()->after('age_group_category');
-        });
-    }
+        if (! Schema::hasColumn('patients', 'is_demo')) {
+            return;
+        }
 
-    /**
-     * Reverse the migrations.
-     */
-    public function down(): void
-    {
         Schema::table('patients', function (Blueprint $table) {
             $table->dropIndex(['is_demo']);
             $table->dropColumn('is_demo');
         });
     }
+
+    /**
+     * The removed marker is intentionally not restored.
+     */
+    public function down(): void {}
 };

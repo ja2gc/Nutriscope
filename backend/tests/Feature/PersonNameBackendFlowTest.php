@@ -49,8 +49,6 @@ class PersonNameBackendFlowTest extends TestCase
 
         $maria = Patient::query()->where('hospital_number', 'HN-2026-0042')->sole();
         $roberto = Patient::query()->where('hospital_number', 'HN-2026-0078')->sole();
-        $this->assertTrue($maria->is_demo);
-        $this->assertTrue($roberto->is_demo);
         $this->assertSame(['Diabetes'], $maria->ncpRecords()->with('assessment')->get()->pluck('assessment.primary_diagnosis_category')->unique()->values()->all());
         $this->assertSame(['Malnutrition'], $roberto->ncpRecords()->with('assessment')->get()->pluck('assessment.primary_diagnosis_category')->unique()->values()->all());
         $this->assertCount(2, $roberto->ncpRecords);

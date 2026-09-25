@@ -28,7 +28,7 @@ class PesSuggestionTest extends TestCase
 
     public function test_demo_patient_receives_validated_bounded_draft_and_cached_repeat(): void
     {
-        $ncpRecord = $this->makeRecord(demo: true, assessment: [
+        $ncpRecord = $this->makeRecord(assessment: [
             'weight_loss_percentage' => 6.5,
             'weight_change_period_value' => 2,
             'weight_change_period_unit' => 'months',
@@ -58,7 +58,7 @@ class PesSuggestionTest extends TestCase
 
     public function test_zero_eligible_drafts_is_successful_and_cached_without_provider_call(): void
     {
-        $ncpRecord = $this->makeRecord(demo: true, assessment: [
+        $ncpRecord = $this->makeRecord(assessment: [
             'weight_loss_percentage' => 0,
             'energy_intake_status' => 'No change',
         ]);
@@ -76,7 +76,7 @@ class PesSuggestionTest extends TestCase
 
     public function test_dismissal_persists_for_the_same_fingerprint(): void
     {
-        $ncpRecord = $this->makeRecord(demo: true, assessment: [
+        $ncpRecord = $this->makeRecord(assessment: [
             'weight_loss_percentage' => 6.5,
             'weight_change_period_value' => 2,
             'weight_change_period_unit' => 'months',
@@ -99,7 +99,7 @@ class PesSuggestionTest extends TestCase
 
     public function test_assessment_change_invalidates_fingerprint_and_allows_one_new_call(): void
     {
-        $ncpRecord = $this->makeRecord(demo: true, assessment: [
+        $ncpRecord = $this->makeRecord(assessment: [
             'weight_loss_percentage' => 6.5,
             'weight_change_period_value' => 2,
             'weight_change_period_unit' => 'months',
@@ -123,7 +123,7 @@ class PesSuggestionTest extends TestCase
 
     public function test_unknown_source_is_rejected_and_not_cached(): void
     {
-        $ncpRecord = $this->makeRecord(demo: true, assessment: [
+        $ncpRecord = $this->makeRecord(assessment: [
             'weight_loss_percentage' => 6.5,
             'weight_change_period_value' => 2,
             'weight_change_period_unit' => 'months',
@@ -145,7 +145,7 @@ class PesSuggestionTest extends TestCase
 
     public function test_unknown_evidence_is_rejected_and_not_cached(): void
     {
-        $ncpRecord = $this->makeRecord(demo: true, assessment: [
+        $ncpRecord = $this->makeRecord(assessment: [
             'weight_loss_percentage' => 6.5,
             'weight_change_period_value' => 2,
             'weight_change_period_unit' => 'months',
@@ -168,7 +168,6 @@ class PesSuggestionTest extends TestCase
     public function test_provider_payload_is_deidentified_and_token_bounded(): void
     {
         $patient = Patient::factory()->create([
-            'is_demo' => true,
             'name' => 'Fictional Private Name',
             'first_name' => 'Fictional',
             'last_name' => 'Private Name',
@@ -213,9 +212,9 @@ class PesSuggestionTest extends TestCase
         });
     }
 
-    public function test_bounded_drafting_does_not_require_demo_marker(): void
+    public function test_bounded_drafting_has_no_demo_marker_dependency(): void
     {
-        $ncpRecord = $this->makeRecord(demo: false, assessment: [
+        $ncpRecord = $this->makeRecord(assessment: [
             'weight_loss_percentage' => 6.5,
             'weight_change_period_value' => 2,
             'weight_change_period_unit' => 'months',
@@ -230,7 +229,7 @@ class PesSuggestionTest extends TestCase
 
     public function test_suggestion_route_requires_authentication_and_rnd_role(): void
     {
-        $ncpRecord = $this->makeRecord(demo: true, assessment: []);
+        $ncpRecord = $this->makeRecord(assessment: []);
 
         $this->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-suggest")
             ->assertUnauthorized();
@@ -241,9 +240,9 @@ class PesSuggestionTest extends TestCase
             ->assertForbidden();
     }
 
-    private function makeRecord(bool $demo, array $assessment): NcpRecord
+    private function makeRecord(array $assessment): NcpRecord
     {
-        $patient = Patient::factory()->create(['is_demo' => $demo, 'age_group_category' => 'adult']);
+        $patient = Patient::factory()->create(['age_group_category' => 'adult']);
         $ncpRecord = NcpRecord::factory()->create([
             'patient_id' => $patient->id,
             'rnd_user_id' => $this->rnd->id,
