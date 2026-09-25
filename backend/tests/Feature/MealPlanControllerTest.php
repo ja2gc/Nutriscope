@@ -82,6 +82,30 @@ class MealPlanControllerTest extends TestCase
             'intervention_id' => $intervention->id,
             'generation_type' => 'manual',
         ]);
+        $mealPlan = MealPlan::where('intervention_id', $intervention->id)->firstOrFail();
+        $this->assertNotNull($mealPlan->intervention_revision_id);
+        $response->assertJsonPath('data.revision.id', $mealPlan->revision->uuid);
+    }
+
+    public function test_multiple_meal_plans_share_the_active_intervention_revision(): void
+    {
+        [$ncpRecord, $intervention] = $this->makeInterventionWithNcpRecord();
+
+        foreach (['2026-06-09', '2026-06-16'] as $week) {
+            $this->actingAs($this->rnd)
+                ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans", [
+                    'week_start_date' => $week,
+                    'generation_type' => 'manual',
+                ])
+                ->assertCreated();
+        }
+
+        $revisionIds = MealPlan::where('intervention_id', $intervention->id)
+            ->pluck('intervention_revision_id')
+            ->unique();
+
+        $this->assertCount(1, $revisionIds);
+        $this->assertNotNull($revisionIds->first());
     }
 
     public function test_show_meal_plan_with_days(): void

@@ -474,6 +474,11 @@ class NcpInterventionTest extends TestCase
         $intervention = Intervention::where('ncp_record_id', $ncp->id)->firstOrFail();
         $this->assertIsArray($intervention->micronutrient_limits);
         $this->assertEquals(2000, $intervention->micronutrient_limits['sodium']);
+        $this->assertDatabaseHas('intervention_revisions', [
+            'intervention_id' => $intervention->id,
+            'version' => 1,
+            'source' => 'initial',
+        ]);
     }
 
     // ──────────────────────────────────────────────────

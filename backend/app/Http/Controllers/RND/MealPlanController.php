@@ -24,6 +24,7 @@ use App\Models\Recipe;
 use App\Policies\AuditPolicy;
 use App\Services\Audit\AuditLogger;
 use App\Services\ClinicalCompletenessService;
+use App\Services\InterventionRevisionService;
 use App\Services\MealPlanService;
 use App\Services\RecommendService;
 use Illuminate\Http\JsonResponse;
@@ -38,6 +39,7 @@ class MealPlanController extends Controller
         private ClinicalCompletenessService $completeness,
         private AuditPolicy $auditPolicy,
         private AuditLogger $auditLogger,
+        private InterventionRevisionService $revisions,
     ) {}
 
     /**
@@ -47,7 +49,7 @@ class MealPlanController extends Controller
     {
         $this->authorizeNcp($ncpRecord);
         $intervention = $ncpRecord->intervention()->firstOrFail();
-        $mealPlans = MealPlan::where('intervention_id', $intervention->id)->with('days')->get();
+        $mealPlans = MealPlan::where('intervention_id', $intervention->id)->with(['days', 'revision'])->get();
 
         return response()->json(['data' => MealPlanResource::collection($mealPlans)]);
     }
@@ -61,8 +63,10 @@ class MealPlanController extends Controller
         $intervention = $ncpRecord->intervention()->firstOrFail();
 
         return $this->audited(function () use ($intervention, $ncpRecord, $request): JsonResponse {
+            $revision = $this->revisions->activeFor($intervention);
             $mealPlan = MealPlan::create([
                 'intervention_id' => $intervention->id,
+                'intervention_revision_id' => $revision->id,
                 'patient_id' => $ncpRecord->patient_id,
                 'week_start_date' => $request->week_start_date,
                 'generation_type' => $request->generation_type ?? 'manual',
@@ -80,7 +84,7 @@ class MealPlanController extends Controller
             }
             MealPlanDay::insert($dayRows);
 
-            return response()->json(['data' => new MealPlanResource($mealPlan->load('days'))], 201);
+            return response()->json(['data' => new MealPlanResource($mealPlan->load(['days', 'revision']))], 201);
         });
     }
 
@@ -91,7 +95,7 @@ class MealPlanController extends Controller
     {
         $this->assertPlanScope($ncpRecord, $mealPlan);
 
-        return response()->json(['data' => new MealPlanResource($mealPlan->load('days'))]);
+        return response()->json(['data' => new MealPlanResource($mealPlan->load(['days', 'revision']))]);
     }
 
     /** MP-04: the meal plan must belong to this NCP's intervention. */
@@ -111,7 +115,7 @@ class MealPlanController extends Controller
         $this->assertPlanScope($ncpRecord, $mealPlan);
         $this->audited(fn () => $mealPlan->update($request->validated()));
 
-        return response()->json(['data' => new MealPlanResource($mealPlan->fresh()->load('days'))]);
+        return response()->json(['data' => new MealPlanResource($mealPlan->fresh()->load(['days', 'revision']))]);
     }
 
     public function scaleToPrescription(NcpRecord $ncpRecord, MealPlan $mealPlan): JsonResponse
@@ -143,7 +147,7 @@ class MealPlanController extends Controller
         });
 
         return response()->json([
-            'data' => new MealPlanResource($mealPlan->fresh()->load('days')),
+            'data' => new MealPlanResource($mealPlan->fresh()->load(['days', 'revision'])),
             'meta' => ['scaling' => $scaling],
         ]);
     }
@@ -167,6 +171,8 @@ class MealPlanController extends Controller
         }
 
         $result = $this->audited(function () use ($request, $ncpRecord) {
+            $intervention = $ncpRecord->intervention()->firstOrFail();
+            $revision = $this->revisions->activeFor($intervention);
             $result = $this->auditLogger->withoutModelEvents(fn () => $this->mealPlanService->generate(
                 $ncpRecord,
                 $request->week_start_date,
@@ -176,6 +182,7 @@ class MealPlanController extends Controller
             ));
 
             if ($result instanceof MealPlan) {
+                $result->forceFill(['intervention_revision_id' => $revision->id])->save();
                 $this->auditLogger->record(
                     AuditAction::Generated,
                     AuditCategory::Clinical,
@@ -193,7 +200,7 @@ class MealPlanController extends Controller
             return response()->json($result, 422);
         }
 
-        return response()->json(['data' => new MealPlanResource($result)], 201);
+        return response()->json(['data' => new MealPlanResource($result->load('revision'))], 201);
     }
 
     /**
@@ -383,8 +390,10 @@ class MealPlanController extends Controller
             ->firstOrFail();
 
         $plan = $this->audited(function () use ($intervention, $ncpRecord, $validated, $template): MealPlan {
+            $revision = $this->revisions->activeFor($intervention);
             $plan = MealPlan::create([
                 'intervention_id' => $intervention->id,
+                'intervention_revision_id' => $revision->id,
                 'patient_id' => $ncpRecord->patient_id,
                 'week_start_date' => $validated['week_start_date'],
                 'generation_type' => 'manual',
@@ -426,7 +435,7 @@ class MealPlanController extends Controller
         $stageMatches = $template->disease_stage === null || $template->disease_stage === $intervention->disease_stage;
 
         return response()->json([
-            'data' => new MealPlanResource($plan->load('days.items')),
+            'data' => new MealPlanResource($plan->load(['days.items', 'revision'])),
             'meta' => [
                 'template_compatibility' => [
                     'goal_matches' => $goalMatches,

@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Validation\ValidationException;
 
 class Intervention extends Model
 {
@@ -15,6 +17,8 @@ class Intervention extends Model
 
     /** Clinical — log field names only, redact PHI values (Spec 5 Decision A). */
     protected bool $auditRedactValues = true;
+
+    private bool $revisionMutation = false;
 
     protected $fillable = [
         'ncp_record_id', 'goal_type', 'disease_stage', 'displayed_nutrients',
@@ -35,6 +39,18 @@ class Intervention extends Model
         'fluid_ml' => 'decimal:2',
     ];
 
+    protected static function booted(): void
+    {
+        static::updating(function (Intervention $intervention): void {
+            if (! $intervention->revisionMutation
+                && $intervention->ncpRecord()->first()?->monitorings()->exists()) {
+                throw ValidationException::withMessages([
+                    'intervention' => ['Record prescription changes through a Monitoring follow-up.'],
+                ]);
+            }
+        });
+    }
+
     protected function auditAttributes(): array
     {
         return [
@@ -53,6 +69,29 @@ class Intervention extends Model
     public function mealPlans(): HasMany
     {
         return $this->hasMany(MealPlan::class);
+    }
+
+    public function revisions(): HasMany
+    {
+        return $this->hasMany(InterventionRevision::class);
+    }
+
+    public function activeRevision(): HasOne
+    {
+        return $this->hasOne(InterventionRevision::class)->ofMany('version', 'max');
+    }
+
+    /** @internal Current-row changes after monitoring must flow through InterventionRevisionService. */
+    public function applyRevisionAttributes(array $attributes): void
+    {
+        $this->revisionMutation = true;
+
+        try {
+            $this->fill($attributes);
+            $this->save();
+        } finally {
+            $this->revisionMutation = false;
+        }
     }
 
     /**

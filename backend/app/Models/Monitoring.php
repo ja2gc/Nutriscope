@@ -6,6 +6,7 @@ use App\Models\Concerns\AuditsChanges;
 use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Monitoring extends Model
 {
@@ -17,7 +18,7 @@ class Monitoring extends Model
     protected bool $auditRedactValues = true;
 
     protected $fillable = [
-        'ncp_record_id', 'weight', 'bmi', 'lab_values', 'intake_notes',
+        'ncp_record_id', 'intervention_revision_id', 'weight', 'bmi', 'lab_values', 'intake_notes',
         'symptoms', 'goal_achievement', 'clinical_summary', 'ai_decision',
         'ai_review', 'ai_review_key', 'next_monitoring_date',
     ];
@@ -42,5 +43,10 @@ class Monitoring extends Model
     public function ncpRecord()
     {
         return $this->belongsTo(NcpRecord::class);
+    }
+
+    public function interventionRevision(): BelongsTo
+    {
+        return $this->belongsTo(InterventionRevision::class);
     }
 }

@@ -27,8 +27,25 @@ class InterventionResource extends JsonResource
             'strategies' => $this->strategies,
             'session_type' => $this->session_type,
             'next_followup_date' => $this->next_followup_date?->toDateString(),
+            'revision' => $this->whenLoaded('activeRevision', fn () => $this->revisionData($this->activeRevision)),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
+        ];
+    }
+
+    private function revisionData($revision): ?array
+    {
+        if (! $revision) {
+            return null;
+        }
+
+        return [
+            'id' => $revision->uuid,
+            'version' => $revision->version,
+            'effective_at' => $revision->effective_at?->toISOString(),
+            'reason' => $revision->reason,
+            'source' => $revision->source,
+            'snapshot' => $revision->snapshot,
         ];
     }
 }

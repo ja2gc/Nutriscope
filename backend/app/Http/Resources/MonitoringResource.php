@@ -21,6 +21,14 @@ class MonitoringResource extends JsonResource
             'clinical_summary' => $this->clinical_summary,
             'ai_decision' => $this->ai_decision,
             'next_monitoring_date' => $this->next_monitoring_date?->toDateString(),
+            'intervention_revision' => $this->whenLoaded('interventionRevision', fn () => $this->interventionRevision ? [
+                'id' => $this->interventionRevision->uuid,
+                'version' => $this->interventionRevision->version,
+                'effective_at' => $this->interventionRevision->effective_at?->toISOString(),
+                'reason' => $this->interventionRevision->reason,
+                'source' => $this->interventionRevision->source,
+                'snapshot' => $this->interventionRevision->snapshot,
+            ] : null),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

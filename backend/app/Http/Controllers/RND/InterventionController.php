@@ -10,6 +10,7 @@ use App\Models\Intervention;
 use App\Models\NcpRecord;
 use App\Policies\AuditPolicy;
 use App\Services\ClinicalCompletenessService;
+use App\Services\InterventionRevisionService;
 use App\Services\LabFlagService;
 use App\Services\NcpAppointmentWorkflow;
 use App\Services\NutritionPrescriptionService;
@@ -26,6 +27,7 @@ class InterventionController extends Controller
         private LabFlagService $labFlags,
         private AuditPolicy $auditPolicy,
         private NcpAppointmentWorkflow $appointments,
+        private InterventionRevisionService $revisions,
     ) {}
 
     /**
@@ -165,12 +167,13 @@ class InterventionController extends Controller
             $intervention = new Intervention($data);
             $intervention->ncp_record_id = $ncpRecord->id;
             $intervention->save();
+            $this->revisions->createInitial($intervention, $request->user());
 
             $this->refreshActivation($ncpRecord);
             $freshNcp = $ncpRecord->fresh(['intervention']);
             $this->appointments->recordClinicalWork($request->user(), $freshNcp, 'intervention');
 
-            return (new InterventionResource($intervention))->response()->setStatusCode(201);
+            return (new InterventionResource($intervention->load('activeRevision')))->response()->setStatusCode(201);
         });
     }
 
@@ -186,7 +189,7 @@ class InterventionController extends Controller
             return response()->json(['data' => null]);
         }
 
-        return (new InterventionResource($intervention))->response();
+        return (new InterventionResource($intervention->load('activeRevision')))->response();
     }
 
     /**
@@ -199,14 +202,13 @@ class InterventionController extends Controller
         $data = $request->validated();
 
         return $this->audited(function () use ($intervention, $data, $ncpRecord, $request) {
-            $intervention->fill($data);
-            $intervention->save();
+            $this->revisions->updateInitialBeforeMonitoring($intervention, $data, $request->user());
 
             $this->refreshActivation($ncpRecord);
             $freshNcp = $ncpRecord->fresh(['intervention']);
             $this->appointments->recordClinicalWork($request->user(), $freshNcp, 'intervention');
 
-            return new InterventionResource($intervention);
+            return new InterventionResource($intervention->fresh()->load('activeRevision'));
         });
     }
 
