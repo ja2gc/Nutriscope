@@ -265,7 +265,7 @@ Verified against current navigation and server permissions on **2026-09-08**. Fo
 
 1. Open **Reports** for Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment Report, or aggregate Demographic Census.
 2. Preview live data; archive only approved as-filed copies.
-3. Do not seek Patient Menu Plan or NCP Summary; server access is blocked for Admin.
+3. Do not seek Nutrition Intervention Plan or NCP Summary; server access is blocked for Admin.
 4. Open **Budget** to inspect fiscal-year summary, ledger, and history in read-only mode.
 
 ### 6. System Settings

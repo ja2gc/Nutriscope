@@ -108,7 +108,7 @@ Admin's server-allowed report types are:
 
 Admin is blocked from:
 
-- Patient Menu Plan
+- Nutrition Intervention Plan
 - NCP Summary
 
 This is enforced in the report controller/model, not only hidden in the UI. Admin may browse live instances, preview, archive, view/download frozen copies, delete authorized archives, and inspect report activity for allowed types.
@@ -180,7 +180,7 @@ flowchart TD
 Admin does not:
 
 - enter Assessment, Diagnosis, Intervention, Monitoring, or patient meal plans;
-- access Patient Menu Plan or NCP Summary;
+- access Nutrition Intervention Plan or NCP Summary;
 - modify RND fiscal-year allocation/ledger adjustments from Admin Budget;
 - use FSS mobile execution tools;
 - treat audit events as a substitute for underlying clinical authorization;

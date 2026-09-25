@@ -1,6 +1,6 @@
 # RND Module — Current Role and Workflow
 
-Verified against current frontend navigation, Laravel routes/controllers, and shared services on **2026-09-08**. Code is authoritative; older plans describe history only.
+Verified against current frontend navigation, Laravel routes/controllers, report output, and shared services on **2026-09-26**. Code is authoritative; older plans describe history only.
 
 ## Role Purpose
 
@@ -103,7 +103,7 @@ Current tabs:
 5. Referral/Screening
 6. Summary
 
-Current behavior includes calculated anthropometrics, nutritional-risk scoring with optional manual override, editable generated summary, stale-summary warning/undo, clinical calculation helpers, and supporting-document upload. When edema is present, dry weight is required.
+Current behavior includes calculated anthropometrics, nutritional-risk scoring with optional manual override, editable generated summary, stale-summary warning/undo, clinical calculation helpers, and supporting-document upload. Weight-change duration is one quantity-plus-unit control (`weeks` or `months`), with no fixed three-month assumption. **Primary diagnosis category** is required on new saves and remains separate from physician diagnosis, PES diagnosis, and Intervention goal; choosing **Other** reveals **Specify category**, while census output still uses one Other bucket. Pregnancy/lactation is recorded as None, one confirmed trimester, or Lactating. A migrated unspecified pregnancy value asks the RND to confirm the trimester before maternal autofill. The legacy stress factor is not shown or used. When edema is present, dry weight is required.
 
 Important correction: lab/referral uploads are stored as supporting files only. They do **not** run OCR or auto-populate Assessment fields in the current page.
 
@@ -117,9 +117,9 @@ RND can:
 - create/update/delete diagnoses;
 - request AI draft suggestions and accept, edit, or dismiss each.
 
-AI is assistive. The RND remains the saving/approval actor.
+**Assessment-based PES drafts** are bounded assistance, not autonomous diagnosis. Deterministic source-backed rules select zero to three eligible candidates; the provider receives only compact de-identified evidence and may word only those candidates. Each result shows **Evidence used** and **Source**. An unchanged Assessment reuses the validated cached result, dismissed candidates stay dismissed for that fingerprint, and changed Assessment evidence enables a fresh result. A zero-result response is valid, provider failure does not block care, and the manual P/E/S builder always remains available. There is no demo-patient marker or demo-only eligibility gate. The RND remains the saving/approval actor.
 
-### Intervention and Patient Meal Plan
+### Intervention and Patient Meal Planning
 
 Current tabs:
 
@@ -128,7 +128,9 @@ Current tabs:
 3. Counseling
 4. Goal Planning
 
-Food/Nutrient Delivery includes goal/stage selection, backend-authoritative prescription autofill, a visible calculation trace, editable macro/fluid/micronutrient targets, food recommendations, and patient meal planning. Patient plans may be manual, generated, or template-based. Goal templates retain exact items and quantities; the common editor can scale quantities to the saved prescription without substituting foods. Generation can exclude snacks and redistribute targets across main meals, except for liver-disease plans where frequent intake remains required. Unsaved-change guards warn before leaving.
+Food/Nutrient Delivery includes progressively disclosed goal/stage selection, backend-authoritative prescription autofill, and a visible calculation trace. When maternal status applies, the trace separates **Goal-calculated baseline**, **Modifier**, and **Final** energy/protein targets so the patient never performs the addition. The RND reviews editable macro, fluid, and micronutrient targets plus food recommendations before saving.
+
+Patient plans may be manual, generated, or template-based. Each plan is linked to the active immutable Intervention revision. Multiple plans can share one revision; a later plan created after a Monitoring revision links to the newer revision. Goal templates retain exact items and quantities; the common editor can scale quantities to the saved prescription without substituting foods. Fluid remains daily guidance shown in the Intervention and patient document, but food generation, scaling, variance, and target-match status do not use food-water values to claim that fluid is satisfied. Generation can exclude snacks and redistribute targets across main meals, except for liver-disease plans where frequent intake remains required. Unsaved-change guards warn before leaving.
 
 ### Monitoring and Evaluation
 
@@ -137,7 +139,7 @@ Current tabs:
 - **Visit Log:** follow-up entries and history.
 - **Progress Trends:** monitoring summary, goal progress, and trends against baseline/prescription.
 
-The screen uses the shared visit bar for visit state and scheduling, and continues to show saved prescription targets.
+The normal visit form stays minimal. A collapsed **Revise intervention** action optionally prefills the current prescription and patient-facing care fields; when opened it requires an effective date and short reason. Saving writes the Monitoring entry, current Intervention, and one immutable revision atomically. The timeline shows a compact **Intervention revised · Version N** entry; older revisions and their linked meal plans remain read-only. The screen uses the shared visit bar for visit state and scheduling and continues to show saved prescription targets.
 
 ## Food Library
 
@@ -217,7 +219,9 @@ RND report catalog:
 
 The patient search bar accepts patient name, physician, hospital number, or the random immutable `NS-XXXX-XXXX` patient code. The code appears in a smaller muted line only beneath the patient's name in the patient profile header.
 
-**Patients NCP** first lists patients from newest to oldest with pagination. Opening a patient shows that patient's Patient Menu Plan and NCP Summary reports together. Monthly Demographic Census records begin with the earliest non-deleted ADIME cycle and count each cycle once in the month it started, so one patient can contribute multiple entries across separate care cycles. Completed months are frozen, including zero-cycle months, while the current month remains live. Nutritional status and risk come from the counted cycle rather than the patient's latest cycle. Preparing/archiving freezes the exact PDF bytes plus the template, branding, signatories, and source values used at that time. The preview lazily renders PDF canvases near the viewport instead of rendering every page at once. Clinical Prepared by is taken from the responsible appointment/NCP-cycle RND, while Attending physician comes from patient/assessment data rather than Template Edit. RND can view/download archived copies and inspect lifecycle activity. Template Edit keeps non-clinical Edit actions aligned at the top-right of each card.
+**Patients NCP** first lists patients from newest to oldest with pagination. Opening a patient shows that patient's **Nutrition Intervention Plan** and **NCP Summary** together. The selected meal plan renders its linked Intervention revision, including final prescription, applicable maternal/fluid guidance, patient-facing education/counseling/strategies, menu references, and compact precise portion details without preparation steps or source notes. The NCP Summary lists version 1 followed by dated Monitoring revisions and reasons.
+
+Monthly Demographic Census records begin with the earliest non-deleted ADIME cycle and count each cycle once in the month it started, so one patient can contribute multiple entries across separate care cycles. Each counted cycle uses its own required Assessment category; unresolved legacy rows are **Unclassified**, and Other details do not become extra buckets. Completed months are frozen, including zero-cycle months, while the current month remains live. Nutritional status and risk come from the counted cycle rather than the patient's latest cycle. Preparing/archiving freezes the exact PDF bytes plus the template, branding, signatories, and source values used at that time, so later Intervention revisions or template changes never reinterpret the filed copy. The preview lazily renders PDF canvases near the viewport instead of rendering every page at once. Clinical Prepared by is taken from the responsible appointment/NCP-cycle RND, while Attending physician comes from patient/assessment data rather than Template Edit. RND can view/download archived copies and inspect lifecycle activity. Template Edit keeps non-clinical Edit actions aligned at the top-right of each card.
 
 ## Help, Notifications, Settings, and Profile
 

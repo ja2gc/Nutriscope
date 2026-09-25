@@ -129,7 +129,7 @@ Use this as both the recording checklist and narration script. Record with demo 
 3. Use Preview and Download and explain that they read the latest saved report data.
 4. Archive an inactive demo report and open the **Archived** tab.
 5. Restore or delete only the disposable archived report when permitted.
-6. Point out that Patient Menu Plan and NCP Summary are unavailable to Admin.
+6. Point out that Nutrition Intervention Plan and NCP Summary are unavailable to Admin.
 
 **Narration**
 

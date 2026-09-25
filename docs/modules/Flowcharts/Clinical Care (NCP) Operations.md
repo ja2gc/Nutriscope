@@ -1,6 +1,6 @@
 # Clinical Care — Current NCP/ADIME Flow
 
-Verified against current RND pages, appointment workflow, and Laravel controllers on **2026-09-08**.
+Verified against current RND pages, appointment workflow, Laravel controllers, and rendered reports on **2026-09-26**.
 
 ## End-to-End Flow
 
@@ -23,6 +23,8 @@ flowchart TD
     I --> I4["Biochemical and Labs"]
     I --> I5["Referral and Screening"]
     I --> I6["Summary and Risk Review"]
+    I2 --> I2A["One weight-duration quantity + weeks/months"]
+    I3 --> I3A["Primary cycle category + maternal status<br/>no stress-factor control"]
     I4 --> I7["Optional supporting-file upload; no current OCR/autofill"]
     I5 --> I7
     I6 --> J{"Assessment save valid?"}
@@ -31,16 +33,17 @@ flowchart TD
 
     K --> L["Build Problem, Etiology, Signs/Symptoms"]
     L --> M["Review editable PES statement"]
-    K --> N["Optional AI draft suggestions"]
-    N --> O["Accept, edit, or dismiss"]
+    K --> N["Optional Assessment-based PES drafts<br/>0..3 deterministic candidates"]
+    N --> N1["Evidence + verified source shown"]
+    N1 --> O["Accept, edit, or dismiss<br/>matching options rehydrate as selections"]
     O --> M
     M --> P["Save at least one Diagnosis"]
 
     P --> Q["Intervention unlocked"]
     Q --> Q1["Set goal and stage"]
-    Q1 --> Q2["Backend-authoritative prescription autofill and trace"]
-    Q2 --> Q3["Review/edit targets and food guidance"]
-    Q3 --> Q4["Create, generate, or load patient meal plan"]
+    Q1 --> Q2["Backend-authoritative baseline + maternal modifier + final trace"]
+    Q2 --> Q3["Review/edit targets; fluid remains separate guidance"]
+    Q3 --> Q4["Create, generate, or load patient meal plan<br/>linked to active revision"]
     Q4 --> Q5["Complete education, counseling, and goals"]
     Q5 --> R["Save care plan"]
 
@@ -48,15 +51,17 @@ flowchart TD
     S -->|"Not yet"| T["Care plan remains usable without Monitoring"]
     S -->|"Scheduled or walk-in"| U0["Explicitly start visit"]
     U0 --> U["Continue any required ADIME step or Monitoring"]
-    U --> V["Progress Trends vs baseline and targets"]
-    V --> W["Save entry and finish or end visit"]
-    W --> X{"Continue, revise, or close care?"}
-    X -->|"Continue"| U
-    X -->|"Revise"| Q
+    U --> U1{"Revise intervention?"}
+    U1 -->|"No"| V["Normal Monitoring entry"]
+    U1 -->|"Yes"| V1["Prefill care; require effective date + reason"]
+    V1 --> V2["Save visit + immutable revision atomically"]
+    V --> W["Progress Trends vs baseline and targets"]
+    V2 --> W
+    W --> X["Finish or end visit"]
 
     T --> Y["Reports"]
     W --> Y
-    Y --> Z["Preview live NCP Summary or Patient Menu Plan"]
+    Y --> Z["Preview live NCP Summary or Nutrition Intervention Plan"]
     Z --> AA["Archive approved as-filed copy"]
 ```
 
@@ -97,11 +102,13 @@ flowchart TD
 ## Important Current Rules
 
 - Edema present requires dry weight before Assessment save.
+- Weight-change duration is one quantity plus weeks/months; category and maternal status are explicit cycle inputs; stress factor is absent from the workflow.
 - Generated Assessment Summary is an editable draft; stale-source warning supports regenerate/undo.
-- AI Diagnosis output is never accepted without RND action.
-- Prescription calculation authority is Laravel backend; frontend trace explains the result.
+- PES drafts are source-gated and de-identified. Edit rehydrates matching Problem/Etiology/Signs options as selections and keeps only unmatched detail in notes; manual entry remains available.
+- Prescription calculation authority is Laravel backend; frontend trace explains baseline, maternal modifier, and final values. Fluid guidance is excluded from meal matching/scaling.
+- Normal Monitoring stays minimal; optional revision creates immutable history, and meal plans keep their linked revision.
 - A cycle becomes deletion-protected once Assessment, Diagnosis, and Intervention all exist.
-- Reports have live preview and frozen archived-copy states.
+- NCP Summary shows revision history; Nutrition Intervention Plan uses the selected meal plan's revision and compact portions. Archived PDF bytes stay frozen.
 
 ## Related Documents
 

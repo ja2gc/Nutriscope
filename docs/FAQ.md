@@ -1,6 +1,6 @@
 # NutriScope Frequently Asked Questions
 
-Verified against the current web, mobile, and Laravel role gates on **2026-09-22**. This is the user-facing FAQ and source for the role-scoped in-app Help pages. When this file conflicts with an older diagram or plan, current application code wins.
+Verified against the current web, mobile, Laravel role gates, and rendered reports on **2026-09-26**. This is the user-facing FAQ and source for the role-scoped in-app Help pages. When this file conflicts with an older diagram or plan, current application code wins.
 
 ## Start Here
 
@@ -136,6 +136,14 @@ Monitoring requires a saved assessment, at least one diagnosis, and an intervent
 
 Dietary, Anthropometrics, Client History, Biochemical/Labs, Referral/Screening, and RND Summary. Calculated BMI, weight-related values, risk scoring, and other clinical helpers update from entered data.
 
+### How do I record weight-change duration and the census category?
+
+Enter one positive duration quantity and choose **weeks** or **months**. There is no fixed three-month assumption or duplicate duration field. Select the cycle's required **Primary diagnosis category** separately from the physician diagnosis, PES diagnosis, and Intervention goal. If **Other** is selected, complete **Specify category**; reports still aggregate it under one Other bucket.
+
+### Where are pregnancy/lactation and stress factor recorded?
+
+Choose None, a confirmed pregnancy trimester, or Lactating in Assessment. A migrated unspecified-pregnancy value must be confirmed before maternal autofill. Stress factor is a legacy field: it is not displayed, accepted from new saves, or used in prescription calculation. Current TEE uses the documented backend method and goal-specific rules.
+
 ### Why must I enter dry weight when edema is present?
 
 Edema can make measured weight unsuitable for prescription calculations. When **Edema Present** is Yes, **Dry Weight** is required before Assessment can save.
@@ -158,11 +166,11 @@ Open Diagnosis, choose **Add New Diagnosis**, then build Problem, Etiology, and 
 
 ### Can AI create a diagnosis automatically?
 
-AI produces draft suggestions only. RND must review, accept, edit, or dismiss each suggestion. Saved AI suggestions are identified as AI-generated.
+No. **Assessment-based PES drafts** first use deterministic, source-backed rules to find zero to three candidates, then let the provider word only the supplied candidate and compact de-identified evidence. Each card shows **Evidence used** and **Source**. Unchanged evidence reuses the cached validated result; changing Assessment evidence permits a fresh result, and dismissed candidates stay hidden for that version. The feature has no demo-patient marker or demo-only gate. RND must accept or edit a draft before the existing Save Diagnosis action persists it. A zero-result or provider failure leaves the manual P/E/S builder fully usable.
 
 ### What happens when I set an intervention goal?
 
-The application selects a goal/stage, asks the backend calculation service for prescription values, shows the calculation trace, and lets RND review or edit targets before saving. If required Assessment inputs are missing, calculation warnings identify the problem.
+The application progressively reveals only that goal's applicable stages, asks the backend calculation service for prescription values, and lets RND review or edit targets before saving. The calculation panel shows the goal-calculated baseline, any maternal modifier, and the final energy/protein prescription. If required Assessment inputs are missing—or a legacy pregnancy value lacks a confirmed trimester—calculation warnings identify the problem. Fluid is displayed as daily guidance, not as a food-scaling target.
 
 ### What is included in Intervention?
 
@@ -170,11 +178,11 @@ Food/nutrient delivery and prescription, food guidance, patient meal plan, educa
 
 ### Can I make a patient meal plan manually or from a template?
 
-Yes. Meal plans can be created manually, generated, or loaded from a saved template. Templates retain their exact foods, recipes, and quantities. Use **Scale to prescription** in the common editor to adjust quantities without substituting items. Auto-generation already uses the saved prescription; **Exclude snacks** leaves snack slots empty and redistributes their targets across main meals, except for liver-disease plans where the application keeps clinically required frequent intake. Review allergens, restrictions, portions, nutrition totals, and variance before use.
+Yes. Meal plans can be created manually, generated, or loaded from a saved template. Templates retain their exact foods, recipes, and quantities. Use **Scale to prescription** in the common editor to adjust quantities without substituting items. Auto-generation already uses the saved prescription; **Exclude snacks** leaves snack slots empty and redistributes their targets across main meals, except for liver-disease plans where the application keeps clinically required frequent intake. Review allergens, restrictions, portions, nutrition totals, and variance before use. Fluid guidance is shown separately and is excluded from generation, scaling, variance, and target-match success because a food menu does not represent all beverages.
 
 ### What can I record in Monitoring?
 
-Follow-up clinical data, goal progress, anthropometrics and selected clinical indicators, intake/tolerance, symptoms, and progress trends. Visit Log records clinical entries; Progress Trends summarizes changes from baseline and targets. Schedule the next visit through Appointments/shared visit controls so attendance and clinical monitoring are not duplicated.
+Follow-up clinical data, goal progress, anthropometrics and selected clinical indicators, intake/tolerance, symptoms, and progress trends. Visit Log records clinical entries; Progress Trends summarizes changes from baseline and targets. Most visits use the normal form only. Open the collapsed **Revise intervention** action when treatment actually changes; it requires an effective date and reason and atomically saves a new immutable revision with the Monitoring visit. The timeline identifies the revision version, while earlier revisions and meal plans linked to them remain unchanged. Schedule the next visit through Appointments/shared visit controls so attendance and clinical monitoring are not duplicated.
 
 ### Can I delete a patient or NCP cycle?
 
@@ -252,15 +260,15 @@ RND can set up budgets and create manual ledger adjustments. Admin's Budget page
 
 ### What is the difference between live preview and archived report?
 
-Live preview renders from current data. **Archive** freezes the as-filed copy so later data or branding changes do not alter it.
+Live preview renders from current data and the revision linked to the selected meal plan. **Archive** freezes the exact as-filed PDF bytes and snapshot so later clinical data, Intervention revisions, or branding changes do not alter it.
 
 ### Which reports can RND access?
 
-Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment Report, Demographic Census, Patient Menu Plan, and NCP Summary.
+Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment Report, Demographic Census, Nutrition Intervention Plan, and NCP Summary. The internal compatibility identifier for Nutrition Intervention Plan remains `patient_menu_plan`.
 
 ### Which reports can Admin access?
 
-Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment Report, and aggregate Demographic Census. Admin cannot access Patient Menu Plan or NCP Summary.
+Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment Report, and aggregate Demographic Census. Admin cannot access Nutrition Intervention Plan or NCP Summary.
 
 ### Which reports can FSS access?
 
@@ -356,7 +364,7 @@ Filter structured events by module/action/actor and other available filters, ins
 
 ### Can Admin open patient NCP details?
 
-No standing Admin clinical workflow exists. Admin can see aggregate patient counts and aggregate ADIME-cycle Demographic Census totals, but Patient Menu Plan and NCP Summary are blocked server-side.
+No standing Admin clinical workflow exists. Admin can see aggregate patient counts and aggregate ADIME-cycle Demographic Census totals, but Nutrition Intervention Plan and NCP Summary are blocked server-side.
 
 ### What can Admin change in Settings?
 

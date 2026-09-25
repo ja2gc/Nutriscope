@@ -1,8 +1,8 @@
 # NutriScope Sequential Screenshot Storyboard Guide
 
-Verified against current role navigation and deployed report flows on **2026-09-20**.
+Verified against current role navigation, clinical workflow, and rendered report flows on **2026-09-26**.
 
-This is the screenshot-required storyboard. Complete it by inserting the specified app capture immediately below each **Screenshot needed** instruction. Use demo data and follow the privacy rules in this guide.
+This is the screenshot-required storyboard. Complete it by inserting the specified app capture immediately below each **Screenshot needed** instruction. Use fictional data and follow the privacy rules in this guide.
 
 For a complete fallback that needs no images, use the [System Storyboard](../STORYBOARD.md).
 
@@ -119,25 +119,25 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### RND-NCP-05 — Assessment: Dietary and Anthropometrics
 
-**Description:** RND records intake and body measurements. The page calculates clinical helpers; edema requires dry weight for safe prescription calculations.
+**Description:** RND records intake and body measurements. Weight-change duration uses one quantity plus weeks/months, never a fixed three-month assumption. The page calculates clinical helpers; edema requires dry weight for safe prescription calculations.
 
 **User should do:** Complete demo dietary data, weight, height, and required calculation fields.
 
 **Next scene:** Remaining Assessment tabs.
 
-> **Screenshot needed:** Assessment page with patient header, A: Dietary/B: Anthropometrics tabs, calculated summary strip, and representative fields. Do not show real clinical data.
+> **Screenshot needed:** Assessment page with patient header, A: Dietary/B: Anthropometrics tabs, the single weight-duration row, calculated summary strip, and representative fields. Do not show real clinical data.
 >
 > **Insert screenshot below this line.**
 
 #### RND-NCP-06 — Assessment: Labs, Referral, and Summary
 
-**Description:** RND records biochemical/referral data, optionally stores supporting files, reviews automatic/manual risk scoring, and generates an editable summary. Uploads do not currently OCR/autofill.
+**Description:** RND records biochemical/referral data, the required cycle-owned Primary diagnosis category, conditional **Specify category**, and confirmed pregnancy/lactation status; physician diagnosis stays separate and no stress-factor control appears. RND may store supporting files, review automatic/manual risk scoring, and generate an editable summary. Uploads do not currently OCR/autofill.
 
 **User should do:** Review entered values, generate the draft summary, edit as needed, and choose **Save Assessment**.
 
 **Next scene:** Diagnosis.
 
-> **Screenshot needed:** Assessment Summary tab showing Generate/Regenerate Summary, RND Summary field, nutritional-risk section, and Save Assessment. Optional second image: Labs or Referral upload panel labeled as supporting document.
+> **Screenshot needed:** Assessment Summary tab showing Generate/Regenerate Summary, RND Summary field, nutritional-risk section, and Save Assessment. Add a Referral/Screening image with Primary diagnosis category, conditional Other field, and Pregnancy/Lactation; ensure no Stress Factor control is visible.
 >
 > **Insert screenshot(s) below this line.**
 
@@ -167,31 +167,31 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### RND-NCP-09 — AI Diagnosis Review
 
-**Description:** AI generates draft suggestions from the current patient/Assessment context. RND must accept, edit, or dismiss each suggestion; AI never saves a diagnosis independently.
+**Description:** Deterministic source-backed rules select zero to three Assessment-based PES candidates. The provider receives compact de-identified evidence and only words those candidates. Cards show Evidence used and Source; unchanged Assessment data reuses a validated cache, changed evidence enables refresh, and zero results/manual entry remain valid. There is no demo-patient marker or demo-only gate.
 
-**User should do:** Demonstrate **Edit** on a safe demo suggestion or explain Accept/Dismiss.
+**User should do:** Demonstrate **Edit** on a fictional suggestion. Matching Problem/Etiology/Signs should rehydrate as selected options or checked boxes; only unmatched detail should remain in notes. Then explain Accept/Dismiss and the manual fallback.
 
 **Next scene:** Saved Diagnosis or Intervention.
 
-> **Screenshot needed:** AI Review tab with a demo suggestion and Accept, Edit, Dismiss controls. Ensure no real patient context or prompt is visible.
+> **Screenshot needed:** Assessment-based PES drafts with Evidence used, Source, Accept, Edit, and Dismiss. Optional second image: edited builder with matching checkboxes selected. Ensure no real patient context or provider prompt is visible.
 >
 > **Insert screenshot below this line.**
 
 #### RND-NCP-10 — Intervention Goal and Prescription
 
-**Description:** RND selects the intervention goal/stage. Laravel returns authoritative energy, macro, fluid, and micronutrient targets; the page discloses the calculation trace for review.
+**Description:** RND selects the intervention goal and only that goal's applicable stages appear. Laravel returns authoritative targets; the calculation panel separates goal-calculated baseline, maternal modifier, and final energy/protein prescription. Fluid remains daily guidance outside meal generation/scaling.
 
-**User should do:** Set a demo goal, expand the calculation explanation, review values, and save prescription.
+**User should do:** Set a fictional goal and confirmed maternal status, expand the calculation explanation, review baseline/modifier/final values plus separate fluid guidance, and save the prescription.
 
 **Next scene:** Patient Meal Plan and supporting Intervention tabs.
 
-> **Screenshot needed:** Intervention Food/Nutrient Delivery tab showing Intervention Goal, prescription values, Save action, and expanded calculation trace. Use non-sensitive demo values.
+> **Screenshot needed:** Intervention Food/Nutrient Delivery tab showing one selected goal/stage, prescription values, Save action, and expanded baseline/modifier/final trace with separate fluid guidance. Use fictional values.
 >
 > **Insert screenshot below this line.**
 
 #### RND-NCP-11 — Patient Meal Plan
 
-**Description:** RND creates a manual/generated/template-based meal plan, then checks allergens, restrictions, portions, nutrition totals, and variance against prescription targets.
+**Description:** RND creates a manual/generated/template-based meal plan linked to the active immutable Intervention revision, then checks allergens, restrictions, portions, nutrition totals, and macro/energy variance. Fluid guidance is not part of scaling or target-match success.
 
 **User should do:** Open the demo plan, add/adjust an item, review target variance, and save.
 
@@ -215,19 +215,19 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### RND-NCP-13 — Monitoring Visit Log
 
-**Description:** During a scheduled or walk-in visit, RND records follow-up indicators, tolerance/intake, symptoms, and goal result. Future visits are created in Patient Appointments instead of inside Monitoring.
+**Description:** During a scheduled or walk-in visit, RND records follow-up indicators, tolerance/intake, symptoms, and goal result. The normal form stays minimal. A collapsed **Revise intervention** action is opened only when treatment changes and requires effective date plus reason. Future visits are created in Patient Appointments instead of inside Monitoring.
 
-**User should do:** Add a demo follow-up visit and save.
+**User should do:** Save one normal fictional follow-up with the revision action closed. Then open **Revise intervention**, confirm the current values are prefilled, enter effective date/reason, change one target, and save.
 
 **Next scene:** Progress Trends.
 
-> **Screenshot needed:** Monitoring Visit Log with entry form/history and the page header stating follow-up monitoring.
+> **Screenshot needed:** Monitoring Visit Log with the normal entry form and collapsed Revise intervention action. Add a second image showing the compact **Intervention revised · Version N** timeline entry.
 >
 > **Insert screenshot below this line.**
 
 #### RND-NCP-14 — Monitoring Progress Trends
 
-**Description:** Progress view compares follow-up data with baseline Assessment and saved prescription targets.
+**Description:** Progress view compares follow-up data with baseline Assessment and saved prescription targets. Prior Intervention revisions remain readable/immutable, and older meal plans keep their original revision while new plans link to the current one.
 
 **User should do:** Explain whether the care plan continues, changes, or closes based on demo trend.
 
@@ -239,13 +239,13 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### RND-NCP-15 — Clinical Report Preview and Archive
 
-**Description:** Patients NCP lists recent patients first. Opening one patient first shows that patient's non-deleted ADIME cycles. Selecting one cycle keeps only that cycle's NCP Summary and Patient Menu Plan together; current and completed cycles never mix. Preparing/archiving freezes the exact formally filed PDF and its template/signatory/source snapshot.
+**Description:** Patients NCP lists recent patients first. Opening one patient shows non-deleted ADIME cycles. Selecting one cycle keeps only that cycle's NCP Summary and Nutrition Intervention Plan together. NCP Summary lists version 1 and dated Monitoring revisions; the selected plan uses its linked revision and compact precise portion blocks, with no preparation instructions or source note. Preparing/archiving freezes the exact filed PDF bytes and snapshot.
 
-**User should do:** Open **Patients NCP**, choose a demo patient, select one ADIME cycle, preview both cycle-specific report types, then show an existing archived copy.
+**User should do:** Open **Patients NCP**, choose a fictional patient, select one ADIME cycle, preview every page of both report types, verify revision/portion/fluid content and clean pagination, then show an existing frozen archived copy.
 
 **Next scene:** End of clinical story.
 
-> **Screenshot needed:** Patients NCP patient list, then the patient's ADIME-cycle selector, then one selected cycle showing only its NCP Summary and Patient Menu Plan. Optional final image: a frozen archived report.
+> **Screenshot needed:** Patients NCP patient list, the ADIME-cycle selector, and one selected cycle showing only its NCP Summary and Nutrition Intervention Plan. Include the revision-history table and compact portion details. Optional final image: a frozen archived report.
 >
 > **Insert screenshot(s) below this line.**
 
@@ -681,7 +681,7 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### ADMIN-08 — Allowed Reports
 
-**Description:** Admin can use Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment Report, and aggregate Demographic Census. Census totals count non-deleted ADIME cycles by cycle start month, not unique people; completed months are frozen and the current month remains live. Patient Menu Plan and NCP Summary are absent/blocked.
+**Description:** Admin can use Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment Report, and aggregate Demographic Census. Census totals count non-deleted ADIME cycles by cycle start month, not unique people; completed months are frozen and the current month remains live. Nutrition Intervention Plan and NCP Summary are absent/blocked.
 
 **User should do:** Open the aggregate Demographic Census, explain cycle-based totals without exposing patient identity, then show another allowed live preview and the privacy boundary.
 

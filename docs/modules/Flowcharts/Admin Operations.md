@@ -67,7 +67,7 @@ flowchart TD
     B -->|"Procurement Pack"| C
     B -->|"Accomplishment Report"| C
     B -->|"Aggregate Demographic Census"| C
-    B -->|"Patient Menu Plan"| D["Blocked server-side"]
+    B -->|"Nutrition Intervention Plan"| D["Blocked server-side"]
     B -->|"NCP Summary"| D
     C --> E["Live preview"]
     E --> F["Archive approved frozen copy"]
@@ -114,7 +114,7 @@ flowchart TD
 
 ## Explicit Safety Boundary
 
-Admin performs system oversight, not clinical care. No Admin patient/NCP navigation exists. Aggregate patient counts and aggregate ADIME-cycle Demographic Census totals do not grant access to patient-specific Assessment, Diagnosis, Intervention, Monitoring, Patient Menu Plan, or NCP Summary.
+Admin performs system oversight, not clinical care. No Admin patient/NCP navigation exists. Aggregate patient counts and aggregate ADIME-cycle Demographic Census totals do not grant access to patient-specific Assessment, Diagnosis, Intervention, Monitoring, Nutrition Intervention Plan, or NCP Summary.
 
 ## Related Documents
 
