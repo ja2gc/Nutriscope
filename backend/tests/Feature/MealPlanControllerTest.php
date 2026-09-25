@@ -169,6 +169,9 @@ class MealPlanControllerTest extends TestCase
         $days = $response->json('data.days');
         $this->assertIsArray($days);
         $this->assertCount(35, $days); // 7 days × 5 meal types
+        foreach ($days as $day) {
+            $this->assertArrayNotHasKey('water', $day['variance'] ?? []);
+        }
 
         $mealPlan = MealPlan::where('intervention_id', '!=', null)->first();
         $this->assertNotNull($mealPlan);

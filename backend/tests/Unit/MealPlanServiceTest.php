@@ -106,6 +106,25 @@ class MealPlanServiceTest extends TestCase
         }
     }
 
+    public function test_fluid_guidance_never_enters_generated_plan_variance_but_water_snapshot_remains(): void
+    {
+        $this->seedRecipes(15);
+        $ncp = $this->makeNcpWithIntervention();
+        $ncp->intervention->update(['fluid_ml' => 250]);
+
+        $plan = (new MealPlanService)->generate($ncp, now()->startOfWeek()->toDateString());
+        $days = MealPlanDay::query()->where('meal_plan_id', $plan->id)->get();
+
+        foreach ($days as $day) {
+            $this->assertArrayNotHasKey('water', $day->variance ?? []);
+        }
+        $snapshot = MealPlanItem::query()
+            ->whereIn('meal_plan_day_id', $days->pluck('id'))
+            ->firstOrFail()
+            ->nutrient_snapshot;
+        $this->assertArrayHasKey('water_g', $snapshot);
+    }
+
     public function test_ready_to_eat_resolution_uses_flag_then_category(): void
     {
         // Category allowlist default

@@ -546,6 +546,11 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
             )}
 
             {/* [D] Meal Plan */}
+            {prescription.fluid_ml && (
+              <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-800">
+                <span className="font-bold">Daily fluid guidance:</span> {prescription.fluid_ml} mL. Food listings do not guarantee beverage intake or a fluid limit.
+              </p>
+            )}
             <MealPlanSection
               ncpId={ncpId}
               prescriptionTargets={{
@@ -553,7 +558,6 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
                 protein:  parseFloat(prescription.protein_g)   || 0,
                 carbs:    parseFloat(prescription.carbs_g)     || 0,
                 fat:      parseFloat(prescription.fat_g)       || 0,
-                fluid_ml: parseFloat(prescription.fluid_ml)   || 0,
               }}
               foodDislikes={foodDislikes}
               allergens={allergens}

@@ -244,7 +244,7 @@ class MealPlanAlgorithmTest extends BaseTestCase
             'Missing micronutrient must be cannot_validate, never silent pass');
     }
 
-    public function test_compute_day_variance_includes_water_when_fluid_target_set(): void
+    public function test_compute_day_variance_excludes_water_even_when_fluid_target_is_supplied(): void
     {
         $svc = $this->svc();
         $slot = $this->makeSlotWithItems([
@@ -257,8 +257,17 @@ class MealPlanAlgorithmTest extends BaseTestCase
 
         $variance = $this->call($svc, 'computeDayVariance', [$slots, $targets, []]);
 
-        // (1800 - 2000) / 2000 = -0.10
-        $this->assertEqualsWithDelta(-0.10, $variance['water'], 0.001);
+        $this->assertArrayNotHasKey('water', $variance);
+    }
+
+    public function test_water_variance_never_flags_a_food_plan(): void
+    {
+        $svc = $this->svc();
+
+        $this->assertFalse($this->call($svc, 'isFlagged', [[
+            'energy' => 0.05,
+            'water' => 0.75,
+        ]]));
     }
 
     public function test_compute_day_variance_quantity_multiplied(): void

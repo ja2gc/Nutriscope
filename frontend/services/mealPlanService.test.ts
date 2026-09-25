@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { createPlanFromTemplate, generateMealPlan, scaleMealPlanToPrescription } from "./mealPlanService";
 
 describe("generateMealPlan", () => {
@@ -85,5 +87,21 @@ describe("createPlanFromTemplate", () => {
 
     expect(result.plan.id).toBe("plan-uuid");
     expect(result.compatibility.warning).toBe("Review and scale this template.");
+  });
+});
+
+describe("meal-plan fluid boundary", () => {
+  test("keeps water snapshots but removes fluid from matching UI", () => {
+    const root = process.cwd();
+    const page = readFileSync(join(root, "app/(rnd)/ncp/[patientId]/intervention/[ncpId]/page.tsx"), "utf8");
+    const section = readFileSync(join(root, "app/(rnd)/ncp/[patientId]/intervention/[ncpId]/_components/MealPlanSection.tsx"), "utf8");
+    const tracker = readFileSync(join(root, "app/(rnd)/ncp/[patientId]/intervention/[ncpId]/_components/MacroTrackerBar.tsx"), "utf8");
+    const service = readFileSync(join(root, "services/mealPlanService.ts"), "utf8");
+
+    expect(page).toContain("Daily fluid guidance");
+    expect(page).toContain("Food listings do not guarantee beverage intake or a fluid limit.");
+    expect(section).not.toContain("label: 'Fluid'");
+    expect(tracker).toContain('target.label !== "Fluid"');
+    expect(service).toContain("water_g?: number | null");
   });
 });

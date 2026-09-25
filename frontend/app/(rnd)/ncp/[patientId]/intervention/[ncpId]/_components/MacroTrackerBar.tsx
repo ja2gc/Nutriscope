@@ -25,11 +25,12 @@ export default function MacroTrackerBar({
   hasMicros = false,
   className = "",
 }: Props) {
-  if (targets.every((t) => t.target <= 0)) return null;
+  const foodTargets = targets.filter((target) => target.label !== "Fluid");
+  if (foodTargets.every((target) => target.target <= 0)) return null;
   return (
     <div className={`flex flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3 bg-white border border-warm-200 rounded-xl ${className}`}>
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1 flex-1 min-w-0">
-        {targets.map(({ label, current, target, unit }) => (
+        {foodTargets.map(({ label, current, target, unit }) => (
           <div key={label} className="flex items-baseline gap-1">
             <span className="text-xs font-bold text-warm-400 uppercase tracking-wider">{label}</span>
             <span className={`text-base font-extrabold font-mono ${statusColor(current, target)}`}>

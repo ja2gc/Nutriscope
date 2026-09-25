@@ -16,6 +16,8 @@ use Illuminate\Support\Str;
 
 class MealPlanService
 {
+    private const FOOD_MATCHING_TARGET_KEYS = ['energy', 'protein', 'carbs', 'fat'];
+
     /**
      * Flat penalty added to macro-distance score for each micronutrient
      * that exceeds its 'max' limit in the intervention's micronutrient_limits.
@@ -192,7 +194,7 @@ class MealPlanService
             $allergens = is_array($assessmentAllergens) ? $assessmentAllergens : [];
         }
 
-        // Load all recipes with ingredients (for water aggregation) and filter allergens
+        // Load all recipes with ingredients and filter allergens.
         $recipeModels = Recipe::with('ingredients.foodItem')->get()->filter(function ($recipe) use ($allergens) {
             if (empty($allergens)) {
                 return true;
@@ -577,6 +579,7 @@ class MealPlanService
 
     private function candidateMealScore(array $portions, array $targets, array $microLimits, float $slotPct): float
     {
+        $targets = $this->foodMatchingTargets($targets);
         $totals = ['energy' => 0.0, 'protein' => 0.0, 'carbs' => 0.0, 'fat' => 0.0];
         $micros = [];
         foreach ($portions as [$candidate, $quantity]) {
@@ -648,6 +651,7 @@ class MealPlanService
         string $mealType,
         float $slotPct
     ): ?object {
+        $residuals = $this->foodMatchingTargets($residuals);
         $eligible = $this->filterByMealType($pool, $mealType);
         if ($this->isSnackSlot($mealType)) {
             $foodOnly = $eligible->where('source', 'food_item')->values();
@@ -674,7 +678,6 @@ class MealPlanService
                     'protein' => (float) $r->total_protein * $portion,
                     'carbs' => (float) $r->total_carbs * $portion,
                     'fat' => (float) $r->total_fat * $portion,
-                    'water' => (float) $r->total_water * $portion,
                     default => (float) (is_array($r->micronutrients) ? ($r->micronutrients[$key] ?? 0) : 0) * $portion,
                 };
                 // Penalise distance from remaining target
@@ -698,41 +701,6 @@ class MealPlanService
     }
 
     // ── Post-generation ±10% validation (4.3) ────────────────────────────────
-
-    private function validateAndReconcile(
-        MealPlan $mealPlan,
-        Collection $allRecipes,
-        float $dailyKcal,
-        float $dailyProtein,
-        float $dailyCarbs,
-        float $dailyFat,
-        float $dailyFluid,
-        array $microLimits,
-        float $targetProteinRatio,
-        float $targetCarbsRatio,
-        float $targetFatRatio
-    ): void {
-        // Build targets array (only include non-zero targets)
-        $targets = ['energy' => $dailyKcal, 'protein' => $dailyProtein, 'carbs' => $dailyCarbs, 'fat' => $dailyFat];
-        if ($dailyFluid > 0) {
-            $targets['water'] = $dailyFluid;
-        }
-
-        // Group days by day_of_week
-        $daysByName = $mealPlan->days->groupBy('day_of_week');
-
-        foreach ($daysByName as $dayName => $slots) {
-            $this->validateDay(
-                $slots,
-                $allRecipes,
-                $targets,
-                $microLimits,
-                $targetProteinRatio,
-                $targetCarbsRatio,
-                $targetFatRatio
-            );
-        }
-    }
 
     private function validateDay(
         Collection $slots,
@@ -776,8 +744,9 @@ class MealPlanService
      */
     private function computeDayVariance(Collection $slots, array $targets, array $microLimits): array
     {
+        $targets = $this->foodMatchingTargets($targets);
         // Aggregate per-day totals across all slots
-        $totals = ['energy' => 0.0, 'protein' => 0.0, 'carbs' => 0.0, 'fat' => 0.0, 'water' => 0.0];
+        $totals = ['energy' => 0.0, 'protein' => 0.0, 'carbs' => 0.0, 'fat' => 0.0];
         $microTotals = [];
 
         foreach ($slots as $slot) {
@@ -789,7 +758,6 @@ class MealPlanService
                 $totals['protein'] += (float) ($snap['protein'] ?? 0) * $qty;
                 $totals['carbs'] += (float) ($snap['carbs'] ?? 0) * $qty;
                 $totals['fat'] += (float) ($snap['fat'] ?? 0) * $qty;
-                $totals['water'] += (float) ($snap['water_g'] ?? 0) * $qty;
 
                 $recipeMicros = $snap['micronutrients'] ?? [];
                 foreach ($recipeMicros as $k => $v) {
@@ -800,7 +768,7 @@ class MealPlanService
 
         $variance = [];
 
-        // Macro/energy/water
+        // Food energy and macronutrients only. Fluid remains prescription guidance.
         foreach ($targets as $key => $target) {
             if ($target <= 0) {
                 continue;
@@ -856,6 +824,7 @@ class MealPlanService
     /** @param array<int,float> $quantities */
     private function scalingScore(Collection $items, array $quantities, array $targets, array $microLimits): float
     {
+        $targets = $this->foodMatchingTargets($targets);
         $totals = $this->nutrientTotals($items, $quantities);
         $score = 0.0;
         foreach ($targets as $key => $target) {
@@ -916,7 +885,10 @@ class MealPlanService
      */
     private function isFlagged(array $variance): bool
     {
-        foreach ($variance as $v) {
+        foreach ($variance as $key => $v) {
+            if (in_array($key, ['water', 'fluid', 'fluid_ml'], true)) {
+                continue;
+            }
             if (is_float($v) && abs($v) > self::TOLERANCE) {
                 return true;
             }
@@ -939,7 +911,9 @@ class MealPlanService
         float $targetFatRatio,
         array $currentVariance
     ): array {
+        $targets = $this->foodMatchingTargets($targets);
         $variance = $currentVariance;
+        unset($variance['water'], $variance['fluid'], $variance['fluid_ml']);
 
         for ($iter = 0; $iter < self::MAX_RECONCILE_ITERATIONS; $iter++) {
             if (! $this->isFlagged($variance)) {
@@ -961,7 +935,6 @@ class MealPlanService
                             'protein' => (float) ($snap['protein'] ?? 0) * $qty,
                             'carbs' => (float) ($snap['carbs'] ?? 0) * $qty,
                             'fat' => (float) ($snap['fat'] ?? 0) * $qty,
-                            'water' => (float) ($snap['water_g'] ?? 0) * $qty,
                             default => 0.0,
                         };
                         $slotTarget = $target * (self::SLOT_DISTRIBUTION[$slot->meal_type] ?? 0.20);
@@ -1035,6 +1008,11 @@ class MealPlanService
         }
 
         return $variance;
+    }
+
+    private function foodMatchingTargets(array $targets): array
+    {
+        return array_intersect_key($targets, array_flip(self::FOOD_MATCHING_TARGET_KEYS));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
