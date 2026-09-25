@@ -10,12 +10,14 @@ use App\Http\Resources\UserResource;
 use App\Models\Announcement;
 use App\Models\AuditActivity;
 use App\Models\Budget;
+use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\Report;
 use App\Models\Sop;
 use App\Models\User;
 use App\Services\Audit\AuditEventPresenter;
 use App\Services\Audit\AuditLogger;
+use Database\Seeders\PatientSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -23,6 +25,36 @@ use Tests\TestCase;
 class PersonNameBackendFlowTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_patient_seeder_is_repeatable_and_marks_owned_demo_cycles(): void
+    {
+        User::factory()->rnd()->create();
+
+        $this->seed(PatientSeeder::class);
+        $firstCounts = [
+            'patients' => Patient::query()->count(),
+            'cycles' => NcpRecord::query()->count(),
+            'revisions' => DB::table('audit_revisions')->count(),
+            'reports' => Report::query()->count(),
+        ];
+
+        $this->seed(PatientSeeder::class);
+
+        $this->assertSame($firstCounts, [
+            'patients' => Patient::query()->count(),
+            'cycles' => NcpRecord::query()->count(),
+            'revisions' => DB::table('audit_revisions')->count(),
+            'reports' => Report::query()->count(),
+        ]);
+
+        $maria = Patient::query()->where('hospital_number', 'HN-2026-0042')->sole();
+        $roberto = Patient::query()->where('hospital_number', 'HN-2026-0078')->sole();
+        $this->assertTrue($maria->is_demo);
+        $this->assertTrue($roberto->is_demo);
+        $this->assertSame(['Diabetes'], $maria->ncpRecords()->with('assessment')->get()->pluck('assessment.primary_diagnosis_category')->unique()->values()->all());
+        $this->assertSame(['Malnutrition'], $roberto->ncpRecords()->with('assessment')->get()->pluck('assessment.primary_diagnosis_category')->unique()->values()->all());
+        $this->assertCount(2, $roberto->ncpRecords);
+    }
 
     public function test_admin_create_requires_split_names_and_split_input_wins(): void
     {

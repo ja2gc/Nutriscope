@@ -10,7 +10,7 @@ use Carbon\Carbon;
 
 /**
  * Demographic / Research Census — NCP-cycle counts broken down by age group, sex,
- * ward, admission diagnosis, nutritional status, and risk level over any date range.
+ * ward, cycle-owned primary diagnosis category, nutritional status, and risk level.
  *
  * Refocus of the old "NCP bi-annual" sheet (now a layout reference only): the form's
  * age × sex matrix is kept, but it's a research census, not a fixed bi-annual format.
@@ -18,7 +18,7 @@ use Carbon\Carbon;
  */
 class DemographicCensusGenerator implements ReportGenerator
 {
-    public const BASIS_VERSION = 2;
+    public const BASIS_VERSION = 3;
 
     /** Age buckets mirror the bi-annual census columns. */
     public const AGE_GROUPS = ['0-4', '5-9', '10-14', '15-18', '19-29', '30-39', '40-59', '60+'];
@@ -80,7 +80,7 @@ class DemographicCensusGenerator implements ReportGenerator
                 'age' => $cycle->patient?->dob?->diffInYears($cycle->created_at),
                 'sex' => $cycle->patient?->sex,
                 'ward' => $cycle->patient?->ward,
-                'diagnosis' => $cycle->patient?->medical_diagnosis,
+                'primary_diagnosis_category' => $cycle->assessment?->primary_diagnosis_category,
                 'nutritional_status' => $cycle->assessment?->nutritional_status,
                 'risk_level' => self::riskLevel(
                     $cycle->risk_score === null ? null : (float) $cycle->risk_score,
@@ -126,7 +126,7 @@ class DemographicCensusGenerator implements ReportGenerator
     }
 
     /**
-     * @param  array<int,array{age:?int,sex:?string,ward:?string,diagnosis:?string,nutritional_status:?string,risk_level:?string}>  $cycles
+     * @param  array<int,array{age:?int,sex:?string,ward:?string,primary_diagnosis_category:?string,nutritional_status:?string,risk_level:?string}>  $cycles
      */
     public static function aggregate(array $cycles): array
     {
@@ -136,7 +136,7 @@ class DemographicCensusGenerator implements ReportGenerator
         }
 
         $bySex = ['M' => 0, 'F' => 0, 'Unknown' => 0];
-        $byWard = $byDiagnosis = $byStatus = $byRisk = [];
+        $byWard = $byPrimaryDiagnosisCategory = $byStatus = $byRisk = [];
 
         foreach ($cycles as $p) {
             $sex = self::normalizeSex($p['sex'] ?? null);
@@ -149,13 +149,13 @@ class DemographicCensusGenerator implements ReportGenerator
             }
 
             self::bump($byWard, $p['ward'] ?? null);
-            self::bump($byDiagnosis, $p['diagnosis'] ?? null);
+            self::bump($byPrimaryDiagnosisCategory, $p['primary_diagnosis_category'] ?? null, 'Unclassified');
             self::bump($byStatus, $p['nutritional_status'] ?? null);
             self::bump($byRisk, $p['risk_level'] ?? null);
         }
 
         arsort($byWard);
-        arsort($byDiagnosis);
+        arsort($byPrimaryDiagnosisCategory);
         arsort($byStatus);
         arsort($byRisk);
 
@@ -164,7 +164,7 @@ class DemographicCensusGenerator implements ReportGenerator
             'age_sex' => $ageSex,
             'by_sex' => $bySex,
             'by_ward' => $byWard,
-            'by_diagnosis' => $byDiagnosis,
+            'by_primary_diagnosis_category' => $byPrimaryDiagnosisCategory,
             'by_status' => $byStatus,
             'by_risk' => $byRisk,
         ];
@@ -181,11 +181,11 @@ class DemographicCensusGenerator implements ReportGenerator
         };
     }
 
-    private static function bump(array &$bucket, ?string $key): void
+    private static function bump(array &$bucket, ?string $key, string $emptyLabel = 'Unspecified'): void
     {
         $k = trim((string) $key);
         if ($k === '') {
-            $k = 'Unspecified';
+            $k = $emptyLabel;
         }
         $bucket[$k] = ($bucket[$k] ?? 0) + 1;
     }

@@ -39,7 +39,7 @@
                 @include('reports.partials._breakdown', ['heading' => 'By Ward', 'data' => $census['by_ward']])
             </td>
             <td style="border:0; width:25%; padding-right:8px;">
-                @include('reports.partials._breakdown', ['heading' => 'By Diagnosis', 'data' => $census['by_diagnosis']])
+                @include('reports.partials._breakdown', ['heading' => 'By Primary Diagnosis Category', 'data' => $census['by_primary_diagnosis_category']])
             </td>
             <td style="border:0; width:25%; padding-right:8px;">
                 @include('reports.partials._breakdown', ['heading' => 'By Nutritional Status', 'data' => $census['by_status']])

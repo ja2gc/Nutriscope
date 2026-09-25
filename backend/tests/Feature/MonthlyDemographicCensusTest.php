@@ -149,6 +149,7 @@ class MonthlyDemographicCensusTest extends TestCase
         Assessment::factory()->create([
             'ncp_record_id' => $may->id,
             'nutritional_status' => 'Normal',
+            'primary_diagnosis_category' => 'Diabetes',
         ]);
         $june = NcpRecord::factory()->create([
             'patient_id' => $patient->id,
@@ -159,6 +160,7 @@ class MonthlyDemographicCensusTest extends TestCase
         Assessment::factory()->create([
             'ncp_record_id' => $june->id,
             'nutritional_status' => 'Severe Malnutrition',
+            'primary_diagnosis_category' => 'Malnutrition',
         ]);
 
         $census = app(DemographicCensusGenerator::class)->currentCensus(
@@ -169,6 +171,32 @@ class MonthlyDemographicCensusTest extends TestCase
         $this->assertSame(1, $census['total']);
         $this->assertSame(['Normal' => 1], $census['by_status']);
         $this->assertSame(['Low' => 1], $census['by_risk']);
+        $this->assertSame(['Diabetes' => 1], $census['by_primary_diagnosis_category']);
+        $this->assertArrayNotHasKey('Diagnosis A', $census['by_primary_diagnosis_category']);
+    }
+
+    public function test_generator_groups_legacy_null_category_as_unclassified_without_using_physician_text(): void
+    {
+        $patient = Patient::factory()->create([
+            'medical_diagnosis' => 'PRIVATE FREE-TEXT DIAGNOSIS',
+        ]);
+        $cycle = NcpRecord::factory()->create([
+            'patient_id' => $patient->id,
+            'created_at' => '2026-05-10 08:00:00',
+            'updated_at' => '2026-05-10 08:00:00',
+        ]);
+        Assessment::factory()->create([
+            'ncp_record_id' => $cycle->id,
+            'primary_diagnosis_category' => null,
+        ]);
+
+        $census = app(DemographicCensusGenerator::class)->currentCensus(
+            Carbon::parse('2026-05-01'),
+            Carbon::parse('2026-05-31'),
+        );
+
+        $this->assertSame(['Unclassified' => 1], $census['by_primary_diagnosis_category']);
+        $this->assertStringNotContainsString('PRIVATE FREE-TEXT DIAGNOSIS', json_encode($census, JSON_THROW_ON_ERROR));
     }
 
     public function test_current_month_is_browsable_live_but_not_stored_as_frozen(): void

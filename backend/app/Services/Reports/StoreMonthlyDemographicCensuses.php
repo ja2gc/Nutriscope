@@ -23,7 +23,7 @@ class StoreMonthlyDemographicCensuses
         $cursor = Carbon::parse($firstCycle, $now->getTimezone())->startOfMonth();
         $lastCompletedMonth = $now->copy()->startOfMonth()->subMonth();
         $stored = 0;
-        $rebuilt = $this->rebuildLegacyPeriods($lastCompletedMonth, $now);
+        $rebuilt = $this->rebuildOutdatedBasisPeriods($lastCompletedMonth, $now);
         $skipped = 0;
 
         while ($cursor->lessThanOrEqualTo($lastCompletedMonth)) {
@@ -54,7 +54,7 @@ class StoreMonthlyDemographicCensuses
         return compact('stored', 'rebuilt', 'skipped');
     }
 
-    private function rebuildLegacyPeriods(Carbon $lastCompletedMonth, Carbon $now): int
+    private function rebuildOutdatedBasisPeriods(Carbon $lastCompletedMonth, Carbon $now): int
     {
         $periods = DemographicCensusPeriod::query()
             ->where('basis_version', '<', DemographicCensusGenerator::BASIS_VERSION)

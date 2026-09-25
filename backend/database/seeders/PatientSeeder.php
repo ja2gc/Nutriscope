@@ -197,6 +197,7 @@ class PatientSeeder extends Seeder
                 'age_group_category' => 'adult',
             ],
         );
+        $patient->forceFill(['is_demo' => true])->saveQuietly();
 
         // NCP Record — active (2 monitoring follow-ups done, ongoing)
         $record = NcpRecord::create([
@@ -231,6 +232,10 @@ class PatientSeeder extends Seeder
             'usual_weight' => 62.00,
             'weight_loss_percentage' => 0,
             'weight_loss_period' => null,
+            'weight_change_period_value' => null,
+            'weight_change_period_unit' => null,
+            'primary_diagnosis_category' => 'Diabetes',
+            'primary_diagnosis_other' => null,
             'functional_assessment' => 'Ambulatory',
             'energy_intake_status' => 'Sub-optimal',
             'ibw_percentage' => 130.00,
@@ -461,6 +466,7 @@ class PatientSeeder extends Seeder
                 'age_group_category' => 'adult',
             ],
         );
+        $patient->forceFill(['is_demo' => true])->saveQuietly();
 
         $record = NcpRecord::create([
             'patient_id' => $patient->id,
@@ -493,7 +499,11 @@ class PatientSeeder extends Seeder
             'bmi' => 18.00,
             'usual_weight' => 63.00,
             'weight_loss_percentage' => 17.46,
-            'weight_loss_period' => '3 weeks',
+            'weight_loss_period' => null,
+            'weight_change_period_value' => 3,
+            'weight_change_period_unit' => 'weeks',
+            'primary_diagnosis_category' => 'Malnutrition',
+            'primary_diagnosis_other' => null,
             'functional_assessment' => 'Ambulatory',
             'energy_intake_status' => 'Poor intake prior to admission',
             'ibw_percentage' => 78.00,
