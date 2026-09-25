@@ -269,15 +269,15 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Diagnosis & Intervention",
     question: "Can AI create a diagnosis automatically?",
-    answer: "AI can suggest a draft for review, but it does not become the saved diagnosis automatically. The RND must accept, edit, or dismiss it and remains responsible for the final record.",
-    keywords: ["suggestion", "accept", "dismiss", "review"],
+    answer: "Assessment-based PES drafts use source-backed rules to return zero to three reviewable options; they never save a diagnosis automatically. Edit selects matching Problem, Etiology, and Signs options or checkboxes and keeps only unmatched detail in notes. Accept, edit, dismiss, or use the manual builder; the RND remains responsible for the final record.",
+    keywords: ["suggestion", "accept", "edit", "checkbox", "dismiss", "manual", "review"],
   },
   {
     id: "rnd-intervention-goal",
     role: "RND",
     category: "Diagnosis & Intervention",
     question: "What happens when I set an intervention goal?",
-    answer: "The selected goal provides context for prescription and supporting intervention sections. Save the goal explicitly and review calculated values before saving the intervention.",
+    answer: "The selected goal reveals only its applicable stages. Review the backend-calculated baseline, any maternal modifier, and final prescription before saving. Fluid remains separate daily guidance and is not a meal-scaling target.",
     keywords: ["Save Goal", "prescription", "objective"],
   },
   {
@@ -293,7 +293,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Diagnosis & Intervention",
     question: "Can I make a patient meal plan manually or from a template?",
-    answer: "Yes. Build meals manually, use available templates, or generate a draft where supported. Review foods, portions, totals, and patient suitability before saving.",
+    answer: "Yes. Build meals manually, use exact templates, or generate a draft where supported. Each plan keeps the active Intervention revision. Review foods, portions, totals, and patient suitability; fluid guidance is excluded from scaling and target-match success.",
     keywords: ["template", "generate", "menu", "nutrition totals"],
   },
   {
@@ -301,7 +301,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Monitoring",
     question: "What can I record in Monitoring?",
-    answer: "Record progress toward goals, relevant measurements or observations, and plan updates. Schedule, start, finish, or stop visits through the patient Appointments tab and shared visit bar so work stays tied to the correct patient and cycle.",
+    answer: "Record progress toward goals, relevant measurements, intake/tolerance, symptoms, and observations. Most visits use the normal form only. Open Revise intervention when treatment changes; effective date and reason are required and the immutable version appears in the timeline. Manage attendance through Appointments and the shared visit bar.",
     keywords: ["visit log", "progress trend", "follow-up"],
   },
   {
@@ -531,7 +531,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "Admin",
     category: "Budget & Reports",
     question: "Which reports can Admin access?",
-    answer: "Admin can access allow-listed operational and aggregate reports such as program activity, menu calendar, procurement pack, accomplishment, and demographic census. Patient Menu Plan and NCP Summary are blocked.",
+    answer: "Admin can access allow-listed operational and aggregate reports such as program activity, menu calendar, procurement pack, accomplishment, and demographic census. Nutrition Intervention Plan and NCP Summary are blocked.",
     keywords: ["allow list", "aggregate", "accomplishment", "NCP summary"],
   },
   {

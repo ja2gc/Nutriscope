@@ -398,6 +398,10 @@ class AdminAuditLogTest extends TestCase
             'program_project_activity', 'menu_calendar', 'procurement_pack', 'demographic_census',
             'patient_menu_plan', 'ncp_summary', 'accomplishment_report',
         ], collect($metadata['filters']['module_subfilters']['reports'])->pluck('value')->all());
+        $this->assertSame(
+            'Nutrition Intervention Plan',
+            collect($metadata['filters']['module_subfilters']['reports'])->firstWhere('value', 'patient_menu_plan')['label'],
+        );
         $this->assertContains('login_succeeded', $metadata['filters']['module_actions']['security_administration']);
         $this->assertContains('imported', $metadata['filters']['module_actions']['nutrition_care']);
         $this->assertContains('received', $metadata['filters']['module_actions']['food_service_operations']);

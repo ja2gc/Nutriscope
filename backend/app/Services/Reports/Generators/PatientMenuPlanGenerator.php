@@ -9,7 +9,7 @@ use App\Services\Reports\Contracts\ReportGenerator;
 use App\Support\UnitConverter;
 
 /**
- * Patient Menu Plan — a patient's ADIME meal plan rendered as a Mon→Sun calendar PDF
+ * Nutrition Intervention Plan — internal patient_menu_plan generator for a Mon→Sun ADIME menu PDF.
  * (meals down the side, days across). Reads the persisted meal plan; no recompute.
  */
 class PatientMenuPlanGenerator implements ReportGenerator

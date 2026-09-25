@@ -144,7 +144,7 @@ class AuditContextualFilters
             'menu_calendar' => 'Menu Calendar',
             'procurement_pack' => 'Procurement Pack',
             'accomplishment_report' => 'Accomplishment Report',
-            'patient_menu_plan' => 'Patient Menu Plan',
+            'patient_menu_plan' => 'Nutrition Intervention Plan',
             'ncp_summary' => 'NCP Summary',
             default => str($type)->replace('_', ' ')->title()->toString(),
         };

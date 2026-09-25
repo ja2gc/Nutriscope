@@ -152,7 +152,7 @@ class ReportController extends Controller
                 $menuPlans = $record->intervention?->mealPlans->map(fn (MealPlan $plan): array => [
                     'key' => 'menu-'.$plan->uuid,
                     'type' => 'patient_menu_plan',
-                    'label' => 'Patient Menu Plan — '.$plan->week_start_date?->format('M j, Y'),
+                    'label' => 'Nutrition Intervention Plan — '.$plan->week_start_date?->format('M j, Y'),
                     'status' => $plan->status,
                     'date' => $plan->created_at?->toIso8601String(),
                     'params' => ['meal_plan_id' => $plan->uuid],

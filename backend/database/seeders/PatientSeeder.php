@@ -69,7 +69,7 @@ class PatientSeeder extends Seeder
 
     /**
      * Generate a demo meal plan for a record's intervention so every seeded patient
-     * has a printable Patient Menu Plan. Deterministic via a fixed RNG seed.
+     * has a printable Nutrition Intervention Plan (internal type: patient_menu_plan). Deterministic via a fixed RNG seed.
      */
     private function seedMealPlan(NcpRecord $record, string $weekStart, ?Carbon $createdAt = null): void
     {
