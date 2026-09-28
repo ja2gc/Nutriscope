@@ -34,6 +34,7 @@ class AssessmentReligionTest extends TestCase
             'usual_weight' => 72,
             'height' => 170,
             'physical_activity_level' => 'sedentary',
+            'primary_diagnosis_category' => 'Diabetes',
         ]);
 
         return [$rnd, $ncp, $assessment];

@@ -14,6 +14,7 @@ use App\Models\Notification;
 use App\Models\Patient;
 use App\Models\ScreeningDocument;
 use App\Models\User;
+use App\Services\InterventionRevisionService;
 use App\Services\MealPlanService;
 use App\Services\RiskScoreCalculator;
 use Carbon\Carbon;
@@ -73,6 +74,8 @@ class PatientSeeder extends Seeder
      */
     private function seedMealPlan(NcpRecord $record, string $weekStart, ?Carbon $createdAt = null): void
     {
+        $intervention = $record->intervention()->firstOrFail();
+        $revision = resolve(InterventionRevisionService::class)->activeFor($intervention);
         $svc = resolve(MealPlanService::class);
         $svc->setRngSeed(42);
         $allergens = $record->assessment?->allergies ?? [];
@@ -83,7 +86,10 @@ class PatientSeeder extends Seeder
 
             return;
         }
-        $result->update(['status' => 'active']);
+        $result->update([
+            'status' => 'active',
+            'intervention_revision_id' => $revision->id,
+        ]);
         if ($createdAt !== null) {
             DB::table('meal_plans')->where('id', $result->id)->update([
                 'created_at' => $createdAt,
@@ -120,6 +126,11 @@ class PatientSeeder extends Seeder
         ]);
         $interventionIds = Intervention::query()->where('ncp_record_id', $record->id)->pluck('id');
         DB::table('interventions')->whereIn('id', $interventionIds)->update([
+            'created_at' => $interventionAt,
+            'updated_at' => $interventionAt,
+        ]);
+        DB::table('intervention_revisions')->whereIn('intervention_id', $interventionIds)->update([
+            'effective_at' => $interventionAt,
             'created_at' => $interventionAt,
             'updated_at' => $interventionAt,
         ]);

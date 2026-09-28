@@ -355,11 +355,16 @@ class AuditCanonicalEventTest extends TestCase
             ['week_start_date' => '2026-07-13', 'conditions' => [], 'allergens' => []],
         )->assertCreated();
 
-        $event = AuditActivity::query()->sole();
+        $event = AuditActivity::query()
+            ->where('subject_type', MealPlan::class)
+            ->sole();
         $this->assertSame(AuditAction::Generated->value, $event->event);
         $this->assertSame(MealPlan::class, $event->subject_type);
         $this->assertSame(AuditModule::NutritionCare, $event->module);
-        $this->assertSame(0, AuditActivity::query()->where('event', AuditAction::Created->value)->count());
+        $this->assertSame(0, AuditActivity::query()
+            ->where('subject_type', MealPlan::class)
+            ->where('event', AuditAction::Created->value)
+            ->count());
     }
 
     public function test_usda_import_uses_imported_and_failure_writes_nothing(): void

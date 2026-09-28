@@ -39,7 +39,7 @@
         </div>
     @endif
 
-    <table class="grid" style="margin-top:6px;">
+    <table class="grid menu-grid" style="margin-top:6px;">
         <thead>
             <tr>
                 <th style="width:80px;">Meal</th>
@@ -65,25 +65,41 @@
     </table>
 
     @if(!empty($portion_details))
-        <div style="margin-top:10px;">
-            @foreach($portion_details as $portion)
-                <div class="portion-block" style="margin-bottom:6px; page-break-inside:avoid;">
-                    @if($loop->first)
-                        <p class="bold" style="border-bottom:1px solid #e5e7eb; padding-bottom:2px; margin-bottom:6px; font-size:8pt;">Portion details</p>
-                    @endif
-                    <div style="padding:4px 6px; border:1px solid #e5e7eb;">
-                        <p class="bold" style="font-size:7.5pt; margin:0 0 2px;">[{{ $portion['id'] }}] {{ $portion['dish'] }}</p>
-                        @foreach($portion['foods'] as $food)
-                            <div style="font-size:7.25pt; margin-left:8px;">
-                                {{ $food['food'] }} —
-                                @if($food['household_measure']){{ $food['household_measure'] }} · @endif
-                                {{ rtrim(rtrim(number_format($food['metric_amount'], 1, '.', ''), '0'), '.') }} {{ $food['metric_unit'] }}
-                            </div>
-                        @endforeach
-                    </div>
-                </div>
-            @endforeach
-        </div>
+        @foreach($portion_pages as $portionPage)
+            @if(!$loop->first || count($portion_details) > 21)
+                <div class="page-break"></div>
+            @endif
+            <div class="portion-page">
+                <table class="portion-row-table portion-heading-table">
+                    <tbody>
+                        <tr><td class="portion-heading bold">Portion details</td></tr>
+                    </tbody>
+                </table>
+                @foreach(array_chunk($portionPage, 3) as $portionRow)
+                    <table class="portion-row-table">
+                        <tbody>
+                            <tr class="portion-row">
+                                @foreach($portionRow as $portion)
+                                    <td class="portion-cell">
+                                        <p class="bold" style="font-size:7.5pt; margin:0 0 2px;">[{{ $portion['id'] }}] {{ $portion['dish'] }}</p>
+                                        @foreach($portion['foods'] as $food)
+                                            <div style="font-size:7.25pt; margin-left:8px;">
+                                                {{ $food['food'] }} —
+                                                @if($food['household_measure']){{ $food['household_measure'] }} · @endif
+                                                {{ rtrim(rtrim(number_format($food['metric_amount'], 1, '.', ''), '0'), '.') }} {{ $food['metric_unit'] }}
+                                            </div>
+                                        @endforeach
+                                    </td>
+                                @endforeach
+                                @for($emptyCell = count($portionRow); $emptyCell < 3; $emptyCell++)
+                                    <td class="portion-cell portion-cell-empty"></td>
+                                @endfor
+                            </tr>
+                        </tbody>
+                    </table>
+                @endforeach
+            </div>
+        @endforeach
     @endif
 
     @include('reports.partials.signatories')

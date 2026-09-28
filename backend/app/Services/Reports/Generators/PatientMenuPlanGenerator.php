@@ -107,14 +107,20 @@ class PatientMenuPlanGenerator implements ReportGenerator
             ?? $plan->intervention->revisions->firstWhere('version', 1);
         $snapshot = $revision?->snapshot ?? $this->currentSnapshot($plan);
         $maternalStatus = $plan->intervention->ncpRecord?->assessment?->pregnancy_lactation_status;
+        $meals = array_values(array_filter(
+            self::MEALS,
+            fn (string $meal): bool => ! in_array($meal, ['AM Snack', 'PM Snack'], true)
+                || collect($grid[$meal])->contains(fn (array $items): bool => $items !== []),
+        ));
 
         return [
             'plan' => $plan,
             'patient' => $plan->patient,
-            'meals' => self::MEALS,
+            'meals' => $meals,
             'days' => self::WEEK,
             'grid' => $grid,
             'portion_details' => $portionDetails,
+            'portion_pages' => $this->portionPages($portionDetails),
             'revision' => $revision ? [
                 'id' => $revision->uuid,
                 'version' => $revision->version,
@@ -142,7 +148,7 @@ class PatientMenuPlanGenerator implements ReportGenerator
     {
         if ($item->recipe) {
             $foods = [];
-            $scale = (float) $item->quantity / max((float) ($item->recipe->servings ?? 1), 1);
+            $scale = $this->recipeIngredientScale($item);
             foreach ($item->recipe->ingredients as $ingredient) {
                 $amount = (float) $ingredient->quantity * $scale;
                 $metric = $this->metricAmount(
@@ -183,6 +189,23 @@ class PatientMenuPlanGenerator implements ReportGenerator
         ];
     }
 
+    private function recipeIngredientScale(MealPlanItem $item): float
+    {
+        $snapshot = $item->nutrient_snapshot ?? [];
+        $referenceAmount = (float) ($snapshot['serving_size'] ?? 0);
+        $itemUnit = UnitConverter::normalize((string) $item->unit);
+        $referenceUnit = UnitConverter::normalize((string) ($snapshot['serving_unit'] ?? ''));
+        $compatibleUnits = $itemUnit === $referenceUnit
+            || (UnitConverter::isMass($itemUnit) && UnitConverter::isMass($referenceUnit))
+            || (UnitConverter::isVolume($itemUnit) && UnitConverter::isVolume($referenceUnit));
+
+        if ($referenceAmount > 0 && $compatibleUnits) {
+            return (float) $item->quantity / $referenceAmount;
+        }
+
+        return (float) $item->quantity / max((float) ($item->recipe->servings ?? 1), 1);
+    }
+
     /** @return array{metric_amount:float,metric_unit:string}|null */
     private function metricAmount(float $amount, string $unit, float $fallbackSize, string $fallbackUnit): ?array
     {
@@ -221,14 +244,26 @@ class PatientMenuPlanGenerator implements ReportGenerator
         ])->mapWithKeys(fn (string $field): array => [$field => $plan->intervention->getAttribute($field)])->all();
     }
 
+    /** @param array<int,array<string,mixed>> $portionDetails */
+    private function portionPages(array $portionDetails): array
+    {
+        if (count($portionDetails) <= 21) {
+            return [$portionDetails];
+        }
+
+        return [
+            array_slice($portionDetails, 0, 18),
+            ...array_chunk(array_slice($portionDetails, 18), 21),
+        ];
+    }
+
     private function maternalNote(?string $status): ?string
     {
         return match ($status) {
-            'pregnant_trimester_1' => 'Final targets include the confirmed first trimester maternal adjustment.',
-            'pregnant_trimester_2' => 'Final targets include the confirmed second trimester maternal adjustment.',
-            'pregnant_trimester_3' => 'Final targets include the confirmed third trimester maternal adjustment.',
-            'lactating_0_6_months' => 'Final targets include the confirmed early lactation adjustment.',
-            'lactating_7_12_months' => 'Final targets include the confirmed later lactation adjustment.',
+            'pregnant_t1' => 'Final targets include the confirmed first trimester maternal adjustment.',
+            'pregnant_t2' => 'Final targets include the confirmed second trimester maternal adjustment.',
+            'pregnant_t3' => 'Final targets include the confirmed third trimester maternal adjustment.',
+            'lactating' => 'Final targets include the confirmed lactation adjustment.',
             default => null,
         };
     }

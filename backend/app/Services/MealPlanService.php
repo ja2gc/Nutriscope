@@ -18,6 +18,32 @@ class MealPlanService
 {
     private const FOOD_MATCHING_TARGET_KEYS = ['energy', 'protein', 'carbs', 'fat'];
 
+    /** Separate Filipino carbohydrate candidates; authority order is in intervention-goals.md §15. */
+    private const RICE_CARB_SOURCES = ['Steamed White Rice', 'Steamed Brown Rice'];
+
+    private const ALTERNATIVE_CARB_SOURCES = [
+        'Oatmeal (Plain, Cooked)',
+        'White Bread',
+        'Sweet Corn (Cooked)',
+        'Sweet Potato / Kamote',
+        'Cassava / Kamoteng Kahoy',
+        'Corn Grits (Cooked)',
+        'Pandesal (Filipino Bread Roll)',
+    ];
+
+    /** Balanced custom/maternal vegetable sides; see intervention-goals.md §15. */
+    private const VEGETABLE_SIDE_SOURCES = [
+        'Water Spinach (Kangkong)',
+        'Bok Choy / Pechay (Cooked)',
+        'Eggplant / Talong (Cooked)',
+        'Bitter Melon (Ampalaya)',
+        'Chayote / Sayote (Cooked)',
+        'Carrots (Cooked)',
+        'Cabbage / Repolyo (Cooked)',
+        'String Beans / Sitaw',
+        'Squash / Kalabasa (Cooked)',
+    ];
+
     /**
      * Flat penalty added to macro-distance score for each micronutrient
      * that exceeds its 'max' limit in the intervention's micronutrient_limits.
@@ -178,8 +204,12 @@ class MealPlanService
         array $conditions = [],
         array $allergens = [],
         bool $excludeSnacks = false,
+        bool $useRiceAsCarb = false,
     ): array|MealPlan {
         $intervention = $ncpRecord->intervention()->firstOrFail();
+        $goalType = (string) ($intervention->goal_type ?? '');
+        $maternalStatus = $ncpRecord->assessment?->pregnancy_lactation_status;
+        $balancedComponents = $goalType === 'custom' || $this->isConfirmedMaternalStatus($maternalStatus);
 
         if ($excludeSnacks && $intervention->goal_type === 'liver_disease') {
             return [
@@ -241,11 +271,33 @@ class MealPlanService
             return true;
         })->values();
 
+        $carbNames = $useRiceAsCarb ? self::RICE_CARB_SOURCES : self::ALTERNATIVE_CARB_SOURCES;
+        $carbModels = $this->withoutFoodAllergens(
+            FoodItem::query()->whereIn('name', $carbNames)->get(),
+            $allergens,
+        );
+        $vegetableModels = $balancedComponents
+            ? $this->withoutFoodAllergens(
+                FoodItem::query()->whereIn('name', self::VEGETABLE_SIDE_SOURCES)->get(),
+                $allergens,
+            )
+            : collect();
+
         // Normalize recipes + food items into a single candidate pool. Candidates expose
         // recipe-shaped fields (total_*) so scoring/validation is source-agnostic.
         $recipes = $recipeModels
             ->map(fn ($r) => $this->recipeToCandidate($r))
             ->concat($foodModels->map(fn ($f) => $this->foodToCandidate($f)))
+            ->concat($carbModels->map(fn ($f) => $this->foodToCandidate(
+                $f,
+                ['breakfast', 'lunch', 'dinner'],
+                'carb',
+            )))
+            ->concat($vegetableModels->map(fn ($f) => $this->foodToCandidate(
+                $f,
+                ['lunch', 'dinner'],
+                'vegetable_side',
+            )))
             ->values();
 
         $activeMealTypes = $excludeSnacks
@@ -377,7 +429,7 @@ class MealPlanService
                     $slotIndex,
                     $crossDayUsed,
                     $dayIndex,
-                    $intervention->goal_type ?? '',
+                    $goalType,
                 );
                 $usedThisDay[] = $best->uid;
                 $crossDayUsed[$best->uid] = $dayIndex;
@@ -388,21 +440,51 @@ class MealPlanService
                 $itemRows[] = $this->buildItemRow($dayRecord->id, $best, $quantity, $now);
 
                 if (in_array($mealType, ['lunch', 'dinner'], true) && $best->component_type === 'main_dish') {
-                    $staples = $this->filterByMealType($dayPool, $mealType)
-                        ->filter(fn ($candidate): bool => $candidate->source === 'recipe'
-                            && $candidate->component_type === 'staple')
+                    $carbs = $this->filterByMealType($dayPool, $mealType)
+                        ->filter(fn ($candidate): bool => $candidate->component_type === 'carb')
                         ->values();
-                    $staple = $this->pickStapleAddition($best, $quantity, $staples, [
+                    $carb = $this->pickCarbAddition($best, $quantity, $carbs, [
                         'energy' => $dailyKcal * $slotPct,
                         'protein' => $dailyProtein * $slotPct,
                         'carbs' => $dailyCarbs * $slotPct,
                         'fat' => $dailyFat * $slotPct,
                     ], $microLimits, $slotPct);
-                    if ($staple !== null) {
-                        [$stapleCandidate, $stapleQuantity] = $staple;
-                        $usedThisDay[] = $stapleCandidate->uid;
-                        $crossDayUsed[$stapleCandidate->uid] = $dayIndex;
-                        $itemRows[] = $this->buildItemRow($dayRecord->id, $stapleCandidate, $stapleQuantity, $now);
+                    if ($carb !== null) {
+                        [$carbCandidate, $carbQuantity] = $carb;
+                        $usedThisDay[] = $carbCandidate->uid;
+                        $crossDayUsed[$carbCandidate->uid] = $dayIndex;
+                        $itemRows[] = $this->buildItemRow($dayRecord->id, $carbCandidate, $carbQuantity, $now);
+                    }
+                }
+
+                if (in_array($mealType, ['lunch', 'dinner'], true)
+                    && $balancedComponents
+                    && ! $best->contains_vegetable
+                ) {
+                    $vegetables = $this->filterByMealType($dayPool, $mealType)
+                        ->filter(fn ($candidate): bool => $candidate->component_type === 'vegetable_side')
+                        ->values();
+                    if ($vegetables->isNotEmpty()) {
+                        $vegetable = $this->pickBest(
+                            $vegetables,
+                            $usedThisDay,
+                            $targetProteinRatio,
+                            $targetCarbsRatio,
+                            $targetFatRatio,
+                            $microLimits,
+                            $slotIndex,
+                            $crossDayUsed,
+                            $dayIndex,
+                            $goalType,
+                        );
+                        $usedThisDay[] = $vegetable->uid;
+                        $crossDayUsed[$vegetable->uid] = $dayIndex;
+                        $itemRows[] = $this->buildItemRow(
+                            $dayRecord->id,
+                            $vegetable,
+                            (float) $vegetable->reference_amount,
+                            $now,
+                        );
                     }
                 }
             }
@@ -533,15 +615,15 @@ class MealPlanService
     }
 
     /** @return array{0:object,1:float}|null */
-    private function pickStapleAddition(
+    private function pickCarbAddition(
         object $main,
         float $mainQuantity,
-        Collection $staples,
+        Collection $carbs,
         array $targets,
         array $microLimits,
         float $slotPct,
     ): ?array {
-        if ($staples->isEmpty()) {
+        if ($carbs->isEmpty()) {
             return null;
         }
 
@@ -556,20 +638,20 @@ class MealPlanService
             return null;
         }
 
-        foreach ($staples as $staple) {
-            $energyFactor = $remainingKcal / max((float) $staple->total_calories, 1);
-            $carbFactor = $remainingCarbs / max((float) $staple->total_carbs, 1);
+        foreach ($carbs as $carb) {
+            $energyFactor = $remainingKcal / max((float) $carb->total_calories, 1);
+            $carbFactor = $remainingCarbs / max((float) $carb->total_carbs, 1);
             $factor = min(2.0, max(0.5, ($energyFactor + $carbFactor) / 2));
-            $step = $this->candidateStep((string) $staple->serving_unit);
-            $quantity = max($step, round(((float) $staple->reference_amount * $factor) / $step) * $step);
+            $step = $this->candidateStep((string) $carb->serving_unit);
+            $quantity = max($step, round(((float) $carb->reference_amount * $factor) / $step) * $step);
             $score = $this->candidateMealScore(
-                [[$main, $mainQuantity], [$staple, $quantity]],
+                [[$main, $mainQuantity], [$carb, $quantity]],
                 $targets,
                 $microLimits,
                 $slotPct,
             );
             if ($score + 0.000001 < $bestScore) {
-                $best = [$staple, $quantity];
+                $best = [$carb, $quantity];
                 $bestScore = $score;
             }
         }
@@ -1069,15 +1151,18 @@ class MealPlanService
             'serving_unit' => $recipe->prepared_portion_unit ?: 'serving',
             'meal_types' => $recipe->meal_types,
             'component_type' => $recipe->component_type,
+            'contains_vegetable' => $recipe->ingredients->contains(
+                fn ($ingredient): bool => $ingredient->foodItem?->category === 'vegetable'
+            ),
         ];
     }
 
-    /**
-     * Normalize a ready-to-eat FoodItem into a candidate. Tagged meal_types = ['snack']
-     * so it is only ever eligible for snack slots.
-     */
-    private function foodToCandidate(FoodItem $food): object
-    {
+    /** Normalize a direct food into a snack, carbohydrate, or vegetable candidate. */
+    private function foodToCandidate(
+        FoodItem $food,
+        array $mealTypes = ['snack'],
+        string $componentType = 'other',
+    ): object {
         return (object) [
             'uid' => 'food_item:'.$food->id,
             'source' => 'food_item',
@@ -1091,9 +1176,31 @@ class MealPlanService
             'micronutrients' => is_array($food->micronutrients) ? $food->micronutrients : [],
             'reference_amount' => (float) ($food->serving_size ?? 100),
             'serving_unit' => $food->serving_unit ?? 'serving',
-            'meal_types' => ['snack'],
-            'component_type' => 'other',
+            'meal_types' => $mealTypes,
+            'component_type' => $componentType,
+            'contains_vegetable' => $componentType === 'vegetable_side',
         ];
+    }
+
+    private function isConfirmedMaternalStatus(?string $status): bool
+    {
+        return $status === 'lactating'
+            || (is_string($status) && str_starts_with($status, 'pregnant_') && $status !== 'pregnant_unspecified');
+    }
+
+    private function withoutFoodAllergens(Collection $foods, array $allergens): Collection
+    {
+        if ($allergens === []) {
+            return $foods->values();
+        }
+
+        $normalized = array_map('strtolower', $allergens);
+
+        return $foods->filter(function (FoodItem $food) use ($normalized): bool {
+            $foodAllergens = array_map('strtolower', is_array($food->allergens) ? $food->allergens : []);
+
+            return array_intersect($normalized, $foodAllergens) === [];
+        })->values();
     }
 
     /**

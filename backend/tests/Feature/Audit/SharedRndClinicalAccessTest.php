@@ -39,6 +39,7 @@ class SharedRndClinicalAccessTest extends TestCase
         Assessment::factory()->create([
             'ncp_record_id' => $ncp->id,
             'physical_activity_level' => 'sedentary',
+            'primary_diagnosis_category' => 'Diabetes',
         ]);
         $intervention = Intervention::factory()->create([
             'ncp_record_id' => $ncp->id,
@@ -50,10 +51,6 @@ class SharedRndClinicalAccessTest extends TestCase
             'intervention_id' => $intervention->id,
             'patient_id' => $patient->id,
             'status' => 'draft',
-        ]);
-        $monitoring = Monitoring::factory()->create([
-            'ncp_record_id' => $ncp->id,
-            'weight' => 60,
         ]);
         $day = MealPlanDay::factory()->create([
             'meal_plan_id' => $mealPlan->id,
@@ -77,7 +74,6 @@ class SharedRndClinicalAccessTest extends TestCase
         $this->getJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention")->assertOk();
         $this->getJson("/api/rnd/ncp-records/{$ncp->uuid}/meal-plans")->assertOk();
         $this->getJson("/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/{$mealPlan->uuid}")->assertOk();
-        $this->getJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings")->assertOk();
         $this->getJson("/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/{$mealPlan->uuid}/days/{$day->uuid}/items")
             ->assertOk();
         $this->getJson("/api/rnd/screening-documents/{$document->uuid}")->assertOk();
@@ -92,6 +88,12 @@ class SharedRndClinicalAccessTest extends TestCase
             'disease_stage' => null,
             'education_notes' => 'Updated by the covering RND',
         ])->assertOk();
+
+        $monitoring = Monitoring::factory()->create([
+            'ncp_record_id' => $ncp->id,
+            'weight' => 60,
+        ]);
+        $this->getJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings")->assertOk();
 
         $this->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/{$mealPlan->uuid}", [
             'status' => 'active',
@@ -172,6 +174,7 @@ class SharedRndClinicalAccessTest extends TestCase
         Assessment::factory()->create([
             'ncp_record_id' => $ncp->id,
             'physical_activity_level' => 'sedentary',
+            'primary_diagnosis_category' => 'Diabetes',
         ]);
 
         $this->actingAs($actor, 'sanctum')
@@ -231,6 +234,7 @@ class SharedRndClinicalAccessTest extends TestCase
         Assessment::factory()->create([
             'ncp_record_id' => $ncp->id,
             'physical_activity_level' => 'sedentary',
+            'primary_diagnosis_category' => 'Diabetes',
         ]);
 
         $this->actingAs($clinician, 'sanctum')

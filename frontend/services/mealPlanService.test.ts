@@ -99,6 +99,8 @@ describe("meal-plan fluid boundary", () => {
     const service = readFileSync(join(root, "services/mealPlanService.ts"), "utf8");
 
     expect(page).toContain("Daily fluid guidance");
+    expect(page).toContain("<InfoHint");
+    expect(page).toContain("How fluid guidance relates to the meal plan");
     expect(page).toContain("Food listings do not guarantee beverage intake or a fluid limit.");
     expect(section).not.toContain("label: 'Fluid'");
     expect(tracker).toContain('target.label !== "Fluid"');

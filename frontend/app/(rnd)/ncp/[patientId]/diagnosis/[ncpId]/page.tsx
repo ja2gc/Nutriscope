@@ -21,6 +21,7 @@ import { matchStoredOption, splitStoredComponent } from "@/lib/diagnosisComponen
 import NcpPatientHeader from "../../../_components/NcpPatientHeader";
 import { personDisplayName } from "@/lib/personName";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
+import { InfoHint } from "@/components/ui/InfoHint";
 
 // ─── Domain Metadata ─────────────────────────────────────────────────────────
 
@@ -1001,13 +1002,13 @@ export default function NcpDiagnosisPage({
   const renderAiTab = () => (
     <div className="space-y-5">
       <div className="bg-white border border-warm-200 rounded-2xl p-5">
-        <div className="flex items-center gap-2 text-emerald-600 font-bold text-sm uppercase tracking-wider mb-2">
+        <div className="mb-2 flex items-center gap-1 text-sm font-bold uppercase tracking-wider text-emerald-600">
           <Sparkles className="h-4 w-4" />
-          Assessment-based PES drafts
+          <span>Assessment-based PES drafts</span>
+          <InfoHint label="How PES drafts work" title="How PES drafts work">
+            Uses only eligible, de-identified Assessment evidence. Review before saving; manual PES entry remains available.
+          </InfoHint>
         </div>
-        <p className="text-xs text-warm-600 leading-relaxed mb-4">
-          Source-gated drafts use only eligible, de-identified Assessment evidence. Review and edit before accepting. Manual PES entry remains available.
-        </p>
         {!aiMeta && !aiUnavailable && (
           <button
             type="button"

@@ -34,6 +34,7 @@ class NcpVisitAttributionTest extends TestCase
             'usual_weight' => 70,
             'height' => 170,
             'physical_activity_level' => 'light',
+            'primary_diagnosis_category' => 'Diabetes',
         ])->assertCreated();
         $this->postJson("/api/rnd/ncp-records/{$ncp->uuid}/diagnoses", [
             'domain' => 'NI',

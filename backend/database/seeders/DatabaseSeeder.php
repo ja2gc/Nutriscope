@@ -23,7 +23,7 @@ class DatabaseSeeder extends Seeder
                 ClinicalRulesSeeder::class,          // 5. clinical rules
                 RecipeSeeder::class,                 // 6. NCP meal-plan recipes
                 FoodItemPricesSeeder::class,         // 7. deterministic prices and recipe costs
-                InterventionMealPlanTemplateSeeder::class, // 8. reusable clinical goal templates
+                InterventionMealPlanTemplateSeeder::class, // 8. clinical goal, balanced, and maternal templates
                 FsCatalogSeeder::class,              // 9. fs_items catalog (decoupled FS catalog)
                 FoodServiceDemoSeeder::class,        // 10. FS operational demo (recipes/catalog/cycle/budget/POs)
                 FoodServiceMenuTemplateSeeder::class, // 11. reusable seven-day FS templates

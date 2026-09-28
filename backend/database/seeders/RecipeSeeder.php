@@ -34,23 +34,15 @@ class RecipeSeeder extends Seeder
             return;
         }
 
-        $recipes = [
-            // ── Staples ───────────────────────────────────────────────────────
-            [
-                'name' => 'Plain White Rice Meal',
-                'category' => 'Staple',
-                'prep_notes' => 'Steamed white rice. Standard ward portion.',
-                'servings' => 1,
-                'ingredients' => [['Steamed White Rice', 200, 'g']],
-            ],
-            [
-                'name' => 'Plain Brown Rice Meal',
-                'category' => 'Staple',
-                'prep_notes' => 'Steamed brown rice. Higher fiber alternative for diabetic and cardiac diets.',
-                'servings' => 1,
-                'ingredients' => [['Steamed Brown Rice', 200, 'g']],
-            ],
+        // Side carbohydrates are FoodItem plan components so their quantity can
+        // scale independently from the dish. Rice remains inside recipes only
+        // when it defines the dish (for example arroz caldo or champorado).
+        Recipe::query()->whereIn('name', [
+            'Plain White Rice Meal',
+            'Plain Brown Rice Meal',
+        ])->delete();
 
+        $recipes = [
             // ── Soft / Liquid Diet ────────────────────────────────────────────
             [
                 'name' => 'Lugaw with Egg (Soft Diet)',
@@ -78,7 +70,7 @@ class RecipeSeeder extends Seeder
             [
                 'name' => 'Chicken Breast with Pechay',
                 'category' => 'High Protein',
-                'prep_notes' => 'Boiled chicken breast with cooked pechay. Pair with a separately selected staple only when prescribed.',
+                'prep_notes' => 'Boiled chicken breast with cooked pechay. Pair with a separately selected carbohydrate only when prescribed.',
                 'servings' => 1,
                 'ingredients' => [['Chicken Breast (Cooked)', 120, 'g'], ['Bok Choy / Pechay (Cooked)', 80, 'g']],
             ],
@@ -106,7 +98,7 @@ class RecipeSeeder extends Seeder
             [
                 'name' => 'Hard-Boiled Egg',
                 'category' => 'Breakfast',
-                'prep_notes' => 'One plain hard-boiled egg. Add a separately measured staple only when prescribed.',
+                'prep_notes' => 'One plain hard-boiled egg. Add a separately measured carbohydrate only when prescribed.',
                 'servings' => 1,
                 'ingredients' => [['Egg (Hard Boiled)', 50, 'g']],
             ],
@@ -122,7 +114,7 @@ class RecipeSeeder extends Seeder
             [
                 'name' => 'Plain Ginisang Monggo',
                 'category' => 'High Fiber',
-                'prep_notes' => 'Plain cooked mung beans. High fiber; add a separately measured staple only when prescribed.',
+                'prep_notes' => 'Plain cooked mung beans. High fiber; add a separately measured carbohydrate only when prescribed.',
                 'servings' => 1,
                 'ingredients' => [['Mung Beans (Cooked)', 150, 'g']],
             ],
@@ -131,7 +123,7 @@ class RecipeSeeder extends Seeder
             [
                 'name' => 'Ampalaya with Tokwa',
                 'category' => 'Diabetic-Friendly',
-                'prep_notes' => 'Bitter melon with firm tofu. High-fiber Filipino dish; add a separately measured staple only when prescribed.',
+                'prep_notes' => 'Bitter melon with firm tofu. High-fiber Filipino dish; add a separately measured carbohydrate only when prescribed.',
                 'servings' => 1,
                 'ingredients' => [['Bitter Melon (Ampalaya)', 100, 'g'], ['Firm Tofu (Tokwa)', 80, 'g']],
             ],
@@ -186,7 +178,7 @@ class RecipeSeeder extends Seeder
             [
                 'name' => 'Roasted Pork Loin',
                 'category' => 'Regular Diet',
-                'prep_notes' => 'Plain roasted pork loin. Moderate fat. Add a separately measured staple only when prescribed.',
+                'prep_notes' => 'Plain roasted pork loin. Moderate fat. Add a separately measured carbohydrate only when prescribed.',
                 'servings' => 1,
                 'ingredients' => [['Pork Loin (Cooked)', 100, 'g']],
             ],
@@ -301,7 +293,7 @@ class RecipeSeeder extends Seeder
             [
                 'name' => 'Chopsuey',
                 'category' => 'Vegetable',
-                'prep_notes' => 'Chinese-Filipino mixed vegetable stir-fry, lightly seasoned. Serve any prescribed staple separately.',
+                'prep_notes' => 'Chinese-Filipino mixed vegetable stir-fry, lightly seasoned. Serve any prescribed carbohydrate separately.',
                 'servings' => 1,
                 'ingredients' => [
                     ['Carrots (Cooked)', 80, 'g'], ['Cabbage / Repolyo (Cooked)', 80, 'g'],

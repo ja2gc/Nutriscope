@@ -61,6 +61,7 @@ class NcpAssessmentTest extends TestCase
                 'usual_weight' => 72.0,
                 'height' => 170.0,
                 'physical_activity_level' => 'light',
+                'primary_diagnosis_category' => 'Diabetes',
                 'dietary_intake' => 'Normal diet',
                 'allergies' => ['peanuts', 'shellfish'],
                 'medications' => [],
@@ -89,6 +90,7 @@ class NcpAssessmentTest extends TestCase
                 'usual_weight' => 61.0,
                 'height' => 160.0,
                 'physical_activity_level' => 'sedentary',
+                'primary_diagnosis_category' => 'Diabetes',
             ]);
 
         $response->assertStatus(201)
@@ -163,6 +165,7 @@ class NcpAssessmentTest extends TestCase
                 'usual_weight' => 400.0,
                 'height' => 250.0,
                 'physical_activity_level' => 'sedentary',
+                'primary_diagnosis_category' => 'Diabetes',
             ]);
 
         $response->assertStatus(201);
@@ -199,6 +202,7 @@ class NcpAssessmentTest extends TestCase
             'usual_weight' => 82.0,
             'height' => 175.0,
             'physical_activity_level' => 'sedentary',
+            'primary_diagnosis_category' => 'Diabetes',
             'bmi' => 26.12,
         ]);
 
@@ -221,6 +225,7 @@ class NcpAssessmentTest extends TestCase
             'usual_weight' => 82.0,
             'height' => 175.0,
             'physical_activity_level' => 'sedentary',
+            'primary_diagnosis_category' => 'Diabetes',
             'bmi' => 26.12,
         ]);
 
@@ -249,6 +254,7 @@ class NcpAssessmentTest extends TestCase
                 'usual_weight' => 66.0,
                 'height' => 160.0,
                 'physical_activity_level' => 'sedentary',
+                'primary_diagnosis_category' => 'Diabetes',
                 'allergies' => ['gluten', 'dairy'],
             ]);
 
@@ -280,6 +286,7 @@ class NcpAssessmentTest extends TestCase
                 'usual_weight' => 76.0,
                 'height' => 170.0,
                 'physical_activity_level' => 'sedentary',
+                'primary_diagnosis_category' => 'Diabetes',
             ]);
 
         $response->assertStatus(409);

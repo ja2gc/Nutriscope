@@ -149,7 +149,7 @@ describe("UI helper copy contract", () => {
     expect(loginPage).not.toContain("Plan menus and track budget down to the last PHP");
     expect(loginPage).toContain("lg:items-center lg:justify-center");
     expect(loginPage).toContain('aria-label="NutriScope"');
-    expect(loginPage).toContain("scale-[3]");
+    expect(loginPage).toContain("scale-[3.25]");
   });
 
   test("removes visible refresh controls while preserving retry states", () => {

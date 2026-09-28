@@ -364,8 +364,13 @@
       }
     },
     "custom": {
-      "energy_method": "manual",
-      "note": "RND enters all values manually; no formula."
+      "energy_method": "tee",
+      "protein_g_per_kg_ibw": 0.8,
+      "fat_pct": 0.25,
+      "fluid_ml_per_kg_working_weight": 30,
+      "fiber_g": 22,
+      "sodium_max_mg": 2000,
+      "note": "Editable individualized maintenance baseline. Confirmed maternal modifiers apply after this calculation, as for every intervention goal."
     }
   },
   "default_goal": {

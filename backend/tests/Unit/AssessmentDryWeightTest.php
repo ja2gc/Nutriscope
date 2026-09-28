@@ -26,6 +26,7 @@ class AssessmentDryWeightTest extends TestCase
             'usual_weight' => 72,
             'height' => 170,
             'physical_activity_level' => 'sedentary',
+            'primary_diagnosis_category' => 'Diabetes',
             'edema_present' => true,
             'dry_weight_kg' => null,
         ]);
@@ -41,6 +42,7 @@ class AssessmentDryWeightTest extends TestCase
             'usual_weight' => 72,
             'height' => 170,
             'physical_activity_level' => 'sedentary',
+            'primary_diagnosis_category' => 'Diabetes',
             'edema_present' => false,
             'dry_weight_kg' => null,
         ]);
@@ -55,6 +57,7 @@ class AssessmentDryWeightTest extends TestCase
             'usual_weight' => 72,
             'height' => 170,
             'physical_activity_level' => 'sedentary',
+            'primary_diagnosis_category' => 'Diabetes',
             'edema_present' => true,
             'dry_weight_kg' => 700,
         ]);

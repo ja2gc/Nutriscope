@@ -34,16 +34,20 @@ class PersonNameBackendFlowTest extends TestCase
         $firstCounts = [
             'patients' => Patient::query()->count(),
             'cycles' => NcpRecord::query()->count(),
-            'revisions' => DB::table('audit_revisions')->count(),
+            'audit_revisions' => DB::table('audit_revisions')->count(),
+            'intervention_revisions' => DB::table('intervention_revisions')->count(),
             'reports' => Report::query()->count(),
         ];
+
+        $this->assertSame(3, $firstCounts['intervention_revisions']);
 
         $this->seed(PatientSeeder::class);
 
         $this->assertSame($firstCounts, [
             'patients' => Patient::query()->count(),
             'cycles' => NcpRecord::query()->count(),
-            'revisions' => DB::table('audit_revisions')->count(),
+            'audit_revisions' => DB::table('audit_revisions')->count(),
+            'intervention_revisions' => DB::table('intervention_revisions')->count(),
             'reports' => Report::query()->count(),
         ]);
 

@@ -53,7 +53,8 @@ class ClinicalFoodSeederSafetyTest extends TestCase
         $this->seed(FoodItemPricesSeeder::class);
 
         $this->assertGreaterThan(0, (float) FoodItem::query()->where('name', 'Steamed White Rice')->value('unit_price'));
-        $this->assertGreaterThan(0, (float) Recipe::query()->where('name', 'Plain White Rice Meal')->value('cost'));
+        $this->assertDatabaseMissing('recipes', ['name' => 'Plain White Rice Meal']);
+        $this->assertGreaterThan(0, (float) Recipe::query()->where('name', 'Boiled Chicken Breast')->value('cost'));
     }
 
     public function test_seeded_recipes_have_explicit_meal_component_and_prepared_portion_contracts(): void

@@ -88,7 +88,7 @@ class PatientMenuPlanGeneratorTest extends TestCase
         $plan = $this->makePlan();
         Assessment::factory()->create([
             'ncp_record_id' => $plan->intervention->ncp_record_id,
-            'pregnancy_lactation_status' => 'pregnant_trimester_2',
+            'pregnancy_lactation_status' => 'pregnant_t2',
         ]);
         $report = new Report([
             'title' => 'Nutrition Intervention Plan',
@@ -113,6 +113,58 @@ class PatientMenuPlanGeneratorTest extends TestCase
         $this->assertStringNotContainsString('INTERNAL BARRIER SENTINEL', $plain);
         $this->assertStringNotContainsString('Recipe Details', $plain);
         $this->assertStringNotContainsString('USDA source', $plain);
+    }
+
+    public function test_report_uses_current_lactating_status_for_maternal_note(): void
+    {
+        $plan = $this->makePlan();
+        Assessment::factory()->create([
+            'ncp_record_id' => $plan->intervention->ncp_record_id,
+            'pregnancy_lactation_status' => 'lactating',
+        ]);
+
+        $data = app(PatientMenuPlanGenerator::class)->data(new Report([
+            'type' => 'patient_menu_plan',
+            'parameters' => ['meal_plan_id' => $plan->id],
+        ]));
+
+        $this->assertSame(
+            'Final targets include the confirmed lactation adjustment.',
+            $data['maternal_note'],
+        );
+    }
+
+    public function test_report_omits_empty_snack_rows_and_keeps_populated_snack_rows(): void
+    {
+        $plan = $this->makePlan();
+        $breakfast = MealPlanDay::create([
+            'meal_plan_id' => $plan->id,
+            'day_of_week' => 'Monday',
+            'meal_type' => 'breakfast',
+        ]);
+        $snack = MealPlanDay::create([
+            'meal_plan_id' => $plan->id,
+            'day_of_week' => 'Monday',
+            'meal_type' => 'pm_snack',
+        ]);
+        $food = FoodItem::factory()->create(['name' => 'Papaya']);
+
+        foreach ([$breakfast, $snack] as $day) {
+            MealPlanItem::create([
+                'meal_plan_day_id' => $day->id,
+                'food_item_id' => $food->id,
+                'quantity' => 1,
+                'unit' => 'serving',
+                'nutrient_snapshot' => ['name' => 'Papaya'],
+            ]);
+        }
+
+        $data = app(PatientMenuPlanGenerator::class)->data(new Report([
+            'type' => 'patient_menu_plan',
+            'parameters' => ['meal_plan_id' => $plan->id],
+        ]));
+
+        $this->assertSame(['Breakfast', 'Lunch', 'PM Snack', 'Dinner'], $data['meals']);
     }
 
     public function test_portion_details_are_metric_precise_linked_and_deduplicated(): void
@@ -168,6 +220,49 @@ class PatientMenuPlanGeneratorTest extends TestCase
         $this->assertNull($detail['foods'][0]['household_measure']);
         $this->assertSame($detail['id'], $data['grid']['Lunch']['Monday'][0]['portion_id']);
         $this->assertSame($detail['id'], $data['grid']['Lunch']['Tuesday'][0]['portion_id']);
+    }
+
+    public function test_recipe_portions_use_the_persisted_prepared_amount_instead_of_multiplying_ingredients_by_grams(): void
+    {
+        $plan = $this->makePlan();
+        $bread = FoodItem::factory()->create([
+            'name' => 'Pandesal',
+            'serving_size' => 100,
+            'serving_unit' => 'g',
+        ]);
+        $recipe = Recipe::factory()->create([
+            'name' => 'Pandesal with egg',
+            'servings' => 1,
+            'prepared_portion_amount' => 100,
+            'prepared_portion_unit' => 'g',
+        ]);
+        RecipeIngredient::create([
+            'recipe_id' => $recipe->id,
+            'food_item_id' => $bread->id,
+            'quantity' => 100,
+            'unit' => 'g',
+        ]);
+        $day = MealPlanDay::create([
+            'meal_plan_id' => $plan->id,
+            'day_of_week' => 'Monday',
+            'meal_type' => 'breakfast',
+        ]);
+        MealPlanItem::create([
+            'meal_plan_day_id' => $day->id,
+            'recipe_id' => $recipe->id,
+            'quantity' => 125,
+            'unit' => 'g',
+            'nutrient_snapshot' => [
+                'name' => 'Pandesal with egg',
+                'serving_size' => 100,
+                'serving_unit' => 'g',
+            ],
+        ]);
+
+        $report = new Report(['type' => 'patient_menu_plan', 'parameters' => ['meal_plan_id' => $plan->id]]);
+        $data = app(PatientMenuPlanGenerator::class)->data($report);
+
+        $this->assertSame(125.0, $data['portion_details'][0]['foods'][0]['metric_amount']);
     }
 
     public function test_usda_item_appears_in_the_grid(): void
@@ -279,9 +374,128 @@ class PatientMenuPlanGeneratorTest extends TestCase
     {
         $source = file_get_contents(resource_path('views/reports/patient-menu-plan.blade.php'));
 
-        $this->assertStringContainsString('class="portion-block"', $source);
-        $this->assertStringContainsString('page-break-inside:avoid', $source);
+        $this->assertStringContainsString('class="portion-row-table"', $source);
+        $this->assertStringContainsString('class="portion-row"', $source);
+        $this->assertStringContainsString('<thead>', $source);
         $this->assertStringNotContainsString('recipe-ingredients', $source);
+    }
+
+    public function test_portion_details_render_three_cards_per_independent_row(): void
+    {
+        $plan = $this->makePlan();
+        $day = MealPlanDay::create([
+            'meal_plan_id' => $plan->id,
+            'day_of_week' => 'Monday',
+            'meal_type' => 'breakfast',
+        ]);
+
+        foreach (['Rice porridge', 'Boiled egg', 'Papaya', 'Milk'] as $name) {
+            $food = FoodItem::factory()->create([
+                'name' => $name,
+                'serving_size' => 100,
+                'serving_unit' => 'g',
+            ]);
+            MealPlanItem::create([
+                'meal_plan_day_id' => $day->id,
+                'food_item_id' => $food->id,
+                'quantity' => 100,
+                'unit' => 'g',
+                'nutrient_snapshot' => ['name' => $name],
+            ]);
+        }
+
+        $report = new Report([
+            'type' => 'patient_menu_plan',
+            'parameters' => ['meal_plan_id' => $plan->id],
+        ]);
+        $generator = app(PatientMenuPlanGenerator::class);
+        $html = view($generator->view(), [
+            ...$generator->data($report),
+            'branding' => ReportBranding::singleton(),
+            'signatories' => [],
+            'generated_at' => now(),
+            'report' => $report,
+        ])->render();
+
+        $document = new \DOMDocument;
+        $previousLibxmlState = libxml_use_internal_errors(true);
+        $document->loadHTML($html);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousLibxmlState);
+        $xpath = new \DOMXPath($document);
+        $rows = $xpath->query('//tr[contains(concat(" ", normalize-space(@class), " "), " portion-row ")]');
+        $menuGrid = $xpath->query('//table[contains(concat(" ", normalize-space(@class), " "), " menu-grid ")]');
+
+        $this->assertCount(1, $menuGrid);
+        $this->assertCount(2, $rows);
+        foreach ($rows as $row) {
+            $this->assertCount(
+                3,
+                $xpath->query('./td[contains(concat(" ", normalize-space(@class), " "), " portion-cell ")]', $row),
+            );
+        }
+    }
+
+    public function test_long_portion_details_render_as_bounded_page_groups(): void
+    {
+        $plan = $this->makePlan();
+        $day = MealPlanDay::create([
+            'meal_plan_id' => $plan->id,
+            'day_of_week' => 'Monday',
+            'meal_type' => 'breakfast',
+        ]);
+
+        foreach (range(1, 28) as $number) {
+            $name = "Portion {$number}";
+            $food = FoodItem::factory()->create([
+                'name' => $name,
+                'serving_size' => 100,
+                'serving_unit' => 'g',
+            ]);
+            MealPlanItem::create([
+                'meal_plan_day_id' => $day->id,
+                'food_item_id' => $food->id,
+                'quantity' => $number,
+                'unit' => 'g',
+                'nutrient_snapshot' => ['name' => $name],
+            ]);
+        }
+
+        $report = new Report([
+            'type' => 'patient_menu_plan',
+            'parameters' => ['meal_plan_id' => $plan->id],
+        ]);
+        $generator = app(PatientMenuPlanGenerator::class);
+        $html = view($generator->view(), [
+            ...$generator->data($report),
+            'branding' => ReportBranding::singleton(),
+            'signatories' => [],
+            'generated_at' => now(),
+            'report' => $report,
+        ])->render();
+
+        $document = new \DOMDocument;
+        $previousLibxmlState = libxml_use_internal_errors(true);
+        $document->loadHTML($html);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousLibxmlState);
+        $xpath = new \DOMXPath($document);
+        $groups = $xpath->query('//div[contains(concat(" ", normalize-space(@class), " "), " portion-page ")]');
+        $pageBreaks = $xpath->query('//div[contains(concat(" ", normalize-space(@class), " "), " page-break ")]');
+        $headings = $xpath->query('//table[contains(concat(" ", normalize-space(@class), " "), " portion-heading-table ")]');
+
+        $this->assertCount(2, $groups);
+        $this->assertCount(2, $pageBreaks);
+        $this->assertCount(2, $headings);
+        $this->assertCount(
+            18,
+            $xpath->query('.//td[contains(concat(" ", normalize-space(@class), " "), " portion-cell ") and not(contains(concat(" ", normalize-space(@class), " "), " portion-cell-empty "))]', $groups->item(0)),
+        );
+        $this->assertCount(
+            10,
+            $xpath->query('.//td[contains(concat(" ", normalize-space(@class), " "), " portion-cell ") and not(contains(concat(" ", normalize-space(@class), " "), " portion-cell-empty "))]', $groups->item(1)),
+        );
+        $this->assertCount(2, $xpath->query('.//*[contains(concat(" ", normalize-space(@class), " "), " portion-heading ") and normalize-space()="Portion details"]'));
     }
 
     public function test_prepare_persists_patient_menu_plan_and_view_and_download_stream_pdf(): void

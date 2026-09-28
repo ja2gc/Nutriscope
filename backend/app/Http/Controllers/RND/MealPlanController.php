@@ -179,6 +179,7 @@ class MealPlanController extends Controller
                 $request->conditions ?? [],
                 $request->allergens ?? [],
                 $request->boolean('exclude_snacks'),
+                $request->boolean('use_rice_as_carb'),
             ));
 
             if ($result instanceof MealPlan) {
@@ -236,6 +237,9 @@ class MealPlanController extends Controller
                 'description' => $validated['description'] ?? null,
                 'goal_type' => $validated['goal_type'] ?? $ncpRecord->intervention?->goal_type,
                 'disease_stage' => $validated['disease_stage'] ?? $ncpRecord->intervention?->disease_stage,
+                'maternal_status' => $this->templateMaternalStatus(
+                    $ncpRecord->assessment?->pregnancy_lactation_status,
+                ),
             ]);
 
             foreach ($mealPlan->days as $day) {
@@ -283,6 +287,7 @@ class MealPlanController extends Controller
                 'name' => $template->name,
                 'goal_type' => $template->goal_type,
                 'disease_stage' => $template->disease_stage,
+                'maternal_status' => $template->maternal_status,
             ],
         ], 201);
     }
@@ -295,12 +300,13 @@ class MealPlanController extends Controller
         $templates = MealPlanTemplate::where('rnd_user_id', auth()->id())
             ->orderByDesc('created_at')
             ->orderByDesc('id')
-            ->paginate($request->perPage(), ['id', 'uuid', 'name', 'description', 'goal_type', 'disease_stage', 'created_at'])
+            ->paginate($request->perPage(), ['id', 'uuid', 'name', 'description', 'goal_type', 'disease_stage', 'maternal_status', 'created_at'])
             ->withQueryString();
 
         $templates->through(fn ($t) => [
             'id' => $t->uuid, 'name' => $t->name, 'description' => $t->description,
             'goal_type' => $t->goal_type, 'disease_stage' => $t->disease_stage, 'created_at' => $t->created_at,
+            'maternal_status' => $t->maternal_status,
         ]);
 
         return response()->json([
@@ -355,6 +361,7 @@ class MealPlanController extends Controller
             'description' => $template->description,
             'goal_type' => $template->goal_type,
             'disease_stage' => $template->disease_stage,
+            'maternal_status' => $template->maternal_status,
             'created_at' => $template->created_at,
             'days' => $days,
         ]]);
@@ -433,6 +440,12 @@ class MealPlanController extends Controller
 
         $goalMatches = $template->goal_type === null || $template->goal_type === $intervention->goal_type;
         $stageMatches = $template->disease_stage === null || $template->disease_stage === $intervention->disease_stage;
+        $patientMaternalStatus = $ncpRecord->assessment?->pregnancy_lactation_status;
+        $maternalMatches = $this->maternalTemplateMatches($template->maternal_status, $patientMaternalStatus);
+        $requiresGoalReview = $template->maternal_status !== null
+            && $template->goal_type === null
+            && $intervention->goal_type !== 'custom'
+            && $maternalMatches;
 
         return response()->json([
             'data' => new MealPlanResource($plan->load(['days.items', 'revision'])),
@@ -440,9 +453,12 @@ class MealPlanController extends Controller
                 'template_compatibility' => [
                     'goal_matches' => $goalMatches,
                     'disease_stage_matches' => $stageMatches,
-                    'warning' => $goalMatches && $stageMatches
+                    'maternal_status_matches' => $maternalMatches,
+                    'warning' => $goalMatches && $stageMatches && $maternalMatches && ! $requiresGoalReview
                         ? null
-                        : 'This template was created for a different intervention goal or disease stage. Review and scale it before use.',
+                        : ($requiresGoalReview
+                            ? 'This general maternal template still needs review against the intervention goal before scaling.'
+                            : 'This template was created for a different intervention goal, disease stage, or maternal status. Review and scale it before use.'),
                 ],
             ],
         ], 201);
@@ -465,6 +481,28 @@ class MealPlanController extends Controller
     private function assertTemplateOwner(MealPlanTemplate $template): void
     {
         abort_unless($template->rnd_user_id === request()->user()?->id, 404);
+    }
+
+    private function templateMaternalStatus(?string $status): ?string
+    {
+        return match (true) {
+            is_string($status) && str_starts_with($status, 'pregnant_') && $status !== 'pregnant_unspecified' => 'pregnant',
+            $status === 'lactating' => 'lactating',
+            default => null,
+        };
+    }
+
+    private function maternalTemplateMatches(?string $templateStatus, ?string $patientStatus): bool
+    {
+        if ($templateStatus === null) {
+            return true;
+        }
+
+        $patientGroup = $this->templateMaternalStatus($patientStatus);
+
+        return $templateStatus === 'pregnant_or_lactating'
+            ? in_array($patientGroup, ['pregnant', 'lactating'], true)
+            : $templateStatus === $patientGroup;
     }
 
     /** @return array<string,mixed>|null */

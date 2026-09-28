@@ -20,7 +20,7 @@ Use this as the recording checklist and narration script for a future **Help →
 - Prepare one due-tomorrow scheduled appointment so the real reminder workflow can be shown, and leave space to create a walk-in.
 - Use no real-person names, hospital numbers, contact details, diagnoses, or documents.
 
-**Exact clinical acceptance sequence:** Assessment save/reload → cycle category and census → bounded PES drafts/manual fallback → baseline/modifier/final prescription → fluid-free meal scaling → normal Monitoring → optional Intervention revision → old/new revision-linked meal plans → Nutrition Intervention Plan and NCP Summary → frozen archive check.
+**Exact clinical acceptance sequence:** Assessment save/reload → cycle category and census → bounded PES drafts/manual fallback → baseline/modifier/final prescription → carb-aware, fluid-free meal generation/scaling → normal Monitoring → optional Intervention revision → old/new revision-linked meal plans → Nutrition Intervention Plan and NCP Summary → frozen archive check.
 
 ## Scene 1 — Open the Patient Record
 
@@ -83,8 +83,8 @@ Use this as the recording checklist and narration script for a future **Help →
 1. In Assessment, enter one weight-duration quantity plus weeks/months, select the required Primary diagnosis category, show conditional **Specify category** for Other, and choose a confirmed Pregnancy/Lactation status. Save/reload; show no Stress Factor control and no fixed three-month copy.
 2. Continue to Diagnosis and request **Assessment-based PES drafts**. Show zero to three results with Evidence used and Source, unchanged-data cache, Dismiss, and Assessment-change refresh. Choose **Edit** and show matching Problem/Etiology/Signs as selected options or checked boxes while unmatched detail remains in notes; save through the normal PES flow. Show the manual builder as fallback.
 3. Continue to Intervention, choose a goal and applicable stage, then expand the calculation panel. Show goal-calculated baseline, maternal modifier, final prescription, and separate fluid guidance before saving.
-4. Load a seeded goal template and show its exact items, then choose **Scale to prescription** to adjust quantities without replacing foods. Confirm fluid does not influence scaling variance or success.
-5. Create a second meal plan under the same Intervention revision. Show **Exclude snacks** on Auto-Generate and explain the liver-disease exception.
+4. Load a seeded goal template and show its exact items plus goal/stage/maternal compatibility, then choose **Scale to prescription** to adjust quantities without replacing foods. For the fictional maternal scenario, choose the separate NNC/DOH-derived Pregnancy or Lactation example that matches the Assessment, using its snack or no-snack variant as appropriate. Confirm fluid does not influence scaling variance or success.
+5. Create a second meal plan under the same Intervention revision. Show the compact Auto-Generate options: **Exclude snacks** (and the liver-disease exception) plus **Use rice as carb**. Generate once with rice and once without where practical; confirm the carbohydrate is a separate scalable item, the off state excludes rice sides, and a complete rice-based dish receives no duplicate side. For a confirmed pregnant/lactating fictional patient, show that composition and the final prescription both reflect maternal context while the clinical goal remains authoritative.
 6. In Monitoring, save one normal visit with **Revise intervention** closed. On a later fictional visit, open it, verify current values are prefilled, enter effective date/reason, revise one target, and save.
 7. Show the **Intervention revised · Version N** timeline entry, confirm earlier revision details remain read-only, then create a new meal plan linked to the newer revision.
 8. Point out the same visit bar on every step.

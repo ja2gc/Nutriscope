@@ -124,6 +124,7 @@ class AuditInventoryContractTest extends TestCase
         'app/Models/FoodServiceRecipe.php',
         'app/Models/FsItem.php',
         'app/Models/Intervention.php',
+        'app/Models/InterventionRevision.php',
         'app/Models/MealPlan.php',
         'app/Models/MealPrepLog.php',
         'app/Models/MenuCycle.php',

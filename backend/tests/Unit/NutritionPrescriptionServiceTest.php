@@ -145,4 +145,41 @@ class NutritionPrescriptionServiceTest extends TestCase
         $this->assertSame($baseline['protein_g'] + 27, $maternal['protein_g']);
         $this->assertSame(['energy_kcal' => 0, 'protein_g' => 27, 'water_guidance_ml' => 300], $maternal['maternal_modifier']['modifier']);
     }
+
+    public function test_lactation_modifier_applies_after_every_adult_goal_baseline(): void
+    {
+        $service = new NutritionPrescriptionService;
+        $metrics = [
+            'weightKg' => 60.0,
+            'heightCm' => 160.0,
+            'ageYears' => 30,
+            'sex' => 'Female',
+            'isAdult' => true,
+            'activityFactor' => 1.2,
+        ];
+        $goals = [
+            'renal_diet' => 'stage_3',
+            'diabetic_control' => 'stage_1',
+            'cardiac_diet' => 'mild',
+            'weight_loss' => 'overweight',
+            'weight_gain' => 'mild',
+            'high_protein' => 'mild_stress',
+            'liver_disease' => 'compensated',
+            'malnutrition' => 'moderate',
+            'custom' => null,
+        ];
+
+        foreach ($goals as $goal => $stage) {
+            $baseline = $service->autofill($goal, $stage, $metrics);
+            $maternal = $service->autofill($goal, $stage, [
+                ...$metrics,
+                'pregnancyLactationStatus' => 'lactating',
+            ]);
+
+            $this->assertSame($baseline['energy_kcal'] + 500, $maternal['energy_kcal'], $goal);
+            $this->assertSame($baseline['protein_g'] + 27, $maternal['protein_g'], $goal);
+            $this->assertSame($baseline['fluid_ml'], $maternal['fluid_ml'], $goal);
+            $this->assertSame('lactating', $maternal['maternal_modifier']['status'], $goal);
+        }
+    }
 }

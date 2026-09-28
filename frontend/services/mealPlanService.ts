@@ -152,7 +152,7 @@ export async function deleteMealPlan(ncpId: string, planId: string): Promise<voi
 
 export async function generateMealPlan(
   ncpId: string,
-  payload: { week_start_date: string; conditions?: string[]; allergens?: string[]; exclude_snacks?: boolean }
+  payload: { week_start_date: string; conditions?: string[]; allergens?: string[]; exclude_snacks?: boolean; use_rice_as_carb?: boolean }
 ): Promise<MealPlan
   | { insufficient_recipes: true; count: number; message: string }
   | { insufficient_suitable_foods: true; missing_meal_types: string[]; message: string }
@@ -178,6 +178,7 @@ export interface MealPlanTemplate {
   description: string | null;
   goal_type: string | null;
   disease_stage: string | null;
+  maternal_status: "pregnant" | "lactating" | "pregnant_or_lactating" | null;
   created_at: string;
 }
 
@@ -248,6 +249,7 @@ export async function createPlanFromTemplate(
   compatibility: {
     goal_matches: boolean;
     disease_stage_matches: boolean;
+    maternal_status_matches: boolean;
     warning: string | null;
   };
 }> {

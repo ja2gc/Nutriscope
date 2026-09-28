@@ -71,7 +71,7 @@ class DemoSeederCurrentContractTest extends TestCase
         ]);
 
         $this->seed(RecipeSeeder::class);
-        $seeded = Recipe::query()->where('name', 'Plain White Rice Meal')->firstOrFail();
+        $seeded = Recipe::query()->where('name', 'Boiled Chicken Breast')->firstOrFail();
         $seeded->update(['category' => 'STALE CATEGORY']);
         $firstCount = Recipe::query()->count();
 
@@ -79,9 +79,9 @@ class DemoSeederCurrentContractTest extends TestCase
 
         $this->assertTrue(Recipe::query()->whereKey($custom->id)->where('name', 'Ward Custom Recipe')->exists());
         $this->assertSame($firstCount, Recipe::query()->count());
-        $this->assertSame(1, Recipe::query()->where('name', 'Plain White Rice Meal')->count());
-        $this->assertSame('Staple', $seeded->fresh()->category);
-        $this->assertSame(1, $seeded->fresh()->ingredients()->count());
+        $this->assertDatabaseMissing('recipes', ['name' => 'Plain White Rice Meal']);
+        $this->assertSame('High Protein', $seeded->fresh()->category);
+        $this->assertGreaterThan(0, $seeded->fresh()->ingredients()->count());
     }
 
     public function test_recipe_seeder_fails_before_writing_partial_recipes(): void
@@ -96,7 +96,7 @@ class DemoSeederCurrentContractTest extends TestCase
         try {
             $this->seed(RecipeSeeder::class);
         } finally {
-            $this->assertDatabaseMissing('recipes', ['name' => 'Plain White Rice Meal']);
+            $this->assertDatabaseMissing('recipes', ['name' => 'Boiled Chicken Breast']);
         }
     }
 
@@ -110,7 +110,7 @@ class DemoSeederCurrentContractTest extends TestCase
 
         $patients = Patient::query()
             ->whereIn('hospital_number', ['HN-2026-0042', 'HN-2026-0078'])
-            ->with(['ncpRecords.assessment', 'ncpRecords.diagnoses', 'ncpRecords.intervention.mealPlans.days.items'])
+            ->with(['ncpRecords.assessment', 'ncpRecords.diagnoses', 'ncpRecords.intervention.revisions', 'ncpRecords.intervention.mealPlans.days.items'])
             ->get();
 
         $this->assertCount(2, $patients);
@@ -128,8 +128,12 @@ class DemoSeederCurrentContractTest extends TestCase
                 $this->assertNotNull($record->intervention);
                 $this->assertNotEmpty($record->diagnoses);
                 $this->assertNotEmpty($record->intervention->mealPlans);
+                $revision = $record->intervention->revisions->sole();
+                $this->assertSame(1, $revision->version);
+                $this->assertSame('legacy_baseline', $revision->source);
 
                 foreach ($record->intervention->mealPlans as $mealPlan) {
+                    $this->assertSame($revision->id, $mealPlan->intervention_revision_id);
                     $this->assertContains($mealPlan->status, ['draft', 'active']);
                     $this->assertCount(35, $mealPlan->days);
                     $this->assertTrue(

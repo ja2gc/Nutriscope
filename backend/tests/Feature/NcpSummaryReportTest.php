@@ -273,6 +273,32 @@ class NcpSummaryReportTest extends TestCase
         $this->assertStringContainsString('Increased energy after follow-up', $html);
     }
 
+    public function test_intervention_guidance_renders_as_one_pagination_block(): void
+    {
+        $ncp = $this->makeRecord();
+        $report = new Report(['type' => 'ncp_summary', 'parameters' => ['ncp_record_id' => $ncp->id]]);
+        $generator = app(NcpSummaryGenerator::class);
+        $html = view($generator->view(), [
+            ...$generator->data($report),
+            'branding' => ReportBranding::singleton(),
+            'signatories' => [],
+            'generated_at' => now(),
+            'report' => $report,
+        ])->render();
+
+        $document = new \DOMDocument;
+        $previousLibxmlState = libxml_use_internal_errors(true);
+        $document->loadHTML($html);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousLibxmlState);
+        $xpath = new \DOMXPath($document);
+        $guidance = $xpath->query('//div[contains(concat(" ", normalize-space(@class), " "), " intervention-guidance ")]');
+
+        $this->assertCount(1, $guidance);
+        $this->assertStringContainsString('Nutrition Education:', $guidance->item(0)->textContent);
+        $this->assertStringContainsString('Counseling Goals:', $guidance->item(0)->textContent);
+    }
+
     public function test_report_query_count_does_not_grow_with_more_clinical_rows(): void
     {
         $ncp = $this->makeRecord();

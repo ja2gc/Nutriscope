@@ -34,7 +34,7 @@ class FoodItem extends Model
      * making them eligible as standalone snacks in meal-plan auto-generation.
      * The per-item `ready_to_eat` column overrides this when non-null.
      */
-    public const READY_TO_EAT_CATEGORIES = ['fruit', 'vegetable'];
+    public const READY_TO_EAT_CATEGORIES = ['fruit'];
 
     /**
      * Whether this item may be placed as a standalone ready-to-eat snack.

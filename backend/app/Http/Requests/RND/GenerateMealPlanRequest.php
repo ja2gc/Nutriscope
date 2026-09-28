@@ -20,6 +20,7 @@ class GenerateMealPlanRequest extends FormRequest
             'allergens' => ['nullable', 'array'],
             'allergens.*' => ['nullable', 'string'],
             'exclude_snacks' => ['sometimes', 'boolean'],
+            'use_rice_as_carb' => ['sometimes', 'boolean'],
         ];
     }
 }

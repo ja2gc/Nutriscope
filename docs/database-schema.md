@@ -89,7 +89,7 @@ meal_plan_days          id, meal_plan_id, day_of_week, variance(json),
 meal_plan_items         id, meal_plan_day_id, food_item_id, recipe_id, fdc_id,
                         quantity, unit, nutrient_snapshot(json)
 meal_plan_templates     id, name, description, goal_type, disease_stage,
-                        rnd_user_id, timestamps
+                        maternal_status, rnd_user_id, timestamps
 meal_plan_template_days id, meal_plan_template_id, day_of_week, meal_type, recipe_id, food_item_id, quantity
 meal_plan_template_items id, template_day_id, food_item_id, recipe_id, fdc_id,
                         quantity, unit, nutrient_snapshot(json), line_order, timestamps

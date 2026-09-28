@@ -14,7 +14,7 @@
 > **Authority hierarchy:** This document → `prescription-targets.json` (machine-readable contract) →
 > PHP backend (authoritative runtime) → TypeScript mirror.
 
-**Last updated:** 2026-09-21
+**Last updated:** 2026-09-28
 **References:** PDRI 2015 (FNRI-DOST, rev. Sept 2018) · WHO Asia-Pacific Perspective (2000) ·
 KDOQI 2020 · ADA 2024/2026 · ESPEN 2019 · NICE CG32 · GLIM 2019/2025
 
@@ -77,7 +77,8 @@ themselves certify HIPAA or Philippine Data Privacy Act compliance.
 12. [Malnutrition](#12-malnutrition)
 13. [Clinical Distinction: Malnutrition vs Weight Gain](#13-clinical-distinction-malnutrition-vs-weight-gain)
 14. [Appendix — disease_stage Quick Reference](#14-appendix--disease_stage-quick-reference)
-15. [Changelog](#15-changelog)
+15. [Meal-Plan Composition Research and Runtime Boundary](#15-meal-plan-composition-research-and-runtime-boundary)
+16. [Changelog](#16-changelog)
 
 ---
 
@@ -96,7 +97,7 @@ proxy and fed nothing).
 | `age_years` | Computed from `dob` at assessment date | Required | Never entered as a second independent age value |
 | `sex` | `patients.sex` | Required | `Male` \| `Female` in the current runtime |
 | `physical_activity_level` | Assessment | Required by the workflow | Maps to PAL factor (§2); legacy fallback is sedentary (`1.2`) |
-| `goal_type` | RND selection | Required | Determines which section applies; `custom` uses manual targets. The UI shows no stage list before goal selection and only the selected goal's stages afterward. |
+| `goal_type` | RND selection | Required | Determines which section applies; `custom` starts from the editable individualized maintenance calculation. The UI shows no stage list before goal selection and only the selected goal's stages afterward. |
 | `disease_stage` | RND selection | Required when the selected goal defines stages | Must be valid for the selected `goal_type` |
 | `edema_present` | Assessment boolean | Required, default `false` | If true, auto-fill is blocked until the RND enters confirmed dry weight |
 | `pregnancy_lactation_status` | Assessment | Required, default `none` | `none` \| `pregnant_t1` \| `pregnant_t2` \| `pregnant_t3` \| `pregnant_unspecified` \| `lactating`; confirmed statuses apply PDRI add-ons |
@@ -104,9 +105,11 @@ proxy and fed nothing).
 The current prescription runtime does not apply a separate assessment `stress_factor` multiplier.
 Stress is represented by the selected `high_protein` stage where clinically appropriate; applying
 both would double-count stress. Goal/stage calculation is the final non-maternal prescription;
-the engine must not add a second maintenance target. Every non-custom goal must produce energy,
-protein, carbohydrate, fat, and fluid guidance. `custom` requires the RND to enter and confirm
-those targets manually.
+the engine must not add a second maintenance target. Every goal must produce energy, protein,
+carbohydrate, fat, and fluid guidance. `custom` starts from Mifflin-St Jeor BMR × PAL, protein at
+0.8 g/kg IBW, 25% energy from fat, carbohydrate as the remaining energy, and 30 mL/kg working-
+weight fluid guidance. The RND may edit and confirms the saved values. Confirmed maternal status
+is applied after this baseline exactly as it is for every other intervention goal.
 
 **Derived within the engine (not stored as inputs):**
 
@@ -1017,17 +1020,98 @@ Both goal types may involve underweight patients and caloric surpluses. They are
 | `high_protein` | `mild_stress` `moderate_stress` `severe_stress` `burns` | Flat rate | 30–35 mL/kg; burns individualized |
 | `liver_disease` | `compensated` `decompensated` `encephalopathy_grade_1_2` `encephalopathy_grade_3_4` | Flat rate | Baseline unless `decompensated` (clinician) |
 | `malnutrition` | `moderate` `severe` | Flat rate | 30–35 mL/kg |
-| `custom` | null | Manual RND entry | Manual RND entry |
+| `custom` | null | TEE-based editable maintenance | 30 mL/kg (editable guidance) |
 
 > **Removed:** `fluid_restriction` as standalone goal type (removed 2026-06-05). Fluid restriction
 > is a clinical modifier embedded within CKD and Cardiac goals.
 
 ---
 
-## 15. Changelog
+## 15. Meal-Plan Composition Research and Runtime Boundary
+
+This section records the source review performed for the meal-plan generator and seeded clinical
+templates on 2026-09-28. It controls composition and candidate selection only. The energy,
+protein, carbohydrate, fat, fluid, and micronutrient prescription remains controlled by the
+goal-specific sections above and the RND-confirmed patient prescription.
+
+**Authority order for meal planning:** RND-confirmed individualized prescription → applicable
+goal-specific clinical authority in §§5–12 → PDRI quantitative references → FNRI Food Exchange
+Lists and Nutritional Guidelines for Filipino meal planning → Pinggang Pinoy as a visual
+composition cross-check only. Pinggang Pinoy is not the nutrient-calculation engine and must not
+override an individualized prescription.
+
+### 15.1 Source record
+
+| Source reviewed | Exact location reviewed | Finding used | Runtime/template decision |
+|---|---|---|---|
+| Academy of Nutrition and Dietetics, *Nutrition Care Process Model* and *What Is Medical Nutrition Therapy?* | NCP Model sections on the individual/RDN relationship and evidence-based practice; MNT sections “What Is Medical Nutrition Therapy?” and “What to Expect at Your Appointment,” reviewed March 3, 2026 | Nutrition intervention follows assessment and diagnosis; MNT is a personalized, culturally appropriate plan based on health, history, nutrition status, activity, lifestyle, and goals. | NutriScope never treats a generic plate as an individual prescription. The saved RND prescription, allergies, intervention goal/stage, maternal status, and current assessment remain authoritative; templates and auto-generation are reviewable starting points. |
+| Academy of Nutrition and Dietetics, *Nutrition and Physical Activity Interventions for Adults in the General Population* | Current Academy position page, intervention-plan and individualized counseling/coaching discussion | General-population guidance supports evidence-based nutrition interventions while distinguishing population programming from individualized care. | Academy material is used for the care-process/personalization boundary, not for Philippines-specific numeric constants or a fixed U.S. meal pattern. |
+| DOST-FNRI, *Philippine Dietary Reference Intakes 2015: Summary Tables*, revised September 2018 | Summary Tables pp. 1–8: energy, AMDR, protein, vitamins, minerals, electrolytes, water, fiber, free sugars, and maternal additions by age/sex/life stage | PDRI is the Philippine quantitative reference for healthy population groups. For adults, the summary gives age/sex reference energy and AMDR of 10–15% protein, 15–30% fat, and 55–75% carbohydrate; requirements differ by life stage rather than forming one universal “normal adult” value. | PDRI supplies baseline nutrient boundaries and maternal modifiers already documented in §§2 and 4. The generator does not hard-code one general calorie target: it scores foods against the saved patient prescription, which accounts for the patient and selected goal. |
+| National Nutrition Council Governing Board Resolution No. 6, Series of 2012, and the *2012 Nutritional Guidelines for Filipinos* | Resolution adopting the guideline; ten public-health messages summarized by NNC | General guidance calls for food variety, fish/lean meat/poultry/egg/beans/nuts, more vegetables and fruits, calcium-rich foods, and limits on salty, fried, fatty, and sugar-rich foods. | The `custom` base varies culturally familiar foods and favors lean protein, vegetables, fruit, and less-refined carbohydrate choices. It does not turn public-health advice into unsupported disease-specific limits. |
+| DOST-FNRI, *Pinggang Pinoy for Different Population Groups* | Web section describing the per-meal plate proportions | A general Filipino visual plate uses approximately one-half fruits/vegetables (`Glow`), one-sixth protein foods (`Grow`), and one-third rice, corn, bread, oatmeal, or root crops (`Go`). | Used only as a composition cross-check: `custom` offers a main dish, separately selectable carbohydrate, and vegetable side when the available foods and prescription permit. Quantities come from nutrient snapshots and the saved prescription, not fixed plate geometry. |
+| DOST-FNRI, *Food Exchange Lists for Filipinos*, 4th edition (2019), as identified by the official MARFEL FAQ and HELP Online | MARFEL FAQ sections “What is the basis of the food measurements?” and “What is a Food Exchange Lists for Filipinos?”; HELP Online Food Exchange Lists tool description | The Food Exchange Lists are FNRI's portion/exchange tool for meal planning; MARFEL measurements use the 4th edition, 2019. | NutriScope continues to calculate from stored food/recipe nutrient snapshots and verified quantities. Food-exchange or household measures are shown only when an existing verified conversion is available; the system must not invent a measure or silently substitute an unavailable exchange dataset. |
+| DOST-FNRI Policy Statement 13, *Pinggang Pinoy: A Healthy Food Plate for Filipino Adults* | PDF p. 2, scope and plate-composition paragraphs | Pinggang Pinoy is intended for healthy Filipinos and is explicitly not a therapeutic plan for conditions such as hypertension or diabetes. Its visual rule is one-half `Go` + `Grow` (with `Go` larger) and one-half `Glow` (with vegetables larger than fruit). | The general plate is not applied blindly to clinical goals. Renal, diabetes, cardiac, weight, high-protein, liver, and malnutrition templates retain the disease-specific limits and authorities documented in §§5–12. A carbohydrate may be reduced or omitted when it worsens fit to the prescribed target. |
+| DOST-FNRI, *2019 4th Quarter FNRI Updates* | PDF pp. 5–6, maternal-needs discussion and pregnant/lactating Pinggang Pinoy examples | Pregnant/lactating examples use varied `Go` foods (rice, bread, noodles, root crops), `Grow` foods (fish, lean meat, egg, tofu), vegetables/fruits, and water; the publication also notes increased maternal nutrient needs. | Confirmed pregnancy/lactation changes both the final prescription through the PDRI modifiers in §2 and the generated food composition through the balanced-component path. Maternal templates include culturally familiar `Go`, `Grow`, `Glow`, fruit, and planned snack choices. Goal-specific restrictions still take precedence. |
+| DOST-FNRI 43rd Seminar Series, *Development of 2017 Modified Cycle Menus for Pregnant and Lactating Women* | Abstract p. 1, methods and conclusion | FNRI developed and validated a four-week cycle menu for pregnant/lactating women using Pinggang Pinoy, sensory evaluation, and field pretesting. | Reusable pregnancy and lactation templates are appropriate, but remain starting patterns. Loading one under a non-`custom` clinical goal displays a review warning before scaling because a maternal example cannot replace a disease-specific prescription. |
+| National Nutrition Council/Department of Health, *Healthy Eating Guide for Mommies* (March 15, 2022 infographic/article) | Article paragraphs on maternal additions, variety, food groups, fatty fish, milk/calcium foods, animal protein/iron, vegetables/fruits, leafy vegetables/folate, water, and medical-condition boundary | Healthy pregnant/lactating people should use varied carbohydrate foods, whole grains, fish/lean meat/egg/beans, calcium-rich foods, animal protein, vegetables, fruit, and leafy vegetables. The article explicitly directs those with diabetes, hypertension, allergies, or other conditions to individualized physician/RND advice. | The seed graph contains separate `Pregnant` and `Lactating` examples rather than one ambiguous maternal template. Both are food-pattern examples only and must be scaled/reviewed against the RND-confirmed trimester/status prescription and any clinical goal. |
+| National Nutrition Council/Department of Health, *Healthy Pregnancy* and *Nutrition Tips for Breastfeeding Mothers* | Pregnancy daily-pattern paragraph; breastfeeding meal-plan checklist and additional-tips sections | Pregnancy guidance specifies daily variety across carbohydrate foods, protein foods, vegetables, fruit, and milk. The breastfeeding checklist includes vegetables, fruit, at least two milk servings, varied carbohydrate exchanges, and beans/lean meat/fish/poultry/tofu choices. | The pregnancy seed includes daily milk and fruit; the lactation seed includes two daily milk items and fruit. Both provide vegetables at lunch/dinner, varied Filipino protein dishes, and separate carbohydrate items. Quantities remain editable and prescription-scaled. |
+| U.S. HHS/USDA, *Dietary Guidelines for Americans, 2025–2030*, 10th edition | Current-guidelines overview, January 2026 | The current U.S. guideline emphasizes nutrient-dense protein foods, vegetables, fruits, dairy, healthy fats, and whole grains while reducing highly processed foods, refined carbohydrates, added sugars, excess sodium, and unhealthy fats. | Used only as a current cross-check for the balanced-food direction. It adds no Filipino clinical constant and does not override PDRI, DOST-FNRI, or the disease-specific authorities in this document. |
+
+**Reviewed sources:**
+
+- DOST-FNRI, [Pinggang Pinoy for Different Population Groups](https://www.fnri.dost.gov.ph/index.php/programs-and-projects/news-and-announcement/183-fnri-dost-launches-pinggang-pinoy-for-different-population-groups)
+- Academy of Nutrition and Dietetics, [Nutrition Care Process Model](https://www.eatrightpro.org/practice/nutrition-care-process/ncp-overview/nutrition-care-process-model)
+- Academy of Nutrition and Dietetics, [What Is Medical Nutrition Therapy?](https://www.eatright.org/health/wellness/healthful-habits/what-is-medical-nutrition-therapy)
+- Academy of Nutrition and Dietetics, [Nutrition and Physical Activity Interventions for Adults in the General Population](https://www.eatrightpro.org/practice/guidelines-and-positions/academy-positions/nutrition-and-physical-activity-interventions-for-adults-in-the-general-population)
+- DOST-FNRI, [Philippine Dietary Reference Intakes 2015: Summary Tables, revised September 2018](https://fnri.dost.gov.ph/images/images/news/PDRI-2018.pdf)
+- National Nutrition Council, [Governing Board resolutions adopting the 2012 Nutritional Guidelines and 2015 PDRI](https://nnc.gov.ph/resources/policies-guidelines-and-publications/governing-board-resolutions/)
+- National Nutrition Council, [2012 Nutritional Guidelines for Filipinos summary](https://nnc.gov.ph/luzon-region/revised-nutritional-guidelines-for-pinoys-presented-in-car/)
+- DOST-FNRI, [MARFEL Food Exchange List FAQ](https://marfel.fnri.dost.gov.ph/marfel-faqs)
+- DOST-FNRI, [HELP Online meal-planning tools](https://helponline.fnri.dost.gov.ph/)
+- DOST-FNRI, [Policy Statement 13 — Pinggang Pinoy](https://www.fnri.dost.gov.ph/images/sources/PolicyStatement/PS13.pdf)
+- DOST-FNRI, [2019 4th Quarter FNRI Updates](https://www.fnri.dost.gov.ph/images/sources/media/2019/4thQtr.pdf)
+- DOST-FNRI, [Development of 2017 Modified Cycle Menus for Pregnant and Lactating Women](https://www.fnri.dost.gov.ph/images/sources/SeminarSeries/43rd/Develoment-of-2017-MGC.pdf)
+- National Nutrition Council/Department of Health, [Healthy Eating Guide for Mommies](https://nnc.gov.ph/luzon-region/healthy-eating-guide-for-mommies/)
+- National Nutrition Council/Department of Health, [Healthy Pregnancy](https://nnc.gov.ph/luzon-region/healthy-pregnancy/)
+- National Nutrition Council/Department of Health, [Nutrition Tips for Breastfeeding Mothers](https://nnc.gov.ph/mindanao-region/nutrition-tips-for-breastfeeding-mothers/)
+- U.S. HHS/USDA, [Current Dietary Guidelines, 2025–2030](https://odphp.health.gov/our-work/nutrition-physical-activity/dietary-guidelines/current-dietary-guidelines)
+
+### 15.2 Generator and template contract
+
+- Rice and other carbohydrate foods are direct meal-plan items, not wrapper recipes. Their quantity
+  therefore scales independently from the main dish.
+- A recipe may contain rice only when rice is structurally defining, such as arroz caldo,
+  champorado, lugaw, or another true rice-based dish. A complete meal with intrinsic carbohydrate
+  receives no automatic carbohydrate side.
+- `Use rice as carb` limits automatic side-carbohydrate candidates to the pinned rice foods. When
+  off, rice is excluded from that candidate pool and the generator chooses among suitable non-rice
+  foods. Candidate selection remains allergy-filtered, prescription-scored, and varied within the
+  best-fitting choices.
+- The generator adds a side carbohydrate only when it improves prescription fit. This supports
+  smaller or absent carbohydrate sides when required by the RND-confirmed goal and targets.
+- The general `custom` pattern and confirmed maternal generation may add a vegetable side when the
+  selected main dish does not already contain vegetables. Raw aromatics such as garlic are not
+  standalone snacks; category fallback permits fruit only, while a vegetable must be explicitly
+  marked ready-to-eat to enter the snack pool.
+- Patient PDFs keep the existing meal schedule presentation, omit snack rows with no items, and
+  show portion details in compact three-column rows. Carbohydrates remain ordinary meal items and
+  are not given a new patient-facing `carb` label.
+- Seeded templates are editable starting points, never automatic diagnoses or substitutes for RND
+  review. The template compatibility response checks intervention goal, disease stage, and maternal
+  status; scaling uses the final patient prescription. Each general, goal, pregnancy, and lactation
+  pattern has a with-snacks and no-snacks variant. The no-snacks maternal variants fold the same
+  required milk and fruit components into meals instead of discarding them. Liver disease remains
+  the safety exception: both seeded variants preserve frequent intake. The maternal patterns are
+  derived from the official NNC/DOH food-group and serving guidance above and are not represented
+  as an exact government therapeutic diet.
+
+---
+
+## 16. Changelog
 
 | Date | Change |
 |---|---|
+| 2026-09-28 | **Meal-plan composition research and runtime boundary documented.** Added Academy, PDRI, FNRI Food Exchange List, Nutritional Guidelines, Pinggang Pinoy, maternal-menu, and current U.S. guideline review locations. The hierarchy makes the individualized prescription authoritative and limits Pinggang Pinoy to a visual cross-check; direct carbohydrates, rice preference, intrinsic-carbohydrate, balanced custom, maternal composition, snack safety, and goal-specific review rules are explicit. |
 | 2026-09-21 | **Maternal and fluid runtime contract locked.** TEE remains BMR × PAL; trimester-specific energy and +27 g/day protein modifiers use PDRI 2015 Summary Tables 1–2 (rev. Sept 2018); fluid is guidance outside meal-plan scaling; goal stages remain progressively disclosed. |
 | 2026-09-20 | **Clinical/reporting/privacy boundary documented.** Diagnosis categories remain separate from nutrition diagnoses and intervention goals; pregnancy/lactation remains a PDRI modifier; oncology requires individualized goal selection. Required calculation inputs and privacy limitations are explicit. Runtime pregnancy values and TEE inputs were reconciled with current code. |
 | 2026-07-17 | **Severe prescriptions changed to flat full targets.** Removed staged low-calorie output and phase metadata. Severe `malnutrition` and `weight_gain` use 32.5 kcal/kg by default; micronutrients appear only with numeric targets. |

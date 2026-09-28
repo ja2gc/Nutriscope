@@ -215,6 +215,19 @@ class MealPlanControllerTest extends TestCase
             ->assertJsonValidationErrors(['week_start_date']);
     }
 
+    public function test_generate_meal_plan_rejects_non_boolean_rice_preference(): void
+    {
+        [$ncpRecord] = $this->makeInterventionWithNcpRecord();
+
+        $this->actingAs($this->rnd)
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans/generate", [
+                'week_start_date' => '2026-06-09',
+                'use_rice_as_carb' => 'sometimes',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['use_rice_as_carb']);
+    }
+
     public function test_cannot_generate_meal_plan_without_intervention(): void
     {
         $patient = Patient::factory()->create();
@@ -292,6 +305,28 @@ class MealPlanControllerTest extends TestCase
             ->assertJsonPath('data.name', 'CKD Stage 4 — Week A');
 
         $this->assertDatabaseHas('meal_plan_templates', ['name' => 'CKD Stage 4 — Week A']);
+    }
+
+    public function test_saved_template_records_confirmed_maternal_context(): void
+    {
+        [$ncpRecord, $intervention, $patient] = $this->makeInterventionWithNcpRecord();
+        $ncpRecord->assessment()->create(['pregnancy_lactation_status' => 'pregnant_t2']);
+        $plan = MealPlan::factory()->create([
+            'intervention_id' => $intervention->id,
+            'patient_id' => $patient->id,
+        ]);
+
+        $this->actingAs($this->rnd)
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans/{$plan->uuid}/save-template", [
+                'name' => 'Pregnancy pattern',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.maternal_status', 'pregnant');
+
+        $this->assertDatabaseHas('meal_plan_templates', [
+            'name' => 'Pregnancy pattern',
+            'maternal_status' => 'pregnant',
+        ]);
     }
 
     public function test_saving_template_preserves_every_item_and_its_snapshot(): void
@@ -444,6 +479,55 @@ class MealPlanControllerTest extends TestCase
         $this->assertSame(['1.50', '1.00'], $items->pluck('quantity')->all());
         $this->assertSame('Cooked rice', $items[0]->nutrient_snapshot['name']);
         $this->assertSame('Fish', $items[1]->nutrient_snapshot['name']);
+    }
+
+    public function test_general_maternal_template_matches_confirmed_status_but_requires_goal_review(): void
+    {
+        [$ncpRecord, $intervention] = $this->makeInterventionWithNcpRecord();
+        $ncpRecord->assessment()->create(['pregnancy_lactation_status' => 'lactating']);
+        $intervention->update(['goal_type' => 'high_protein', 'disease_stage' => 'moderate_stress']);
+        $template = MealPlanTemplate::forceCreate([
+            'rnd_user_id' => $this->rnd->id,
+            'name' => 'General maternal pattern',
+            'goal_type' => null,
+            'maternal_status' => 'lactating',
+        ]);
+
+        $this->actingAs($this->rnd)
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans/from-template", [
+                'template_id' => $template->uuid,
+                'week_start_date' => now()->addWeek()->startOfWeek()->toDateString(),
+            ])
+            ->assertCreated()
+            ->assertJsonPath('meta.template_compatibility.goal_matches', true)
+            ->assertJsonPath('meta.template_compatibility.maternal_status_matches', true)
+            ->assertJsonPath(
+                'meta.template_compatibility.warning',
+                'This general maternal template still needs review against the intervention goal before scaling.'
+            );
+    }
+
+    public function test_maternal_template_flags_non_maternal_patient_as_incompatible(): void
+    {
+        [$ncpRecord] = $this->makeInterventionWithNcpRecord();
+        $ncpRecord->assessment()->create(['pregnancy_lactation_status' => 'none']);
+        $template = MealPlanTemplate::forceCreate([
+            'rnd_user_id' => $this->rnd->id,
+            'name' => 'Maternal-only pattern',
+            'maternal_status' => 'pregnant_or_lactating',
+        ]);
+
+        $this->actingAs($this->rnd)
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans/from-template", [
+                'template_id' => $template->uuid,
+                'week_start_date' => now()->addWeek()->startOfWeek()->toDateString(),
+            ])
+            ->assertCreated()
+            ->assertJsonPath('meta.template_compatibility.maternal_status_matches', false)
+            ->assertJsonPath(
+                'meta.template_compatibility.warning',
+                'This template was created for a different intervention goal, disease stage, or maternal status. Review and scale it before use.'
+            );
     }
 
     public function test_scale_to_prescription_changes_only_existing_quantities_using_practical_increments(): void

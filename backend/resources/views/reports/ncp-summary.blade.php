@@ -133,13 +133,15 @@
             <td>{{ $intervention?->fluid_ml }}</td>
         </tr>
     </table>
-    <div style="margin-top:4px;"><span class="bold">Diet / Stage:</span> {{ $intervention?->disease_stage }}</div>
-    <div><span class="bold">Nutrition Education:</span> {{ $intervention?->education_notes }}</div>
-    <div><span class="bold">Counseling Goals:</span> {{ $intervention?->counseling_goals }}</div>
-    {{-- RP-03: reference the patient's meal plan for this cycle. --}}
-    @if(!empty($meal_plan))
-        <div><span class="bold">Meal Plan:</span> Week of {{ $meal_plan['week_start_date'] }} (#{{ $meal_plan['id'] }}, {{ ucfirst($meal_plan['status']) }})</div>
-    @endif
+    <div class="intervention-guidance">
+        <div style="margin-top:4px;"><span class="bold">Diet / Stage:</span> {{ $intervention?->disease_stage }}</div>
+        <div><span class="bold">Nutrition Education:</span> {{ $intervention?->education_notes }}</div>
+        <div><span class="bold">Counseling Goals:</span> {{ $intervention?->counseling_goals }}</div>
+        {{-- RP-03: reference the patient's meal plan for this cycle. --}}
+        @if(!empty($meal_plan))
+            <div><span class="bold">Meal Plan:</span> Week of {{ $meal_plan['week_start_date'] }} (#{{ $meal_plan['id'] }}, {{ ucfirst($meal_plan['status']) }})</div>
+        @endif
+    </div>
 
     @if(!empty($intervention_revisions))
         <div style="margin-top:7px; page-break-inside:avoid;">

@@ -36,6 +36,7 @@ import CounselingTab from "./_components/CounselingTab";
 import GoalPlanningTab from "./_components/GoalPlanningTab";
 import MealPlanSection from "./_components/MealPlanSection";
 import NcpPatientHeader from "../../../_components/NcpPatientHeader";
+import { InfoHint } from "@/components/ui/InfoHint";
 
 type Tab = "nd" | "education" | "counseling" | "goals";
 type PageParams = { patientId: string; ncpId: string };
@@ -547,9 +548,12 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
 
             {/* [D] Meal Plan */}
             {prescription.fluid_ml && (
-              <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-800">
-                <span className="font-bold">Daily fluid guidance:</span> {prescription.fluid_ml} mL. Food listings do not guarantee beverage intake or a fluid limit.
-              </p>
+              <div className="flex items-center gap-1 text-sm text-sky-800">
+                <p><span className="font-bold">Daily fluid guidance:</span> {prescription.fluid_ml} mL</p>
+                <InfoHint label="How fluid guidance relates to the meal plan" title="Fluid guidance and food listings">
+                  Food listings do not guarantee beverage intake or a fluid limit.
+                </InfoHint>
+              </div>
             )}
             <MealPlanSection
               ncpId={ncpId}

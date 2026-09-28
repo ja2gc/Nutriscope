@@ -39,7 +39,6 @@ export function PatientsNcpTab() {
     <Card className="overflow-hidden">
       <div className="px-5 py-4 border-b border-warm-100">
         <h2 className="text-base font-bold text-warm-800">Patients NCP</h2>
-        <p className="text-xs text-warm-500 mt-0.5">Choose a patient and ADIME cycle for its NCP Summary and Nutrition Intervention Plan.</p>
       </div>
       <div className="px-5 py-3 border-b border-warm-100">
         <SearchInput

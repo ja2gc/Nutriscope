@@ -16,8 +16,17 @@
         table { width: 100%; border-collapse: collapse; }
         table.grid th, table.grid td { border: 1px solid #333; padding: 4px 6px; vertical-align: top; }
         table.grid th { background: #f1f1f1; font-size: 10px; text-transform: uppercase; letter-spacing: .3px; }
+        table.menu-grid { font-size: 10px; line-height: 1.15; table-layout: fixed; }
+        table.grid.menu-grid th, table.grid.menu-grid td { padding: 2px 4px; }
         table.recipe-ingredients, table.recipe-ingredients thead,
         table.recipe-ingredients tbody, table.recipe-ingredients tr { page-break-inside: avoid; }
+        .intervention-guidance { page-break-inside: avoid; }
+        table.portion-heading-table { margin-top: 4px; page-break-after: avoid; }
+        table.portion-row-table.portion-heading-table td.portion-heading { border: 0; border-bottom: 1px solid #e5e7eb; font-size: 8pt; padding: 0 4px 3px; width: 100%; }
+        table.portion-row-table { border-collapse: separate; border-spacing: 4px; margin: 0; table-layout: fixed; width: 100%; page-break-inside: avoid; }
+        table.portion-row-table tr { page-break-inside: avoid; }
+        table.portion-row-table td { border: 1px solid #e5e7eb; padding: 4px 6px; vertical-align: top; width: 33.333%; }
+        table.portion-row-table td.portion-cell-empty { border: 0; }
         .title { font-size: 14px; font-weight: bold; text-align: center; margin: 10px 0 2px; text-transform: uppercase; }
         .subtitle { font-size: 11px; text-align: center; margin-bottom: 8px; }
         .sigs { width: 100%; margin-top: 28px; }

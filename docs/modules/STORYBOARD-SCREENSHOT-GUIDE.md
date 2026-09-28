@@ -191,13 +191,13 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### RND-NCP-11 — Patient Meal Plan
 
-**Description:** RND creates a manual/generated/template-based meal plan linked to the active immutable Intervention revision, then checks allergens, restrictions, portions, nutrition totals, and macro/energy variance. Fluid guidance is not part of scaling or target-match success.
+**Description:** RND creates a manual/generated/template-based meal plan linked to the active immutable Intervention revision, then checks allergens, restrictions, portions, nutrition totals, and macro/energy variance. Auto-generation can exclude snacks and select rice-only or suitable non-rice side carbohydrates; those foods scale independently from the main recipe, complete rice-based dishes receive no duplicate side, and confirmed maternal status uses balanced maternal composition. Template compatibility includes goal, stage, and maternal context. Fluid guidance is not part of scaling or target-match success.
 
 **User should do:** Open the demo plan, add/adjust an item, review target variance, and save.
 
 **Next scene:** Education/Counseling/Goal Planning and shared visit controls.
 
-> **Screenshot needed:** Meal Plan area with one demo day/meal, foods, nutrition totals or variance, and save/generate/template controls.
+> **Screenshot needed:** Meal Plan area with one demo day/meal, foods, nutrition totals or variance, compact auto-generation options (including rice), and save/generate/template controls.
 >
 > **Insert screenshot below this line.**
 

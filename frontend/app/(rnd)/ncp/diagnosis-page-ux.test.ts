@@ -23,6 +23,8 @@ describe("NCP explicit save and diagnosis UX", () => {
 
   test("uses bounded assessment-based drafts with sources, evidence, cache, and persisted dismissal", () => {
     expect(page).toContain("Assessment-based PES drafts");
+    expect(page).toContain("<InfoHint");
+    expect(page).toContain("How PES drafts work");
     expect(page).toContain("Evidence used");
     expect(page).toContain("Source");
     expect(page).toContain("Cached for this unchanged Assessment");
@@ -34,6 +36,7 @@ describe("NCP explicit save and diagnosis UX", () => {
     expect(page).not.toContain("% confidence");
     expect(page).not.toContain("conditions.push");
     expect(page).not.toContain("aiSuggestDiagnoses(ncpId, {");
+    expect(page).not.toContain("Source-gated drafts use only eligible, de-identified Assessment evidence. Review and edit before accepting. Manual PES entry remains available.");
   });
 
   test("mutating NCP actions use explicit save wording", () => {

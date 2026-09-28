@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
+import { InfoHint } from "@/components/ui/InfoHint";
 import {
   fetchMealPlans, createMealPlan, fetchAllMealPlanItems, addMealPlanItem,
   removeMealPlanItem, updateMealPlanItem, deleteMealPlan, generateMealPlan,
@@ -63,6 +64,7 @@ export default function MealPlanSection({
   const [generating, setGenerating]       = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [excludeSnacks, setExcludeSnacks] = useState(false);
+  const [useRiceAsCarb, setUseRiceAsCarb] = useState(false);
 
   // Micro display
   const [showMicros, setShowMicros] = useState(false);
@@ -185,6 +187,7 @@ export default function MealPlanSection({
         week_start_date: d.toISOString().split('T')[0],
         allergens: allergens.length > 0 ? allergens : undefined,
         exclude_snacks: excludeSnacks,
+        use_rice_as_carb: useRiceAsCarb,
       });
       if ('insufficient_recipes' in result || 'insufficient_suitable_foods' in result || 'snacks_required' in result) {
         setGenerateError(result.message);
@@ -465,17 +468,30 @@ export default function MealPlanSection({
           <button onClick={handleGenerate} disabled={generating} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
             {generating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />} Auto-Generate
           </button>
-          <label className="flex min-h-9 items-center gap-2 rounded-lg border border-warm-200 px-2.5 text-xs font-semibold text-warm-600">
-            <input type="checkbox" checked={excludeSnacks}
-              disabled={interventionGoal === 'liver_disease'}
-              onChange={(event) => setExcludeSnacks(event.target.checked)}
-              className="h-4 w-4 accent-emerald-600" />
-            Exclude snacks
-          </label>
           <button onClick={handleCreatePlan} disabled={creatingPlan} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
             {creatingPlan ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />} New Week
           </button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-warm-100 bg-warm-50/60 px-3 py-1.5">
+        <span className="text-xs font-bold uppercase tracking-wider text-warm-400">Auto-generate</span>
+        <label className="flex min-h-9 items-center gap-2 text-xs font-semibold text-warm-600">
+          <input type="checkbox" checked={useRiceAsCarb}
+            onChange={(event) => setUseRiceAsCarb(event.target.checked)}
+            className="h-4 w-4 accent-emerald-600" />
+          Use rice as carb
+        </label>
+        <InfoHint label="How the carbohydrate choice works" title="Carbohydrate choice">
+          If off, auto-generation chooses a suitable non-rice carbohydrate source and fits its amount to the prescription. Complete dishes keep their intrinsic carbohydrate without an added side.
+        </InfoHint>
+        <label className="flex min-h-9 items-center gap-2 text-xs font-semibold text-warm-600">
+          <input type="checkbox" checked={excludeSnacks}
+            disabled={interventionGoal === 'liver_disease'}
+            onChange={(event) => setExcludeSnacks(event.target.checked)}
+            className="h-4 w-4 accent-emerald-600" />
+          Exclude snacks
+        </label>
       </div>
 
       {allergens.length > 0 && (
@@ -925,7 +941,7 @@ export default function MealPlanSection({
                     <div key={tmpl.id} className="flex items-center gap-2 p-3 border border-warm-200 rounded-xl hover:border-warm-300 transition-colors">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-warm-800 truncate">{tmpl.name}</p>
-                        {tmpl.goal_type && <p className="text-xs text-warm-400 capitalize">{tmpl.goal_type.replace(/_/g, ' ')}{tmpl.disease_stage ? ` · ${tmpl.disease_stage.replace(/_/g, ' ')}` : ''}</p>}
+                        {(tmpl.goal_type || tmpl.maternal_status) && <p className="text-xs text-warm-400 capitalize">{tmpl.goal_type?.replace(/_/g, ' ') ?? 'Maternal'}{tmpl.disease_stage ? ` · ${tmpl.disease_stage.replace(/_/g, ' ')}` : ''}</p>}
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <button onClick={() => handleViewTemplate(tmpl.id)} disabled={loadingTemplate === tmpl.id}
@@ -944,7 +960,7 @@ export default function MealPlanSection({
               {!viewingTemplate && <Pagination meta={templateMeta} page={templatePage} onPageChange={setTemplatePage} />}
               {viewingTemplate && (
                 <div className="space-y-3">
-                  {viewingTemplate.goal_type && <p className="text-xs text-warm-400 capitalize">{viewingTemplate.goal_type.replace(/_/g, ' ')}{viewingTemplate.disease_stage ? ` · ${viewingTemplate.disease_stage.replace(/_/g, ' ')}` : ''}</p>}
+                  {(viewingTemplate.goal_type || viewingTemplate.maternal_status) && <p className="text-xs text-warm-400 capitalize">{viewingTemplate.goal_type?.replace(/_/g, ' ') ?? 'Maternal'}{viewingTemplate.disease_stage ? ` · ${viewingTemplate.disease_stage.replace(/_/g, ' ')}` : ''}</p>}
                   {(['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'] as const).map((day) => {
                     const daySlots = viewingTemplate.days.filter((d) => d.day_of_week === day);
                     if (daySlots.length === 0) return null;

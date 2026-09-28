@@ -58,8 +58,7 @@ class FoodItemsSeeder extends Seeder
             }
         }
 
-        // The legacy category fallback treats every vegetable as a ready-to-eat
-        // snack. Pin the curated demo interpretation so raw garlic and cooked
+        // Pin the curated demo interpretation so raw garlic and cooked
         // vegetables cannot appear as standalone snacks, while fruit can.
         $foods = array_map(function (array $food): array {
             if (($food['ready_to_eat'] ?? null) === null) {
