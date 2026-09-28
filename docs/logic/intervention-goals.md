@@ -1094,8 +1094,9 @@ override an individualized prescription.
   standalone snacks; category fallback permits fruit only, while a vegetable must be explicitly
   marked ready-to-eat to enter the snack pool.
 - Patient PDFs keep the existing meal schedule presentation, omit snack rows with no items, and
-  show portion details in compact three-column rows. Carbohydrates remain ordinary meal items and
-  are not given a new patient-facing `carb` label.
+  show portion details in compact three-column rows. A repeated dish or food uses one detail card;
+  distinct saved amounts remain separately labelled and linked from their menu cells. Carbohydrates
+  remain ordinary meal items and are not given a new patient-facing `carb` label.
 - Seeded templates are editable starting points, never automatic diagnoses or substitutes for RND
   review. The template compatibility response checks intervention goal, disease stage, and maternal
   status; scaling uses the final patient prescription. Each general, goal, pregnancy, and lactation
@@ -1111,6 +1112,7 @@ override an individualized prescription.
 
 | Date | Change |
 |---|---|
+| 2026-09-28 | **Deployed QA follow-up reconciled.** Repeated foods now share one compact portion card with separately referenced saved amounts. This changes presentation only; no new nutrition calculation or external clinical source was introduced. Monitoring target-status, progressive help, and food-alert disclosure were aligned with the already approved clinical/runtime contract. |
 | 2026-09-28 | **Meal-plan composition research and runtime boundary documented.** Added Academy, PDRI, FNRI Food Exchange List, Nutritional Guidelines, Pinggang Pinoy, maternal-menu, and current U.S. guideline review locations. The hierarchy makes the individualized prescription authoritative and limits Pinggang Pinoy to a visual cross-check; direct carbohydrates, rice preference, intrinsic-carbohydrate, balanced custom, maternal composition, snack safety, and goal-specific review rules are explicit. |
 | 2026-09-21 | **Maternal and fluid runtime contract locked.** TEE remains BMR × PAL; trimester-specific energy and +27 g/day protein modifiers use PDRI 2015 Summary Tables 1–2 (rev. Sept 2018); fluid is guidance outside meal-plan scaling; goal stages remain progressively disclosed. |
 | 2026-09-20 | **Clinical/reporting/privacy boundary documented.** Diagnosis categories remain separate from nutrition diagnoses and intervention goals; pregnancy/lactation remains a PDRI modifier; oncology requires individualized goal selection. Required calculation inputs and privacy limitations are explicit. Runtime pregnancy values and TEE inputs were reconciled with current code. |

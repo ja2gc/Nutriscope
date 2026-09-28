@@ -221,13 +221,13 @@ Use this version when screenshots are available. Each scene already contains the
 
 **Next scene:** Progress Trends.
 
-> **Screenshot needed:** Monitoring Visit Log with the follow-up Assessment and collapsed **Update care plan** action. Add a second image showing a neutral **Care plan version N** history entry and the optional Intervention handoff.
+> **Screenshot needed:** Monitoring Visit Log with the follow-up Assessment and collapsed **Update care plan** action. Add a second image showing a neutral **Care plan version N** entry beneath only its originating visit and the optional Intervention handoff.
 >
 > **Insert screenshot below this line.**
 
 #### RND-NCP-14 — Monitoring Progress Trends
 
-**Description:** Progress view compares follow-up data with the clearly labelled baseline Assessment and saved prescription targets. Prior care-plan revisions remain readable/immutable, and older meal plans keep their original revision while new plans link to the current one.
+**Description:** Progress view compares follow-up data with the baseline Assessment and saved prescription targets. Its help controls explain baseline/reference/target chart marks without repeated inline notes. Weight moving toward but outside its target band remains **In Progress**. Prior care-plan revisions remain readable/immutable, and older meal plans keep their original revision while new plans link to the current one.
 
 **User should do:** Explain whether the care plan continues, changes, or closes based on demo trend.
 
@@ -239,7 +239,7 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### RND-NCP-15 — Clinical Report Preview and Archive
 
-**Description:** Patients NCP lists recent patients first. Opening one patient shows non-deleted ADIME cycles. Selecting one cycle keeps only that cycle's NCP Summary and Nutrition Intervention Plan together. NCP Summary lists version 1 and dated Monitoring revisions; the selected plan uses its linked revision and compact precise portion blocks, with no preparation instructions or source note. Preparing/archiving freezes the exact filed PDF bytes and snapshot.
+**Description:** Patients NCP lists recent patients first. Opening one patient shows non-deleted ADIME cycles. Selecting one cycle keeps only that cycle's NCP Summary and Nutrition Intervention Plan together. NCP Summary lists version 1 and dated Monitoring revisions; the selected plan uses its linked revision and compact three-column portion blocks, with one card per repeated dish/food and separate references for distinct saved amounts. There are no preparation instructions or source notes. Preparing/archiving freezes the exact filed PDF bytes and snapshot.
 
 **User should do:** Open **Patients NCP**, choose a fictional patient, select one ADIME cycle, preview every page of both report types, verify revision/portion/fluid content and clean pagination, then show an existing frozen archived copy.
 

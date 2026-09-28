@@ -265,6 +265,52 @@ class PatientMenuPlanGeneratorTest extends TestCase
         $this->assertSame(125.0, $data['portion_details'][0]['foods'][0]['metric_amount']);
     }
 
+    public function test_repeated_food_with_different_portions_uses_one_detail_card_with_linked_variants(): void
+    {
+        $plan = $this->makePlan();
+        $guava = FoodItem::factory()->create([
+            'name' => 'Guava',
+            'serving_size' => 100,
+            'serving_unit' => 'g',
+        ]);
+
+        foreach ([['Monday', 250], ['Tuesday', 275]] as [$dayName, $quantity]) {
+            $day = MealPlanDay::create([
+                'meal_plan_id' => $plan->id,
+                'day_of_week' => $dayName,
+                'meal_type' => 'am_snack',
+            ]);
+            MealPlanItem::create([
+                'meal_plan_day_id' => $day->id,
+                'food_item_id' => $guava->id,
+                'quantity' => $quantity,
+                'unit' => 'g',
+                'nutrient_snapshot' => ['name' => 'Guava', 'serving_size' => 100, 'serving_unit' => 'g'],
+            ]);
+        }
+
+        $report = new Report(['type' => 'patient_menu_plan', 'parameters' => ['meal_plan_id' => $plan->id]]);
+        $generator = app(PatientMenuPlanGenerator::class);
+        $data = $generator->data($report);
+
+        $this->assertCount(1, $data['portion_details']);
+        $this->assertSame('Guava', $data['portion_details'][0]['dish']);
+        $this->assertCount(2, $data['portion_details'][0]['variants']);
+        $this->assertNotSame(
+            $data['grid']['AM Snack']['Monday'][0]['portion_id'],
+            $data['grid']['AM Snack']['Tuesday'][0]['portion_id'],
+        );
+
+        $html = view($generator->view(), [
+            ...$data,
+            'branding' => ReportBranding::singleton(),
+            'signatories' => [],
+            'generated_at' => now(),
+            'report' => $report,
+        ])->render();
+        $this->assertSame(1, substr_count($html, '>Guava</p>'));
+    }
+
     public function test_usda_item_appears_in_the_grid(): void
     {
         $plan = $this->makePlan();

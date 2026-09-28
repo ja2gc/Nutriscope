@@ -17,7 +17,9 @@ describe("NCP active patient header", () => {
     expect(header).toContain("Change Patient");
     expect(header).toContain("Physician");
     expect(header).toContain("Risk");
-    expect(header).toContain("Foods");
+    expect(header).toContain("Food alerts");
+    expect(header).toContain("<InfoHint");
+    expect(header).not.toContain('label: "Foods"');
     expect(header).toContain("Goal");
     expect(header).toContain("Medical diagnosis");
     expect(header).not.toContain("NS-");

@@ -23,6 +23,7 @@ import type { Intervention } from "@/services/interventionService";
 import { GOAL_MICRO_FLAGS, ALL_MICROS } from "@/lib/nutritionCalculations";
 import type { MonitoringPlan, PlanIndicator } from "@/services/monitoringPlan";
 import { planToChartSeries } from "@/services/monitoringPlan";
+import { InfoHint } from "@/components/ui/InfoHint";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -95,14 +96,17 @@ function PlanTrendCharts({ plan }: { plan: MonitoringPlan }) {
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-warm-500">
+        Chart guide
+        <InfoHint label="How to read trend charts" title="Trend chart guide">
+          The first point is the saved Assessment baseline. Amber lines mark reference limits; green dashed lines mark prescription targets.
+        </InfoHint>
+      </div>
       {sections.map((s) => (
         <ChartCard key={s.category} title={s.title}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             {s.items.map((i) => <PlanIndicatorChart key={i.key} indicator={i} />)}
           </div>
-          <p className="text-xs text-warm-300 mt-3 select-none">
-            Visit 1 = assessment baseline · amber = reference range · green dashed = prescription target.
-          </p>
         </ChartCard>
       ))}
     </div>

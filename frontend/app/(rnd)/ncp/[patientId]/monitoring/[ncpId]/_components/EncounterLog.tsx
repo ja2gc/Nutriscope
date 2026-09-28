@@ -32,10 +32,14 @@ function formatDate(dateStr: string): string {
 function revisionReason(entry: MonitoringEntry): string {
   const revision = entry.intervention_revision;
   if (!revision) return "";
-  if (revision.source === "legacy_baseline" || revision.reason === "Legacy intervention baseline") {
-    return "Initial care plan";
-  }
   return revision.reason;
+}
+
+function isVisitRevision(entry: MonitoringEntry): boolean {
+  const revision = entry.intervention_revision;
+  return Boolean(revision
+    && revision.source !== "legacy_baseline"
+    && revision.reason !== "Legacy intervention baseline");
 }
 
 export default function EncounterLog({ entries, onLogNew, onDelete }: EncounterLogProps) {
@@ -130,7 +134,7 @@ export default function EncounterLog({ entries, onLogNew, onDelete }: EncounterL
                         </span>
                       </button>
 
-                      {entry.intervention_revision && (
+                      {isVisitRevision(entry) && entry.intervention_revision && (
                         <div className="mx-5 mb-3 rounded-lg border border-warm-200 bg-warm-50 px-3 py-2 text-xs text-warm-700">
                           <span className="font-bold">
                             Care plan version {entry.intervention_revision.version}

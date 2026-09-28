@@ -91,6 +91,16 @@ class MonitoringPlanServiceTest extends TestCase
         $this->assertSame(1800.0, $energy['target']);
     }
 
+    public function test_weight_target_is_display_ready_and_progress_requires_target_attainment(): void
+    {
+        $plan = app(MonitoringPlanService::class)->build($this->makeNcp());
+
+        $weight = $this->indicator($plan, 'weight');
+        $this->assertNotNull($weight);
+        $this->assertSame(round($weight['target'], 1), $weight['target']);
+        $this->assertSame('in_progress', $weight['latest_status']);
+    }
+
     public function test_pes_statements_present(): void
     {
         $plan = app(MonitoringPlanService::class)->build($this->makeNcp());

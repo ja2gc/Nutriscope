@@ -1192,7 +1192,7 @@ export default function NcpDiagnosisPage({
       {activeTab !== "table" && activeTab !== "ai" && (
         <div className="bg-white border border-warm-200 rounded-xl px-5 py-3.5 flex items-center justify-between shadow-sm">
           <div className="text-xs text-warm-500 font-semibold select-none">
-            {builder.editingId ? `Editing diagnosis #${builder.editingId}` : "New diagnosis"} · NCP Cycle #{ncpId}
+            {builder.editingId ? `Editing diagnosis #${builder.editingId}` : "New diagnosis"}
           </div>
           <button
             type="button"

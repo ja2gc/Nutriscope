@@ -192,16 +192,14 @@ class MonitoringPlanService
         }
 
         $height = $assessment->height !== null ? (float) $assessment->height : null;
-        $ibw = $height !== null && $height > 0 ? $this->prescription->ibw($height, $sex) : null;
-        $nutritionalStatus = $assessment->nutritional_status;
-
-        // Weight — trended; target = IBW; status uses gain/loss goal logic.
+        $ibw = $height !== null && $height > 0 ? round($this->prescription->ibw($height, $sex), 1) : null;
+        // Weight — trended against an IBW target band.
         $weightPoints = [['visit' => 'Visit 1', 'value' => $assessment->weight !== null ? (float) $assessment->weight : null]];
         foreach ($monitorings as $i => $m) {
             $weightPoints[] = ['visit' => 'Follow-up '.($i + 1), 'value' => $m->weight !== null ? (float) $m->weight : null];
         }
         $weight = $this->finishIndicator('weight', ['label' => 'Weight', 'unit' => 'kg'], 'anthro', ['calculated'], null, $ibw, $weightPoints,
-            fn ($curr, $prev) => $curr === null ? 'no_data' : MonitoringSummaryService::metricStatus('weight', $curr, $prev, $nutritionalStatus));
+            fn ($curr, $prev) => $this->targetStatus($curr, $prev, $ibw));
 
         // BMI — trended; WHO normal band.
         $bmiPoints = [['visit' => 'Visit 1', 'value' => $assessment->bmi !== null ? (float) $assessment->bmi : null]];
@@ -352,5 +350,20 @@ class MonitoringPlanService
         }
 
         return ($actual / $target * 100) < 90 ? 'not_met' : 'met';
+    }
+
+    private function targetStatus(?float $current, ?float $previous, ?float $target): string
+    {
+        if ($current === null || $target === null || $target <= 0) {
+            return 'no_data';
+        }
+        if (abs($current - $target) / $target <= 0.10) {
+            return 'met';
+        }
+        if ($previous !== null && abs($current - $target) < abs($previous - $target)) {
+            return 'in_progress';
+        }
+
+        return 'not_met';
     }
 }

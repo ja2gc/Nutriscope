@@ -44,4 +44,8 @@ describe("NCP explicit save and diagnosis UX", () => {
     expect(goalModal).toContain("Save Goal");
     expect(monitoring).toContain("Save Visit");
   });
+
+  test("does not expose the raw NCP cycle identifier in the builder", () => {
+    expect(page).not.toContain("NCP Cycle #{ncpId}");
+  });
 });

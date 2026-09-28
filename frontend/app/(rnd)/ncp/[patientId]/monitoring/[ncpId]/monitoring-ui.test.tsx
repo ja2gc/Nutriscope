@@ -3,7 +3,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import CarePlanHeader from "./_components/CarePlanHeader";
 import EncounterLog from "./_components/EncounterLog";
+import GoalProgressTracker from "./_components/GoalProgressTracker";
 import LogVisitForm from "./_components/LogVisitForm";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 describe("monitoring workflow UI", () => {
   it("presents monitoring sources as plain targets without decorative card-title icons", () => {
@@ -23,7 +26,7 @@ describe("monitoring workflow UI", () => {
     expect(html).not.toContain("lucide-flask-conical");
   });
 
-  it("uses a neutral readable care-plan history entry", () => {
+  it("does not repeat a migrated baseline under every monitoring visit", () => {
     const html = renderToStaticMarkup(<EncounterLog
       entries={[{
         id: "visit-1",
@@ -52,12 +55,55 @@ describe("monitoring workflow UI", () => {
       onDelete={() => undefined}
     />);
 
-    expect(html).toContain("Care plan version 1");
-    expect(html).toContain("Initial care plan");
+    expect(html).not.toContain("Care plan version 1");
+    expect(html).not.toContain("Initial care plan");
     expect(html).toContain("Not recorded");
     expect(html).not.toContain("Intervention revised");
     expect(html).not.toContain("border-emerald-200 bg-emerald-50");
     expect(html).not.toContain("—");
+  });
+
+  it("keeps chart guidance in help and formats targets for display", () => {
+    const html = renderToStaticMarkup(<GoalProgressTracker
+      plan={{
+        visits: [],
+        pes_statements: [],
+        goal_type: "weight_loss",
+        nutritional_status: "Overweight",
+        indicators: [{
+          key: "weight",
+          label: "Weight",
+          unit: "kg",
+          category: "anthro",
+          sources: ["calculated"],
+          reference: null,
+          target: 47.751968503937015,
+          series: [
+            { visit: "Visit 1", value: 62, status: "no_data" },
+            { visit: "Follow-up 1", value: 60.8, status: "in_progress" },
+          ],
+          latest_status: "in_progress",
+        }],
+      }}
+      entries={[]}
+      baselineWeight={62}
+      baselineBmi={25.8}
+      baselineLabs={null}
+      nutritionalStatus="Overweight"
+    />);
+
+    expect(html).toContain("target 47.8 kg");
+    expect(html).not.toContain("47.751968503937015");
+    expect(html).not.toContain("lucide-trending-up");
+    expect(html).not.toContain("Visit 1 = assessment baseline");
+    expect(html).toContain("How progress and chart guides work");
+
+    const chartSource = readFileSync(join(
+      process.cwd(),
+      "app/(rnd)/ncp/[patientId]/monitoring/[ncpId]/_components/VisitTrendsChart.tsx",
+    ), "utf8");
+    expect(chartSource.match(/Visit 1 = assessment baseline/g) ?? []).toHaveLength(0);
+    expect(chartSource).toContain("How to read trend charts");
   });
 
   it("collects reassessment details and keeps care-plan updates optional", () => {

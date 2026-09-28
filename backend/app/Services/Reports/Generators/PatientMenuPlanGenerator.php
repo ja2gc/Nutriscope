@@ -74,6 +74,7 @@ class PatientMenuPlanGenerator implements ReportGenerator
 
         $portionDetails = [];
         $portionIds = [];
+        $portionGroupIndexes = [];
         foreach ($plan->days as $day) {
             // meal_type is stored raw ('breakfast'); the grid is keyed by display
             // labels ('Breakfast'). Map before lookup or every item is dropped.
@@ -89,10 +90,20 @@ class PatientMenuPlanGenerator implements ReportGenerator
                     $portion = $this->portionFor($item, $name);
                     $portionKey = hash('sha256', json_encode($portion, JSON_THROW_ON_ERROR));
                     if (! isset($portionIds[$portionKey])) {
-                        $portionIds[$portionKey] = 'P'.(count($portionDetails) + 1);
-                        $portionDetails[] = [
+                        $portionIds[$portionKey] = 'P'.(count($portionIds) + 1);
+                        $dishKey = mb_strtolower(trim($portion['dish']));
+                        if (! isset($portionGroupIndexes[$dishKey])) {
+                            $portionGroupIndexes[$dishKey] = count($portionDetails);
+                            $portionDetails[] = [
+                                'id' => $portionIds[$portionKey],
+                                'dish' => $portion['dish'],
+                                'foods' => $portion['foods'],
+                                'variants' => [],
+                            ];
+                        }
+                        $portionDetails[$portionGroupIndexes[$dishKey]]['variants'][] = [
                             'id' => $portionIds[$portionKey],
-                            ...$portion,
+                            'foods' => $portion['foods'],
                         ];
                     }
                     $grid[$label][$day->day_of_week][] = [

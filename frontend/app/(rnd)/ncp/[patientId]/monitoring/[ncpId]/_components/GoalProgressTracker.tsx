@@ -1,7 +1,7 @@
 "use client";
 
-import { TrendingUp } from "lucide-react";
 import TrendSparkline from "./TrendSparkline";
+import { InfoHint } from "@/components/ui/InfoHint";
 import {
   MonitoringEntry,
   MonitoringLabValues,
@@ -34,8 +34,12 @@ interface GoalProgressTrackerProps {
   nutritionalStatus: string | null;
 }
 
+function formatMetricValue(value: number): string {
+  return new Intl.NumberFormat("en-PH", { maximumFractionDigits: 1 }).format(value);
+}
+
 function referenceLabelFor(reference: { min?: number | null; max?: number | null } | null, target: number | null, unit: string): string {
-  if (target != null) return `target ${target}${unit ? ` ${unit}` : ""}`;
+  if (target != null) return `target ${formatMetricValue(target)}${unit ? ` ${unit}` : ""}`;
   if (!reference) return "—";
   const { min, max } = reference;
   if (min != null && max != null) return `${min}–${max}`;
@@ -44,18 +48,25 @@ function referenceLabelFor(reference: { min?: number | null; max?: number | null
   return "—";
 }
 
+function GoalProgressHeading() {
+  return (
+    <div className="flex items-center gap-1">
+      <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">
+        Goal Progress
+      </h3>
+      <InfoHint label="How progress and chart guides work" title="Progress and chart guide">
+        The baseline is the saved Assessment. Follow-ups show only supported patient indicators. Amber chart lines mark reference limits; green dashed lines mark prescription targets.
+      </InfoHint>
+    </div>
+  );
+}
+
 /** Plan-driven tracker: one row per patient-specific tracked indicator (Visit 1 → latest). */
 function PlanProgressTable({ plan }: { plan: MonitoringPlan }) {
   return (
     <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-hidden">
       <div className="px-5 py-4 border-b border-warm-100">
-        <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider flex items-center gap-2">
-          <TrendingUp className="h-4 w-4 text-emerald-600" />
-          Goal Progress
-        </h3>
-        <p className="text-xs text-warm-400 mt-0.5">
-          Visit 1 = assessment baseline · only this patient&apos;s tracked indicators
-        </p>
+        <GoalProgressHeading />
       </div>
       <div className="overflow-x-auto">
         <div className="min-w-[560px]">
@@ -161,15 +172,9 @@ export default function GoalProgressTracker({
     return (
       <div className="bg-white border border-warm-200 rounded-2xl shadow-sm">
         <div className="px-5 py-4 border-b border-warm-100">
-          <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-emerald-600" />
-            Goal Progress
-          </h3>
+          <GoalProgressHeading />
         </div>
         <div className="p-10 text-center">
-          <div className="p-3 bg-warm-50 border border-dashed border-warm-300 rounded-xl w-fit mx-auto mb-3">
-            <TrendingUp className="h-6 w-6 text-warm-400" />
-          </div>
           <p className="text-sm font-semibold text-warm-500">No assessment baseline found.</p>
           <p className="text-xs text-warm-400 mt-1">
             Complete the assessment step to enable goal tracking.
@@ -182,13 +187,7 @@ export default function GoalProgressTracker({
   return (
     <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-hidden">
       <div className="px-5 py-4 border-b border-warm-100">
-        <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider flex items-center gap-2">
-          <TrendingUp className="h-4 w-4 text-emerald-600" />
-          Goal Progress
-        </h3>
-        <p className="text-xs text-warm-400 mt-0.5">
-          Baseline from initial assessment · Status based on clinical reference ranges
-        </p>
+        <GoalProgressHeading />
       </div>
 
       {/* Horizontally scrollable on small screens */}
@@ -302,12 +301,12 @@ function TrackerRow({
 
       {/* Baseline */}
       <p className="text-sm font-mono text-warm-500 truncate">
-        {baseline !== null ? baseline : <span className="text-warm-300">—</span>}
+        {baseline !== null ? formatMetricValue(baseline) : <span className="text-warm-300">—</span>}
       </p>
 
       {/* Current */}
       <p className={`text-sm font-mono font-bold truncate ${current !== null ? 'text-warm-900' : 'text-warm-300'}`}>
-        {current !== null ? current : '—'}
+        {current !== null ? formatMetricValue(current) : '—'}
       </p>
 
       {/* Reference range */}

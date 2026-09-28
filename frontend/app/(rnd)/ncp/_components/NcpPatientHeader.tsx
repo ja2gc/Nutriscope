@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { Patient } from "@/services/patientService";
 import { personDisplayName } from "@/lib/personName";
 import { NcpVisitBar } from "@/components/ncp/NcpVisitBar";
+import { InfoHint } from "@/components/ui/InfoHint";
 
 type Props = {
   patient: Patient | null;
@@ -44,13 +45,10 @@ export default function NcpPatientHeader({
   onChangePatientClick,
   ncpId,
 }: Props) {
+  const foodAlerts = Array.from(new Set((foodDetails ?? []).map(clean).filter(Boolean))) as string[];
   const context = [
     { label: "Physician", value: clean(physician) ?? clean(patient?.physician) },
     { label: "Risk", value: formatRisk(riskScore) },
-    {
-      label: "Foods",
-      value: Array.from(new Set((foodDetails ?? []).map(clean).filter(Boolean))).join(", ") || null,
-    },
     { label: "Goal", value: formatGoal(interventionGoal) },
     { label: "Medical diagnosis", value: clean(medicalDiagnosis) ?? clean(patient?.medical_diagnosis) },
   ].filter((item): item is { label: string; value: string } => Boolean(item.value));
@@ -65,7 +63,7 @@ export default function NcpPatientHeader({
           <h2 className="break-words text-base font-extrabold tracking-tight text-warm-900">
             {personDisplayName(patient, "Loading patient...")}
           </h2>
-          {context.length > 0 && (
+          {(context.length > 0 || foodAlerts.length > 0) && (
             <dl className="mt-1.5 flex min-w-0 flex-wrap gap-x-4 gap-y-1 text-xs leading-5">
               {context.map((item) => (
                 <div key={item.label} className="min-w-0 break-words text-warm-600">
@@ -73,6 +71,18 @@ export default function NcpPatientHeader({
                   <dd className="inline font-semibold text-warm-800">{item.value}</dd>
                 </div>
               ))}
+              {foodAlerts.length > 0 && (
+                <div className="flex min-w-0 items-center text-warm-600">
+                  <dt className="font-extrabold text-warm-500">Food alerts</dt>
+                  <dd>
+                    <InfoHint label="Review food allergies, dislikes, and restrictions" title="Food alerts">
+                      <ul className="list-disc space-y-1 pl-4">
+                        {foodAlerts.map((detail) => <li key={detail}>{detail}</li>)}
+                      </ul>
+                    </InfoHint>
+                  </dd>
+                </div>
+              )}
             </dl>
           )}
         </div>

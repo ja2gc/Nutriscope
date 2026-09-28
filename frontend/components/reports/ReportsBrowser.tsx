@@ -55,7 +55,7 @@ export const FULL_CATALOG: CatalogEntry[] = [
   { type: "procurement_pack", name: "Procurement Pack", desc: "AIR + Statement + Summary of Marketing.", icon: PackageCheck, group: "Food Service" },
   { type: "accomplishment_report", name: "Accomplishment Report", desc: "Per-staff semi-monthly duty sheet + diet-list headcount logged by FSS.", icon: ClipboardList, group: "Food Service" },
   { type: "patients_ncp", name: "Patients NCP", desc: "Choose a patient, then an ADIME cycle, to view its reports.", icon: ClipboardList, group: "Clinical" },
-  { type: "demographic_census", name: "Demographic Census", desc: "ADIME cycle counts by age, sex, ward, diagnosis.", icon: ClipboardList, group: "Clinical" },
+  { type: "demographic_census", name: "Demographic Census", desc: "ADIME cycle counts by primary diagnosis category, nutritional status, and risk level.", icon: ClipboardList, group: "Clinical" },
 ];
 
 // Admin-allowed catalog: RND parity minus patient-specific reports.
@@ -64,7 +64,7 @@ export const ADMIN_CATALOG: CatalogEntry[] = [
   { type: "menu_calendar", name: "Menu Calendar", desc: "Printable Mon-Sun grid for the kitchen.", icon: CalendarDays, group: "Food Service" },
   { type: "procurement_pack", name: "Procurement Pack", desc: "AIR + Statement + Summary of Marketing.", icon: PackageCheck, group: "Food Service" },
   { type: "accomplishment_report", name: "Accomplishment Report", desc: "Per-staff semi-monthly duty sheet + diet-list headcount logged by FSS.", icon: ClipboardList, group: "Food Service" },
-  { type: "demographic_census", name: "Demographic Census", desc: "Aggregate ADIME cycle counts by age, sex, ward, diagnosis.", icon: ClipboardList, group: "Clinical" },
+  { type: "demographic_census", name: "Demographic Census", desc: "ADIME cycle counts by primary diagnosis category, nutritional status, and risk level.", icon: ClipboardList, group: "Clinical" },
 ];
 
 export const FSS_CATALOG: CatalogEntry[] = [

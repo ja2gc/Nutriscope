@@ -83,13 +83,16 @@
                             <tr class="portion-row">
                                 @foreach($portionRow as $portion)
                                     <td class="portion-cell">
-                                        <p class="bold" style="font-size:7.5pt; margin:0 0 2px;">[{{ $portion['id'] }}] {{ $portion['dish'] }}</p>
-                                        @foreach($portion['foods'] as $food)
-                                            <div style="font-size:7.25pt; margin-left:8px;">
-                                                {{ $food['food'] }} —
-                                                @if($food['household_measure']){{ $food['household_measure'] }} · @endif
-                                                {{ rtrim(rtrim(number_format($food['metric_amount'], 1, '.', ''), '0'), '.') }} {{ $food['metric_unit'] }}
-                                            </div>
+                                        <p class="bold" style="font-size:7.5pt; margin:0 0 2px;">{{ $portion['dish'] }}</p>
+                                        @foreach($portion['variants'] as $variant)
+                                            @foreach($variant['foods'] as $food)
+                                                <div style="font-size:7.25pt; margin-left:8px;">
+                                                    <span class="bold">[{{ $variant['id'] }}]</span>
+                                                    {{ $food['food'] }} —
+                                                    @if($food['household_measure']){{ $food['household_measure'] }} · @endif
+                                                    {{ rtrim(rtrim(number_format($food['metric_amount'], 1, '.', ''), '0'), '.') }} {{ $food['metric_unit'] }}
+                                                </div>
+                                            @endforeach
                                         @endforeach
                                     </td>
                                 @endforeach
