@@ -24,9 +24,9 @@ use App\Models\Recipe;
 use App\Policies\AuditPolicy;
 use App\Services\Audit\AuditLogger;
 use App\Services\ClinicalCompletenessService;
-use App\Services\InterventionRevisionService;
 use App\Services\MealPlanService;
 use App\Services\RecommendService;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -39,7 +39,6 @@ class MealPlanController extends Controller
         private ClinicalCompletenessService $completeness,
         private AuditPolicy $auditPolicy,
         private AuditLogger $auditLogger,
-        private InterventionRevisionService $revisions,
     ) {}
 
     /**
@@ -48,8 +47,12 @@ class MealPlanController extends Controller
     public function index(NcpRecord $ncpRecord): JsonResponse
     {
         $this->authorizeNcp($ncpRecord);
-        $intervention = $ncpRecord->intervention()->firstOrFail();
-        $mealPlans = MealPlan::where('intervention_id', $intervention->id)->with(['days', 'revision'])->get();
+        $mealPlans = MealPlan::query()
+            ->whereHas('intervention', fn ($query) => $query->where('ncp_record_id', $ncpRecord->id))
+            ->with('days')
+            ->latest('created_at')
+            ->latest('id')
+            ->get();
 
         return response()->json(['data' => MealPlanResource::collection($mealPlans)]);
     }
@@ -62,30 +65,38 @@ class MealPlanController extends Controller
         $this->authorizeNcp($ncpRecord);
         $intervention = $ncpRecord->intervention()->firstOrFail();
 
-        return $this->audited(function () use ($intervention, $ncpRecord, $request): JsonResponse {
-            $revision = $this->revisions->activeFor($intervention);
-            $mealPlan = MealPlan::create([
-                'intervention_id' => $intervention->id,
-                'intervention_revision_id' => $revision->id,
-                'patient_id' => $ncpRecord->patient_id,
-                'week_start_date' => $request->week_start_date,
-                'generation_type' => $request->generation_type ?? 'manual',
-                'status' => $request->status ?? 'draft',
-            ]);
-
-            $dayRows = [];
-            foreach (['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as $day) {
-                foreach (['breakfast', 'am_snack', 'lunch', 'pm_snack', 'dinner'] as $mealType) {
-                    $dayRows[] = [
-                        'uuid' => (string) Str::uuid(),
-                        'meal_plan_id' => $mealPlan->id, 'day_of_week' => $day, 'meal_type' => $mealType, 'flagged' => false,
-                    ];
+        try {
+            return $this->audited(function () use ($intervention, $ncpRecord, $request): JsonResponse {
+                $lockedIntervention = $ncpRecord->interventions()->whereKey($intervention->id)->lockForUpdate()->firstOrFail();
+                if ($lockedIntervention->mealPlan()->exists()) {
+                    return $this->mealPlanConflict();
                 }
-            }
-            MealPlanDay::insert($dayRows);
 
-            return response()->json(['data' => new MealPlanResource($mealPlan->load(['days', 'revision']))], 201);
-        });
+                $mealPlan = MealPlan::create([
+                    'intervention_id' => $lockedIntervention->id,
+                    'intervention_revision_id' => null,
+                    'patient_id' => $ncpRecord->patient_id,
+                    'week_start_date' => $request->week_start_date,
+                    'generation_type' => $request->generation_type ?? 'manual',
+                    'status' => $request->status ?? 'draft',
+                ]);
+
+                $dayRows = [];
+                foreach (['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as $day) {
+                    foreach (['breakfast', 'am_snack', 'lunch', 'pm_snack', 'dinner'] as $mealType) {
+                        $dayRows[] = [
+                            'uuid' => (string) Str::uuid(),
+                            'meal_plan_id' => $mealPlan->id, 'day_of_week' => $day, 'meal_type' => $mealType, 'flagged' => false,
+                        ];
+                    }
+                }
+                MealPlanDay::insert($dayRows);
+
+                return response()->json(['data' => new MealPlanResource($mealPlan->load('days'))], 201);
+            });
+        } catch (UniqueConstraintViolationException) {
+            return $this->mealPlanConflict();
+        }
     }
 
     /**
@@ -95,14 +106,14 @@ class MealPlanController extends Controller
     {
         $this->assertPlanScope($ncpRecord, $mealPlan);
 
-        return response()->json(['data' => new MealPlanResource($mealPlan->load(['days', 'revision']))]);
+        return response()->json(['data' => new MealPlanResource($mealPlan->load('days'))]);
     }
 
     /** MP-04: the meal plan must belong to this NCP's intervention. */
     private function assertPlanScope(NcpRecord $ncpRecord, MealPlan $mealPlan): void
     {
         $this->authorizeNcp($ncpRecord);
-        if ($mealPlan->intervention_id !== $ncpRecord->intervention?->id) {
+        if (! $mealPlan->intervention()->where('ncp_record_id', $ncpRecord->id)->exists()) {
             abort(404);
         }
     }
@@ -115,7 +126,7 @@ class MealPlanController extends Controller
         $this->assertPlanScope($ncpRecord, $mealPlan);
         $this->audited(fn () => $mealPlan->update($request->validated()));
 
-        return response()->json(['data' => new MealPlanResource($mealPlan->fresh()->load(['days', 'revision']))]);
+        return response()->json(['data' => new MealPlanResource($mealPlan->fresh()->load('days'))]);
     }
 
     public function scaleToPrescription(NcpRecord $ncpRecord, MealPlan $mealPlan): JsonResponse
@@ -147,7 +158,7 @@ class MealPlanController extends Controller
         });
 
         return response()->json([
-            'data' => new MealPlanResource($mealPlan->fresh()->load(['days', 'revision'])),
+            'data' => new MealPlanResource($mealPlan->fresh()->load('days')),
             'meta' => ['scaling' => $scaling],
         ]);
     }
@@ -172,7 +183,6 @@ class MealPlanController extends Controller
 
         $result = $this->audited(function () use ($request, $ncpRecord) {
             $intervention = $ncpRecord->intervention()->firstOrFail();
-            $revision = $this->revisions->activeFor($intervention);
             $result = $this->auditLogger->withoutModelEvents(fn () => $this->mealPlanService->generate(
                 $ncpRecord,
                 $request->week_start_date,
@@ -183,7 +193,6 @@ class MealPlanController extends Controller
             ));
 
             if ($result instanceof MealPlan) {
-                $result->forceFill(['intervention_revision_id' => $revision->id])->save();
                 $this->auditLogger->record(
                     AuditAction::Generated,
                     AuditCategory::Clinical,
@@ -201,7 +210,7 @@ class MealPlanController extends Controller
             return response()->json($result, 422);
         }
 
-        return response()->json(['data' => new MealPlanResource($result->load('revision'))], 201);
+        return response()->json(['data' => new MealPlanResource($result)], 201);
     }
 
     /**
@@ -397,10 +406,9 @@ class MealPlanController extends Controller
             ->firstOrFail();
 
         $plan = $this->audited(function () use ($intervention, $ncpRecord, $validated, $template): MealPlan {
-            $revision = $this->revisions->activeFor($intervention);
             $plan = MealPlan::create([
                 'intervention_id' => $intervention->id,
-                'intervention_revision_id' => $revision->id,
+                'intervention_revision_id' => null,
                 'patient_id' => $ncpRecord->patient_id,
                 'week_start_date' => $validated['week_start_date'],
                 'generation_type' => 'manual',
@@ -448,7 +456,7 @@ class MealPlanController extends Controller
             && $maternalMatches;
 
         return response()->json([
-            'data' => new MealPlanResource($plan->load(['days.items', 'revision'])),
+            'data' => new MealPlanResource($plan->load('days.items')),
             'meta' => [
                 'template_compatibility' => [
                     'goal_matches' => $goalMatches,
@@ -462,6 +470,13 @@ class MealPlanController extends Controller
                 ],
             ],
         ], 201);
+    }
+
+    private function mealPlanConflict(): JsonResponse
+    {
+        return response()->json([
+            'message' => 'This Intervention Plan already has a menu plan.',
+        ], 409);
     }
 
     /**

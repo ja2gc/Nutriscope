@@ -36,10 +36,14 @@ class PersonNameBackendFlowTest extends TestCase
             'cycles' => NcpRecord::query()->count(),
             'audit_revisions' => DB::table('audit_revisions')->count(),
             'intervention_revisions' => DB::table('intervention_revisions')->count(),
+            'interventions' => DB::table('interventions')->count(),
+            'meal_plans' => DB::table('meal_plans')->count(),
             'reports' => Report::query()->count(),
         ];
 
-        $this->assertSame(3, $firstCounts['intervention_revisions']);
+        $this->assertSame(0, $firstCounts['intervention_revisions']);
+        $this->assertSame(3, $firstCounts['interventions']);
+        $this->assertSame(0, $firstCounts['meal_plans']);
 
         $this->seed(PatientSeeder::class);
 
@@ -48,6 +52,8 @@ class PersonNameBackendFlowTest extends TestCase
             'cycles' => NcpRecord::query()->count(),
             'audit_revisions' => DB::table('audit_revisions')->count(),
             'intervention_revisions' => DB::table('intervention_revisions')->count(),
+            'interventions' => DB::table('interventions')->count(),
+            'meal_plans' => DB::table('meal_plans')->count(),
             'reports' => Report::query()->count(),
         ]);
 

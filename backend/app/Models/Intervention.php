@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\AuditsChanges;
+use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,6 +15,7 @@ class Intervention extends Model
 {
     use AuditsChanges;
     use HasFactory;
+    use HasPublicId;
 
     /** Clinical — log field names only, redact PHI values (Spec 5 Decision A). */
     protected bool $auditRedactValues = true;
@@ -21,7 +23,7 @@ class Intervention extends Model
     private bool $revisionMutation = false;
 
     protected $fillable = [
-        'ncp_record_id', 'goal_type', 'disease_stage', 'displayed_nutrients',
+        'ncp_record_id', 'source_monitoring_id', 'goal_type', 'disease_stage', 'displayed_nutrients',
         'energy_kcal', 'protein_g', 'carbs_g', 'fat_g', 'fluid_ml',
         'micronutrient_limits', 'education_notes', 'counseling_goals',
         'barriers', 'strategies', 'session_type',
@@ -42,10 +44,9 @@ class Intervention extends Model
     protected static function booted(): void
     {
         static::updating(function (Intervention $intervention): void {
-            if (! $intervention->revisionMutation
-                && $intervention->ncpRecord()->first()?->monitorings()->exists()) {
+            if (! $intervention->revisionMutation) {
                 throw ValidationException::withMessages([
-                    'intervention' => ['Record prescription changes through a Monitoring follow-up.'],
+                    'intervention' => ['Saved Intervention Plans are immutable. Create a new plan instead.'],
                 ]);
             }
         });
@@ -66,9 +67,19 @@ class Intervention extends Model
         return $this->belongsTo(NcpRecord::class);
     }
 
+    public function sourceMonitoring(): BelongsTo
+    {
+        return $this->belongsTo(Monitoring::class, 'source_monitoring_id');
+    }
+
     public function mealPlans(): HasMany
     {
         return $this->hasMany(MealPlan::class);
+    }
+
+    public function mealPlan(): HasOne
+    {
+        return $this->hasOne(MealPlan::class);
     }
 
     public function revisions(): HasMany

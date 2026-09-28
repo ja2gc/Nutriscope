@@ -7,6 +7,7 @@ use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Monitoring extends Model
 {
@@ -48,5 +49,10 @@ class Monitoring extends Model
     public function interventionRevision(): BelongsTo
     {
         return $this->belongsTo(InterventionRevision::class);
+    }
+
+    public function interventionPlans(): HasMany
+    {
+        return $this->hasMany(Intervention::class, 'source_monitoring_id');
     }
 }

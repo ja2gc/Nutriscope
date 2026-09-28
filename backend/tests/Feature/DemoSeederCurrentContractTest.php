@@ -110,7 +110,7 @@ class DemoSeederCurrentContractTest extends TestCase
 
         $patients = Patient::query()
             ->whereIn('hospital_number', ['HN-2026-0042', 'HN-2026-0078'])
-            ->with(['ncpRecords.assessment', 'ncpRecords.diagnoses', 'ncpRecords.intervention.revisions', 'ncpRecords.intervention.mealPlans.days.items'])
+            ->with(['ncpRecords.assessment', 'ncpRecords.diagnoses', 'ncpRecords.interventions.mealPlan.days.items'])
             ->get();
 
         $this->assertCount(2, $patients);
@@ -125,15 +125,14 @@ class DemoSeederCurrentContractTest extends TestCase
                 $this->assertContains($record->type, ['new', 'continuing']);
                 $this->assertContains($record->status, ['draft', 'active', 'completed', 'discontinued', 'discharged']);
                 $this->assertNotNull($record->assessment);
-                $this->assertNotNull($record->intervention);
+                $this->assertCount(1, $record->interventions);
                 $this->assertNotEmpty($record->diagnoses);
-                $this->assertNotEmpty($record->intervention->mealPlans);
-                $revision = $record->intervention->revisions->sole();
-                $this->assertSame(1, $revision->version);
-                $this->assertSame('legacy_baseline', $revision->source);
+                $intervention = $record->interventions->sole();
+                $this->assertNotNull($intervention->mealPlan);
+                $this->assertNotNull($intervention->uuid);
+                $this->assertNull($intervention->mealPlan->intervention_revision_id);
 
-                foreach ($record->intervention->mealPlans as $mealPlan) {
-                    $this->assertSame($revision->id, $mealPlan->intervention_revision_id);
+                foreach ([$intervention->mealPlan] as $mealPlan) {
                     $this->assertContains($mealPlan->status, ['draft', 'active']);
                     $this->assertCount(35, $mealPlan->days);
                     $this->assertTrue(

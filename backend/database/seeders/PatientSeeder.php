@@ -14,7 +14,6 @@ use App\Models\Notification;
 use App\Models\Patient;
 use App\Models\ScreeningDocument;
 use App\Models\User;
-use App\Services\InterventionRevisionService;
 use App\Services\MealPlanService;
 use App\Services\RiskScoreCalculator;
 use Carbon\Carbon;
@@ -75,7 +74,6 @@ class PatientSeeder extends Seeder
     private function seedMealPlan(NcpRecord $record, string $weekStart, ?Carbon $createdAt = null): void
     {
         $intervention = $record->intervention()->firstOrFail();
-        $revision = resolve(InterventionRevisionService::class)->activeFor($intervention);
         $svc = resolve(MealPlanService::class);
         $svc->setRngSeed(42);
         $allergens = $record->assessment?->allergies ?? [];
@@ -88,7 +86,7 @@ class PatientSeeder extends Seeder
         }
         $result->update([
             'status' => 'active',
-            'intervention_revision_id' => $revision->id,
+            'intervention_revision_id' => null,
         ]);
         if ($createdAt !== null) {
             DB::table('meal_plans')->where('id', $result->id)->update([
@@ -129,11 +127,6 @@ class PatientSeeder extends Seeder
             'created_at' => $interventionAt,
             'updated_at' => $interventionAt,
         ]);
-        DB::table('intervention_revisions')->whereIn('intervention_id', $interventionIds)->update([
-            'effective_at' => $interventionAt,
-            'created_at' => $interventionAt,
-            'updated_at' => $interventionAt,
-        ]);
         $mealPlanIds = MealPlan::query()->whereIn('intervention_id', $interventionIds)->pluck('id');
         DB::table('meal_plans')->whereIn('id', $mealPlanIds)->update([
             'created_at' => $interventionAt,
@@ -168,10 +161,10 @@ class PatientSeeder extends Seeder
         foreach ($patient->ncpRecords as $record) {
             $record->monitorings()->delete();
             $record->diagnoses()->delete();
-            if ($intervention = $record->intervention) {
-                // Meal plans (+days/items via FK cascade) hang off the intervention.
-                MealPlan::where('intervention_id', $intervention->id)->delete();
-                $intervention->delete();
+            $interventionIds = $record->interventions()->pluck('id');
+            if ($interventionIds->isNotEmpty()) {
+                MealPlan::whereIn('intervention_id', $interventionIds)->delete();
+                $record->interventions()->delete();
             }
             if ($assessment = $record->assessment) {
                 $assessment->biochemicalData?->delete();
@@ -729,7 +722,7 @@ class PatientSeeder extends Seeder
             $copy->save();
         }
 
-        $intervention = $current->intervention->replicate();
+        $intervention = $current->intervention->replicate(['uuid']);
         $intervention->ncp_record_id = $past->id;
         $intervention->next_followup_date = $anchor->copy()->subDays(125)->toDateString();
         $intervention->save();

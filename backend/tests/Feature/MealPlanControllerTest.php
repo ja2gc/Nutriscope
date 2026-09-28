@@ -33,7 +33,7 @@ class MealPlanControllerTest extends TestCase
         ]);
     }
 
-    private function makeInterventionWithNcpRecord(): array
+    private function makeInterventionWithNcpRecord(array $interventionAttributes = []): array
     {
         $patient = Patient::factory()->create();
         $ncpRecord = NcpRecord::factory()->create([
@@ -47,6 +47,7 @@ class MealPlanControllerTest extends TestCase
             'carbs_g' => 250,
             'fat_g' => 55,
             'fluid_ml' => 2000,
+            ...$interventionAttributes,
         ]);
 
         return [$ncpRecord, $intervention, $patient];
@@ -83,29 +84,30 @@ class MealPlanControllerTest extends TestCase
             'generation_type' => 'manual',
         ]);
         $mealPlan = MealPlan::where('intervention_id', $intervention->id)->firstOrFail();
-        $this->assertNotNull($mealPlan->intervention_revision_id);
-        $response->assertJsonPath('data.revision.id', $mealPlan->revision->uuid);
+        $this->assertNull($mealPlan->intervention_revision_id);
+        $response->assertJsonMissingPath('data.revision');
     }
 
-    public function test_multiple_meal_plans_share_the_active_intervention_revision(): void
+    public function test_second_meal_plan_for_same_intervention_returns_conflict(): void
     {
         [$ncpRecord, $intervention] = $this->makeInterventionWithNcpRecord();
 
-        foreach (['2026-06-09', '2026-06-16'] as $week) {
-            $this->actingAs($this->rnd)
-                ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans", [
-                    'week_start_date' => $week,
-                    'generation_type' => 'manual',
-                ])
-                ->assertCreated();
-        }
+        $this->actingAs($this->rnd)
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans", [
+                'week_start_date' => '2026-06-09',
+                'generation_type' => 'manual',
+            ])
+            ->assertCreated();
 
-        $revisionIds = MealPlan::where('intervention_id', $intervention->id)
-            ->pluck('intervention_revision_id')
-            ->unique();
+        $this->actingAs($this->rnd)
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans", [
+                'week_start_date' => '2026-06-16',
+                'generation_type' => 'manual',
+            ])
+            ->assertConflict()
+            ->assertJsonPath('message', 'This Intervention Plan already has a menu plan.');
 
-        $this->assertCount(1, $revisionIds);
-        $this->assertNotNull($revisionIds->first());
+        $this->assertSame(1, MealPlan::where('intervention_id', $intervention->id)->count());
     }
 
     public function test_show_meal_plan_with_days(): void
@@ -127,10 +129,11 @@ class MealPlanControllerTest extends TestCase
     public function test_index_meal_plans_for_ncp_record(): void
     {
         [$ncpRecord, $intervention, $patient] = $this->makeInterventionWithNcpRecord();
-        MealPlan::factory(3)->create([
-            'intervention_id' => $intervention->id,
-            'patient_id' => $patient->id,
-        ]);
+        Intervention::factory(3)->create(['ncp_record_id' => $ncpRecord->id])
+            ->each(fn (Intervention $plan) => MealPlan::factory()->create([
+                'intervention_id' => $plan->id,
+                'patient_id' => $patient->id,
+            ]));
 
         $response = $this->actingAs($this->rnd)
             ->getJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans");
@@ -433,8 +436,10 @@ class MealPlanControllerTest extends TestCase
 
     public function test_loading_template_copies_all_items_and_warns_when_goal_or_stage_differs(): void
     {
-        [$ncpRecord, $intervention] = $this->makeInterventionWithNcpRecord();
-        $intervention->update(['goal_type' => 'diabetes_management', 'disease_stage' => null]);
+        [$ncpRecord, $intervention] = $this->makeInterventionWithNcpRecord([
+            'goal_type' => 'diabetes_management',
+            'disease_stage' => null,
+        ]);
         $template = MealPlanTemplate::forceCreate([
             'rnd_user_id' => $this->rnd->id,
             'name' => 'CKD template',
@@ -483,9 +488,11 @@ class MealPlanControllerTest extends TestCase
 
     public function test_general_maternal_template_matches_confirmed_status_but_requires_goal_review(): void
     {
-        [$ncpRecord, $intervention] = $this->makeInterventionWithNcpRecord();
+        [$ncpRecord, $intervention] = $this->makeInterventionWithNcpRecord([
+            'goal_type' => 'high_protein',
+            'disease_stage' => 'moderate_stress',
+        ]);
         $ncpRecord->assessment()->create(['pregnancy_lactation_status' => 'lactating']);
-        $intervention->update(['goal_type' => 'high_protein', 'disease_stage' => 'moderate_stress']);
         $template = MealPlanTemplate::forceCreate([
             'rnd_user_id' => $this->rnd->id,
             'name' => 'General maternal pattern',
@@ -532,8 +539,7 @@ class MealPlanControllerTest extends TestCase
 
     public function test_scale_to_prescription_changes_only_existing_quantities_using_practical_increments(): void
     {
-        [$ncpRecord, $intervention, $patient] = $this->makeInterventionWithNcpRecord();
-        $intervention->update([
+        [$ncpRecord, $intervention, $patient] = $this->makeInterventionWithNcpRecord([
             'energy_kcal' => 1000,
             'protein_g' => 40,
             'carbs_g' => 120,

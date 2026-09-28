@@ -65,7 +65,20 @@ class NcpRecord extends Model
 
     public function intervention(): HasOne
     {
-        return $this->hasOne(Intervention::class);
+        return $this->latestIntervention();
+    }
+
+    public function interventions(): HasMany
+    {
+        return $this->hasMany(Intervention::class);
+    }
+
+    public function latestIntervention(): HasOne
+    {
+        return $this->hasOne(Intervention::class)->ofMany([
+            'created_at' => 'max',
+            'id' => 'max',
+        ]);
     }
 
     public function monitorings(): HasMany
