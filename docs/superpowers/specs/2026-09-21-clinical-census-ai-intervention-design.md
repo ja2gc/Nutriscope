@@ -1,8 +1,8 @@
-# Clinical Census, Prescription, PES Drafting, and Intervention Revision Design
+# Clinical Census, Prescription, PES Drafting, and Intervention Plan Design
 
 **Date:** 2026-09-21
 
-**Status:** Approved by the owner on 2026-09-21 after full session-coverage review.
+**Status:** Approved by the owner on 2026-09-21 and amended on 2026-09-28 for complete dated Intervention Plans.
 
 ## Purpose
 
@@ -14,17 +14,18 @@ This design finishes the approved post-deployment clinical changes without addin
 - fluid as guidance rather than a meal-plan scaling target;
 - a narrow, source-gated, assessment-based PES drafting assistant;
 - compact patient-facing portion details and the title `Nutrition Intervention Plan`;
-- immutable intervention revisions created from Monitoring when treatment changes.
+- multiple complete, dated Intervention Plans in one NCP cycle, with newest saved plan treated as current.
 
 The Academy of Nutrition and Dietetics treats Assessment, Nutrition Diagnosis, Intervention, and Monitoring/Evaluation as distinct, interrelated NCP steps. NutriScope must preserve those boundaries: physician diagnosis, census category, PES nutrition diagnosis, and intervention goal are separate data with separate purposes.
 
 ## Product principles
 
-- Keep the existing ADIME workflow. Add only three notable RND actions: choose one primary census category, enter weight-change duration as quantity plus unit, and optionally revise an intervention during Monitoring.
+- Keep the existing ADIME workflow. Add only three notable RND actions: choose one primary census category, enter weight-change duration as quantity plus unit, and create another complete Intervention Plan when treatment changes.
 - Prefer no suggestion over an unsupported clinical suggestion.
 - Never make the patient calculate maternal additions manually. The system calculates final targets.
 - Do not add separate non-maternal "maintenance" additions beside goal-calculated prescriptions. Existing goal/stage output remains the final target so values are not double-counted.
 - Historical clinical plans and prepared reports remain historical. Never silently replace them with current values.
+- A saved Intervention Plan is a complete immutable clinical plan, not a revision label or partial change set.
 - Keep patient-facing output concise. Calculation evidence and detailed source context belong in the RND interface, not as report clutter.
 - Reuse current models, services, calculation authority, report preparation, audit redaction, and UI components. Do not build parallel engines.
 
@@ -68,7 +69,7 @@ This design is the implementation authority for the remaining work from the brai
 - Removal of stress-factor input/use; `BMR x PAL` TEE authority; maternal status as an Assessment modifier rather than an intervention goal.
 - Automatic maternal energy/protein additions, existing calculation disclosure reuse, final patient targets, and fluid as guidance outside meal scaling.
 - Source-gated, assessment-based, token-bounded PES drafts with deterministic eligibility, no endless regeneration, and manual RND control.
-- Immutable intervention revision history created through an optional Monitoring action while ordinary monitoring remains simple.
+- A newest-first, paginated collection of complete dated Intervention Plans inside the Intervention page while Monitoring remains focused on assessment and progress.
 - Patient-facing `Nutrition Intervention Plan`, compact scaled portion details from existing data, no new recipe-entry field, no preparation instructions, and no USDA note.
 - Focused tests, real-PDF inspection, existing Help/flowchart/storyboard reconciliation, deployment, and full deployed browser/error QA.
 
@@ -81,7 +82,7 @@ This design is the implementation authority for the remaining work from the brai
 - No separate maternal intervention goal and no patient-performed addition arithmetic.
 - No new food-recall workflow, restaurant/Filipino food database, OCR intake reconstruction, or broad USDA expansion before the exhibition.
 - USDA remains useful for existing single-food nutrient calculations and may support a future recall project, but that future project is not part of this change.
-- No new recipe-display selection, vague household measures, preparation instructions, menu-plan revision entity, or duplicate calculation-transparency panel.
+- No new recipe-display selection, vague household measures, preparation instructions, menu-plan revision entity, intervention-revision UI, or duplicate calculation-transparency panel.
 - No automatic clinical claim from one BMI, albumin result, abnormal lab, physician diagnosis, or general-purpose AI output.
 
 ## 1. Structured weight-change duration
@@ -273,7 +274,7 @@ No rule card is enabled until its exact source content is inspected and covered 
 
 Do not send name, patient code, hospital number, address, physician name, attachments, exact DOB, or unrelated free text. Real-patient external AI use requires the hospital's privacy/security approval and appropriate processor agreement; source citations alone do not establish HIPAA or Philippine Data Privacy Act compliance. The demo workflow uses fictional data.
 
-Add a non-editable `patients.is_demo` boolean with a safe default of `false`; only the deterministic fictional `PatientSeeder` records receive `true`. Add an environment-backed real-patient AI feature flag whose default is `false`. External PES drafting is allowed when the patient is explicitly marked demo or when the hospital has deliberately enabled the real-patient flag after its privacy/security review. The flag and marker add no RND workflow. When external drafting is unavailable, show a short unavailable message and keep manual PES entry fully usable.
+Do not add a demo marker or a separate real-patient environment gate. The authorized PES-drafting route uses the configured provider for the selected patient and retains the de-identification, source, validation, caching, and audit controls in this section. When the provider is unavailable, show a short unavailable message and keep manual PES entry fully usable.
 
 ### Token and repeat-generation controls
 
@@ -286,60 +287,77 @@ Add a non-editable `patients.is_demo` boolean with a safe default of `false`; on
 - Remove numeric AI confidence from UI; it implies unsupported precision.
 - Show concise `Evidence used` and `Source` sections on each draft.
 
-## 6. Intervention revisions from Monitoring
+## 6. Complete dated Intervention Plans
 
 ### Clinical behavior
 
-An ADIME cycle retains one current Intervention row for existing consumers plus immutable `InterventionRevision` snapshots for history.
+An ADIME cycle owns many complete Intervention Plans. Each saved Intervention row is one plan containing its own goal/stage, prescription, micronutrient limits, education, counseling, barriers, strategies, session type, follow-up date, meal plans, creation timestamp, and optional source Monitoring visit.
 
-Create revision 1 when the initial intervention is saved. Before Monitoring begins, explicit Intervention-page saves may update the initial plan and its revision-1 snapshot. After the first monitoring visit, treatment changes occur through Monitoring's optional `Revise intervention` flow rather than silently overwriting history.
+The newest saved Intervention Plan by creation timestamp and stable identifier is the plan used by current-workflow consumers. Do not store or display `current` or `inactive` status. The newest-first date order communicates which plan is latest.
 
-### Minimal Monitoring workflow
+Saved plans are immutable. A treatment change creates another Intervention Plan instead of editing or revising an earlier plan. Unsaved form state does not create a plan, report identity, meal plan, or history entry.
 
-The standard `Log Visit` form remains unchanged by default. Add one collapsed action: `Revise intervention`.
+### Intervention-page workflow
 
-When selected:
+Keep the existing Intervention page and reuse its exact plan UI. Add one `Plans` tab beside the existing Intervention sections.
 
-- prefill the current prescription, education, counseling, barriers, strategies, session type, goal/stage, and follow-up data;
-- require effective date and short clinical reason;
-- show only the existing intervention sections needed for editing;
-- save the monitoring visit, updated current Intervention, and immutable revision atomically;
-- render a compact `Intervention revised` entry under that visit in the timeline.
+The `Plans` tab:
 
-Most visits require no extra action. Previous revisions remain read-only.
+- lists complete plans newest first;
+- displays creation date and goal without current/inactive badges;
+- uses server-side pagination;
+- opens any selected plan through the same Intervention UI in read-only mode;
+- contains `Create New Intervention Plan`.
 
-### Revision data
+Creating another plan opens the same Intervention UI in editable new-plan mode. Prefill every intervention field from the newest saved plan. Do not copy its meal plans. The user intentionally creates, generates, or loads meal plans for the new plan.
 
-Add an audited, public-ID `intervention_revisions` table with:
+The new-plan calculation context uses the newest Monitoring measurements available for the cycle, including applicable weight, BMI, labs, and recorded intake. Fields not recorded in Monitoring fall back to the original Assessment and current patient demographics. The UI identifies the Monitoring date supplying the newer context. These effective inputs support calculation only; they do not overwrite the original Assessment or earlier plans.
 
-- `intervention_id`;
-- nullable originating `monitoring_id`;
-- sequential version per intervention;
-- `effective_at`;
-- `reason`;
-- actor identity;
-- immutable JSON snapshot of every clinically relevant Intervention field;
-- source marker such as `initial`, `monitoring_revision`, or `legacy_baseline`.
+Saving the new plan and all required ownership/audit data occurs in one transaction. Only the successful save adds the plan to the collection. Existing plan URLs remain stable and read-only.
 
-Centralize snapshot creation, current-row update, sequencing, and transaction behavior in one service. Do not duplicate revision logic in controllers.
+### Monitoring form and saved logs
 
-Add nullable revision links to Monitoring and MealPlan. A newly generated meal plan links to the active revision. Patient-menu-plan generation reads prescription and intervention context from that revision snapshot, never the mutable current Intervention row.
+Monitoring does not contain an intervention list, an embedded intervention editor, or a create-plan action. The normal NCP navigation remains the route back to Intervention.
 
-For existing interventions, create one `legacy_baseline` revision from the current stored Intervention and link existing monitorings and meal plans to it. This preserves current known state without inventing unavailable historical revisions.
+Organize the Monitoring input form by clinical purpose rather than one long undifferentiated field stack:
 
-Multiple meal plans under one revision remain distinct meal plans and do not create another intervention revision. No menu-plan revision UI is added.
+1. visit context;
+2. measurements;
+3. goal-relevant labs;
+4. nutrient intake and tolerance;
+5. clinical progress and continuation decision;
+6. follow-up.
+
+Show only goal-relevant lab and nutrient fields. Keep essential measurements easy to scan, use compact responsive columns, and avoid decorative icons, colored status cards, or explanatory copy that repeats labels.
+
+Saved Monitoring assessments are a separate newest-first, server-paginated list. Each collapsed row shows date, visit type, key measurement, and decision. Opening a row shows structured read-only sections matching the input form and omits sections with no recorded values. Progress Trends remains separate from individual visit details.
+
+### Data migration and relationships
+
+Change the NCP relationship from one Intervention to many Interventions and add a newest-plan relationship for compatible current-plan consumers. Add public identity, optional source Monitoring identity, and any ordering/index fields required for stable newest-first pagination.
+
+Forward-migrate existing data without inventing content:
+
+- preserve the existing Intervention as the first complete plan;
+- convert each materially distinct stored revision snapshot into a complete dated Intervention Plan;
+- retain the best available historical timestamp and source Monitoring link;
+- relink each meal plan to the complete Intervention Plan represented by its previous revision link;
+- avoid creating duplicate plans when the initial snapshot and current Intervention are identical;
+- retire the revision workflow only after every consumer and relationship uses complete plans.
 
 ### Reports
 
-- NCP Summary shows initial Intervention followed by dated revisions and the monitoring visit/reason that introduced each revision.
-- Nutrition Intervention Plan renders the revision attached to the selected meal plan.
-- Prepared/archived reports remain frozen and are not reinterpreted through a later revision.
+- NCP Summary renders the newest saved Intervention Plan only and contains no intervention revision/history table.
+- Reports presents a newest-first, paginated collection named by plan creation date, such as `Nutrition Intervention Plan — September 28, 2026`.
+- A plan appears in Reports only after it is saved. Preview/download remains on demand; saving does not create PDF bytes.
+- Preview/download is available when the saved plan has a selected meal plan. The PDF uses the same structure as the first Nutrition Intervention Plan and identifies the plan creation date in its content.
+- Prepared/archived reports remain frozen and are not reinterpreted through a later plan.
 
 ## 7. Nutrition Intervention Plan and portion details
 
 Rename patient-facing `Patient Menu Plan` wording to `Nutrition Intervention Plan` wherever it identifies the generated patient document. Preserve internal report type/route identifiers unless changing them is required for correctness; avoid a broad compatibility migration.
 
-The PDF contains:
+Every plan PDF uses the same structure. Later plans do not receive a special revision/history layout. The PDF contains:
 
 - patient/report identity already permitted by the current template;
 - final nutrition prescription and applicable short modifier/guidance notes;
@@ -364,11 +382,11 @@ Keep output compact and deduplicate identical dish-plus-portion combinations whe
 
 - Existing RND ownership/policy checks apply to Assessment, AI drafts, Intervention, Monitoring, meal plans, and reports.
 - Public UUID route boundaries remain unchanged; never expose or guess internal IDs.
-- Category and revision validation is server-side, not UI-only.
-- Intervention revision + monitoring save is one transaction. Any failure rolls back both current-row and history changes.
+- Category and Intervention Plan validation is server-side, not UI-only.
+- New-plan creation and ownership/audit persistence use one transaction. Any failure leaves the previous plan collection unchanged.
 - AI/provider failure leaves manual Diagnosis workflow fully usable.
 - Malformed or unsupported AI output is rejected and never persisted.
-- Audit events record field names and revision metadata while preserving existing clinical PHI redaction.
+- Audit events record field names and plan identity metadata while preserving existing clinical PHI redaction.
 - Prepared report preview/download remains read-only and never creates a second identity or mutates an archived file.
 
 ## 9. Testing and verification
@@ -382,7 +400,7 @@ Keep output compact and deduplicate identical dish-plus-portion combinations whe
 - Maternal modifiers for first, second, and third trimester and lactation, including RND overrides and restricted-fluid behavior.
 - Meal generation/scaling/variance ignores water while retaining energy, macros, and existing micronutrient behavior.
 - Rule eligibility positive, negative, missing-data, duplicate, dismissal, cache/fingerprint, source-ID, malformed-output, authorization, and token-limit cases.
-- Revision sequencing, immutability, transactions, legacy baseline backfill, active revision, monitoring linkage, meal-plan linkage, and historical report rendering.
+- Multiple-plan ordering, pagination, immutability, transactional creation, revision-to-plan migration, newest-plan selection, Monitoring source linkage, meal-plan linkage, and dated report rendering.
 - NCP Summary and Nutrition Intervention Plan report contracts.
 
 ### Frontend
@@ -393,7 +411,8 @@ Keep output compact and deduplicate identical dish-plus-portion combinations whe
 - No visible stress-factor field.
 - Fluid displayed as guidance and absent from meal target-match UI.
 - PES draft cache/refresh/dismiss/accept/edit/zero-result/source/evidence states.
-- Monitoring remains simple until `Revise intervention` is chosen; revision history is readable and accessible.
+- Monitoring form and saved logs use the same clinical section structure, hide unrecorded sections, and paginate newest first.
+- Intervention `Plans` tab paginates complete dated plans newest first; selected history is read-only and new-plan mode reuses the Intervention UI.
 - New document title and compact portion-details contract.
 - Mobile 375/390 px and desktop 1440 px layouts have no horizontal overflow or inaccessible controls.
 
@@ -404,7 +423,7 @@ Keep output compact and deduplicate identical dish-plus-portion combinations whe
 - Run affected tests first, then required backend suite, Pint, frontend tests, TypeScript, ESLint, and production build.
 - Update existing Help/module docs, flowcharts, and `Storyboarding/RND NCP Video Storyboard.md`; do not create duplicate guidance.
 - Commit only task files, push `main`, verify local/remote revision parity, deploy through the existing release workflow, confirm migration/release/health, then run deployed live-browser QA with fictional data.
-- Live QA covers Assessment save, category persistence, census rebuild/current month, maternal calculation disclosure, PES draft behavior, fluid-free scaling, monitoring revision/history, both PDFs, responsive layouts, and browser errors. Inventory all observed errors before batch-fixing and rerun the full scoped sweep until clean.
+- Live QA covers Assessment save, category persistence, census rebuild/current month, maternal calculation disclosure, PES draft behavior, fluid-free scaling, Monitoring form/log structure, dated Intervention Plan creation/history, both PDFs, responsive layouts, and browser errors. Inventory all observed errors before batch-fixing and rerun the full scoped sweep until clean.
 
 ## 10. Required source discipline
 
@@ -428,6 +447,6 @@ Implementation must open and inspect the exact source content before encoding an
 - Maternal final targets are calculated automatically and transparently; patient never performs addition.
 - Stress factor is absent from workflow; fluid is visible guidance and never a meal-plan scaling target.
 - PES assistant returns only source-gated, evidence-supported drafts for unchanged data at most once, with no invented evidence or sources.
-- RND can optionally revise Intervention while logging Monitoring; old revisions and associated meal-plan prescriptions remain immutable.
+- RND can create another complete Intervention Plan from the Intervention page; older plans and associated meal plans remain immutable and readable by date.
 - Patient document is titled `Nutrition Intervention Plan`, contains compact precise portions, and contains no preparation instructions or USDA source note.
 - Existing manual Diagnosis, normal Monitoring, meal generation, authorization, audit redaction, report identity, and frozen archive behavior remain available and correct.
