@@ -6,6 +6,7 @@ use App\Models\DemographicCensusPeriod;
 use App\Models\NcpRecord;
 use App\Models\Report;
 use App\Services\Reports\Contracts\ReportGenerator;
+use App\Support\ReportPaper;
 use Carbon\Carbon;
 
 /**
@@ -35,7 +36,7 @@ class DemographicCensusGenerator implements ReportGenerator
 
     public function paper(): array
     {
-        return ['a4', 'landscape'];
+        return [ReportPaper::LONG_BOND, 'landscape'];
     }
 
     public function data(Report $report): array

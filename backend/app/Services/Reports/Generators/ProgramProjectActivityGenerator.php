@@ -8,6 +8,7 @@ use App\Models\PurchaseOrder;
 use App\Models\Report;
 use App\Services\MenuCycleCostService;
 use App\Services\Reports\Contracts\ReportGenerator;
+use App\Support\ReportPaper;
 use Carbon\Carbon;
 
 /**
@@ -64,7 +65,7 @@ class ProgramProjectActivityGenerator implements ReportGenerator
 
     public function paper(): array
     {
-        return ['a4', 'portrait'];
+        return [ReportPaper::LONG_BOND, 'portrait'];
     }
 
     public function data(Report $report): array

@@ -20,7 +20,7 @@ describe("report preview contract", () => {
 
   it("reuses a parsed PDF when the same report is reopened", () => {
     expect(preview).toContain("pdfDocumentCache");
-    expect(preview).toContain("loadPdfDocument(src)");
+    expect(preview).toContain("acquirePdfDocument(src)");
     expect(preview).toContain("MAX_CACHED_PDF_DOCUMENTS = 3");
   });
 

@@ -23,6 +23,7 @@ import type { Intervention } from "@/services/interventionService";
 import type { MonitoringPlan } from "@/services/monitoringPlan";
 import { GOAL_MICRO_FLAGS, ALL_MICROS } from "@/lib/nutritionCalculations";
 import { GOALS, visibleStagesForGoal } from "../../../intervention/[ncpId]/_components/goals";
+import { InfoHint } from "@/components/ui/InfoHint";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -30,7 +31,7 @@ interface LogVisitFormProps {
   plan?: MonitoringPlan | null;
   heightCm: number | null;
   intervention: Intervention | null;
-  onSubmit: (payload: MonitoringPayload) => Promise<void>;
+  onSubmit: (payload: MonitoringPayload, options: { openIntervention: boolean }) => Promise<void>;
   onCancel: () => void;
 }
 
@@ -252,6 +253,9 @@ export default function LogVisitForm({
   const [giTolerance, setGiTolerance] = useState<GiToleranceStatus | null>(null);
   const [decision, setDecision]     = useState<ContinuationDecision>(null);
   const [clinicalSummary, setClinicalSummary] = useState("");
+  const [intakeNotes, setIntakeNotes] = useState("");
+  const [symptoms, setSymptoms] = useState("");
+  const [openIntervention, setOpenIntervention] = useState(false);
 
   const [macrosOpen, setMacrosOpen] = useState(true);
   const [labsOpen, setLabsOpen]     = useState(false);
@@ -342,6 +346,8 @@ export default function LogVisitForm({
                               ? (labValues as MonitoringPayload["lab_values"])
                               : null,
       clinical_summary:     clinicalSummary.trim() || null,
+      intake_notes:         intakeNotes.trim() || null,
+      symptoms:             symptoms.trim() || null,
       goal_achievement:     Object.keys(goalAchievement).length > 0 ? goalAchievement : null,
     };
 
@@ -375,7 +381,7 @@ export default function LogVisitForm({
     setError(null);
     setSubmitting(true);
     try {
-      await onSubmit(buildPayload());
+      await onSubmit(buildPayload(), { openIntervention });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save visit.");
     } finally {
@@ -388,7 +394,7 @@ export default function LogVisitForm({
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-warm-100">
         <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">
-          Log New Visit
+          Log Follow-up Visit
         </h3>
         <button
           onClick={onCancel}
@@ -400,6 +406,10 @@ export default function LogVisitForm({
       </div>
 
       <form onSubmit={handleSubmit} className="px-5 py-5 space-y-5">
+
+        <h4 className="text-xs font-extrabold text-warm-500 uppercase tracking-widest">
+          Follow-up Assessment
+        </h4>
 
         {/* ── Weight + BMI ─────────────────────────────────────────────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -433,6 +443,27 @@ export default function LogVisitForm({
           value={giTolerance}
           onChange={(v) => setGiTolerance(v as GiToleranceStatus | null)}
         />
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <label className="text-xs font-bold text-warm-400 uppercase tracking-widest">
+            Intake Notes
+            <textarea
+              value={intakeNotes}
+              onChange={(event) => setIntakeNotes(event.target.value)}
+              rows={3}
+              className="mt-1.5 w-full px-3.5 py-2.5 text-base font-normal normal-case tracking-normal border border-warm-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-white resize-none"
+            />
+          </label>
+          <label className="text-xs font-bold text-warm-400 uppercase tracking-widest">
+            Symptoms
+            <textarea
+              value={symptoms}
+              onChange={(event) => setSymptoms(event.target.value)}
+              rows={3}
+              className="mt-1.5 w-full px-3.5 py-2.5 text-base font-normal normal-case tracking-normal border border-warm-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-white resize-none"
+            />
+          </label>
+        </div>
 
         {/* ── Care Decision ────────────────────────────────────────────────── */}
         <ToggleGroup<NonNullDecision>
@@ -530,10 +561,10 @@ export default function LogVisitForm({
           </CollapsibleSection>
         )}
 
-        {/* ── Clinical Notes ───────────────────────────────────────────────── */}
+        {/* ── Progress Assessment ──────────────────────────────────────────── */}
         <div>
           <label className="block text-xs font-bold text-warm-400 uppercase tracking-widest mb-1.5">
-            Clinical Notes
+            Progress Assessment
           </label>
           <textarea
             value={clinicalSummary}
@@ -545,15 +576,15 @@ export default function LogVisitForm({
 
         {intervention && (
           <CollapsibleSection
-            title="Revise intervention"
+            title="Update care plan"
             subtitle="optional"
             open={revisionOpen}
             onOpenChange={setRevisionOpen}
           >
             <div className="space-y-4">
-              <p className="text-sm text-warm-500">
-                Use only when this visit changes the active care plan. The previous version remains read-only.
-              </p>
+              <InfoHint label="How care plan updates are saved" title="Care plan history">
+                Use this only when treatment changes. Saving creates a new version and keeps the previous care plan read-only.
+              </InfoHint>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <label className="text-sm font-semibold text-warm-600">
@@ -672,6 +703,16 @@ export default function LogVisitForm({
             </div>
           </CollapsibleSection>
         )}
+
+        <label className="flex min-h-11 items-center gap-2 text-sm font-semibold text-warm-600">
+          <input
+            type="checkbox"
+            checked={openIntervention}
+            onChange={(event) => setOpenIntervention(event.target.checked)}
+            className="h-4 w-4 accent-emerald-600"
+          />
+          Open Intervention after saving to review or create a meal plan
+        </label>
 
         {/* ── Next Follow-up Date ──────────────────────────────────────────── */}
 

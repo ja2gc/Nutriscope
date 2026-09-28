@@ -30,6 +30,7 @@ import NcpPatientHeader from "../../../_components/NcpPatientHeader";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { DatePicker, DateTimePicker } from "@/components/ui/DatePicker";
 import { FittedImageFrame } from "@/components/ui/ImageUploadGallery";
+import { InfoHint } from "@/components/ui/InfoHint";
 
 // ─── Constants ───────────────────────────────────────────────────────────
 const COMMON_ALLERGENS = ["milk", "eggs", "fish", "shellfish", "tree nuts", "peanuts", "wheat", "soybeans"];
@@ -1417,9 +1418,9 @@ export default function NcpAssessmentPage({
             </button>
           ))}
         </div>
-        {allergies.length > 0 && (
-          <p className="text-xs text-red-500 mt-1 font-bold">⚠ These allergens will be hard-excluded from meal plan recommendations.</p>
-        )}
+        <InfoHint label="How food allergies affect meal generation" title="Food allergy exclusion">
+          Recorded allergens are excluded from auto-generated meal recommendations. Review the final plan before use.
+        </InfoHint>
       </Field>
       <Field label="Food Dislikes (Soft Filter — warnings only)">
         <TagInput tags={assessment.food_dislikes ?? []} onChange={v => updateField("food_dislikes", v)} />
@@ -1809,11 +1810,11 @@ export default function NcpAssessmentPage({
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(22rem,0.85fr)]">
       <div className="space-y-3 rounded-xl border border-warm-200 bg-white p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h3 className="text-sm font-extrabold text-warm-800">Auto-generated assessment draft</h3>
-            <p className="mt-1 text-xs leading-relaxed text-warm-500">
-              Builds a concise draft from completed fields. Existing text remains editable.
-            </p>
+          <div className="flex items-center gap-1">
+            <h3 className="text-sm font-extrabold text-warm-800">Assessment Summary</h3>
+            <InfoHint label="How the assessment summary draft works" title="Assessment summary draft">
+              Generated text is a draft. Review and edit it before saving the assessment.
+            </InfoHint>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             {summaryUndo !== null && (
@@ -1858,9 +1859,6 @@ export default function NcpAssessmentPage({
             rows={4}
           />
         </Field>
-        <p className="text-xs leading-relaxed text-warm-500">
-          Generated text is a draft. Review and edit it before saving the assessment.
-        </p>
       </div>
       {renderRiskScore()}
     </div>

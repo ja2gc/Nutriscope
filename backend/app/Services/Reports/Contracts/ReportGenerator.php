@@ -18,7 +18,7 @@ interface ReportGenerator
     /** Blade view (e.g. "reports.program-project-activity"). */
     public function view(): string;
 
-    /** Paper size + orientation, e.g. ['a4', 'portrait']. */
+    /** Paper size + orientation. */
     public function paper(): array;
 
     /** View data (excluding shared branding/signatories the service injects). */

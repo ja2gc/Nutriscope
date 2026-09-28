@@ -5,35 +5,82 @@ import type { PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 import { AlertTriangle, Download, Loader2, X } from "lucide-react";
 
 const MAX_CACHED_PDF_DOCUMENTS = 3;
-const pdfDocumentCache = new Map<string, Promise<PDFDocumentProxy>>();
+const PDF_DESTROY_DELAY_MS = 500;
 
-function loadPdfDocument(src: string): Promise<PDFDocumentProxy> {
+type PdfDocumentCacheEntry = {
+  promise: Promise<PDFDocumentProxy>;
+  references: number;
+  destroyTimer: ReturnType<typeof setTimeout> | null;
+};
+
+const pdfDocumentCache = new Map<string, PdfDocumentCacheEntry>();
+
+function touchPdfDocument(src: string, entry: PdfDocumentCacheEntry) {
+  pdfDocumentCache.delete(src);
+  pdfDocumentCache.set(src, entry);
+}
+
+function prunePdfDocumentCache() {
+  let retainedCount = Array.from(pdfDocumentCache.values())
+    .filter((entry) => entry.destroyTimer === null).length;
+
+  for (const [src, entry] of pdfDocumentCache) {
+    if (retainedCount <= MAX_CACHED_PDF_DOCUMENTS) break;
+    if (entry.references > 0 || entry.destroyTimer !== null) continue;
+
+    retainedCount -= 1;
+    entry.destroyTimer = setTimeout(() => {
+      if (entry.references > 0 || pdfDocumentCache.get(src) !== entry) return;
+      pdfDocumentCache.delete(src);
+      void entry.promise.then((documentProxy) => documentProxy.destroy()).catch(() => undefined);
+    }, PDF_DESTROY_DELAY_MS);
+  }
+}
+
+function acquirePdfDocument(src: string): { promise: Promise<PDFDocumentProxy>; release: () => void } {
   const cached = pdfDocumentCache.get(src);
   if (cached) {
-    pdfDocumentCache.delete(src);
-    pdfDocumentCache.set(src, cached);
-    return cached;
+    cached.references += 1;
+    if (cached.destroyTimer !== null) {
+      clearTimeout(cached.destroyTimer);
+      cached.destroyTimer = null;
+    }
+    touchPdfDocument(src, cached);
+    prunePdfDocumentCache();
+
+    let released = false;
+    return {
+      promise: cached.promise,
+      release: () => {
+        if (released) return;
+        released = true;
+        cached.references = Math.max(0, cached.references - 1);
+        prunePdfDocumentCache();
+      },
+    };
   }
 
   const pending = import("pdfjs-dist/webpack.mjs").then((pdfjs) => (
     pdfjs.getDocument({ url: src, withCredentials: true }).promise
   ));
-  pdfDocumentCache.set(src, pending);
-
-  if (pdfDocumentCache.size > MAX_CACHED_PDF_DOCUMENTS) {
-    const oldest = pdfDocumentCache.entries().next().value;
-    if (oldest) {
-      const [oldestSrc, oldestDocument] = oldest;
-      pdfDocumentCache.delete(oldestSrc);
-      void oldestDocument.then((documentProxy) => documentProxy.destroy()).catch(() => undefined);
-    }
-  }
+  const entry: PdfDocumentCacheEntry = { promise: pending, references: 1, destroyTimer: null };
+  pdfDocumentCache.set(src, entry);
+  prunePdfDocumentCache();
 
   void pending.catch(() => {
-    if (pdfDocumentCache.get(src) === pending) pdfDocumentCache.delete(src);
+    if (pdfDocumentCache.get(src) === entry) pdfDocumentCache.delete(src);
   });
 
-  return pending;
+  let released = false;
+  return {
+    promise: pending,
+    release: () => {
+      if (released) return;
+      released = true;
+      entry.references = Math.max(0, entry.references - 1);
+      prunePdfDocumentCache();
+    },
+  };
 }
 
 function PdfPage({ documentProxy, pageNumber }: { documentProxy: PDFDocumentProxy; pageNumber: number }) {
@@ -158,7 +205,8 @@ export function ReportPreview({
     setError(null);
     setDocumentProxy(null);
 
-    void loadPdfDocument(src)
+    const lease = acquirePdfDocument(src);
+    void lease.promise
       .then((loadedDocument) => {
         if (!disposed) setDocumentProxy(loadedDocument);
       })
@@ -167,7 +215,10 @@ export function ReportPreview({
       })
       .finally(() => { if (!disposed) setLoading(false); });
 
-    return () => { disposed = true; };
+    return () => {
+      disposed = true;
+      lease.release();
+    };
   }, [src]);
 
   return (

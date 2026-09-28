@@ -1,6 +1,6 @@
 # RND Nutrition Care Process Video Storyboard
 
-Verified against the current RND web workflow and rendered clinical reports on **2026-09-26**.
+Verified against the current RND web workflow and rendered clinical reports on **2026-09-28**.
 
 Use this as the recording checklist and narration script for a future **Help → Guides** video. Record in a disposable demo database. Do not show real patient information.
 
@@ -85,13 +85,13 @@ Use this as the recording checklist and narration script for a future **Help →
 3. Continue to Intervention, choose a goal and applicable stage, then expand the calculation panel. Show goal-calculated baseline, maternal modifier, final prescription, and separate fluid guidance before saving.
 4. Load a seeded goal template and show its exact items plus goal/stage/maternal compatibility, then choose **Scale to prescription** to adjust quantities without replacing foods. For the fictional maternal scenario, choose the separate NNC/DOH-derived Pregnancy or Lactation example that matches the Assessment, using its snack or no-snack variant as appropriate. Confirm fluid does not influence scaling variance or success.
 5. Create a second meal plan under the same Intervention revision. Show the compact Auto-Generate options: **Exclude snacks** (and the liver-disease exception) plus **Use rice as carb**. Generate once with rice and once without where practical; confirm the carbohydrate is a separate scalable item, the off state excludes rice sides, and a complete rice-based dish receives no duplicate side. For a confirmed pregnant/lactating fictional patient, show that composition and the final prescription both reflect maternal context while the clinical goal remains authoritative.
-6. In Monitoring, save one normal visit with **Revise intervention** closed. On a later fictional visit, open it, verify current values are prefilled, enter effective date/reason, revise one target, and save.
-7. Show the **Intervention revised · Version N** timeline entry, confirm earlier revision details remain read-only, then create a new meal plan linked to the newer revision.
+6. In Monitoring, confirm the patient code and cycle start, complete the follow-up Assessment, and save one visit with **Update care plan** closed. On a later fictional visit, open it, verify current values are prefilled, enter effective date/reason, revise one target, select **Open Intervention after saving**, and save.
+7. Show the neutral **Care plan version N** history entry, confirm earlier revision details remain read-only, then use the existing Intervention screen to create a new meal plan linked to the newer revision.
 8. Point out the same visit bar on every step.
 
 **Narration**
 
-> A visit may include one step or several. Assessment keeps weight duration, census category, and maternal status explicit. PES assistance only words deterministic source-backed candidates; matching choices reappear as selections when edited, and manual entry remains available. Intervention shows the final prescription after any maternal modifier, while fluid stays guidance outside meal scaling. Most Monitoring visits remain simple; only a real treatment change opens the optional revision fields. Meal plans preserve the revision they were created from. Each clinical save records which sections were worked on and which became complete during this visit. Visit completion and NCP-cycle completion remain separate decisions.
+> A visit may include one step or several. Assessment keeps weight duration, census category, and maternal status explicit. PES assistance only words deterministic source-backed candidates; matching choices reappear as selections when edited, and manual entry remains available. Intervention shows the final prescription after any maternal modifier, while fluid stays guidance outside meal scaling. Monitoring captures the new Assessment values first; a real treatment change optionally opens **Update care plan**, and further education or meal-plan work continues in Intervention. Meal plans preserve the revision they were created from. Each clinical save records which sections were worked on and which became complete during this visit. Visit completion and NCP-cycle completion remain separate decisions.
 
 **Expected result:** The visit shows the sections worked on without forcing the RND to predict one next step.
 
@@ -157,15 +157,15 @@ Use this as the recording checklist and narration script for a future **Help →
 2. Show **Current Cycle** and the always-visible **Past Records** section.
 3. Move through Past Records pagination, two items per page.
 4. Select **Meal Plan 1** on a record.
-5. Show the PDF preview, then the view/download controls used by Reports.
+5. Show the long-bond PDF preview: intervention narrative on the first page, **Weekly Meal Plan** beginning on the next page, then compact portions. Show the view/download controls used by Reports.
 6. Open **Reports → Browse → Clinical → Patients NCP**, choose the same patient, select one ADIME cycle, and show only that cycle's Nutrition Intervention Plan and NCP Summary.
 7. Return to **Patients**, search the same person using the `NS-XXXX-XXXX` patient ID, and show that the ID appears only beneath the name in the patient profile header.
-8. Open **Reports → Browse → Clinical → Demographic Census**. Show that the month list begins with the earliest ADIME cycle, includes the live current month, and counts separate cycles for the same patient separately.
+8. Open **Reports → Browse → Clinical → Demographic Census**. Show that the month list begins with the earliest ADIME cycle, includes the live current month, and counts separate cycles for the same patient separately. Confirm its only breakdowns are Assessment primary diagnosis category, nutritional status, and risk level.
 9. Return to the patient record and confirm that merely viewing or downloading the report did not change **Last clinical action by**; when no qualifying save exists it reads **No action recorded**.
 
 **Narration**
 
-> Past Records preserves finished and discontinued ADIME cycles separately from the current cycle. A past appointment's linked ADIME cycle is history text, not a clickable shortcut. Meal plans use simple numbered labels and open the same report preview available from Patients NCP. Nutrition Intervention Plan uses the selected meal plan's immutable revision and shows final prescription, fluid guidance, patient-facing care text, menu references, and compact precise portions without preparation instructions. NCP Summary lists version 1 and dated Monitoring revisions with reasons. Patients NCP keeps current and completed cycles separate. The same patient search accepts name, physician, hospital number, or the random patient ID shown beneath the profile name. Demographic Census counts each non-deleted cycle once in its start month and category bucket, freezes completed months, and keeps the current month live. Preparing an archived copy freezes its exact PDF, branding, signatories, and source values; later revisions do not reinterpret it. Passive page views and downloads do not change clinical attribution.
+> Past Records preserves finished and discontinued ADIME cycles separately from the current cycle. A past appointment's linked ADIME cycle is history text, not a clickable shortcut. Meal plans use simple numbered labels and open the same report preview available from Patients NCP. Nutrition Intervention Plan uses the selected meal plan's immutable revision, separates the narrative from the Weekly Meal Plan, and shows compact precise portions without preparation instructions. NCP Summary lists version 1 and dated Monitoring revisions with reasons. Patients NCP keeps current and completed cycles separate. The same patient search accepts name, physician, hospital number, or the random patient ID shown beneath the profile name. Demographic Census counts each non-deleted cycle once in its start month and Assessment category bucket, freezes completed months, and keeps the current month live. All reports use 8.5 × 13-inch long bond paper. Preparing an archived copy freezes its exact PDF, branding, signatories, and source values; later revisions do not reinterpret it. Passive page views and downloads do not change clinical attribution.
 
 **Expected result:** Past records remain visible even when empty, pagination is present, patient-ID search finds the correct profile, a numbered meal plan opens the revision-correct Nutrition Intervention Plan, NCP Summary shows ordered revision history, archived bytes remain frozen, Patients NCP keeps report cycles separate, and Demographic Census counts all existing ADIME cycles from the earliest cycle month.
 

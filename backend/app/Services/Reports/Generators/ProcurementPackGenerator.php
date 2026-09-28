@@ -7,6 +7,7 @@ use App\Models\PurchaseOrderVendorGroup;
 use App\Models\Report;
 use App\Models\ReportTemplate;
 use App\Services\Reports\Contracts\ReportGenerator;
+use App\Support\ReportPaper;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
@@ -33,7 +34,7 @@ class ProcurementPackGenerator implements ReportGenerator
 
     public function paper(): array
     {
-        return ['a4', 'portrait'];
+        return [ReportPaper::LONG_BOND, 'portrait'];
     }
 
     public function data(Report $report): array

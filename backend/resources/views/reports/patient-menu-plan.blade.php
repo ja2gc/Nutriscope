@@ -39,6 +39,8 @@
         </div>
     @endif
 
+    <div class="page-break meal-plan-page-break"></div>
+    <div class="bold meal-plan-heading" style="margin-bottom:4px;">Weekly Meal Plan</div>
     <table class="grid menu-grid" style="margin-top:6px;">
         <thead>
             <tr>

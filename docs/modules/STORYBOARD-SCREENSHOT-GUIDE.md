@@ -1,6 +1,6 @@
 # NutriScope Sequential Screenshot Storyboard Guide
 
-Verified against current role navigation, clinical workflow, and rendered report flows on **2026-09-26**.
+Verified against current role navigation, clinical workflow, and rendered report flows on **2026-09-28**.
 
 This is the screenshot-required storyboard. Complete it by inserting the specified app capture immediately below each **Screenshot needed** instruction. Use fictional data and follow the privacy rules in this guide.
 
@@ -215,19 +215,19 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### RND-NCP-13 — Monitoring Visit Log
 
-**Description:** During a scheduled or walk-in visit, RND records follow-up indicators, tolerance/intake, symptoms, and goal result. The normal form stays minimal. A collapsed **Revise intervention** action is opened only when treatment changes and requires effective date plus reason. Future visits are created in Patient Appointments instead of inside Monitoring.
+**Description:** During a scheduled or walk-in visit, RND records a focused follow-up Assessment: weight/BMI, actual intake, intake notes, symptoms, laboratory values, progress assessment, and goal outcome. **Update care plan** is optional and collapsed. **Open Intervention after saving** can continue to the existing Intervention screen when education, counseling, or a new meal plan needs review. Future visits remain in Patient Appointments.
 
-**User should do:** Save one normal fictional follow-up with the revision action closed. Then open **Revise intervention**, confirm the current values are prefilled, enter effective date/reason, change one target, and save.
+**User should do:** Confirm the patient code and cycle start are readable without raw database IDs. Save one fictional follow-up with **Update care plan** closed. Then open it, confirm current values are prefilled, enter effective date/reason, change one target, select **Open Intervention after saving**, and save.
 
 **Next scene:** Progress Trends.
 
-> **Screenshot needed:** Monitoring Visit Log with the normal entry form and collapsed Revise intervention action. Add a second image showing the compact **Intervention revised · Version N** timeline entry.
+> **Screenshot needed:** Monitoring Visit Log with the follow-up Assessment and collapsed **Update care plan** action. Add a second image showing a neutral **Care plan version N** history entry and the optional Intervention handoff.
 >
 > **Insert screenshot below this line.**
 
 #### RND-NCP-14 — Monitoring Progress Trends
 
-**Description:** Progress view compares follow-up data with baseline Assessment and saved prescription targets. Prior Intervention revisions remain readable/immutable, and older meal plans keep their original revision while new plans link to the current one.
+**Description:** Progress view compares follow-up data with the clearly labelled baseline Assessment and saved prescription targets. Prior care-plan revisions remain readable/immutable, and older meal plans keep their original revision while new plans link to the current one.
 
 **User should do:** Explain whether the care plan continues, changes, or closes based on demo trend.
 
@@ -375,13 +375,13 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### RND-FS-09 — Operational Reports
 
-**Description:** RND previews and archives Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment, and Demographic Census outputs. Demographic Census starts at the earliest non-deleted ADIME cycle, counts each cycle once in its start month even when one person has multiple cycles, freezes completed months, and keeps the current month live.
+**Description:** RND previews and archives Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment, and Demographic Census outputs. All PDFs use 8.5 × 13-inch long bond paper with report-specific orientation. Demographic Census starts at the earliest non-deleted ADIME cycle, counts each cycle once in its start month even when one person has multiple cycles, freezes completed months, and keeps the current month live. Its three breakdowns are Assessment primary diagnosis category, nutritional status, and risk level; there is no ward breakdown.
 
 **User should do:** Open Demographic Census, show the earliest month and live current month, preview one completed month, and explain cycle counts plus live versus frozen state.
 
 **Next scene:** End of food-service planning story.
 
-> **Screenshot needed:** Reports Browse with Demographic Census selected, the month list spanning the earliest cycle through the current month, and one one-page census preview showing Total ADIME Cycles. Optional second image: another Food Service report with preview/action controls.
+> **Screenshot needed:** Reports Browse with Demographic Census selected, the month list spanning the earliest cycle through the current month, and one long-bond census preview showing Total ADIME Cycles plus the three breakdowns. Optional second image: another Food Service report with preview/action controls.
 >
 > **Insert screenshot below this line.**
 

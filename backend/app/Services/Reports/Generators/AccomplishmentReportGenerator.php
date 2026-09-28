@@ -6,6 +6,7 @@ use App\Models\DietListCount;
 use App\Models\Report;
 use App\Models\User;
 use App\Services\Reports\Contracts\ReportGenerator;
+use App\Support\ReportPaper;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Support\Collection;
@@ -65,7 +66,7 @@ class AccomplishmentReportGenerator implements ReportGenerator
 
     public function paper(): array
     {
-        return ['a4', 'landscape'];
+        return [ReportPaper::LONG_BOND, 'landscape'];
     }
 
     public function data(Report $report): array

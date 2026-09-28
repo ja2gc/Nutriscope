@@ -135,6 +135,18 @@ describe("UI helper copy contract", () => {
     expect(protectedSource).toContain("Changes apply only to this menu slot. The original recipe stays unchanged.");
   });
 
+  test("moves allergen, exclusion, and generated-draft guidance into help popovers", () => {
+    const assessment = read("app/(rnd)/ncp/[patientId]/assessment/[ncpId]/page.tsx");
+    const mealPlan = read("app/(rnd)/ncp/[patientId]/intervention/[ncpId]/_components/MealPlanSection.tsx");
+
+    expect(assessment).toContain("<InfoHint");
+    expect(mealPlan).toContain('label="How allergies and dislikes affect meal generation"');
+    expect(assessment).not.toContain("⚠ These allergens will be hard-excluded");
+    expect(mealPlan).not.toContain("Auto-generate will exclude recipes containing:");
+    expect(mealPlan).not.toContain("these are <em>not</em> excluded from the plan");
+    expect(assessment.match(/Generated text is a draft/g)).toHaveLength(1);
+  });
+
   test("does not render a standalone Food Service Staff eyebrow on the Android page", () => {
     const mobileAppPage = read("app/mobile-app/page.tsx");
     expect(/<p[^>]*>\s*Food Service Staff\s*<\/p>/.test(mobileAppPage)).toBe(false);

@@ -2,7 +2,8 @@
 
 import React, { use, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { Activity, User, Lock } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { User, Lock } from "lucide-react";
 import EncounterLog from "./_components/EncounterLog";
 import GoalProgressTracker from "./_components/GoalProgressTracker";
 import LogVisitForm from "./_components/LogVisitForm";
@@ -41,6 +42,15 @@ interface BiochemicalData {
 type AssessmentWithLabs = Assessment & { biochemical_data?: BiochemicalData };
 type Tab = "log" | "progress";
 
+function formatCycleDate(value: string | null | undefined): string {
+  if (!value) return "Not available";
+  return new Date(value).toLocaleDateString("en-PH", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 // ─── Breadcrumb ───────────────────────────────────────────────────────────────
 
 function Breadcrumb() {
@@ -65,6 +75,7 @@ export default function NcpMonitoringPage({
   params: Promise<{ patientId: string; ncpId: string }>;
 }) {
   const { patientId, ncpId } = use(params);
+  const router = useRouter();
   const isPlaceholder = patientId === "select-patient" || ncpId === "select-ncp";
 
   const [entries, setEntries]               = useState<MonitoringEntry[]>([]);
@@ -128,9 +139,13 @@ export default function NcpMonitoringPage({
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  async function handleLogVisit(payload: MonitoringPayload) {
+  async function handleLogVisit(payload: MonitoringPayload, options: { openIntervention: boolean }) {
     await createMonitoring(ncpId, payload);
     setShowForm(false);
+    if (options.openIntervention) {
+      router.push(`/ncp/${patientId}/intervention/${ncpId}`);
+      return;
+    }
     await loadData();
   }
 
@@ -239,8 +254,7 @@ export default function NcpMonitoringPage({
 
       {/* ── Page header ─────────────────────────────────────────────────────── */}
       <div className="border-b border-warm-200 pb-5">
-        <h2 className="text-xl font-extrabold text-warm-900 tracking-tight flex items-center gap-2.5">
-          <Activity className="h-5 w-5 text-emerald-600 shrink-0" />
+        <h2 className="text-xl font-extrabold text-warm-900 tracking-tight">
           Step 4: Nutrition Monitoring & Evaluation
         </h2>
       </div>
@@ -323,23 +337,25 @@ export default function NcpMonitoringPage({
 
           {/* ── Sidebar (1/3 on lg+, full-width below lg) ─────────────────── */}
           <div className="space-y-5">
-            {/* Encounter details card */}
+            {/* Monitoring record card */}
             <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm">
               <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider mb-4">
-                Encounter Details
+                Monitoring Record
               </h3>
               <div className="space-y-0 text-sm divide-y divide-zinc-100">
                 <div className="flex justify-between py-2.5">
-                  <span className="font-semibold text-warm-400">Patient ID</span>
-                  <span className="font-mono font-bold text-warm-900">{patientId}</span>
+                  <span className="font-semibold text-warm-400">Patient code</span>
+                  <span className="font-mono font-bold text-warm-900">{patient?.patient_code ?? "Not available"}</span>
                 </div>
                 <div className="flex justify-between py-2.5">
-                  <span className="font-semibold text-warm-400">NCP Cycle</span>
-                  <span className="font-mono font-bold text-warm-900">{ncpId}</span>
+                  <span className="font-semibold text-warm-400">Cycle started</span>
+                  <span className="font-semibold text-warm-900 text-right">
+                    {formatCycleDate(plan?.visits.find((visit) => visit.type === "assessment")?.date)}
+                  </span>
                 </div>
                 <div className="flex justify-between py-2.5">
                   <span className="font-semibold text-warm-400">Total Visits</span>
-                  <span className="font-mono font-bold text-warm-900">{entries.length}</span>
+                  <span className="font-mono font-bold text-warm-900">{historyMeta?.total ?? entries.length}</span>
                 </div>
                 {intervention?.goal_type && (
                   <div className="flex justify-between py-2.5 gap-3">

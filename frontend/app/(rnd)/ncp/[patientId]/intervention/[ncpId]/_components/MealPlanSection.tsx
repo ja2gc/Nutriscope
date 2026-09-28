@@ -492,22 +492,19 @@ export default function MealPlanSection({
             className="h-4 w-4 accent-emerald-600" />
           Exclude snacks
         </label>
+        {(allergens.length > 0 || foodDislikes.length > 0) && (
+          <InfoHint label="How allergies and dislikes affect meal generation" title="Allergies and dislikes">
+            {allergens.length > 0 && (
+              <p>Allergens are excluded from auto-generated recommendations: {allergens.join(", ")}.</p>
+            )}
+            {foodDislikes.length > 0 && (
+              <p className={allergens.length > 0 ? "mt-2" : undefined}>
+                Disliked foods remain eligible but are flagged for RND review: {foodDislikes.join(", ")}.
+              </p>
+            )}
+          </InfoHint>
+        )}
       </div>
-
-      {allergens.length > 0 && (
-        <p className="text-xs text-amber-600 flex items-center gap-1">
-          <AlertTriangle className="h-3 w-3" /> Auto-generate will exclude recipes containing: {allergens.join(', ')}
-        </p>
-      )}
-
-      {foodDislikes.length > 0 && (
-        <div className="flex items-start gap-2 p-2.5 bg-sky-50 border border-sky-200 rounded-lg">
-          <AlertTriangle className="h-3 w-3 text-sky-500 flex-shrink-0 mt-0.5" />
-          <p className="text-xs text-sky-700">
-            <span className="font-bold">Patient dislikes:</span> {foodDislikes.join(', ')} — these are <em>not</em> excluded from the plan but are flagged per item for RND review.
-          </p>
-        </div>
-      )}
 
       {generateError && (
         <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl">
@@ -648,6 +645,11 @@ export default function MealPlanSection({
                               <span className="text-sm font-medium text-warm-800 truncate">{s?.name ?? '—'}</span>
                               {item.source === 'usda' && <span className="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 rounded-full uppercase">USDA</span>}
                               {parseFloat(item.quantity) !== 1 && <span className="text-xs text-sky-500 font-bold">×{item.quantity}</span>}
+                              {isDisliked && (
+                                <InfoHint label={`Patient dislikes ${s?.name ?? "this food"}`} title="Patient food dislike">
+                                  Patient marked this food as disliked. Review the item before using this plan.
+                                </InfoHint>
+                              )}
                             </div>
                             {s && <p className="text-xs text-warm-400">{item.quantity}{item.unit} · {Math.round(s.calories*scale)}kcal · P{Math.round(s.protein*scale)}g · C{Math.round(s.carbs*scale)}g · F{Math.round(s.fat*scale)}g</p>}
                           </div>
@@ -670,11 +672,6 @@ export default function MealPlanSection({
                             </Button>
                           </div>
                         </div>
-                        {isDisliked && (
-                          <p className="text-xs text-amber-600 font-bold flex items-center gap-1 px-1.5 pb-1">
-                            <AlertTriangle className="h-2.5 w-2.5" /> Patient dislikes this food — RND review recommended
-                          </p>
-                        )}
                       </div>
                     );
                   })}

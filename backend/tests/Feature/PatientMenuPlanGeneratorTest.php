@@ -370,6 +370,37 @@ class PatientMenuPlanGeneratorTest extends TestCase
         $this->assertStringContainsString('Fluid guidance is informational', $plainText);
     }
 
+    public function test_weekly_meal_plan_starts_on_a_new_page_after_intervention_guidance(): void
+    {
+        $plan = $this->makePlan();
+        $report = new Report([
+            'type' => 'patient_menu_plan',
+            'parameters' => ['meal_plan_id' => $plan->id],
+        ]);
+        $generator = app(PatientMenuPlanGenerator::class);
+        $html = view($generator->view(), [
+            ...$generator->data($report),
+            'branding' => ReportBranding::singleton(),
+            'signatories' => [],
+            'generated_at' => now(),
+            'report' => $report,
+        ])->render();
+
+        $document = new \DOMDocument;
+        $previousLibxmlState = libxml_use_internal_errors(true);
+        $document->loadHTML($html);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousLibxmlState);
+        $xpath = new \DOMXPath($document);
+
+        $this->assertCount(1, $xpath->query('//div[contains(concat(" ", normalize-space(@class), " "), " meal-plan-page-break ")]'));
+        $this->assertCount(1, $xpath->query('//*[contains(concat(" ", normalize-space(@class), " "), " meal-plan-heading ") and normalize-space()="Weekly Meal Plan"]'));
+        $this->assertLessThan(
+            strpos($html, '<table class="grid menu-grid"'),
+            strpos($html, 'meal-plan-page-break'),
+        );
+    }
+
     public function test_portion_blocks_are_kept_together_during_pdf_pagination(): void
     {
         $source = file_get_contents(resource_path('views/reports/patient-menu-plan.blade.php'));
@@ -485,7 +516,7 @@ class PatientMenuPlanGeneratorTest extends TestCase
         $headings = $xpath->query('//table[contains(concat(" ", normalize-space(@class), " "), " portion-heading-table ")]');
 
         $this->assertCount(2, $groups);
-        $this->assertCount(2, $pageBreaks);
+        $this->assertCount(3, $pageBreaks);
         $this->assertCount(2, $headings);
         $this->assertCount(
             18,

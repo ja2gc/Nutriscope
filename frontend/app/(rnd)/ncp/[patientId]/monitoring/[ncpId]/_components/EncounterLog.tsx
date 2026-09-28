@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronUp, ClipboardList, Plus } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { MonitoringEntry } from "@/services/monitoringService";
 
@@ -29,6 +29,15 @@ function formatDate(dateStr: string): string {
   });
 }
 
+function revisionReason(entry: MonitoringEntry): string {
+  const revision = entry.intervention_revision;
+  if (!revision) return "";
+  if (revision.source === "legacy_baseline" || revision.reason === "Legacy intervention baseline") {
+    return "Initial care plan";
+  }
+  return revision.reason;
+}
+
 export default function EncounterLog({ entries, onLogNew, onDelete }: EncounterLogProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -40,21 +49,16 @@ export default function EncounterLog({ entries, onLogNew, onDelete }: EncounterL
     <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-warm-100">
-        <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider flex items-center gap-2">
-          <ClipboardList className="h-4 w-4 text-emerald-600" />
+        <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">
           Visit History
         </h3>
         <Button variant="primary" onClick={onLogNew} className="!w-auto">
-          <Plus className="h-3.5 w-3.5 mr-1" />
           Log New Visit
         </Button>
       </div>
 
       {sorted.length === 0 ? (
         <div className="p-10 text-center">
-          <div className="p-3 bg-warm-50 border border-dashed border-warm-300 rounded-xl w-fit mx-auto mb-3">
-            <ClipboardList className="h-6 w-6 text-warm-400" />
-          </div>
           <p className="text-sm font-semibold text-warm-500">No monitoring visits logged yet.</p>
           <p className="text-xs text-warm-400 mt-1">Log the first visit to start tracking progress.</p>
         </div>
@@ -91,7 +95,7 @@ export default function EncounterLog({ entries, onLogNew, onDelete }: EncounterL
                         <span className="text-sm text-warm-500">
                           {entry.weight
                             ? <><span className="font-mono font-bold text-warm-900">{entry.weight}</span> kg</>
-                            : <span className="text-warm-300">—</span>
+                            : <span className="text-warm-400 text-xs">Not recorded</span>
                           }
                         </span>
 
@@ -102,7 +106,7 @@ export default function EncounterLog({ entries, onLogNew, onDelete }: EncounterL
                               {COMPLIANCE_BADGE[compliance].label}
                             </span>
                           ) : (
-                            <span className="text-warm-300 text-xs">—</span>
+                            <span className="text-warm-400 text-xs">Not recorded</span>
                           )}
                         </span>
 
@@ -113,7 +117,7 @@ export default function EncounterLog({ entries, onLogNew, onDelete }: EncounterL
                               {DECISION_BADGE[decision].label}
                             </span>
                           ) : (
-                            <span className="text-warm-300 text-xs">—</span>
+                            <span className="text-warm-400 text-xs">Not recorded</span>
                           )}
                         </span>
 
@@ -127,12 +131,12 @@ export default function EncounterLog({ entries, onLogNew, onDelete }: EncounterL
                       </button>
 
                       {entry.intervention_revision && (
-                        <div className="mx-5 mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                        <div className="mx-5 mb-3 rounded-lg border border-warm-200 bg-warm-50 px-3 py-2 text-xs text-warm-700">
                           <span className="font-bold">
-                            Intervention revised · Version {entry.intervention_revision.version}
+                            Care plan version {entry.intervention_revision.version}
                           </span>
-                          <span className="block mt-0.5 text-emerald-700">
-                            {formatDate(entry.intervention_revision.effective_at)} · {entry.intervention_revision.reason}
+                          <span className="block mt-0.5 text-warm-500">
+                            Effective {formatDate(entry.intervention_revision.effective_at)}. {revisionReason(entry)}
                           </span>
                         </div>
                       )}
@@ -171,10 +175,24 @@ export default function EncounterLog({ entries, onLogNew, onDelete }: EncounterL
                             </div>
                           )}
 
+                          {entry.intake_notes && (
+                            <div>
+                              <p className="text-xs font-bold text-warm-400 uppercase tracking-widest mb-1">Intake Notes</p>
+                              <p className="text-sm text-warm-700 leading-relaxed">{entry.intake_notes}</p>
+                            </div>
+                          )}
+
+                          {entry.symptoms && (
+                            <div>
+                              <p className="text-xs font-bold text-warm-400 uppercase tracking-widest mb-1">Symptoms</p>
+                              <p className="text-sm text-warm-700 leading-relaxed">{entry.symptoms}</p>
+                            </div>
+                          )}
+
                           {/* Clinical notes */}
                           {entry.clinical_summary && (
                             <div>
-                              <p className="text-xs font-bold text-warm-400 uppercase tracking-widest mb-1">Clinical Notes</p>
+                              <p className="text-xs font-bold text-warm-400 uppercase tracking-widest mb-1">Progress Assessment</p>
                               <p className="text-sm text-warm-700 leading-relaxed">{entry.clinical_summary}</p>
                             </div>
                           )}

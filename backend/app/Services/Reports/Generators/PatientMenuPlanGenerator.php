@@ -6,6 +6,7 @@ use App\Models\MealPlan;
 use App\Models\MealPlanItem;
 use App\Models\Report;
 use App\Services\Reports\Contracts\ReportGenerator;
+use App\Support\ReportPaper;
 use App\Support\UnitConverter;
 
 /**
@@ -39,7 +40,7 @@ class PatientMenuPlanGenerator implements ReportGenerator
 
     public function paper(): array
     {
-        return ['a4', 'landscape'];
+        return [ReportPaper::LONG_BOND, 'landscape'];
     }
 
     public function data(Report $report): array

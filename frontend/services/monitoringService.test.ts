@@ -94,8 +94,20 @@ describe("monitoring intervention revisions", () => {
     const log = readFileSync(join(root, "EncounterLog.tsx"), "utf8");
 
     expect(form).toContain('useState(false)');
-    expect(form).toContain('title="Revise intervention"');
+    expect(form).toContain('title="Update care plan"');
     expect(form).toContain('grid grid-cols-1 sm:grid-cols-2');
-    expect(log).toContain('Intervention revised · Version');
+    expect(log).toContain('Care plan version');
+  });
+
+  it("shows a readable patient code and cycle start instead of route UUIDs", () => {
+    const page = readFileSync(join(
+      process.cwd(), "app", "(rnd)", "ncp", "[patientId]", "monitoring", "[ncpId]", "page.tsx",
+    ), "utf8");
+
+    expect(page).toContain("patient?.patient_code");
+    expect(page).toContain("Cycle started");
+    expect(page).not.toContain(">Patient ID<");
+    expect(page).not.toContain("{patientId}</span>");
+    expect(page).not.toContain("{ncpId}</span>");
   });
 });

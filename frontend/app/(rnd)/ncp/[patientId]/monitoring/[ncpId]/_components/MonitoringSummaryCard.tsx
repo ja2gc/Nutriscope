@@ -2,9 +2,10 @@
 
 import React, { useEffect, useState } from "react";
 import {
-  TrendingUp, TrendingDown, Minus, Sparkles, Loader2, AlertTriangle, Target,
+  TrendingUp, TrendingDown, Minus, Sparkles, Loader2, AlertTriangle,
 } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
+import { InfoHint } from "@/components/ui/InfoHint";
 import {
   fetchMonitoringSummary, requestMonitoringAiReview,
   MonitoringSummary, GoalStatus,
@@ -104,18 +105,18 @@ export default function MonitoringSummaryCard({ ncpId, visitCount }: Props) {
     <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm space-y-4">
       {/* Header + overall evaluation */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider flex items-center gap-2">
-          <Target className="h-4 w-4 text-emerald-600" /> Evaluation Summary
+        <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">
+          Progress Evaluation
         </h3>
         <StatusBadge label={evalStatus.label} status={evalStatus.status} />
       </div>
 
       {summary.has_previous ? (
         <p className="text-xs text-warm-400">
-          Comparing {summary.previous_date} → {summary.current_date}
+          Comparing {summary.previous_date} with {summary.current_date}
         </p>
       ) : (
-        <p className="text-xs text-warm-400">First visit ({summary.current_date}) — log another to compare trends.</p>
+        <p className="text-xs text-warm-400">First visit ({summary.current_date}). Log another visit to compare trends.</p>
       )}
 
       {/* Reasons */}
@@ -195,7 +196,9 @@ export default function MonitoringSummaryCard({ ncpId, visitCount }: Props) {
           </button>
         )}
         {!aiNarrative && !aiLoading && (
-          <p className="text-xs text-warm-400">Optional — sends only the small delta above to Claude Haiku for a brief interpretation. Cached per visit-pair.</p>
+          <InfoHint label="How AI review uses visit data" title="AI review data">
+            AI review sends only the displayed visit changes for a brief interpretation. Results are cached for each visit pair.
+          </InfoHint>
         )}
         {aiError && (
           <p className="flex items-start gap-1.5 text-xs text-amber-700">
