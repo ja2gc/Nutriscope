@@ -76,15 +76,13 @@ flowchart TD
     J -->|"saved"| K["Diagnosis / PES"]
     K --> K1["Optional bounded PES drafts<br/>0..3 with evidence + source"]
     K1 --> K
-    K -->|"one or more saved"| L["Intervention + final prescription + patient meal plans<br/>manual / exact template / prescription-generated"]
+    K -->|"one or more saved"| L["Dated Intervention Plans + final prescription<br/>zero or one menu per plan"]
     L -->|"saved"| M["Monitoring and Evaluation available"]
     M --> M0["Record follow-up Assessment"]
-    M0 --> M1{"Update care plan?"}
-    M1 -->|"No"| N
-    M1 -->|"Yes: effective date + reason"| M2["Save visit + immutable revision atomically"]
-    M2 --> M3{"Open Intervention?"}
-    M3 -->|"Optional"| L
-    M3 -->|"No"| N
+    M0 --> M1["Save complete Monitoring entry"]
+    M1 --> M2{"Treatment plan changes?"}
+    M2 -->|"No"| N
+    M2 -->|"Yes"| L
     J --> N["Shared visit controls remain available"]
     K --> N
     L --> N
@@ -103,8 +101,8 @@ flowchart TD
     W --> U
     X --> U
 
-    L --> Z["Meal Plan 1, Meal Plan 2, …"]
-    Z --> AA["Nutrition Intervention Plan PDF preview<br/>linked revision + compact portions"]
+    L --> Z["Dated Intervention Plans<br/>each with zero or one menu"]
+    Z --> AA["Nutrition Intervention Plan PDF preview<br/>saved plan + compact portions"]
     AA --> AB["View or download"]
 ```
 
@@ -114,9 +112,9 @@ flowchart TD
 2. **Appointments** - schedule with date/time and purpose, start a walk-in, or resolve a schedule as rescheduled, no-show, or cancelled.
 3. **Assessment** - enter one weight-duration quantity/unit, the cycle's primary diagnosis category, confirmed maternal status, and the remaining baseline data; no stress-factor control is used.
 4. **Diagnosis / PES** - requires Assessment. Use the manual builder or review zero to three bounded drafts with evidence/source, then save at least one diagnosis before Intervention unlocks.
-5. **Intervention / Prescription** - review progressively disclosed goal/stage inputs and the baseline → maternal modifier → final calculation. Fluid remains separate guidance. Save care actions and numbered patient meal plans linked to the active revision.
-6. **Monitoring and Evaluation** - requires saved Assessment, Diagnosis, and Intervention. Record the follow-up Assessment first; open **Update care plan** only when treatment changes, then optionally continue to Intervention for education or a new meal plan.
-7. **Reports** - open revision-aware NCP Summary and Nutrition Intervention Plan previews on 8.5 × 13-inch long bond pages; archive only when immutable filed bytes are needed.
+5. **Intervention / Prescription** - use the **Plans** tab for newest-first dated plans. Review progressively disclosed goal/stage inputs and the baseline → maternal modifier → final calculation. Fluid remains separate guidance. Prior plans are read-only; each plan may own zero or one menu.
+6. **Monitoring and Evaluation** - requires saved Assessment, Diagnosis, and Intervention. Record a complete follow-up calculation snapshot. Monitoring has no plan-creation controls; return to Intervention to create a new dated plan only when treatment changes.
+7. **Reports** - open one Nutrition Intervention Plan per saved plan with a menu plus a newest-plan-only NCP Summary on 8.5 × 13-inch long bond pages; archive only when immutable filed bytes are needed.
 
 ---
 
@@ -279,7 +277,7 @@ flowchart LR
 flowchart TD
     A["Operational source tables"] --> B{"Report / graph type?"}
     B -->|"NCP Summary"| C["Patient + assessment + diagnoses + intervention + monitoring"]
-    B -->|"Nutrition Intervention Plan"| D["Patient + meal plan's linked intervention revision + days/items + compact portions"]
+    B -->|"Nutrition Intervention Plan"| D["Patient + selected saved plan + sole menu + compact portions"]
     B -->|"Demographic Census"| E["Each ADIME cycle's start date + Assessment category + nutritional status + risk"]
     B -->|"Budget summary / burn"| F["Fiscal-year budget + budget ledger"]
     B -->|"Per-head actual vs limit"| G["PO costs + served population + per-head/day limit"]
@@ -324,14 +322,14 @@ flowchart TD
 4. Explicitly start the scheduled visit. If navigation changes, use the persistent Resume banner.
 5. On a fictional cycle, save Assessment with a quantity-plus-weeks/months weight duration, required category (including conditional **Specify category** when testing Other), and confirmed maternal status. Verify save/reload, no stress control, and no fixed three-month wording.
 6. In Diagnosis, request **Assessment-based PES drafts**. Verify zero to three source/evidence-backed results, unchanged-data cache, dismiss, Assessment-change refresh, edit/accept, and manual fallback.
-7. In Intervention, choose a goal/stage and expand the calculation panel. Verify goal baseline, maternal modifier, final prescription, and separate fluid guidance; save education, counseling, goals, and a meal plan.
-8. Create or scale another meal plan under the same revision and verify fluid does not affect generation/scaling variance. In Monitoring, save one follow-up Assessment with no care-plan change, then a second visit using **Update care plan** with effective date/reason.
-9. Confirm the neutral versioned care-plan entry, prior revision immutability, multiple plans on one revision, and the optional handoff to Intervention for a new plan linked to the newer revision.
+7. In Intervention, open **Plans**, create a dated plan, choose a goal/stage, and expand the calculation panel. Verify goal baseline, maternal modifier, final prescription, separate fluid guidance, and concise education/counseling fields; save the complete plan.
+8. Create, load, or generate that plan's sole menu and verify fluid does not affect generation/scaling variance. Confirm a second menu for the same plan is unavailable.
+9. In Monitoring, save a complete follow-up calculation snapshot and inspect its organized read-only Visit Log detail. Then return to Intervention, create another dated plan, and verify it prefills the newest plan while recalculating from the latest Monitoring values without copying the prior menu.
 10. Finish or end the visit from the shared controls on any ADIME step. Use Discard only for an empty mistaken start.
 11. Resolve unattended schedules as No-show, Cancelled, or Rescheduled; confirm history and administering RND in Appointments.
 12. In ADIME Records, complete/protect or discontinue the current cycle when clinically appropriate and review it in Past Records.
-13. Select a numbered meal plan to open its **Nutrition Intervention Plan**, then verify the linked prescription, first-page narrative, Weekly Meal Plan on the next page, concise portions, and view/download actions.
-14. In Reports, open **Patients NCP**, choose the same fictional patient/cycle, inspect every long-bond page of Nutrition Intervention Plan and NCP Summary, and confirm revision history plus frozen archived-copy behavior.
+13. Select a dated plan to open its **Nutrition Intervention Plan**, then verify plan date, menu-before-guidance order, omitted blank snack rows, concise three-column portions, and view/download actions.
+14. In Reports, open **Patients NCP**, choose the same fictional patient/cycle, inspect every long-bond page of each available dated Nutrition Intervention Plan and NCP Summary, and confirm that NCP Summary uses only the newest plan while archived copies remain frozen.
 15. Open **Demographic Census** from the earliest cycle month through the live current month; verify one-cycle-one-count Assessment category buckets, the sex/category/nutritional-status breakdowns with no ward breakdown, and that archived completed months remain frozen.
 
 ### Part C - FSS executes food-service work on mobile
@@ -380,15 +378,15 @@ Intervention is unlocked after Assessment and at least one Diagnosis. It progres
 
 ### Meal Planning
 
-Patient meal plans may be manual, generated, or template-based. Exact loaded templates can be quantity-scaled in the common editor without item substitution, with goal/stage/maternal compatibility shown before use. Seeded templates include separate NNC/DOH-derived pregnancy and lactation examples. Auto-generation follows the saved prescription and can exclude snacks by redistributing targets across main meals, except when the selected liver-disease goal requires frequent intake. The rice option limits independently scaled side-carbohydrate items to rice; otherwise it uses suitable non-rice choices. Complete rice-based dishes receive no duplicate side, and confirmed maternal status uses balanced maternal composition under the selected goal. Fluid guidance is excluded from matching and scaling. Every plan links to the active immutable Intervention revision; multiple plans may share a revision. In ADIME history plans are numbered within the cycle and open the Nutrition Intervention Plan PDF preview with the linked prescription, concise portion references, and view/download actions.
+Each saved Intervention Plan may have zero or one manual, generated, or template-based menu. Exact loaded templates can be quantity-scaled in the common editor without item substitution, with goal/stage/maternal compatibility shown before use. Seeded templates include separate NNC/DOH-derived pregnancy and lactation examples. Auto-generation follows the saved prescription and can exclude snacks by redistributing targets across main meals, except when the selected liver-disease goal requires frequent intake. The rice option limits independently scaled side-carbohydrate items to rice; otherwise it uses suitable non-rice choices. Complete rice-based dishes receive no duplicate side, and confirmed maternal status uses balanced maternal composition under the selected goal. Fluid guidance is excluded from matching and scaling. A new Intervention Plan never copies the previous menu.
 
 ### Monitoring and Evaluation
 
-Monitoring unlocks after Assessment, Diagnosis, and Intervention exist. RND logs the follow-up Assessment and compares it with clearly labelled baseline values and targets. **Update care plan** stays collapsed and optional; when opened, effective date and reason are required and the visit plus immutable revision save together. The neutral history exposes only care-plan revisions created by their visit; migrated legacy baselines are not repeated under old visits. Weight remains **In Progress** while moving toward, but still outside, its target band. Chart guidance is progressively disclosed through help. Earlier revisions and linked meal plans remain immutable. **Open Intervention after saving** optionally continues to the existing Intervention workflow for education, counseling, or a new plan. Appointment status, purpose, and next scheduling remain in Appointments/shared visit controls.
+Monitoring unlocks after Assessment, Diagnosis, and Intervention exist. RND records a complete follow-up calculation snapshot and compares it with clearly labelled baseline values and targets. Saved visits are newest first, paginated, and open as organized read-only detail with empty sections omitted. Weight remains **In Progress** while moving toward, but still outside, its target band. Chart guidance is progressively disclosed through help. Monitoring has no Intervention controls. When treatment changes, create a new dated plan in Intervention; it prefills the newest plan and recalculates from the latest complete Monitoring values. Appointment status, purpose, and next scheduling remain in Appointments/shared visit controls.
 
 ### Clinical Reports
 
-The Reports page prepares current report data for preview. Every PDF uses 8.5 × 13-inch long bond paper with report-specific orientation. **Patients NCP** presents recent patients first and keeps each patient's Nutrition Intervention Plan and NCP Summary together. The selected meal plan's revision supplies the patient document prescription; narrative content stays on the first page and the Weekly Meal Plan starts on the next. Portion details use three columns and one card per repeated dish/food, with each distinct saved amount retaining its menu reference. NCP Summary lists version 1 and dated Monitoring revisions. Demographic Census shows Assessment primary diagnosis category, nutritional status, and risk level only. The same Nutrition Intervention Plan can be opened from a numbered meal plan in ADIME Records. View/download uses the existing PDF routes; preparing/archiving freezes the generated bytes and their template/signatory/source snapshot.
+The Reports page prepares current report data for preview. Every PDF uses 8.5 × 13-inch long bond paper with report-specific portrait or landscape orientation. **Patients NCP** presents recent patients first and keeps each patient's dated Nutrition Intervention Plans and NCP Summary together. A saved plan without a menu is listed but unavailable. The document prints the saved prescription and Weekly Meal Plan before concise education/counseling/barriers/strategies, omits empty snack rows, then uses three-column portion details with one card per repeated dish/food and separate references for distinct saved amounts. NCP Summary uses only the newest saved plan. Demographic Census shows Assessment primary diagnosis category, nutritional status, and risk level only. View/download uses the existing PDF routes; preparing/archiving freezes the generated bytes and their template/signatory/source snapshot.
 
 ## 11. Current NCP and Visit Workflow Diagram
 

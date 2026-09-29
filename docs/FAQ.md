@@ -176,13 +176,17 @@ The application progressively reveals only that goal's applicable stages, asks t
 
 Food/nutrient delivery and prescription, food guidance, patient meal plan, education, counseling, and goal planning. Visit timing, purpose, attendance, and next scheduling are handled by Appointments/shared visit controls rather than an Intervention-only context.
 
+### How do saved Intervention Plans work?
+
+The **Plans** tab lists complete dated plans newest first. Opening an older plan reuses the Intervention screen in read-only form. **New Intervention Plan** prefills the newest saved plan and recalculates from the latest complete Monitoring values, falling back to the original Assessment when no follow-up exists. Saving creates a separate immutable plan; cancelling creates nothing. Each plan may have zero or one menu plan, and a new plan does not copy the prior menu. Education and counseling fields allow 1,200 characters each and 2,200 characters combined to keep the printed plan concise.
+
 ### Can I make a patient meal plan manually or from a template?
 
 Yes. Meal plans can be created manually, generated, or loaded from a saved template. Templates retain their exact foods, recipes, and quantities and identify goal, stage, and maternal compatibility. The seeded examples include separate NNC/DOH-derived pregnancy and lactation patterns, each with a snack and no-snack variant; no-snack maternal patterns fold their milk and fruit into meals. These remain starting points that must be reviewed and scaled to the final prescription. Use **Scale to prescription** in the common editor to adjust quantities without substituting items. Auto-generation already uses the saved prescription; **Exclude snacks** leaves snack slots empty and redistributes their targets across main meals, except for liver-disease plans where the application keeps clinically required frequent intake. Empty snack rows are omitted from the Nutrition Intervention Plan PDF. **Use rice as carb** limits separate side-carbohydrate choices to rice; when off, generation uses suitable non-rice choices. Complete rice-based dishes do not receive another carbohydrate side, and a side may be omitted when it would worsen prescription fit. Confirmed pregnancy/lactation also uses a balanced maternal composition while keeping the selected clinical goal authoritative. Review allergens, restrictions, portions, nutrition totals, and variance before use. Fluid guidance is shown separately and is excluded from generation, scaling, variance, and target-match success because a food menu does not represent all beverages.
 
 ### What can I record in Monitoring?
 
-Follow-up clinical data, goal progress, anthropometrics and selected clinical indicators, intake/tolerance, symptoms, and progress trends. Visit Log records clinical entries; Progress Trends summarizes changes from baseline and targets. Most visits use the normal form only. Open the collapsed **Revise intervention** action when treatment actually changes; it requires an effective date and reason and atomically saves a new immutable revision with the Monitoring visit. The timeline identifies the revision version, while earlier revisions and meal plans linked to them remain unchanged. Schedule the next visit through Appointments/shared visit controls so attendance and clinical monitoring are not duplicated.
+Follow-up clinical data needed for later prescription calculations: observation date/type; weight, height, edema/dry weight, activity and maternal status; allergies, restrictions, dislikes and laboratory values; intake/tolerance, symptoms, progress, goal outcome, clinical summary, and next monitoring date. Visit Log is newest first, paginated, and opens organized read-only details with empty sections omitted. Progress Trends remains separate. Monitoring does not create or revise Intervention Plans. When treatment changes, create a new dated plan from Intervention. Schedule the next visit through Appointments/shared visit controls so attendance and clinical monitoring are not duplicated.
 
 ### Can I delete a patient or NCP cycle?
 
@@ -260,7 +264,7 @@ RND can set up budgets and create manual ledger adjustments. Admin's Budget page
 
 ### What is the difference between live preview and archived report?
 
-Live preview renders from current data and the revision linked to the selected meal plan. **Archive** freezes the exact as-filed PDF bytes and snapshot so later clinical data, Intervention revisions, or branding changes do not alter it.
+Live preview renders from the selected saved Intervention Plan and its sole menu plan. **Archive** freezes the exact as-filed PDF bytes and snapshot so later clinical data, newer plans, or branding changes do not alter it.
 
 ### Which reports can RND access?
 

@@ -35,7 +35,7 @@ class InterventionController extends Controller
     ) {}
 
     /**
-     * POST /api/rnd/ncp-records/{ncpRecord}/intervention/autofill
+     * POST /api/rnd/ncp-records/{ncpRecord}/interventions/autofill
      *
      * AUTHORITATIVE prescription calculation. Derives patient metrics from the
      * assessment + patient record and returns the spec-correct prescription.
@@ -49,8 +49,9 @@ class InterventionController extends Controller
         InterventionCalculationContextService $contextService,
     ): JsonResponse {
         $this->authorizeNcp($ncpRecord);
-        $goalType = $request->input('goal_type') ?? $ncpRecord->intervention?->goal_type;
-        $stage = $request->input('disease_stage') ?? $ncpRecord->intervention?->disease_stage;
+        $latestPlan = $ncpRecord->latestIntervention;
+        $goalType = $request->input('goal_type') ?? $latestPlan?->goal_type;
+        $stage = $request->input('disease_stage') ?? $latestPlan?->disease_stage;
 
         if (! $goalType) {
             return response()->json(['message' => 'goal_type is required.'], 422);
@@ -157,64 +158,6 @@ class InterventionController extends Controller
         return response()->json(['data' => $rx]);
     }
 
-    /**
-     * POST /api/rnd/ncp-records/{ncpRecord}/intervention
-     */
-    public function store(StoreInterventionRequest $request, NcpRecord $ncpRecord)
-    {
-        $this->authorizeNcp($ncpRecord);
-        if ($ncpRecord->intervention()->exists()) {
-            return response()->json(['message' => 'Intervention already exists for this NCP record.'], 409);
-        }
-
-        // ADIME step order: at least one diagnosis must precede the intervention.
-        if (! $ncpRecord->diagnoses()->exists()) {
-            return response()->json([
-                'message' => 'Add at least one diagnosis before recording the intervention.',
-            ], 422);
-        }
-
-        $data = $request->validated();
-
-        return $this->audited(function () use ($data, $ncpRecord, $request) {
-            $intervention = $this->plans->create($ncpRecord, $data, $request->user());
-
-            $this->refreshActivation($ncpRecord);
-            $freshNcp = $ncpRecord->fresh(['intervention']);
-            $this->appointments->recordClinicalWork($request->user(), $freshNcp, 'intervention');
-
-            return (new InterventionResource($intervention->load(['sourceMonitoring', 'mealPlan'])))->response()->setStatusCode(201);
-        });
-    }
-
-    /**
-     * GET /api/rnd/ncp-records/{ncpRecord}/intervention
-     */
-    public function show(NcpRecord $ncpRecord): JsonResponse
-    {
-        $this->authorizeNcp($ncpRecord);
-        $intervention = $ncpRecord->intervention()->first();
-
-        if (! $intervention) {
-            return response()->json(['data' => null]);
-        }
-
-        return (new InterventionResource($intervention->load(['sourceMonitoring', 'mealPlan'])))->response();
-    }
-
-    /**
-     * PATCH /api/rnd/ncp-records/{ncpRecord}/intervention
-     */
-    public function update(Request $request, NcpRecord $ncpRecord): JsonResponse
-    {
-        $this->authorizeNcp($ncpRecord);
-        $ncpRecord->intervention()->firstOrFail();
-
-        return response()->json([
-            'message' => 'Saved Intervention Plans are immutable. Create a new plan instead.',
-        ], 422);
-    }
-
     public function index(PaginatedRequest $request, NcpRecord $ncpRecord): AnonymousResourceCollection
     {
         $this->authorizeNcp($ncpRecord);
@@ -293,13 +236,13 @@ class InterventionController extends Controller
     }
 
     /**
-     * GET /api/rnd/ncp-records/{ncpRecord}/intervention/recommendations
+     * GET /api/rnd/ncp-records/{ncpRecord}/interventions/recommendations
      * Auto-derives clinical rule conditions from the intervention's goal_type.
      */
     public function recommendations(NcpRecord $ncpRecord): JsonResponse
     {
         $this->authorizeNcp($ncpRecord);
-        $intervention = $ncpRecord->intervention()->firstOrFail();
+        $intervention = $ncpRecord->latestIntervention()->firstOrFail();
 
         $conditions = $this->mapGoalTypeToConditions($intervention->goal_type ?? '');
         $stages = $intervention->disease_stage ? [$intervention->disease_stage] : null;

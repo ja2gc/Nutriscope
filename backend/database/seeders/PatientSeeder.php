@@ -86,7 +86,6 @@ class PatientSeeder extends Seeder
         }
         $result->update([
             'status' => 'active',
-            'intervention_revision_id' => null,
         ]);
         if ($createdAt !== null) {
             DB::table('meal_plans')->where('id', $result->id)->update([

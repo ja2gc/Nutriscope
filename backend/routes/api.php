@@ -167,14 +167,10 @@ Route::middleware(['auth:sanctum', 'active', 'role:RND'])->prefix('rnd')->group(
 
     // Intervention routes
     Route::middleware('throttle:compute')->group(function () {
-        Route::post('ncp-records/{ncpRecord}/intervention/autofill', [InterventionController::class, 'autofill']);
         Route::post('ncp-records/{ncpRecord}/interventions/autofill', [InterventionController::class, 'autofill']);
         Route::post('ncp-records/{ncpRecord}/intervention/recommend', [MealPlanController::class, 'recommend']);
-        Route::get('ncp-records/{ncpRecord}/intervention/recommendations', [InterventionController::class, 'recommendations']);
+        Route::get('ncp-records/{ncpRecord}/interventions/recommendations', [InterventionController::class, 'recommendations']);
     });
-    Route::post('ncp-records/{ncpRecord}/intervention', [InterventionController::class, 'store']);
-    Route::get('ncp-records/{ncpRecord}/intervention', [InterventionController::class, 'show']);
-    Route::patch('ncp-records/{ncpRecord}/intervention', [InterventionController::class, 'update']);
     Route::get('ncp-records/{ncpRecord}/interventions', [InterventionController::class, 'index']);
     Route::get('ncp-records/{ncpRecord}/interventions/latest', [InterventionController::class, 'latest']);
     Route::post('ncp-records/{ncpRecord}/interventions', [InterventionController::class, 'storePlan']);

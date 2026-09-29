@@ -14,4 +14,14 @@ describe("intervention plan proxy routes", () => {
 
     expect(proxy).toHaveBeenCalledWith("/rnd/ncp-records/ncp-uuid/interventions/latest");
   });
+
+  it("proxies recommendations through the plural plan endpoint", async () => {
+    const { GET } = await import("./[ncpRecordId]/interventions/recommendations/route");
+
+    await GET(new Request("http://localhost") as never, {
+      params: Promise.resolve({ ncpRecordId: "ncp-uuid" }),
+    });
+
+    expect(proxy).toHaveBeenCalledWith("/rnd/ncp-records/ncp-uuid/interventions/recommendations");
+  });
 });

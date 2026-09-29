@@ -840,21 +840,14 @@ return [
             'implementation_state' => 'implemented',
             'reason' => 'Diagnosis persistence for DELETE api/rnd/ncp-records/{ncpRecord}/diagnoses/{diagnosis} is covered by its redacted clinical model event.',
         ],
-        'POST api/rnd/ncp-records/{ncpRecord}/intervention' => [
+        'POST api/rnd/ncp-records/{ncpRecord}/interventions' => [
             'classification' => 'model_event',
             'source' => 'App\\Models\\Intervention::AuditsChanges',
             'owner_task' => 6,
             'implementation_state' => 'implemented',
-            'reason' => 'Intervention persistence for POST api/rnd/ncp-records/{ncpRecord}/intervention is covered by its redacted clinical model event.',
+            'reason' => 'Complete Intervention Plan persistence is covered by its redacted clinical model event.',
         ],
-        'PATCH api/rnd/ncp-records/{ncpRecord}/intervention' => [
-            'classification' => 'model_event',
-            'source' => 'App\\Models\\Intervention::AuditsChanges',
-            'owner_task' => 6,
-            'implementation_state' => 'implemented',
-            'reason' => 'Intervention persistence for PATCH api/rnd/ncp-records/{ncpRecord}/intervention is covered by its redacted clinical model event.',
-        ],
-        'POST api/rnd/ncp-records/{ncpRecord}/intervention/autofill' => [
+        'POST api/rnd/ncp-records/{ncpRecord}/interventions/autofill' => [
             'classification' => 'intentionally_not_audited',
             'source' => 'App\\Http\\Controllers\\RND\\InterventionController@autofill',
             'owner_task' => 4,

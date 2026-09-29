@@ -19,7 +19,7 @@ class MealPlan extends Model
     protected bool $auditRedactValues = true;
 
     protected $fillable = [
-        'intervention_id', 'intervention_revision_id', 'patient_id', 'week_start_date', 'generation_type', 'needs_rescaling', 'scaled_at', 'status',
+        'intervention_id', 'patient_id', 'week_start_date', 'generation_type', 'needs_rescaling', 'scaled_at', 'status',
     ];
 
     protected $casts = [
@@ -36,11 +36,6 @@ class MealPlan extends Model
     public function intervention(): BelongsTo
     {
         return $this->belongsTo(Intervention::class);
-    }
-
-    public function revision(): BelongsTo
-    {
-        return $this->belongsTo(InterventionRevision::class, 'intervention_revision_id');
     }
 
     public function patient(): BelongsTo

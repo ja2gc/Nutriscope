@@ -42,7 +42,7 @@ class NcpVisitAttributionTest extends TestCase
             'etiology' => 'reduced appetite',
             'signs_symptoms' => 'Reported intake below estimated needs',
         ])->assertCreated();
-        $this->postJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention", [
+        $this->postJson("/api/rnd/ncp-records/{$ncp->uuid}/interventions", [
             'goal_type' => 'custom',
             'energy_kcal' => 1800,
             'protein_g' => 70,
@@ -81,11 +81,26 @@ class NcpVisitAttributionTest extends TestCase
             ->assertForbidden();
         $this->assertSame([], NcpAppointment::where('uuid', $visitId)->firstOrFail()->worked_on ?? []);
 
+        $monitoring = [
+            'observed_at' => now()->toDateString(),
+            'visit_type' => 'scheduled_follow_up',
+            'weight' => 72,
+            'height' => 170,
+            'edema_present' => false,
+            'physical_activity_level' => 'light',
+            'pregnancy_lactation_status' => 'none',
+            'allergies' => [],
+            'dietary_restrictions' => null,
+            'food_dislikes' => [],
+        ];
         $monitoringId = $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings", ['weight' => 72])
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings", $monitoring)
             ->assertCreated()
             ->json('data.id');
-        $this->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings/{$monitoringId}", ['weight' => 71.5])
+        $this->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings/{$monitoringId}", [
+            ...$monitoring,
+            'weight' => 71.5,
+        ])
             ->assertOk();
 
         $visit = NcpAppointment::where('uuid', $visitId)->firstOrFail();

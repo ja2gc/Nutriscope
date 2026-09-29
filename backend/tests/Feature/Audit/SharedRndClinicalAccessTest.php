@@ -6,6 +6,7 @@ use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
 use App\Models\Assessment;
+use App\Models\Diagnosis;
 use App\Models\Intervention;
 use App\Models\MealPlan;
 use App\Models\MealPlanDay;
@@ -26,7 +27,7 @@ class SharedRndClinicalAccessTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_an_rnd_can_write_every_clinical_section_of_another_rnds_ncp(): void
+    public function test_an_rnd_can_access_shared_clinical_records_while_new_plans_keep_owner_protection(): void
     {
         Storage::fake('local');
         $creator = User::factory()->rnd()->create();
@@ -41,6 +42,7 @@ class SharedRndClinicalAccessTest extends TestCase
             'physical_activity_level' => 'sedentary',
             'primary_diagnosis_category' => 'Diabetes',
         ]);
+        Diagnosis::factory()->create(['ncp_record_id' => $ncp->id]);
         $intervention = Intervention::factory()->create([
             'ncp_record_id' => $ncp->id,
             'goal_type' => 'custom',
@@ -71,7 +73,7 @@ class SharedRndClinicalAccessTest extends TestCase
         $this->actingAs($actor, 'sanctum')
             ->getJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment")
             ->assertOk();
-        $this->getJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention")->assertOk();
+        $this->getJson("/api/rnd/ncp-records/{$ncp->uuid}/interventions/latest")->assertOk();
         $this->getJson("/api/rnd/ncp-records/{$ncp->uuid}/meal-plans")->assertOk();
         $this->getJson("/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/{$mealPlan->uuid}")->assertOk();
         $this->getJson("/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/{$mealPlan->uuid}/days/{$day->uuid}/items")
@@ -83,15 +85,25 @@ class SharedRndClinicalAccessTest extends TestCase
             'physical_activity_level' => 'light',
         ])->assertOk();
 
-        $this->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention", [
+        $this->postJson("/api/rnd/ncp-records/{$ncp->uuid}/interventions", [
             'goal_type' => 'custom',
             'disease_stage' => null,
             'education_notes' => 'Updated by the covering RND',
-        ])->assertOk();
+        ])->assertUnprocessable()
+            ->assertJsonPath('message', 'The NCP record does not belong to this RND.');
 
         $monitoring = Monitoring::factory()->create([
             'ncp_record_id' => $ncp->id,
+            'observed_at' => now()->toDateString(),
+            'visit_type' => 'scheduled_follow_up',
             'weight' => 60,
+            'height' => 165,
+            'edema_present' => false,
+            'physical_activity_level' => 'light',
+            'pregnancy_lactation_status' => 'none',
+            'allergies' => [],
+            'dietary_restrictions' => null,
+            'food_dislikes' => [],
         ]);
         $this->getJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings")->assertOk();
 
@@ -103,7 +115,16 @@ class SharedRndClinicalAccessTest extends TestCase
         ])->assertOk();
 
         $this->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings/{$monitoring->uuid}", [
+            'observed_at' => $monitoring->observed_at->toDateString(),
+            'visit_type' => $monitoring->visit_type,
             'weight' => 61,
+            'height' => 165,
+            'edema_present' => false,
+            'physical_activity_level' => 'light',
+            'pregnancy_lactation_status' => 'none',
+            'allergies' => [],
+            'dietary_restrictions' => null,
+            'food_dislikes' => [],
         ])->assertOk();
 
         $this->deleteJson("/api/rnd/screening-documents/{$document->uuid}")->assertOk();
@@ -120,7 +141,8 @@ class SharedRndClinicalAccessTest extends TestCase
             ->assertNoContent();
 
         $this->assertSame('light', $ncp->assessment->fresh()->physical_activity_level);
-        $this->assertSame('Updated by the covering RND', $intervention->fresh()->education_notes);
+        $this->assertSame('Original education notes', $intervention->fresh()->education_notes);
+        $this->assertDatabaseCount('interventions', 1);
         $this->assertModelMissing($document);
         $this->assertModelMissing($item);
         $this->assertModelMissing($monitoring);

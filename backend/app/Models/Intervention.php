@@ -20,8 +20,6 @@ class Intervention extends Model
     /** Clinical — log field names only, redact PHI values (Spec 5 Decision A). */
     protected bool $auditRedactValues = true;
 
-    private bool $revisionMutation = false;
-
     protected $fillable = [
         'ncp_record_id', 'source_monitoring_id', 'goal_type', 'disease_stage', 'displayed_nutrients',
         'energy_kcal', 'protein_g', 'carbs_g', 'fat_g', 'fluid_ml',
@@ -43,12 +41,10 @@ class Intervention extends Model
 
     protected static function booted(): void
     {
-        static::updating(function (Intervention $intervention): void {
-            if (! $intervention->revisionMutation) {
-                throw ValidationException::withMessages([
-                    'intervention' => ['Saved Intervention Plans are immutable. Create a new plan instead.'],
-                ]);
-            }
+        static::updating(function (): void {
+            throw ValidationException::withMessages([
+                'intervention' => ['Saved Intervention Plans are immutable. Create a new plan instead.'],
+            ]);
         });
     }
 
@@ -80,29 +76,6 @@ class Intervention extends Model
     public function mealPlan(): HasOne
     {
         return $this->hasOne(MealPlan::class);
-    }
-
-    public function revisions(): HasMany
-    {
-        return $this->hasMany(InterventionRevision::class);
-    }
-
-    public function activeRevision(): HasOne
-    {
-        return $this->hasOne(InterventionRevision::class)->ofMany('version', 'max');
-    }
-
-    /** @internal Current-row changes after monitoring must flow through InterventionRevisionService. */
-    public function applyRevisionAttributes(array $attributes): void
-    {
-        $this->revisionMutation = true;
-
-        try {
-            $this->fill($attributes);
-            $this->save();
-        } finally {
-            $this->revisionMutation = false;
-        }
     }
 
     /**

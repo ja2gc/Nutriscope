@@ -1,6 +1,6 @@
 # Clinical Care — Current NCP/ADIME Flow
 
-Verified against current RND pages, appointment workflow, Laravel controllers, and rendered reports on **2026-09-26**.
+Verified against current RND pages, appointment workflow, Laravel controllers, and rendered reports on **2026-09-29**.
 
 ## End-to-End Flow
 
@@ -40,27 +40,27 @@ flowchart TD
     M --> P["Save at least one Diagnosis"]
 
     P --> Q["Intervention unlocked"]
-    Q --> Q1["Set goal and stage"]
+    Q --> Q0["Plans tab: newest-first dated plans<br/>or New Intervention Plan"]
+    Q0 --> Q1["Set goal and stage"]
     Q1 --> Q2["Backend-authoritative baseline + maternal modifier + final trace"]
     Q2 --> Q3["Review/edit targets; fluid remains separate guidance"]
-    Q3 --> Q4["Create, generate, or load patient meal plan<br/>linked to active revision"]
-    Q4 --> Q5["Complete education, counseling, and goals"]
-    Q5 --> R["Save care plan"]
+    Q3 --> Q4["Complete concise education, counseling, barriers, and strategies"]
+    Q4 --> R["Save complete dated Intervention Plan"]
+    R --> R1["Optionally create, generate, or load its sole menu plan"]
 
-    R --> S{"Schedule next visit?"}
+    R1 --> S{"Schedule next visit?"}
     S -->|"Not yet"| T["Care plan remains usable without Monitoring"]
     S -->|"Scheduled or walk-in"| U0["Explicitly start visit"]
     U0 --> U["Continue any required ADIME step or Monitoring"]
-    U --> U1{"Revise intervention?"}
-    U1 -->|"No"| V["Normal Monitoring entry"]
-    U1 -->|"Yes"| V1["Prefill care; require effective date + reason"]
-    V1 --> V2["Save visit + immutable revision atomically"]
+    U --> V["Save complete Monitoring calculation snapshot"]
     V --> W["Progress Trends vs baseline and targets"]
-    V2 --> W
-    W --> X["Finish or end visit"]
+    W --> W1{"Treatment plan changes?"}
+    W1 -->|"No"| X["Finish or end visit"]
+    W1 -->|"Yes"| W2["Open Intervention Plans and create a new dated plan<br/>prefilled from newest plan + latest Monitoring"]
+    W2 --> X
 
     T --> Y["Reports"]
-    W --> Y
+    X --> Y
     Y --> Z["Preview live NCP Summary or Nutrition Intervention Plan"]
     Z --> AA["Archive approved as-filed copy"]
 ```
@@ -92,7 +92,7 @@ flowchart TD
     A --> C2["NCP Cycle 2+"]
     C1 --> S1["Assessment"]
     C1 --> S2["Diagnoses"]
-    C1 --> S3["Intervention and meal plans"]
+    C1 --> S3["Dated Intervention Plans<br/>each with zero or one menu"]
     C1 --> S4["Monitoring entries"]
     V0 --> V1["Upcoming and past visits"]
     V1 --> V2["Source, purpose, status, administering RND, and recorded work"]
@@ -106,9 +106,10 @@ flowchart TD
 - Generated Assessment Summary is an editable draft; stale-source warning supports regenerate/undo.
 - PES drafts are source-gated and de-identified. Edit rehydrates matching Problem/Etiology/Signs options as selections and keeps only unmatched detail in notes; manual entry remains available.
 - Prescription calculation authority is Laravel backend; frontend trace explains baseline, maternal modifier, and final values. Fluid guidance is excluded from meal matching/scaling.
-- Normal Monitoring stays minimal; optional revision creates immutable history, and meal plans keep their linked revision.
+- Monitoring stores complete calculation inputs and visit outcomes only. It has no Intervention creation or revision controls.
+- Dated complete Intervention Plans are newest first, prior plans are read-only, and each may own zero or one menu plan.
 - A cycle becomes deletion-protected once Assessment, Diagnosis, and Intervention all exist.
-- NCP Summary shows revision history; Nutrition Intervention Plan uses the selected meal plan's revision and compact portions. Archived PDF bytes stay frozen.
+- NCP Summary shows the newest saved plan only. Each saved plan with a menu has its own long-bond Nutrition Intervention Plan; archived PDF bytes stay frozen.
 
 ## Related Documents
 

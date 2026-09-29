@@ -75,7 +75,6 @@ class MealPlanController extends Controller
 
                 $mealPlan = MealPlan::create([
                     'intervention_id' => $lockedIntervention->id,
-                    'intervention_revision_id' => null,
                     'patient_id' => $ncpRecord->patient_id,
                     'week_start_date' => $request->week_start_date,
                     'generation_type' => $request->generation_type ?? 'manual',
@@ -440,7 +439,6 @@ class MealPlanController extends Controller
 
                 $plan = MealPlan::create([
                     'intervention_id' => $lockedIntervention->id,
-                    'intervention_revision_id' => null,
                     'patient_id' => $ncpRecord->patient_id,
                     'week_start_date' => $validated['week_start_date'],
                     'generation_type' => 'manual',

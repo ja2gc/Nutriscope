@@ -15,7 +15,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
-class InterventionRevisionTest extends TestCase
+class InterventionPlanServiceTest extends TestCase
 {
     use RefreshDatabase;
 

@@ -1106,12 +1106,33 @@ override an individualized prescription.
   derived from the official NNC/DOH food-group and serving guidance above and are not represented
   as an exact government therapeutic diet.
 
+### 15.3 Dated-plan and print boundary
+
+- Intervention history is a newest-first, server-paginated collection of complete dated plans, not
+  revisions of one mutable row. Prior plans are read-only and have no current/inactive status.
+- A new plan prefills clinical fields from the newest saved plan. Authoritative calculation inputs
+  come from the newest complete Monitoring snapshot, with the original Assessment as fallback.
+- Monitoring stores calculation inputs and visit outcomes only. It never creates an Intervention
+  Plan or menu. A treatment change is recorded as a separate plan from Intervention.
+- Each saved plan may own zero or one menu. Creating a new plan does not copy the previous menu.
+- Education, counseling goals, barriers, and strategies are limited to 1,200 characters each and
+  2,200 characters combined. This is a print-legibility/product constraint, not a clinical target;
+  no text is silently truncated in the report.
+- Each saved plan with a menu has one dated Nutrition Intervention Plan report. NCP Summary uses
+  only the newest plan. All report types use 8.5 × 13-inch long bond paper with their defined
+  portrait or landscape orientation. The plan PDF prints the weekly menu before concise guidance,
+  omits empty snack rows, and flows deduplicated portion cards in three columns.
+
+No new clinical source was introduced for this workflow boundary. Nutrition calculations and meal
+composition continue to use the authorities recorded in §§2–15.2.
+
 ---
 
 ## 16. Changelog
 
 | Date | Change |
 |---|---|
+| 2026-09-29 | **Dated-plan workflow and print boundary reconciled.** Complete immutable Intervention Plans replace active revision consumers; Monitoring remains visit data only; each plan owns zero or one menu; reports use newest-plan or selected-plan semantics. Added the 1,200-per-field/2,200-combined guidance limit and long-bond menu-first print contract. No new clinical source was introduced. |
 | 2026-09-28 | **Deployed QA follow-up reconciled.** Repeated foods now share one compact portion card with separately referenced saved amounts. This changes presentation only; no new nutrition calculation or external clinical source was introduced. Monitoring target-status, progressive help, and food-alert disclosure were aligned with the already approved clinical/runtime contract. |
 | 2026-09-28 | **Meal-plan composition research and runtime boundary documented.** Added Academy, PDRI, FNRI Food Exchange List, Nutritional Guidelines, Pinggang Pinoy, maternal-menu, and current U.S. guideline review locations. The hierarchy makes the individualized prescription authoritative and limits Pinggang Pinoy to a visual cross-check; direct carbohydrates, rice preference, intrinsic-carbohydrate, balanced custom, maternal composition, snack safety, and goal-specific review rules are explicit. |
 | 2026-09-21 | **Maternal and fluid runtime contract locked.** TEE remains BMR × PAL; trimester-specific energy and +27 g/day protein modifiers use PDRI 2015 Summary Tables 1–2 (rev. Sept 2018); fluid is guidance outside meal-plan scaling; goal stages remain progressively disclosed. |

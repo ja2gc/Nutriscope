@@ -101,7 +101,6 @@ vi.mock("@/services/interventionService", () => ({
     created_at: "2026-09-29T09:00:00Z",
     updated_at: "2026-09-29T09:00:00Z",
   })),
-  updateIntervention: vi.fn(),
   autofillIntervention: vi.fn(async () => ({
     energy_kcal: 1900,
     protein_g: 75,

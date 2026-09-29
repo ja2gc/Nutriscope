@@ -54,7 +54,6 @@ export interface RecommendResult {
   limits:    { tag: string; condition: string; reason: string; threshold: number; unit: string }[];
 }
 
-const legacyBase = (ncpId: string) => `/api/rnd/ncp-records/${ncpId}/intervention`;
 const plansBase = (ncpId: string) => `/api/rnd/ncp-records/${ncpId}/interventions`;
 
 export async function fetchInterventionPlans(ncpId: string, page = 1): Promise<InterventionPlanPage> {
@@ -100,19 +99,6 @@ export async function createIntervention(ncpId: string, payload: Partial<Interve
   return (await res.json()).data;
 }
 
-export async function updateIntervention(ncpId: string, payload: Partial<Intervention>): Promise<Intervention> {
-  const res = await apiFetch(legacyBase(ncpId), {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error((err as { message?: string }).message || 'Failed to update intervention.');
-  }
-  return (await res.json()).data;
-}
-
 /** Authoritative prescription from the backend engine (Phase 2/2.4 — source of truth). */
 export interface AutofillResult {
   energy_kcal: number;
@@ -149,7 +135,7 @@ export class AutofillError extends Error {
 }
 
 /**
- * POST /intervention/autofill — returns the spec-correct prescription computed
+ * POST /interventions/autofill — returns the spec-correct prescription computed
  * by the PHP engine. The TS mirror is for instant preview only; persisted values
  * should come from here so the frontend can never drift from the backend.
  */
@@ -176,7 +162,7 @@ export async function autofillIntervention(
 }
 
 export async function fetchRecommendations(ncpId: string): Promise<RecommendResult> {
-  const res = await apiFetch(`${legacyBase(ncpId)}/recommendations`, { headers: { Accept: 'application/json' } });
+  const res = await apiFetch(`${plansBase(ncpId)}/recommendations`, { headers: { Accept: 'application/json' } });
   if (!res.ok) return { recommend: [], avoid: [], limits: [] };
   return (await res.json()).data ?? { recommend: [], avoid: [], limits: [] };
 }

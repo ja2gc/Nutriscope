@@ -293,7 +293,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Diagnosis & Intervention",
     question: "Can I make a patient meal plan manually or from a template?",
-    answer: "Yes. Build meals manually, use exact templates, or generate a draft where supported. Each plan keeps the active Intervention revision. Review foods, portions, totals, and patient suitability; fluid guidance is excluded from scaling and target-match success.",
+    answer: "Yes. Each dated Intervention Plan can own one manual, template-based, or generated menu. Review foods, portions, totals, and patient suitability; fluid guidance is excluded from scaling and target-match success. Create another dated Intervention Plan when treatment changes.",
     keywords: ["template", "generate", "menu", "nutrition totals"],
   },
   {
@@ -301,7 +301,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Monitoring",
     question: "What can I record in Monitoring?",
-    answer: "Record progress toward goals, relevant measurements, intake/tolerance, symptoms, and observations. Most visits use the normal form only. Open Revise intervention when treatment changes; effective date and reason are required and the immutable version appears in the timeline. Manage attendance through Appointments and the shared visit bar.",
+    answer: "Record the follow-up measurements and clinical context needed for later calculations, plus intake/tolerance, symptoms, progress, and next monitoring date. Saved visits are read-only in Visit Log; Progress Trends stays separate. Create a new dated plan from Intervention only when treatment changes. Manage attendance through Appointments and the shared visit bar.",
     keywords: ["visit log", "progress trend", "follow-up"],
   },
   {

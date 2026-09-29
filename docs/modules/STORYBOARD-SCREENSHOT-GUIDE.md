@@ -191,7 +191,7 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### RND-NCP-11 — Patient Meal Plan
 
-**Description:** RND creates a manual/generated/template-based meal plan linked to the active immutable Intervention revision, then checks allergens, restrictions, portions, nutrition totals, and macro/energy variance. Auto-generation can exclude snacks and select rice-only or suitable non-rice side carbohydrates; those foods scale independently from the main recipe, complete rice-based dishes receive no duplicate side, and confirmed maternal status uses balanced maternal composition. Template compatibility includes goal, stage, and maternal context. Fluid guidance is not part of scaling or target-match success.
+**Description:** RND opens a saved dated Intervention Plan and creates its single manual/generated/template-based menu, then checks allergens, restrictions, portions, nutrition totals, and macro/energy variance. Auto-generation can exclude snacks and select rice-only or suitable non-rice side carbohydrates; those foods scale independently from the main recipe, complete rice-based dishes receive no duplicate side, and confirmed maternal status uses balanced maternal composition. Template compatibility includes goal, stage, and maternal context. Fluid guidance is not part of scaling or target-match success.
 
 **User should do:** Open the demo plan, add/adjust an item, review target variance, and save.
 
@@ -203,31 +203,31 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### RND-NCP-12 — Intervention Supporting Tabs
 
-**Description:** Education, Counseling, and Goal Planning turn prescription targets into patient-facing actions. The shared visit bar records one visit across whichever NCP steps are handled during that session.
+**Description:** The Intervention **Plans** tab lists complete dated plans newest first. Older plans reuse the same tabs in read-only form. A new plan prefills the newest plan, recalculates from the latest complete Monitoring snapshot (Assessment fallback), and never copies the previous menu. Education, Counseling, and Goal Planning turn prescription targets into concise patient-facing actions.
 
-**User should do:** Show completed demo content and one save action, then finish the active visit from the shared visit bar and review its work summary in Patient Appointments.
+**User should do:** Open an older plan, show its exact read-only values, start a new plan, verify prefill/source context, keep combined guidance within the visible limit, save it, then confirm it appears first with its creation date and no current/inactive badge.
 
 **Next scene:** Monitoring on follow-up.
 
-> **Screenshot needed:** One representative supporting tab plus shared visit bar. Optional second image: completed appointment showing purpose, administering RND, and work summary. Use demo text only.
+> **Screenshot needed:** Plans tab with dated newest-first rows and New Intervention Plan. Optional second image: a concise guidance tab showing the shared character count. Use fictional text only.
 >
 > **Insert screenshot(s) below this line.**
 
 #### RND-NCP-13 — Monitoring Visit Log
 
-**Description:** During a scheduled or walk-in visit, RND records a focused follow-up Assessment: weight/BMI, actual intake, intake notes, symptoms, laboratory values, progress assessment, and goal outcome. **Update care plan** is optional and collapsed. **Open Intervention after saving** can continue to the existing Intervention screen when education, counseling, or a new meal plan needs review. Future visits remain in Patient Appointments.
+**Description:** During a scheduled or walk-in visit, RND records the complete follow-up calculation snapshot: observation/visit context, anthropometrics, edema/dry weight, activity, maternal status, allergies/restrictions/dislikes, laboratory values, intake/tolerance, symptoms, progress, goal outcome, clinical summary, and next monitoring date. Monitoring contains no Intervention creation, revision, or meal-plan controls. Future visits remain in Patient Appointments.
 
-**User should do:** Confirm the patient code and cycle start are readable without raw database IDs. Save one fictional follow-up with **Update care plan** closed. Then open it, confirm current values are prefilled, enter effective date/reason, change one target, select **Open Intervention after saving**, and save.
+**User should do:** Confirm the patient code and cycle start are readable without raw database IDs. Save one fictional follow-up, verify it appears first, open its organized read-only details, and confirm empty optional sections are omitted. Start another entry and confirm the newest visit prefills the calculation fields.
 
 **Next scene:** Progress Trends.
 
-> **Screenshot needed:** Monitoring Visit Log with the follow-up Assessment and collapsed **Update care plan** action. Add a second image showing a neutral **Care plan version N** entry beneath only its originating visit and the optional Intervention handoff.
+> **Screenshot needed:** Monitoring Visit Log with neutral rows, pagination, and one expanded organized detail. Do not show Intervention controls because none belong here.
 >
 > **Insert screenshot below this line.**
 
 #### RND-NCP-14 — Monitoring Progress Trends
 
-**Description:** Progress view compares follow-up data with the baseline Assessment and saved prescription targets. Its help controls explain baseline/reference/target chart marks without repeated inline notes. Weight moving toward but outside its target band remains **In Progress**. Prior care-plan revisions remain readable/immutable, and older meal plans keep their original revision while new plans link to the current one.
+**Description:** Progress view compares follow-up data with the baseline Assessment and newest saved prescription targets. Its help controls explain baseline/reference/target chart marks without repeated inline notes. Weight moving toward but outside its target band remains **In Progress**. Saved Intervention Plans remain separately readable under Intervention.
 
 **User should do:** Explain whether the care plan continues, changes, or closes based on demo trend.
 
@@ -239,13 +239,13 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### RND-NCP-15 — Clinical Report Preview and Archive
 
-**Description:** Patients NCP lists recent patients first. Opening one patient shows non-deleted ADIME cycles. Selecting one cycle keeps only that cycle's NCP Summary and Nutrition Intervention Plan together. NCP Summary lists version 1 and dated Monitoring revisions; the selected plan uses its linked revision and compact three-column portion blocks, with one card per repeated dish/food and separate references for distinct saved amounts. There are no preparation instructions or source notes. Preparing/archiving freezes the exact filed PDF bytes and snapshot.
+**Description:** Patients NCP lists recent patients first. Opening one patient shows non-deleted ADIME cycles. Selecting one cycle shows NCP Summary plus one dated Nutrition Intervention Plan item per saved plan. A plan without a menu remains listed but disabled. NCP Summary uses only the newest saved plan. Each plan PDF uses long bond paper, prints the menu before concise guidance, omits empty snack rows, and uses compact three-column portion blocks with one card per repeated dish/food and separate references for distinct saved amounts. There are no preparation instructions or source notes. Preparing/archiving freezes the exact filed PDF bytes and snapshot.
 
-**User should do:** Open **Patients NCP**, choose a fictional patient, select one ADIME cycle, preview every page of both report types, verify revision/portion/fluid content and clean pagination, then show an existing frozen archived copy.
+**User should do:** Open **Patients NCP**, choose a fictional patient and cycle, preview every page of all available report items, verify date/menu/guidance/portion/fluid content and clean portrait/landscape pagination, confirm the no-menu disabled state, then show an existing frozen archived copy.
 
 **Next scene:** End of clinical story.
 
-> **Screenshot needed:** Patients NCP patient list, the ADIME-cycle selector, and one selected cycle showing only its NCP Summary and Nutrition Intervention Plan. Include the revision-history table and compact portion details. Optional final image: a frozen archived report.
+> **Screenshot needed:** One selected cycle showing NCP Summary and multiple dated Nutrition Intervention Plan rows, including a disabled no-menu row. Add one decisive PDF page with menu plus concise guidance and one compact portion page. Optional final image: a frozen archived report.
 >
 > **Insert screenshot(s) below this line.**
 
