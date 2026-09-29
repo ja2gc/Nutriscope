@@ -2,8 +2,6 @@
 
 import React, { use, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { User, Lock } from "lucide-react";
 import EncounterLog from "./_components/EncounterLog";
 import GoalProgressTracker from "./_components/GoalProgressTracker";
 import LogVisitForm from "./_components/LogVisitForm";
@@ -12,10 +10,12 @@ import MonitoringSummaryCard from "./_components/MonitoringSummaryCard";
 import CarePlanHeader from "./_components/CarePlanHeader";
 import {
   MonitoringEntry,
+  MonitoringContext,
   MonitoringPayload,
   MonitoringPlan,
   fetchMonitorings,
   fetchMonitoringPlan,
+  fetchMonitoringContext,
   createMonitoring,
   deleteMonitoring,
 } from "@/services/monitoringService";
@@ -60,8 +60,6 @@ function Breadcrumb() {
         Directory
       </Link>
       <span className="text-warm-300">/</span>
-      <span className="font-bold text-warm-600">NCP Cycle</span>
-      <span className="text-warm-300">/</span>
       <span className="font-bold text-warm-600">Monitoring & Evaluation</span>
     </div>
   );
@@ -75,7 +73,6 @@ export default function NcpMonitoringPage({
   params: Promise<{ patientId: string; ncpId: string }>;
 }) {
   const { patientId, ncpId } = use(params);
-  const router = useRouter();
   const isPlaceholder = patientId === "select-patient" || ncpId === "select-ncp";
 
   const [entries, setEntries]               = useState<MonitoringEntry[]>([]);
@@ -84,6 +81,7 @@ export default function NcpMonitoringPage({
   const [patient, setPatient]               = useState<Patient | null>(null);
   const [biochemicalData, setBiochemicalData] = useState<BiochemicalData | null>(null);
   const [plan, setPlan]                     = useState<MonitoringPlan | null>(null);
+  const [context, setContext]               = useState<MonitoringContext | null>(null);
   const [loading, setLoading]               = useState(true);
   const [showForm, setShowForm]             = useState(false);
   const [activeTab, setActiveTab]           = useState<Tab>("log");
@@ -97,13 +95,14 @@ export default function NcpMonitoringPage({
     setLoading(true);
     setError(null);
     try {
-      const [patientData, monitoringData, assessmentData, diagnosisData, interventionData, planData] = await Promise.allSettled([
+      const [patientData, monitoringData, assessmentData, diagnosisData, interventionData, planData, contextData] = await Promise.allSettled([
         fetchPatientById(patientId),
         fetchMonitorings(ncpId, historyPage),
         fetchAssessment(ncpId),
         fetchDiagnoses(ncpId),
         fetchIntervention(ncpId),
         fetchMonitoringPlan(ncpId).catch(() => null),
+        fetchMonitoringContext(ncpId),
       ]);
       if (patientData.status === "fulfilled") setPatient(patientData.value);
       if (monitoringData.status === "fulfilled") {
@@ -120,6 +119,7 @@ export default function NcpMonitoringPage({
       const loadedIntervention = interventionData.status === "fulfilled" ? interventionData.value : null;
       setIntervention(loadedIntervention);
       setPlan(planData.status === "fulfilled" ? planData.value : null);
+      setContext(contextData.status === "fulfilled" ? contextData.value : null);
 
       if (!hasAssessment) {
         setWorkflowBlock("Save the assessment before monitoring can begin.");
@@ -127,6 +127,9 @@ export default function NcpMonitoringPage({
         setWorkflowBlock("Save at least one diagnosis before monitoring can begin.");
       } else if (!loadedIntervention) {
         setWorkflowBlock("Monitoring starts on follow-up or second visit after the care plan is saved.");
+      } else if (contextData.status === "rejected") {
+        setWorkflowBlock(null);
+        setError(contextData.reason instanceof Error ? contextData.reason.message : "Failed to load monitoring context.");
       } else {
         setWorkflowBlock(null);
       }
@@ -139,13 +142,9 @@ export default function NcpMonitoringPage({
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  async function handleLogVisit(payload: MonitoringPayload, options: { openIntervention: boolean }) {
+  async function handleLogVisit(payload: MonitoringPayload) {
     await createMonitoring(ncpId, payload);
     setShowForm(false);
-    if (options.openIntervention) {
-      router.push(`/ncp/${patientId}/intervention/${ncpId}`);
-      return;
-    }
     await loadData();
   }
 
@@ -160,9 +159,6 @@ export default function NcpMonitoringPage({
       <div className="space-y-6 font-sans">
         <Breadcrumb />
         <div className="bg-white border border-warm-200 rounded-2xl p-10 sm:p-12 text-center max-w-2xl mx-auto shadow-sm">
-          <div className="p-3.5 bg-warm-50 border border-warm-200 rounded-2xl w-fit mx-auto text-warm-400">
-            <User className="h-8 w-8" />
-          </div>
           <h3 className="text-base font-bold text-warm-800 mt-4 uppercase tracking-wider">
             No Patient Selected
           </h3>
@@ -207,9 +203,6 @@ export default function NcpMonitoringPage({
           medicalDiagnosis={patient?.medical_diagnosis}
         />
         <div className="bg-white border border-warm-200 rounded-2xl p-10 sm:p-12 text-center max-w-2xl mx-auto shadow-sm">
-          <div className="p-3.5 bg-warm-50 border border-warm-200 rounded-2xl w-fit mx-auto text-warm-400">
-            <Lock className="h-8 w-8" />
-          </div>
           <h3 className="text-base font-bold text-warm-800 mt-4 uppercase tracking-wider">
             Monitoring Begins On Follow-up
           </h3>
@@ -305,10 +298,10 @@ export default function NcpMonitoringPage({
                 />
                 <Pagination meta={historyMeta} page={historyPage} onPageChange={setHistoryPage} />
 
-                {showForm && (
+                {showForm && context && (
                   <LogVisitForm
                     plan={plan}
-                    heightCm={assessment?.height ? Number(assessment.height) : null}
+                    context={context}
                     intervention={intervention}
                     onSubmit={handleLogVisit}
                     onCancel={() => setShowForm(false)}

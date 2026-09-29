@@ -1,169 +1,177 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronDown, ChevronUp, X } from "lucide-react";
+import { useMemo, useState } from "react";
+
 import { Button } from "@/components/ui/Button";
-import {
-  Collapsible,
-  CollapsibleTrigger,
-  CollapsibleContent,
-} from "@/components/ui/collapsible";
-import {
-  MonitoringPayload,
-  ComplianceStatus,
-  GiToleranceStatus,
-  ContinuationDecision,
-  GOAL_LAB_FLAGS,
-  CLINICAL_LAB_META,
-  type ClinicalLabKey,
-  buildInterventionRevisionPayload,
-  calculateBmi,
-} from "@/services/monitoringService";
+import { InfoHint } from "@/components/ui/InfoHint";
+import { GOAL_MICRO_FLAGS, ALL_MICROS } from "@/lib/nutritionCalculations";
 import type { Intervention } from "@/services/interventionService";
 import type { MonitoringPlan } from "@/services/monitoringPlan";
-import { GOAL_MICRO_FLAGS, ALL_MICROS } from "@/lib/nutritionCalculations";
-import { GOALS, visibleStagesForGoal } from "../../../intervention/[ncpId]/_components/goals";
-import { InfoHint } from "@/components/ui/InfoHint";
-
-// ─── Props ────────────────────────────────────────────────────────────────────
+import {
+  CLINICAL_LAB_META,
+  GOAL_LAB_FLAGS,
+  buildEffectiveMonitoringPayload,
+  calculateBmi,
+  type ClinicalLabKey,
+  type ComplianceStatus,
+  type ContinuationDecision,
+  type GiToleranceStatus,
+  type MonitoringContext,
+  type MonitoringLabValues,
+  type MonitoringPayload,
+  type MonitoringVisitType,
+  type PregnancyLactationStatus,
+} from "@/services/monitoringService";
 
 interface LogVisitFormProps {
   plan?: MonitoringPlan | null;
-  heightCm: number | null;
+  context: MonitoringContext;
   intervention: Intervention | null;
-  onSubmit: (payload: MonitoringPayload, options: { openIntervention: boolean }) => Promise<void>;
+  onSubmit: (payload: MonitoringPayload) => Promise<void>;
   onCancel: () => void;
 }
 
-// ─── Toggle option configs ─────────────────────────────────────────────────
-
-const COMPLIANCE_OPTIONS: { value: ComplianceStatus; label: string; active: string }[] = [
-  { value: "compliant",     label: "Compliant",   active: "bg-emerald-600 text-white border-emerald-600" },
-  { value: "partial",       label: "Partial",     active: "bg-amber-500 text-white border-amber-500" },
-  { value: "non_compliant", label: "Non-compl.",  active: "bg-red-500 text-white border-red-500" },
+const VISIT_TYPES: { value: MonitoringVisitType; label: string }[] = [
+  { value: "scheduled_follow_up", label: "Scheduled follow-up" },
+  { value: "inpatient_review", label: "Inpatient review" },
+  { value: "discharge_review", label: "Discharge review" },
+  { value: "unscheduled_follow_up", label: "Unscheduled follow-up" },
 ];
 
-const GI_OPTIONS: { value: GiToleranceStatus; label: string; active: string }[] = [
-  { value: "tolerating",     label: "Tolerating",     active: "bg-emerald-600 text-white border-emerald-600" },
-  { value: "not_tolerating", label: "Not Tolerating", active: "bg-red-500 text-white border-red-500" },
+const ACTIVITY_LEVELS = [
+  { value: "sedentary", label: "Sedentary" },
+  { value: "light", label: "Light" },
+  { value: "moderate", label: "Moderate" },
+  { value: "very_active", label: "Very active" },
+  { value: "extra_active", label: "Extra active" },
 ];
 
-type NonNullDecision = NonNullable<ContinuationDecision>;
-
-const DECISION_OPTIONS: { value: NonNullDecision; label: string; active: string }[] = [
-  { value: "continue",    label: "Continue",    active: "bg-emerald-600 text-white border-emerald-600" },
-  { value: "modify",      label: "Modify",      active: "bg-amber-500 text-white border-amber-500" },
-  { value: "discontinue", label: "Discontinue", active: "bg-forest-700 text-white border-zinc-700" },
+const MATERNAL_STATUSES: { value: PregnancyLactationStatus; label: string }[] = [
+  { value: "none", label: "None" },
+  { value: "pregnant_t1", label: "Pregnant, first trimester" },
+  { value: "pregnant_t2", label: "Pregnant, second trimester" },
+  { value: "pregnant_t3", label: "Pregnant, third trimester" },
+  { value: "pregnant_unspecified", label: "Pregnant, trimester not recorded" },
+  { value: "lactating", label: "Lactating" },
 ];
-
-// ─── Macro fields metadata ────────────────────────────────────────────────────
 
 const MACRO_FIELDS = [
-  { key: "energy_kcal", label: "Energy",   unit: "kcal", targetKey: "energy_kcal" },
-  { key: "protein_g",   label: "Protein",  unit: "g",    targetKey: "protein_g" },
-  { key: "carbs_g",     label: "Carbs",    unit: "g",    targetKey: "carbs_g" },
-  { key: "fat_g",       label: "Fat",      unit: "g",    targetKey: "fat_g" },
-  { key: "fluid_ml",    label: "Fluid",    unit: "mL",   targetKey: "fluid_ml" },
+  { key: "energy_kcal", label: "Energy", unit: "kcal" },
+  { key: "protein_g", label: "Protein", unit: "g" },
+  { key: "carbs_g", label: "Carbohydrate", unit: "g" },
+  { key: "fat_g", label: "Fat", unit: "g" },
+  { key: "fluid_ml", label: "Fluid", unit: "mL" },
 ] as const;
 
 type MacroKey = typeof MACRO_FIELDS[number]["key"];
+type NonNullDecision = NonNullable<ContinuationDecision>;
 
-interface RevisionFormState {
-  goal_type: string;
-  disease_stage: string;
-  energy_kcal: string;
-  protein_g: string;
-  carbs_g: string;
-  fat_g: string;
-  fluid_ml: string;
-  education_notes: string;
-  counseling_goals: string;
-  barriers: string;
-  strategies: string;
-  session_type: string;
-  next_followup_date: string;
+const COMPLIANCE_OPTIONS: { value: ComplianceStatus; label: string }[] = [
+  { value: "compliant", label: "Compliant" },
+  { value: "partial", label: "Partial" },
+  { value: "non_compliant", label: "Non-compliant" },
+];
+
+const GI_OPTIONS: { value: GiToleranceStatus; label: string }[] = [
+  { value: "tolerating", label: "Tolerating" },
+  { value: "not_tolerating", label: "Not tolerating" },
+];
+
+const DECISION_OPTIONS: { value: NonNullDecision; label: string }[] = [
+  { value: "continue", label: "Continue" },
+  { value: "modify", label: "Modify" },
+  { value: "discontinue", label: "Discontinue" },
+];
+
+function todayValue(): string {
+  const now = new Date();
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 10);
 }
 
-const fieldValue = (value: string | number | null | undefined) => value == null ? "" : String(value);
+function fieldValue(value: string | number | null | undefined): string {
+  return value == null ? "" : String(value);
+}
 
-// ─── UnitInput — with optional target hint ────────────────────────────────────
+function parseList(value: string): string[] {
+  return value
+    .split(/[,\n]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
 
-function UnitInput({
-  label,
-  unit,
-  value,
-  onChange,
-  type = "number",
-  disabled = false,
-  target,
-}: {
-  label: string;
-  unit: string;
-  value: string;
-  onChange: (v: string) => void;
-  type?: string;
-  disabled?: boolean;
-  target?: string | null;
-}) {
+function optionalNumber(value: string): number | null {
+  return value.trim() === "" ? null : Number(value);
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div>
-      <div className="flex items-end justify-between mb-1.5">
-        <label className="text-xs font-bold text-warm-400 uppercase tracking-widest">
-          {label}
-        </label>
-        {target && target !== "" && (
-          <span className="text-xs font-mono font-semibold text-emerald-600 tabular-nums">
-            target: {target} {unit}
-          </span>
-        )}
-      </div>
-      <div className="flex items-center border border-warm-200 rounded-xl overflow-hidden focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-500/20 transition-all">
-        <input
-          type={type}
-          step="0.1"
-          min="0"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          disabled={disabled}
-          className="w-full px-3.5 py-2.5 text-base font-mono text-warm-900 bg-transparent focus:outline-none placeholder:text-warm-400 disabled:text-warm-400"
-        />
-        <span className="px-2.5 text-xs font-bold text-warm-400 bg-warm-50 border-l border-warm-200 whitespace-nowrap select-none">
-          {unit}
-        </span>
-      </div>
-    </div>
+    <fieldset className="space-y-4 rounded-xl border border-warm-200 p-4">
+      <legend className="px-1 text-sm font-extrabold text-warm-700">{title}</legend>
+      {children}
+    </fieldset>
   );
 }
 
-// ─── ToggleGroup ──────────────────────────────────────────────────────────────
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-warm-500">{children}</span>;
+}
 
-function ToggleGroup<T extends string>({
-  label,
-  options,
-  value,
-  onChange,
-}: {
+function NumberField({ label, unit, value, onChange, required = false, readOnly = false, target }: {
   label: string;
-  options: { value: T; label: string; active: string }[];
+  unit: string;
+  value: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+  readOnly?: boolean;
+  target?: string | number | null;
+}) {
+  return (
+    <label>
+      <span className="mb-1.5 flex items-end justify-between gap-2">
+        <span className="text-xs font-bold uppercase tracking-widest text-warm-500">{label}</span>
+        {target != null && target !== "" && <span className="text-xs font-semibold text-warm-500">Target {target} {unit}</span>}
+      </span>
+      <span className="flex overflow-hidden rounded-lg border border-warm-200 bg-white focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-500/20">
+        <input
+          type="number"
+          step="0.1"
+          min="0"
+          required={required}
+          readOnly={readOnly}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="min-w-0 flex-1 bg-transparent px-3 py-2.5 font-mono text-base text-warm-900 outline-none read-only:bg-warm-50 read-only:text-warm-600"
+        />
+        <span className="flex items-center border-l border-warm-200 bg-warm-50 px-2.5 text-xs font-bold text-warm-500">{unit}</span>
+      </span>
+    </label>
+  );
+}
+
+function ToggleGroup<T extends string>({ label, options, value, onChange }: {
+  label: string;
+  options: { value: T; label: string }[];
   value: T | null;
-  onChange: (v: T | null) => void;
+  onChange: (value: T | null) => void;
 }) {
   return (
     <div>
-      <p className="text-xs font-bold text-warm-400 uppercase tracking-widest mb-2">{label}</p>
+      <FieldLabel>{label}</FieldLabel>
       <div className="flex flex-wrap gap-2">
-        {options.map((opt) => (
+        {options.map((option) => (
           <button
-            key={opt.value}
+            key={option.value}
             type="button"
-            onClick={() => onChange(value === opt.value ? null : opt.value)}
-            className={`flex-1 min-w-[80px] py-2.5 text-sm font-semibold rounded-xl border transition-all ${
-              value === opt.value
-                ? opt.active
-                : "bg-white text-warm-500 border-warm-200 hover:border-warm-300 hover:bg-warm-50"
+            aria-pressed={value === option.value}
+            onClick={() => onChange(value === option.value ? null : option.value)}
+            className={`min-h-10 flex-1 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
+              value === option.value
+                ? "border-warm-800 bg-warm-100 text-warm-900"
+                : "border-warm-200 bg-white text-warm-600 hover:bg-warm-50"
             }`}
           >
-            {opt.label}
+            {option.label}
           </button>
         ))}
       </div>
@@ -171,566 +179,238 @@ function ToggleGroup<T extends string>({
   );
 }
 
-// ─── Collapsible section wrapper ──────────────────────────────────────────────
-
-function CollapsibleSection({
-  title,
-  subtitle,
-  open,
-  onOpenChange,
-  children,
-}: {
-  title: string;
-  subtitle?: string;
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <Collapsible open={open} onOpenChange={onOpenChange}>
-      <div className="border border-warm-200 rounded-xl overflow-hidden">
-        <CollapsibleTrigger asChild>
-          <button
-            type="button"
-            className="w-full flex items-center justify-between px-4 py-3 text-xs font-bold text-warm-400 uppercase tracking-widest hover:bg-warm-50 transition-colors"
-          >
-            <span>
-              {title}{" "}
-              {subtitle && (
-                <span className="normal-case font-normal text-warm-300">({subtitle})</span>
-              )}
-            </span>
-            {open
-              ? <ChevronUp className="h-3.5 w-3.5 text-warm-400" />
-              : <ChevronDown className="h-3.5 w-3.5 text-warm-400" />
-            }
-          </button>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <div className="px-4 pb-4 border-t border-warm-100 pt-4">
-            {children}
-          </div>
-        </CollapsibleContent>
-      </div>
-    </Collapsible>
-  );
-}
-
-// ─── Main component ───────────────────────────────────────────────────────────
-
-export default function LogVisitForm({
-  plan,
-  heightCm,
-  intervention,
-  onSubmit,
-  onCancel,
-}: LogVisitFormProps) {
-
-  // Lab fields: the patient's plan-tracked labs (intersected with fields the form
-  // can render); fall back to goal_type defaults when no plan is available.
+export default function LogVisitForm({ plan, context, intervention, onSubmit, onCancel }: LogVisitFormProps) {
   const goalType = intervention?.goal_type ?? null;
   const knownLabKeys = Object.keys(CLINICAL_LAB_META) as ClinicalLabKey[];
   const planLabKeys = plan
-    ? (plan.indicators.filter((i) => i.category === "lab").map((i) => i.key) as ClinicalLabKey[])
-        .filter((k) => knownLabKeys.includes(k))
-    : null;
-  const labKeys: ClinicalLabKey[] = planLabKeys && planLabKeys.length > 0
-    ? planLabKeys
-    : goalType
-      ? (GOAL_LAB_FLAGS[goalType] ?? [])
-      : knownLabKeys;
+    ? (plan.indicators.filter((indicator) => indicator.category === "lab").map((indicator) => indicator.key) as ClinicalLabKey[])
+        .filter((key) => knownLabKeys.includes(key))
+    : [];
+  const labKeys = planLabKeys.length > 0 ? planLabKeys : goalType ? GOAL_LAB_FLAGS[goalType] ?? [] : knownLabKeys;
 
-  // Derive which micro keys to show (deduped union of displayed_nutrients + flagged)
-  const flaggedMicros: string[] = goalType ? (GOAL_MICRO_FLAGS[goalType] ?? []) : [];
-  const displayedMicros: string[] = intervention?.displayed_nutrients ?? [];
-  const microKeys = Array.from(new Set([...displayedMicros, ...flaggedMicros]));
-  const microMeta = Object.fromEntries(ALL_MICROS.map((m) => [m.key, m]));
+  const microKeys = useMemo(() => {
+    const flagged = goalType ? GOAL_MICRO_FLAGS[goalType] ?? [] : [];
+    return Array.from(new Set([...(intervention?.displayed_nutrients ?? []), ...flagged]));
+  }, [goalType, intervention?.displayed_nutrients]);
+  const microMeta = Object.fromEntries(ALL_MICROS.map((item) => [item.key, item]));
 
-  // ─ Form state ───────────────────────────────────────────────────────────────
-  const [weight, setWeight]         = useState("");
-  const [bmi, setBmi]               = useState("");
+  const [observedAt, setObservedAt] = useState(todayValue);
+  const [visitType, setVisitType] = useState<MonitoringVisitType>("scheduled_follow_up");
+  const [weight, setWeight] = useState(fieldValue(context.weight));
+  const [height, setHeight] = useState(fieldValue(context.height));
+  const [edemaPresent, setEdemaPresent] = useState(context.edema_present);
+  const [dryWeight, setDryWeight] = useState(fieldValue(context.dry_weight_kg));
+  const [activityLevel, setActivityLevel] = useState(context.physical_activity_level ?? "");
+  const [maternalStatus, setMaternalStatus] = useState<PregnancyLactationStatus>(context.pregnancy_lactation_status ?? "none");
+  const [allergies, setAllergies] = useState(context.allergies.join(", "));
+  const [dietaryRestrictions, setDietaryRestrictions] = useState(context.dietary_restrictions ?? "");
+  const [foodDislikes, setFoodDislikes] = useState(context.food_dislikes.join(", "));
   const [compliance, setCompliance] = useState<ComplianceStatus | null>(null);
   const [giTolerance, setGiTolerance] = useState<GiToleranceStatus | null>(null);
-  const [decision, setDecision]     = useState<ContinuationDecision>(null);
+  const [decision, setDecision] = useState<ContinuationDecision>(null);
   const [clinicalSummary, setClinicalSummary] = useState("");
   const [intakeNotes, setIntakeNotes] = useState("");
   const [symptoms, setSymptoms] = useState("");
-  const [openIntervention, setOpenIntervention] = useState(false);
-
-  const [macrosOpen, setMacrosOpen] = useState(true);
-  const [labsOpen, setLabsOpen]     = useState(false);
-  const [microsOpen, setMicrosOpen] = useState(false);
-  const [revisionOpen, setRevisionOpen] = useState(false);
-  const [revisionEffectiveDate, setRevisionEffectiveDate] = useState("");
-  const [revisionReason, setRevisionReason] = useState("");
-  const [revision, setRevision] = useState<RevisionFormState>(() => ({
-    goal_type: intervention?.goal_type ?? "",
-    disease_stage: intervention?.disease_stage ?? "",
-    energy_kcal: fieldValue(intervention?.energy_kcal),
-    protein_g: fieldValue(intervention?.protein_g),
-    carbs_g: fieldValue(intervention?.carbs_g),
-    fat_g: fieldValue(intervention?.fat_g),
-    fluid_ml: fieldValue(intervention?.fluid_ml),
-    education_notes: intervention?.education_notes ?? "",
-    counseling_goals: intervention?.counseling_goals ?? "",
-    barriers: intervention?.barriers ?? "",
-    strategies: intervention?.strategies ?? "",
-    session_type: intervention?.session_type ?? "",
-    next_followup_date: intervention?.next_followup_date ?? "",
-  }));
-
-  const [macros, setMacros] = useState<Record<MacroKey, string>>({
-    energy_kcal: "",
-    protein_g: "",
-    carbs_g: "",
-    fat_g: "",
-    fluid_ml: "",
-  });
-
+  const [nextMonitoringDate, setNextMonitoringDate] = useState("");
   const [labs, setLabs] = useState<Record<ClinicalLabKey, string>>(
-    Object.fromEntries(
-      (Object.keys(CLINICAL_LAB_META) as ClinicalLabKey[]).map((k) => [k, ""])
-    ) as Record<ClinicalLabKey, string>
+    Object.fromEntries(knownLabKeys.map((key) => [key, ""])) as Record<ClinicalLabKey, string>,
   );
-
-  const [micros, setMicros] = useState<Record<string, string>>(
-    Object.fromEntries(microKeys.map((k) => [k, ""]))
-  );
-
+  const [macros, setMacros] = useState<Record<MacroKey, string>>({ energy_kcal: "", protein_g: "", carbs_g: "", fat_g: "", fluid_ml: "" });
+  const [micros, setMicros] = useState<Record<string, string>>(Object.fromEntries(microKeys.map((key) => [key, ""])));
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError]           = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  function handleWeightChange(val: string) {
-    setWeight(val);
-    const w = parseFloat(val);
-    if (!isNaN(w) && w > 0 && heightCm && heightCm > 0) {
-      setBmi(String(calculateBmi(w, heightCm)));
-    } else {
-      setBmi("");
-    }
-  }
+  const bmi = Number(weight) > 0 && Number(height) > 0 ? String(calculateBmi(Number(weight), Number(height))) : "";
 
   function buildPayload(): MonitoringPayload {
-    // Merge all numeric values into lab_values
     const labValues: Record<string, number | string | null> = {};
-
-    // Clinical labs
     labKeys.forEach((key) => {
-      const v = labs[key]?.trim() ?? "";
-      if (v !== "") {
-        labValues[key] = key === "bp" ? v : parseFloat(v);
+      const value = labs[key]?.trim();
+      if (value && key === "bp") {
+        labValues.bp = value;
+      } else if (value) {
+        labValues[key] = Number(value);
       }
     });
-
-    // Macro intake
     MACRO_FIELDS.forEach(({ key }) => {
-      const v = macros[key].trim();
-      if (v !== "") labValues[key] = parseFloat(v);
+      const value = macros[key].trim();
+      if (value) labValues[key] = Number(value);
     });
-
-    // Micro intake — stored as micro_{key} to avoid conflicts with clinical labs
     microKeys.forEach((key) => {
-      const v = (micros[key] ?? "").trim();
-      if (v !== "") labValues[`micro_${key}`] = parseFloat(v);
+      const value = micros[key]?.trim();
+      if (value) labValues[`micro_${key}`] = Number(value);
     });
 
     const goalAchievement: Record<string, string> = {};
     if (compliance) goalAchievement.compliance = compliance;
     if (giTolerance) goalAchievement.gi_tolerance = giTolerance;
-    if (decision)    goalAchievement.continuation_decision = decision;
+    if (decision) goalAchievement.continuation_decision = decision;
 
-    const payload: MonitoringPayload = {
-      weight:               weight ? parseFloat(weight) : null,
-      bmi:                  bmi ? parseFloat(bmi) : null,
-      lab_values:           Object.keys(labValues).length > 0
-                              ? (labValues as MonitoringPayload["lab_values"])
-                              : null,
-      clinical_summary:     clinicalSummary.trim() || null,
-      intake_notes:         intakeNotes.trim() || null,
-      symptoms:             symptoms.trim() || null,
-      goal_achievement:     Object.keys(goalAchievement).length > 0 ? goalAchievement : null,
-    };
-
-    if (revisionOpen && intervention) {
-      payload.intervention_revision = buildInterventionRevisionPayload(intervention, {
-        effectiveDate: revisionEffectiveDate,
-        reason: revisionReason,
-        changes: {
-          goal_type: revision.goal_type,
-          disease_stage: revision.disease_stage || null,
-          energy_kcal: Number(revision.energy_kcal),
-          protein_g: Number(revision.protein_g),
-          carbs_g: Number(revision.carbs_g),
-          fat_g: Number(revision.fat_g),
-          fluid_ml: revision.fluid_ml ? Number(revision.fluid_ml) : null,
-          education_notes: revision.education_notes || null,
-          counseling_goals: revision.counseling_goals || null,
-          barriers: revision.barriers || null,
-          strategies: revision.strategies || null,
-          session_type: revision.session_type || null,
-          next_followup_date: revision.next_followup_date || null,
-        },
-      });
-    }
-
-    return payload;
+    return buildEffectiveMonitoringPayload(context, {
+      observed_at: observedAt,
+      visit_type: visitType,
+      weight: Number(weight),
+      height: Number(height),
+      edema_present: edemaPresent,
+      dry_weight_kg: edemaPresent ? optionalNumber(dryWeight) : null,
+      physical_activity_level: activityLevel,
+      pregnancy_lactation_status: maternalStatus,
+      allergies: parseList(allergies),
+      dietary_restrictions: dietaryRestrictions.trim() || null,
+      food_dislikes: parseList(foodDislikes),
+      lab_values: Object.keys(labValues).length > 0 ? labValues as MonitoringLabValues : null,
+      intake_notes: intakeNotes.trim() || null,
+      symptoms: symptoms.trim() || null,
+      goal_achievement: Object.keys(goalAchievement).length > 0 ? goalAchievement : null,
+      clinical_summary: clinicalSummary.trim() || null,
+      next_monitoring_date: nextMonitoringDate || null,
+    });
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
     setError(null);
     setSubmitting(true);
     try {
-      await onSubmit(buildPayload(), { openIntervention });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save visit.");
+      await onSubmit(buildPayload());
+    } catch (submissionError) {
+      setError(submissionError instanceof Error ? submissionError.message : "Failed to save visit.");
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-warm-100">
-        <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">
-          Log Follow-up Visit
-        </h3>
-        <button
-          onClick={onCancel}
-          type="button"
-          className="text-warm-400 hover:text-warm-600 transition-colors p-1 rounded-lg hover:bg-warm-100"
-        >
-          <X className="h-4 w-4" />
-        </button>
+    <div className="overflow-hidden rounded-2xl border border-warm-200 bg-white shadow-sm">
+      <div className="flex items-center justify-between border-b border-warm-100 px-5 py-4">
+        <h3 className="text-sm font-extrabold uppercase tracking-wider text-warm-700">Log Monitoring Visit</h3>
+        <button type="button" onClick={onCancel} className="min-h-10 px-2 text-sm font-semibold text-warm-500 hover:text-warm-800">Close</button>
       </div>
 
-      <form onSubmit={handleSubmit} className="px-5 py-5 space-y-5">
-
-        <h4 className="text-xs font-extrabold text-warm-500 uppercase tracking-widest">
-          Follow-up Assessment
-        </h4>
-
-        {/* ── Weight + BMI ─────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <UnitInput
-            label="Weight"
-            unit="kg"
-            value={weight}
-            onChange={handleWeightChange}
-          />
-          <UnitInput
-            label={heightCm ? "BMI (auto-calculated)" : "BMI"}
-            unit="kg/m²"
-            value={bmi}
-            onChange={setBmi}
-            disabled={!!heightCm && !!weight}
-          />
-        </div>
-
-        {/* ── Diet Compliance ──────────────────────────────────────────────── */}
-        <ToggleGroup
-          label="Diet Compliance"
-          options={COMPLIANCE_OPTIONS}
-          value={compliance}
-          onChange={setCompliance}
-        />
-
-        {/* ── GI Tolerance ─────────────────────────────────────────────────── */}
-        <ToggleGroup
-          label="GI Tolerance"
-          options={GI_OPTIONS}
-          value={giTolerance}
-          onChange={(v) => setGiTolerance(v as GiToleranceStatus | null)}
-        />
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <label className="text-xs font-bold text-warm-400 uppercase tracking-widest">
-            Intake Notes
-            <textarea
-              value={intakeNotes}
-              onChange={(event) => setIntakeNotes(event.target.value)}
-              rows={3}
-              className="mt-1.5 w-full px-3.5 py-2.5 text-base font-normal normal-case tracking-normal border border-warm-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-white resize-none"
-            />
-          </label>
-          <label className="text-xs font-bold text-warm-400 uppercase tracking-widest">
-            Symptoms
-            <textarea
-              value={symptoms}
-              onChange={(event) => setSymptoms(event.target.value)}
-              rows={3}
-              className="mt-1.5 w-full px-3.5 py-2.5 text-base font-normal normal-case tracking-normal border border-warm-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-white resize-none"
-            />
-          </label>
-        </div>
-
-        {/* ── Care Decision ────────────────────────────────────────────────── */}
-        <ToggleGroup<NonNullDecision>
-          label="Care Decision"
-          options={DECISION_OPTIONS}
-          value={decision}
-          onChange={(v) => setDecision(v)}
-        />
-
-        {/* ── Macronutrient Intake ─────────────────────────────────────────── */}
-        <CollapsibleSection
-          title="Actual Intake"
-          subtitle="macronutrients"
-          open={macrosOpen}
-          onOpenChange={setMacrosOpen}
-        >
+      <form onSubmit={handleSubmit} className="space-y-5 px-4 py-5 sm:px-5">
+        <Section title="Visit Context">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {MACRO_FIELDS.map(({ key, label, unit, targetKey }) => {
-              const target = intervention
-                ? (intervention[targetKey as keyof Intervention] as string | null)
-                : null;
-              return (
-                <UnitInput
-                  key={key}
-                  label={label}
-                  unit={unit}
-                  value={macros[key]}
-                  onChange={(v) => setMacros((prev) => ({ ...prev, [key]: v }))}
-                  target={target}
-                />
+            <label>
+              <FieldLabel>Observed Date</FieldLabel>
+              <input type="date" required max={todayValue()} value={observedAt} onChange={(event) => setObservedAt(event.target.value)} className="w-full rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
+            </label>
+            <label>
+              <FieldLabel>Visit Type</FieldLabel>
+              <select required value={visitType} onChange={(event) => setVisitType(event.target.value as MonitoringVisitType)} className="w-full rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900">
+                {VISIT_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+            </label>
+          </div>
+        </Section>
+
+        <Section title="Recalculation Measurements and Factors">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <NumberField label="Weight" unit="kg" value={weight} onChange={setWeight} required />
+            <NumberField label="Height" unit="cm" value={height} onChange={setHeight} required />
+            <NumberField label="BMI" unit="kg/m²" value={bmi} onChange={() => undefined} readOnly />
+            <label>
+              <FieldLabel>Edema</FieldLabel>
+              <select value={edemaPresent ? "yes" : "no"} onChange={(event) => setEdemaPresent(event.target.value === "yes")} className="w-full rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900">
+                <option value="no">Not present</option><option value="yes">Present</option>
+              </select>
+            </label>
+            {edemaPresent && <NumberField label="Dry Weight" unit="kg" value={dryWeight} onChange={setDryWeight} required />}
+            <label>
+              <FieldLabel>Physical Activity</FieldLabel>
+              <select required value={activityLevel} onChange={(event) => setActivityLevel(event.target.value)} className="w-full rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900">
+                <option value="">Select activity level</option>
+                {ACTIVITY_LEVELS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+            </label>
+            <label>
+              <FieldLabel>Pregnancy / Lactation</FieldLabel>
+              <select required value={maternalStatus} onChange={(event) => setMaternalStatus(event.target.value as PregnancyLactationStatus)} className="w-full rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900">
+                {MATERNAL_STATUSES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+            </label>
+          </div>
+        </Section>
+
+        <Section title="Goal-relevant Labs">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {labKeys.map((key) => {
+              const meta = CLINICAL_LAB_META[key];
+              return meta.type === "text" ? (
+                <label key={key}>
+                  <FieldLabel>{meta.label}</FieldLabel>
+                  <input type="text" value={labs[key]} onChange={(event) => setLabs((current) => ({ ...current, [key]: event.target.value }))} className="w-full rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
+                </label>
+              ) : (
+                <NumberField key={key} label={meta.label} unit={meta.unit} value={labs[key]} onChange={(value) => setLabs((current) => ({ ...current, [key]: value }))} />
               );
             })}
           </div>
-        </CollapsibleSection>
+        </Section>
 
-        {/* ── Clinical Labs ────────────────────────────────────────────────── */}
-        {labKeys.length > 0 && (
-          <CollapsibleSection
-            title="Lab Results"
-            subtitle="optional"
-            open={labsOpen}
-            onOpenChange={setLabsOpen}
-          >
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {labKeys.map((key) => {
-                const meta = CLINICAL_LAB_META[key];
-                return (
-                  <UnitInput
-                    key={key}
-                    label={meta.label}
-                    unit={meta.unit}
-                    type={meta.type}
-                    value={labs[key]}
-                    onChange={(v) => setLabs((prev) => ({ ...prev, [key]: v }))}
-                  />
-                );
-              })}
-            </div>
-          </CollapsibleSection>
-        )}
-
-        {/* ── Micronutrient Intake ─────────────────────────────────────────── */}
-        {microKeys.length > 0 && (
-          <CollapsibleSection
-            title="Micronutrient Intake"
-            subtitle="optional"
-            open={microsOpen}
-            onOpenChange={setMicrosOpen}
-          >
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {microKeys.map((key) => {
-                const meta = microMeta[key];
-                const limits = intervention?.micronutrient_limits?.[key];
-                // Show target as max if available, min otherwise
-                const limitStr = limits?.max != null
-                  ? `≤ ${limits.max}`
-                  : limits?.min != null
-                    ? `≥ ${limits.min}`
-                    : null;
-                return (
-                  <UnitInput
-                    key={key}
-                    label={meta?.label ?? key}
-                    unit={meta?.unit ?? ""}
-                    value={micros[key] ?? ""}
-                    onChange={(v) => setMicros((prev) => ({ ...prev, [key]: v }))}
-                    target={limitStr}
-                  />
-                );
-              })}
-            </div>
-            <p className="text-xs text-warm-300 mt-3">
-              Target values from the nutrition prescription.
-            </p>
-          </CollapsibleSection>
-        )}
-
-        {/* ── Progress Assessment ──────────────────────────────────────────── */}
-        <div>
-          <label className="block text-xs font-bold text-warm-400 uppercase tracking-widest mb-1.5">
-            Progress Assessment
-          </label>
-          <textarea
-            value={clinicalSummary}
-            onChange={(e) => setClinicalSummary(e.target.value)}
-            rows={3}
-            className="w-full px-3.5 py-2.5 text-base border border-warm-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 bg-white transition-all placeholder:text-warm-400 resize-none"
-          />
-        </div>
-
-        {intervention && (
-          <CollapsibleSection
-            title="Update care plan"
-            subtitle="optional"
-            open={revisionOpen}
-            onOpenChange={setRevisionOpen}
-          >
-            <div className="space-y-4">
-              <InfoHint label="How care plan updates are saved" title="Care plan history">
-                Use this only when treatment changes. Saving creates a new version and keeps the previous care plan read-only.
-              </InfoHint>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <label className="text-sm font-semibold text-warm-600">
-                  Effective date
-                  <input
-                    type="date"
-                    required={revisionOpen}
-                    value={revisionEffectiveDate}
-                    onChange={(event) => setRevisionEffectiveDate(event.target.value)}
-                    className="mt-1.5 w-full px-3.5 py-2.5 border border-warm-200 rounded-xl bg-white text-base"
-                  />
-                </label>
-                <label className="text-sm font-semibold text-warm-600">
-                  Clinical reason
-                  <input
-                    type="text"
-                    required={revisionOpen}
-                    maxLength={500}
-                    value={revisionReason}
-                    onChange={(event) => setRevisionReason(event.target.value)}
-                    className="mt-1.5 w-full px-3.5 py-2.5 border border-warm-200 rounded-xl bg-white text-base"
-                  />
-                </label>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <label className="text-sm font-semibold text-warm-600">
-                  Goal
-                  <select
-                    required={revisionOpen}
-                    value={revision.goal_type}
-                    onChange={(event) => setRevision((current) => ({
-                      ...current,
-                      goal_type: event.target.value,
-                      disease_stage: "",
-                    }))}
-                    className="mt-1.5 w-full px-3.5 py-2.5 border border-warm-200 rounded-xl bg-white text-base"
-                  >
-                    <option value="">Select goal</option>
-                    {GOALS.map((goal) => <option key={goal.value} value={goal.value}>{goal.label}</option>)}
-                  </select>
-                </label>
-                {visibleStagesForGoal(revision.goal_type) && (
-                  <label className="text-sm font-semibold text-warm-600">
-                    Stage
-                    <select
-                      required={revisionOpen}
-                      value={revision.disease_stage}
-                      onChange={(event) => setRevision((current) => ({ ...current, disease_stage: event.target.value }))}
-                      className="mt-1.5 w-full px-3.5 py-2.5 border border-warm-200 rounded-xl bg-white text-base"
-                    >
-                      <option value="">Select stage</option>
-                      {visibleStagesForGoal(revision.goal_type)?.map((stage) => (
-                        <option key={stage.value} value={stage.value}>{stage.label}</option>
-                      ))}
-                    </select>
-                  </label>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {([
-                  ["energy_kcal", "Energy", "kcal"],
-                  ["protein_g", "Protein", "g"],
-                  ["carbs_g", "Carbohydrate", "g"],
-                  ["fat_g", "Fat", "g"],
-                  ["fluid_ml", "Fluid guidance", "mL"],
-                ] as const).map(([key, label, unit]) => (
-                  <UnitInput
-                    key={key}
-                    label={label}
-                    unit={unit}
-                    value={revision[key]}
-                    onChange={(value) => setRevision((current) => ({ ...current, [key]: value }))}
-                  />
-                ))}
-              </div>
-
-              {([
-                ["education_notes", "Education"],
-                ["counseling_goals", "Counseling"],
-                ["barriers", "Barriers"],
-                ["strategies", "Strategies"],
-              ] as const).map(([key, label]) => (
-                <label key={key} className="block text-sm font-semibold text-warm-600">
-                  {label}
-                  <textarea
-                    rows={2}
-                    value={revision[key]}
-                    onChange={(event) => setRevision((current) => ({ ...current, [key]: event.target.value }))}
-                    className="mt-1.5 w-full px-3.5 py-2.5 border border-warm-200 rounded-xl bg-white text-base resize-y"
-                  />
-                </label>
-              ))}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <label className="text-sm font-semibold text-warm-600">
-                  Session type
-                  <input
-                    type="text"
-                    value={revision.session_type}
-                    onChange={(event) => setRevision((current) => ({ ...current, session_type: event.target.value }))}
-                    className="mt-1.5 w-full px-3.5 py-2.5 border border-warm-200 rounded-xl bg-white text-base"
-                  />
-                </label>
-                <label className="text-sm font-semibold text-warm-600">
-                  Next follow-up
-                  <input
-                    type="date"
-                    value={revision.next_followup_date}
-                    onChange={(event) => setRevision((current) => ({ ...current, next_followup_date: event.target.value }))}
-                    className="mt-1.5 w-full px-3.5 py-2.5 border border-warm-200 rounded-xl bg-white text-base"
-                  />
-                </label>
-              </div>
-            </div>
-          </CollapsibleSection>
-        )}
-
-        <label className="flex min-h-11 items-center gap-2 text-sm font-semibold text-warm-600">
-          <input
-            type="checkbox"
-            checked={openIntervention}
-            onChange={(event) => setOpenIntervention(event.target.checked)}
-            className="h-4 w-4 accent-emerald-600"
-          />
-          Open Intervention after saving to review or create a meal plan
-        </label>
-
-        {/* ── Next Follow-up Date ──────────────────────────────────────────── */}
-
-        {/* ── Error ────────────────────────────────────────────────────────── */}
-        {error && (
-          <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl">
-            <p className="text-sm text-red-700">{error}</p>
+        <Section title="Meal Safety, Intake, and Tolerance">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <label>
+              <span className="mb-1.5 flex items-center gap-1.5">
+                <span className="text-xs font-bold uppercase tracking-widest text-warm-500">Allergies</span>
+                <InfoHint label="How allergies affect meal plans" title="Allergy exclusions">Allergies are hard exclusions in generated meal plans. Confirm this list before saving.</InfoHint>
+              </span>
+              <textarea value={allergies} onChange={(event) => setAllergies(event.target.value)} rows={2} className="w-full resize-y rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
+            </label>
+            <label>
+              <FieldLabel>Dietary Restrictions</FieldLabel>
+              <textarea value={dietaryRestrictions} onChange={(event) => setDietaryRestrictions(event.target.value)} rows={2} className="w-full resize-y rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
+            </label>
+            <label>
+              <FieldLabel>Food Dislikes</FieldLabel>
+              <textarea value={foodDislikes} onChange={(event) => setFoodDislikes(event.target.value)} rows={2} className="w-full resize-y rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
+            </label>
           </div>
-        )}
 
-        {/* ── Actions ──────────────────────────────────────────────────────── */}
-        <div className="flex flex-col sm:flex-row gap-3 pt-1">
-          <Button type="submit" variant="primary" loading={submitting} className="sm:flex-1">
-            Save Visit
-          </Button>
-          <Button type="button" variant="ghost" onClick={onCancel} className="sm:!w-auto">
-            Cancel
-          </Button>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {MACRO_FIELDS.map(({ key, label, unit }) => (
+              <NumberField key={key} label={`${label} Intake`} unit={unit} value={macros[key]} onChange={(value) => setMacros((current) => ({ ...current, [key]: value }))} target={intervention?.[key] as string | number | null | undefined} />
+            ))}
+            {microKeys.map((key) => {
+              const meta = microMeta[key];
+              if (!meta) return null;
+              const limit = intervention?.micronutrient_limits?.[key];
+              return <NumberField key={key} label={`${meta.label} Intake`} unit={meta.unit} value={micros[key] ?? ""} onChange={(value) => setMicros((current) => ({ ...current, [key]: value }))} target={limit?.max ?? limit?.min ?? null} />;
+            })}
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <ToggleGroup label="Diet Compliance" options={COMPLIANCE_OPTIONS} value={compliance} onChange={setCompliance} />
+            <ToggleGroup label="GI Tolerance" options={GI_OPTIONS} value={giTolerance} onChange={setGiTolerance} />
+            <label>
+              <FieldLabel>Intake Notes</FieldLabel>
+              <textarea value={intakeNotes} onChange={(event) => setIntakeNotes(event.target.value)} rows={3} className="w-full resize-y rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
+            </label>
+            <label>
+              <FieldLabel>Symptoms and Tolerance</FieldLabel>
+              <textarea value={symptoms} onChange={(event) => setSymptoms(event.target.value)} rows={3} className="w-full resize-y rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
+            </label>
+          </div>
+        </Section>
+
+        <Section title="Clinical Progress and Decision">
+          <label>
+            <FieldLabel>Progress Assessment</FieldLabel>
+            <textarea value={clinicalSummary} onChange={(event) => setClinicalSummary(event.target.value)} rows={3} className="w-full resize-y rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
+          </label>
+          <ToggleGroup<NonNullDecision> label="Care Decision" options={DECISION_OPTIONS} value={decision} onChange={setDecision} />
+        </Section>
+
+        <Section title="Follow-up">
+          <label className="block max-w-sm">
+            <FieldLabel>Next Monitoring Date</FieldLabel>
+            <input type="date" min={observedAt} value={nextMonitoringDate} onChange={(event) => setNextMonitoringDate(event.target.value)} className="w-full rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
+          </label>
+        </Section>
+
+        {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Button type="submit" variant="primary" loading={submitting} className="sm:flex-1">Save Visit</Button>
+          <Button type="button" variant="ghost" onClick={onCancel} className="sm:!w-auto">Cancel</Button>
         </div>
       </form>
     </div>

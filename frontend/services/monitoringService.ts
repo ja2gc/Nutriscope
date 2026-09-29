@@ -1,7 +1,6 @@
 ﻿import { apiFetch } from "@/lib/apiFetch";
 import type { MonitoringPlan } from "@/services/monitoringPlan";
 import type { PaginationMeta } from "@/components/ui/Pagination";
-import type { Intervention } from "@/services/interventionService";
 export type { MonitoringPlan, PlanIndicator, PlanVisit, PlanSeriesPoint, IndicatorStatus, IndicatorCategory } from "@/services/monitoringPlan";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -32,43 +31,50 @@ export type ComplianceStatus = 'compliant' | 'partial' | 'non_compliant';
 export type GiToleranceStatus = 'tolerating' | 'not_tolerating';
 export type ContinuationDecision = 'continue' | 'modify' | 'discontinue' | null;
 
-export type InterventionSnapshot = Pick<Intervention,
-  | 'goal_type'
-  | 'disease_stage'
-  | 'displayed_nutrients'
-  | 'energy_kcal'
-  | 'protein_g'
-  | 'carbs_g'
-  | 'fat_g'
-  | 'fluid_ml'
-  | 'micronutrient_limits'
-  | 'education_notes'
-  | 'counseling_goals'
-  | 'barriers'
-  | 'strategies'
-  | 'session_type'
-  | 'next_followup_date'
->;
+export type MonitoringVisitType =
+  | 'scheduled_follow_up'
+  | 'inpatient_review'
+  | 'discharge_review'
+  | 'unscheduled_follow_up';
 
-export interface InterventionRevisionInput {
-  effective_date: string;
-  reason: string;
-  snapshot: InterventionSnapshot;
-}
+export type PregnancyLactationStatus =
+  | 'none'
+  | 'pregnant_t1'
+  | 'pregnant_t2'
+  | 'pregnant_t3'
+  | 'pregnant_unspecified'
+  | 'lactating';
 
-export interface InterventionRevisionMetadata {
-  id: string;
-  version: number;
-  effective_at: string;
-  reason: string;
-  source: string;
-  snapshot: InterventionSnapshot;
+export interface MonitoringContext {
+  source_type: 'assessment' | 'monitoring';
+  source_monitoring_id: string | null;
+  source_monitoring_date: string | null;
+  weight: number | string | null;
+  height: number | string | null;
+  edema_present: boolean;
+  dry_weight_kg: number | string | null;
+  physical_activity_level: string | null;
+  pregnancy_lactation_status: PregnancyLactationStatus | null;
+  allergies: string[];
+  dietary_restrictions: string | null;
+  food_dislikes: string[];
+  age_years: number | null;
+  sex: string | null;
 }
 
 export interface MonitoringEntry {
   id: string;
-  ncp_record_id: number;
+  observed_at: string | null;
+  visit_type: MonitoringVisitType | null;
   weight: number | null;
+  height: number | null;
+  edema_present: boolean | null;
+  dry_weight_kg: number | null;
+  physical_activity_level: string | null;
+  pregnancy_lactation_status: PregnancyLactationStatus | null;
+  allergies: string[] | null;
+  dietary_restrictions: string | null;
+  food_dislikes: string[] | null;
   bmi: number | null;
   lab_values: MonitoringLabValues | null;
   intake_notes: string | null;
@@ -76,50 +82,67 @@ export interface MonitoringEntry {
   goal_achievement: Record<string, string> | null;
   clinical_summary: string | null;
   ai_decision: string | null;
-  intervention_revision?: InterventionRevisionMetadata | null;
   next_monitoring_date: string | null;
   created_at: string;
   updated_at: string;
 }
 
 export interface MonitoringPayload {
-  weight?: number | null;
-  bmi?: number | null;
+  observed_at: string;
+  visit_type: MonitoringVisitType;
+  weight: number;
+  height: number;
+  edema_present: boolean;
+  dry_weight_kg: number | null;
+  physical_activity_level: string;
+  pregnancy_lactation_status: PregnancyLactationStatus;
+  allergies: string[];
+  dietary_restrictions: string | null;
+  food_dislikes: string[];
   lab_values?: MonitoringLabValues | null;
   intake_notes?: string | null;
   symptoms?: string | null;
   goal_achievement?: Record<string, string> | null;
   clinical_summary?: string | null;
   ai_decision?: string | null;
-  intervention_revision?: InterventionRevisionInput;
+  next_monitoring_date?: string | null;
 }
 
-const INTERVENTION_SNAPSHOT_FIELDS: (keyof InterventionSnapshot)[] = [
-  'goal_type', 'disease_stage', 'displayed_nutrients', 'energy_kcal',
-  'protein_g', 'carbs_g', 'fat_g', 'fluid_ml', 'micronutrient_limits',
-  'education_notes', 'counseling_goals', 'barriers', 'strategies',
-  'session_type', 'next_followup_date',
-];
+export type MonitoringDraftChanges =
+  Pick<MonitoringPayload, 'observed_at' | 'visit_type'>
+  & Partial<Omit<MonitoringPayload, 'observed_at' | 'visit_type'>>;
 
-export function buildInterventionRevisionPayload(
-  intervention: Intervention,
-  input: {
-    effectiveDate: string;
-    reason: string;
-    changes: Partial<InterventionSnapshot>;
-  },
-): InterventionRevisionInput {
-  const snapshot = Object.fromEntries(
-    INTERVENTION_SNAPSHOT_FIELDS.map((field) => [
-      field,
-      field in input.changes ? input.changes[field] : intervention[field],
-    ]),
-  ) as InterventionSnapshot;
+export function buildEffectiveMonitoringPayload(
+  context: MonitoringContext,
+  changes: MonitoringDraftChanges,
+): MonitoringPayload {
+  const numberValue = (value: number | string | null): number => Number(value);
 
   return {
-    effective_date: input.effectiveDate,
-    reason: input.reason.trim(),
-    snapshot,
+    observed_at: changes.observed_at,
+    visit_type: changes.visit_type,
+    weight: changes.weight ?? numberValue(context.weight),
+    height: changes.height ?? numberValue(context.height),
+    edema_present: changes.edema_present ?? context.edema_present,
+    dry_weight_kg: changes.dry_weight_kg !== undefined
+      ? changes.dry_weight_kg
+      : context.dry_weight_kg === null ? null : numberValue(context.dry_weight_kg),
+    physical_activity_level: changes.physical_activity_level ?? context.physical_activity_level ?? '',
+    pregnancy_lactation_status: changes.pregnancy_lactation_status
+      ?? context.pregnancy_lactation_status
+      ?? 'none',
+    allergies: changes.allergies ?? context.allergies,
+    dietary_restrictions: changes.dietary_restrictions !== undefined
+      ? changes.dietary_restrictions
+      : context.dietary_restrictions,
+    food_dislikes: changes.food_dislikes ?? context.food_dislikes,
+    lab_values: changes.lab_values,
+    intake_notes: changes.intake_notes,
+    symptoms: changes.symptoms,
+    goal_achievement: changes.goal_achievement,
+    clinical_summary: changes.clinical_summary,
+    ai_decision: changes.ai_decision,
+    next_monitoring_date: changes.next_monitoring_date,
   };
 }
 
@@ -135,6 +158,17 @@ export async function fetchMonitorings(ncpRecordId: number | string, page = 1): 
   }
   const data = await res.json();
   return { data: data.data ?? [], meta: data.meta ?? { current_page: page, per_page: 10, total: 0, last_page: 1 } };
+}
+
+export async function fetchMonitoringContext(ncpRecordId: number | string): Promise<MonitoringContext> {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/monitorings/context`, {
+    headers: { Accept: 'application/json' },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { message?: string }).message || 'Failed to load monitoring context.');
+  }
+  return (await res.json()).data;
 }
 
 export async function createMonitoring(

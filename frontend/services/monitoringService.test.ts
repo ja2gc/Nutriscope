@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -7,9 +7,9 @@ import {
   GOAL_LAB_FLAGS,
   LAB_REFERENCE_RANGES,
   type ClinicalLabKey,
-  buildInterventionRevisionPayload,
+  buildEffectiveMonitoringPayload,
+  fetchMonitoringContext,
 } from "./monitoringService";
-import type { Intervention } from "./interventionService";
 
 describe("monitoring lab metadata", () => {
   it("supports severe nutrition electrolyte labs from monitoring plans", () => {
@@ -50,58 +50,68 @@ describe("monitoring lab metadata", () => {
   });
 });
 
-describe("monitoring intervention revisions", () => {
-  it("builds an explicit complete snapshot only when the RND opts in", () => {
-    const intervention: Intervention = {
-      id: "intervention-uuid",
-      goal_type: "custom",
-      disease_stage: null,
-      displayed_nutrients: ["energy", "protein", "carbs", "fat"],
-      energy_kcal: "1800.00",
-      protein_g: "70.00",
-      carbs_g: "240.00",
-      fat_g: "60.00",
-      fluid_ml: "2000.00",
-      micronutrient_limits: {},
-      education_notes: "Education",
-      counseling_goals: "Counseling",
-      barriers: "Barrier",
-      strategies: "Strategy",
-      session_type: "follow-up",
-      next_followup_date: "2026-10-15",
-      source_monitoring_id: null,
-      source_monitoring_date: null,
-      has_meal_plan: false,
-      meal_plan_id: null,
-      created_at: "2026-09-25T08:00:00Z",
-      updated_at: "2026-09-25T08:00:00Z",
-    };
+describe("monitoring effective context", () => {
+  afterEach(() => vi.unstubAllGlobals());
 
-    expect(buildInterventionRevisionPayload(intervention, {
-      effectiveDate: "2026-09-25",
-      reason: "Needs changed",
-      changes: { energy_kcal: 2000 },
-    })).toEqual({
-      effective_date: "2026-09-25",
-      reason: "Needs changed",
-      snapshot: expect.objectContaining({
-        goal_type: "custom",
-        energy_kcal: 2000,
-        protein_g: "70.00",
-        education_notes: "Education",
-      }),
+  const context = {
+    source_type: "monitoring" as const,
+    source_monitoring_id: "monitoring-uuid",
+    source_monitoring_date: "2026-09-28",
+    weight: 60,
+    height: 165,
+    edema_present: true,
+    dry_weight_kg: 58,
+    physical_activity_level: "light",
+    pregnancy_lactation_status: "none" as const,
+    allergies: ["shellfish"],
+    dietary_restrictions: "Low sodium",
+    food_dislikes: ["okra"],
+    age_years: 51,
+    sex: "Female",
+  };
+
+  it("loads the complete prefill snapshot from the context endpoint", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ data: context }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchMonitoringContext("ncp-uuid")).resolves.toEqual(context);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/rnd/ncp-records/ncp-uuid/monitorings/context",
+      expect.objectContaining({ headers: { Accept: "application/json" } }),
+    );
+  });
+
+  it("merges edits into a complete effective calculation payload", () => {
+    expect(buildEffectiveMonitoringPayload(context, {
+      observed_at: "2026-09-29",
+      visit_type: "scheduled_follow_up",
+      weight: 59,
+    })).toMatchObject({
+      observed_at: "2026-09-29",
+      visit_type: "scheduled_follow_up",
+      weight: 59,
+      height: 165,
+      edema_present: true,
+      dry_weight_kg: 58,
+      physical_activity_level: "light",
+      pregnancy_lactation_status: "none",
+      allergies: ["shellfish"],
+      dietary_restrictions: "Low sodium",
+      food_dislikes: ["okra"],
     });
   });
 
-  it("keeps revision controls collapsed and mobile-safe while timeline metadata stays visible", () => {
+  it("removes intervention revision controls from monitoring", () => {
     const root = join(process.cwd(), "app", "(rnd)", "ncp", "[patientId]", "monitoring", "[ncpId]", "_components");
     const form = readFileSync(join(root, "LogVisitForm.tsx"), "utf8");
     const log = readFileSync(join(root, "EncounterLog.tsx"), "utf8");
 
-    expect(form).toContain('useState(false)');
-    expect(form).toContain('title="Update care plan"');
     expect(form).toContain('grid grid-cols-1 sm:grid-cols-2');
-    expect(log).toContain('Care plan version');
+    expect(form).not.toMatch(/Update care plan|Open Intervention after saving|intervention_revision/);
+    expect(log).not.toMatch(/Care plan version|revision|Intervention revised/i);
   });
 
   it("shows a readable patient code and cycle start instead of route UUIDs", () => {

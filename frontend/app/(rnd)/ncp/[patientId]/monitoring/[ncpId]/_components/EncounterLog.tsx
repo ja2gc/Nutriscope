@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+
 import { Button } from "@/components/ui/Button";
-import { MonitoringEntry } from "@/services/monitoringService";
+import type { MonitoringEntry } from "@/services/monitoringService";
+
+import MonitoringVisitDetails from "./MonitoringVisitDetails";
 
 interface EncounterLogProps {
   entries: MonitoringEntry[];
@@ -11,225 +13,46 @@ interface EncounterLogProps {
   onDelete: (id: string) => void;
 }
 
-const COMPLIANCE_BADGE: Record<string, { label: string; cls: string }> = {
-  compliant:     { label: 'Compliant',     cls: 'bg-emerald-50 text-emerald-700 border border-emerald-200' },
-  partial:       { label: 'Partial',       cls: 'bg-amber-50 text-amber-700 border border-amber-200' },
-  non_compliant: { label: 'Non-compliant', cls: 'bg-red-50 text-red-700 border border-red-200' },
-};
-
-const DECISION_BADGE: Record<string, { label: string; cls: string }> = {
-  continue:    { label: 'Continue',    cls: 'bg-emerald-100 text-emerald-800' },
-  modify:      { label: 'Modify',      cls: 'bg-amber-100 text-amber-800' },
-  discontinue: { label: 'Discontinue', cls: 'bg-warm-100 text-warm-600' },
-};
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-PH', {
-    month: 'short', day: 'numeric', year: 'numeric',
-  });
-}
-
-function revisionReason(entry: MonitoringEntry): string {
-  const revision = entry.intervention_revision;
-  if (!revision) return "";
-  return revision.reason;
-}
-
-function isVisitRevision(entry: MonitoringEntry): boolean {
-  const revision = entry.intervention_revision;
-  return Boolean(revision
-    && revision.source !== "legacy_baseline"
-    && revision.reason !== "Legacy intervention baseline");
-}
-
 export default function EncounterLog({ entries, onLogNew, onDelete }: EncounterLogProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const sorted = [...entries].sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  );
-
   return (
-    <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-warm-100">
-        <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">
-          Visit History
-        </h3>
-        <Button variant="primary" onClick={onLogNew} className="!w-auto">
-          Log New Visit
-        </Button>
+    <div className="overflow-hidden rounded-2xl border border-warm-200 bg-white shadow-sm">
+      <div className="flex flex-col gap-3 border-b border-warm-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <h3 className="text-sm font-extrabold uppercase tracking-wider text-warm-700">Visit History</h3>
+        <Button variant="primary" onClick={onLogNew} className="!w-auto">Log New Visit</Button>
       </div>
 
-      {sorted.length === 0 ? (
-        <div className="p-10 text-center">
-          <p className="text-sm font-semibold text-warm-500">No monitoring visits logged yet.</p>
-          <p className="text-xs text-warm-400 mt-1">Log the first visit to start tracking progress.</p>
-        </div>
+      {entries.length === 0 ? (
+        <p className="p-10 text-center text-sm font-semibold text-warm-500">No monitoring visits logged yet.</p>
       ) : (
-        <>
-          {/* Scrollable table area */}
-          <div className="overflow-x-auto">
-            <div className="min-w-[480px]">
-              {/* Column headers */}
-              <div className="grid grid-cols-[1fr_80px_120px_100px_32px] gap-2 px-5 py-2 bg-warm-50 border-b border-warm-100">
-                {['Date', 'Weight', 'Compliance', 'Decision', ''].map((h, i) => (
-                  <span key={i} className="text-xs font-bold text-warm-400 uppercase tracking-widest">{h}</span>
-                ))}
-              </div>
+        <div className="divide-y divide-warm-100">
+          {entries.map((entry) => {
+            const isExpanded = expandedId === entry.id;
+            return (
+              <article key={entry.id}>
+                <button
+                  type="button"
+                  aria-expanded={isExpanded}
+                  onClick={() => setExpandedId(isExpanded ? null : entry.id)}
+                  className="w-full px-4 py-4 text-left transition-colors hover:bg-warm-50 sm:px-5"
+                >
+                  <MonitoringVisitDetails entry={entry} mode="summary" />
+                  <span className="mt-3 block text-xs font-bold text-warm-500">{isExpanded ? "Hide details" : "Show details"}</span>
+                </button>
 
-              <div className="divide-y divide-zinc-100">
-                {sorted.map((entry) => {
-                  const compliance = entry.goal_achievement?.compliance ?? null;
-                  const decision = entry.goal_achievement?.continuation_decision ?? null;
-                  const isExpanded = expandedId === entry.id;
-
-                  return (
-                    <div key={entry.id}>
-                      <button
-                        onClick={() => setExpandedId(isExpanded ? null : entry.id)}
-                        className="w-full grid grid-cols-[1fr_80px_120px_100px_32px] gap-2 items-center px-5 py-3 hover:bg-warm-50 transition-colors text-left"
-                      >
-                        {/* Date */}
-                        <span className="text-sm font-semibold text-warm-800 truncate">
-                          {formatDate(entry.created_at)}
-                        </span>
-
-                        {/* Weight */}
-                        <span className="text-sm text-warm-500">
-                          {entry.weight
-                            ? <><span className="font-mono font-bold text-warm-900">{entry.weight}</span> kg</>
-                            : <span className="text-warm-400 text-xs">Not recorded</span>
-                          }
-                        </span>
-
-                        {/* Compliance badge */}
-                        <span>
-                          {compliance && COMPLIANCE_BADGE[compliance] ? (
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${COMPLIANCE_BADGE[compliance].cls}`}>
-                              {COMPLIANCE_BADGE[compliance].label}
-                            </span>
-                          ) : (
-                            <span className="text-warm-400 text-xs">Not recorded</span>
-                          )}
-                        </span>
-
-                        {/* Decision chip */}
-                        <span>
-                          {decision && DECISION_BADGE[decision] ? (
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold ${DECISION_BADGE[decision].cls}`}>
-                              {DECISION_BADGE[decision].label}
-                            </span>
-                          ) : (
-                            <span className="text-warm-400 text-xs">Not recorded</span>
-                          )}
-                        </span>
-
-                        {/* Expand icon */}
-                        <span className="text-warm-400 flex justify-end">
-                          {isExpanded
-                            ? <ChevronUp className="h-3.5 w-3.5" />
-                            : <ChevronDown className="h-3.5 w-3.5" />
-                          }
-                        </span>
-                      </button>
-
-                      {isVisitRevision(entry) && entry.intervention_revision && (
-                        <div className="mx-5 mb-3 rounded-lg border border-warm-200 bg-warm-50 px-3 py-2 text-xs text-warm-700">
-                          <span className="font-bold">
-                            Care plan version {entry.intervention_revision.version}
-                          </span>
-                          <span className="block mt-0.5 text-warm-500">
-                            Effective {formatDate(entry.intervention_revision.effective_at)}. {revisionReason(entry)}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Expanded detail */}
-                      {isExpanded && (
-                        <div className="px-5 pb-4 pt-3 bg-warm-50 border-t border-warm-100 space-y-3">
-                          {/* Lab values */}
-                          {entry.lab_values && Object.keys(entry.lab_values).length > 0 && (
-                            <div>
-                              <p className="text-xs font-bold text-warm-400 uppercase tracking-widest mb-2">Lab Values</p>
-                              <div className="flex flex-wrap gap-2">
-                                {Object.entries(entry.lab_values)
-                                  .filter(([, v]) => v !== null && v !== undefined)
-                                  .map(([key, val]) => (
-                                    <div key={key} className="bg-white border border-warm-200 rounded-lg px-3 py-2 min-w-[72px]">
-                                      <p className="text-xs font-bold text-warm-400 uppercase tracking-widest">{key}</p>
-                                      <p className="text-sm font-mono font-bold text-warm-900 mt-0.5">{String(val)}</p>
-                                    </div>
-                                  ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* GI tolerance */}
-                          {entry.goal_achievement?.gi_tolerance && (
-                            <div>
-                              <p className="text-xs font-bold text-warm-400 uppercase tracking-widest mb-1">GI Tolerance</p>
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                entry.goal_achievement.gi_tolerance === 'tolerating'
-                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                  : 'bg-red-50 text-red-700 border border-red-200'
-                              }`}>
-                                {entry.goal_achievement.gi_tolerance === 'tolerating' ? 'Tolerating' : 'Not Tolerating'}
-                              </span>
-                            </div>
-                          )}
-
-                          {entry.intake_notes && (
-                            <div>
-                              <p className="text-xs font-bold text-warm-400 uppercase tracking-widest mb-1">Intake Notes</p>
-                              <p className="text-sm text-warm-700 leading-relaxed">{entry.intake_notes}</p>
-                            </div>
-                          )}
-
-                          {entry.symptoms && (
-                            <div>
-                              <p className="text-xs font-bold text-warm-400 uppercase tracking-widest mb-1">Symptoms</p>
-                              <p className="text-sm text-warm-700 leading-relaxed">{entry.symptoms}</p>
-                            </div>
-                          )}
-
-                          {/* Clinical notes */}
-                          {entry.clinical_summary && (
-                            <div>
-                              <p className="text-xs font-bold text-warm-400 uppercase tracking-widest mb-1">Progress Assessment</p>
-                              <p className="text-sm text-warm-700 leading-relaxed">{entry.clinical_summary}</p>
-                            </div>
-                          )}
-
-                          {/* Next date */}
-                          {entry.next_monitoring_date && (
-                            <p className="text-xs text-warm-400">
-                              Next follow-up:{' '}
-                              <span className="font-semibold text-warm-600">
-                                {formatDate(entry.next_monitoring_date)}
-                              </span>
-                            </p>
-                          )}
-
-                          {/* Delete */}
-                          <div className="pt-1">
-                            <Button
-                              variant="danger"
-                              onClick={() => onDelete(entry.id)}
-                              className="!w-auto"
-                            >
-                              Delete Entry
-                            </Button>
-                          </div>
-                        </div>
-                      )}
+                {isExpanded && (
+                  <div className="space-y-4 border-t border-warm-100 px-4 py-4 sm:px-5">
+                    <MonitoringVisitDetails entry={entry} mode="full" />
+                    <div className="border-t border-warm-100 pt-4">
+                      <Button variant="danger" onClick={() => onDelete(entry.id)} className="!w-auto">Delete Entry</Button>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </>
+                  </div>
+                )}
+              </article>
+            );
+          })}
+        </div>
       )}
     </div>
   );
