@@ -11,8 +11,17 @@ class MonitoringResource extends JsonResource
     {
         return [
             'id' => $this->uuid,
-            'ncp_record_id' => $this->ncp_record_id,
+            'observed_at' => $this->observed_at?->toDateString(),
+            'visit_type' => $this->visit_type,
             'weight' => $this->weight,
+            'height' => $this->height,
+            'edema_present' => $this->edema_present,
+            'dry_weight_kg' => $this->dry_weight_kg,
+            'physical_activity_level' => $this->physical_activity_level,
+            'pregnancy_lactation_status' => $this->pregnancy_lactation_status,
+            'allergies' => $this->allergies,
+            'dietary_restrictions' => $this->dietary_restrictions,
+            'food_dislikes' => $this->food_dislikes,
             'bmi' => $this->bmi,
             'lab_values' => $this->lab_values,
             'intake_notes' => $this->intake_notes,
@@ -21,14 +30,6 @@ class MonitoringResource extends JsonResource
             'clinical_summary' => $this->clinical_summary,
             'ai_decision' => $this->ai_decision,
             'next_monitoring_date' => $this->next_monitoring_date?->toDateString(),
-            'intervention_revision' => $this->whenLoaded('interventionRevision', fn () => $this->interventionRevision ? [
-                'id' => $this->interventionRevision->uuid,
-                'version' => $this->interventionRevision->version,
-                'effective_at' => $this->interventionRevision->effective_at?->toISOString(),
-                'reason' => $this->interventionRevision->reason,
-                'source' => $this->interventionRevision->source,
-                'snapshot' => $this->interventionRevision->snapshot,
-            ] : null),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

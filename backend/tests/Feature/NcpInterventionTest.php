@@ -6,11 +6,15 @@ use App\Models\Assessment;
 use App\Models\ClinicalRule;
 use App\Models\Diagnosis;
 use App\Models\Intervention;
+use App\Models\MealPlan;
+use App\Models\Monitoring;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\User;
+use App\Services\NcpAppointmentWorkflow;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class NcpInterventionTest extends TestCase
@@ -106,6 +110,43 @@ class NcpInterventionTest extends TestCase
             ->assertJsonPath('data.carbs_g', 396)
             ->assertJsonPath('data.fluid_ml', 2600)
             ->assertJsonPath('data.sodium_max_mg', 2000);
+    }
+
+    public function test_autofill_uses_latest_monitoring_context_and_reports_source(): void
+    {
+        $rnd = $this->rnd();
+        $patient = $this->patient();
+        $ncp = $this->ncpRecord($patient, $rnd);
+        Assessment::forceCreate([
+            'ncp_record_id' => $ncp->id,
+            'weight' => 80,
+            'height' => 170,
+            'physical_activity_level' => 'sedentary',
+            'edema_present' => false,
+            'pregnancy_lactation_status' => 'none',
+            'allergies' => [],
+            'food_dislikes' => [],
+        ]);
+        $monitoring = Monitoring::factory()->create([
+            'ncp_record_id' => $ncp->id,
+            'observed_at' => '2026-09-25',
+            'weight' => 60,
+            'height' => 160,
+            'physical_activity_level' => 'moderate',
+        ]);
+        $assessmentBefore = $ncp->assessment->refresh()->getAttributes();
+
+        $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/interventions/autofill", [
+                'goal_type' => 'renal_diet',
+                'disease_stage' => 'stage_1',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.energy_kcal', 1800)
+            ->assertJsonPath('data.source_monitoring_id', $monitoring->uuid)
+            ->assertJsonPath('data.source_monitoring_date', '2026-09-25');
+
+        $this->assertSame($assessmentBefore, $ncp->assessment->fresh()->getAttributes());
     }
 
     public function test_autofill_requires_assessment_weight_height(): void
@@ -268,7 +309,8 @@ class NcpInterventionTest extends TestCase
             ]);
 
         $response->assertStatus(201)
-            ->assertJsonPath('data.ncp_record_id', $ncp->id)
+            ->assertJsonPath('data.id', Intervention::where('ncp_record_id', $ncp->id)->firstOrFail()->uuid)
+            ->assertJsonMissingPath('data.ncp_record_id')
             ->assertJsonPath('data.energy_kcal', '1800.00')
             ->assertJsonPath('data.session_type', null)
             ->assertJsonPath('data.next_followup_date', null);
@@ -354,9 +396,9 @@ class NcpInterventionTest extends TestCase
             ->assertStatus(201);
         $this->assertSame('draft', $ncp->fresh()->status);
 
-        // Filling the prescription via update completes the initial ADI → active.
+        // A complete new plan supersedes the earlier incomplete saved plan.
         $this->actingAs($rnd, 'sanctum')
-            ->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention", [
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/interventions", [
                 'goal_type' => 'renal_diet',
                 'disease_stage' => 'stage_1',
                 'energy_kcal' => 1800.0,
@@ -364,7 +406,7 @@ class NcpInterventionTest extends TestCase
                 'carbs_g' => 250.0,
                 'fat_g' => 55.0,
             ])
-            ->assertOk();
+            ->assertCreated();
 
         $this->assertSame('active', $ncp->fresh()->status);
     }
@@ -403,13 +445,13 @@ class NcpInterventionTest extends TestCase
             ->assertJsonValidationErrors(['energy_kcal', 'protein_g']);
     }
 
-    public function test_rnd_can_update_intervention(): void
+    public function test_saved_intervention_is_immutable(): void
     {
         $rnd = $this->rnd();
         $patient = $this->patient();
         $ncp = $this->ncpRecord($patient, $rnd);
 
-        Intervention::forceCreate([
+        $intervention = Intervention::forceCreate([
             'ncp_record_id' => $ncp->id,
             'energy_kcal' => 1800.0,
             'protein_g' => 65.0,
@@ -421,9 +463,10 @@ class NcpInterventionTest extends TestCase
                 'education_notes' => 'Focus on protein-rich foods',
             ]);
 
-        $response->assertOk()
-            ->assertJsonPath('data.energy_kcal', '2000.00')
-            ->assertJsonPath('data.education_notes', 'Focus on protein-rich foods');
+        $response->assertUnprocessable()
+            ->assertJsonPath('message', 'Saved Intervention Plans are immutable. Create a new plan instead.');
+        $this->assertSame('1800.00', $intervention->fresh()->energy_kcal);
+        $this->assertNull($intervention->fresh()->education_notes);
     }
 
     public function test_intervention_is_within_target_10_percent(): void
@@ -474,11 +517,157 @@ class NcpInterventionTest extends TestCase
         $intervention = Intervention::where('ncp_record_id', $ncp->id)->firstOrFail();
         $this->assertIsArray($intervention->micronutrient_limits);
         $this->assertEquals(2000, $intervention->micronutrient_limits['sodium']);
-        $this->assertDatabaseHas('intervention_revisions', [
-            'intervention_id' => $intervention->id,
-            'version' => 1,
-            'source' => 'initial',
+        $this->assertDatabaseCount('intervention_revisions', 0);
+    }
+
+    public function test_dated_plan_collection_is_paginated_newest_first_without_revision_language(): void
+    {
+        $rnd = $this->rnd();
+        $patient = $this->patient();
+        $ncp = $this->ncpRecord($patient, $rnd);
+        $monitoring = Monitoring::factory()->create([
+            'ncp_record_id' => $ncp->id,
+            'created_at' => '2026-09-20 08:00:00',
         ]);
+        $oldest = Intervention::factory()->create([
+            'ncp_record_id' => $ncp->id,
+            'created_at' => '2026-09-01 08:00:00',
+        ]);
+        $middle = Intervention::factory()->create([
+            'ncp_record_id' => $ncp->id,
+            'source_monitoring_id' => $monitoring->id,
+            'created_at' => '2026-09-20 09:00:00',
+        ]);
+        $newest = Intervention::factory()->create([
+            'ncp_record_id' => $ncp->id,
+            'source_monitoring_id' => $monitoring->id,
+            'created_at' => '2026-09-20 09:00:00',
+        ]);
+        MealPlan::factory()->create([
+            'intervention_id' => $middle->id,
+            'patient_id' => $patient->id,
+        ]);
+
+        $response = $this->actingAs($rnd, 'sanctum')
+            ->getJson("/api/rnd/ncp-records/{$ncp->uuid}/interventions?per_page=2");
+
+        $response->assertOk()
+            ->assertJsonPath('data.0.id', $newest->uuid)
+            ->assertJsonPath('data.1.id', $middle->uuid)
+            ->assertJsonPath('data.1.has_meal_plan', true)
+            ->assertJsonPath('data.1.source_monitoring_id', $monitoring->uuid)
+            ->assertJsonPath('meta.current_page', 1)
+            ->assertJsonPath('meta.total', 3)
+            ->assertJsonMissingPath('data.0.status')
+            ->assertJsonMissingPath('data.0.revision');
+        $this->assertTrue(Str::isUuid($response->json('data.0.id')));
+        $this->assertNotSame($oldest->uuid, $response->json('data.0.id'));
+    }
+
+    public function test_dated_plan_detail_is_scoped_to_parent_ncp(): void
+    {
+        $rnd = $this->rnd();
+        $patient = $this->patient();
+        $ncp = $this->ncpRecord($patient, $rnd);
+        $plan = Intervention::factory()->create(['ncp_record_id' => $ncp->id]);
+        $otherNcp = $this->ncpRecord($patient, $rnd);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->getJson("/api/rnd/ncp-records/{$ncp->uuid}/interventions/{$plan->uuid}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $plan->uuid)
+            ->assertJsonMissingPath('data.ncp_record_id')
+            ->assertJsonMissingPath('data.revision');
+
+        $this->getJson("/api/rnd/ncp-records/{$otherNcp->uuid}/interventions/{$plan->uuid}")
+            ->assertNotFound();
+
+        $foreignPatient = $this->patient();
+        $foreignNcp = $this->ncpRecord($foreignPatient, $rnd);
+        $foreignPlan = Intervention::factory()->create(['ncp_record_id' => $foreignNcp->id]);
+
+        $this->getJson("/api/rnd/ncp-records/{$ncp->uuid}/interventions/{$foreignPlan->uuid}")
+            ->assertNotFound();
+    }
+
+    public function test_plural_store_creates_new_complete_plan_from_latest_monitoring(): void
+    {
+        $rnd = $this->rnd();
+        $patient = $this->patient();
+        $ncp = $this->ncpRecord($patient, $rnd);
+        $this->diagnosis($ncp);
+        $older = Monitoring::factory()->create([
+            'ncp_record_id' => $ncp->id,
+            'observed_at' => '2026-09-20',
+            'created_at' => '2026-09-22 08:00:00',
+        ]);
+        $latest = Monitoring::factory()->create([
+            'ncp_record_id' => $ncp->id,
+            'observed_at' => '2026-09-21',
+            'created_at' => '2026-09-21 08:00:00',
+        ]);
+
+        $response = $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/interventions", [
+                'goal_type' => 'custom',
+                'energy_kcal' => 1900,
+                'protein_g' => 75,
+                'carbs_g' => 250,
+                'fat_g' => 60,
+                'fluid_ml' => 2000,
+            ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.source_monitoring_id', $latest->uuid)
+            ->assertJsonPath('data.energy_kcal', '1900.00')
+            ->assertJsonMissingPath('data.revision');
+        $this->assertNotSame($older->id, Intervention::latest('id')->firstOrFail()->source_monitoring_id);
+        $this->assertDatabaseCount('intervention_revisions', 0);
+    }
+
+    public function test_plural_store_rolls_back_plan_when_follow_up_workflow_fails(): void
+    {
+        $rnd = $this->rnd();
+        $patient = $this->patient();
+        $ncp = $this->ncpRecord($patient, $rnd);
+        $this->diagnosis($ncp);
+        $this->mock(NcpAppointmentWorkflow::class, function ($workflow): void {
+            $workflow->shouldReceive('recordClinicalWork')
+                ->once()
+                ->andThrow(new \RuntimeException('Follow-up workflow unavailable.'));
+        });
+
+        $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/interventions", [
+                'goal_type' => 'custom',
+                'energy_kcal' => 1900,
+                'protein_g' => 75,
+                'carbs_g' => 250,
+                'fat_g' => 60,
+            ])
+            ->assertServerError();
+
+        $this->assertDatabaseMissing('interventions', ['ncp_record_id' => $ncp->id]);
+    }
+
+    public function test_singular_patch_never_mutates_saved_plan(): void
+    {
+        $rnd = $this->rnd();
+        $patient = $this->patient();
+        $ncp = $this->ncpRecord($patient, $rnd);
+        $plan = Intervention::factory()->create([
+            'ncp_record_id' => $ncp->id,
+            'energy_kcal' => 1800,
+        ]);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention", [
+                'energy_kcal' => 2200,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Saved Intervention Plans are immutable. Create a new plan instead.');
+
+        $this->assertSame('1800.00', $plan->fresh()->energy_kcal);
     }
 
     // ──────────────────────────────────────────────────

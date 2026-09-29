@@ -205,8 +205,9 @@ class MealPlanService
         array $allergens = [],
         bool $excludeSnacks = false,
         bool $useRiceAsCarb = false,
+        ?Intervention $intervention = null,
     ): array|MealPlan {
-        $intervention = $ncpRecord->intervention()->firstOrFail();
+        $intervention ??= $ncpRecord->intervention()->firstOrFail();
         $goalType = (string) ($intervention->goal_type ?? '');
         $maternalStatus = $ncpRecord->assessment?->pregnancy_lactation_status;
         $balancedComponents = $goalType === 'custom' || $this->isConfirmedMaternalStatus($maternalStatus);

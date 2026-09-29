@@ -11,7 +11,7 @@ use App\Models\Monitoring;
 use App\Models\NcpRecord;
 use App\Policies\AuditPolicy;
 use App\Services\AIService;
-use App\Services\InterventionRevisionService;
+use App\Services\InterventionCalculationContextService;
 use App\Services\MonitoringPlanService;
 use App\Services\MonitoringSummaryService;
 use App\Services\NcpAppointmentWorkflow;
@@ -25,7 +25,6 @@ class MonitoringController extends Controller
     public function __construct(
         private readonly AuditPolicy $auditPolicy,
         private readonly NcpAppointmentWorkflow $appointments,
-        private readonly InterventionRevisionService $revisions,
     ) {}
 
     /**
@@ -123,7 +122,7 @@ class MonitoringController extends Controller
     {
         $this->authorizeNcp($ncpRecord);
         $monitorings = $ncpRecord->monitorings()
-            ->with('interventionRevision')
+            ->orderByDesc('observed_at')
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->paginate($request->perPage())
@@ -151,28 +150,17 @@ class MonitoringController extends Controller
         }
 
         $data = $request->validated();
-        $revisionData = $data['intervention_revision'] ?? null;
-        unset($data['intervention_revision']);
+        $data['bmi'] = $this->calculateBmi($data['weight'], $data['height']);
 
-        return $this->audited(function () use ($data, $revisionData, $ncpRecord, $notificationLifecycle, $request) {
+        return $this->audited(function () use ($data, $ncpRecord, $notificationLifecycle, $request) {
             $monitoring = new Monitoring($data);
             $monitoring->ncp_record_id = $ncpRecord->id;
             $monitoring->save();
-            if ($revisionData !== null) {
-                $this->revisions->reviseFromMonitoring(
-                    $ncpRecord->intervention()->firstOrFail(),
-                    $monitoring,
-                    $revisionData['snapshot'],
-                    $request->user(),
-                    $revisionData['reason'],
-                    $revisionData['effective_date'],
-                );
-            }
             $notificationLifecycle->resolveFollowUp($ncpRecord, $monitoring->created_at);
             $freshNcp = $ncpRecord->fresh(['monitorings']);
             $this->appointments->recordClinicalWork($request->user(), $freshNcp, 'monitoring');
 
-            return (new MonitoringResource($monitoring->load('interventionRevision')))->response()->setStatusCode(201);
+            return (new MonitoringResource($monitoring))->response()->setStatusCode(201);
         });
     }
 
@@ -187,26 +175,15 @@ class MonitoringController extends Controller
         }
 
         $data = $request->validated();
-        $revisionData = $data['intervention_revision'] ?? null;
-        unset($data['intervention_revision']);
+        $data['bmi'] = $this->calculateBmi($data['weight'], $data['height']);
 
-        return $this->audited(function () use ($monitoring, $data, $revisionData, $ncpRecord, $request) {
+        return $this->audited(function () use ($monitoring, $data, $ncpRecord, $request) {
             $monitoring->fill($data);
             $monitoring->save();
-            if ($revisionData !== null) {
-                $this->revisions->reviseFromMonitoring(
-                    $ncpRecord->intervention()->firstOrFail(),
-                    $monitoring,
-                    $revisionData['snapshot'],
-                    $request->user(),
-                    $revisionData['reason'],
-                    $revisionData['effective_date'],
-                );
-            }
             $freshNcp = $ncpRecord->fresh(['monitorings']);
             $this->appointments->recordClinicalWork($request->user(), $freshNcp, 'monitoring');
 
-            return new MonitoringResource($monitoring->load('interventionRevision'));
+            return new MonitoringResource($monitoring);
         });
     }
 
@@ -228,5 +205,21 @@ class MonitoringController extends Controller
     private function authorizeNcp(NcpRecord $ncpRecord): void
     {
         abort_unless($this->auditPolicy->viewNcpTrail(request()->user(), $ncpRecord), 403);
+    }
+
+    public function context(
+        NcpRecord $ncpRecord,
+        InterventionCalculationContextService $context,
+    ): JsonResponse {
+        $this->authorizeNcp($ncpRecord);
+
+        return response()->json(['data' => $context->prefillForMonitoring($ncpRecord)]);
+    }
+
+    private function calculateBmi(float|int|string $weight, float|int|string $height): float
+    {
+        $heightMeters = (float) $height / 100;
+
+        return round((float) $weight / ($heightMeters * $heightMeters), 2);
     }
 }

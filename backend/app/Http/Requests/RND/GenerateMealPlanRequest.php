@@ -14,6 +14,7 @@ class GenerateMealPlanRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'intervention_plan_id' => ['required', 'uuid'],
             'week_start_date' => ['required', 'date'],
             'conditions' => ['nullable', 'array'],
             'conditions.*' => ['nullable', 'string'],

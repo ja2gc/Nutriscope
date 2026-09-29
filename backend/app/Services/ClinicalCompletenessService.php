@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Intervention;
 use App\Models\NcpRecord;
 
 /**
@@ -92,25 +93,30 @@ class ClinicalCompletenessService
     /** @return string[] */
     public function interventionMissing(NcpRecord $ncp): array
     {
-        $iv = $ncp->intervention;
-        if (! $iv) {
+        return $this->interventionMissingFor($ncp->intervention);
+    }
+
+    /** @return string[] */
+    public function interventionMissingFor(?Intervention $intervention): array
+    {
+        if (! $intervention) {
             return ['Nutrition intervention'];
         }
 
         $missing = [];
-        if (empty($iv->goal_type)) {
+        if (empty($intervention->goal_type)) {
             $missing[] = 'Intervention goal';
         }
-        if (! ($iv->energy_kcal > 0)) {
+        if (! ($intervention->energy_kcal > 0)) {
             $missing[] = 'Energy target';
         }
-        if (! ($iv->protein_g > 0)) {
+        if (! ($intervention->protein_g > 0)) {
             $missing[] = 'Protein target';
         }
-        if (! ($iv->carbs_g > 0)) {
+        if (! ($intervention->carbs_g > 0)) {
             $missing[] = 'Carbohydrate target';
         }
-        if (! ($iv->fat_g > 0)) {
+        if (! ($intervention->fat_g > 0)) {
             $missing[] = 'Fat target';
         }
 

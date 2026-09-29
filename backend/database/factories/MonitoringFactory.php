@@ -14,7 +14,17 @@ class MonitoringFactory extends Factory
     {
         return [
             'ncp_record_id' => NcpRecord::factory(),
+            'observed_at' => now()->toDateString(),
+            'visit_type' => 'scheduled_follow_up',
             'weight' => fake()->randomFloat(2, 40, 120),
+            'height' => fake()->randomFloat(2, 145, 190),
+            'edema_present' => false,
+            'dry_weight_kg' => null,
+            'physical_activity_level' => 'light',
+            'pregnancy_lactation_status' => 'none',
+            'allergies' => [],
+            'dietary_restrictions' => null,
+            'food_dislikes' => [],
             'bmi' => fake()->randomFloat(2, 16, 35),
             'lab_values' => [
                 'albumin' => fake()->randomFloat(1, 2.5, 5.0),

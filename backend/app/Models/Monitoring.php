@@ -19,14 +19,23 @@ class Monitoring extends Model
     protected bool $auditRedactValues = true;
 
     protected $fillable = [
-        'ncp_record_id', 'intervention_revision_id', 'weight', 'bmi', 'lab_values', 'intake_notes',
+        'ncp_record_id', 'intervention_revision_id', 'observed_at', 'visit_type',
+        'weight', 'height', 'edema_present', 'dry_weight_kg', 'physical_activity_level',
+        'pregnancy_lactation_status', 'allergies', 'dietary_restrictions', 'food_dislikes',
+        'bmi', 'lab_values', 'intake_notes',
         'symptoms', 'goal_achievement', 'clinical_summary', 'ai_decision',
         'ai_review', 'ai_review_key', 'next_monitoring_date',
     ];
 
     protected $casts = [
         'weight' => 'decimal:2',
+        'height' => 'decimal:2',
+        'dry_weight_kg' => 'decimal:2',
         'bmi' => 'decimal:2',
+        'observed_at' => 'date',
+        'edema_present' => 'boolean',
+        'allergies' => 'array',
+        'food_dislikes' => 'array',
         'lab_values' => 'array',
         'goal_achievement' => 'array',
         'next_monitoring_date' => 'date',
@@ -35,7 +44,9 @@ class Monitoring extends Model
     protected function auditAttributes(): array
     {
         return [
-            'ncp_record_id', 'weight', 'bmi', 'lab_values', 'intake_notes', 'symptoms',
+            'ncp_record_id', 'observed_at', 'visit_type', 'weight', 'height', 'edema_present',
+            'dry_weight_kg', 'physical_activity_level', 'pregnancy_lactation_status',
+            'allergies', 'dietary_restrictions', 'food_dislikes', 'bmi', 'lab_values', 'intake_notes', 'symptoms',
             'goal_achievement', 'clinical_summary', 'ai_decision', 'ai_review', 'ai_review_key',
             'next_monitoring_date',
         ];

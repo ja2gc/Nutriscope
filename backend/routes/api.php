@@ -168,12 +168,17 @@ Route::middleware(['auth:sanctum', 'active', 'role:RND'])->prefix('rnd')->group(
     // Intervention routes
     Route::middleware('throttle:compute')->group(function () {
         Route::post('ncp-records/{ncpRecord}/intervention/autofill', [InterventionController::class, 'autofill']);
+        Route::post('ncp-records/{ncpRecord}/interventions/autofill', [InterventionController::class, 'autofill']);
         Route::post('ncp-records/{ncpRecord}/intervention/recommend', [MealPlanController::class, 'recommend']);
         Route::get('ncp-records/{ncpRecord}/intervention/recommendations', [InterventionController::class, 'recommendations']);
     });
     Route::post('ncp-records/{ncpRecord}/intervention', [InterventionController::class, 'store']);
     Route::get('ncp-records/{ncpRecord}/intervention', [InterventionController::class, 'show']);
     Route::patch('ncp-records/{ncpRecord}/intervention', [InterventionController::class, 'update']);
+    Route::get('ncp-records/{ncpRecord}/interventions', [InterventionController::class, 'index']);
+    Route::get('ncp-records/{ncpRecord}/interventions/latest', [InterventionController::class, 'latest']);
+    Route::post('ncp-records/{ncpRecord}/interventions', [InterventionController::class, 'storePlan']);
+    Route::get('ncp-records/{ncpRecord}/interventions/{intervention}', [InterventionController::class, 'showPlan']);
 
     // Meal Plan routes
     Route::get('ncp-records/{ncpRecord}/meal-plans', [MealPlanController::class, 'index']);
@@ -199,6 +204,7 @@ Route::middleware(['auth:sanctum', 'active', 'role:RND'])->prefix('rnd')->group(
     // Monitoring routes
     Route::get('ncp-records/{ncpRecord}/monitoring-plan', [MonitoringController::class, 'plan']);
     Route::get('ncp-records/{ncpRecord}/monitorings', [MonitoringController::class, 'index']);
+    Route::get('ncp-records/{ncpRecord}/monitorings/context', [MonitoringController::class, 'context']);
     // Phase 6 — evaluation summary (free) + optional AI narrative (declared before
     // the {monitoring} routes so the literal segments win the match).
     Route::get('ncp-records/{ncpRecord}/monitorings/summary', [MonitoringController::class, 'summary']);

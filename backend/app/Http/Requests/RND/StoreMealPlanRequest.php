@@ -14,6 +14,7 @@ class StoreMealPlanRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'intervention_plan_id' => ['required', 'uuid'],
             'week_start_date' => ['required', 'date'],
             'generation_type' => ['nullable', 'string', 'in:manual,auto'],
             'status' => ['nullable', 'string', 'in:draft,active,completed'],

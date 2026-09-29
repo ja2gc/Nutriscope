@@ -11,21 +11,12 @@ class MealPlanResource extends JsonResource
     {
         return [
             'id' => $this->uuid,
-            'intervention_id' => $this->intervention_id,
-            'patient_id' => $this->patient_id,
+            'intervention_plan_id' => $this->whenLoaded('intervention', fn () => $this->intervention?->uuid),
             'week_start_date' => $this->week_start_date?->toDateString(),
             'generation_type' => $this->generation_type,
             'scale_status' => $this->needs_rescaling ? 'available' : 'already_scaled',
             'scaled_at' => $this->scaled_at,
             'status' => $this->status,
-            'revision' => $this->whenLoaded('revision', fn () => $this->revision ? [
-                'id' => $this->revision->uuid,
-                'version' => $this->revision->version,
-                'effective_at' => $this->revision->effective_at?->toISOString(),
-                'reason' => $this->revision->reason,
-                'source' => $this->revision->source,
-                'snapshot' => $this->revision->snapshot,
-            ] : null),
             'days' => $this->whenLoaded('days', fn () => $this->days->map(fn ($d) => [
                 'id' => $d->uuid,
                 'day_of_week' => $d->day_of_week,

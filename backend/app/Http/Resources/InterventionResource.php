@@ -10,8 +10,7 @@ class InterventionResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->id,
-            'ncp_record_id' => $this->ncp_record_id,
+            'id' => $this->uuid,
             'goal_type' => $this->goal_type,
             'disease_stage' => $this->disease_stage,
             'displayed_nutrients' => $this->displayed_nutrients,
@@ -27,25 +26,13 @@ class InterventionResource extends JsonResource
             'strategies' => $this->strategies,
             'session_type' => $this->session_type,
             'next_followup_date' => $this->next_followup_date?->toDateString(),
-            'revision' => $this->whenLoaded('activeRevision', fn () => $this->revisionData($this->activeRevision)),
+            'source_monitoring_id' => $this->sourceMonitoring?->uuid,
+            'source_monitoring_date' => $this->sourceMonitoring?->observed_at?->toDateString()
+                ?? $this->sourceMonitoring?->created_at?->toDateString(),
+            'has_meal_plan' => $this->mealPlan !== null,
+            'meal_plan_id' => $this->mealPlan?->uuid,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
-        ];
-    }
-
-    private function revisionData($revision): ?array
-    {
-        if (! $revision) {
-            return null;
-        }
-
-        return [
-            'id' => $revision->uuid,
-            'version' => $revision->version,
-            'effective_at' => $revision->effective_at?->toISOString(),
-            'reason' => $revision->reason,
-            'source' => $revision->source,
-            'snapshot' => $revision->snapshot,
         ];
     }
 }

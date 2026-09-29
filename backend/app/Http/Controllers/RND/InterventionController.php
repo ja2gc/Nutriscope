@@ -3,14 +3,17 @@
 namespace App\Http\Controllers\RND;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\PaginatedRequest;
 use App\Http\Requests\RND\StoreInterventionRequest;
-use App\Http\Requests\RND\UpdateInterventionRequest;
+use App\Http\Resources\InterventionPlanSummaryResource;
 use App\Http\Resources\InterventionResource;
+use App\Models\Assessment;
 use App\Models\Intervention;
 use App\Models\NcpRecord;
 use App\Policies\AuditPolicy;
 use App\Services\ClinicalCompletenessService;
-use App\Services\InterventionRevisionService;
+use App\Services\InterventionCalculationContextService;
+use App\Services\InterventionPlanService;
 use App\Services\LabFlagService;
 use App\Services\NcpAppointmentWorkflow;
 use App\Services\NutritionPrescriptionService;
@@ -18,6 +21,7 @@ use App\Services\RecommendService;
 use App\Support\InterventionGoalCatalog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Carbon;
 
 class InterventionController extends Controller
@@ -27,7 +31,7 @@ class InterventionController extends Controller
         private LabFlagService $labFlags,
         private AuditPolicy $auditPolicy,
         private NcpAppointmentWorkflow $appointments,
-        private InterventionRevisionService $revisions,
+        private InterventionPlanService $plans,
     ) {}
 
     /**
@@ -38,8 +42,12 @@ class InterventionController extends Controller
      * The frontend mirror is for live preview only; persisted values should come
      * from here. Body: { goal_type, disease_stage? }.
      */
-    public function autofill(Request $request, NcpRecord $ncpRecord, NutritionPrescriptionService $svc): JsonResponse
-    {
+    public function autofill(
+        Request $request,
+        NcpRecord $ncpRecord,
+        NutritionPrescriptionService $svc,
+        InterventionCalculationContextService $contextService,
+    ): JsonResponse {
         $this->authorizeNcp($ncpRecord);
         $goalType = $request->input('goal_type') ?? $ncpRecord->intervention?->goal_type;
         $stage = $request->input('disease_stage') ?? $ncpRecord->intervention?->disease_stage;
@@ -61,19 +69,20 @@ class InterventionController extends Controller
 
         $assessment = $ncpRecord->assessment()->first();
         $patient = $ncpRecord->patient;
+        $context = $contextService->for($ncpRecord);
 
         $missingFields = [];
-        if (! $assessment || $assessment->weight === null) {
+        if ($context['weight'] === null) {
             $missingFields[] = 'weight';
         }
-        if (! $assessment || $assessment->height === null) {
+        if ($context['height'] === null) {
             $missingFields[] = 'height';
         }
-        if ($assessment?->edema_present && $assessment->dry_weight_kg === null) {
+        if ($context['edema_present'] && $context['dry_weight_kg'] === null) {
             $missingFields[] = 'dry_weight_kg';
         }
         if ($this->requiresActivityFactor($goalType, $stage)
-            && (! $assessment || $assessment->physical_activity_level === null || $assessment->physical_activity_level === '')
+            && blank($context['physical_activity_level'])
         ) {
             $missingFields[] = 'physical_activity_level';
         }
@@ -86,7 +95,7 @@ class InterventionController extends Controller
             ], 422);
         }
 
-        if ($assessment->pregnancy_lactation_status === 'pregnant_unspecified') {
+        if ($context['pregnancy_lactation_status'] === 'pregnant_unspecified') {
             return response()->json([
                 'message' => 'Confirm the pregnancy trimester before automatic maternal targets are available.',
                 'missing_fields' => ['pregnancy_lactation_status'],
@@ -112,28 +121,32 @@ class InterventionController extends Controller
         $age = (int) Carbon::parse($patient->dob)->age;
 
         // Phase 5.2: use normalised PAL key so any UI spelling maps to ACTIVITY_FACTORS
-        $activityKey = $assessment->normalizedActivityLevel();
+        $rawActivity = strtolower(trim((string) $context['physical_activity_level']));
+        $activityKey = Assessment::ACTIVITY_LEVEL_MAP[$rawActivity] ?? 'sedentary';
         $activityFactor = NutritionPrescriptionService::ACTIVITY_FACTORS[$activityKey] ?? 1.2;
 
-        $calculationWeight = $assessment->edema_present
-            ? (float) $assessment->dry_weight_kg
-            : (float) $assessment->weight;
+        $calculationWeight = $context['edema_present']
+            ? (float) $context['dry_weight_kg']
+            : (float) $context['weight'];
 
         $metrics = [
             'weightKg' => $calculationWeight,
-            'heightCm' => (float) $assessment->height,
+            'heightCm' => (float) $context['height'],
             'ageYears' => $age,
             'sex' => $patient->sex,
             'isAdult' => $age >= 18,
             'activityFactor' => $activityFactor,
         ];
 
-        $pregnancyStatus = $assessment->pregnancy_lactation_status;
+        $pregnancyStatus = $context['pregnancy_lactation_status'];
         if ($pregnancyStatus && $pregnancyStatus !== 'none') {
             $metrics['pregnancyLactationStatus'] = $pregnancyStatus;
         }
 
         $rx = $svc->autofill($goalType, $stage, $metrics);
+        $rx['source_type'] = $context['source_type'];
+        $rx['source_monitoring_id'] = $context['source_monitoring_id'];
+        $rx['source_monitoring_date'] = $context['source_monitoring_date'];
 
         $warnings = $this->safetyWarnings($goalType, $stage, $assessment, $patient?->sex);
         $rx['calculation_status'] = $warnings === [] ? 'ok' : 'warning';
@@ -164,16 +177,13 @@ class InterventionController extends Controller
         $data = $request->validated();
 
         return $this->audited(function () use ($data, $ncpRecord, $request) {
-            $intervention = new Intervention($data);
-            $intervention->ncp_record_id = $ncpRecord->id;
-            $intervention->save();
-            $this->revisions->createInitial($intervention, $request->user());
+            $intervention = $this->plans->create($ncpRecord, $data, $request->user());
 
             $this->refreshActivation($ncpRecord);
             $freshNcp = $ncpRecord->fresh(['intervention']);
             $this->appointments->recordClinicalWork($request->user(), $freshNcp, 'intervention');
 
-            return (new InterventionResource($intervention->load('activeRevision')))->response()->setStatusCode(201);
+            return (new InterventionResource($intervention->load(['sourceMonitoring', 'mealPlan'])))->response()->setStatusCode(201);
         });
     }
 
@@ -189,26 +199,80 @@ class InterventionController extends Controller
             return response()->json(['data' => null]);
         }
 
-        return (new InterventionResource($intervention->load('activeRevision')))->response();
+        return (new InterventionResource($intervention->load(['sourceMonitoring', 'mealPlan'])))->response();
     }
 
     /**
      * PATCH /api/rnd/ncp-records/{ncpRecord}/intervention
      */
-    public function update(UpdateInterventionRequest $request, NcpRecord $ncpRecord): InterventionResource
+    public function update(Request $request, NcpRecord $ncpRecord): JsonResponse
     {
         $this->authorizeNcp($ncpRecord);
-        $intervention = $ncpRecord->intervention()->firstOrFail();
-        $data = $request->validated();
+        $ncpRecord->intervention()->firstOrFail();
 
-        return $this->audited(function () use ($intervention, $data, $ncpRecord, $request) {
-            $this->revisions->updateInitialBeforeMonitoring($intervention, $data, $request->user());
+        return response()->json([
+            'message' => 'Saved Intervention Plans are immutable. Create a new plan instead.',
+        ], 422);
+    }
 
+    public function index(PaginatedRequest $request, NcpRecord $ncpRecord): AnonymousResourceCollection
+    {
+        $this->authorizeNcp($ncpRecord);
+        $plans = $ncpRecord->interventions()
+            ->with(['sourceMonitoring', 'mealPlan'])
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate($request->perPage())
+            ->withQueryString();
+
+        return InterventionPlanSummaryResource::collection($plans);
+    }
+
+    public function latest(NcpRecord $ncpRecord): JsonResponse
+    {
+        $this->authorizeNcp($ncpRecord);
+        $plan = $ncpRecord->latestIntervention()->with(['sourceMonitoring', 'mealPlan'])->first();
+
+        return $plan === null
+            ? response()->json(['data' => null])
+            : (new InterventionResource($plan))->response();
+    }
+
+    public function showPlan(NcpRecord $ncpRecord, Intervention $intervention): JsonResponse
+    {
+        $this->authorizeNcp($ncpRecord);
+        abort_unless($intervention->ncp_record_id === $ncpRecord->id, 404);
+
+        return (new InterventionResource($intervention->load(['sourceMonitoring', 'mealPlan'])))->response();
+    }
+
+    public function storePlan(StoreInterventionRequest $request, NcpRecord $ncpRecord): JsonResponse
+    {
+        $this->authorizeNcp($ncpRecord);
+        if (! $ncpRecord->diagnoses()->exists()) {
+            return response()->json([
+                'message' => 'Add at least one diagnosis before recording the intervention.',
+            ], 422);
+        }
+
+        return $this->audited(function () use ($ncpRecord, $request): JsonResponse {
+            $sourceMonitoring = $ncpRecord->monitorings()
+                ->orderByDesc('observed_at')
+                ->orderByDesc('created_at')
+                ->orderByDesc('id')
+                ->first();
+            $intervention = $this->plans->create(
+                $ncpRecord,
+                $request->validated(),
+                $request->user(),
+                $sourceMonitoring,
+            );
             $this->refreshActivation($ncpRecord);
-            $freshNcp = $ncpRecord->fresh(['intervention']);
-            $this->appointments->recordClinicalWork($request->user(), $freshNcp, 'intervention');
+            $this->appointments->recordClinicalWork($request->user(), $ncpRecord->fresh(), 'intervention');
 
-            return new InterventionResource($intervention->fresh()->load('activeRevision'));
+            return (new InterventionResource($intervention->load(['sourceMonitoring', 'mealPlan'])))
+                ->response()
+                ->setStatusCode(201);
         });
     }
 
