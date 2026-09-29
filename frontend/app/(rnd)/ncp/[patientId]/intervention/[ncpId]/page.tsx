@@ -40,6 +40,10 @@ import InterventionPlansTab from "./_components/InterventionPlansTab";
 import InterventionPlanEditor from "./_components/InterventionPlanEditor";
 import NcpPatientHeader from "../../../_components/NcpPatientHeader";
 import { InfoHint } from "@/components/ui/InfoHint";
+import {
+  INTERVENTION_GUIDANCE_TOTAL_MAX,
+  interventionGuidanceCharacters,
+} from "@/lib/interventionGuidance";
 
 type Tab = "plans" | "nd" | "education" | "counseling" | "goals";
 type PageParams = { patientId: string; ncpId: string };
@@ -174,6 +178,12 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
   const [counselingGoals, setCounselingGoals] = useState("");
   const [barriers, setBarriers]               = useState("");
   const [strategies, setStrategies]           = useState("");
+  const guidanceCharacters = interventionGuidanceCharacters([
+    educationNotes,
+    counselingGoals,
+    barriers,
+    strategies,
+  ]);
 
   const applyIntervention = useCallback((iv: Intervention | null) => {
     setIntervention(iv);
@@ -394,6 +404,10 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
     if (!intervention?.goal_type) {
       setEditorError("Select an intervention goal before saving.");
       setTab("nd");
+      return;
+    }
+    if (guidanceCharacters > INTERVENTION_GUIDANCE_TOTAL_MAX) {
+      setEditorError(`Shorten education and counseling guidance by ${guidanceCharacters - INTERVENTION_GUIDANCE_TOTAL_MAX} characters before saving.`);
       return;
     }
 
@@ -702,6 +716,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
             saving={saving}
             readOnly={editorMode === "readonly"}
             showSave={false}
+            totalCharacters={guidanceCharacters}
           />
         )}
 
@@ -719,6 +734,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
             saving={saving}
             readOnly={editorMode === "readonly"}
             showSave={false}
+            totalCharacters={guidanceCharacters}
           />
         )}
 

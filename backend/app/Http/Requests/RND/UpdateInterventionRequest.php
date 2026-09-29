@@ -3,6 +3,7 @@
 namespace App\Http\Requests\RND;
 
 use App\Support\InterventionGoalCatalog;
+use App\Support\InterventionGuidance;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -26,10 +27,10 @@ class UpdateInterventionRequest extends FormRequest
             'fat_g' => ['nullable', 'numeric', 'min:0'],
             'fluid_ml' => ['nullable', 'numeric', 'min:0'],
             'micronutrient_limits' => ['nullable', 'array'],
-            'education_notes' => ['nullable', 'string'],
-            'counseling_goals' => ['nullable', 'string'],
-            'barriers' => ['nullable', 'string'],
-            'strategies' => ['nullable', 'string'],
+            'education_notes' => ['nullable', 'string', 'max:'.InterventionGuidance::FIELD_MAX],
+            'counseling_goals' => ['nullable', 'string', 'max:'.InterventionGuidance::FIELD_MAX],
+            'barriers' => ['nullable', 'string', 'max:'.InterventionGuidance::FIELD_MAX],
+            'strategies' => ['nullable', 'string', 'max:'.InterventionGuidance::FIELD_MAX],
         ];
     }
 
@@ -38,6 +39,16 @@ class UpdateInterventionRequest extends FormRequest
         return [
             function (Validator $validator): void {
                 $intervention = $this->route('ncpRecord')?->intervention;
+                $guidance = collect(InterventionGuidance::FIELDS)->mapWithKeys(fn (string $field): array => [
+                    $field => $this->has($field) ? $this->input($field) : $intervention?->getAttribute($field),
+                ])->all();
+                if (InterventionGuidance::characterCount($guidance) > InterventionGuidance::TOTAL_MAX) {
+                    $validator->errors()->add(
+                        'education_notes',
+                        'Education and counseling guidance must not exceed '.number_format(InterventionGuidance::TOTAL_MAX).' characters in total.',
+                    );
+                }
+
                 $goalType = $this->has('goal_type') ? $this->input('goal_type') : $intervention?->goal_type;
                 $stage = $this->has('disease_stage') ? $this->input('disease_stage') : $intervention?->disease_stage;
 

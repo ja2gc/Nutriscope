@@ -15,9 +15,18 @@ class PatientMenuPlanViewContractTest extends TestCase
         $this->assertStringContainsString('array_chunk($portionPage, 3)', $source);
         $this->assertStringContainsString('class="portion-page', $source);
         $this->assertStringContainsString('class="portion-row"', $source);
+        $layout = file_get_contents(__DIR__.'/../../resources/views/reports/layout.blade.php');
+        $this->assertStringContainsString("(\$paper_orientation ?? 'portrait') === 'landscape'", $layout);
+        $this->assertStringContainsString("'13in 8.5in'", $layout);
+        $this->assertStringContainsString("'8.5in 13in'", $layout);
+        $this->assertLessThan(strpos($source, 'patient_guidance'), strpos($source, 'meal-plan-heading'));
+        $this->assertStringNotContainsString('meal-plan-page-break', $source);
+        $this->assertStringContainsString("patient_guidance['barriers']", $source);
         $this->assertStringNotContainsString('Recipe Details', $source);
         $this->assertStringNotContainsString('prep_notes', $source);
         $this->assertStringNotContainsString('medium piece', $source);
         $this->assertStringNotContainsString('USDA source', $source);
+        $this->assertStringNotContainsString('class="page-break"', $source);
+        $this->assertStringNotContainsString('count($portion_details) > 21', $source);
     }
 }

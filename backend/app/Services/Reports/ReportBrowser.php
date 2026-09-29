@@ -3,13 +3,13 @@
 namespace App\Services\Reports;
 
 use App\Models\DietListCount;
-use App\Models\MealPlan;
 use App\Models\MenuCycle;
 use App\Models\NcpRecord;
 use App\Models\PurchaseOrder;
 use App\Services\Reports\Contracts\InstanceSource;
 use App\Services\Reports\Instances\DemographicCensusInstanceSource;
 use App\Services\Reports\Instances\EntityInstanceSource;
+use App\Services\Reports\Instances\InterventionPlanInstanceSource;
 use App\Services\Reports\Instances\PeriodInstanceSource;
 use Illuminate\Support\Facades\Auth;
 
@@ -52,25 +52,7 @@ class ReportBrowser
                 'completed_at',
             ),
             'menu_calendar' => fn () => $this->menuCycleSource(),
-            'patient_menu_plan' => fn () => new EntityInstanceSource(
-                // One instance per meal plan so the RND selects the EXACT plan to print.
-                // (Previously keyed by patient_id, which the generator can't render —
-                // it requires a specific meal_plan_id.) (MP-08/RP-04)
-                fn () => MealPlan::query()
-                    ->addSelect([
-                        'plan_number' => MealPlan::query()
-                            ->from('meal_plans as numbered_plans')
-                            ->selectRaw('COUNT(*)')
-                            ->whereColumn('numbered_plans.intervention_id', 'meal_plans.intervention_id')
-                            ->whereColumn('numbered_plans.id', '<=', 'meal_plans.id'),
-                    ])
-                    ->with(['patient', 'intervention.ncpRecord']),
-                'meal_plan_id',
-                fn (MealPlan $mp) => trim(($mp->patient?->display_name ?? "Patient #{$mp->patient_id}")
-                    .' — Meal Plan '.((int) $mp->getAttribute('plan_number') ?: 1)
-                    .(($status = $mp->intervention?->ncpRecord?->status ?? $mp->status) ? " ({$status})" : '')),
-                'created_at',
-            ),
+            'patient_menu_plan' => fn () => new InterventionPlanInstanceSource,
             'ncp_summary' => fn () => new EntityInstanceSource(
                 fn () => NcpRecord::query()->with('patient'),
                 'ncp_record_id',

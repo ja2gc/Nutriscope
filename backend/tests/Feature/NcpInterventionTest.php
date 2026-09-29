@@ -445,6 +445,39 @@ class NcpInterventionTest extends TestCase
             ->assertJsonValidationErrors(['energy_kcal', 'protein_g']);
     }
 
+    public function test_intervention_limits_each_guidance_field(): void
+    {
+        $rnd = $this->rnd();
+        $patient = $this->patient();
+        $ncp = $this->ncpRecord($patient, $rnd);
+        $this->diagnosis($ncp);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention", [
+                'education_notes' => str_repeat('a', 1201),
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['education_notes']);
+    }
+
+    public function test_intervention_limits_combined_guidance_for_print_layout(): void
+    {
+        $rnd = $this->rnd();
+        $patient = $this->patient();
+        $ncp = $this->ncpRecord($patient, $rnd);
+        $this->diagnosis($ncp);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/intervention", [
+                'education_notes' => str_repeat('a', 600),
+                'counseling_goals' => str_repeat('b', 600),
+                'barriers' => str_repeat('c', 600),
+                'strategies' => str_repeat('d', 401),
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['education_notes']);
+    }
+
     public function test_saved_intervention_is_immutable(): void
     {
         $rnd = $this->rnd();

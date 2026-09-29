@@ -2,6 +2,8 @@
 
 namespace App\Actions\Reports;
 
+use App\Models\Intervention;
+use App\Models\MealPlan;
 use App\Models\Report;
 use App\Models\ReportBranding;
 use App\Models\ReportTemplate;
@@ -22,6 +24,7 @@ class PrepareSavedReport
         ksort($parameters);
         $identity = hash('sha256', $actor->role.'|'.$type.'|'.json_encode($parameters, JSON_THROW_ON_ERROR));
         $template = ReportTemplate::query()->where('type', $type)->first();
+        $title = $this->titleFor($type, $parameters, $template?->name ?? $type);
         $report = $existing ?? Report::query()->where('archive_identity', $identity)->first();
         $created = $report === null;
         if ($report?->official_file_stored_object_id !== null) {
@@ -30,7 +33,7 @@ class PrepareSavedReport
         if ($report === null) {
             $report = Report::query()->create([
                 'user_id' => $actor->id,
-                'title' => $template?->name ?? $type,
+                'title' => $title,
                 'type' => $type,
                 'archive_identity' => $identity,
                 'parameters' => $parameters,
@@ -117,5 +120,37 @@ class PrepareSavedReport
         }
 
         return $report->fresh(['user:id,uuid,name,first_name,last_name', 'officialFile']);
+    }
+
+    private function titleFor(string $type, array $parameters, string $fallback): string
+    {
+        if ($type !== 'patient_menu_plan') {
+            return $fallback;
+        }
+
+        $planIdentifier = $parameters['intervention_plan_id'] ?? null;
+        $plan = $planIdentifier === null ? null : Intervention::query()
+            ->when(
+                is_int($planIdentifier) || ctype_digit((string) $planIdentifier),
+                fn ($query) => $query->whereKey((int) $planIdentifier),
+                fn ($query) => $query->where('uuid', (string) $planIdentifier),
+            )
+            ->first();
+
+        if ($plan === null && isset($parameters['meal_plan_id'])) {
+            $mealPlanIdentifier = $parameters['meal_plan_id'];
+            $plan = MealPlan::query()
+                ->with('intervention')
+                ->when(
+                    is_int($mealPlanIdentifier) || ctype_digit((string) $mealPlanIdentifier),
+                    fn ($query) => $query->whereKey((int) $mealPlanIdentifier),
+                    fn ($query) => $query->where('uuid', (string) $mealPlanIdentifier),
+                )
+                ->first()?->intervention;
+        }
+
+        return $plan?->created_at
+            ? 'Nutrition Intervention Plan — '.$plan->created_at->format('M j, Y')
+            : $fallback;
     }
 }

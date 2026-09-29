@@ -26,6 +26,7 @@ import { ReportPreview } from "@/components/ReportPreview";
 import { AuditTrail } from "@/components/audit/AuditTrail";
 import { PatientsNcpTab } from "@/components/reports/PatientsNcpTab";
 import { ImageFilePicker } from "@/components/ui/ImageFilePicker";
+import { InfoHint } from "@/components/ui/InfoHint";
 
 const inp = "w-full px-3 py-2 text-base border border-warm-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500";
 const lbl = "block text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1";
@@ -239,6 +240,8 @@ function InstancesPanel({
   const pagedShown = instances;
 
   async function onPreview(i: ReportInstance) {
+    if (i.available === false) return;
+
     setBusy(i.key);
     try {
       const report = await prepareReport(entry.type, i.params, apiPrefix);
@@ -301,7 +304,8 @@ function InstancesPanel({
             <li key={i.key} className="flex items-center justify-between gap-3 hover:bg-warm-50/60">
               <button
                 onClick={() => void onPreview(i)}
-                className="flex-1 min-w-0 text-left px-5 py-3 cursor-pointer flex items-center gap-2.5 group focus:outline-none focus-visible:bg-emerald-50/40"
+                disabled={i.available === false}
+                className="flex-1 min-w-0 text-left px-5 py-3 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 flex items-center gap-2.5 group focus:outline-none focus-visible:bg-emerald-50/40"
               >
                 <Eye className="h-4 w-4 text-warm-300 group-hover:text-emerald-500 shrink-0" />
                 <span className="min-w-0">
@@ -309,6 +313,11 @@ function InstancesPanel({
                   {i.date && <span className="block text-xs text-warm-400 tabular-nums">{new Date(i.date).toLocaleDateString()}</span>}
                 </span>
               </button>
+              {i.available === false && i.unavailable_reason && (
+                <InfoHint label="Why this report is unavailable" title="Menu plan required">
+                  {i.unavailable_reason}
+                </InfoHint>
+              )}
               {busy === i.key && <Loader2 className="mr-5 h-4 w-4 animate-spin text-emerald-600" />}
             </li>
           ))}
@@ -545,7 +554,7 @@ function TemplateEditor({ onFlash }: { onFlash: (ok: boolean, msg: string) => vo
       {/* Branding */}
       <Card padded>
         <div className="mb-4 flex items-start justify-between gap-3">
-          <div><h2 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Header Branding</h2><p className="mt-1 text-xs text-warm-500">Shared across every report header.</p></div>
+          <h2 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Header Branding</h2>
           {!editingBranding && <Button variant="secondary" onClick={() => { setBrandingDraft(branding); setEditingBranding(true); }} className="!w-auto !py-1.5 !px-3.5 text-sm">Edit</Button>}
         </div>
         {!editingBranding ? (

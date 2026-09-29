@@ -15,7 +15,6 @@ use App\Models\RecipeIngredient;
 use App\Models\Report;
 use App\Models\ReportBranding;
 use App\Models\User;
-use App\Services\InterventionRevisionService;
 use App\Services\Reports\Generators\PatientMenuPlanGenerator;
 use App\Services\Reports\ReportBrowser;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -49,14 +48,12 @@ class PatientMenuPlanGeneratorTest extends TestCase
             'education_notes' => 'Choose lower-sodium foods.',
             'counseling_goals' => 'Follow the planned meal pattern.',
             'strategies' => 'Prepare measured portions before meals.',
-            'barriers' => 'INTERNAL BARRIER SENTINEL',
+            'barriers' => 'Limited access to cooking equipment.',
+            'created_at' => '2026-06-14 09:00:00',
         ]);
-
-        $revision = app(InterventionRevisionService::class)->activeFor($intervention);
 
         return MealPlan::create([
             'intervention_id' => $intervention->id,
-            'intervention_revision_id' => $revision->id,
             'patient_id' => $patient->id,
             'week_start_date' => '2026-06-15',
             'generation_type' => 'manual',
@@ -64,26 +61,31 @@ class PatientMenuPlanGeneratorTest extends TestCase
         ]);
     }
 
-    public function test_selected_plan_uses_linked_revision_not_mutable_current_intervention(): void
+    public function test_plan_uuid_uses_the_saved_complete_plan_instead_of_a_newer_plan(): void
     {
-        $plan = $this->makePlan();
-        $plan->intervention->update([
+        $mealPlan = $this->makePlan();
+        $savedPlan = $mealPlan->intervention;
+        Intervention::factory()->create([
+            'ncp_record_id' => $savedPlan->ncp_record_id,
             'energy_kcal' => 2400,
             'education_notes' => 'Later education that must not leak backward.',
+            'created_at' => '2026-06-20 09:00:00',
         ]);
 
         $report = new Report([
             'type' => 'patient_menu_plan',
-            'parameters' => ['meal_plan_id' => $plan->id],
+            'parameters' => ['intervention_plan_id' => $savedPlan->uuid],
         ]);
         $data = app(PatientMenuPlanGenerator::class)->data($report);
 
         $this->assertSame(1800.0, $data['prescription']['energy_kcal']);
         $this->assertSame('Choose lower-sodium foods.', $data['patient_guidance']['education']);
-        $this->assertSame($plan->revision->uuid, $data['revision']['id']);
+        $this->assertSame($savedPlan->uuid, $data['intervention_plan']->uuid);
+        $this->assertSame($mealPlan->uuid, $data['meal_plan']->uuid);
+        $this->assertArrayNotHasKey('revision', $data);
     }
 
-    public function test_report_uses_patient_title_guidance_and_short_maternal_note_without_internal_barriers(): void
+    public function test_report_uses_patient_title_complete_guidance_and_short_maternal_note(): void
     {
         $plan = $this->makePlan();
         Assessment::factory()->create([
@@ -108,9 +110,9 @@ class PatientMenuPlanGeneratorTest extends TestCase
         $this->assertStringContainsString('NUTRITION INTERVENTION PLAN', $plain);
         $this->assertStringContainsString('Choose lower-sodium foods.', $plain);
         $this->assertStringContainsString('Follow the planned meal pattern.', $plain);
+        $this->assertStringContainsString('Limited access to cooking equipment.', $plain);
         $this->assertStringContainsString('Prepare measured portions before meals.', $plain);
         $this->assertStringContainsString('second trimester', strtolower($plain));
-        $this->assertStringNotContainsString('INTERNAL BARRIER SENTINEL', $plain);
         $this->assertStringNotContainsString('Recipe Details', $plain);
         $this->assertStringNotContainsString('USDA source', $plain);
     }
@@ -336,35 +338,142 @@ class PatientMenuPlanGeneratorTest extends TestCase
         $this->assertContains('USDA Chicken breast', $names);
     }
 
-    public function test_browse_lists_each_meal_plan_with_meal_plan_id_param(): void
+    public function test_browse_lists_saved_plans_newest_first_with_plan_identity_and_menu_availability(): void
     {
-        $plan = $this->makePlan();
+        $mealPlan = $this->makePlan();
+        $firstPlan = $mealPlan->intervention;
+        $latestPlan = Intervention::factory()->create([
+            'ncp_record_id' => $firstPlan->ncp_record_id,
+            'created_at' => '2026-06-20 09:00:00',
+        ]);
 
         $instances = app(ReportBrowser::class)
             ->sourceFor('patient_menu_plan')
             ->instances([]);
 
-        $this->assertNotEmpty($instances);
-        $this->assertArrayHasKey('meal_plan_id', $instances[0]['params']);
-        $this->assertSame($plan->id, $instances[0]['params']['meal_plan_id']);
-        $this->assertStringContainsString('Maria Luisa De la Cruz', $instances[0]['label']);
-        $this->assertStringContainsString('Meal Plan 1', $instances[0]['label']);
-        $this->assertStringNotContainsString('week of', strtolower($instances[0]['label']));
+        $this->assertCount(2, $instances);
+        $this->assertSame($latestPlan->uuid, $instances[0]['params']['intervention_plan_id']);
+        $this->assertSame($latestPlan->uuid, $instances[0]['intervention_plan_id']);
+        $this->assertNull($instances[0]['meal_plan_id']);
+        $this->assertFalse($instances[0]['available']);
+        $this->assertSame($firstPlan->uuid, $instances[1]['params']['intervention_plan_id']);
+        $this->assertSame($mealPlan->uuid, $instances[1]['meal_plan_id']);
+        $this->assertTrue($instances[1]['available']);
+        $this->assertStringContainsString('Maria Luisa De la Cruz', $instances[1]['label']);
+        $this->assertStringContainsString('Nutrition Intervention Plan', $instances[1]['label']);
+        $this->assertStringContainsString('Jun 14, 2026', $instances[1]['label']);
         $this->assertStringNotContainsString('LEGACY PATIENT LABEL', $instances[0]['label']);
+        $this->assertArrayNotHasKey('revision', $instances[1]);
+        $this->assertArrayNotHasKey('version', $instances[1]);
     }
 
-    public function test_browse_label_uses_the_ncp_cycle_status_for_historical_plans(): void
+    public function test_saved_plan_without_a_menu_is_listed_but_prepare_returns_clear_422(): void
     {
-        $plan = $this->makePlan();
-        $plan->update(['status' => 'active']);
-        $plan->intervention->ncpRecord->update(['status' => 'completed']);
+        $mealPlan = $this->makePlan();
+        $plan = Intervention::factory()->create([
+            'ncp_record_id' => $mealPlan->intervention->ncp_record_id,
+            'created_at' => '2026-06-20 09:00:00',
+        ]);
 
         $instance = app(ReportBrowser::class)
             ->sourceFor('patient_menu_plan')
             ->instances([])[0];
 
-        $this->assertStringContainsString('(completed)', $instance['label']);
-        $this->assertStringNotContainsString('(active)', $instance['label']);
+        $this->assertSame($plan->uuid, $instance['intervention_plan_id']);
+        $this->assertFalse($instance['available']);
+        $this->assertSame('Save a menu plan before preparing this report.', $instance['unavailable_reason']);
+
+        $this->actingAs($mealPlan->intervention->ncpRecord->rnd, 'sanctum')
+            ->postJson('/api/rnd/reports/patient_menu_plan/prepare?intervention_plan_id='.$plan->uuid)
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Save a menu plan before preparing this report.');
+    }
+
+    public function test_saved_plan_without_a_menu_is_rejected_by_every_report_action(): void
+    {
+        $mealPlan = $this->makePlan();
+        $plan = Intervention::factory()->create([
+            'ncp_record_id' => $mealPlan->intervention->ncp_record_id,
+        ]);
+        $user = $mealPlan->intervention->ncpRecord->rnd;
+        $query = '?intervention_plan_id='.$plan->uuid;
+
+        $this->actingAs($user, 'sanctum')
+            ->getJson('/api/rnd/reports/patient_menu_plan/render'.$query)
+            ->assertUnprocessable();
+        $this->actingAs($user, 'sanctum')
+            ->getJson('/api/rnd/reports/patient_menu_plan/export'.$query)
+            ->assertUnprocessable();
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/rnd/reports/patient_menu_plan/archive'.$query)
+            ->assertUnprocessable();
+    }
+
+    public function test_intervention_plan_instances_are_server_paginated_newest_first(): void
+    {
+        $mealPlan = $this->makePlan();
+        $firstPlan = $mealPlan->intervention;
+        $latestPlan = Intervention::factory()->create([
+            'ncp_record_id' => $firstPlan->ncp_record_id,
+            'created_at' => '2026-06-20 09:00:00',
+        ]);
+        $user = $firstPlan->ncpRecord->rnd;
+
+        $firstPage = $this->actingAs($user, 'sanctum')
+            ->getJson('/api/rnd/reports/patient_menu_plan/instances?per_page=1&page=1')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonPath('meta.last_page', 2)
+            ->json('data.instances.0');
+        $secondPage = $this->actingAs($user, 'sanctum')
+            ->getJson('/api/rnd/reports/patient_menu_plan/instances?per_page=1&page=2')
+            ->assertOk()
+            ->json('data.instances.0');
+
+        $this->assertSame($latestPlan->uuid, $firstPage['intervention_plan_id']);
+        $this->assertSame($firstPlan->uuid, $secondPage['intervention_plan_id']);
+    }
+
+    public function test_intervention_plan_context_rejects_mismatched_patient_or_cycle(): void
+    {
+        $mealPlan = $this->makePlan();
+        $plan = $mealPlan->intervention;
+        $otherPatient = Patient::factory()->create();
+        $otherCycle = NcpRecord::factory()->create([
+            'patient_id' => $otherPatient->id,
+            'rnd_user_id' => $plan->ncpRecord->rnd_user_id,
+        ]);
+        $user = $plan->ncpRecord->rnd;
+
+        $this->actingAs($user, 'sanctum')
+            ->getJson('/api/rnd/reports/patient_menu_plan/render?intervention_plan_id='.$plan->uuid.'&patient_id='.$otherPatient->uuid)
+            ->assertForbidden();
+        $this->actingAs($user, 'sanctum')
+            ->getJson('/api/rnd/reports/patient_menu_plan/render?intervention_plan_id='.$plan->uuid.'&ncp_record_id='.$otherCycle->uuid)
+            ->assertForbidden();
+    }
+
+    public function test_patient_report_feed_lists_every_saved_plan_with_plan_uuid_and_disables_missing_menu(): void
+    {
+        $mealPlan = $this->makePlan();
+        $firstPlan = $mealPlan->intervention;
+        $latestPlan = Intervention::factory()->create([
+            'ncp_record_id' => $firstPlan->ncp_record_id,
+            'created_at' => '2026-06-20 09:00:00',
+        ]);
+
+        $reports = $this->actingAs($firstPlan->ncpRecord->rnd, 'sanctum')
+            ->getJson('/api/rnd/reports/patients/'.$firstPlan->ncpRecord->patient->uuid.'/instances')
+            ->assertOk()
+            ->json('data.0.reports');
+
+        $plans = collect($reports)->where('type', 'patient_menu_plan')->values();
+        $this->assertCount(2, $plans);
+        $this->assertSame($latestPlan->uuid, $plans[0]['intervention_plan_id']);
+        $this->assertFalse($plans[0]['available']);
+        $this->assertSame($firstPlan->uuid, $plans[1]['params']['intervention_plan_id']);
+        $this->assertSame($mealPlan->uuid, $plans[1]['meal_plan_id']);
+        $this->assertTrue($plans[1]['available']);
     }
 
     public function test_report_view_uses_current_patient_display_name(): void
@@ -416,7 +525,7 @@ class PatientMenuPlanGeneratorTest extends TestCase
         $this->assertStringContainsString('Fluid guidance is informational', $plainText);
     }
 
-    public function test_weekly_meal_plan_starts_on_a_new_page_after_intervention_guidance(): void
+    public function test_weekly_meal_plan_precedes_intervention_guidance_without_a_forced_early_break(): void
     {
         $plan = $this->makePlan();
         $report = new Report([
@@ -439,11 +548,11 @@ class PatientMenuPlanGeneratorTest extends TestCase
         libxml_use_internal_errors($previousLibxmlState);
         $xpath = new \DOMXPath($document);
 
-        $this->assertCount(1, $xpath->query('//div[contains(concat(" ", normalize-space(@class), " "), " meal-plan-page-break ")]'));
+        $this->assertCount(0, $xpath->query('//div[contains(concat(" ", normalize-space(@class), " "), " meal-plan-page-break ")]'));
         $this->assertCount(1, $xpath->query('//*[contains(concat(" ", normalize-space(@class), " "), " meal-plan-heading ") and normalize-space()="Weekly Meal Plan"]'));
         $this->assertLessThan(
+            strpos($html, 'Choose lower-sodium foods.'),
             strpos($html, '<table class="grid menu-grid"'),
-            strpos($html, 'meal-plan-page-break'),
         );
     }
 
@@ -513,7 +622,7 @@ class PatientMenuPlanGeneratorTest extends TestCase
         }
     }
 
-    public function test_long_portion_details_render_as_bounded_page_groups(): void
+    public function test_long_portion_details_render_as_one_flowing_three_column_grid(): void
     {
         $plan = $this->makePlan();
         $day = MealPlanDay::create([
@@ -561,18 +670,14 @@ class PatientMenuPlanGeneratorTest extends TestCase
         $pageBreaks = $xpath->query('//div[contains(concat(" ", normalize-space(@class), " "), " page-break ")]');
         $headings = $xpath->query('//table[contains(concat(" ", normalize-space(@class), " "), " portion-heading-table ")]');
 
-        $this->assertCount(2, $groups);
-        $this->assertCount(3, $pageBreaks);
-        $this->assertCount(2, $headings);
+        $this->assertCount(1, $groups);
+        $this->assertCount(0, $pageBreaks);
+        $this->assertCount(1, $headings);
         $this->assertCount(
-            18,
+            28,
             $xpath->query('.//td[contains(concat(" ", normalize-space(@class), " "), " portion-cell ") and not(contains(concat(" ", normalize-space(@class), " "), " portion-cell-empty "))]', $groups->item(0)),
         );
-        $this->assertCount(
-            10,
-            $xpath->query('.//td[contains(concat(" ", normalize-space(@class), " "), " portion-cell ") and not(contains(concat(" ", normalize-space(@class), " "), " portion-cell-empty "))]', $groups->item(1)),
-        );
-        $this->assertCount(2, $xpath->query('.//*[contains(concat(" ", normalize-space(@class), " "), " portion-heading ") and normalize-space()="Portion details"]'));
+        $this->assertCount(1, $xpath->query('.//*[contains(concat(" ", normalize-space(@class), " "), " portion-heading ") and normalize-space()="Portion details"]'));
     }
 
     public function test_prepare_persists_patient_menu_plan_and_view_and_download_stream_pdf(): void
@@ -581,8 +686,9 @@ class PatientMenuPlanGeneratorTest extends TestCase
         $rnd = $plan->intervention->ncpRecord->rnd;
 
         $prepared = $this->actingAs($rnd, 'sanctum')
-            ->postJson('/api/rnd/reports/patient_menu_plan/prepare?meal_plan_id='.$plan->uuid)
-            ->assertOk();
+            ->postJson('/api/rnd/reports/patient_menu_plan/prepare?intervention_plan_id='.$plan->intervention->uuid)
+            ->assertOk()
+            ->assertJsonPath('data.title', 'Nutrition Intervention Plan — Jun 14, 2026');
         $id = $prepared->json('data.id');
 
         $this->assertDatabaseHas('reports', ['uuid' => $id, 'type' => 'patient_menu_plan']);
@@ -590,10 +696,27 @@ class PatientMenuPlanGeneratorTest extends TestCase
             ->assertOk()
             ->assertHeader('content-type', 'application/pdf')
             ->streamedContent();
-        $plan->intervention->update(['energy_kcal' => 2600]);
+        Intervention::factory()->create([
+            'ncp_record_id' => $plan->intervention->ncp_record_id,
+            'energy_kcal' => 2600,
+            'created_at' => '2026-06-25 09:00:00',
+        ]);
         $after = $this->get('/api/rnd/reports/'.$id.'/view')->assertOk()->streamedContent();
         $this->assertSame(hash('sha256', $before), hash('sha256', $after));
         $this->get('/api/rnd/reports/'.$id.'/download')->assertOk()->assertHeader('content-type', 'application/pdf');
+    }
+
+    public function test_legacy_meal_plan_parameter_remains_readable_for_frozen_reports(): void
+    {
+        $mealPlan = $this->makePlan();
+
+        $data = app(PatientMenuPlanGenerator::class)->data(new Report([
+            'type' => 'patient_menu_plan',
+            'parameters' => ['meal_plan_id' => $mealPlan->uuid],
+        ]));
+
+        $this->assertSame($mealPlan->uuid, $data['meal_plan']->uuid);
+        $this->assertSame($mealPlan->intervention->uuid, $data['intervention_plan']->uuid);
     }
 
     public function test_report_query_count_does_not_grow_with_more_plan_items(): void

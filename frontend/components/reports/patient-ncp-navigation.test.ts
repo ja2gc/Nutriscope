@@ -18,13 +18,23 @@ describe("Patients NCP report navigation", () => {
   });
 
   test("patient page requires an ADIME cycle selection before showing its reports", () => {
+    const browser = readFileSync(join(root, "components", "reports", "ReportsBrowser.tsx"), "utf8");
     const page = readFileSync(join(root, "app", "(rnd)", "reports", "patients", "[patientId]", "page.tsx"), "utf8");
+    const service = readFileSync(join(root, "services", "reportService.ts"), "utf8");
 
     expect(page).toContain("listPatientNcpReports");
     expect(page).toContain("selectedCycle");
     expect(page).toContain("Choose an ADIME cycle");
     expect(page).toContain("Back to ADIME cycles");
     expect(page).toContain("prepareReport(instance.type, instance.params, \"rnd\")");
+    expect(page).toContain("disabled={!instance.available");
+    expect(page).toContain("instance.unavailable_reason");
+    expect(service).toContain("intervention_plan_id: string | null");
+    expect(service).toContain("meal_plan_id: string | null");
+    expect(service).toContain("available: boolean");
+    expect(browser).toContain("if (i.available === false) return");
+    expect(browser).toContain("disabled={i.available === false}");
+    expect(browser).toContain("i.unavailable_reason");
     expect(page).toContain("<Pagination");
     expect(page).not.toContain("Only reports belonging to this ADIME cycle are shown.");
     expect(page).not.toContain("Current and completed cycles stay separate.");

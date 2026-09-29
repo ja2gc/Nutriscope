@@ -5,9 +5,10 @@
 
     <table style="border:0; margin-top:6px;" class="meta">
         <tr>
-            <td style="border:0;">Patient: <span class="bold">{{ $patient->display_name ?? '—' }}</span></td>
-            <td style="border:0;">Ward: <span class="bold">{{ $patient->ward ?? '—' }}</span></td>
-            <td style="border:0;">Week of: <span class="bold">{{ optional($plan->week_start_date)->format('M j, Y') ?? '—' }}</span></td>
+            <td style="border:0;">Patient: <span class="bold">{{ $patient->display_name ?? '-' }}</span></td>
+            <td style="border:0;">Ward: <span class="bold">{{ $patient->ward ?? '-' }}</span></td>
+            <td style="border:0;">Plan created: <span class="bold">{{ optional($intervention_plan->created_at)->format('M j, Y') ?? '-' }}</span></td>
+            <td style="border:0;">Menu week: <span class="bold">{{ optional($meal_plan->week_start_date)->format('M j, Y') ?? '-' }}</span></td>
         </tr>
     </table>
 
@@ -21,7 +22,7 @@
         @foreach($prescription['micronutrient_limits'] as $nutrient => $limit)
             · {{ Illuminate\Support\Str::headline($nutrient) }}:
             @if(isset($limit['min']))min {{ number_format($limit['min']) }}@endif
-            @if(isset($limit['min'], $limit['max']))–@endif
+            @if(isset($limit['min'], $limit['max']))-@endif
             @if(isset($limit['max']))max {{ number_format($limit['max']) }}@endif
             {{ $limit['unit'] ?? '' }}
         @endforeach
@@ -31,15 +32,6 @@
         @endif
     </div>
 
-    @if(array_filter($patient_guidance))
-        <div style="margin-top:5px; padding:5px 7px; border:1px solid #d1d5db; font-size:7.5pt; page-break-inside:avoid;">
-            @if($patient_guidance['education'])<div><span class="bold">Education:</span> {{ $patient_guidance['education'] }}</div>@endif
-            @if($patient_guidance['counseling'])<div><span class="bold">Counseling:</span> {{ $patient_guidance['counseling'] }}</div>@endif
-            @if($patient_guidance['strategies'])<div><span class="bold">Practical strategies:</span> {{ $patient_guidance['strategies'] }}</div>@endif
-        </div>
-    @endif
-
-    <div class="page-break meal-plan-page-break"></div>
     <div class="bold meal-plan-heading" style="margin-bottom:4px;">Weekly Meal Plan</div>
     <table class="grid menu-grid" style="margin-top:6px;">
         <thead>
@@ -57,7 +49,7 @@
                             @forelse($grid[$meal][$day] ?? [] as $item)
                                 <div>{{ $item['name'] }} <span class="muted">[{{ $item['portion_id'] }}]</span></div>
                             @empty
-                                <span class="muted">—</span>
+                                <span class="muted">-</span>
                             @endforelse
                         </td>
                     @endforeach
@@ -66,11 +58,17 @@
         </tbody>
     </table>
 
+    @if(array_filter($patient_guidance))
+        <div class="intervention-guidance" style="margin-top:5px; padding:5px 7px; border:1px solid #d1d5db; font-size:7.5pt;">
+            @if($patient_guidance['education'])<div><span class="bold">Education:</span> {{ $patient_guidance['education'] }}</div>@endif
+            @if($patient_guidance['counseling'])<div><span class="bold">Counseling:</span> {{ $patient_guidance['counseling'] }}</div>@endif
+            @if($patient_guidance['barriers'])<div><span class="bold">Barriers:</span> {{ $patient_guidance['barriers'] }}</div>@endif
+            @if($patient_guidance['strategies'])<div><span class="bold">Practical strategies:</span> {{ $patient_guidance['strategies'] }}</div>@endif
+        </div>
+    @endif
+
     @if(!empty($portion_details))
         @foreach($portion_pages as $portionPage)
-            @if(!$loop->first || count($portion_details) > 21)
-                <div class="page-break"></div>
-            @endif
             <div class="portion-page">
                 <table class="portion-row-table portion-heading-table">
                     <tbody>
@@ -88,7 +86,7 @@
                                             @foreach($variant['foods'] as $food)
                                                 <div style="font-size:7.25pt; margin-left:8px;">
                                                     <span class="bold">[{{ $variant['id'] }}]</span>
-                                                    {{ $food['food'] }} —
+                                                    {{ $food['food'] }} -
                                                     @if($food['household_measure']){{ $food['household_measure'] }} · @endif
                                                     {{ rtrim(rtrim(number_format($food['metric_amount'], 1, '.', ''), '0'), '.') }} {{ $food['metric_unit'] }}
                                                 </div>

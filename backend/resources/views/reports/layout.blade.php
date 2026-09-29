@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <title>{{ $report->title ?? 'Report' }}</title>
     <style>
+        @page { size: {{ ($paper_orientation ?? 'portrait') === 'landscape' ? '13in 8.5in' : '8.5in 13in' }}; margin: 0.45in; }
         * { box-sizing: border-box; }
         body { font-family: DejaVu Sans, sans-serif; color: #111; font-size: 11px; margin: 0; }
         .doc { padding: 4px 2px; }
@@ -29,17 +30,20 @@
         table.portion-row-table td.portion-cell-empty { border: 0; }
         .title { font-size: 14px; font-weight: bold; text-align: center; margin: 10px 0 2px; text-transform: uppercase; }
         .subtitle { font-size: 11px; text-align: center; margin-bottom: 8px; }
-        .sigs { width: 100%; margin-top: 28px; }
-        .sigs td { vertical-align: bottom; padding: 0 12px; width: 50%; }
-        .sig-name { font-weight: bold; border-top: 1px solid #333; padding-top: 2px; text-transform: uppercase; }
-        .sig-title { font-size: 10px; color: #333; }
+        .sigs { width: 100%; margin-top: 28px; table-layout: fixed; }
+        .sigs tr { page-break-inside: avoid; }
+        .sigs td { vertical-align: bottom; padding: 0 18px; width: 50%; word-wrap: break-word; }
+        .sig-name { font-size: 10px; font-weight: bold; border-top: 1px solid #333; padding-top: 2px; text-transform: uppercase; }
+        .sig-title { font-size: 9px; line-height: 1.2; color: #333; }
         .sig-label { font-size: 10px; margin-bottom: 26px; }
         .page-break { page-break-after: always; }
+        .page-start { page-break-before: always; }
         .totals td { font-weight: bold; background: #f6f6f6; }
         .meta { font-size: 10px; }
         .meta td { padding: 2px 4px; }
         .section { font-weight: bold; text-transform: uppercase; font-size: 10px; letter-spacing: .3px;
-                   background: #e7edf5; border: 1px solid #c9d4e2; padding: 3px 6px; margin: 10px 0 4px; }
+                   background: #e7edf5; border: 1px solid #c9d4e2; padding: 3px 6px; margin: 10px 0 4px;
+                   page-break-after: avoid; }
     </style>
 </head>
 <body>

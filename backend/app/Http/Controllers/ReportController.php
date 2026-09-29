@@ -10,6 +10,7 @@ use App\Enums\AuditOutcome;
 use App\Http\Requests\PaginatedRequest;
 use App\Http\Requests\PrepareReportRequest;
 use App\Http\Resources\ReportResource;
+use App\Models\Intervention;
 use App\Models\MealPlan;
 use App\Models\NcpRecord;
 use App\Models\Patient;
@@ -23,6 +24,7 @@ use App\Services\Reports\ReportBrowser;
 use App\Services\Reports\ReportService;
 use App\Support\Search\FuzzyText;
 use App\Support\Search\RankedSearch;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -137,7 +139,10 @@ class ReportController extends Controller
     public function patientInstances(PaginatedRequest $request, Patient $patient): JsonResponse
     {
         $cycles = $patient->ncpRecords()
-            ->with(['intervention.mealPlans' => fn ($query) => $query->latest('week_start_date')])
+            ->with(['interventions' => fn ($query) => $query
+                ->with('mealPlan')
+                ->orderByDesc('created_at')
+                ->orderByDesc('id')])
             ->latest('created_at')
             ->get(['id', 'uuid', 'status', 'created_at'])
             ->map(function (NcpRecord $record): array {
@@ -148,22 +153,38 @@ class ReportController extends Controller
                     'status' => $record->status,
                     'date' => $record->created_at?->toIso8601String(),
                     'params' => ['ncp_record_id' => $record->uuid],
+                    'intervention_plan_id' => null,
+                    'intervention_plan_date' => null,
+                    'meal_plan_id' => null,
+                    'available' => true,
+                    'unavailable_reason' => null,
                 ]];
-                $menuPlans = $record->intervention?->mealPlans->map(fn (MealPlan $plan): array => [
-                    'key' => 'menu-'.$plan->uuid,
-                    'type' => 'patient_menu_plan',
-                    'label' => 'Nutrition Intervention Plan — '.$plan->week_start_date?->format('M j, Y'),
-                    'status' => $plan->status,
-                    'date' => $plan->created_at?->toIso8601String(),
-                    'params' => ['meal_plan_id' => $plan->uuid],
-                ])->all() ?? [];
+                $plans = $record->interventions->map(function (Intervention $plan) use ($record): array {
+                    $mealPlan = $plan->mealPlan;
+
+                    return [
+                        'key' => 'intervention-'.$plan->uuid,
+                        'type' => 'patient_menu_plan',
+                        'label' => 'Nutrition Intervention Plan — '.$plan->created_at?->format('M j, Y'),
+                        'status' => $record->status,
+                        'date' => $plan->created_at?->toIso8601String(),
+                        'params' => ['intervention_plan_id' => $plan->uuid],
+                        'intervention_plan_id' => $plan->uuid,
+                        'intervention_plan_date' => $plan->created_at?->toDateString(),
+                        'meal_plan_id' => $mealPlan?->uuid,
+                        'available' => $mealPlan !== null,
+                        'unavailable_reason' => $mealPlan === null
+                            ? 'Save a menu plan before preparing this report.'
+                            : null,
+                    ];
+                })->all();
 
                 return [
                     'id' => $record->uuid,
                     'label' => 'ADIME Cycle — '.optional($record->created_at)->format('M j, Y'),
                     'status' => $record->status,
                     'date' => $record->created_at?->toIso8601String(),
-                    'reports' => array_merge($summary, $menuPlans),
+                    'reports' => array_merge($summary, $plans),
                 ];
             })
             ->values();
@@ -197,6 +218,9 @@ class ReportController extends Controller
         $this->guardClinical($type);
         $this->guardAdmin($type);
         $this->guardFss($type);
+        $params = $this->renderParams($request, $type);
+        $this->authorizeClinicalReportContext($type, $params);
+        $this->assertPatientMenuPlanRenderable($type, $params);
 
         return response()->json(['message' => 'Prepare the saved report before previewing it.', 'code' => 'preparation_required'], 409);
     }
@@ -207,6 +231,9 @@ class ReportController extends Controller
         $this->guardClinical($type);
         $this->guardAdmin($type);
         $this->guardFss($type);
+        $params = $this->renderParams($request, $type);
+        $this->authorizeClinicalReportContext($type, $params);
+        $this->assertPatientMenuPlanRenderable($type, $params);
 
         return response()->json(['message' => 'Prepare the saved report before downloading it.', 'code' => 'preparation_required'], 409);
     }
@@ -219,6 +246,7 @@ class ReportController extends Controller
         $this->guardFss($type);
         $params = $this->renderParams($request, $type);
         $this->authorizeClinicalReportContext($type, $params);
+        $this->assertPatientMenuPlanRenderable($type, $params);
         abort_unless($browser->sourceFor($type)->hasData($params), 404, 'No data for this report period.');
         $this->auditLogger->assertAvailable();
         $report = $prepare->execute($request->user(), $type, $params);
@@ -241,6 +269,7 @@ class ReportController extends Controller
 
         $params = $this->renderParams($request, $type);
         $this->authorizeClinicalReportContext($type, $params);
+        $this->assertPatientMenuPlanRenderable($type, $params);
         abort_unless($browser->sourceFor($type)->hasData($params), 404, 'No data for this report period.');
 
         $this->auditLogger->assertAvailable();
@@ -483,6 +512,31 @@ class ReportController extends Controller
             return null;
         }
 
+        $planIdentifier = $parameters['intervention_plan_id'] ?? null;
+        if ($planIdentifier !== null) {
+            $plan = Intervention::query()
+                ->with('ncpRecord.patient')
+                ->when(
+                    is_int($planIdentifier) || ctype_digit((string) $planIdentifier),
+                    fn ($query) => $query->whereKey((int) $planIdentifier),
+                    fn ($query) => $query->where('uuid', (string) $planIdentifier),
+                )
+                ->first();
+            abort_unless($plan?->ncpRecord !== null, 404);
+            abort_if(
+                isset($parameters['ncp_record_id'])
+                && ! $this->identifierMatches($parameters['ncp_record_id'], $plan->ncpRecord),
+                403,
+            );
+            abort_if(
+                isset($parameters['patient_id'])
+                && ! $this->identifierMatches($parameters['patient_id'], $plan->ncpRecord->patient),
+                403,
+            );
+
+            return $plan->ncpRecord;
+        }
+
         $mealPlanIdentifier = $parameters['meal_plan_id'] ?? null;
         $mealPlan = $mealPlanIdentifier === null
             ? null
@@ -500,6 +554,33 @@ class ReportController extends Controller
         abort_if(isset($parameters['patient_id']) && (int) $parameters['patient_id'] !== (int) $mealPlan->patient_id, 403);
 
         return NcpRecord::query()->find($context->getKey());
+    }
+
+    private function identifierMatches(mixed $identifier, Model $model): bool
+    {
+        $value = (string) $identifier;
+
+        return $value === (string) $model->getKey()
+            || ($model->getAttribute('uuid') !== null && $value === (string) $model->getAttribute('uuid'));
+    }
+
+    private function assertPatientMenuPlanRenderable(string $type, array $parameters): void
+    {
+        if ($type !== 'patient_menu_plan' || ! isset($parameters['intervention_plan_id'])) {
+            return;
+        }
+
+        $identifier = $parameters['intervention_plan_id'];
+        $plan = Intervention::query()
+            ->with('mealPlan')
+            ->when(
+                is_int($identifier) || ctype_digit((string) $identifier),
+                fn ($query) => $query->whereKey((int) $identifier),
+                fn ($query) => $query->where('uuid', (string) $identifier),
+            )
+            ->firstOrFail();
+
+        abort_if($plan->mealPlan === null, 422, 'Save a menu plan before preparing this report.');
     }
 
     private function authorizeClinicalReportContext(string $type, array $parameters, ?Report $report = null): void

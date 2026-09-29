@@ -2,6 +2,7 @@
 
 namespace App\Services\Reports;
 
+use App\Models\Intervention;
 use App\Models\MealPlan;
 use App\Models\NcpRecord;
 use App\Models\Report;
@@ -67,15 +68,15 @@ class ReportService
                 $brandingModel->setAttribute("logo_{$side}_data_uri", 'data:'.$object->mime_type.';base64,'.base64_encode(Storage::disk($object->storage_disk)->get($object->object_key)));
             }
         }
+        [$size, $orientation] = $generator->paper();
         $meta = [
             'branding' => $brandingModel,
             'signatories' => $report->snapshot['signatories'] ?? $this->signatoriesFor($report),
             'generated_at' => $report->created_at ?? now(),
+            'paper_orientation' => $orientation,
         ];
 
         $data = array_merge($generator->data($report), $meta, ['report' => $report]);
-
-        [$size, $orientation] = $generator->paper();
 
         $pdf = Pdf::loadView($generator->view(), $data)->setPaper($size, $orientation);
 
@@ -155,17 +156,31 @@ class ReportService
             $preparedBy = $ncp?->rnd?->display_name;
             $physician = $ncp?->patient?->physician;
         } elseif ($report->type === 'patient_menu_plan') {
-            $identifier = $report->parameters['meal_plan_id'] ?? null;
-            $plan = $identifier === null ? null : MealPlan::query()
-                ->with(['patient', 'intervention.ncpRecord.rnd'])
+            $planIdentifier = $report->parameters['intervention_plan_id'] ?? null;
+            $intervention = $planIdentifier === null ? null : Intervention::query()
+                ->with(['ncpRecord.rnd', 'ncpRecord.patient'])
                 ->when(
-                    is_int($identifier) || ctype_digit((string) $identifier),
-                    fn ($query) => $query->whereKey((int) $identifier),
-                    fn ($query) => $query->where('uuid', (string) $identifier),
+                    is_int($planIdentifier) || ctype_digit((string) $planIdentifier),
+                    fn ($query) => $query->whereKey((int) $planIdentifier),
+                    fn ($query) => $query->where('uuid', (string) $planIdentifier),
                 )
                 ->first();
-            $preparedBy = $plan?->intervention?->ncpRecord?->rnd?->display_name;
-            $physician = $plan?->patient?->physician;
+            if ($intervention === null) {
+                $identifier = $report->parameters['meal_plan_id'] ?? null;
+                $mealPlan = $identifier === null ? null : MealPlan::query()
+                    ->with(['patient', 'intervention.ncpRecord.rnd'])
+                    ->when(
+                        is_int($identifier) || ctype_digit((string) $identifier),
+                        fn ($query) => $query->whereKey((int) $identifier),
+                        fn ($query) => $query->where('uuid', (string) $identifier),
+                    )
+                    ->first();
+                $intervention = $mealPlan?->intervention;
+                $physician = $mealPlan?->patient?->physician;
+            } else {
+                $physician = $intervention->ncpRecord?->patient?->physician;
+            }
+            $preparedBy = $intervention?->ncpRecord?->rnd?->display_name;
         }
 
         return array_map(function (array $sig) use ($physician, $preparedBy) {

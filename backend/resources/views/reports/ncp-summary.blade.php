@@ -143,32 +143,6 @@
         @endif
     </div>
 
-    @if(!empty($intervention_revisions))
-        <div style="margin-top:7px; page-break-inside:avoid;">
-            <p class="bold" style="margin:0 0 3px;">Intervention revision history</p>
-            <table class="grid">
-                <thead>
-                    <tr><th style="width:55px;">Version</th><th style="width:82px;">Effective</th><th>Reason / originating visit</th><th>Prescription</th></tr>
-                </thead>
-                <tbody>
-                    @foreach($intervention_revisions as $revision)
-                        <tr>
-                            <td>Version {{ $revision['version'] }}</td>
-                            <td>{{ optional($revision['effective_at'])->format('M j, Y') }}</td>
-                            <td>{{ $revision['reason'] }}@if($revision['monitoring_id']) <span class="muted">(Monitoring {{ $revision['monitoring_id'] }})</span>@endif</td>
-                            <td>
-                                {{ number_format((float)($revision['snapshot']['energy_kcal'] ?? 0)) }} kcal ·
-                                {{ number_format((float)($revision['snapshot']['protein_g'] ?? 0)) }} g protein ·
-                                {{ number_format((float)($revision['snapshot']['carbs_g'] ?? 0)) }} g carbohydrate ·
-                                {{ number_format((float)($revision['snapshot']['fat_g'] ?? 0)) }} g fat
-                            </td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
-    @endif
-
     {{-- Monitoring & Evaluation (all entries, dated) --}}
     <div class="section">Nutrition Monitoring &amp; Evaluation</div>
     <table class="grid">

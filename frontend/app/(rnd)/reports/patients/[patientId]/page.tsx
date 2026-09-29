@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { InfoHint } from "@/components/ui/InfoHint";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import {
   listPatientNcpReports,
@@ -50,6 +51,8 @@ export default function PatientNcpReportsPage() {
   useEffect(() => { void load(); }, [load]);
 
   async function openReport(instance: PatientNcpReportInstance) {
+    if (!instance.available) return;
+
     setBusy(instance.key);
     setError(null);
     try {
@@ -113,13 +116,19 @@ export default function PatientNcpReportsPage() {
                 <button
                   type="button"
                   onClick={() => void openReport(instance)}
-                  className="min-w-0 flex-1 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded-lg"
+                  disabled={!instance.available}
+                  className="min-w-0 flex-1 text-left cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded-lg"
                 >
                   <span className="block text-base font-semibold text-warm-900 truncate">{instance.label}</span>
                   <span className="block text-xs text-warm-500 mt-0.5">{instance.type === "ncp_summary" ? "NCP Summary" : "Nutrition Intervention Plan"}</span>
                 </button>
                 <div className="flex items-center gap-2 shrink-0">
                   <Badge tone="zinc">{instance.status}</Badge>
+                  {!instance.available && instance.unavailable_reason && (
+                    <InfoHint label="Why this report is unavailable" title="Menu plan required">
+                      {instance.unavailable_reason}
+                    </InfoHint>
+                  )}
                   {busy === instance.key && <Loader2 className="h-4 w-4 animate-spin text-emerald-600" />}
                 </div>
               </li>

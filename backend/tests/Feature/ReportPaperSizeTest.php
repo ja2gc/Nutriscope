@@ -11,6 +11,7 @@ use App\Services\Reports\Generators\NcpSummaryGenerator;
 use App\Services\Reports\Generators\PatientMenuPlanGenerator;
 use App\Services\Reports\Generators\ProcurementPackGenerator;
 use App\Services\Reports\Generators\ProgramProjectActivityGenerator;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Tests\TestCase;
 
 class ReportPaperSizeTest extends TestCase
@@ -74,5 +75,29 @@ class ReportPaperSizeTest extends TestCase
         foreach ($breakdownCells as $cell) {
             $this->assertSame('33.33%', $cell->getAttribute('width'));
         }
+    }
+
+    public function test_long_bond_css_preserves_landscape_media_box(): void
+    {
+        $bytes = Pdf::loadHTML('<style>@page { size: 13in 8.5in; }</style><p>Landscape</p>')->output();
+
+        $this->assertMatchesRegularExpression(
+            '/\/MediaBox \[0\.000 0\.000 936\.000 612\.000\]/',
+            $bytes,
+        );
+    }
+
+    public function test_shared_layout_prevents_orphan_sections_and_cramped_signatories(): void
+    {
+        $layout = file_get_contents(resource_path('views/reports/layout.blade.php'));
+        $procurement = file_get_contents(resource_path('views/reports/procurement-pack.blade.php'));
+        $service = file_get_contents(app_path('Services/Reports/ReportService.php'));
+
+        $this->assertStringContainsString("'paper_orientation' => \$orientation", $service);
+        $this->assertStringContainsString('page-break-after: avoid', $layout);
+        $this->assertStringContainsString('table-layout: fixed', $layout);
+        $this->assertStringContainsString('word-wrap: break-word', $layout);
+        $this->assertStringContainsString('class="report-page page-start"', $procurement);
+        $this->assertStringNotContainsString('<div class="page-break"></div>', $procurement);
     }
 }

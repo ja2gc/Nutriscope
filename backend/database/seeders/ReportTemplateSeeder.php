@@ -98,7 +98,7 @@ class ReportTemplateSeeder extends Seeder
             [
                 'type' => 'patient_menu_plan', 'name' => 'Nutrition Intervention Plan',
                 'blade_view' => 'reports.patient-menu-plan',
-                'description' => 'Patient-facing intervention guidance, prescription, weekly menu, and precise portions.',
+                'description' => 'Dated saved intervention plan with its prescription, weekly menu, guidance, and portions.',
                 'signatories' => [
                     ['role' => 'prepared_by', 'label' => 'Prepared by:', 'name' => $rnd[0], 'title' => $rnd[1]],
                     ['role' => 'noted_by', 'label' => 'Noted by:', 'name' => '', 'title' => 'Attending Physician'],

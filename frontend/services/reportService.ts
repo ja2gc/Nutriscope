@@ -40,11 +40,21 @@ export interface ReportInstance {
   label: string;
   params: Record<string, string | number>;
   date: string | null;
+  intervention_plan_id?: string | null;
+  intervention_plan_date?: string | null;
+  meal_plan_id?: string | null;
+  available?: boolean;
+  unavailable_reason?: string | null;
 }
 
 export interface PatientNcpReportInstance extends ReportInstance {
   type: "ncp_summary" | "patient_menu_plan";
   status: string;
+  intervention_plan_id: string | null;
+  intervention_plan_date: string | null;
+  meal_plan_id: string | null;
+  available: boolean;
+  unavailable_reason: string | null;
 }
 
 export interface PatientNcpCycle {

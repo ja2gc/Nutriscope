@@ -3,6 +3,7 @@
 namespace App\Http\Requests\RND;
 
 use App\Support\InterventionGoalCatalog;
+use App\Support\InterventionGuidance;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -26,10 +27,10 @@ class StoreInterventionRequest extends FormRequest
             'fat_g' => ['nullable', 'numeric', 'min:0'],
             'fluid_ml' => ['nullable', 'numeric', 'min:0'],
             'micronutrient_limits' => ['nullable', 'array'],
-            'education_notes' => ['nullable', 'string'],
-            'counseling_goals' => ['nullable', 'string'],
-            'barriers' => ['nullable', 'string'],
-            'strategies' => ['nullable', 'string'],
+            'education_notes' => ['nullable', 'string', 'max:'.InterventionGuidance::FIELD_MAX],
+            'counseling_goals' => ['nullable', 'string', 'max:'.InterventionGuidance::FIELD_MAX],
+            'barriers' => ['nullable', 'string', 'max:'.InterventionGuidance::FIELD_MAX],
+            'strategies' => ['nullable', 'string', 'max:'.InterventionGuidance::FIELD_MAX],
         ];
     }
 
@@ -37,6 +38,13 @@ class StoreInterventionRequest extends FormRequest
     {
         return [
             function (Validator $validator): void {
+                if (InterventionGuidance::characterCount($this->all()) > InterventionGuidance::TOTAL_MAX) {
+                    $validator->errors()->add(
+                        'education_notes',
+                        'Education and counseling guidance must not exceed '.number_format(InterventionGuidance::TOTAL_MAX).' characters in total.',
+                    );
+                }
+
                 $goalType = $this->input('goal_type');
                 $stage = $this->input('disease_stage');
 

@@ -2,6 +2,7 @@
 
 namespace App\Services\Reports\Generators;
 
+use App\Models\Intervention;
 use App\Models\MealPlan;
 use App\Models\MealPlanItem;
 use App\Models\Report;
@@ -47,23 +48,7 @@ class PatientMenuPlanGenerator implements ReportGenerator
     {
         $params = $report->parameters ?? [];
 
-        // Require an explicit meal_plan_id so the rendered plan is reproducible.
-        // patient_id alone would pick "latest" and drift over time.
-        if (empty($params['meal_plan_id'])) {
-            throw new \InvalidArgumentException('Patient menu plan requires an explicit meal_plan_id.');
-        }
-
-        $identifier = $params['meal_plan_id'];
-        $plan = MealPlan::with([
-            'patient', 'revision', 'intervention.revisions', 'intervention.ncpRecord.assessment',
-            'days.items.foodItem', 'days.items.recipe.ingredients.foodItem',
-        ])
-            ->when(
-                is_int($identifier) || ctype_digit((string) $identifier),
-                fn ($query) => $query->whereKey((int) $identifier),
-                fn ($query) => $query->where('uuid', (string) $identifier),
-            )
-            ->firstOrFail();
+        [$interventionPlan, $mealPlan] = $this->resolvePlan($params);
 
         $grid = [];
         foreach (self::MEALS as $meal) {
@@ -75,7 +60,7 @@ class PatientMenuPlanGenerator implements ReportGenerator
         $portionDetails = [];
         $portionIds = [];
         $portionGroupIndexes = [];
-        foreach ($plan->days as $day) {
+        foreach ($mealPlan->days as $day) {
             // meal_type is stored raw ('breakfast'); the grid is keyed by display
             // labels ('Breakfast'). Map before lookup or every item is dropped.
             $label = self::MEAL_TYPE_LABELS[$day->meal_type] ?? $day->meal_type;
@@ -114,11 +99,9 @@ class PatientMenuPlanGenerator implements ReportGenerator
             }
         }
 
-        $revision = $plan->revision
-            ?? $plan->intervention->revisions->firstWhere('source', 'legacy_baseline')
-            ?? $plan->intervention->revisions->firstWhere('version', 1);
-        $snapshot = $revision?->snapshot ?? $this->currentSnapshot($plan);
-        $maternalStatus = $plan->intervention->ncpRecord?->assessment?->pregnancy_lactation_status;
+        $snapshot = $this->currentSnapshot($interventionPlan);
+        $maternalStatus = $interventionPlan->sourceMonitoring?->pregnancy_lactation_status
+            ?? $interventionPlan->ncpRecord?->assessment?->pregnancy_lactation_status;
         $meals = array_values(array_filter(
             self::MEALS,
             fn (string $meal): bool => ! in_array($meal, ['AM Snack', 'PM Snack'], true)
@@ -126,18 +109,14 @@ class PatientMenuPlanGenerator implements ReportGenerator
         ));
 
         return [
-            'plan' => $plan,
-            'patient' => $plan->patient,
+            'intervention_plan' => $interventionPlan,
+            'meal_plan' => $mealPlan,
+            'patient' => $interventionPlan->ncpRecord?->patient,
             'meals' => $meals,
             'days' => self::WEEK,
             'grid' => $grid,
             'portion_details' => $portionDetails,
             'portion_pages' => $this->portionPages($portionDetails),
-            'revision' => $revision ? [
-                'id' => $revision->uuid,
-                'version' => $revision->version,
-                'effective_at' => $revision->effective_at,
-            ] : null,
             'prescription' => [
                 'energy_kcal' => (float) ($snapshot['energy_kcal'] ?? 0),
                 'protein_g' => (float) ($snapshot['protein_g'] ?? 0),
@@ -149,6 +128,7 @@ class PatientMenuPlanGenerator implements ReportGenerator
             'patient_guidance' => [
                 'education' => $snapshot['education_notes'] ?? null,
                 'counseling' => $snapshot['counseling_goals'] ?? null,
+                'barriers' => $snapshot['barriers'] ?? null,
                 'strategies' => $snapshot['strategies'] ?? null,
             ],
             'maternal_note' => $this->maternalNote($maternalStatus),
@@ -248,25 +228,61 @@ class PatientMenuPlanGenerator implements ReportGenerator
     }
 
     /** @return array<string,mixed> */
-    private function currentSnapshot(MealPlan $plan): array
+    private function currentSnapshot(Intervention $plan): array
     {
         return collect([
             'energy_kcal', 'protein_g', 'carbs_g', 'fat_g', 'fluid_ml',
             'micronutrient_limits', 'education_notes', 'counseling_goals', 'strategies',
-        ])->mapWithKeys(fn (string $field): array => [$field => $plan->intervention->getAttribute($field)])->all();
+            'barriers',
+        ])->mapWithKeys(fn (string $field): array => [$field => $plan->getAttribute($field)])->all();
+    }
+
+    /** @param array<string,mixed> $params @return array{Intervention,MealPlan} */
+    private function resolvePlan(array $params): array
+    {
+        $relations = [
+            'ncpRecord.patient', 'ncpRecord.assessment', 'sourceMonitoring',
+            'mealPlan.days.items.foodItem', 'mealPlan.days.items.recipe.ingredients.foodItem',
+        ];
+        $planIdentifier = $params['intervention_plan_id'] ?? null;
+
+        if ($planIdentifier !== null) {
+            $plan = Intervention::with($relations)
+                ->when(
+                    is_int($planIdentifier) || ctype_digit((string) $planIdentifier),
+                    fn ($query) => $query->whereKey((int) $planIdentifier),
+                    fn ($query) => $query->where('uuid', (string) $planIdentifier),
+                )
+                ->firstOrFail();
+            if ($plan->mealPlan === null) {
+                throw new \InvalidArgumentException('Save a menu plan before preparing this report.');
+            }
+
+            return [$plan, $plan->mealPlan];
+        }
+
+        $mealPlanIdentifier = $params['meal_plan_id'] ?? null;
+        if ($mealPlanIdentifier === null) {
+            throw new \InvalidArgumentException('Nutrition Intervention Plan requires an intervention_plan_id.');
+        }
+
+        $mealPlan = MealPlan::with([
+            'intervention.ncpRecord.patient', 'intervention.ncpRecord.assessment',
+            'intervention.sourceMonitoring', 'days.items.foodItem',
+            'days.items.recipe.ingredients.foodItem',
+        ])->when(
+            is_int($mealPlanIdentifier) || ctype_digit((string) $mealPlanIdentifier),
+            fn ($query) => $query->whereKey((int) $mealPlanIdentifier),
+            fn ($query) => $query->where('uuid', (string) $mealPlanIdentifier),
+        )->firstOrFail();
+
+        return [$mealPlan->intervention, $mealPlan];
     }
 
     /** @param array<int,array<string,mixed>> $portionDetails */
     private function portionPages(array $portionDetails): array
     {
-        if (count($portionDetails) <= 21) {
-            return [$portionDetails];
-        }
-
-        return [
-            array_slice($portionDetails, 0, 18),
-            ...array_chunk(array_slice($portionDetails, 18), 21),
-        ];
+        return [$portionDetails];
     }
 
     private function maternalNote(?string $status): ?string
