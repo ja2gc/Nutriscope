@@ -53,8 +53,7 @@ describe("monitoring lab metadata", () => {
 describe("monitoring intervention revisions", () => {
   it("builds an explicit complete snapshot only when the RND opts in", () => {
     const intervention: Intervention = {
-      id: 1,
-      ncp_record_id: 2,
+      id: "intervention-uuid",
       goal_type: "custom",
       disease_stage: null,
       displayed_nutrients: ["energy", "protein", "carbs", "fat"],
@@ -70,6 +69,12 @@ describe("monitoring intervention revisions", () => {
       strategies: "Strategy",
       session_type: "follow-up",
       next_followup_date: "2026-10-15",
+      source_monitoring_id: null,
+      source_monitoring_date: null,
+      has_meal_plan: false,
+      meal_plan_id: null,
+      created_at: "2026-09-25T08:00:00Z",
+      updated_at: "2026-09-25T08:00:00Z",
     };
 
     expect(buildInterventionRevisionPayload(intervention, {

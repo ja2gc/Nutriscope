@@ -1,4 +1,6 @@
 ﻿import { apiFetch } from "@/lib/apiFetch";
+import type { PaginationMeta } from "@/components/ui/Pagination";
+
 export interface MicronutrientLimit {
   max?: number;
   min?: number;
@@ -6,8 +8,7 @@ export interface MicronutrientLimit {
 }
 
 export interface Intervention {
-  id: number;
-  ncp_record_id: number;
+  id: string;
   goal_type: string | null;
   disease_stage: string | null;
   displayed_nutrients: string[] | null;
@@ -23,6 +24,28 @@ export interface Intervention {
   strategies: string | null;
   session_type: string | null;
   next_followup_date: string | null;
+  source_monitoring_id: string | null;
+  source_monitoring_date: string | null;
+  has_meal_plan: boolean;
+  meal_plan_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InterventionPlanSummary {
+  id: string;
+  plan_date: string;
+  goal_type: string | null;
+  disease_stage: string | null;
+  source_monitoring_id: string | null;
+  source_monitoring_date: string | null;
+  has_meal_plan: boolean;
+  meal_plan_id: string | null;
+}
+
+export interface InterventionPlanPage {
+  data: InterventionPlanSummary[];
+  meta: PaginationMeta;
 }
 
 export interface RecommendResult {
@@ -31,10 +54,33 @@ export interface RecommendResult {
   limits:    { tag: string; condition: string; reason: string; threshold: number; unit: string }[];
 }
 
-const base = (ncpId: string) => `/api/rnd/ncp-records/${ncpId}/intervention`;
+const legacyBase = (ncpId: string) => `/api/rnd/ncp-records/${ncpId}/intervention`;
+const plansBase = (ncpId: string) => `/api/rnd/ncp-records/${ncpId}/interventions`;
+
+export async function fetchInterventionPlans(ncpId: string, page = 1): Promise<InterventionPlanPage> {
+  const res = await apiFetch(`${plansBase(ncpId)}?page=${page}&per_page=10`, {
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) throw new Error("Failed to fetch intervention plans.");
+  const body = await res.json();
+
+  return {
+    data: body.data ?? [],
+    meta: body.meta ?? { current_page: page, per_page: 10, total: 0, last_page: 1 },
+  };
+}
+
+export async function fetchInterventionPlan(ncpId: string, planId: string): Promise<Intervention> {
+  const res = await apiFetch(`${plansBase(ncpId)}/${planId}`, {
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) throw new Error("Failed to fetch intervention plan.");
+
+  return (await res.json()).data;
+}
 
 export async function fetchIntervention(ncpId: string): Promise<Intervention | null> {
-  const res = await apiFetch(base(ncpId), { headers: { Accept: 'application/json' } });
+  const res = await apiFetch(`${plansBase(ncpId)}/latest`, { headers: { Accept: 'application/json' } });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error('Failed to fetch intervention.');
   const data = await res.json();
@@ -42,7 +88,7 @@ export async function fetchIntervention(ncpId: string): Promise<Intervention | n
 }
 
 export async function createIntervention(ncpId: string, payload: Partial<Intervention>): Promise<Intervention> {
-  const res = await apiFetch(base(ncpId), {
+  const res = await apiFetch(plansBase(ncpId), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify(payload),
@@ -55,7 +101,7 @@ export async function createIntervention(ncpId: string, payload: Partial<Interve
 }
 
 export async function updateIntervention(ncpId: string, payload: Partial<Intervention>): Promise<Intervention> {
-  const res = await apiFetch(base(ncpId), {
+  const res = await apiFetch(legacyBase(ncpId), {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify(payload),
@@ -87,6 +133,9 @@ export interface AutofillResult {
   calculation_status?: "ok" | "warning" | "incomplete" | "invalid_goal_stage" | "maternal_status_confirmation_required";
   safety_warnings?: { key: string; severity: "warning" | "critical"; message: string }[];
   note?: string;
+  source_type?: "assessment" | "monitoring";
+  source_monitoring_id?: string | null;
+  source_monitoring_date?: string | null;
 }
 
 export class AutofillError extends Error {
@@ -109,7 +158,7 @@ export async function autofillIntervention(
   goalType: string,
   diseaseStage: string | null,
 ): Promise<AutofillResult> {
-  const res = await apiFetch(`${base(ncpId)}/autofill`, {
+  const res = await apiFetch(`${plansBase(ncpId)}/autofill`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ goal_type: goalType, disease_stage: diseaseStage }),
@@ -127,7 +176,7 @@ export async function autofillIntervention(
 }
 
 export async function fetchRecommendations(ncpId: string): Promise<RecommendResult> {
-  const res = await apiFetch(`${base(ncpId)}/recommendations`, { headers: { Accept: 'application/json' } });
+  const res = await apiFetch(`${legacyBase(ncpId)}/recommendations`, { headers: { Accept: 'application/json' } });
   if (!res.ok) return { recommend: [], avoid: [], limits: [] };
   return (await res.json()).data ?? { recommend: [], avoid: [], limits: [] };
 }

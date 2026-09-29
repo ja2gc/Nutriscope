@@ -30,6 +30,8 @@ const MEAL_LABELS: Record<string, string> = {
 
 interface Props {
   ncpId: string;
+  interventionPlanId: string;
+  readOnly?: boolean;
   prescriptionTargets: { energy: number; protein: number; carbs: number; fat: number };
   foodDislikes?: string[];
   allergens?: string[];
@@ -45,7 +47,7 @@ interface EditTarget {
 }
 
 export default function MealPlanSection({
-  ncpId, prescriptionTargets, foodDislikes = [], allergens = [],
+  ncpId, interventionPlanId, readOnly = false, prescriptionTargets, foodDislikes = [], allergens = [],
   displayedMicros = [], micronutrientLimits = {}, interventionGoal = null,
 }: Props) {
   const [plans, setPlans]               = useState<MealPlan[]>([]);
@@ -123,10 +125,11 @@ export default function MealPlanSection({
     setLoadingPlans(true);
     try {
       const data = await fetchMealPlans(ncpId);
-      setPlans(data);
-      if (data.length > 0) setActivePlan(data[0]);
+      const ownedPlans = data.filter((plan) => plan.intervention_plan_id === interventionPlanId);
+      setPlans(ownedPlans);
+      setActivePlan(ownedPlans[0] ?? null);
     } finally { setLoadingPlans(false); }
-  }, [ncpId]);
+  }, [interventionPlanId, ncpId]);
 
   useEffect(() => {
     loadPlans();
@@ -159,8 +162,12 @@ export default function MealPlanSection({
     try {
       const d = new Date(); const day = d.getDay();
       d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
-      const plan = await createMealPlan(ncpId, { week_start_date: d.toISOString().split('T')[0], generation_type: 'manual' });
-      setPlans((p) => [...p, plan]);
+      const plan = await createMealPlan(ncpId, {
+        intervention_plan_id: interventionPlanId,
+        week_start_date: d.toISOString().split('T')[0],
+        generation_type: 'manual',
+      });
+      setPlans([plan]);
       setActivePlan(plan);
     } finally { setCreatingPlan(false); }
   };
@@ -184,6 +191,7 @@ export default function MealPlanSection({
       const d = new Date(); const day = d.getDay();
       d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
       const result = await generateMealPlan(ncpId, {
+        intervention_plan_id: interventionPlanId,
         week_start_date: d.toISOString().split('T')[0],
         allergens: allergens.length > 0 ? allergens : undefined,
         exclude_snacks: excludeSnacks,
@@ -193,7 +201,7 @@ export default function MealPlanSection({
         setGenerateError(result.message);
         return;
       }
-      setPlans((prev) => [...prev, result]);
+      setPlans([result]);
       setActivePlan(result);
     } catch (err) {
       setGenerateError(err instanceof Error ? err.message : 'Failed to generate meal plan. Please try again.');
@@ -214,8 +222,12 @@ export default function MealPlanSection({
     setFromTemplateOpen(false); setViewingTemplate(null); setCreatingPlan(true);
     try {
       const d = new Date(); d.setDate(d.getDate() + (d.getDay() === 0 ? -6 : 1 - d.getDay()));
-      const { plan, compatibility } = await createPlanFromTemplate(ncpId, { template_id: templateId, week_start_date: d.toISOString().split('T')[0] });
-      setPlans((p) => [...p, plan]); setActivePlan(plan);
+      const { plan, compatibility } = await createPlanFromTemplate(ncpId, {
+        intervention_plan_id: interventionPlanId,
+        template_id: templateId,
+        week_start_date: d.toISOString().split('T')[0],
+      });
+      setPlans([plan]); setActivePlan(plan);
       setTemplateWarning(compatibility.warning);
     } finally { setCreatingPlan(false); }
   };
@@ -444,37 +456,35 @@ export default function MealPlanSection({
     <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider flex items-center gap-2">
-          <Salad className="h-4 w-4 text-emerald-600" /> Weekly Meal Plan
-        </h3>
+        <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Weekly Meal Plan</h3>
         <div className="flex items-center gap-1 shrink-0">
-          {templates.length > 0 && (
+          {!readOnly && !activePlan && templates.length > 0 && (
             <button onClick={() => setFromTemplateOpen(true)} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap">
               <LayoutTemplate className="h-3 w-3" /> From Template
             </button>
           )}
-          {activePlan && (
+          {!readOnly && activePlan && (
             <button onClick={() => setSaveTemplateOpen(true)} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap">
               <BookmarkPlus className="h-3 w-3" /> Save Template
             </button>
           )}
-          {activePlan && (
+          {!readOnly && activePlan && (
             <button onClick={handleScaleToPrescription} disabled={scalingPlan || activePlan.scale_status === 'already_scaled'}
               className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed">
               {scalingPlan ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
               {activePlan.scale_status === 'already_scaled' ? 'Already scaled' : 'Scale to prescription'}
             </button>
           )}
-          <button onClick={handleGenerate} disabled={generating} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
+          {!readOnly && !activePlan && <button onClick={handleGenerate} disabled={generating} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
             {generating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />} Auto-Generate
-          </button>
-          <button onClick={handleCreatePlan} disabled={creatingPlan} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
-            {creatingPlan ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />} New Week
-          </button>
+          </button>}
+          {!readOnly && !activePlan && <button onClick={handleCreatePlan} disabled={creatingPlan} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
+            {creatingPlan ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />} Create Menu
+          </button>}
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-warm-100 bg-warm-50/60 px-3 py-1.5">
+      {!readOnly && !activePlan && <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-warm-100 bg-warm-50/60 px-3 py-1.5">
         <span className="text-xs font-bold uppercase tracking-wider text-warm-400">Auto-generate</span>
         <label className="flex min-h-9 items-center gap-2 text-xs font-semibold text-warm-600">
           <input type="checkbox" checked={useRiceAsCarb}
@@ -504,7 +514,7 @@ export default function MealPlanSection({
             )}
           </InfoHint>
         )}
-      </div>
+      </div>}
 
       {generateError && (
         <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl">
@@ -527,38 +537,12 @@ export default function MealPlanSection({
         </div>
       )}
 
-      {/* Plan list */}
-      {plans.length > 0 && (
-        <div className="space-y-1">
-          <p className="text-xs font-bold text-warm-400 uppercase tracking-widest">Meal Plans</p>
-          <div className="border border-warm-200 rounded-xl overflow-hidden divide-y divide-zinc-100">
-            {plans.map((p, index) => (
-              <div key={p.id} className={`flex items-center gap-1 pr-1 transition-colors ${activePlan?.id === p.id ? 'bg-warm-50' : 'hover:bg-warm-50/60'}`}>
-                <Button variant="ghost" size="sm" onClick={() => setActivePlan(p)}
-                  className={`flex-1 !justify-start rounded-none text-xs ${activePlan?.id === p.id ? '!text-warm-900 !font-bold' : '!text-warm-600'}`}>
-                  Meal Plan {index + 1}
-                </Button>
-                <Button variant="icon" onClick={() => setConfirmDeleteId(p.id)} title="Delete plan"
-                  className="hover:text-red-500 hover:!bg-red-50 shrink-0">
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
-            ))}
-          </div>
-          {loadingPlans && <div className="flex items-center gap-1.5 px-1 text-xs text-warm-400"><Loader2 className="h-3 w-3 animate-spin" />Loading…</div>}
-        </div>
-      )}
+      {loadingPlans && <div className="flex items-center gap-1.5 px-1 text-xs text-warm-400"><Loader2 className="h-3 w-3 animate-spin" />Loading…</div>}
 
       {deleteError && (
         <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl">
           <AlertTriangle className="h-3.5 w-3.5 text-red-600 flex-shrink-0 mt-0.5" />
           <p className="text-xs text-red-800">{deleteError}</p>
-        </div>
-      )}
-
-      {!activePlan && !loadingPlans && (
-        <div className="bg-warm-50 border border-warm-200 rounded-xl p-8 text-center">
-          <p className="text-sm text-warm-400">No meal plans yet. Create one above or click Auto-Generate.</p>
         </div>
       )}
 
@@ -627,10 +611,10 @@ export default function MealPlanSection({
                 <div key={mt} className="border border-warm-100 rounded-xl p-3.5 space-y-2">
                   <div className="flex items-center justify-between">
                     <h4 className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">{MEAL_LABELS[mt]}</h4>
-                    <button onClick={() => openPicker(day.id, mt)}
+                    {!readOnly && <button onClick={() => openPicker(day.id, mt)}
                       className="flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-800 cursor-pointer">
                       <Plus className="h-3 w-3" /> Add
-                    </button>
+                    </button>}
                   </div>
                   {items.length === 0 && <p className="text-xs text-warm-300 italic">Empty</p>}
                   {items.map((item) => {
@@ -653,7 +637,7 @@ export default function MealPlanSection({
                             </div>
                             {s && <p className="text-xs text-warm-400">{item.quantity}{item.unit} · {Math.round(s.calories*scale)}kcal · P{Math.round(s.protein*scale)}g · C{Math.round(s.carbs*scale)}g · F{Math.round(s.fat*scale)}g</p>}
                           </div>
-                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {!readOnly && <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Button variant="icon" onClick={() => openEdit(item, day.id, key)} title="Edit"
                               className="hover:text-sky-600 hover:bg-sky-50">
                               <Edit2 className="h-3 w-3" />
@@ -670,7 +654,7 @@ export default function MealPlanSection({
                               className="hover:text-red-600 hover:bg-red-50">
                               <Trash2 className="h-3 w-3" />
                             </Button>
-                          </div>
+                          </div>}
                         </div>
                       </div>
                     );
@@ -683,7 +667,7 @@ export default function MealPlanSection({
       )}
 
       {/* ── Meal Edit Modal ─────────────────────────────────────────────────── */}
-      {editTarget && (
+      {!readOnly && editTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 flex flex-col max-h-[85vh]">
             <div className="flex items-center justify-between px-6 py-4 border-b border-warm-100">
@@ -804,7 +788,7 @@ export default function MealPlanSection({
       )}
 
       {/* ── Delete Plan Confirm ─────────────────────────────────────────────── */}
-      {confirmDeleteId && (
+      {!readOnly && confirmDeleteId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 space-y-4">
             <h3 className="text-base font-extrabold text-warm-900">Delete Meal Plan?</h3>
@@ -820,7 +804,7 @@ export default function MealPlanSection({
       )}
 
       {/* ── Food Picker Modal ───────────────────────────────────────────────── */}
-      {pickerOpen && (
+      {!readOnly && pickerOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 flex flex-col max-h-[80vh]">
             <div className="flex items-center justify-between p-4 border-b border-warm-100">
@@ -894,7 +878,7 @@ export default function MealPlanSection({
       )}
 
       {/* ── Save Template Modal ─────────────────────────────────────────────── */}
-      {saveTemplateOpen && (
+      {!readOnly && saveTemplateOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 space-y-4">
             <h3 className="text-base font-extrabold text-warm-900">Save as Template</h3>
@@ -915,7 +899,7 @@ export default function MealPlanSection({
       )}
 
       {/* ── Template Manager Modal ──────────────────────────────────────────── */}
-      {fromTemplateOpen && (
+      {!readOnly && fromTemplateOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 flex flex-col max-h-[80vh]">
             <div className="flex items-center justify-between px-6 py-4 border-b border-warm-100">
@@ -992,7 +976,7 @@ export default function MealPlanSection({
       )}
 
       {/* ── Delete Template Confirm ─────────────────────────────────────────── */}
-      {confirmDeleteTemplateId && (
+      {!readOnly && confirmDeleteTemplateId && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 space-y-4">
             <h3 className="text-base font-extrabold text-warm-900">Delete Template?</h3>

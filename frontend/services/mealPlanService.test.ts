@@ -27,7 +27,7 @@ describe("generateMealPlan", () => {
     );
 
     await expect(
-      generateMealPlan("7", { week_start_date: "2026-06-29" }),
+      generateMealPlan("7", { intervention_plan_id: "plan-uuid", week_start_date: "2026-06-29" }),
     ).rejects.toThrow(
       "Complete the nutrition prescription before generating a meal plan. Missing: Intervention goal.",
     );
@@ -81,6 +81,7 @@ describe("createPlanFromTemplate", () => {
     );
 
     const result = await createPlanFromTemplate("ncp-uuid", {
+      intervention_plan_id: "intervention-uuid",
       template_id: "template-uuid",
       week_start_date: "2026-09-14",
     });

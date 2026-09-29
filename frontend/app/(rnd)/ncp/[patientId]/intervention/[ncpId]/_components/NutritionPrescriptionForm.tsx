@@ -3,7 +3,7 @@
 import { ALL_MICROS, microKeys } from "@/lib/nutritionCalculations";
 import MicronutrientToggle from "./MicronutrientToggle";
 import NumericInput from "@/components/ui/NumericInput";
-import { AlertTriangle, X, Lock, FlaskConical } from "lucide-react";
+import { AlertTriangle, X, Lock } from "lucide-react";
 import { useState } from "react";
 import type { CalculationTrace } from "@/lib/prescriptionCalculationTrace";
 import PrescriptionCalculationPanel from "./PrescriptionCalculationPanel";
@@ -29,6 +29,8 @@ interface Props {
   /** Label of the active goal, for the "required by …" tooltip. */
   goalLabel?: string;
   calculationTrace?: CalculationTrace | null;
+  readOnly?: boolean;
+  showSave?: boolean;
 }
 
 const MACROS = [
@@ -41,6 +43,7 @@ const MACROS = [
 
 export default function NutritionPrescriptionForm({
   values, onChange, onSave, saving, note, requiredMicros = [], goalLabel, calculationTrace,
+  readOnly = false, showSave = true,
 }: Props) {
   const [showCalculations, setShowCalculations] = useState(false);
   const setMacro = (key: string, val: string) => onChange({ ...values, [key]: val });
@@ -73,7 +76,7 @@ export default function NutritionPrescriptionForm({
     <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm space-y-5">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Nutrition Prescription</h3>
-        <MicronutrientToggle selected={microList} onChange={setMicros} required={requiredMicros} />
+        {!readOnly && <MicronutrientToggle selected={microList} onChange={setMicros} required={requiredMicros} />}
       </div>
 
       {note && (
@@ -92,6 +95,7 @@ export default function NutritionPrescriptionForm({
             value={(values as unknown as Record<string, string>)[key] ?? ""}
             onChange={(val) => setMacro(key, val)}
             unit={unit}
+            disabled={readOnly}
           />
         ))}
       </div>
@@ -123,11 +127,12 @@ export default function NutritionPrescriptionForm({
                     <input type="number" min="0" step="0.1"
                       value={limits.max ?? ""}
                       onChange={(e) => setMicroLimit(key, "max", e.target.value)}
-                      className="w-16 px-2 py-1 text-sm font-mono border border-warm-200 rounded-lg focus:outline-none focus:border-emerald-500"
+                      disabled={readOnly}
+                      className="w-16 px-2 py-1 text-sm font-mono border border-warm-200 rounded-lg focus:outline-none focus:border-emerald-500 disabled:bg-warm-50"
                     />
                     <span className="text-xs text-warm-400">{micro?.unit}</span>
                   </div>
-                  {required ? (
+                  {readOnly ? null : required ? (
                     <span className="p-1 text-warm-300 cursor-not-allowed" title={`Required by the ${goalLabel ?? "intervention"} goal.`}>
                       <Lock className="h-3 w-3" />
                     </span>
@@ -142,24 +147,16 @@ export default function NutritionPrescriptionForm({
             })}
           </div>
         </div>
-      ) : (
-        <div className="flex items-start gap-2 p-3 bg-warm-50 border border-warm-200 border-dashed rounded-xl">
-          <FlaskConical className="h-3.5 w-3.5 text-warm-400 flex-shrink-0 mt-0.5" />
-          <p className="text-xs text-warm-500 leading-relaxed">
-            No micronutrients selected. Use <span className="font-semibold text-warm-700">Display Micros</span> above to add
-            goal-relevant micronutrients (e.g. potassium &amp; phosphorus for renal) — they&apos;ll show limits here and track in the meal plan.
-          </p>
-        </div>
-      )}
+      ) : null}
 
-      <div className="flex justify-end pt-2">
+      {showSave && !readOnly && <div className="flex justify-end pt-2">
         <button
           onClick={onSave}
           disabled={saving}
           className="px-4 py-2 text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors cursor-pointer disabled:opacity-50">
           {saving ? "Saving…" : "Save Prescription"}
         </button>
-      </div>
+      </div>}
     </div>
   );
 }

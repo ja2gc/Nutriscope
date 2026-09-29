@@ -1,13 +1,14 @@
 "use client";
 
-import React, { use, useEffect, useState, useCallback } from "react";
+import React, { Suspense, use, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Salad, User, Settings2, CheckCircle2, Lock } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { User, Lock } from "lucide-react";
 import {
-  fetchIntervention, createIntervention, updateIntervention, autofillIntervention,
-  AutofillError, Intervention, type AutofillResult,
+  fetchIntervention, fetchInterventionPlan, fetchInterventionPlans, createIntervention, autofillIntervention,
+  AutofillError, Intervention, type AutofillResult, type InterventionPlanSummary,
 } from "@/services/interventionService";
+import type { PaginationMeta } from "@/components/ui/Pagination";
 import { EDUCATION_TEMPLATES } from "@/lib/educationTemplates";
 import { fetchAssessment, type Assessment } from "@/services/assessmentService";
 import {
@@ -35,13 +36,16 @@ import EducationTab from "./_components/EducationTab";
 import CounselingTab from "./_components/CounselingTab";
 import GoalPlanningTab from "./_components/GoalPlanningTab";
 import MealPlanSection from "./_components/MealPlanSection";
+import InterventionPlansTab from "./_components/InterventionPlansTab";
+import InterventionPlanEditor from "./_components/InterventionPlanEditor";
 import NcpPatientHeader from "../../../_components/NcpPatientHeader";
 import { InfoHint } from "@/components/ui/InfoHint";
 
-type Tab = "nd" | "education" | "counseling" | "goals";
+type Tab = "plans" | "nd" | "education" | "counseling" | "goals";
 type PageParams = { patientId: string; ncpId: string };
 
 const TABS: { key: Tab; label: string }[] = [
+  { key: "plans",     label: "Plans" },
   { key: "nd",         label: "Food / Nutrient Delivery" },
   { key: "education",  label: "Education" },
   { key: "counseling", label: "Counseling" },
@@ -83,13 +87,71 @@ function interventionToForm(iv: Intervention): PrescriptionForm {
   };
 }
 
+function emptyIntervention(): Intervention {
+  return {
+    id: "",
+    goal_type: null,
+    disease_stage: null,
+    displayed_nutrients: [],
+    energy_kcal: null,
+    protein_g: null,
+    carbs_g: null,
+    fat_g: null,
+    fluid_ml: null,
+    micronutrient_limits: {},
+    education_notes: null,
+    counseling_goals: null,
+    barriers: null,
+    strategies: null,
+    session_type: null,
+    next_followup_date: null,
+    source_monitoring_id: null,
+    source_monitoring_date: null,
+    has_meal_plan: false,
+    meal_plan_id: null,
+    created_at: "",
+    updated_at: "",
+  };
+}
+
+function newPlanDraft(latest: Intervention | null): Intervention {
+  return {
+    ...(latest ?? emptyIntervention()),
+    id: "",
+    source_monitoring_id: null,
+    source_monitoring_date: null,
+    has_meal_plan: false,
+    meal_plan_id: null,
+    created_at: "",
+    updated_at: "",
+  };
+}
+
 export default function InterventionPage({ params }: { params: Promise<PageParams> }) {
+  return (
+    <Suspense fallback={<div className="flex h-48 items-center justify-center text-sm text-warm-500">Loading intervention…</div>}>
+      <InterventionWorkspace params={params} />
+    </Suspense>
+  );
+}
+
+function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
   const { patientId, ncpId } = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const isPlaceholder = patientId === "select-patient" || ncpId === "select-ncp";
 
   const [tab, setTab]                           = useState<Tab>("nd");
   const [intervention, setIntervention]         = useState<Intervention | null>(null);
+  const [plans, setPlans]                       = useState<InterventionPlanSummary[]>([]);
+  const [plansMeta, setPlansMeta]               = useState<PaginationMeta | null>(null);
+  const [plansPage, setPlansPage]               = useState(1);
+  const [plansLoading, setPlansLoading]         = useState(false);
+  const [plansError, setPlansError]             = useState<string | null>(null);
+  const [selectedPlanId, setSelectedPlanId]     = useState<string | null>(null);
+  const [latestPlanId, setLatestPlanId]         = useState<string | null>(null);
+  const [editorMode, setEditorMode]             = useState<"edit" | "readonly">("readonly");
+  const [editorError, setEditorError]           = useState<string | null>(null);
   const [patient, setPatient]                   = useState<Patient | null>(null);
   const [loading, setLoading]                   = useState(true);
   const [goalModalOpen, setGoalModalOpen]       = useState(false);
@@ -113,21 +175,80 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
   const [barriers, setBarriers]               = useState("");
   const [strategies, setStrategies]           = useState("");
 
-  const loadIntervention = useCallback(async () => {
-    setLoading(true);
+  const applyIntervention = useCallback((iv: Intervention | null) => {
+    setIntervention(iv);
+    setPrescription(iv ? interventionToForm(iv) : emptyPrescriptionForm());
+    setEducationNotes(iv?.education_notes ?? "");
+    setCounselingGoals(iv?.counseling_goals ?? "");
+    setBarriers(iv?.barriers ?? "");
+    setStrategies(iv?.strategies ?? "");
+    setPrescNote(undefined);
+    setCalculationWarning(null);
+    setGoalError(null);
+    setDirty(false);
+  }, []);
+
+  const prepareNewPlan = useCallback(async (latest: Intervention | null) => {
+    const draft = newPlanDraft(latest);
+    applyIntervention(draft);
+    setSelectedPlanId(null);
+    setEditorMode("edit");
+    setEditorError(null);
+
+    if (!draft.goal_type) return;
+
     try {
-      const iv = await fetchIntervention(ncpId);
-      if (iv) {
-        setIntervention(iv);
-        setPrescription(interventionToForm(iv));
-        setEducationNotes(iv.education_notes ?? "");
-        setCounselingGoals(iv.counseling_goals ?? "");
-        setBarriers(iv.barriers ?? "");
-        setStrategies(iv.strategies ?? "");
+      const filled = await autofillIntervention(ncpId, draft.goal_type, draft.disease_stage);
+      setIntervention((current) => current ? {
+        ...current,
+        source_monitoring_id: filled.source_monitoring_id ?? null,
+        source_monitoring_date: filled.source_monitoring_date ?? null,
+      } : current);
+      setPrescription(buildGoalPrescriptionForm(draft.goal_type, filled));
+      setPrescNote(prescriptionNote(filled));
+    } catch (error) {
+      const missing = error instanceof AutofillError ? error.missingFields : [];
+      const missingText = missing.length ? ` Missing: ${missing.map(formatMissingField).join(", ")}.` : "";
+      setCalculationWarning(`Prescription calculation incomplete.${missingText}`);
+    }
+  }, [applyIntervention, ncpId]);
+
+  const loadPlans = useCallback(async () => {
+    setLoading(true);
+    setPlansLoading(true);
+    setPlansError(null);
+    try {
+      const [result, latest] = await Promise.all([
+        fetchInterventionPlans(ncpId, plansPage),
+        fetchIntervention(ncpId),
+      ]);
+      setPlans(result.data);
+      setPlansMeta(result.meta);
+      setLatestPlanId(latest?.id ?? null);
+      const requestedPlanId = searchParams.get("plan");
+      const creating = searchParams.get("mode") === "new";
+
+      if (creating) {
+        await prepareNewPlan(latest);
+        return;
       }
-      setDirty(false); // fresh server state = no unsaved changes
-    } finally { setLoading(false); }
-  }, [ncpId]);
+
+      const planId = requestedPlanId ?? result.data[0]?.id ?? null;
+      if (!planId) {
+        await prepareNewPlan(null);
+        return;
+      }
+
+      applyIntervention(await fetchInterventionPlan(ncpId, planId));
+      setSelectedPlanId(planId);
+      setEditorMode("readonly");
+    } catch (error) {
+      setPlansError(error instanceof Error ? error.message : "Failed to load intervention plans.");
+    } finally {
+      setPlansLoading(false);
+      setLoading(false);
+    }
+  }, [applyIntervention, ncpId, plansPage, prepareNewPlan, searchParams]);
 
   // Warn on browser unload (refresh / close / hard nav) when there are unsaved edits.
   useEffect(() => {
@@ -213,145 +334,75 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
 
   useEffect(() => {
     if (!isPlaceholder) {
-      loadIntervention();
+      loadPlans();
       loadMetrics();
     }
-  }, [isPlaceholder, loadIntervention, loadMetrics]);
+  }, [isPlaceholder, loadPlans, loadMetrics]);
 
   const handleChangePatient = () => {
     if (dirty && !window.confirm("You have unsaved changes. Leave without saving?")) return;
     router.push("/ncp/patients");
   };
 
-  /**
-   * Ensure an Intervention row exists in the DB for this NCP record.
-   * Handles 409 gracefully: if the backend says the row already exists but our
-   * local state is null (e.g. loadIntervention failed silently on page mount),
-   * we re-fetch and use the existing record instead of crashing.
-   */
-  const ensureIntervention = async (): Promise<Intervention> => {
-    if (intervention) return intervention;
-    try {
-      const iv = await createIntervention(ncpId, {});
-      setIntervention(iv);
-      return iv;
-    } catch (err) {
-      // 409 = Intervention already exists in DB but wasn't reflected in local state.
-      // Re-fetch and recover gracefully.
-      if (err instanceof Error && err.message.includes("already exists")) {
-        const existing = await fetchIntervention(ncpId);
-        if (existing) { setIntervention(existing); return existing; }
-      }
-      throw err;
-    }
-  };
-
   const handleGoalConfirm = async (goalType: string, stage: string | null) => {
     setGoalError(null);
     setCalculationWarning(null);
     setGoalModalOpen(false);
+    if (editorMode !== "edit") return;
+
+    setIntervention((current) => ({
+      ...(current ?? emptyIntervention()),
+      goal_type: goalType,
+      disease_stage: stage,
+    }));
+    setDirty(true);
+
+    let preview: Prescription | null = null;
+    let form = buildGoalPrescriptionForm(goalType, null);
+    if (patientMetrics && patientMetrics.pregnancyLactationStatus !== "pregnant_unspecified") {
+      preview = autofillPrescription(goalType, stage, patientMetrics);
+      form = buildGoalPrescriptionForm(goalType, preview);
+      setPrescNote(prescriptionNote(preview));
+    }
+    setPrescription(form);
+
+    if (!educationNotes.trim() && EDUCATION_TEMPLATES[goalType]) {
+      setEducationNotes(EDUCATION_TEMPLATES[goalType]);
+    }
+
+    setSaving(true);
     try {
-      const currentIntervention = await ensureIntervention();
-      setIntervention({
-        ...currentIntervention,
-        goal_type: goalType,
-        disease_stage: stage,
-      });
-
-      // [1] Instant TS preview (frontend mirror — for responsiveness only).
-      let preview: Prescription | null = null;
-      let finalForm = buildGoalPrescriptionForm(goalType, null);
-      if (patientMetrics && patientMetrics.pregnancyLactationStatus !== "pregnant_unspecified") {
-        preview = autofillPrescription(goalType, stage, patientMetrics);
-        setPrescNote(prescriptionNote(preview));
-        finalForm = buildGoalPrescriptionForm(goalType, preview);
-      }
-      setPrescription(finalForm);
-
-      // Auto-populate education template if notes currently empty
-      if (!educationNotes.trim() && EDUCATION_TEMPLATES[goalType]) {
-        setEducationNotes(EDUCATION_TEMPLATES[goalType]);
-      }
-
-      // [2] Authoritative values come from the backend engine (Phase 2.4 source of
-      //     truth). If it succeeds, persist & display the BE numbers; the TS preview
-      //     above just avoids a flash of empty fields. If it fails (e.g. no assessment
-      //     yet), fall back to persisting the TS preview so the goal still saves.
-      setSaving(true);
-      try {
-        let authoritative: {
-          energy_kcal: number; protein_g: number; carbs_g: number; fat_g: number; fluid_ml: number;
-        } | null = preview
-          ? { energy_kcal: preview.energy_kcal, protein_g: preview.protein_g, carbs_g: preview.carbs_g, fat_g: preview.fat_g, fluid_ml: preview.fluid_ml }
-          : null;
-        let autofillError: string | null = null;
-
-        try {
-          const be = await autofillIntervention(ncpId, goalType, stage);
-          authoritative = { energy_kcal: be.energy_kcal, protein_g: be.protein_g, carbs_g: be.carbs_g, fat_g: be.fat_g, fluid_ml: be.fluid_ml };
-          finalForm = buildGoalPrescriptionForm(goalType, be);
-          setCalculationWarning(null);
-          setPrescNote(prescriptionNote(be));
-          setPrescription(finalForm);
-          // Dev-only drift guard: FE preview must match the authoritative BE value.
-          if (process.env.NODE_ENV !== "production" && preview) {
-            for (const [k, fe, beVal] of [
-              ["energy_kcal", preview.energy_kcal, be.energy_kcal],
-              ["protein_g",   preview.protein_g,   be.protein_g],
-              ["carbs_g",     preview.carbs_g,     be.carbs_g],
-              ["fat_g",       preview.fat_g,       be.fat_g],
-              ["fluid_ml",    preview.fluid_ml,    be.fluid_ml],
-            ] as const) {
-              if (Math.abs(Number(fe) - Number(beVal)) > 1) {
-                console.warn(`[prescription drift] ${k}: FE=${fe} BE=${beVal} — frontend mirror is out of sync with the backend engine.`);
-              }
-            }
-          }
-        } catch (err) {
-          // Missing required clinical inputs must not persist preview values.
-          const missing = err instanceof AutofillError ? err.missingFields : [];
-          if (missing.length > 0) authoritative = null;
-          const missingText = missing.length ? ` Missing: ${missing.map(formatMissingField).join(", ")}.` : "";
-          autofillError = err instanceof Error ? `${err.message}${missingText}` : "Failed to autofill prescription.";
-          setCalculationWarning(`Goal saved. Prescription calculation incomplete.${missingText} Values may be blank or off until assessment is completed.`);
-          console.warn("Backend autofill failed; using frontend preview values.", err);
-        }
-
-        if (!authoritative) {
-          const updated = await updateIntervention(ncpId, {
-            goal_type: goalType,
-            disease_stage: stage,
-          } as Partial<Intervention>);
-          setIntervention(updated);
-          setPrescription(interventionToForm(updated));
-          setPrescNote(autofillError ?? "Complete patient demographics and assessment anthropometrics before autofill.");
-          setDirty(false);
-          return;
-        }
-
-        const updated = await updateIntervention(ncpId, {
-          goal_type: goalType,
-          disease_stage: stage,
-          displayed_nutrients: finalForm.displayed_nutrients,
-          micronutrient_limits: finalForm.micronutrient_limits,
-          ...(authoritative ?? {}),
-        } as Partial<Intervention>);
-        setIntervention(updated);
-        setPrescription(interventionToForm(updated));
-        setDirty(false);
-      } finally { setSaving(false); }
+      const authoritative = await autofillIntervention(ncpId, goalType, stage);
+      setPrescription(buildGoalPrescriptionForm(goalType, authoritative));
+      setPrescNote(prescriptionNote(authoritative));
+      setIntervention((current) => current ? {
+        ...current,
+        source_monitoring_id: authoritative.source_monitoring_id ?? null,
+        source_monitoring_date: authoritative.source_monitoring_date ?? null,
+      } : current);
     } catch (err) {
-      // Surface any failure (ensureIntervention, updateIntervention, etc.) as a
-      // visible error banner rather than silently swallowing it.
-      setGoalError(err instanceof Error ? err.message : "Failed to apply goal. Please try again.");
+      const missing = err instanceof AutofillError ? err.missingFields : [];
+      const missingText = missing.length ? ` Missing: ${missing.map(formatMissingField).join(", ")}.` : "";
+      setCalculationWarning(`Prescription calculation incomplete.${missingText}`);
+      if (!preview) setPrescNote("Complete the required assessment values before calculation.");
+    } finally {
+      setSaving(false);
     }
   };
 
-  const savePrescription = async () => {
+  const savePlan = async () => {
+    if (!intervention?.goal_type) {
+      setEditorError("Select an intervention goal before saving.");
+      setTab("nd");
+      return;
+    }
+
+    setEditorError(null);
     setSaving(true);
     try {
-      await ensureIntervention();
-      const updated = await updateIntervention(ncpId, {
+      const created = await createIntervention(ncpId, {
+        goal_type: intervention.goal_type,
+        disease_stage: intervention.disease_stage,
         energy_kcal: prescription.energy_kcal ? parseFloat(prescription.energy_kcal) : null,
         protein_g:   prescription.protein_g   ? parseFloat(prescription.protein_g)   : null,
         carbs_g:     prescription.carbs_g     ? parseFloat(prescription.carbs_g)     : null,
@@ -359,23 +410,72 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
         fluid_ml:    prescription.fluid_ml    ? parseFloat(prescription.fluid_ml)    : null,
         micronutrient_limits: prescription.micronutrient_limits,
         displayed_nutrients: nutrientKeysWithValues(prescription.micronutrient_limits),
+        education_notes: educationNotes || null,
+        counseling_goals: counselingGoals || null,
+        barriers: barriers || null,
+        strategies: strategies || null,
       } as Partial<Intervention>);
-      setIntervention(updated);
-      setPrescription(interventionToForm(updated));
-      setDirty(false);
+      applyIntervention(created);
+      setSelectedPlanId(created.id);
+      setLatestPlanId(created.id);
+      setEditorMode("readonly");
+      router.replace(`?plan=${created.id}`);
+      setPlansPage(1);
+      const refreshed = await fetchInterventionPlans(ncpId, 1);
+      setPlans(refreshed.data);
+      setPlansMeta(refreshed.meta);
     } catch (err) {
-      setPrescNote(err instanceof Error ? err.message : "Failed to save prescription.");
+      setEditorError(err instanceof Error ? err.message : "Failed to save intervention plan.");
     } finally { setSaving(false); }
   };
 
-  const saveTextField = async (fields: Partial<Intervention>) => {
-    setSaving(true);
+  const startNewPlan = async () => {
+    if (dirty && !window.confirm("Discard unsaved changes?")) return;
+    setTab("nd");
+    router.push("?mode=new");
     try {
-      await ensureIntervention();
-      const updated = await updateIntervention(ncpId, fields);
-      setIntervention(updated);
-      setDirty(false);
-    } finally { setSaving(false); }
+      await prepareNewPlan(await fetchIntervention(ncpId));
+    } catch (error) {
+      setEditorError(error instanceof Error ? error.message : "Failed to prepare a new plan.");
+    }
+  };
+
+  const selectPlan = async (planId: string) => {
+    if (dirty && !window.confirm("Discard unsaved changes?")) return;
+    setPlansLoading(true);
+    setEditorError(null);
+    try {
+      applyIntervention(await fetchInterventionPlan(ncpId, planId));
+      setSelectedPlanId(planId);
+      setEditorMode("readonly");
+      setTab("nd");
+      router.push(`?plan=${planId}`);
+    } catch (error) {
+      setPlansError(error instanceof Error ? error.message : "Failed to load intervention plan.");
+    } finally {
+      setPlansLoading(false);
+    }
+  };
+
+  const cancelNewPlan = async () => {
+    setEditorError(null);
+    try {
+      const latest = await fetchIntervention(ncpId);
+      if (latest) {
+        applyIntervention(latest);
+        setSelectedPlanId(latest.id);
+        setLatestPlanId(latest.id);
+        setEditorMode("readonly");
+        router.replace(`?plan=${latest.id}`);
+      } else {
+        applyIntervention(null);
+        setSelectedPlanId(null);
+        setTab("plans");
+        router.replace("?");
+      }
+    } catch (error) {
+      setEditorError(error instanceof Error ? error.message : "Failed to cancel the new plan.");
+    }
   };
 
   const goalLabel  = GOALS.find((g) => g.value === intervention?.goal_type)?.label;
@@ -468,15 +568,10 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
           onChangePatientClick={handleChangePatient}
         />
         <div className="border-b border-warm-200 pb-4">
-          <h2 className="text-xl font-extrabold text-warm-900 tracking-tight flex items-center gap-2.5">
-            <Salad className="h-5 w-5 text-emerald-600" />
+          <h2 className="text-xl font-extrabold text-warm-900 tracking-tight">
             Step 3: Nutrition Intervention
-            {dirty && (
-              <span className="ml-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-xs font-bold text-amber-700 uppercase tracking-wide">
-                Unsaved changes
-              </span>
-            )}
           </h2>
+          {dirty && <p className="mt-1 text-xs font-semibold text-amber-700">Unsaved changes</p>}
         </div>
       </div>
 
@@ -494,18 +589,41 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
 
       {/* Tab content */}
       <div className="pt-5 space-y-6">
+        {tab === "plans" && (
+          <InterventionPlansTab
+            plans={plans}
+            meta={plansMeta}
+            page={plansPage}
+            selectedPlanId={selectedPlanId}
+            loading={plansLoading}
+            error={plansError}
+            onCreate={startNewPlan}
+            onSelect={selectPlan}
+            onPageChange={setPlansPage}
+          />
+        )}
 
-        {/* TAB 1 — Food / Nutrient Delivery */}
-        {tab === "nd" && (
-          <div className="space-y-6">
+        {tab !== "plans" && (
+          <InterventionPlanEditor
+            mode={editorMode}
+            plan={intervention}
+            saving={saving}
+            error={editorError}
+            onSave={savePlan}
+            onCancel={cancelNewPlan}
+          >
+          {/* Food / Nutrient Delivery */}
+          {tab === "nd" && (
+            <div className="space-y-6">
             {/* [A] Goal selector */}
             <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Intervention Goal</h3>
-                <Button variant="ghost" onClick={() => setGoalModalOpen(true)} className="px-3 py-1.5 text-xs gap-1.5">
-                  <Settings2 className="h-3 w-3" />
-                  {intervention?.goal_type ? "Change Goal" : "Set Goal"}
-                </Button>
+                {editorMode === "edit" && (
+                  <Button variant="ghost" onClick={() => setGoalModalOpen(true)} className="px-3 py-1.5 text-xs">
+                    {intervention?.goal_type ? "Change Goal" : "Set Goal"}
+                  </Button>
+                )}
               </div>
               {goalError && (
                 <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-2">{goalError}</p>
@@ -514,15 +632,12 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
                 <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2">{calculationWarning}</p>
               )}
               {intervention?.goal_type ? (
-                <div className="flex items-center gap-2 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" />
-                  <div>
-                    <p className="text-sm font-bold text-emerald-800">{goalLabel}</p>
-                    {stageLabel && <p className="text-xs text-emerald-600">{stageLabel}</p>}
-                  </div>
+                <div className="px-4 py-3 border border-warm-200 rounded-xl">
+                  <p className="text-sm font-bold text-warm-800">{goalLabel}</p>
+                  {stageLabel && <p className="text-xs text-warm-600">{stageLabel}</p>}
                 </div>
               ) : (
-                <p className="text-sm text-warm-400 italic">No goal set. Click &ldquo;Set Goal&rdquo; to begin.</p>
+                <p className="text-sm text-warm-500">No goal selected.</p>
               )}
             </div>
 
@@ -530,12 +645,14 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
             <NutritionPrescriptionForm
               values={prescription}
               onChange={(v) => { setPrescription(v); setDirty(true); }}
-              onSave={savePrescription}
+              onSave={savePlan}
               saving={saving}
               note={prescNote}
               requiredMicros={requiredMicros}
               goalLabel={goalLabel}
-              calculationTrace={calculationTrace}
+              calculationTrace={editorMode === "edit" ? calculationTrace : null}
+              readOnly={editorMode === "readonly"}
+              showSave={false}
             />
 
             {/* [C] Recommend / Avoid */}
@@ -555,34 +672,40 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
                 </InfoHint>
               </div>
             )}
-            <MealPlanSection
-              ncpId={ncpId}
-              prescriptionTargets={{
-                energy:   parseFloat(prescription.energy_kcal) || 0,
-                protein:  parseFloat(prescription.protein_g)   || 0,
-                carbs:    parseFloat(prescription.carbs_g)     || 0,
-                fat:      parseFloat(prescription.fat_g)       || 0,
-              }}
-              foodDislikes={foodDislikes}
-              allergens={allergens}
-              displayedMicros={microKeys(prescription.displayed_nutrients)}
-              micronutrientLimits={prescription.micronutrient_limits}
-              interventionGoal={intervention?.goal_type}
-            />
+            {selectedPlanId && (
+              <MealPlanSection
+                ncpId={ncpId}
+                interventionPlanId={selectedPlanId}
+                readOnly={selectedPlanId !== latestPlanId}
+                prescriptionTargets={{
+                  energy:   parseFloat(prescription.energy_kcal) || 0,
+                  protein:  parseFloat(prescription.protein_g)   || 0,
+                  carbs:    parseFloat(prescription.carbs_g)     || 0,
+                  fat:      parseFloat(prescription.fat_g)       || 0,
+                }}
+                foodDislikes={foodDislikes}
+                allergens={allergens}
+                displayedMicros={microKeys(prescription.displayed_nutrients)}
+                micronutrientLimits={prescription.micronutrient_limits}
+                interventionGoal={intervention?.goal_type}
+              />
+            )}
           </div>
         )}
 
-        {/* TAB 2 — Education */}
+        {/* Education */}
         {tab === "education" && (
           <EducationTab
             value={educationNotes}
             onChange={(v) => { setEducationNotes(v); setDirty(true); }}
-            onSave={() => saveTextField({ education_notes: educationNotes } as Partial<Intervention>)}
+            onSave={savePlan}
             saving={saving}
+            readOnly={editorMode === "readonly"}
+            showSave={false}
           />
         )}
 
-        {/* TAB 3 — Counseling */}
+        {/* Counseling */}
         {tab === "counseling" && (
           <CounselingTab
             goals={counselingGoals} barriers={barriers} strategies={strategies}
@@ -592,14 +715,14 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
               if (field === 'barriers') setBarriers(val);
               if (field === 'strategies') setStrategies(val);
             }}
-            onSave={() => saveTextField({
-              counseling_goals: counselingGoals, barriers, strategies,
-            } as Partial<Intervention>)}
+            onSave={savePlan}
             saving={saving}
+            readOnly={editorMode === "readonly"}
+            showSave={false}
           />
         )}
 
-        {/* TAB 4 — Goal Planning */}
+        {/* Goal Planning */}
         {tab === "goals" && (
           <GoalPlanningTab
             goals={counselingGoals}
@@ -611,11 +734,12 @@ export default function InterventionPage({ params }: { params: Promise<PageParam
             micronutrientLimits={prescription.micronutrient_limits}
           />
         )}
-
+          </InterventionPlanEditor>
+        )}
       </div>
 
       {/* Goal selector modal */}
-      {goalModalOpen && (
+      {goalModalOpen && editorMode === "edit" && (
         <GoalSelectorModal
           onConfirm={handleGoalConfirm}
           onClose={() => setGoalModalOpen(false)}
@@ -631,10 +755,7 @@ function PlaceholderState() {
   return (
     <div className="space-y-6 font-sans">
       <div className="border-b border-warm-200 pb-5">
-        <h2 className="text-xl font-extrabold text-warm-900 tracking-tight flex items-center gap-2.5">
-          <Salad className="h-5 w-5 text-emerald-600 animate-pulse" />
-          Step 3: Nutrition Intervention
-        </h2>
+        <h2 className="text-xl font-extrabold text-warm-900 tracking-tight">Step 3: Nutrition Intervention</h2>
       </div>
       <div className="bg-white border border-warm-200 rounded-2xl p-12 text-center max-w-2xl mx-auto shadow-sm">
         <div className="p-3.5 bg-warm-50 border border-warm-200 rounded-2xl w-fit mx-auto text-warm-400">

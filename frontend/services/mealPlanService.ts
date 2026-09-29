@@ -31,7 +31,6 @@ export interface MealPlanItem {
 
 export interface MealPlanDay {
   id: string;
-  meal_plan_id: number;
   day_of_week: "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday" | "Sunday";
   meal_type: "breakfast" | "am_snack" | "lunch" | "pm_snack" | "dinner";
   flagged: boolean;
@@ -39,8 +38,7 @@ export interface MealPlanDay {
 
 export interface MealPlan {
   id: string;
-  intervention_id: number;
-  patient_id: number;
+  intervention_plan_id: string;
   week_start_date: string;
   generation_type: "manual" | "auto";
   scale_status: "available" | "already_scaled";
@@ -69,7 +67,7 @@ export async function fetchMealPlans(ncpId: string): Promise<MealPlan[]> {
 
 export async function createMealPlan(
   ncpId: string,
-  payload: { week_start_date: string; generation_type?: string }
+  payload: { intervention_plan_id: string; week_start_date: string; generation_type?: string }
 ): Promise<MealPlan> {
   const res = await apiFetch(`/api/rnd/ncp-records/${ncpId}/meal-plans`, {
     method: "POST",
@@ -152,7 +150,7 @@ export async function deleteMealPlan(ncpId: string, planId: string): Promise<voi
 
 export async function generateMealPlan(
   ncpId: string,
-  payload: { week_start_date: string; conditions?: string[]; allergens?: string[]; exclude_snacks?: boolean; use_rice_as_carb?: boolean }
+  payload: { intervention_plan_id: string; week_start_date: string; conditions?: string[]; allergens?: string[]; exclude_snacks?: boolean; use_rice_as_carb?: boolean }
 ): Promise<MealPlan
   | { insufficient_recipes: true; count: number; message: string }
   | { insufficient_suitable_foods: true; missing_meal_types: string[]; message: string }
@@ -243,7 +241,7 @@ export async function saveMealPlanAsTemplate(
 
 export async function createPlanFromTemplate(
   ncpId: string,
-  payload: { template_id: string; week_start_date: string }
+  payload: { intervention_plan_id: string; template_id: string; week_start_date: string }
 ): Promise<{
   plan: MealPlan;
   compatibility: {
