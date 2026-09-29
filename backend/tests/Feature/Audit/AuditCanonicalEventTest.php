@@ -333,7 +333,7 @@ class AuditCanonicalEventTest extends TestCase
             'patient_id' => $patient->id,
             'rnd_user_id' => $actor->id,
         ]);
-        Intervention::factory()->create([
+        $intervention = Intervention::factory()->create([
             'ncp_record_id' => $ncp->id,
             'energy_kcal' => 1800,
             'protein_g' => 70,
@@ -352,7 +352,12 @@ class AuditCanonicalEventTest extends TestCase
 
         $this->actingAs($actor, 'sanctum')->postJson(
             "/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/generate",
-            ['week_start_date' => '2026-07-13', 'conditions' => [], 'allergens' => []],
+            [
+                'intervention_plan_id' => $intervention->uuid,
+                'week_start_date' => '2026-07-13',
+                'conditions' => [],
+                'allergens' => [],
+            ],
         )->assertCreated();
 
         $event = AuditActivity::query()

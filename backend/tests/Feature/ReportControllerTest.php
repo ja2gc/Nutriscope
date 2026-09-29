@@ -260,10 +260,10 @@ class ReportControllerTest extends TestCase
             ->assertJsonPath('data.0.id', $current->uuid)
             ->assertJsonPath('data.0.status', 'active')
             ->assertJsonPath('data.0.reports.0.params.ncp_record_id', $current->uuid)
-            ->assertJsonPath('data.0.reports.1.params.meal_plan_id', $currentPlan->uuid)
+            ->assertJsonPath('data.0.reports.1.params.intervention_plan_id', $currentIntervention->uuid)
             ->assertJsonPath('data.1.id', $completed->uuid)
             ->assertJsonPath('data.1.status', 'completed')
-            ->assertJsonPath('data.1.reports.1.params.meal_plan_id', $completedPlan->uuid);
+            ->assertJsonPath('data.1.reports.1.params.intervention_plan_id', $completedIntervention->uuid);
 
         $this->assertCount(2, $response->json('data.0.reports'));
         $this->assertCount(2, $response->json('data.1.reports'));

@@ -66,7 +66,7 @@ class MealPlanServiceTest extends TestCase
         }
     }
 
-    private function makeNcpWithIntervention(): NcpRecord
+    private function makeNcpWithIntervention(array $interventionAttributes = []): NcpRecord
     {
         $rnd = User::where('role', 'RND')->first();
         $patient = Patient::forceCreate([
@@ -77,16 +77,21 @@ class MealPlanServiceTest extends TestCase
             'patient_id' => $patient->id, 'rnd_user_id' => $rnd->id,
             'type' => 'new', 'status' => 'active',
         ]);
-        Intervention::forceCreate([
+        $this->createIntervention($ncp, $interventionAttributes);
+
+        return $ncp;
+    }
+
+    private function createIntervention(NcpRecord $ncp, array $attributes = []): Intervention
+    {
+        return Intervention::forceCreate(array_merge([
             'ncp_record_id' => $ncp->id,
             'goal_type' => 'weight_maintenance',
             'energy_kcal' => 2000,
             'protein_g' => 75,
             'carbs_g' => 250,
             'fat_g' => 65,
-        ]);
-
-        return $ncp;
+        ], $attributes));
     }
 
     public function test_generated_quantities_are_at_least_1_serving(): void
@@ -110,8 +115,7 @@ class MealPlanServiceTest extends TestCase
     public function test_fluid_guidance_never_enters_generated_plan_variance_but_water_snapshot_remains(): void
     {
         $this->seedRecipes(15);
-        $ncp = $this->makeNcpWithIntervention();
-        $ncp->intervention->update(['fluid_ml' => 250]);
+        $ncp = $this->makeNcpWithIntervention(['fluid_ml' => 250]);
 
         $plan = (new MealPlanService)->generate($ncp, now()->startOfWeek()->toDateString());
         $days = MealPlanDay::query()->where('meal_plan_id', $plan->id)->get();
@@ -193,7 +197,8 @@ class MealPlanServiceTest extends TestCase
 
         // Generate 3 times and check that not every generation is identical
         $firstPlan = $service->generate($ncp, now()->startOfWeek()->toDateString());
-        $secondPlan = $service->generate($ncp, now()->addWeek()->startOfWeek()->toDateString());
+        $this->createIntervention($ncp);
+        $secondPlan = $service->generate($ncp->fresh(), now()->addWeek()->startOfWeek()->toDateString());
 
         $firstItems = MealPlanItem::whereHas('mealPlanDay', fn ($q) => $q->where('meal_plan_id', $firstPlan->id)
             ->where('day_of_week', 'Monday'))->pluck('recipe_id')->sort()->values()->toArray();
@@ -271,8 +276,10 @@ class MealPlanServiceTest extends TestCase
     public function test_liver_generation_does_not_offer_unsafe_snack_exclusion(): void
     {
         $this->seedRecipes(15);
-        $ncp = $this->makeNcpWithIntervention();
-        $ncp->intervention->update(['goal_type' => 'liver_disease', 'disease_stage' => 'decompensated']);
+        $ncp = $this->makeNcpWithIntervention([
+            'goal_type' => 'liver_disease',
+            'disease_stage' => 'decompensated',
+        ]);
 
         $result = (new MealPlanService)->generate(
             $ncp,
@@ -372,8 +379,9 @@ class MealPlanServiceTest extends TestCase
             fn ($item): bool => in_array($item->unit, ['g', 'cup'], true)
         ));
 
+        $this->createIntervention($ncp);
         $alternativePlan = (new MealPlanService)->generate(
-            $ncp,
+            $ncp->fresh(),
             now()->addWeek()->startOfWeek()->toDateString(),
             useRiceAsCarb: false,
         );
@@ -383,8 +391,9 @@ class MealPlanServiceTest extends TestCase
         $this->assertFalse($alternativeSlots->flatMap->items->contains('food_item_id', $rice->id));
 
         Recipe::query()->where('component_type', 'main_dish')->update(['component_type' => 'complete_meal']);
+        $this->createIntervention($ncp);
         $completePlan = (new MealPlanService)->generate(
-            $ncp,
+            $ncp->fresh(),
             now()->addWeeks(2)->startOfWeek()->toDateString(),
             useRiceAsCarb: true,
         );
@@ -410,8 +419,7 @@ class MealPlanServiceTest extends TestCase
             'carbs' => 2, 'fat' => 0.2, 'serving_size' => 100, 'serving_unit' => 'g',
         ]);
 
-        $customNcp = $this->makeNcpWithIntervention();
-        $customNcp->intervention->update(['goal_type' => 'custom']);
+        $customNcp = $this->makeNcpWithIntervention(['goal_type' => 'custom']);
         $customPlan = (new MealPlanService)->generate($customNcp, now()->startOfWeek()->toDateString());
         $customMainItems = MealPlanItem::query()->whereHas('mealPlanDay', fn ($query) => $query
             ->where('meal_plan_id', $customPlan->id)
@@ -419,8 +427,7 @@ class MealPlanServiceTest extends TestCase
         $this->assertTrue($customMainItems->contains('food_item_id', $carb->id));
         $this->assertTrue($customMainItems->contains('food_item_id', $vegetable->id));
 
-        $maternalNcp = $this->makeNcpWithIntervention();
-        $maternalNcp->intervention->update(['goal_type' => 'weight_gain']);
+        $maternalNcp = $this->makeNcpWithIntervention(['goal_type' => 'weight_gain']);
         Assessment::factory()->create([
             'ncp_record_id' => $maternalNcp->id,
             'pregnancy_lactation_status' => 'lactating',

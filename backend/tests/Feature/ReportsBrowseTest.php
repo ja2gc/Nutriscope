@@ -165,7 +165,7 @@ class ReportsBrowseTest extends TestCase
             ->assertJsonPath('data.instances.0.params.ncp_record_id', $ncp->id);
         $this->getJson('/api/rnd/reports/patient_menu_plan/instances')
             ->assertOk()
-            ->assertJsonPath('data.instances.0.params.meal_plan_id', $mealPlan->id);
+            ->assertJsonPath('data.instances.0.params.intervention_plan_id', $intervention->uuid);
         $this->getJson('/api/rnd/reports/demographic_census/instances')
             ->assertOk()
             ->assertJsonFragment(['key' => '2026-05']);

@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Spatie\Activitylog\Models\Activity;
 use Tests\Support\AuditFixture;
@@ -37,7 +38,6 @@ class ClinicalTrailTest extends TestCase
             'ncp record' => [NcpRecord::class, 'risk_score_manual_factors', ['NCP-CREATE-SENTINEL'], ['NCP-UPDATE-SENTINEL']],
             'assessment' => [Assessment::class, 'rnd_summary', 'ASSESSMENT-CREATE-SENTINEL', 'ASSESSMENT-UPDATE-SENTINEL'],
             'diagnosis' => [Diagnosis::class, 'extra_notes', 'DIAGNOSIS-CREATE-SENTINEL', 'DIAGNOSIS-UPDATE-SENTINEL'],
-            'intervention' => [Intervention::class, 'education_notes', 'INTERVENTION-CREATE-SENTINEL', 'INTERVENTION-UPDATE-SENTINEL'],
             'meal plan' => [MealPlan::class, 'week_start_date', '2099-01-01', '2099-01-08'],
             'monitoring' => [Monitoring::class, 'clinical_summary', 'MONITORING-CREATE-SENTINEL', 'MONITORING-UPDATE-SENTINEL'],
             'screening document' => [ScreeningDocument::class, 'type', 'DOCUMENT-CREATE-SENTINEL', 'DOCUMENT-UPDATE-SENTINEL'],
@@ -98,6 +98,49 @@ class ClinicalTrailTest extends TestCase
         $this->assertSame($patient->id, (int) $deleted->root_patient_id);
         $this->assertStringNotContainsString($createSentinel, $deleted->toJson());
         $this->assertStringNotContainsString($updateSentinel, $deleted->toJson());
+    }
+
+    public function test_saved_intervention_create_delete_is_rooted_and_phi_free_while_update_is_blocked(): void
+    {
+        $rnd = User::factory()->rnd()->create();
+        $patient = Patient::factory()->create();
+        $ncp = NcpRecord::factory()->create([
+            'patient_id' => $patient->id,
+            'rnd_user_id' => $rnd->id,
+            'status' => 'draft',
+        ]);
+        $this->actingAs($rnd, 'sanctum');
+        AuditFixture::delete(AuditActivity::query());
+
+        $intervention = Intervention::factory()->create([
+            'ncp_record_id' => $ncp->id,
+            'education_notes' => 'INTERVENTION-CREATE-SENTINEL',
+        ]);
+
+        try {
+            $intervention->update(['education_notes' => 'INTERVENTION-UPDATE-SENTINEL']);
+            $this->fail('Saved Intervention Plans must reject updates.');
+        } catch (ValidationException) {
+            $this->assertSame('INTERVENTION-CREATE-SENTINEL', $intervention->fresh()->education_notes);
+        }
+
+        $events = AuditActivity::query()
+            ->where('subject_type', $intervention->getMorphClass())
+            ->where('subject_id', $intervention->getKey())
+            ->get();
+        $this->assertEqualsCanonicalizing(['created'], $events->pluck('event')->all());
+        $this->assertStringNotContainsString('INTERVENTION-CREATE-SENTINEL', $events->toJson());
+        $this->assertStringNotContainsString('INTERVENTION-UPDATE-SENTINEL', $events->toJson());
+
+        $intervention->delete();
+        $deleted = AuditActivity::query()
+            ->where('subject_type', $intervention->getMorphClass())
+            ->where('subject_id', $intervention->getKey())
+            ->where('event', 'deleted')
+            ->latest('id')
+            ->firstOrFail();
+        $this->assertSame($patient->id, (int) $deleted->root_patient_id);
+        $this->assertStringNotContainsString('INTERVENTION-CREATE-SENTINEL', $deleted->toJson());
     }
 
     private function createClinicalSubject(string $modelClass, string $field, mixed $value, Patient $patient, NcpRecord $ncp): Model

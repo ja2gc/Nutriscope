@@ -51,8 +51,8 @@ class PatientNcpReportsTest extends TestCase
             ->assertJsonPath('data.0.reports.0.params.ncp_record_id', $newerNcp->uuid)
             ->assertJsonPath('data.1.id', $olderNcp->uuid)
             ->assertJsonPath('data.1.reports.1.type', 'patient_menu_plan')
-            ->assertJsonPath('data.1.reports.1.label', 'Nutrition Intervention Plan — '.$plan->week_start_date->format('M j, Y'))
-            ->assertJsonPath('data.1.reports.1.params.meal_plan_id', $plan->uuid);
+            ->assertJsonPath('data.1.reports.1.label', 'Nutrition Intervention Plan — '.$intervention->created_at->format('M j, Y'))
+            ->assertJsonPath('data.1.reports.1.params.intervention_plan_id', $intervention->uuid);
 
         $this->assertStringNotContainsString($otherNcp->uuid, $response->getContent());
     }

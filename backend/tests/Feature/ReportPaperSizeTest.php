@@ -98,6 +98,6 @@ class ReportPaperSizeTest extends TestCase
         $this->assertStringContainsString('table-layout: fixed', $layout);
         $this->assertStringContainsString('word-wrap: break-word', $layout);
         $this->assertStringContainsString('class="report-page page-start"', $procurement);
-        $this->assertStringNotContainsString('<div class="page-break"></div>', $procurement);
+        $this->assertStringContainsString('<div class="page-start" style="height:1px; font-size:1px; line-height:1px;">&nbsp;</div>', $procurement);
     }
 }

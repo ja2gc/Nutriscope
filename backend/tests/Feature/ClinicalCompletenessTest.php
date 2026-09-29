@@ -64,7 +64,8 @@ class ClinicalCompletenessTest extends TestCase
         Intervention::forceCreate(['ncp_record_id' => $ncp->id]);
         $this->assertFalse($this->svc->interventionComplete($ncp->fresh()));
 
-        $ncp->intervention->update([
+        Intervention::forceCreate([
+            'ncp_record_id' => $ncp->id,
             'goal_type' => 'renal_diet', 'energy_kcal' => 1800, 'protein_g' => 70, 'carbs_g' => 250, 'fat_g' => 55,
         ]);
         $this->assertTrue($this->svc->interventionComplete($ncp->fresh()));

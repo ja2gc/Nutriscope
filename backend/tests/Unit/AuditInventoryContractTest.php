@@ -47,7 +47,7 @@ class AuditInventoryContractTest extends TestCase
             "->assertJsonPath('data.0.actor.id', \$other->uuid)",
         ],
         'tests/Feature/Audit/SharedRndClinicalAccessTest.php' => [
-            'test_an_rnd_can_write_every_clinical_section_of_another_rnds_ncp',
+            'test_an_rnd_can_access_shared_clinical_records_while_new_plans_keep_owner_protection',
             'test_an_rnd_can_delete_another_rnds_draft_ncp',
             'test_patient_rows_and_ncp_cards_identify_creator_and_latest_clinical_actor',
         ],
@@ -115,6 +115,7 @@ class AuditInventoryContractTest extends TestCase
         'app/Services/FSS/AccomplishmentReportArchiveService.php',
         'app/Services/FSS/PurchaseOrderLifecycleService.php',
         'app/Services/FSS/ReceivingService.php',
+        'app/Services/InterventionPlanService.php',
         'app/Services/NcpAppointmentWorkflow.php',
     ];
 

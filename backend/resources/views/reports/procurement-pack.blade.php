@@ -85,7 +85,8 @@
         </div>
 
         {{-- ===== Page 3: Summary of Marketing ===== --}}
-        <div class="report-page page-start">
+        <div class="page-start" style="height:1px; font-size:1px; line-height:1px;">&nbsp;</div>
+        <div class="report-page">
             @include('reports.partials.letterhead', ['title' => 'SUMMARY OF MARKETING'])
         <table class="grid" style="margin-top:8px;">
             <thead>
