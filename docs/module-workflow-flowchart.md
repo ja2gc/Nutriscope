@@ -74,7 +74,7 @@ flowchart TD
 
     I --> J["Assessment<br/>duration + cycle category + maternal status"]
     J -->|"saved"| K["Diagnosis / PES"]
-    K --> K1["Optional bounded PES drafts<br/>0..3 with evidence + source"]
+    K --> K1["Optional AI Review<br/>0..3 suggestions with evidence + source"]
     K1 --> K
     K -->|"one or more saved"| L["Dated Intervention Plans + final prescription<br/>zero or one menu per plan"]
     L -->|"saved"| M["Monitoring and Evaluation available"]
@@ -321,7 +321,7 @@ flowchart TD
 3. In Appointments, schedule a visit with date/time and purpose, or start a walk-in for the current cycle.
 4. Explicitly start the scheduled visit. If navigation changes, use the persistent Resume banner.
 5. On a fictional cycle, save Assessment with a quantity-plus-weeks/months weight duration, required category (including conditional **Specify category** when testing Other), and confirmed maternal status. Verify save/reload, no stress control, and no fixed three-month wording.
-6. In Diagnosis, request **Assessment-based PES drafts**. Verify zero to three source/evidence-backed results, unchanged-data cache, dismiss, Assessment-change refresh, edit/accept, and manual fallback.
+6. In Diagnosis, open **AI Review** and choose **Generate AI Suggestions**. Verify zero to three source/evidence-backed results paginated two per page, unchanged-data cache, dismiss, Assessment-change refresh, structured edit/accept, and manual fallback.
 7. In Intervention, open **Plans**, create a dated plan, choose a goal/stage, and expand the calculation panel. Verify goal baseline, maternal modifier, final prescription, separate fluid guidance, and concise education/counseling fields; save the complete plan.
 8. Create, load, or generate that plan's sole menu and verify fluid does not affect generation/scaling variance. Confirm a second menu for the same plan is unavailable.
 9. In Monitoring, save a complete follow-up calculation snapshot and inspect its organized read-only Visit Log detail. Then return to Intervention, create another dated plan, and verify it prefills the newest plan while recalculating from the latest Monitoring values without copying the prior menu.

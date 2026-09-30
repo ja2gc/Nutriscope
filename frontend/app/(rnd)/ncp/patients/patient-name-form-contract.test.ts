@@ -4,7 +4,6 @@ import { describe, expect, test } from "vitest";
 
 const page = readFileSync(join(process.cwd(), "app/(rnd)/ncp/patients/page.tsx"), "utf8");
 const assessment = readFileSync(join(process.cwd(), "app/(rnd)/ncp/[patientId]/assessment/[ncpId]/page.tsx"), "utf8");
-const diagnosis = readFileSync(join(process.cwd(), "app/(rnd)/ncp/[patientId]/diagnosis/[ncpId]/page.tsx"), "utf8");
 const patientHeader = readFileSync(join(process.cwd(), "app/(rnd)/ncp/_components/NcpPatientHeader.tsx"), "utf8");
 
 describe("patient split-name form", () => {
@@ -26,7 +25,6 @@ describe("patient split-name form", () => {
   test("patient table renders the display-name contract", () => {
     expect(page).toContain("personDisplayName(patient)");
     expect(patientHeader).toContain('personDisplayName(patient, "Loading patient...")');
-    expect(diagnosis).toContain("personDisplayName(patient, systemId)");
   });
 
   test("assessment demographic edits use the paired-change rule", () => {

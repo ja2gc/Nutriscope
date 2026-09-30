@@ -102,6 +102,11 @@ class NcpAppointmentWorkflow
     private function start(User $rnd, NcpAppointment $appointment, ?string $ncpUuid): NcpAppointment
     {
         $this->requireStatus($appointment, ['scheduled']);
+        if ($appointment->scheduled_at?->isBefore(today())) {
+            throw ValidationException::withMessages([
+                'action' => 'Reschedule an overdue appointment before starting a visit.',
+            ]);
+        }
         $this->ensureNoActiveVisit($rnd);
         $ncp = $this->currentNcp($appointment->patient, $ncpUuid);
         $this->auditLogger->withoutModelEvents(fn () => $appointment->update([

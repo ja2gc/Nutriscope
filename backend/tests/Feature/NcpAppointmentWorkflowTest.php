@@ -119,6 +119,31 @@ class NcpAppointmentWorkflowTest extends TestCase
             ->assertJsonPath('data.ncp_record_id', $ncp->uuid);
     }
 
+    public function test_overdue_scheduled_visit_must_be_rescheduled_before_starting(): void
+    {
+        [$rnd, $patient] = $this->clinicalContext();
+
+        $appointment = $this->actingAs($rnd, 'sanctum')->postJson(
+            "/api/rnd/patients/{$patient->uuid}/appointments",
+            [
+                'source' => 'scheduled',
+                'purpose' => 'Overdue follow-up',
+                'scheduled_at' => now()->subDay()->format('Y-m-d H:i:s'),
+            ],
+        )->assertCreated();
+
+        $this->actingAs($rnd, 'sanctum')->patchJson(
+            "/api/rnd/ncp-appointments/{$appointment->json('data.id')}",
+            ['action' => 'start'],
+        )->assertUnprocessable()
+            ->assertJsonValidationErrors('action');
+
+        $this->assertDatabaseHas('ncp_appointments', [
+            'uuid' => $appointment->json('data.id'),
+            'status' => 'scheduled',
+        ]);
+    }
+
     public function test_walk_in_and_scheduled_start_require_the_single_current_cycle(): void
     {
         $rnd = User::factory()->rnd()->create();

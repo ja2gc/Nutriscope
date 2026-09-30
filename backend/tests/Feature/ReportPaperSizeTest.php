@@ -100,4 +100,44 @@ class ReportPaperSizeTest extends TestCase
         $this->assertStringContainsString('class="report-page page-start"', $procurement);
         $this->assertStringContainsString('<div class="page-start" style="height:1px; font-size:1px; line-height:1px;">&nbsp;</div>', $procurement);
     }
+
+    public function test_procurement_pack_first_page_uses_the_shared_hospital_letterhead(): void
+    {
+        $branding = new ReportBranding([
+            'hospital_name' => 'Romana Pangan District Hospital',
+            'address' => 'Labangan, Zamboanga del Sur',
+            'accreditation' => 'DOH Licensed',
+            'service_name' => 'Dietary Service',
+            'province' => 'Zamboanga del Sur',
+            'lgu' => 'Labangan',
+        ]);
+        $po = (object) ['id' => 1, 'po_number' => 'PO-1'];
+        $html = view('reports.procurement-pack', [
+            'packs' => [[
+                'is_final' => true,
+                'supplier' => null,
+                'po' => $po,
+                'order_date' => 'Sep 30, 2026',
+                'or_number' => '-',
+                'air_items' => [],
+                'statement_items' => [],
+                'grand_total' => 0,
+                'summary' => ['inclusive' => 'Sep 30, 2026', 'date_purchased' => 'Sep 30, 2026', 'amount' => 0],
+                'attachments' => [],
+            ]],
+            'branding' => $branding,
+            'air_signatories' => [],
+            'statement_signatories' => [],
+            'summary_signatories' => [],
+            'report' => new Report(['title' => 'Procurement Pack']),
+            'paper_orientation' => 'portrait',
+        ])->render();
+
+        $firstTitle = strpos($html, 'ACCEPTANCE AND INSPECTION REPORT');
+        $firstHospitalName = strpos($html, 'Romana Pangan District Hospital');
+
+        $this->assertNotFalse($firstTitle);
+        $this->assertNotFalse($firstHospitalName);
+        $this->assertLessThan($firstTitle, $firstHospitalName);
+    }
 }

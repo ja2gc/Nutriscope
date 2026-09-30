@@ -24,7 +24,7 @@ describe("PatientAppointments", () => {
     transitionMock.mockReset();
     container = document.createElement("div"); document.body.append(container); root = createRoot(container);
   });
-  afterEach(() => { act(() => root.unmount()); container.remove(); });
+  afterEach(() => { act(() => root.unmount()); container.remove(); vi.useRealTimers(); });
 
   it("shows separate upcoming and past records with purpose, source, status, actor, and linked cycle", async () => {
     fetchMock
@@ -66,7 +66,7 @@ describe("PatientAppointments", () => {
   });
 
   it("starts a scheduled appointment against the selected current cycle", async () => {
-    const visit = { id: "visit-1", patient_id: "patient-1", ncp_record_id: null, source: "scheduled" as const, status: "scheduled" as const, purpose: "Complete diagnosis", scheduled_at: "2026-09-08T10:00:00Z", started_at: null, finished_at: null, reason_code: null, worked_on: [], newly_completed: [], administered_by: null };
+    const visit = { id: "visit-1", patient_id: "patient-1", ncp_record_id: null, source: "scheduled" as const, status: "scheduled" as const, purpose: "Complete diagnosis", scheduled_at: "2099-09-08T10:00:00Z", started_at: null, finished_at: null, reason_code: null, worked_on: [], newly_completed: [], administered_by: null };
     fetchMock
       .mockResolvedValueOnce({ data: [visit], meta })
       .mockResolvedValueOnce({ data: [], meta: { ...meta, total: 0 } })
@@ -77,6 +77,33 @@ describe("PatientAppointments", () => {
     await act(async () => Array.from(container.querySelectorAll("button")).find((button) => button.textContent === "Start Visit")?.click());
 
     expect(transitionMock).toHaveBeenCalledWith("visit-1", { action: "start", ncp_record_id: "cycle-current" });
+  });
+
+  it("disables Start Visit for an overdue scheduled appointment", async () => {
+    const visit = { id: "visit-overdue", patient_id: "patient-1", ncp_record_id: null, source: "scheduled" as const, status: "scheduled" as const, purpose: "Review progress", scheduled_at: "2020-01-01T10:00:00Z", started_at: null, finished_at: null, reason_code: null, worked_on: [], newly_completed: [], administered_by: null };
+    fetchMock
+      .mockResolvedValueOnce({ data: [visit], meta })
+      .mockResolvedValueOnce({ data: [], meta: { ...meta, total: 0 } });
+
+    await act(async () => root.render(<PatientAppointments patientId="patient-1" currentNcpId="cycle-current" />));
+
+    const start = Array.from(container.querySelectorAll("button")).find((button) => button.textContent === "Start Visit");
+    expect(start?.disabled).toBe(true);
+    expect(start?.className).toContain("opacity-50");
+  });
+
+  it("allows Start Visit after its scheduled time when it is still the same calendar day", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-01T20:00:00"));
+    const visit = { id: "visit-today", patient_id: "patient-1", ncp_record_id: null, source: "scheduled" as const, status: "scheduled" as const, purpose: "Same-day follow-up", scheduled_at: "2026-10-01T08:00:00", started_at: null, finished_at: null, reason_code: null, worked_on: [], newly_completed: [], administered_by: null };
+    fetchMock
+      .mockResolvedValueOnce({ data: [visit], meta })
+      .mockResolvedValueOnce({ data: [], meta: { ...meta, total: 0 } });
+
+    await act(async () => root.render(<PatientAppointments patientId="patient-1" currentNcpId="cycle-current" />));
+
+    const start = Array.from(container.querySelectorAll("button")).find((button) => button.textContent === "Start Visit");
+    expect(start?.disabled).toBe(false);
   });
 
   it("creates a walk-in from the patient appointment tab", async () => {

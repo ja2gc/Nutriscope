@@ -167,13 +167,13 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### RND-NCP-09 — AI Diagnosis Review
 
-**Description:** Deterministic source-backed rules select zero to three Assessment-based PES candidates. The provider receives compact de-identified evidence and only words those candidates. Cards show Evidence used and Source; unchanged Assessment data reuses a validated cache, changed evidence enables refresh, and zero results/manual entry remain valid. There is no demo-patient marker or demo-only gate.
+**Description:** The AI Review tab uses deterministic source-backed rules to select zero to three AI Suggestions, paginated two per page. The provider receives compact de-identified evidence and only words those candidates. Cards show Evidence used and Source; unchanged Assessment data reuses a validated cache, changed evidence enables refresh, and zero results/manual entry remain valid. There is no demo-patient marker or demo-only gate.
 
 **User should do:** Demonstrate **Edit** on a fictional suggestion. Matching Problem/Etiology/Signs should rehydrate as selected options or checked boxes; only unmatched detail should remain in notes. Then explain Accept/Dismiss and the manual fallback.
 
 **Next scene:** Saved Diagnosis or Intervention.
 
-> **Screenshot needed:** Assessment-based PES drafts with Evidence used, Source, Accept, Edit, and Dismiss. Optional second image: edited builder with matching checkboxes selected. Ensure no real patient context or provider prompt is visible.
+> **Screenshot needed:** AI Review showing paginated AI Suggestions with Evidence used, Source, Accept, Edit, and Dismiss. Optional second image: edited builder with matching checkboxes selected. Ensure no real patient context or provider prompt is visible.
 >
 > **Insert screenshot below this line.**
 

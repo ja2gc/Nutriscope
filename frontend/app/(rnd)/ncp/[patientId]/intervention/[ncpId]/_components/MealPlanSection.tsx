@@ -21,6 +21,7 @@ import {
 } from "@/services/foodLibraryService";
 import MacroTrackerBar from "./MacroTrackerBar";
 import { ALL_MICROS } from "@/lib/nutritionCalculations";
+import { foodFluidBalance } from "@/lib/mealPlanNutrition";
 
 const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'] as const;
 const MEAL_TYPES = ['breakfast','am_snack','lunch','pm_snack','dinner'] as const;
@@ -32,7 +33,7 @@ interface Props {
   ncpId: string;
   interventionPlanId: string;
   readOnly?: boolean;
-  prescriptionTargets: { energy: number; protein: number; carbs: number; fat: number };
+  prescriptionTargets: { energy: number; protein: number; carbs: number; fat: number; fluid: number };
   foodDislikes?: string[];
   allergens?: string[];
   displayedMicros?: string[];
@@ -436,6 +437,8 @@ export default function MealPlanSection({
   const t = prescriptionTargets;
   const selectedTotals = dayTotals(selectedDay);
   const selectedMicroTotals = dayMicroTotals(selectedDay);
+  const selectedItems = MEAL_TYPES.flatMap((mealType) => itemsByKey[slotKey(selectedDay, mealType)] ?? []);
+  const selectedFluid = foodFluidBalance(selectedItems, t.fluid);
   const trackerTargets = [
     { label: 'Energy',  current: selectedTotals.cal,   target: t.energy,        unit: 'kcal' },
     { label: 'Protein', current: selectedTotals.prot,  target: t.protein,       unit: 'g'    },
@@ -555,6 +558,13 @@ export default function MealPlanSection({
             hasMicros={displayedMicros.length > 0}
           />
 
+          {t.fluid > 0 && (
+            <div className="grid gap-2 rounded-xl border border-sky-100 bg-sky-50 p-3 text-sm text-sky-900 sm:grid-cols-2">
+              <p><span className="font-bold">Fluid from foods:</span> {selectedFluid.foodFluidMl} mL</p>
+              <p><span className="font-bold">Remaining drink guidance:</span> {selectedFluid.remainingMl} mL</p>
+            </div>
+          )}
+
           {/* Micro totals row */}
           {showMicros && displayedMicros.length > 0 && (
             <div className="p-3 bg-sky-50 border border-sky-100 rounded-xl space-y-2">
@@ -594,7 +604,6 @@ export default function MealPlanSection({
                   }`}>
                   <span className="block">{d.slice(0,3)}</span>
                   {tot.cal > 0 && <span className="block font-normal opacity-80">{tot.cal}kcal</span>}
-                  {isDayFlagged && selectedDay !== d && <span className="block text-xs text-amber-500 font-bold">⚠ review</span>}
                 </button>
               );
             })}
@@ -628,7 +637,6 @@ export default function MealPlanSection({
                             <div className="flex items-center gap-1.5">
                               <span className="text-sm font-medium text-warm-800 truncate">{s?.name ?? '—'}</span>
                               {item.source === 'usda' && <span className="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 rounded-full uppercase">USDA</span>}
-                              {parseFloat(item.quantity) !== 1 && <span className="text-xs text-sky-500 font-bold">×{item.quantity}</span>}
                               {isDisliked && (
                                 <InfoHint label={`Patient dislikes ${s?.name ?? "this food"}`} title="Patient food dislike">
                                   Patient marked this food as disliked. Review the item before using this plan.

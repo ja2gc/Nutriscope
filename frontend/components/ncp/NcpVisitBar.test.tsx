@@ -48,7 +48,7 @@ describe("NcpVisitBar", () => {
     container.remove();
   });
 
-  it("starts the patient's scheduled visit against the current cycle", async () => {
+  it("keeps scheduled-visit starts in the appointment tab", async () => {
     activeMock.mockResolvedValue(null);
     appointmentsMock.mockResolvedValue({
       data: [{
@@ -65,11 +65,10 @@ describe("NcpVisitBar", () => {
     });
 
     await act(async () => root.render(<NcpVisitBar patientId="patient-1" ncpId="cycle-1" />));
-    const start = Array.from(container.querySelectorAll("button")).find((button) => button.textContent === "Start Scheduled Visit");
-    expect(start).toBeDefined();
-    await act(async () => start?.click());
-
-    expect(transitionMock).toHaveBeenCalledWith("visit-1", { action: "start", ncp_record_id: "cycle-1" });
+    expect(container.textContent).not.toContain("Start Scheduled Visit");
+    expect(container.textContent).toContain("Start Walk-in");
+    expect(container.textContent).toContain("Schedule Next");
+    expect(transitionMock).not.toHaveBeenCalled();
   });
 
   it("requires confirmation before finishing the active visit", async () => {

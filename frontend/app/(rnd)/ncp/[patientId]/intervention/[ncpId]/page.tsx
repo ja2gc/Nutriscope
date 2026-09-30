@@ -40,6 +40,7 @@ import InterventionPlansTab from "./_components/InterventionPlansTab";
 import InterventionPlanEditor from "./_components/InterventionPlanEditor";
 import NcpPatientHeader from "../../../_components/NcpPatientHeader";
 import { InfoHint } from "@/components/ui/InfoHint";
+import { NcpBreadcrumb } from "@/components/ncp/NcpBreadcrumb";
 import {
   INTERVENTION_GUIDANCE_TOTAL_MAX,
   interventionGuidanceCharacters,
@@ -527,11 +528,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
 
     return (
       <div className="space-y-6 font-sans">
-        <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
-          <Link href="/ncp/patients" className="hover:text-emerald-700 transition-colors">Directory</Link>
-          <span className="text-warm-300">/</span>
-          <span className="text-warm-600 font-bold">Intervention</span>
-        </div>
+        <NcpBreadcrumb step="Nutrition Intervention" />
         <NcpPatientHeader
           patient={patient}
           ncpId={ncpId}
@@ -563,14 +560,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
     <div className="space-y-0 font-sans">
       {/* Breadcrumb + header */}
       <div className="space-y-4 mb-4">
-        <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
-          <Link href="/ncp/patients" className="hover:text-emerald-700 transition-colors"
-            onClick={(e) => {
-              if (dirty && !window.confirm("You have unsaved changes. Leave without saving?")) e.preventDefault();
-            }}>Directory</Link>
-          <span className="text-warm-300">/</span>
-          <span className="font-bold text-zinc-650">Nutrition Intervention</span>
-        </div>
+        <NcpBreadcrumb step="Nutrition Intervention" />
         <NcpPatientHeader
           patient={patient}
           ncpId={ncpId}
@@ -696,6 +686,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
                   protein:  parseFloat(prescription.protein_g)   || 0,
                   carbs:    parseFloat(prescription.carbs_g)     || 0,
                   fat:      parseFloat(prescription.fat_g)       || 0,
+                  fluid:    parseFloat(prescription.fluid_ml)    || 0,
                 }}
                 foodDislikes={foodDislikes}
                 allergens={allergens}

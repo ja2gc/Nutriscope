@@ -19,9 +19,11 @@ import { fetchIntervention } from "@/services/interventionService";
 import { buildDiagnosisProblemText } from "@/lib/diagnosisBuilder";
 import { matchStoredOption, splitStoredComponent } from "@/lib/diagnosisComponentSplit";
 import NcpPatientHeader from "../../../_components/NcpPatientHeader";
-import { personDisplayName } from "@/lib/personName";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { InfoHint } from "@/components/ui/InfoHint";
+import { candidateBuilderSelections } from "@/lib/pesBuilderSelections";
+import { NcpBreadcrumb } from "@/components/ncp/NcpBreadcrumb";
+import { paginateAiDrafts } from "@/lib/aiDraftPagination";
 
 // ─── Domain Metadata ─────────────────────────────────────────────────────────
 
@@ -77,6 +79,9 @@ const NI_ETIOLOGIES = [
 ];
 
 const NC_ETIOLOGIES = [
+  "Poor appetite / anorexia",
+  "Energy intake exceeding needs",
+  "Mechanical eating difficulty",
   "Chronic illness (DM, CKD, Cardiac, etc.)",
   "Acute illness or trauma",
   "Active infection or systemic inflammation",
@@ -115,6 +120,10 @@ const NI_SIGNS = [
 ];
 
 const NC_SIGNS = [
+  "BMI ≥ 25 (overweight / obesity)",
+  "Swallowing / chewing difficulty documented",
+  "Food-medication interaction documented",
+  "Suboptimal energy intake documented",
   "Abnormal laboratory values (specify in notes)",
   "Significant unintended weight change",
   "Muscle wasting or loss of subcutaneous fat",
@@ -316,6 +325,7 @@ export default function NcpDiagnosisPage({
   const [domainFilter, setDomainFilter] = useState<"ALL" | "NI" | "NC" | "NB">("ALL");
   const [builder, setBuilder] = useState<BuilderState>(defaultBuilder());
   const [aiSuggestions, setAiSuggestions] = useState<AiSuggestion[]>([]);
+  const [aiDraftsPage, setAiDraftsPage] = useState(1);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiMeta, setAiMeta] = useState<PesDraftMeta | null>(null);
   const [aiUnavailable, setAiUnavailable] = useState<string | null>(null);
@@ -453,6 +463,7 @@ export default function NcpDiagnosisPage({
       setAiUnavailable(null);
       const result = await aiSuggestDiagnoses(ncpId);
       setAiSuggestions(result.data);
+      setAiDraftsPage(1);
       setAiMeta(result.meta);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "External AI drafts are unavailable.";
@@ -480,6 +491,7 @@ export default function NcpDiagnosisPage({
         setDiagnosesPage(1);
       }
       setAiSuggestions(prev => prev.filter(draft => draft.candidate_id !== s.candidate_id));
+      setAiDraftsPage(1);
       setSuccess("PES draft accepted and saved.");
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: unknown) {
@@ -493,6 +505,7 @@ export default function NcpDiagnosisPage({
       setError(null);
       const result = await dismissPesSuggestion(ncpId, s.candidate_id);
       setAiSuggestions(result.data);
+      setAiDraftsPage(1);
       setAiMeta(result.meta);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to dismiss PES draft.");
@@ -510,6 +523,11 @@ export default function NcpDiagnosisPage({
     b.etiologyNotes = etiology.notes;
     b.signChecks = signs.checks;
     b.signNotes = signs.notes;
+    const candidateSelections = candidateBuilderSelections(s.candidate_id);
+    if (candidateSelections) {
+      if (!b.etiologyChecks.includes(candidateSelections.etiology)) b.etiologyChecks.push(candidateSelections.etiology);
+      if (!b.signChecks.includes(candidateSelections.sign)) b.signChecks.push(candidateSelections.sign);
+    }
     b.pesOverride = `${s.label} related to ${s.etiology} as evidenced by ${s.signs}`;
     b.problemOverride = s.label;
     if (s.domain === "NI") {
@@ -537,11 +555,7 @@ export default function NcpDiagnosisPage({
   if (isPlaceholder) {
     return (
       <div className="space-y-6 font-sans">
-        <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
-          <Link href="/ncp/patients" className="hover:text-emerald-700 transition-colors">Directory</Link>
-          <ChevronRight className="h-3 w-3" />
-          <span className="text-warm-600 font-bold">Diagnosis</span>
-        </div>
+        <NcpBreadcrumb step="Nutrition Diagnosis" />
         <div className="bg-white border border-warm-200 rounded-2xl p-12 text-center max-w-2xl mx-auto shadow-sm">
           <div className="p-3.5 bg-warm-50 border border-warm-200 rounded-2xl w-fit mx-auto text-warm-400">
             <User className="h-8 w-8" />
@@ -559,9 +573,7 @@ export default function NcpDiagnosisPage({
   if (loading) {
     return (
       <div className="space-y-6 font-sans">
-        <div className="flex items-center gap-2 text-sm font-semibold text-warm-400">
-          <span>Directory</span><ChevronRight className="h-3 w-3" /><span>Loading...</span>
-        </div>
+        <NcpBreadcrumb step="Nutrition Diagnosis" />
         <div className="space-y-4">{[1, 2, 3].map(i => <div key={i} className="h-16 bg-warm-100 rounded-xl animate-pulse" />)}</div>
       </div>
     );
@@ -570,11 +582,7 @@ export default function NcpDiagnosisPage({
   if (!hasAssessment) {
     return (
       <div className="space-y-6 font-sans">
-        <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
-          <Link href="/ncp/patients" className="hover:text-emerald-700 transition-colors">Directory</Link>
-          <ChevronRight className="h-3 w-3" />
-          <span className="text-warm-600 font-bold">Diagnosis</span>
-        </div>
+        <NcpBreadcrumb step="Nutrition Diagnosis" />
         <div className="bg-white border border-warm-200 rounded-2xl p-12 text-center max-w-2xl mx-auto shadow-sm">
           <div className="p-3.5 bg-warm-50 border border-warm-200 rounded-2xl w-fit mx-auto text-warm-400">
             <Lock className="h-8 w-8" />
@@ -591,7 +599,6 @@ export default function NcpDiagnosisPage({
     );
   }
 
-  const systemId = patient ? `NS-${String(patient.id).padStart(5, "0")}` : "";
   const filteredDiagnoses = domainFilter === "ALL" ? diagnoses : diagnoses.filter(d => d.domain === domainFilter);
   const TABS: { key: TabKey; label: string }[] = [
     { key: "table", label: "Diagnosis Table" },
@@ -1003,8 +1010,7 @@ export default function NcpDiagnosisPage({
     <div className="space-y-5">
       <div className="bg-white border border-warm-200 rounded-2xl p-5">
         <div className="mb-2 flex items-center gap-1 text-sm font-bold uppercase tracking-wider text-emerald-600">
-          <Sparkles className="h-4 w-4" />
-          <span>Assessment-based PES drafts</span>
+          <span>AI Suggestions</span>
           <InfoHint label="How PES drafts work" title="How PES drafts work">
             Uses only eligible, de-identified Assessment evidence. Review before saving; manual PES entry remains available.
           </InfoHint>
@@ -1017,7 +1023,7 @@ export default function NcpDiagnosisPage({
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-warm-300 text-white text-xs font-extrabold uppercase tracking-wider rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed"
           >
             {aiLoading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-            {aiLoading ? "Checking Assessment..." : "Load PES drafts"}
+            {aiLoading ? "Generating suggestions..." : "Generate AI Suggestions"}
           </button>
         )}
         {aiMeta?.cached && (
@@ -1037,12 +1043,14 @@ export default function NcpDiagnosisPage({
         </div>
       )}
 
-      {aiSuggestions.length > 0 && (
+      {aiSuggestions.length > 0 && (() => {
+        const { items: visibleAiDrafts, meta: aiDraftsMeta } = paginateAiDrafts(aiSuggestions, aiDraftsPage);
+        return (
         <div className="space-y-3">
           <h4 className="text-xs font-extrabold text-warm-700 uppercase tracking-wider">
             PES drafts ({aiSuggestions.length} pending)
           </h4>
-          {aiSuggestions.slice(0, 3).map(s => {
+          {visibleAiDrafts.map(s => {
             const pes = `${s.label} related to ${s.etiology} as evidenced by ${s.signs}`;
             return (
               <div key={s.candidate_id} className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm space-y-3">
@@ -1101,8 +1109,10 @@ export default function NcpDiagnosisPage({
               </div>
             );
           })}
+          <Pagination meta={aiDraftsMeta} page={aiDraftsMeta.current_page} onPageChange={setAiDraftsPage} />
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 
@@ -1120,15 +1130,7 @@ export default function NcpDiagnosisPage({
   return (
     <div className="space-y-4 font-sans">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-1.5 text-sm font-semibold text-warm-400 select-none">
-        <Link href="/ncp/patients" className="hover:text-emerald-700 transition-colors">Directory</Link>
-        <ChevronRight className="h-3 w-3" />
-        <Link href={`/ncp/patients/${patientId}`} className="hover:text-emerald-700 transition-colors">
-          {personDisplayName(patient, systemId)}
-        </Link>
-        <ChevronRight className="h-3 w-3" />
-        <span className="text-warm-700 font-bold">Diagnosis</span>
-      </div>
+      <NcpBreadcrumb step="Nutrition Diagnosis" />
 
       <NcpPatientHeader
         patient={patient}

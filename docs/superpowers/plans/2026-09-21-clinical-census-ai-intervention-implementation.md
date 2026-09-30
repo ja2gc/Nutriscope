@@ -492,7 +492,7 @@ Evidence builder excludes name/code/hospital number/address/physician/attachment
 
 - [ ] **Step 6: Simplify UI**
 
-Rename to `Assessment-based PES drafts`. Remove numeric confidence and endless Generate behavior. Show at most three cards with concise Evidence used and Source, plus Edit/Accept/Dismiss. Show cached state, refresh only after Assessment changed, successful zero-result message, and short external-AI-unavailable message while manual PES stays present.
+Keep the existing **AI Review** tab, **AI Suggestions** panel title, and **Generate AI Suggestions** action. Remove numeric confidence and endless Generate behavior. Show at most three cards, paginated two per page, with concise Evidence used and Source, plus Edit/Accept/Dismiss. Editing selects the mapped structured checkboxes and preserves only unmatched detail in notes. Show cached state, refresh only after Assessment changed, successful zero-result message, and short external-AI-unavailable message while manual PES stays present. This owner override changes visible naming only; the bounded Assessment-based pipeline remains authoritative.
 
 - [ ] **Step 7: Run focused backend/frontend tests and commit**
 

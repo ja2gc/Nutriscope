@@ -7,8 +7,7 @@
                 <p class="center bold" style="color:#9a3412; border:1px solid #fdba74; padding:6px;">DRAFT / INCOMPLETE - receiving is not finished</p>
             @endif
             {{-- ===== Page 1: Acceptance & Inspection Report ===== --}}
-            <div class="title">ACCEPTANCE AND INSPECTION REPORT</div>
-            <div class="subtitle">{{ $branding->province }}<br>{{ $branding->lgu ?: 'LGU' }}</div>
+            @include('reports.partials.letterhead', ['title' => 'ACCEPTANCE AND INSPECTION REPORT'])
 
         <table style="border:0; margin-bottom:4px;" class="meta">
             <tr>

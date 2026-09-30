@@ -320,7 +320,13 @@ class ReportController extends Controller
         $this->guardAdmin($report->type);
         $this->guardFss($report->type);
 
-        if ($officialFile = $report->officialFile) {
+        $diskName = 'report_cache';
+        $path = $report->cache_path;
+        $cacheUsable = $path
+            && $report->cache_expires_at?->isFuture()
+            && Storage::disk($diskName)->exists($path);
+
+        if (! $cacheUsable && ($officialFile = $report->officialFile)) {
             if (! Storage::disk($officialFile->storage_disk)->exists($officialFile->object_key)) {
                 return response()->json(['message' => 'The filed report is unavailable.', 'code' => 'official_file_unavailable'], 409);
             }
@@ -333,11 +339,6 @@ class ReportController extends Controller
             );
         }
 
-        $diskName = 'report_cache';
-        $path = $report->cache_path;
-        $cacheUsable = $path
-            && $report->cache_expires_at?->isFuture()
-            && Storage::disk($diskName)->exists($path);
         if (! $cacheUsable && $report->file_path && Storage::disk('public')->exists($report->file_path)) {
             [$diskName, $path, $cacheUsable] = ['public', $report->file_path, true];
         }
@@ -370,7 +371,13 @@ class ReportController extends Controller
         $this->guardAdmin($report->type);
         $this->guardFss($report->type);
 
-        if ($officialFile = $report->officialFile) {
+        $diskName = 'report_cache';
+        $path = $report->cache_path;
+        $cacheUsable = $path
+            && $report->cache_expires_at?->isFuture()
+            && Storage::disk($diskName)->exists($path);
+
+        if (! $cacheUsable && ($officialFile = $report->officialFile)) {
             if (! Storage::disk($officialFile->storage_disk)->exists($officialFile->object_key)) {
                 return response()->json(['message' => 'The filed report is unavailable.', 'code' => 'official_file_unavailable'], 409);
             }
@@ -387,11 +394,6 @@ class ReportController extends Controller
             );
         }
 
-        $diskName = 'report_cache';
-        $path = $report->cache_path;
-        $cacheUsable = $path
-            && $report->cache_expires_at?->isFuture()
-            && Storage::disk($diskName)->exists($path);
         if (! $cacheUsable && $report->file_path && Storage::disk('public')->exists($report->file_path)) {
             [$diskName, $path, $cacheUsable] = ['public', $report->file_path, true];
         }

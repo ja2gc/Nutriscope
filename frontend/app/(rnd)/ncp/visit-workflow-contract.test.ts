@@ -24,7 +24,8 @@ describe("NCP visit workflow", () => {
     expect(bar).toContain("Schedule Next");
     expect(bar).toContain("<Popover");
     expect(bar).toContain("MoreHorizontal");
-    expect(bar).toContain('scope: "upcoming"');
+    expect(bar).not.toContain("Start Scheduled Visit");
+    expect(bar).not.toContain('scope: "upcoming"');
     expect(bar).toContain('...(source === "walk_in" ? { ncp_record_id: ncpId } : {})');
   });
 
@@ -38,6 +39,7 @@ describe("NCP visit workflow", () => {
     expect(appointments).toContain("Upcoming Appointments");
     expect(appointments).toContain("Past Appointments");
     expect(appointments).toContain("Administered by:");
+    expect(appointments).toContain("isOverdue(item)");
     expect(dashboard).toContain("Open NCP");
   });
 });

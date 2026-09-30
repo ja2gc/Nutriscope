@@ -269,7 +269,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Diagnosis & Intervention",
     question: "Can AI create a diagnosis automatically?",
-    answer: "Assessment-based PES drafts use source-backed rules to return zero to three reviewable options; they never save a diagnosis automatically. Edit selects matching Problem, Etiology, and Signs options or checkboxes and keeps only unmatched detail in notes. Accept, edit, dismiss, or use the manual builder; the RND remains responsible for the final record.",
+    answer: "AI Review uses source-backed rules to return zero to three AI Suggestions, paginated two per page; it never saves a diagnosis automatically. Edit selects matching Problem, Etiology, and Signs options or checkboxes and keeps only unmatched detail in notes. Accept, edit, dismiss, or use the manual builder; the RND remains responsible for the final record.",
     keywords: ["suggestion", "accept", "edit", "checkbox", "dismiss", "manual", "review"],
   },
   {
@@ -277,7 +277,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Diagnosis & Intervention",
     question: "What happens when I set an intervention goal?",
-    answer: "The selected goal reveals only its applicable stages. Review the backend-calculated baseline, any maternal modifier, and final prescription before saving. Fluid remains separate daily guidance and is not a meal-scaling target.",
+    answer: "The selected goal reveals only its applicable stages. Review the backend-calculated baseline, any maternal modifier, and final prescription before saving. Fluid remains outside meal scaling; the selected menu day separately shows approximate fluid from foods and remaining drink guidance.",
     keywords: ["Save Goal", "prescription", "objective"],
   },
   {

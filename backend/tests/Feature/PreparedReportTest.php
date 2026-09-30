@@ -137,4 +137,37 @@ class PreparedReportTest extends TestCase
         $this->assertSame($bytes, $view->streamedContent());
         $this->assertSame($bytes, $download->streamedContent());
     }
+
+    #[Test]
+    public function valid_local_cache_is_streamed_before_the_remote_official_file(): void
+    {
+        Storage::fake('private_uploads');
+        Storage::fake('report_cache');
+        $actor = User::factory()->rnd()->create();
+        $officialBytes = "%PDF-1.4\nremote\n%%EOF";
+        $localBytes = "%PDF-1.4\nlocal\n%%EOF";
+        $official = app(StoredObjectStorage::class)->storeBytes(
+            $officialBytes,
+            'application/pdf',
+            'pdf',
+            'report',
+            'frozen.pdf',
+        );
+        $report = Report::factory()->create([
+            'user_id' => $actor->id,
+            'type' => 'procurement_pack',
+            'status' => 'completed',
+            'official_file_stored_object_id' => $official->id,
+            'cache_path' => 'reports/local.pdf',
+            'cache_expires_at' => now()->addHour(),
+            'content_hash' => $official->sha256,
+        ]);
+        Storage::disk('report_cache')->put($report->cache_path, $localBytes);
+
+        $view = $this->actingAs($actor, 'sanctum')->get("/api/rnd/reports/{$report->uuid}/view");
+        $download = $this->get("/api/rnd/reports/{$report->uuid}/download");
+
+        $this->assertSame($localBytes, $view->streamedContent());
+        $this->assertSame($localBytes, $download->streamedContent());
+    }
 }

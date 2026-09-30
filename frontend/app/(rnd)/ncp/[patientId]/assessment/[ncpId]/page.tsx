@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   ClipboardCheck, Utensils, Ruler, UserRound, FlaskConical,
   FileText, Sparkles, Save, Upload, AlertTriangle,
-  ChevronRight, Activity, Paperclip, Trash2, Download, Eye, X,
+  Activity, Paperclip, Trash2, Download, Eye, X,
   Shield, Scale, RotateCcw,
 } from "lucide-react";
 import { fetchPatientById, Patient, updatePatient, PatientUpdateData } from "@/services/patientService";
@@ -16,7 +16,7 @@ import {
 import { CALCULATION_INPUT_HELPERS } from "@/lib/assessmentCalculationInputs";
 import { getAnthropometricSafetyWarning } from "@/lib/anthropometricSafety";
 import { formatDateInputValue, formatPatientAge } from "@/lib/patientAge";
-import { changedPersonNameFields, personDisplayName } from "@/lib/personName";
+import { changedPersonNameFields } from "@/lib/personName";
 import {
   Assessment, AssessmentValidationError, fetchAssessment, saveAssessment,
   AttachmentRecord, uploadAttachment, fetchAttachments, deleteAttachment,
@@ -31,6 +31,7 @@ import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { DatePicker, DateTimePicker } from "@/components/ui/DatePicker";
 import { FittedImageFrame } from "@/components/ui/ImageUploadGallery";
 import { InfoHint } from "@/components/ui/InfoHint";
+import { NcpBreadcrumb } from "@/components/ncp/NcpBreadcrumb";
 
 // ─── Constants ───────────────────────────────────────────────────────────
 const COMMON_ALLERGENS = ["milk", "eggs", "fish", "shellfish", "tree nuts", "peanuts", "wheat", "soybeans"];
@@ -1076,11 +1077,7 @@ export default function NcpAssessmentPage({
   if (isPlaceholder) {
     return (
       <div className="space-y-6 font-sans">
-        <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
-          <Link href="/ncp/patients" className="hover:text-emerald-700 transition-colors">Directory</Link>
-          <ChevronRight className="h-3 w-3" />
-          <span className="text-warm-600 font-bold">Assessment</span>
-        </div>
+        <NcpBreadcrumb step="Nutrition Assessment" />
         <div className="bg-white border border-warm-200 rounded-2xl p-12 text-center max-w-2xl mx-auto shadow-sm">
           <ClipboardCheck className="h-8 w-8 text-warm-300 mx-auto mb-4" />
           <h3 className="text-base font-bold text-warm-800">No Patient Selected</h3>
@@ -1096,9 +1093,7 @@ export default function NcpAssessmentPage({
   if (loading) {
     return (
       <div className="space-y-6 font-sans">
-        <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
-          <span>Directory</span><ChevronRight className="h-3 w-3" /><span>Loading...</span>
-        </div>
+        <NcpBreadcrumb step="Nutrition Assessment" />
         <div className="space-y-4">
           {[1, 2, 3].map(i => <div key={i} className="h-16 bg-warm-100 rounded-xl animate-pulse" />)}
         </div>
@@ -1106,7 +1101,6 @@ export default function NcpAssessmentPage({
     );
   }
 
-  const systemId = patient ? `NS-${String(patient.id).padStart(5, "0")}` : "";
   const allergies = assessment.allergies ?? [];
 
   // ─── Tab Renderers ──────────────────────────────────────────────────
@@ -1877,13 +1871,7 @@ export default function NcpAssessmentPage({
   return (
     <div className="space-y-4 font-sans">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-1.5 text-sm font-semibold text-warm-400 select-none">
-        <Link href="/ncp/patients" className="hover:text-emerald-700 transition-colors">Directory</Link>
-        <ChevronRight className="h-3 w-3" />
-        <Link href={`/ncp/patients/${patientId}`} className="hover:text-emerald-700 transition-colors">{personDisplayName(patient, systemId)}</Link>
-        <ChevronRight className="h-3 w-3" />
-        <span className="text-warm-700 font-bold">Assessment</span>
-      </div>
+      <NcpBreadcrumb step="Nutrition Assessment" />
 
       <NcpPatientHeader
         patient={patient}

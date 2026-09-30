@@ -33,7 +33,7 @@ flowchart TD
 
     K --> L["Build Problem, Etiology, Signs/Symptoms"]
     L --> M["Review editable PES statement"]
-    K --> N["Optional Assessment-based PES drafts<br/>0..3 deterministic candidates"]
+    K --> N["Optional AI Review<br/>0..3 source-backed suggestions"]
     N --> N1["Evidence + verified source shown"]
     N1 --> O["Accept, edit, or dismiss<br/>matching options rehydrate as selections"]
     O --> M

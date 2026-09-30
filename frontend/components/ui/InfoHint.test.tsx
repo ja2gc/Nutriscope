@@ -22,7 +22,7 @@ describe("InfoHint", () => {
     document.body.innerHTML = "";
   });
 
-  test("opens useful guidance and dismisses it with Escape", async () => {
+  test("opens useful guidance on hover without adding a square hover surface", async () => {
     await act(async () => root.render(
       <InfoHint label="How AI token costs are calculated" title="How cost is calculated">
         Input tokens ÷ 1,000,000 × configured input rate.
@@ -32,7 +32,9 @@ describe("InfoHint", () => {
     const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="How AI token costs are calculated"]');
     expect(trigger).not.toBeNull();
 
-    await act(async () => trigger?.click());
+    expect(trigger?.className).not.toContain("hover:bg-");
+
+    await act(async () => trigger?.dispatchEvent(new MouseEvent("pointerover", { bubbles: true })));
     expect(document.body.textContent).toContain("Input tokens ÷ 1,000,000 × configured input rate.");
 
     await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));

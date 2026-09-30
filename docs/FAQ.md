@@ -166,11 +166,11 @@ Open Diagnosis, choose **Add New Diagnosis**, then build Problem, Etiology, and 
 
 ### Can AI create a diagnosis automatically?
 
-No. **Assessment-based PES drafts** first use deterministic, source-backed rules to find zero to three candidates, then let the provider word only the supplied candidate and compact de-identified evidence. Each card shows **Evidence used** and **Source**. Unchanged evidence reuses the cached validated result; changing Assessment evidence permits a fresh result, and dismissed candidates stay hidden for that version. The feature has no demo-patient marker or demo-only gate. RND must accept or edit a draft before the existing Save Diagnosis action persists it. A zero-result or provider failure leaves the manual P/E/S builder fully usable.
+No. Open **AI Review** and choose **Generate AI Suggestions**. Deterministic, source-backed rules first find zero to three candidates, displayed two per page, then let the provider word only the supplied candidate and compact de-identified evidence. Each card shows **Evidence used** and **Source**. Edit selects matching structured choices and leaves unmatched detail in notes. Unchanged evidence reuses the cached validated result; changing Assessment evidence permits a fresh result, and dismissed candidates stay hidden for that version. The feature has no demo-patient marker or demo-only gate. RND must accept or edit a draft before the existing Save Diagnosis action persists it. A zero-result or provider failure leaves the manual P/E/S builder fully usable.
 
 ### What happens when I set an intervention goal?
 
-The application progressively reveals only that goal's applicable stages, asks the backend calculation service for prescription values, and lets RND review or edit targets before saving. The calculation panel shows the goal-calculated baseline, any maternal modifier, and the final energy/protein prescription. If required Assessment inputs are missing—or a legacy pregnancy value lacks a confirmed trimester—calculation warnings identify the problem. Fluid is displayed as daily guidance, not as a food-scaling target.
+The application progressively reveals only that goal's applicable stages, asks the backend calculation service for prescription values, and lets RND review or edit targets before saving. The calculation panel shows the goal-calculated baseline, any maternal modifier, and the final energy/protein prescription. If required Assessment inputs are missing—or a legacy pregnancy value lacks a confirmed trimester—calculation warnings identify the problem. Fluid is displayed separately from food scaling; the selected menu day shows approximate fluid from foods and the remaining drink guidance.
 
 ### What is included in Intervention?
 

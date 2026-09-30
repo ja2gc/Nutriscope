@@ -13,6 +13,7 @@ describe("NCP explicit save and diagnosis UX", () => {
     expect(page).toContain("matchStoredOption(s.label");
     expect(page).toContain("> Edit");
     expect(page).not.toContain("Edit then Accept");
+    expect(page).toContain("candidateBuilderSelections(s.candidate_id)");
   });
 
   test("PES previews use light readable surfaces", () => {
@@ -22,7 +23,7 @@ describe("NCP explicit save and diagnosis UX", () => {
   });
 
   test("uses bounded assessment-based drafts with sources, evidence, cache, and persisted dismissal", () => {
-    expect(page).toContain("Assessment-based PES drafts");
+    expect(page).toContain("AI Suggestions");
     expect(page).toContain("<InfoHint");
     expect(page).toContain("How PES drafts work");
     expect(page).toContain("Evidence used");
@@ -32,7 +33,10 @@ describe("NCP explicit save and diagnosis UX", () => {
     expect(page).toContain("External AI drafts are unavailable");
     expect(page).toContain("dismissPesSuggestion");
     expect(page).toContain("> Dismiss");
-    expect(page).not.toContain("Generate AI Suggestions");
+    expect(page).toContain("Generate AI Suggestions");
+    expect(page).not.toContain('<Sparkles className="h-4 w-4" />');
+    expect(page).toContain("paginateAiDrafts(aiSuggestions, aiDraftsPage)");
+    expect(page).toContain("meta={aiDraftsMeta}");
     expect(page).not.toContain("% confidence");
     expect(page).not.toContain("conditions.push");
     expect(page).not.toContain("aiSuggestDiagnoses(ncpId, {");

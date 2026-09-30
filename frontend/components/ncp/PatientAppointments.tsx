@@ -17,6 +17,15 @@ function reasonLabel(value: string | null) {
   return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function isOverdue(item: NcpAppointment): boolean {
+  if (item.source !== "scheduled" || item.status !== "scheduled" || item.scheduled_at === null) return false;
+  const scheduledDate = new Date(item.scheduled_at);
+  const today = new Date();
+  scheduledDate.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+  return scheduledDate < today;
+}
+
 type CycleScope = "all" | "current" | "past" | "unassigned";
 type PendingAction = { id: string; action: "cancel" | "reschedule" | "no_show" } | null;
 
@@ -115,7 +124,7 @@ export function PatientAppointments({
             {item.worked_on.length > 0 && <p className="mt-1 text-xs text-warm-500">Work recorded: {item.worked_on.join(", ")}</p>}
           </div>
           {item.status === "scheduled" && <div className="flex items-center gap-2">
-            <button disabled={busy === item.id || !currentNcpId} onClick={() => void act(item, "start")} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">Start Visit</button>
+            <button disabled={busy === item.id || !currentNcpId || isOverdue(item)} onClick={() => void act(item, "start")} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">Start Visit</button>
             <Popover>
               <PopoverTrigger asChild><button type="button" aria-label="More appointment actions" className="rounded-lg border border-warm-200 p-2 text-warm-600"><MoreHorizontal className="h-4 w-4" /></button></PopoverTrigger>
               <PopoverContent align="end" className="w-44 space-y-1 p-2">

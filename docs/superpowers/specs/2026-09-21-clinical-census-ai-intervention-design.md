@@ -218,15 +218,15 @@ Remove `water`/`fluid_ml` from:
 - scaling score and variance calculations;
 - frontend target-match tracker used to judge whether a meal plan meets prescription.
 
-Food and recipe water values may remain stored for nutrition metadata. They must not influence scaling. Display fluid separately as `Daily fluid guidance` with clear wording that it includes beverages and is not guaranteed by the listed foods.
+Food and recipe water values remain nutrition metadata and must not influence generation, scaling, variance, or target-match status. Display fluid separately as `Daily fluid guidance`. For the selected day, show the approximate fluid represented by saved food-water values and the nonnegative remaining drink guidance against the RND-prescribed target or limit. Missing food-water data contributes zero and the UI must not claim that food generation optimized or guaranteed fluid compliance.
 
-For restricted-fluid goals, display the RND-prescribed limit prominently. Detailed accounting of water contained in every food is deferred; do not claim the generated plan satisfies that limit.
+For restricted-fluid goals, display the RND-prescribed limit prominently and keep the calculation informational for RND review.
 
 ## 5. Source-gated PES drafting assistant
 
 ### Product boundary
 
-Replace broad free-form diagnosis generation with an `Assessment-based PES drafts` assistant. It proposes drafts; it does not diagnose autonomously. Manual PES builder remains available for all supported terms.
+Replace broad free-form diagnosis generation with a bounded assistant shown under the existing **AI Review** tab, with **AI Suggestions** as the panel title and **Generate AI Suggestions** as its action. It proposes PES drafts; it does not diagnose autonomously. Manual PES builder remains available for all supported terms. These owner-approved visible labels override the earlier `Assessment-based PES drafts` label without changing the bounded evidence/source contract.
 
 The Academy's `Nutrition Diagnosis` and `Critical Thinking in Nutrition Diagnosis` sections
 describe a PES statement as a problem the RND can address, an addressable root cause, and specific

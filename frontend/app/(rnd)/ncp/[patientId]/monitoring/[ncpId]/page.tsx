@@ -25,6 +25,7 @@ import { fetchDiagnoses } from "@/services/diagnosisService";
 import { fetchPatientById, type Patient } from "@/services/patientService";
 import NcpPatientHeader from "../../../_components/NcpPatientHeader";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
+import { NcpBreadcrumb } from "@/components/ncp/NcpBreadcrumb";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -54,15 +55,7 @@ function formatCycleDate(value: string | null | undefined): string {
 // ─── Breadcrumb ───────────────────────────────────────────────────────────────
 
 function Breadcrumb() {
-  return (
-    <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none flex-wrap">
-      <Link href="/ncp/patients" className="hover:text-emerald-700 transition-colors">
-        Directory
-      </Link>
-      <span className="text-warm-300">/</span>
-      <span className="font-bold text-warm-600">Monitoring & Evaluation</span>
-    </div>
-  );
+  return <NcpBreadcrumb step="Monitoring & Evaluation" />;
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
