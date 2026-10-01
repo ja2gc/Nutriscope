@@ -54,6 +54,20 @@ class MealPlanItemControllerTest extends TestCase
             ->assertJsonCount(3, 'data');
     }
 
+    public function test_index_lists_items_for_an_older_intervention_plan_in_the_same_ncp(): void
+    {
+        $ctx = $this->setupPlan();
+        MealPlanItem::factory()->create(['meal_plan_day_id' => $ctx['day']->id]);
+
+        // A later plan must not make the older saved plan disappear from history.
+        Intervention::factory()->create(['ncp_record_id' => $ctx['ncp']->id]);
+
+        $this->actingAs($ctx['rnd'])
+            ->getJson($this->url($ctx))
+            ->assertOk()
+            ->assertJsonCount(1, 'data');
+    }
+
     public function test_store_with_library_food_populates_snapshot(): void
     {
         $ctx = $this->setupPlan();

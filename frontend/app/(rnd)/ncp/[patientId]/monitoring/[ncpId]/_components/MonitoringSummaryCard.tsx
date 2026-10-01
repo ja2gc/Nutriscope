@@ -207,8 +207,8 @@ export default function MonitoringSummaryCard({ ncpId, visitCount }: Props) {
         )}
         {aiNarrative && (
           <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
-            <p className="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-1 flex items-center gap-1">
-              <Sparkles className="h-3 w-3" /> AI Clinical Review {aiCached && <span className="text-warm-400 font-normal normal-case">· cached</span>}
+            <p className="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-1">
+              AI Clinical Review {aiCached && <span className="text-warm-400 font-normal normal-case">· cached</span>}
             </p>
             <p className="text-xs text-warm-700 leading-relaxed">{aiNarrative}</p>
             <button onClick={runAiReview} disabled={aiLoading}

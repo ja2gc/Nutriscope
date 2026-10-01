@@ -4,7 +4,7 @@ import { ALL_MICROS, microKeys } from "@/lib/nutritionCalculations";
 import MicronutrientToggle from "./MicronutrientToggle";
 import NumericInput from "@/components/ui/NumericInput";
 import { AlertTriangle, X, Lock } from "lucide-react";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import type { CalculationTrace } from "@/lib/prescriptionCalculationTrace";
 import PrescriptionCalculationPanel from "./PrescriptionCalculationPanel";
 
@@ -117,19 +117,25 @@ export default function NutritionPrescriptionForm({
               const micro    = ALL_MICROS.find((m) => m.key === key);
               const limits   = values.micronutrient_limits[key] ?? {};
               const required = requiredMicros.includes(key);
+              const limitFields: Array<"min" | "max"> = limits.min != null && limits.max != null
+                ? ["min", "max"]
+                : [limits.min != null ? "min" : "max"];
               return (
                 <div key={key} className="flex items-center gap-2 p-2.5 bg-warm-50 border border-warm-200 rounded-xl">
                   <span className="text-xs font-semibold text-warm-700 w-24 flex-shrink-0 flex items-center gap-1">
                     {micro?.label ?? key}
                   </span>
                   <div className="flex items-center gap-1 flex-1">
-                    <span className="text-xs text-warm-400">max</span>
-                    <input type="number" min="0" step="0.1"
-                      value={limits.max ?? ""}
-                      onChange={(e) => setMicroLimit(key, "max", e.target.value)}
-                      disabled={readOnly}
-                      className="w-16 px-2 py-1 text-sm font-mono border border-warm-200 rounded-lg focus:outline-none focus:border-emerald-500 disabled:bg-warm-50"
-                    />
+                    {limitFields.map((field) => <Fragment key={field}>
+                      <span className="text-xs text-warm-400">{field}</span>
+                      <input type="number" min="0" step="0.1"
+                        value={limits[field] ?? ""}
+                        onChange={(e) => setMicroLimit(key, field, e.target.value)}
+                        disabled={readOnly}
+                        aria-label={`${micro?.label ?? key} ${field}`}
+                        className="w-16 px-2 py-1 text-sm font-mono border border-warm-200 rounded-lg focus:outline-none focus:border-emerald-500 disabled:bg-warm-50"
+                      />
+                    </Fragment>)}
                     <span className="text-xs text-warm-400">{micro?.unit}</span>
                   </div>
                   {readOnly ? null : required ? (

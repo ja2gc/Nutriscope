@@ -38,7 +38,7 @@ class ReportPaperSizeTest extends TestCase
         }
     }
 
-    public function test_demographic_census_pdf_omits_ward_and_uses_three_equal_breakdowns(): void
+    public function test_demographic_census_pdf_omits_ward_diagnosis_and_nutritional_status_breakdowns(): void
     {
         $census = [
             'total' => 1,
@@ -71,10 +71,11 @@ class ReportPaperSizeTest extends TestCase
         $breakdownCells = $xpath->query('//table[contains(concat(" ", normalize-space(@class), " "), " census-breakdowns ")]/tr[1]/td');
 
         $this->assertStringNotContainsString('By Ward', $html);
-        $this->assertCount(3, $breakdownCells);
-        foreach ($breakdownCells as $cell) {
-            $this->assertSame('33.33%', $cell->getAttribute('width'));
-        }
+        $this->assertStringNotContainsString('By Primary Diagnosis Category', $html);
+        $this->assertStringNotContainsString('By Nutritional Status', $html);
+        $this->assertStringContainsString('By Risk Level', $html);
+        $this->assertCount(1, $breakdownCells);
+        $this->assertSame('100%', $breakdownCells->item(0)->getAttribute('width'));
     }
 
     public function test_long_bond_css_preserves_landscape_media_box(): void
@@ -99,6 +100,7 @@ class ReportPaperSizeTest extends TestCase
         $this->assertStringContainsString('word-wrap: break-word', $layout);
         $this->assertStringContainsString('class="report-page page-start"', $procurement);
         $this->assertStringContainsString('<div class="page-start" style="height:1px; font-size:1px; line-height:1px;">&nbsp;</div>', $procurement);
+        $this->assertStringNotContainsString("report-page{{ \$i > 0 ? ' page-start' : '' }}", $procurement);
     }
 
     public function test_procurement_pack_first_page_uses_the_shared_hospital_letterhead(): void
@@ -139,5 +141,14 @@ class ReportPaperSizeTest extends TestCase
         $this->assertNotFalse($firstTitle);
         $this->assertNotFalse($firstHospitalName);
         $this->assertLessThan($firstTitle, $firstHospitalName);
+    }
+
+    public function test_shared_letterhead_is_a_block_that_dompdf_keeps_on_dense_first_pages(): void
+    {
+        $letterhead = file_get_contents(resource_path('views/reports/partials/letterhead.blade.php'));
+
+        $this->assertStringContainsString('class="report-letterhead"', $letterhead);
+        $this->assertStringNotContainsString('<table style="width:100%; border:0;">', $letterhead);
+        $this->assertStringNotContainsString('page-break-inside:avoid', $letterhead);
     }
 }

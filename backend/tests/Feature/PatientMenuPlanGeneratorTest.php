@@ -522,7 +522,39 @@ class PatientMenuPlanGeneratorTest extends TestCase
         $this->assertStringContainsString('Sodium: max 2,000 mg', $plainText);
         $this->assertStringContainsString('Fiber: min 25 g', $plainText);
         $this->assertStringContainsString('Fluid guidance: 2,000 mL', $plainText);
-        $this->assertStringContainsString('Fluid guidance is informational', $plainText);
+        $this->assertStringContainsString('Fluid from foods:', $plainText);
+        $this->assertStringContainsString('Remaining drink guidance:', $plainText);
+        $this->assertStringContainsString('Fluid is excluded from automatic food scaling', $plainText);
+        $this->assertStringNotContainsString('not counted as satisfied by foods', $plainText);
+    }
+
+    public function test_report_calculates_average_food_fluid_and_remaining_drink_guidance(): void
+    {
+        $plan = $this->makePlan();
+        $day = MealPlanDay::create([
+            'meal_plan_id' => $plan->id,
+            'day_of_week' => 'Monday',
+            'meal_type' => 'breakfast',
+        ]);
+        MealPlanItem::factory()->create([
+            'meal_plan_day_id' => $day->id,
+            'quantity' => 200,
+            'unit' => 'g',
+            'nutrient_snapshot' => [
+                'name' => 'Water-rich food',
+                'serving_size' => 100,
+                'serving_unit' => 'g',
+                'water_g' => 80,
+            ],
+        ]);
+
+        $data = app(PatientMenuPlanGenerator::class)->data(new Report([
+            'type' => 'patient_menu_plan',
+            'parameters' => ['meal_plan_id' => $plan->id],
+        ]));
+
+        $this->assertSame(23.0, $data['fluid_balance']['food_fluid_ml']);
+        $this->assertSame(1977.0, $data['fluid_balance']['remaining_ml']);
     }
 
     public function test_weekly_meal_plan_precedes_intervention_guidance_without_a_forced_early_break(): void

@@ -26,7 +26,11 @@
             @if(isset($limit['max']))max {{ number_format($limit['max']) }}@endif
             {{ $limit['unit'] ?? '' }}
         @endforeach
-        <div class="muted" style="margin-top:2px;">Fluid guidance is informational and is not counted as satisfied by foods in this menu.</div>
+        <div class="muted" style="margin-top:2px;">
+            Fluid from foods: {{ number_format($fluid_balance['food_fluid_ml']) }} mL/day average ·
+            Remaining drink guidance: {{ number_format($fluid_balance['remaining_ml']) }} mL/day.
+            Fluid is excluded from automatic food scaling.
+        </div>
         @if($maternal_note)
             <div class="muted" style="margin-top:2px;">{{ $maternal_note }}</div>
         @endif

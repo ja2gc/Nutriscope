@@ -13,6 +13,7 @@ use App\Models\FoodServiceSetting;
 use App\Models\MealPrepLog;
 use App\Models\MenuCycle;
 use App\Models\MenuCycleTemplate;
+use App\Models\Monitoring;
 use App\Models\NcpAppointment;
 use App\Models\NcpRecord;
 use App\Models\Notification;
@@ -143,6 +144,25 @@ class DemoSeederCurrentContractTest extends TestCase
                     );
                 }
             }
+        }
+
+        $monitorings = Monitoring::query()->orderBy('id')->get();
+        $this->assertCount(3, $monitorings);
+        foreach ($monitorings as $monitoring) {
+            $this->assertNotNull($monitoring->observed_at);
+            $this->assertContains($monitoring->visit_type, [
+                'scheduled_follow_up',
+                'inpatient_review',
+                'discharge_review',
+                'unscheduled_follow_up',
+            ]);
+            $this->assertGreaterThan(0, (float) $monitoring->weight);
+            $this->assertGreaterThan(0, (float) $monitoring->height);
+            $this->assertIsBool($monitoring->edema_present);
+            $this->assertNotSame('', trim((string) $monitoring->physical_activity_level));
+            $this->assertNotSame('', trim((string) $monitoring->pregnancy_lactation_status));
+            $this->assertIsArray($monitoring->allergies);
+            $this->assertIsArray($monitoring->food_dislikes);
         }
 
         $maria = $patients->firstWhere('hospital_number', 'HN-2026-0042');

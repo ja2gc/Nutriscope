@@ -60,11 +60,18 @@ class PatientMenuPlanGenerator implements ReportGenerator
         $portionDetails = [];
         $portionIds = [];
         $portionGroupIndexes = [];
+        $fluidByDay = array_fill_keys(self::WEEK, 0.0);
         foreach ($mealPlan->days as $day) {
             // meal_type is stored raw ('breakfast'); the grid is keyed by display
             // labels ('Breakfast'). Map before lookup or every item is dropped.
             $label = self::MEAL_TYPE_LABELS[$day->meal_type] ?? $day->meal_type;
             foreach ($day->items as $item) {
+                $itemSnapshot = $item->nutrient_snapshot ?? [];
+                $servingSize = (float) ($itemSnapshot['serving_size'] ?? 0);
+                if ($servingSize > 0 && isset($fluidByDay[$day->day_of_week])) {
+                    $fluidByDay[$day->day_of_week] += (float) ($itemSnapshot['water_g'] ?? 0)
+                        * ((float) $item->quantity / $servingSize);
+                }
                 // USDA (fdc_id) items have no foodItem/recipe relation — their name
                 // lives only in the persisted nutrient snapshot. Fall back to it so
                 // USDA foods are not silently dropped from the printed menu. (MP-06)
@@ -100,6 +107,8 @@ class PatientMenuPlanGenerator implements ReportGenerator
         }
 
         $snapshot = $this->currentSnapshot($interventionPlan);
+        $dailyFoodFluid = round(array_sum($fluidByDay) / count(self::WEEK));
+        $fluidTarget = (float) ($snapshot['fluid_ml'] ?? 0);
         $maternalStatus = $interventionPlan->sourceMonitoring?->pregnancy_lactation_status
             ?? $interventionPlan->ncpRecord?->assessment?->pregnancy_lactation_status;
         $meals = array_values(array_filter(
@@ -124,6 +133,10 @@ class PatientMenuPlanGenerator implements ReportGenerator
                 'fat_g' => (float) ($snapshot['fat_g'] ?? 0),
                 'fluid_ml' => (float) ($snapshot['fluid_ml'] ?? 0),
                 'micronutrient_limits' => $snapshot['micronutrient_limits'] ?? [],
+            ],
+            'fluid_balance' => [
+                'food_fluid_ml' => $dailyFoodFluid,
+                'remaining_ml' => max(0, round($fluidTarget - $dailyFoodFluid)),
             ],
             'patient_guidance' => [
                 'education' => $snapshot['education_notes'] ?? null,

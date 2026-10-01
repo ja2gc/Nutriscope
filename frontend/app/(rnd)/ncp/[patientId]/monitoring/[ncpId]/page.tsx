@@ -241,7 +241,7 @@ export default function NcpMonitoringPage({
       {/* ── Page header ─────────────────────────────────────────────────────── */}
       <div className="border-b border-warm-200 pb-5">
         <h2 className="text-xl font-extrabold text-warm-900 tracking-tight">
-          Step 4: Nutrition Monitoring & Evaluation
+          Nutrition Monitoring & Evaluation
         </h2>
       </div>
 

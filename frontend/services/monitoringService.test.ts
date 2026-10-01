@@ -9,9 +9,15 @@ import {
   type ClinicalLabKey,
   buildEffectiveMonitoringPayload,
   fetchMonitoringContext,
+  getWeightStatus,
 } from "./monitoringService";
 
 describe("monitoring lab metadata", () => {
+  it("does not describe unchanged weight as progress", () => {
+    expect(getWeightStatus(60.8, 60.8, "Overweight")).toBe("no_data");
+    expect(getWeightStatus(60.8, 60.8, "Malnutrition")).toBe("no_data");
+  });
+
   it("supports severe nutrition electrolyte labs from monitoring plans", () => {
     const knownKeys = Object.keys(CLINICAL_LAB_META) as ClinicalLabKey[];
 

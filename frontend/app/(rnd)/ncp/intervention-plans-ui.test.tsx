@@ -3,6 +3,8 @@
 import React, { Suspense, act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 const routerPush = vi.fn();
 const searchParams = new URLSearchParams();
@@ -123,7 +125,7 @@ vi.mock("@/services/assessmentService", () => ({
     dry_weight_kg: null,
     food_dislikes: [],
     allergies: ["shellfish"],
-    dietary_restrictions: null,
+    dietary_restrictions: "old assessment restriction",
   })),
 }));
 
@@ -142,12 +144,33 @@ vi.mock("@/services/diagnosisService", () => ({
   fetchDiagnoses: vi.fn(async () => [{ id: "diagnosis-uuid" }]),
 }));
 
+vi.mock("@/services/monitoringService", () => ({
+  fetchMonitoringContext: vi.fn(async () => ({
+    source_type: "monitoring",
+    source_monitoring_id: "monitoring-uuid",
+    source_monitoring_date: "2026-09-28",
+    weight: "60.80",
+    height: "170.00",
+    edema_present: false,
+    dry_weight_kg: null,
+    physical_activity_level: "light",
+    pregnancy_lactation_status: "none",
+    allergies: ["shellfish"],
+    dietary_restrictions: "renal restriction",
+    food_dislikes: ["okra"],
+    age_years: 36,
+    sex: "Female",
+  })),
+}));
+
 vi.mock("./[patientId]/intervention/[ncpId]/_components/MealPlanSection", () => ({
   default: () => <div data-testid="meal-plan-section" />,
 }));
 
-vi.mock("./[patientId]/_components/NcpPatientHeader", () => ({
-  default: () => <div data-testid="patient-header" />,
+vi.mock("./_components/NcpPatientHeader", () => ({
+  default: ({ foodDetails }: { foodDetails?: Array<string | null | undefined> }) => (
+    <div data-testid="patient-header">{foodDetails?.filter(Boolean).join(" | ")}</div>
+  ),
 }));
 
 import InterventionPage from "./[patientId]/intervention/[ncpId]/page";
@@ -161,6 +184,12 @@ describe("intervention plans workspace", () => {
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
+  });
+
+  it("uses the page name without a numeric step prefix", () => {
+    const source = readFileSync(join(process.cwd(), "app/(rnd)/ncp/[patientId]/intervention/[ncpId]/page.tsx"), "utf8");
+    expect(source).toContain("Nutrition Intervention");
+    expect(source).not.toContain("Step 3: Nutrition Intervention");
   });
 
   async function renderPage() {
@@ -219,6 +248,24 @@ describe("intervention plans workspace", () => {
 
     await clickButton("Cancel");
     expect(interventionService.createIntervention).not.toHaveBeenCalled();
+  });
+
+  it("uses the latest monitoring context in new-plan calculation details", async () => {
+    await renderPage();
+    await clickButton("Plans");
+    await clickButton("Create New Intervention Plan");
+    await clickButton("Show calculations");
+
+    expect(container.textContent).toContain("60.8 kg");
+    expect(container.textContent).not.toContain("70 kg");
+  });
+
+  it("uses latest monitoring meal-safety details in the patient header", async () => {
+    await renderPage();
+
+    expect(container.querySelector('[data-testid="patient-header"]')?.textContent)
+      .toContain("renal restriction");
+    expect(container.textContent).not.toContain("old assessment restriction");
   });
 
   it("posts one complete plan then selects its returned UUID read-only", async () => {

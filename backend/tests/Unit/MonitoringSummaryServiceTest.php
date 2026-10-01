@@ -59,6 +59,20 @@ class MonitoringSummaryServiceTest extends TestCase
         $this->assertSame('met', $weight['status']); // gaining weight is the goal here
     }
 
+    public function test_unchanged_weight_is_not_described_as_improving(): void
+    {
+        $out = $this->svc->summarizePair(
+            ['date' => '2026-05-01', 'weight' => 60.8],
+            ['date' => '2026-06-01', 'weight' => 60.8],
+            [],
+            'Overweight',
+        );
+
+        $weight = collect($out['changes'])->firstWhere('metric', 'weight');
+        $this->assertSame('no_data', $weight['status']);
+        $this->assertNotContains('Weight improving', $out['goal_evaluation']['reasons']);
+    }
+
     public function test_lab_in_range_is_met_and_improving_lab_is_in_progress(): void
     {
         // HbA1c: max 7.0, lowerIsBetter. 6.5 is in range → met.

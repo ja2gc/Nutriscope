@@ -18,6 +18,7 @@ import {
   type Patient,
 } from "@/services/patientService";
 import { fetchDiagnoses } from "@/services/diagnosisService";
+import { fetchMonitoringContext } from "@/services/monitoringService";
 import {
   autofillPrescription, Prescription, PatientMetrics, ACTIVITY_FACTORS, microKeys,
 } from "@/lib/nutritionCalculations";
@@ -171,6 +172,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
   const [patientMetrics, setPatientMetrics]     = useState<PatientMetrics | null>(null);
   const [foodDislikes, setFoodDislikes]         = useState<string[]>([]);
   const [allergens, setAllergens]               = useState<string[]>([]);
+  const [dietaryRestrictions, setDietaryRestrictions] = useState<string | null>(null);
   const [assessmentContext, setAssessmentContext] = useState<Assessment | null>(null);
   const [goalError, setGoalError]               = useState<string | null>(null);
   const [calculationWarning, setCalculationWarning] = useState<string | null>(null);
@@ -275,16 +277,18 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
   const loadMetrics = useCallback(async () => {
     setWorkflowLoading(true);
     try {
-      const [assessment, patientData, diagnoses, ncpRecords] = await Promise.allSettled([
+      const [assessment, patientData, diagnoses, ncpRecords, monitoringContext] = await Promise.allSettled([
         fetchAssessment(ncpId),
         fetchPatientById(patientId),
         fetchDiagnoses(ncpId),
         fetchPatientNcpRecords(patientId, 1, ncpId),
+        fetchMonitoringContext(ncpId),
       ]);
 
       const a = assessment.status === "fulfilled" ? assessment.value : null;
       const p = patientData.status === "fulfilled" ? patientData.value : null;
       const hasDiagnosis = diagnoses.status === "fulfilled" && diagnoses.value.length > 0;
+      const effective = monitoringContext.status === "fulfilled" ? monitoringContext.value : a;
       if (p) setPatient(p);
       setAssessmentContext(a);
 
@@ -316,29 +320,30 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
       }
       const sex = (p?.sex as "Male" | "Female") ?? "Male";
 
-      const calculationWeight = a?.edema_present ? a?.dry_weight_kg : a?.weight;
-      if (calculationWeight && a?.height) {
-        const palKey = a.physical_activity_level ?? "sedentary";
+      const calculationWeight = effective?.edema_present ? effective?.dry_weight_kg : effective?.weight;
+      if (calculationWeight && effective?.height) {
+        const palKey = effective.physical_activity_level ?? "sedentary";
         const activityFactor = ACTIVITY_FACTORS[palKey]?.factor ?? 1.2;
         setPatientMetrics({
           weightKg: parseFloat(String(calculationWeight)),
-          heightCm: parseFloat(String(a.height)),
-          ageYears,
-          sex,
-          isAdult: ageYears >= 18,
+          heightCm: parseFloat(String(effective.height)),
+          ageYears: effective && "age_years" in effective && effective.age_years != null ? effective.age_years : ageYears,
+          sex: effective && "sex" in effective && effective.sex ? effective.sex as "Male" | "Female" : sex,
+          isAdult: (effective && "age_years" in effective && effective.age_years != null ? effective.age_years : ageYears) >= 18,
           activityFactor,
           // PDRI pregnancy/lactation add-on — keeps the live preview in step with
           // the backend engine (which reads the same assessment field).
           pregnancyLactationStatus:
-            a.pregnancy_lactation_status ?? "none",
+            effective.pregnancy_lactation_status ?? "none",
         });
       }
-      if (a?.food_dislikes && Array.isArray(a.food_dislikes)) {
-        setFoodDislikes(a.food_dislikes.map((d: string) => d.toLowerCase()));
-      }
-      if (a?.allergies && Array.isArray(a.allergies)) {
-        setAllergens(a.allergies.map((al: string) => al.toLowerCase()));
-      }
+      setFoodDislikes(Array.isArray(effective?.food_dislikes)
+        ? effective.food_dislikes.map((d: string) => d.toLowerCase())
+        : []);
+      setAllergens(Array.isArray(effective?.allergies)
+        ? effective.allergies.map((allergen: string) => allergen.toLowerCase())
+        : []);
+      setDietaryRestrictions(effective?.dietary_restrictions ?? null);
     } catch { /* assessment may not exist yet */ }
     finally { setWorkflowLoading(false); }
   }, [ncpId, patientId]);
@@ -534,7 +539,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
           ncpId={ncpId}
           physician={patient?.physician}
           riskScore={assessmentContext?.risk_score ?? assessmentContext?.computed_risk_score}
-          foodDetails={[...allergens, ...foodDislikes, assessmentContext?.dietary_restrictions]}
+          foodDetails={[...allergens, ...foodDislikes, dietaryRestrictions]}
           interventionGoal={intervention?.goal_type}
           medicalDiagnosis={patient?.medical_diagnosis}
           onChangePatientClick={handleChangePatient}
@@ -566,14 +571,14 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
           ncpId={ncpId}
           physician={patient?.physician}
           riskScore={assessmentContext?.risk_score ?? assessmentContext?.computed_risk_score}
-          foodDetails={[...allergens, ...foodDislikes, assessmentContext?.dietary_restrictions]}
+          foodDetails={[...allergens, ...foodDislikes, dietaryRestrictions]}
           interventionGoal={intervention?.goal_type}
           medicalDiagnosis={patient?.medical_diagnosis}
           onChangePatientClick={handleChangePatient}
         />
         <div className="border-b border-warm-200 pb-4">
           <h2 className="text-xl font-extrabold text-warm-900 tracking-tight">
-            Step 3: Nutrition Intervention
+            Nutrition Intervention
           </h2>
           {dirty && <p className="mt-1 text-xs font-semibold text-amber-700">Unsaved changes</p>}
         </div>
@@ -762,7 +767,7 @@ function PlaceholderState() {
   return (
     <div className="space-y-6 font-sans">
       <div className="border-b border-warm-200 pb-5">
-        <h2 className="text-xl font-extrabold text-warm-900 tracking-tight">Step 3: Nutrition Intervention</h2>
+        <h2 className="text-xl font-extrabold text-warm-900 tracking-tight">Nutrition Intervention</h2>
       </div>
       <div className="bg-white border border-warm-200 rounded-2xl p-12 text-center max-w-2xl mx-auto shadow-sm">
         <div className="p-3.5 bg-warm-50 border border-warm-200 rounded-2xl w-fit mx-auto text-warm-400">

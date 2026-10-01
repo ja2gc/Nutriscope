@@ -367,8 +367,12 @@ class PatientSeeder extends Seeder
         // Labs trending down: glucose 124→112, HbA1c 8.4→8.0, cholesterol 218→205, LDL 125→112
         $m1 = Monitoring::create([
             'ncp_record_id' => $record->id,
-            'weight' => 61.40,   // -0.6 kg from baseline
-            'bmi' => 25.56,
+            ...$this->monitoringSnapshot(
+                $assessment,
+                61.40,
+                $anchor->copy()->subDays(73),
+                'inpatient_review',
+            ),
             'lab_values' => [
                 'glucose' => 112.0,    // improving but still HIGH
                 'hba1c' => 8.0,      // improving but still HIGH
@@ -400,8 +404,12 @@ class PatientSeeder extends Seeder
         // Labs trending toward normal: glucose 112→106, HbA1c 8.0→7.4, cholesterol 205→193, LDL 112→94
         $m2 = Monitoring::create([
             'ncp_record_id' => $record->id,
-            'weight' => 60.80,   // -1.2 kg total from baseline
-            'bmi' => 25.31,
+            ...$this->monitoringSnapshot(
+                $assessment,
+                60.80,
+                $anchor->copy()->subDays(45),
+                'unscheduled_follow_up',
+            ),
             'lab_values' => [
                 'glucose' => 106.0,    // still slightly HIGH (>99) but approaching normal
                 'hba1c' => 7.4,      // HIGH but significantly improved
@@ -728,8 +736,12 @@ class PatientSeeder extends Seeder
 
         $monitoring = Monitoring::create([
             'ncp_record_id' => $past->id,
-            'weight' => 54.2,
-            'bmi' => 18.75,
+            ...$this->monitoringSnapshot(
+                $assessment,
+                54.2,
+                $anchor->copy()->subDays(125),
+                'discharge_review',
+            ),
             'lab_values' => ['albumin' => 3.6, 'hemoglobin' => 12.8, 'potassium' => 3.9, 'phosphate' => 3.2],
             'intake_notes' => 'Tolerating three meals and two snacks. Protein food included at each main meal; no nausea or recurrent diarrhea.',
             'symptoms' => 'Energy and appetite improved; no edema or refeeding warning signs.',
@@ -758,6 +770,31 @@ class PatientSeeder extends Seeder
         );
 
         return $past;
+    }
+
+    /** @return array<string, mixed> */
+    private function monitoringSnapshot(
+        Assessment $assessment,
+        float $weight,
+        Carbon $observedAt,
+        string $visitType,
+    ): array {
+        $height = (float) $assessment->height;
+
+        return [
+            'observed_at' => $observedAt->toDateString(),
+            'visit_type' => $visitType,
+            'weight' => $weight,
+            'height' => $height,
+            'edema_present' => (bool) $assessment->edema_present,
+            'dry_weight_kg' => $assessment->dry_weight_kg,
+            'physical_activity_level' => $assessment->physical_activity_level,
+            'pregnancy_lactation_status' => $assessment->pregnancy_lactation_status,
+            'allergies' => $assessment->allergies ?? [],
+            'dietary_restrictions' => $assessment->dietary_restrictions,
+            'food_dislikes' => $assessment->food_dislikes ?? [],
+            'bmi' => round($weight / (($height / 100) ** 2), 2),
+        ];
     }
 
     private function seedRobertoAppointments(Patient $patient, NcpRecord $past, NcpRecord $current, int $rndId, Carbon $anchor): void

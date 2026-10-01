@@ -248,7 +248,7 @@ class MonitoringSummaryService
             }
             $gainGoal = $nutritionalStatus !== null && str_contains($nutritionalStatus, 'Malnutrition');
             if ($curr == $prev) {
-                return 'in_progress';
+                return 'no_data';
             }
             $moving = $gainGoal ? ($curr > $prev) : ($curr < $prev);
 

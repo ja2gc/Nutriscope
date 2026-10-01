@@ -28,6 +28,9 @@ describe("Assessment page UX", () => {
     expect(page).toContain("Referral details");
     expect(page).toContain("Clinical conditions");
     expect(page).toContain("Intake / weight history");
+    expect(page).not.toContain("Enter screening demographics below manually");
+    expect(page).toContain("Edits to demographics persist to the patient profile when you save");
+    expect(page).toContain("<InfoHint");
   });
 
   test("keeps verbose lab guidance and documents progressively disclosed", () => {

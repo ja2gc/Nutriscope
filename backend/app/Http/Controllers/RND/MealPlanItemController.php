@@ -37,7 +37,9 @@ class MealPlanItemController extends Controller
     private function assertScope(NcpRecord $ncpRecord, MealPlan $mealPlan, ?MealPlanDay $day = null, ?MealPlanItem $item = null): void
     {
         abort_unless($this->auditPolicy->viewNcpTrail(request()->user(), $ncpRecord), 403);
-        if ($mealPlan->intervention_id !== $ncpRecord->intervention?->id) {
+        if (! $mealPlan->intervention()
+            ->where('ncp_record_id', $ncpRecord->id)
+            ->exists()) {
             abort(404);
         }
         if ($day && $day->meal_plan_id !== $mealPlan->id) {

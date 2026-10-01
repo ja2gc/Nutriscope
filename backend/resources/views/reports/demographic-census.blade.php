@@ -35,13 +35,7 @@
 
     <table class="census-breakdowns" style="border:0; margin-top:12px;">
         <tr style="vertical-align:top;">
-            <td width="33.33%" style="border:0; padding-right:8px;">
-                @include('reports.partials._breakdown', ['heading' => 'By Primary Diagnosis Category', 'data' => $census['by_primary_diagnosis_category']])
-            </td>
-            <td width="33.33%" style="border:0; padding-right:8px;">
-                @include('reports.partials._breakdown', ['heading' => 'By Nutritional Status', 'data' => $census['by_status']])
-            </td>
-            <td width="33.33%" style="border:0;">
+            <td width="100%" style="border:0;">
                 @include('reports.partials._breakdown', ['heading' => 'By Risk Level', 'data' => $census['by_risk']])
             </td>
         </tr>

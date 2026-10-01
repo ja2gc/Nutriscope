@@ -581,7 +581,8 @@ export default function MealPlanSection({
                       <span className="font-semibold text-warm-700">{meta?.label ?? key}</span>
                       <span className={`font-mono font-bold ${overLimit ? 'text-red-600' : underLimit ? 'text-amber-600' : 'text-warm-500'}`}>
                         {val}{meta?.unit}
-                        {limit?.max != null && <span className="font-normal text-warm-400"> / {limit.max}</span>}
+                        {limit?.min != null && <span className="font-normal text-warm-400"> / ≥{limit.min}</span>}
+                        {limit?.max != null && <span className="font-normal text-warm-400"> / ≤{limit.max}</span>}
                       </span>
                     </div>
                   );

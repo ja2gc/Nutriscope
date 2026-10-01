@@ -2,7 +2,10 @@
 
 @section('body')
     @forelse($packs as $i => $pack)
-        <div class="report-page{{ $i > 0 ? ' page-start' : '' }}">
+        @if($i > 0)
+            <div class="page-start" style="height:1px; font-size:1px; line-height:1px;">&nbsp;</div>
+        @endif
+        <div class="report-page">
             @if(! $pack['is_final'])
                 <p class="center bold" style="color:#9a3412; border:1px solid #fdba74; padding:6px;">DRAFT / INCOMPLETE - receiving is not finished</p>
             @endif

@@ -6,6 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { createAppointment, fetchPatientAppointments, transitionAppointment } from "@/services/ncpAppointmentService";
 import { PatientAppointments } from "./PatientAppointments";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 vi.mock("@/services/ncpAppointmentService", () => ({ fetchPatientAppointments: vi.fn(), createAppointment: vi.fn(), transitionAppointment: vi.fn() }));
 vi.mock("next/link", () => ({ default: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a> }));
@@ -15,6 +17,14 @@ const transitionMock = vi.mocked(transitionAppointment);
 const meta = { current_page: 1, per_page: 5, total: 1, last_page: 1 };
 
 describe("PatientAppointments", () => {
+  it("keeps appointment controls compact and gives interactive buttons feedback", () => {
+    const source = readFileSync(join(process.cwd(), "components/ncp/PatientAppointments.tsx"), "utf8");
+
+    expect(source).not.toContain("Schedules and attendance across ADIME cycles.");
+    expect(source).toContain('aria-label="More appointment actions" className="rounded-lg border border-warm-200 p-2 text-warm-600 transition-colors hover:bg-warm-50"');
+    expect(source).toContain("hover:bg-red-700");
+    expect(source).toContain("hover:bg-emerald-700");
+  });
   let root: Root;
   let container: HTMLDivElement;
   beforeEach(() => {

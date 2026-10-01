@@ -1067,19 +1067,12 @@ export default function NcpDiagnosisPage({
                   <span className="text-xs font-bold text-warm-400 uppercase tracking-wider block mb-1">PES Statement</span>
                   <p className="text-xs font-medium text-warm-800 italic leading-relaxed">{pes}</p>
                 </div>
-                <div className="grid gap-3 rounded-lg border border-warm-100 bg-warm-50 p-3 text-xs text-warm-600 sm:grid-cols-2">
+                <div className="rounded-lg border border-warm-100 bg-warm-50 p-3 text-xs text-warm-600">
                   <div>
                     <span className="mb-1 block font-bold uppercase tracking-wider text-warm-500">Evidence used</span>
                     <ul className="list-disc space-y-1 pl-4">
                       {s.evidence_used.map(item => <li key={item}>{item}</li>)}
                     </ul>
-                  </div>
-                  <div>
-                    <span className="mb-1 block font-bold uppercase tracking-wider text-warm-500">Source</span>
-                    <a href={s.source.url} target="_blank" rel="noreferrer" className="font-semibold text-emerald-700 hover:underline">
-                      {s.source.issuer} · {s.source.title}
-                    </a>
-                    <p>{s.source.version} · {s.source.location}</p>
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-warm-100">

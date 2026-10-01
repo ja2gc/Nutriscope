@@ -360,13 +360,12 @@ export function getWeightStatus(
   nutritionalStatus: string | null
 ): GoalStatus {
   if (baselineWeight === null) return 'no_data';
+  if (currentWeight === baselineWeight) return 'no_data';
   if (nutritionalStatus?.includes('Malnutrition')) {
     if (currentWeight > baselineWeight) return 'met';
-    if (currentWeight === baselineWeight) return 'in_progress';
     return 'not_met';
   }
   if (currentWeight < baselineWeight) return 'met';
-  if (currentWeight === baselineWeight) return 'in_progress';
   return 'not_met';
 }
 

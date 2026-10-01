@@ -163,6 +163,8 @@ describe("monitoring workflow UI", () => {
     expect(page).not.toContain("NCP Cycle");
     expect(page).not.toContain("{patientId}</span>");
     expect(page).not.toContain("{ncpId}</span>");
+    expect(page).toContain("Nutrition Monitoring & Evaluation");
+    expect(page).not.toContain("Step 4: Nutrition Monitoring & Evaluation");
   });
 
   it("keeps progress trends separate and chart guidance inside help", () => {
@@ -204,5 +206,14 @@ describe("monitoring workflow UI", () => {
       "app/(rnd)/ncp/[patientId]/monitoring/[ncpId]/_components/VisitTrendsChart.tsx",
     ), "utf8");
     expect(chartSource).toContain("How to read trend charts");
+  });
+
+  it("keeps the saved AI review heading free of decorative icons", () => {
+    const source = readFileSync(join(
+      process.cwd(),
+      "app/(rnd)/ncp/[patientId]/monitoring/[ncpId]/_components/MonitoringSummaryCard.tsx",
+    ), "utf8");
+
+    expect(source).not.toMatch(/<Sparkles[^>]*\/> AI Clinical Review/);
   });
 });

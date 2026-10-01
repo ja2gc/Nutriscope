@@ -22,12 +22,13 @@ describe("NCP explicit save and diagnosis UX", () => {
     expect(page).not.toContain("text-emerald-300");
   });
 
-  test("uses bounded assessment-based drafts with sources, evidence, cache, and persisted dismissal", () => {
+  test("uses bounded assessment-based drafts with evidence, cache, and persisted dismissal", () => {
     expect(page).toContain("AI Suggestions");
     expect(page).toContain("<InfoHint");
     expect(page).toContain("How PES drafts work");
     expect(page).toContain("Evidence used");
-    expect(page).toContain("Source");
+    expect(page).not.toContain(">Source</span>");
+    expect(page).not.toContain("s.source.url");
     expect(page).toContain("Cached for this unchanged Assessment");
     expect(page).toContain("No sufficiently supported PES draft was found.");
     expect(page).toContain("External AI drafts are unavailable");

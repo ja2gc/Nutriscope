@@ -1535,13 +1535,14 @@ export default function NcpAssessmentPage({
           <div className="space-y-4 rounded-2xl border border-warm-200 bg-white p-4 shadow-sm">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <h4 className="text-base font-extrabold text-warm-900 uppercase tracking-wider flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-emerald-600" />
-                  Referral / Screening Form
-                </h4>
-                <p className="text-xs text-warm-500 mt-1 leading-relaxed">
-                  Enter screening demographics below manually. Edits to demographics will persist back to the patient profile on save.
-                </p>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-base font-extrabold text-warm-900 uppercase tracking-wider">
+                    Referral / Screening Form
+                  </h4>
+                  <InfoHint label="How screening demographics are saved" title="Patient profile updates">
+                    Edits to demographics persist to the patient profile when you save.
+                  </InfoHint>
+                </div>
               </div>
               <div className="grid w-full shrink-0 grid-cols-2 gap-2 sm:flex sm:w-auto">
                 {(["adult", "pediatric"] as const).map(t => (
