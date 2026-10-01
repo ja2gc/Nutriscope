@@ -34,6 +34,9 @@ jobs:
   deploy:
     needs: frontend_typecheck
     runs-on: ubuntu-latest
+    concurrency:
+      group: nutriscope-production-deploy
+      cancel-in-progress: false
 
     steps:
       - name: Deploy via SSH

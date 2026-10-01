@@ -78,6 +78,18 @@ class ProductionDeploymentContractTest extends TestCase
     }
 
     #[Test]
+    public function production_deployments_are_serialized_without_cancelling_the_active_release(): void
+    {
+        $workflow = file_get_contents(base_path('../.github/workflows/deploy.yml'));
+
+        $this->assertIsString($workflow);
+        $this->assertMatchesRegularExpression(
+            '/deploy:\s+needs: frontend_typecheck\s+runs-on: ubuntu-latest\s+concurrency:\s+group: nutriscope-production-deploy\s+cancel-in-progress: false/',
+            $workflow,
+        );
+    }
+
+    #[Test]
     public function frontend_image_build_retries_an_incomplete_npm_install(): void
     {
         $dockerfile = file_get_contents(base_path('../frontend/Dockerfile'));
