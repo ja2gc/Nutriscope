@@ -208,12 +208,12 @@ describe("monitoring workflow UI", () => {
     expect(chartSource).toContain("How to read trend charts");
   });
 
-  it("keeps the saved AI review heading free of decorative icons", () => {
+  it("keeps the AI review heading and button free of decorative star icons", () => {
     const source = readFileSync(join(
       process.cwd(),
       "app/(rnd)/ncp/[patientId]/monitoring/[ncpId]/_components/MonitoringSummaryCard.tsx",
     ), "utf8");
 
-    expect(source).not.toMatch(/<Sparkles[^>]*\/> AI Clinical Review/);
+    expect(source).not.toContain("Sparkles");
   });
 });

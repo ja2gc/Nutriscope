@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import {
-  TrendingUp, TrendingDown, Minus, Sparkles, Loader2, AlertTriangle,
+  TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle,
 } from "lucide-react";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { InfoHint } from "@/components/ui/InfoHint";
@@ -191,7 +191,7 @@ export default function MonitoringSummaryCard({ ncpId, visitCount }: Props) {
         {!aiNarrative && (
           <button onClick={runAiReview} disabled={aiLoading}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition-colors cursor-pointer disabled:opacity-50">
-            {aiLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+             {aiLoading && <Loader2 className="h-3 w-3 animate-spin" />}
             {aiLoading ? "Reviewing…" : "AI Clinical Review"}
           </button>
         )}
