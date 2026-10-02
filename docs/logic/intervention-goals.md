@@ -24,18 +24,18 @@ KDOQI 2020 · ADA 2024/2026 · ESPEN 2019 · NICE CG32 · GLIM 2019/2025
 
 The Academy of Nutrition and Dietetics defines Assessment, Nutrition Diagnosis,
 Intervention, and Monitoring/Evaluation as distinct but related Nutrition Care Process steps.
-Accordingly, a physician diagnosis, a broad demographic-census diagnosis category, a nutrition
+Accordingly, a physician diagnosis, a broad Nutrition care category, a nutrition
 diagnosis, and an intervention `goal_type` are **not interchangeable fields**.
 
-- A structured primary diagnosis category is selected and confirmed for the individual ADIME
-  cycle. It may summarize a detailed physician diagnosis, but it must not replace or rewrite that
-  diagnosis in the clinical record. Current Demographic Census output does not display category or
-  nutritional-status breakdowns; it shows the age/sex matrix and risk-level breakdown only.
+- A structured Nutrition care category is selected and confirmed for the individual ADIME
+  cycle. It records the main reason for nutrition care, not a confirmed medical diagnosis, and
+  must not replace or rewrite the physician diagnosis. Demographic Census shows aggregate category
+  totals without patient names or Other details, plus the age/sex matrix and risk-level breakdown.
 - An intervention goal must be selected from the assessed nutrition problem and care plan. The
-  system must not silently infer a diagnosis category from that goal or infer a goal from a
-  diagnosis category.
+  system must not silently infer a Nutrition care category from that goal or infer a goal from a
+  Nutrition care category.
 - Pregnancy/lactation is a PDRI calculation modifier, not an intervention goal.
-- Cancer/oncology is a diagnosis category, not one universal prescription formula. Academy
+- Cancer/oncology is a Nutrition care category, not one universal prescription formula. Academy
   oncology guidance calls for nutrition assessment and individualized intervention. Depending on
   the findings, the RND may select an existing goal such as `malnutrition`, `high_protein`,
   `weight_gain`, or `custom`.
@@ -1129,11 +1129,12 @@ composition continue to use the authorities recorded in §§2–15.2.
 
 ### 15.4 Census and PES presentation boundary
 
-- The cycle-owned primary diagnosis category remains structured Assessment context and stays
+- The cycle-owned Nutrition care category remains structured Assessment context and stays
   separate from physician diagnosis, PES diagnosis, and intervention goal. Current Demographic
-  Census output renders the age/sex matrix and **By Risk Level** only; it omits ward,
-  diagnosis-category, and nutritional-status breakdowns. Existing prepared report bytes remain
-  frozen and may retain historical sections.
+  Census year/month screens count each ADIME cycle in its start month and render the age/sex matrix,
+  **By Risk Level**, and aggregate **By nutrition care category**; they omit ward and nutritional-status breakdowns.
+  Completed month snapshots stay frozen, while the current month remains live. Saving the selected
+  screen as PDF does not create a filed report. Legacy Census PDFs require targeted cleanup.
 - PES rule cards remain locally source-gated. The provider receives compact de-identified evidence
   and source-constrained candidates, but the review card displays only the Assessment evidence used.
   Source provenance remains in the server-side rule contract and code comments rather than adding
@@ -1147,7 +1148,7 @@ No new clinical or nutrition source was introduced for these presentation decisi
 
 | Date | Change |
 |---|---|
-| 2026-10-02 | **Census and PES presentation override reconciled.** Current census output is limited to the age/sex matrix and risk level while the Assessment category remains structured data. PES cards show Assessment evidence but not source labels; server-side source gating remains authoritative. No new clinical or nutrition source was introduced. |
+| 2026-10-02 | **Census and PES presentation override reconciled.** Census year/month summaries show age/sex, risk, and aggregate Nutrition care category totals. The category remains separate from confirmed medical diagnosis. PES cards show Assessment evidence but not source labels; server-side source gating remains authoritative. No new clinical or nutrition source was introduced. |
 | 2026-09-29 | **Dated-plan workflow and print boundary reconciled.** Complete immutable Intervention Plans replace active revision consumers; Monitoring remains visit data only; each plan owns zero or one menu; reports use newest-plan or selected-plan semantics. Added the 1,200-per-field/2,200-combined guidance limit and long-bond menu-first print contract. No new clinical source was introduced. |
 | 2026-09-28 | **Deployed QA follow-up reconciled.** Repeated foods now share one compact portion card with separately referenced saved amounts. This changes presentation only; no new nutrition calculation or external clinical source was introduced. Monitoring target-status, progressive help, and food-alert disclosure were aligned with the already approved clinical/runtime contract. |
 | 2026-09-28 | **Meal-plan composition research and runtime boundary documented.** Added Academy, PDRI, FNRI Food Exchange List, Nutritional Guidelines, Pinggang Pinoy, maternal-menu, and current U.S. guideline review locations. The hierarchy makes the individualized prescription authoritative and limits Pinggang Pinoy to a visual cross-check; direct carbohydrates, rice preference, intrinsic-carbohydrate, balanced custom, maternal composition, snack safety, and goal-specific review rules are explicit. |

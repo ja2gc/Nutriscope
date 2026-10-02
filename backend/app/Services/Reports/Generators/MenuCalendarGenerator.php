@@ -4,7 +4,6 @@ namespace App\Services\Reports\Generators;
 
 use App\Models\MenuCycle;
 use App\Models\Report;
-use App\Services\MenuCycleCostService;
 use App\Services\Reports\Contracts\ReportGenerator;
 use App\Support\ReportPaper;
 use Carbon\Carbon;
@@ -66,15 +65,18 @@ class MenuCalendarGenerator implements ReportGenerator
             }
         }
 
-        $cost = MenuCycleCostService::forReport($cycle);
+        $meals = array_values(array_filter(
+            ProgramProjectActivityGenerator::MEAL_ORDER,
+            fn (string $meal): bool => ! in_array($meal, ['AM Snack', 'PM Snack'], true)
+                || array_filter($grid[$meal]) !== [],
+        ));
 
         return [
             'cycle' => $cycle,
-            'meals' => ProgramProjectActivityGenerator::MEAL_ORDER,
+            'meals' => $meals,
             'days' => $days,
             'dates' => $dates,
             'grid' => $grid,
-            'cost' => $cost,
         ];
     }
 }

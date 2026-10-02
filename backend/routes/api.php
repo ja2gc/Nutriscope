@@ -61,6 +61,7 @@ use Illuminate\Support\Facades\Route;
  * they win the match; {type} is constrained to lowercase so it can't shadow numeric ids.
  */
 $reportRoutes = function (string $routeName) {
+    Route::get('reports/demographic_census/summary', [ReportController::class, 'censusSummary']);
     Route::get('reports/{type}/instances', [ReportController::class, 'instances'])->where('type', '[a-z_]+');
     Route::middleware('throttle:reports')->group(function () {
         Route::post('reports/{type}/prepare', [ReportController::class, 'prepare'])->where('type', '[a-z_]+');
@@ -383,6 +384,8 @@ Route::middleware(['auth:sanctum', 'active', 'role:Admin'])->prefix('admin')->gr
     Route::apiResource('budgets', BudgetController::class)->only(['index', 'show'])->names('admin.budgets');
     Route::get('report-branding', [ReportBrandingController::class, 'show']);
     Route::post('report-branding', [ReportBrandingController::class, 'update']);
+    Route::get('report-templates', [ReportTemplateController::class, 'index']);
+    Route::patch('report-templates/{reportTemplate}', [ReportTemplateController::class, 'update']);
     Route::get('ai-usage-limits', [AiUsageLimitController::class, 'show']);
     Route::put('ai-usage-limits', [AiUsageLimitController::class, 'update']);
     Route::get('ai-usage', AiUsageAnalyticsController::class);
@@ -396,6 +399,7 @@ Route::middleware(['auth:sanctum', 'active', 'role:Admin'])->prefix('admin')->gr
 
     // Reports browse: Admin-scoped subset with RND parity except patient-specific reports.
     // ReportController::guardAdmin() enforces the allowlist; 403 for any other type.
+    Route::get('reports/demographic_census/summary', [ReportController::class, 'censusSummary']);
     Route::get('reports/{type}/instances', [ReportController::class, 'instances'])->where('type', '[a-z_]+');
     Route::post('reports/{type}/prepare', [ReportController::class, 'prepare'])->where('type', '[a-z_]+')->middleware('throttle:reports');
     Route::get('reports/{type}/render', [ReportController::class, 'render'])->where('type', '[a-z_]+');

@@ -53,10 +53,14 @@ describe("Patients NCP report navigation", () => {
     expect(help).not.toContain("Patient Menu Plan");
   });
 
-  test("describes the current census groupings without ward, diagnosis, or nutritional status", () => {
+  test("opens the year or month census screen without PDF report actions", () => {
     const browser = readFileSync(join(root, "components", "reports", "ReportsBrowser.tsx"), "utf8");
+    const census = readFileSync(join(root, "components", "reports", "CensusPanel.tsx"), "utf8");
 
-    expect(browser).toContain("Monthly ADIME cycle census by age, sex, and risk level.");
+    expect(browser).toContain("Year or month summary of ADIME cycle starts.");
+    expect(browser).toContain("<CensusPanel apiPrefix={apiPrefix} />");
+    expect(census).toContain("By risk level");
+    expect(census).toContain("Save PDF");
     expect(browser).not.toContain("primary diagnosis category, nutritional status");
     expect(browser).not.toContain("ward");
   });

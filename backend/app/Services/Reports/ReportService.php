@@ -11,7 +11,6 @@ use App\Models\ReportTemplate;
 use App\Models\StoredObject;
 use App\Services\Reports\Contracts\ReportGenerator;
 use App\Services\Reports\Generators\AccomplishmentReportGenerator;
-use App\Services\Reports\Generators\DemographicCensusGenerator;
 use App\Services\Reports\Generators\MenuCalendarGenerator;
 use App\Services\Reports\Generators\NcpSummaryGenerator;
 use App\Services\Reports\Generators\PatientMenuPlanGenerator;
@@ -37,7 +36,6 @@ class ReportService
         'program_project_activity' => ProgramProjectActivityGenerator::class,
         'menu_calendar' => MenuCalendarGenerator::class,
         'procurement_pack' => ProcurementPackGenerator::class,
-        'demographic_census' => DemographicCensusGenerator::class,
         'patient_menu_plan' => PatientMenuPlanGenerator::class,
         'ncp_summary' => NcpSummaryGenerator::class,
         'accomplishment_report' => AccomplishmentReportGenerator::class,

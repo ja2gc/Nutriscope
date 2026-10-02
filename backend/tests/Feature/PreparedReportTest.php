@@ -18,6 +18,12 @@ class PreparedReportTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
+    }
+
     #[Test]
     public function letterhead_renders_private_data_uri_logos(): void
     {
@@ -84,6 +90,92 @@ class PreparedReportTest extends TestCase
     }
 
     #[Test]
+    public function census_pdf_preparation_is_rejected_before_identity_or_storage_is_created(): void
+    {
+        Storage::fake('report_cache');
+        Storage::fake('private_uploads');
+        $actor = User::factory()->rnd()->create();
+
+        try {
+            app(PrepareSavedReport::class)->execute($actor, 'demographic_census', ['start' => '2026-10-01', 'end' => '2026-10-31']);
+            $this->fail('Expected census PDF preparation to be rejected.');
+        } catch (\InvalidArgumentException $exception) {
+            $this->assertSame('Demographic Census no longer creates filed PDF reports.', $exception->getMessage());
+        }
+
+        $this->assertDatabaseCount('reports', 0);
+        $this->assertDatabaseCount('stored_objects', 0);
+    }
+
+    #[Test]
+    public function archived_report_keeps_original_bytes_after_source_changes(): void
+    {
+        Storage::fake('report_cache');
+        Storage::fake('private_uploads');
+        $actor = User::factory()->rnd()->create();
+        $bytes = "%PDF-1.4\noriginal\n%%EOF";
+        $service = $this->createMock(ReportService::class);
+        $service->method('signatoriesFor')->willReturn([]);
+        $service->expects($this->once())->method('buildPdf')->willReturnCallback(function () use (&$bytes): array {
+            return ['bytes' => $bytes, 'meta' => []];
+        });
+        $this->app->instance(ReportService::class, $service);
+        $action = app(PrepareSavedReport::class);
+
+        $archived = $action->execute($actor, 'procurement_pack', ['purchase_order_id' => 10]);
+        $archived->update(['status' => 'archived']);
+        $original = Storage::disk('private_uploads')->get($archived->officialFile->object_key);
+        $bytes = "%PDF-1.4\nchanged\n%%EOF";
+
+        $same = $action->execute($actor, 'procurement_pack', ['purchase_order_id' => 10]);
+
+        $this->assertSame($archived->uuid, $same->uuid);
+        $this->assertSame($original, Storage::disk('private_uploads')->get($same->officialFile->object_key));
+        $this->assertDatabaseCount('reports', 1);
+    }
+
+    #[Test]
+    public function legacy_active_official_file_is_not_silently_rewritten(): void
+    {
+        Storage::fake('report_cache');
+        Storage::fake('private_uploads');
+        $actor = User::factory()->rnd()->create();
+        $service = $this->createMock(ReportService::class);
+        $service->method('signatoriesFor')->willReturn([]);
+        $service->expects($this->once())->method('buildPdf')->willReturn(['bytes' => "%PDF-1.4\nlegacy\n%%EOF", 'meta' => []]);
+        $this->app->instance(ReportService::class, $service);
+        $action = app(PrepareSavedReport::class);
+
+        $legacy = $action->execute($actor, 'procurement_pack', ['purchase_order_id' => 11]);
+        $same = $action->execute($actor, 'procurement_pack', ['purchase_order_id' => 11]);
+
+        $this->assertSame($legacy->uuid, $same->uuid);
+        $this->assertSame($legacy->official_file_stored_object_id, $same->official_file_stored_object_id);
+    }
+
+    #[Test]
+    public function render_failure_rolls_back_new_report_identity(): void
+    {
+        Storage::fake('report_cache');
+        Storage::fake('private_uploads');
+        $actor = User::factory()->rnd()->create();
+        $service = $this->createMock(ReportService::class);
+        $service->method('signatoriesFor')->willReturn([]);
+        $service->method('buildPdf')->willThrowException(new \RuntimeException('render failed'));
+        $this->app->instance(ReportService::class, $service);
+
+        try {
+            app(PrepareSavedReport::class)->execute($actor, 'procurement_pack', ['purchase_order_id' => 12]);
+            $this->fail('Expected render failure.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame('render failed', $exception->getMessage());
+        }
+
+        $this->assertDatabaseCount('reports', 0);
+        $this->assertDatabaseCount('stored_objects', 0);
+    }
+
+    #[Test]
     public function preview_and_download_stream_prepared_bytes_without_mutating_report(): void
     {
         Storage::fake('report_cache');
@@ -136,6 +228,30 @@ class PreparedReportTest extends TestCase
         $download->assertOk();
         $this->assertSame($bytes, $view->streamedContent());
         $this->assertSame($bytes, $download->streamedContent());
+    }
+
+    #[Test]
+    public function archived_legacy_report_without_bytes_is_not_rebuilt(): void
+    {
+        Storage::fake('report_cache');
+        $actor = User::factory()->rnd()->create();
+        $report = Report::factory()->create([
+            'user_id' => $actor->id,
+            'type' => 'procurement_pack',
+            'status' => 'archived',
+            'parameters' => ['purchase_order_id' => 10],
+            'cache_path' => 'reports/missing.pdf',
+            'cache_expires_at' => now()->subMinute(),
+        ]);
+        $service = $this->createMock(ReportService::class);
+        $service->expects($this->never())->method('buildPdf');
+        $this->app->instance(ReportService::class, $service);
+
+        $this->actingAs($actor, 'sanctum')
+            ->get("/api/rnd/reports/{$report->uuid}/download")
+            ->assertConflict()
+            ->assertJsonPath('code', 'preparation_required');
+        $this->assertSame('archived', $report->fresh()->status);
     }
 
     #[Test]

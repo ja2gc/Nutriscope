@@ -24,4 +24,18 @@ describe("report template editor", () => {
     expect(adminSettings).toContain("editingBranding");
     expect(letterhead).toContain("width:56px; height:56px; object-fit:contain;");
   });
+
+  test("offers template editing to Admin through Admin report APIs", () => {
+    const browser = readFileSync(join(root, "components", "reports", "ReportsBrowser.tsx"), "utf8");
+    const service = readFileSync(join(root, "services", "reportService.ts"), "utf8");
+    const adminList = readFileSync(join(root, "app", "api", "admin", "report-templates", "route.ts"), "utf8");
+    const adminUpdate = readFileSync(join(root, "app", "api", "admin", "report-templates", "[id]", "route.ts"), "utf8");
+
+    expect(browser).toContain('apiPrefix !== "fss"');
+    expect(browser).toContain('<TemplateEditor apiPrefix={apiPrefix}');
+    expect(service).toContain('`/api/${apiPrefix}/report-templates`');
+    expect(service).toContain('`/api/${apiPrefix}/report-templates/${id}`');
+    expect(adminList).toContain('proxy("/admin/report-templates")');
+    expect(adminUpdate).toContain('proxy(`/admin/report-templates/${id}`');
+  });
 });

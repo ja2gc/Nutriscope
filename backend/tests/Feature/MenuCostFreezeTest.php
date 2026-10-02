@@ -13,8 +13,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Spec 6 #1 — a menu cycle's cost is frozen at activation, so PPA / Menu Calendar
- * reports for a past cycle keep their original cost even when catalog prices change.
+ * Spec 6 #1 — a menu cycle's cost is frozen at activation, so PPA reports
+ * for a past cycle keep their original cost even when catalog prices change.
  */
 class MenuCostFreezeTest extends TestCase
 {

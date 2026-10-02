@@ -136,9 +136,9 @@ Monitoring requires a saved assessment, at least one diagnosis, and an intervent
 
 Dietary, Anthropometrics, Client History, Biochemical/Labs, Referral/Screening, and RND Summary. Calculated BMI, weight-related values, risk scoring, and other clinical helpers update from entered data.
 
-### How do I record weight-change duration and the census category?
+### How do I record weight-change duration and the nutrition care category?
 
-Enter one positive duration quantity and choose **weeks** or **months**. There is no fixed three-month assumption or duplicate duration field. Select the cycle's required **Primary diagnosis category** separately from the physician diagnosis, PES diagnosis, and Intervention goal. If **Other** is selected, complete **Specify category**; reports still aggregate it under one Other bucket.
+Enter one positive duration quantity and choose **weeks** or **months**. There is no fixed three-month assumption or duplicate duration field. Select the cycle's required **Nutrition care category** separately from the medical diagnosis, PES diagnosis, and Intervention goal. This describes the main reason for nutrition care in that ADIME cycle; it does not state a confirmed medical diagnosis. If **Other** is selected, complete **Specify category**; Census groups these entries under one Other bucket.
 
 ### Where are pregnancy/lactation and stress factor recorded?
 
@@ -166,7 +166,7 @@ Open Diagnosis, choose **Add New Diagnosis**, then build Problem, Etiology, and 
 
 ### Can AI create a diagnosis automatically?
 
-No. Open **AI Review** and choose **Generate AI Suggestions**. Deterministic, source-backed rules first find zero to three candidates, displayed two per page, then let the provider word only the supplied candidate and compact de-identified evidence. Each card shows **Evidence used** and **Source**. Edit selects matching structured choices and leaves unmatched detail in notes. Unchanged evidence reuses the cached validated result; changing Assessment evidence permits a fresh result, and dismissed candidates stay hidden for that version. The feature has no demo-patient marker or demo-only gate. RND must accept or edit a draft before the existing Save Diagnosis action persists it. A zero-result or provider failure leaves the manual P/E/S builder fully usable.
+No. Open **AI Review** and choose **Generate AI Suggestions**. Deterministic, source-backed rules first find zero to three candidates, displayed two per page, then let the provider word only the supplied candidate and compact de-identified evidence. Each card shows **Evidence used**. Source provenance remains enforced by the server-side rule contract and is not shown on the card. Edit selects matching structured choices and leaves unmatched detail in notes. Unchanged evidence reuses the cached validated result; changing Assessment evidence permits a fresh result, and dismissed candidates stay hidden for that version. The feature has no demo-patient marker or demo-only gate. RND must accept or edit a draft before the existing Save Diagnosis action persists it. A zero-result or provider failure leaves the manual P/E/S builder fully usable.
 
 ### What happens when I set an intervention goal?
 
@@ -264,15 +264,17 @@ RND can set up budgets and create manual ledger adjustments. Admin's Budget page
 
 ### What is the difference between live preview and archived report?
 
-Live preview renders from the selected saved Intervention Plan and its sole menu plan. **Archive** freezes the exact as-filed PDF bytes and snapshot so later clinical data, newer plans, or branding changes do not alter it.
+Preparing a report uses its saved source context. **Archive** freezes exact as-filed PDF bytes and snapshot so later data, plans, templates, or branding changes do not alter it. Demographic Census uses a year/month screen instead of report preparation or archiving. **Save PDF** prints only the selected Census summary; it creates no filed report.
 
 ### Which reports can RND access?
 
-Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment Report, Demographic Census, Nutrition Intervention Plan, and NCP Summary. The internal compatibility identifier for Nutrition Intervention Plan remains `patient_menu_plan`.
+Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment Report, Nutrition Intervention Plan, and NCP Summary are PDF reports. Demographic Census is a year/month screen with selected-view PDF saving. The internal compatibility identifier for Nutrition Intervention Plan remains `patient_menu_plan`.
 
 ### Which reports can Admin access?
 
-Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment Report, and aggregate Demographic Census. Admin cannot access Nutrition Intervention Plan or NCP Summary.
+Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment Report, and the aggregate Demographic Census screen. Admin cannot access Nutrition Intervention Plan or NCP Summary.
+
+Admin also has **Reports → Template Edit** for shared header branding and non-clinical report signatories. Patient-report signatories remain controlled by clinical records.
 
 ### Which reports can FSS access?
 

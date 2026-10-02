@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Budget;
+use App\Models\NcpRecord;
 use App\Models\Report;
 use App\Models\ReportBranding;
 use App\Models\User;
@@ -31,11 +32,13 @@ class AdminReportsTest extends TestCase
 
     // ── Allowed types → 200 ────────────────────────────────────────────────
 
-    public function test_admin_can_browse_demographic_census_instances(): void
+    public function test_admin_can_read_demographic_census_summary(): void
     {
+        NcpRecord::factory()->create(['created_at' => now()->startOfMonth()->addDay()]);
         $this->actingAs($this->admin)
-            ->getJson('/api/admin/reports/demographic_census/instances')
-            ->assertOk();
+            ->getJson('/api/admin/reports/demographic_census/summary')
+            ->assertOk()
+            ->assertJsonPath('data.total', 1);
     }
 
     public function test_admin_retired_budget_report_is_not_found(): void
@@ -139,7 +142,7 @@ class AdminReportsTest extends TestCase
             ->json('data');
 
         $types = collect($data)->pluck('type')->all();
-        $this->assertContains('demographic_census', $types);
+        $this->assertNotContains('demographic_census', $types);
         $this->assertContains('accomplishment_report', $types);
         $this->assertContains('program_project_activity', $types);
         $this->assertNotContains('ncp_summary', $types);
@@ -153,7 +156,7 @@ class AdminReportsTest extends TestCase
         $rnd = User::factory()->create(['role' => 'RND']);
 
         $this->actingAs($rnd)
-            ->getJson('/api/admin/reports/demographic_census/instances')
+            ->getJson('/api/admin/reports/demographic_census/summary')
             ->assertForbidden();
     }
 

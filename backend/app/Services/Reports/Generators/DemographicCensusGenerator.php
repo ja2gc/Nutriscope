@@ -2,70 +2,20 @@
 
 namespace App\Services\Reports\Generators;
 
-use App\Models\DemographicCensusPeriod;
 use App\Models\NcpRecord;
-use App\Models\Report;
-use App\Services\Reports\Contracts\ReportGenerator;
-use App\Support\ReportPaper;
 use Carbon\Carbon;
 
 /**
- * Demographic / Research Census — NCP-cycle counts with an age/sex matrix and
- * risk-level breakdown. Legacy aggregate keys remain available for frozen-history
- * compatibility but are not rendered in current reports.
- *
- * Refocus of the old "NCP bi-annual" sheet (now a layout reference only): the form's
- * age × sex matrix is kept, but it's a research census, not a fixed bi-annual format.
- * aggregate() is pure over plain rows (unit-tested); data() is the date-range loader.
+ * ADIME-cycle aggregates for the on-screen Census. Completed-month snapshots
+ * retain legacy aggregate keys, while the API exposes age/sex, risk, and
+ * Nutrition care category totals.
  */
-class DemographicCensusGenerator implements ReportGenerator
+class DemographicCensusGenerator
 {
     public const BASIS_VERSION = 3;
 
     /** Age buckets mirror the bi-annual census columns. */
     public const AGE_GROUPS = ['0-4', '5-9', '10-14', '15-18', '19-29', '30-39', '40-59', '60+'];
-
-    public function type(): string
-    {
-        return 'demographic_census';
-    }
-
-    public function view(): string
-    {
-        return 'reports.demographic-census';
-    }
-
-    public function paper(): array
-    {
-        return [ReportPaper::LONG_BOND, 'landscape'];
-    }
-
-    public function data(Report $report): array
-    {
-        $params = $report->parameters ?? [];
-        // Period must be explicit so the census is reproducible — no current-date fallback.
-        if (empty($params['start']) || empty($params['end'])) {
-            throw new \InvalidArgumentException('Demographic census requires an explicit start/end period.');
-        }
-        $start = Carbon::parse($params['start']);
-        $end = Carbon::parse($params['end']);
-
-        $stored = DemographicCensusPeriod::query()
-            ->whereDate('period_start', $start->toDateString())
-            ->whereDate('period_end', $end->toDateString())
-            ->where('basis_version', self::BASIS_VERSION)
-            ->first();
-
-        $census = $stored?->census ?? $this->currentCensus($start, $end);
-
-        return [
-            'census' => $census,
-            'inclusive_start' => $start->toDateString(),
-            'inclusive_end' => $end->toDateString(),
-            'inclusive_label' => $start->format('m/d/y').' - '.$end->format('m/d/y'),
-            'age_groups' => self::AGE_GROUPS,
-        ];
-    }
 
     /** @return array<string,mixed> */
     public function currentCensus(Carbon $start, Carbon $end): array

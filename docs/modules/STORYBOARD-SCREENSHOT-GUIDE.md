@@ -131,13 +131,13 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### RND-NCP-06 — Assessment: Labs, Referral, and Summary
 
-**Description:** RND records biochemical/referral data, the required cycle-owned Primary diagnosis category, conditional **Specify category**, and confirmed pregnancy/lactation status; physician diagnosis stays separate and no stress-factor control appears. RND may store supporting files, review automatic/manual risk scoring, and generate an editable summary. Uploads do not currently OCR/autofill.
+**Description:** RND records biochemical/referral data, the required cycle-owned Nutrition care category, conditional **Specify category**, and confirmed pregnancy/lactation status; medical diagnosis stays separate and no stress-factor control appears. RND may store supporting files, review automatic/manual risk scoring, and generate an editable summary. Uploads do not currently OCR/autofill.
 
 **User should do:** Review entered values, generate the draft summary, edit as needed, and choose **Save Assessment**.
 
 **Next scene:** Diagnosis.
 
-> **Screenshot needed:** Assessment Summary tab showing Generate/Regenerate Summary, RND Summary field, nutritional-risk section, and Save Assessment. Add a Referral/Screening image with Primary diagnosis category, conditional Other field, and Pregnancy/Lactation; ensure no Stress Factor control is visible.
+> **Screenshot needed:** Assessment Summary tab showing Generate/Regenerate Summary, RND Summary field, nutritional-risk section, and Save Assessment. Add a Referral/Screening image with Nutrition care category, conditional Other field, and Pregnancy/Lactation; ensure no Stress Factor control is visible.
 >
 > **Insert screenshot(s) below this line.**
 
@@ -173,7 +173,7 @@ Use this version when screenshots are available. Each scene already contains the
 
 **Next scene:** Saved Diagnosis or Intervention.
 
-> **Screenshot needed:** AI Review showing paginated AI Suggestions with Evidence used, Source, Accept, Edit, and Dismiss. Optional second image: edited builder with matching checkboxes selected. Ensure no real patient context or provider prompt is visible.
+> **Screenshot needed:** AI Review showing paginated AI Suggestions with Evidence used, Accept, Edit, and Dismiss. Optional second image: edited builder with matching checkboxes selected. Ensure no source label, real patient context, or provider prompt is visible.
 >
 > **Insert screenshot below this line.**
 
@@ -239,7 +239,7 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### RND-NCP-15 — Clinical Report Preview and Archive
 
-**Description:** Patients NCP lists recent patients first. Opening one patient shows non-deleted ADIME cycles. Selecting one cycle shows NCP Summary plus one dated Nutrition Intervention Plan item per saved plan. A plan without a menu remains listed but disabled. NCP Summary uses only the newest saved plan. Each plan PDF uses long bond paper, prints the menu before concise guidance, omits empty snack rows, and uses compact three-column portion blocks with one card per repeated dish/food and separate references for distinct saved amounts. There are no preparation instructions or source notes. Preparing/archiving freezes the exact filed PDF bytes and snapshot.
+**Description:** Patients NCP lists recent patients first. Opening one patient shows non-deleted ADIME cycles. Selecting one cycle shows NCP Summary plus one dated Nutrition Intervention Plan item per saved plan. A plan without a menu remains listed but disabled. NCP Summary uses only the newest saved plan. Each plan PDF uses long bond paper, prints the menu before concise guidance, omits empty snack rows, and uses compact three-column portion blocks with one card per repeated dish/food and separate references for distinct saved amounts. There are no preparation instructions or source notes. Archiving freezes the exact filed PDF bytes and snapshot.
 
 **User should do:** Open **Patients NCP**, choose a fictional patient and cycle, preview every page of all available report items, verify date/menu/guidance/portion/fluid content and clean portrait/landscape pagination, confirm the no-menu disabled state, then show an existing frozen archived copy.
 
@@ -375,13 +375,13 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### RND-FS-09 — Operational Reports
 
-**Description:** RND previews and archives Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment, and Demographic Census outputs. All PDFs use 8.5 × 13-inch long bond paper with report-specific orientation. Demographic Census starts at the earliest non-deleted ADIME cycle, counts each cycle once in its start month even when one person has multiple cycles, freezes completed months, and keeps the current month live. Current output contains the age/sex matrix and **By Risk Level** breakdown only; ward, diagnosis-category, and nutritional-status breakdowns are omitted. Older prepared archives remain frozen.
+**Description:** RND previews and archives Program Project Activity, Menu Calendar, Procurement Pack, and Accomplishment PDFs. Menu Calendar shows the header, saved weekly meal grid, and signatories without population or cost figures; an AM or PM snack row appears only when used that week. Demographic Census is a year/month screen that starts at the earliest non-deleted ADIME cycle and counts each cycle once in its start month. Completed months use frozen snapshots; the current month is live. Its screen contains the age/sex matrix, **By Risk Level**, and aggregate **By nutrition care category**. **Save PDF** prints selected Census content without navigation or a filed archive.
 
-**User should do:** Open Demographic Census, show the earliest month and live current month, preview one completed month, and explain cycle counts plus live versus frozen state.
+**User should do:** Open Demographic Census, select earliest year, a completed month, and current month. Explain cycle counts and live versus frozen state. Save selected view as PDF.
 
 **Next scene:** End of food-service planning story.
 
-> **Screenshot needed:** Reports Browse with Demographic Census selected, the month list spanning the earliest cycle through the current month, and one long-bond census preview showing Total ADIME Cycles, the age/sex matrix, and **By Risk Level**. Optional second image: another Food Service report with preview/action controls.
+> **Screenshot needed:** Reports Browse with Demographic Census selected, year/month controls, total cycles, age/sex matrix, **By Risk Level**, and **By nutrition care category**. Optional second image: saved Census PDF without navigation.
 >
 > **Insert screenshot below this line.**
 
@@ -681,9 +681,9 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### ADMIN-08 — Allowed Reports
 
-**Description:** Admin can use Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment Report, and aggregate Demographic Census. Census totals count non-deleted ADIME cycles by cycle start month, not unique people; completed months are frozen and the current month remains live. Nutrition Intervention Plan and NCP Summary are absent/blocked.
+**Description:** Admin can use Program Project Activity, Menu Calendar, Procurement Pack, and Accomplishment PDFs, plus the aggregate Demographic Census year/month screen. Census totals count non-deleted ADIME cycles by start month, not unique people; completed months are frozen and the current month remains live. Admin can also open Reports **Template Edit**. Nutrition Intervention Plan and NCP Summary are absent/blocked.
 
-**User should do:** Open the aggregate Demographic Census, explain cycle-based totals without exposing patient identity, then show another allowed live preview and the privacy boundary.
+**User should do:** Open aggregate Demographic Census, explain cycle-based year/month totals without exposing patient identity, save selected view as PDF, then show an allowed PDF preview, Template Edit, and the privacy boundary.
 
 **Next scene:** Budget.
 

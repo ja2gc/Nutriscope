@@ -54,7 +54,7 @@ Finish the complete plan: focused and full checks, real PDF inspection, existing
 
 ## Fixed scope and non-goals
 
-- Final census values are centralized once: `Cardiovascular`, `Renal`, `Diabetes`, `Obesity`, `Malnutrition`, `Surgery / Trauma`, `Liver`, `Cancer`, `Pregnancy / Lactation`, `Other`. Selecting `Other` reveals `Specify category`; its free text remains clinical context while census output aggregates one `Other` bucket.
+- Final Nutrition care category values are centralized once: `Cardiovascular`, `Renal`, `Diabetes`, `Obesity`, `Malnutrition`, `Surgery / Trauma`, `Liver`, `Cancer`, `Pregnancy / Lactation`, `Other`. Selecting `Other` reveals `Specify category`; its free text remains clinical context while Census aggregates one `Other` bucket.
 - No extra non-maternal maintenance additions. Goal/stage output is final; maternal modifier is calculated automatically.
 - No new food recall, Filipino/restaurant database, OCR reconstruction, recipe display field, preparation steps, menu-plan revision entity, or USDA note.
 - No automatic category inference from physician text, PES diagnosis, or intervention goal.
@@ -317,7 +317,7 @@ php artisan test --compact tests/Feature/MonthlyDemographicCensusTest.php tests/
 
 - [ ] **Step 3: Update generator and monthly basis**
 
-Increment `DemographicCensusGenerator::BASIS_VERSION` from 2 to 3. Replace cycle patient `medical_diagnosis` projection with Assessment category fallback `Unclassified` for structured data and compatibility. The later 2026-10-02 owner override removes diagnosis-category and nutritional-status breakdowns from current generated census output; render only the age/sex matrix and **By Risk Level**. Rebuild completed period data only through the existing basis-version path; never mutate prepared report bytes.
+Increment `DemographicCensusGenerator::BASIS_VERSION` from 2 to 3. Replace cycle patient `medical_diagnosis` projection with Assessment category fallback `Unclassified` for structured data and compatibility. The later 2026-10-02 owner override replaces filed Census PDFs with year/month screens showing the age/sex matrix, **By Risk Level**, and aggregate **By nutrition care category**. Keep Other details private. Rebuild completed period data only through the existing basis-version path; never mutate prepared report bytes for other report types.
 
 - [ ] **Step 4: Seed and narrowly backfill fictional fixture categories**
 
@@ -933,7 +933,7 @@ Expected: all PASS.
 
 - [ ] **Step 4: Re-run deterministic seed and complete PDF acceptance**
 
-On a confirmed disposable local DB, migrate/seed twice and verify stable patient, NCP, plan, meal-plan, template, and report counts. Generate all seven report types through normal application paths. Include dated plans with/without snacks and maternal/non-maternal examples. Render every page, verify 8.5 × 13 inch MediaBox, and record artifact paths plus exact page-by-page pass/fail observations.
+On a confirmed disposable local DB, migrate/seed twice and verify stable patient, NCP, plan, meal-plan, template, and report counts. Generate the six remaining filed PDF report types through normal application paths. Include dated plans with/without snacks and maternal/non-maternal examples. Render every page, verify 8.5 × 13 inch MediaBox, and record artifact paths plus exact page-by-page pass/fail observations. Also print a selected year/month Census screen to PDF and check that it contains only Census content, without a filed report identity.
 
 - [ ] **Step 5: Regression-test previously completed baseline**
 
@@ -968,14 +968,14 @@ Use the Codex in-app/native browser, not the Playwright plugin. Take screenshots
 
 1. Existing login branding hover/fit and patient-code search/header baseline.
 2. Assessment quantity/unit, category/Other, maternal status, save/reload, validation, no stress control, no fixed three-month text.
-3. Census earliest month/current month, cycle counts, age/sex matrix, risk-only breakdown, omitted ward/diagnosis-category/nutritional-status cards, and frozen archived report behavior.
+3. Census earliest year/month and current month, cycle-start counts, annual sum, age/sex matrix, risk and aggregate Nutrition care category breakdowns, omitted ward/nutritional-status cards, selected-view Save PDF without navigation or a new report identity, and removal of legacy Census PDFs. Check frozen archives for the remaining report types.
 4. Intervention goal/stage progressive disclosure, baseline/modifier/final calculation panel, final maternal prescription, and separate fluid guidance.
 5. Meal generation/scaling with no fluid target-match influence.
 6. PES drafts end to end: open the Diagnosis workflow for fictional data; request drafts; verify the real network response and zero-to-three UI; inspect visible Assessment evidence and confirm no visible source label; accept a mapped candidate into the existing structured Diagnosis selections rather than an unrelated `Other` free-text field; edit; dismiss; confirm cached state; change Assessment evidence and confirm refresh/invalidation; verify manual fallback; verify compact request/result behavior, authorization, server-side source validation, and no demo/env gate.
 7. Monitoring form section order; saved visit summary/detail; omitted empty sections; pagination; no plan/revision controls; Progress Trends separate.
 8. Intervention Plans tab: newest-first pagination, no status, old plan exact read-only UI, new-plan prefill, latest Monitoring calculation source, cancel/no-save behavior, save atomicity, and no copied meal plan.
 9. Multiple saved plans with distinct meal plans; Reports one item per saved plan; no-meal-plan disabled state; NCP Summary newest only; prepared archive unchanged.
-10. Real Nutrition Intervention Plan and every other PDF: long-bond dimensions, plan date, no blank snack rows, concise/deduplicated portions, no prep/USDA note, no clipping/overlap/orphan heading.
+10. Real Nutrition Intervention Plan and every other remaining filed PDF: long-bond dimensions, plan date, no blank snack rows, concise/deduplicated portions, no prep/USDA note, no clipping/overlap/orphan heading. Check the Census browser-saved PDF separately for selected content only.
 11. Every other user-visible behavior changed by Tasks 1–13, checked against the requirement-to-evidence checklist rather than sampled: validation/reload/error states, patient identifiers, navigation, all report browse/preview/download paths, seed-backed examples, and documentation/storyboard-visible labels.
 12. Browser console/network errors, horizontal overflow, keyboard/focus/labels, unnecessary notes/icons/cards, and report preview performance.
 
@@ -992,6 +992,6 @@ Report separately: requirement/audit disposition; changed; local tests; generate
 - Paginated authorized APIs, complete Monitoring calculation snapshots, legacy fallback, and one-menu enforcement: Task 9.
 - Plans tab, exact read-only UI reuse, newest-plan prefill, save/cancel behavior, and no meal copy: Task 10.
 - Monitoring-only form/log structure, pagination, neutral styling, and no intervention controls: Task 11.
-- One saved-plan report each, newest-only NCP Summary, frozen archives, long-bond PDFs, blank-snack removal, and compact portions: Task 12.
+- One saved-plan report each, newest-only NCP Summary, frozen archives for remaining PDF types, long-bond PDFs, blank-snack removal, and compact portions: Task 12. The 2026-10-02 owner override replaces the filed Census PDF with a year/month screen and selected-view PDF saving.
 - Active revision retirement plus docs/storyboard/research reconciliation: Task 13.
 - Focused/full checks, deterministic seeds, real PDF inspection, task commits, push/parity, owner-triggered deployment, deployed health/revision, and native live acceptance: Task 14.

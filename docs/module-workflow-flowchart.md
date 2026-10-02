@@ -74,7 +74,7 @@ flowchart TD
 
     I --> J["Assessment<br/>duration + cycle category + maternal status"]
     J -->|"saved"| K["Diagnosis / PES"]
-    K --> K1["Optional AI Review<br/>0..3 suggestions with evidence + source"]
+    K --> K1["Optional AI Review<br/>0..3 suggestions with Assessment evidence"]
     K1 --> K
     K -->|"one or more saved"| L["Dated Intervention Plans + final prescription<br/>zero or one menu per plan"]
     L -->|"saved"| M["Monitoring and Evaluation available"]
@@ -110,7 +110,7 @@ flowchart TD
 
 1. **Patients** - create/select a patient and review Overview, ADIME Records, Appointments, or Attachments.
 2. **Appointments** - schedule with date/time and purpose, start a walk-in, or resolve a schedule as rescheduled, no-show, or cancelled.
-3. **Assessment** - enter one weight-duration quantity/unit, the cycle's primary diagnosis category, confirmed maternal status, and the remaining baseline data; no stress-factor control is used.
+3. **Assessment** - enter one weight-duration quantity/unit, the cycle's Nutrition care category, confirmed maternal status, and the remaining baseline data; no stress-factor control is used.
 4. **Diagnosis / PES** - requires Assessment. Use the manual builder or review zero to three bounded drafts with visible Assessment evidence, then save at least one diagnosis before Intervention unlocks. Source provenance stays in the server-side rule contract rather than the draft card.
 5. **Intervention / Prescription** - use the **Plans** tab for newest-first dated plans. Review progressively disclosed goal/stage inputs and the baseline → maternal modifier → final calculation. Fluid remains separate guidance. Prior plans are read-only; each plan may own zero or one menu.
 6. **Monitoring and Evaluation** - requires saved Assessment, Diagnosis, and Intervention. Record a complete follow-up calculation snapshot. Monitoring has no plan-creation controls; return to Intervention to create a new dated plan only when treatment changes.
@@ -278,7 +278,7 @@ flowchart TD
     A["Operational source tables"] --> B{"Report / graph type?"}
     B -->|"NCP Summary"| C["Patient + assessment + diagnoses + intervention + monitoring"]
     B -->|"Nutrition Intervention Plan"| D["Patient + selected saved plan + sole menu + compact portions"]
-    B -->|"Demographic Census"| E["Each ADIME cycle's start date + age/sex matrix + risk"]
+    B -->|"Demographic Census"| E["Each ADIME cycle's start date + age/sex matrix + risk + nutrition care category"]
     B -->|"Budget summary / burn"| F["Fiscal-year budget + budget ledger"]
     B -->|"Per-head actual vs limit"| G["PO costs + served population + per-head/day limit"]
     B -->|"Menu / PPA / procurement"| H["Menu cycle + shopping list + PO + frozen PPA"]
@@ -321,7 +321,7 @@ flowchart TD
 3. In Appointments, schedule a visit with date/time and purpose, or start a walk-in for the current cycle.
 4. Explicitly start the scheduled visit. If navigation changes, use the persistent Resume banner.
 5. On a fictional cycle, save Assessment with a quantity-plus-weeks/months weight duration, required category (including conditional **Specify category** when testing Other), and confirmed maternal status. Verify save/reload, no stress control, and no fixed three-month wording.
-6. In Diagnosis, open **AI Review** and choose **Generate AI Suggestions**. Verify zero to three source/evidence-backed results paginated two per page, unchanged-data cache, dismiss, Assessment-change refresh, structured edit/accept, and manual fallback.
+6. In Diagnosis, open **AI Review** and choose **Generate AI Suggestions**. Verify zero to three Assessment-evidence-backed results paginated two per page, no visible source label, unchanged-data cache, dismiss, Assessment-change refresh, structured edit/accept, and manual fallback.
 7. In Intervention, open **Plans**, create a dated plan, choose a goal/stage, and expand the calculation panel. Verify goal baseline, maternal modifier, final prescription, separate fluid guidance, and concise education/counseling fields; save the complete plan.
 8. Create, load, or generate that plan's sole menu and verify fluid does not affect generation/scaling variance. Confirm a second menu for the same plan is unavailable.
 9. In Monitoring, save a complete follow-up calculation snapshot and inspect its organized read-only Visit Log detail. Then return to Intervention, create another dated plan, and verify it prefills the newest plan while recalculating from the latest Monitoring values without copying the prior menu.
@@ -330,7 +330,7 @@ flowchart TD
 12. In ADIME Records, complete/protect or discontinue the current cycle when clinically appropriate and review it in Past Records.
 13. Select a dated plan to open its **Nutrition Intervention Plan**, then verify plan date, menu-before-guidance order, omitted blank snack rows, concise three-column portions, and view/download actions.
 14. In Reports, open **Patients NCP**, choose the same fictional patient/cycle, inspect every long-bond page of each available dated Nutrition Intervention Plan and NCP Summary, and confirm that NCP Summary uses only the newest plan while archived copies remain frozen.
-15. Open **Demographic Census** from the earliest cycle month through the live current month; verify one-cycle-one-count totals, the age/sex matrix and risk-level breakdown, no ward/diagnosis-category/nutritional-status breakdown, and frozen prepared archives.
+15. Open **Demographic Census**, select the earliest year, an earlier month, and the live current month. Verify each cycle counts in its start month, year totals sum months, completed snapshots stay frozen, and the age/sex matrix, risk-level breakdown, and aggregate Nutrition care category totals appear without ward or nutritional-status breakdowns. Use **Save PDF** for selected Census content only; no filed Census report appears in Archives.
 
 ### Part C - FSS executes food-service work on mobile
 
@@ -386,7 +386,7 @@ Monitoring unlocks after Assessment, Diagnosis, and Intervention exist. RND reco
 
 ### Clinical Reports
 
-The Reports page prepares current report data for preview. Every PDF uses 8.5 × 13-inch long bond paper with report-specific portrait or landscape orientation. **Patients NCP** presents recent patients first and keeps each patient's dated Nutrition Intervention Plans and NCP Summary together. A saved plan without a menu is listed but unavailable. The document prints the saved prescription and Weekly Meal Plan before concise education/counseling/barriers/strategies, omits empty snack rows, then uses three-column portion details with one card per repeated dish/food and separate references for distinct saved amounts. NCP Summary uses only the newest saved plan. Demographic Census shows the age/sex matrix and **By Risk Level** breakdown only; it omits ward, diagnosis-category, and nutritional-status breakdowns. View/download uses the existing PDF routes; preparing/archiving freezes the generated bytes and their template/signatory/source snapshot, so older prepared census files may retain historical sections.
+The Reports page prepares current PDF report data for preview. PDFs use 8.5 × 13-inch long bond paper with report-specific portrait or landscape orientation. **Patients NCP** presents recent patients first and keeps each patient's dated Nutrition Intervention Plans and NCP Summary together. A saved plan without a menu is listed but unavailable. The document prints the saved prescription and Weekly Meal Plan before concise education/counseling/barriers/strategies, omits empty snack rows, then uses three-column portion details with one card per repeated dish/food and separate references for distinct saved amounts. NCP Summary uses only the newest saved plan. Demographic Census instead shows a year or month summary with the age/sex matrix, **By Risk Level**, and **By nutrition care category**. **Save PDF** prints selected Census content without report navigation or a filed identity. Legacy Census PDFs stay hidden until targeted cleanup removes their records and bytes. Other archived report bytes remain frozen.
 
 ## 11. Current NCP and Visit Workflow Diagram
 

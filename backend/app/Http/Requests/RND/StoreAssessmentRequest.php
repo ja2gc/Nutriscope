@@ -141,7 +141,7 @@ class StoreAssessmentRequest extends FormRequest
             'physical_activity_level' => 'physical activity level',
             'weight_change_period_value' => 'weight change duration',
             'weight_change_period_unit' => 'weight change duration unit',
-            'primary_diagnosis_category' => 'primary diagnosis category',
+            'primary_diagnosis_category' => 'nutrition care category',
             'primary_diagnosis_other' => 'specified category',
         ];
     }

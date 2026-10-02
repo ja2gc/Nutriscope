@@ -20,11 +20,12 @@ import {
   ReportItem, ReportTemplate, Branding, ReportAxis, ReportInstance,
   listReports, deleteReport, reportDownloadUrl, reportViewUrl,
   listInstances, prepareReport,
-  getBranding, saveBranding, listTemplates, saveTemplate,
+  getBranding, saveBranding, getAdminBranding, saveAdminBranding, listTemplates, saveTemplate,
 } from "@/services/reportService";
 import { ReportPreview } from "@/components/ReportPreview";
 import { AuditTrail } from "@/components/audit/AuditTrail";
 import { PatientsNcpTab } from "@/components/reports/PatientsNcpTab";
+import { CensusPanel } from "@/components/reports/CensusPanel";
 import { ImageFilePicker } from "@/components/ui/ImageFilePicker";
 import { InfoHint } from "@/components/ui/InfoHint";
 
@@ -56,7 +57,7 @@ export const FULL_CATALOG: CatalogEntry[] = [
   { type: "procurement_pack", name: "Procurement Pack", desc: "AIR + Statement + Summary of Marketing.", icon: PackageCheck, group: "Food Service" },
   { type: "accomplishment_report", name: "Accomplishment Report", desc: "Per-staff semi-monthly duty sheet + diet-list headcount logged by FSS.", icon: ClipboardList, group: "Food Service" },
   { type: "patients_ncp", name: "Patients NCP", desc: "Choose a patient, then an ADIME cycle, to view its reports.", icon: ClipboardList, group: "Clinical" },
-  { type: "demographic_census", name: "Demographic Census", desc: "Monthly ADIME cycle census by age, sex, and risk level.", icon: ClipboardList, group: "Clinical" },
+  { type: "demographic_census", name: "Demographic Census", desc: "Year or month summary of ADIME cycle starts.", icon: ClipboardList, group: "Clinical" },
 ];
 
 // Admin-allowed catalog: RND parity minus patient-specific reports.
@@ -65,7 +66,7 @@ export const ADMIN_CATALOG: CatalogEntry[] = [
   { type: "menu_calendar", name: "Menu Calendar", desc: "Printable Mon-Sun grid for the kitchen.", icon: CalendarDays, group: "Food Service" },
   { type: "procurement_pack", name: "Procurement Pack", desc: "AIR + Statement + Summary of Marketing.", icon: PackageCheck, group: "Food Service" },
   { type: "accomplishment_report", name: "Accomplishment Report", desc: "Per-staff semi-monthly duty sheet + diet-list headcount logged by FSS.", icon: ClipboardList, group: "Food Service" },
-  { type: "demographic_census", name: "Demographic Census", desc: "Monthly ADIME cycle census by age, sex, and risk level.", icon: ClipboardList, group: "Clinical" },
+  { type: "demographic_census", name: "Demographic Census", desc: "Year or month summary of ADIME cycle starts.", icon: ClipboardList, group: "Clinical" },
 ];
 
 export const FSS_CATALOG: CatalogEntry[] = [
@@ -105,8 +106,7 @@ export function ReportsBrowser({ catalog, apiPrefix }: ReportsBrowserProps) {
     setTimeout(() => setFlash(null), 4000);
   }, []);
 
-  // Admin browser suppresses the Template Edit tab (branding owned by Settings page)
-  const tabs = apiPrefix !== "rnd"
+  const tabs = apiPrefix === "fss"
     ? [
         { key: "browse" as TabKey, label: "Browse" },
         { key: "archived" as TabKey, label: "Archived" },
@@ -135,7 +135,7 @@ export function ReportsBrowser({ catalog, apiPrefix }: ReportsBrowserProps) {
 
       {tab === "browse" && <BrowseTab catalog={catalog} apiPrefix={apiPrefix} onFlash={flashFor} />}
       {tab === "archived" && <ArchivedTab catalog={catalog} apiPrefix={apiPrefix} onFlash={flashFor} />}
-      {tab === "templates" && apiPrefix === "rnd" && <TemplateEditor onFlash={flashFor} />}
+      {tab === "templates" && apiPrefix !== "fss" && <TemplateEditor apiPrefix={apiPrefix} onFlash={flashFor} />}
     </div>
   );
 }
@@ -195,7 +195,9 @@ function BrowseTab({
       {/* Instances panel — remounts per type so its state resets cleanly */}
       {selected.type === "patients_ncp" && apiPrefix === "rnd"
         ? <PatientsNcpTab />
-        : <InstancesPanel key={selected.type} entry={selected} apiPrefix={apiPrefix} onFlash={onFlash} />}
+        : selected.type === "demographic_census" && apiPrefix !== "fss"
+          ? <CensusPanel apiPrefix={apiPrefix} />
+          : <InstancesPanel key={selected.type} entry={selected} apiPrefix={apiPrefix} onFlash={onFlash} />}
     </div>
   );
 }
@@ -408,7 +410,7 @@ function ArchivedTab({
           <EmptyState
             icon={<Archive className="h-6 w-6" />}
             title="No archived reports"
-            message="Archived reports are hidden from the active saved-report list. Preview and download use the latest prepared content."
+            message="Archived reports keep their filed PDF. Preview and download show that frozen copy."
           />
         </div>
       ) : (
@@ -442,7 +444,7 @@ function ArchivedTab({
                       <button onClick={() => setPreview(r)} className="p-1.5 rounded-lg hover:bg-warm-100 text-warm-500 cursor-pointer" aria-label={`View ${r.title}`} title="View"><Eye className="h-3.5 w-3.5" /></button>
                     )}
                     {r.file_path && (
-                      <a href={reportDownloadUrl(r.id, apiPrefix)} download className="p-1.5 rounded-lg hover:bg-emerald-50 text-warm-500 hover:text-emerald-600" aria-label={`Download ${r.title}`} title="Download current prepared copy">
+                      <a href={reportDownloadUrl(r.id, apiPrefix)} download className="p-1.5 rounded-lg hover:bg-emerald-50 text-warm-500 hover:text-emerald-600" aria-label={`Download ${r.title}`} title="Download archived copy">
                         <Download className="h-3.5 w-3.5" />
                       </a>
                     )}
@@ -489,8 +491,8 @@ function ArchivedTab({
   );
 }
 
-// ── Template Edit tab (RND only) ────────────────────────────────────────────
-function TemplateEditor({ onFlash }: { onFlash: (ok: boolean, msg: string) => void }) {
+// ── Template Edit tab ───────────────────────────────────────────────────────
+function TemplateEditor({ apiPrefix, onFlash }: { apiPrefix: "rnd" | "admin"; onFlash: (ok: boolean, msg: string) => void }) {
   const [branding, setBranding] = useState<Branding | null>(null);
   const [brandingDraft, setBrandingDraft] = useState<Branding | null>(null);
   const [templates, setTemplates] = useState<ReportTemplate[]>([]);
@@ -501,9 +503,10 @@ function TemplateEditor({ onFlash }: { onFlash: (ok: boolean, msg: string) => vo
   const [savingT, setSavingT] = useState<string | null>(null);
 
   const load = useCallback(() => {
-    getBranding().then((value) => { setBranding(value); setBrandingDraft(value); }).catch(() => {});
-    listTemplates().then(setTemplates).catch(() => {});
-  }, []);
+    (apiPrefix === "admin" ? getAdminBranding() : getBranding())
+      .then((value) => { setBranding(value); setBrandingDraft(value); }).catch(() => {});
+    listTemplates(apiPrefix).then(setTemplates).catch(() => {});
+  }, [apiPrefix]);
   useEffect(() => { load(); }, [load]);
 
   const setB = (p: Partial<Branding>) => setBrandingDraft((b) => (b ? { ...b, ...p } : b));
@@ -514,7 +517,7 @@ function TemplateEditor({ onFlash }: { onFlash: (ok: boolean, msg: string) => vo
     setSavingB(true);
     try {
       const fd = new FormData(e.currentTarget);
-      const updated = await saveBranding(fd);
+      const updated = await (apiPrefix === "admin" ? saveAdminBranding(fd) : saveBranding(fd));
       setBranding(updated);
       setBrandingDraft(updated);
       setEditingBranding(false);
@@ -527,7 +530,7 @@ function TemplateEditor({ onFlash }: { onFlash: (ok: boolean, msg: string) => vo
   async function saveT(t: ReportTemplate) {
     setSavingT(t.id);
     try {
-      const updated = await saveTemplate(t.id, { signatories: t.signatories ?? [] });
+      const updated = await saveTemplate(t.id, { signatories: t.signatories ?? [] }, apiPrefix);
       setTemplates((items) => items.map((item) => item.id === updated.id ? updated : item));
       setTemplateDraft(null);
       setEditingTemplateId(null);

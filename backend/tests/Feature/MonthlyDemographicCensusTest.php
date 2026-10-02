@@ -87,7 +87,7 @@ class MonthlyDemographicCensusTest extends TestCase
         $this->assertTrue($june->fresh()->frozen_at->equalTo($frozenAt));
     }
 
-    public function test_browser_and_generator_use_stored_zero_month_snapshot(): void
+    public function test_screen_uses_stored_zero_month_snapshot(): void
     {
         Carbon::setTestNow('2026-09-15 12:00:00');
         $patient = Patient::factory()->create(['admission_date' => '2026-05-12']);
@@ -100,18 +100,13 @@ class MonthlyDemographicCensusTest extends TestCase
         $admin = User::factory()->create(['role' => 'Admin']);
 
         $this->actingAs($admin, 'sanctum')
-            ->getJson('/api/admin/reports/demographic_census/instances')
+            ->getJson('/api/admin/reports/demographic_census/summary?year=2026&month=6')
             ->assertOk()
-            ->assertJsonPath('data.instances.0.key', '2026-09')
-            ->assertJsonPath('data.instances.4.key', '2026-05');
+            ->assertJsonPath('data.total', 0)
+            ->assertJsonPath('data.status', 'frozen')
+            ->assertJsonPath('data.available_months.0.month', 5);
 
-        $report = new Report([
-            'type' => 'demographic_census',
-            'parameters' => ['start' => '2026-06-01', 'end' => '2026-06-30'],
-        ]);
-        $data = app(DemographicCensusGenerator::class)->data($report);
-
-        $this->assertSame(0, $data['census']['total']);
+        $this->assertSame(0, DemographicCensusPeriod::query()->whereDate('period_start', '2026-06-01')->firstOrFail()->census['total']);
     }
 
     public function test_completed_month_cannot_be_edited_after_it_is_frozen(): void
@@ -212,9 +207,9 @@ class MonthlyDemographicCensusTest extends TestCase
         $admin = User::factory()->create(['role' => 'Admin']);
 
         $this->actingAs($admin, 'sanctum')
-            ->getJson('/api/admin/reports/demographic_census/instances')
+            ->getJson('/api/admin/reports/demographic_census/summary?year=2026&month=9')
             ->assertOk()
-            ->assertJsonPath('data.instances.0.key', '2026-09');
+            ->assertJsonPath('data.status', 'live');
 
         $this->assertFalse(DemographicCensusPeriod::query()->whereDate('period_start', '2026-09-01')->exists());
     }
@@ -274,5 +269,95 @@ class MonthlyDemographicCensusTest extends TestCase
         Carbon::setTestNow('2026-07-03 12:00:00');
         $this->artisan('reports:demographic-census-catch-up')->assertSuccessful();
         $this->assertTrue($may->fresh()->frozen_at->equalTo($frozenAt));
+    }
+
+    public function test_census_screen_counts_cycle_start_month_and_sums_frozen_and_live_months_for_the_year(): void
+    {
+        Carbon::setTestNow('2026-06-15 12:00:00');
+        $patient = Patient::factory()->create(['dob' => '1990-01-01', 'sex' => 'Female', 'medical_diagnosis' => 'PRIVATE DIAGNOSIS']);
+        $january = NcpRecord::factory()->create([
+            'patient_id' => $patient->id,
+            'risk_score' => 1,
+            'created_at' => '2026-01-10 08:00:00',
+            'updated_at' => '2026-06-01 08:00:00',
+        ]);
+        Assessment::factory()->create(['ncp_record_id' => $january->id, 'primary_diagnosis_category' => 'Diabetes']);
+        $this->artisan('reports:demographic-census-catch-up')->assertSuccessful();
+        $june = NcpRecord::factory()->create([
+            'patient_id' => $patient->id,
+            'risk_score' => 5,
+            'created_at' => '2026-06-10 08:00:00',
+        ]);
+        Assessment::factory()->create(['ncp_record_id' => $june->id, 'primary_diagnosis_category' => 'Renal']);
+        $january->update(['risk_score' => 5]);
+        $actor = User::factory()->rnd()->create();
+
+        $this->actingAs($actor, 'sanctum')
+            ->getJson('/api/rnd/reports/demographic_census/summary?year=2026&month=1')
+            ->assertOk()
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.by_risk.Low', 1)
+            ->assertJsonPath('data.by_primary_diagnosis_category.Diabetes', 1)
+            ->assertJsonPath('data.status', 'frozen');
+        $this->getJson('/api/rnd/reports/demographic_census/summary?year=2026&month=6')
+            ->assertOk()
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.by_risk.High', 1)
+            ->assertJsonPath('data.by_primary_diagnosis_category.Renal', 1)
+            ->assertJsonPath('data.status', 'live');
+        $annual = $this->getJson('/api/rnd/reports/demographic_census/summary?year=2026')
+            ->assertOk()
+            ->assertJsonPath('data.total', 2)
+            ->assertJsonPath('data.by_risk.Low', 1)
+            ->assertJsonPath('data.by_risk.High', 1)
+            ->assertJsonPath('data.by_primary_diagnosis_category.Diabetes', 1)
+            ->assertJsonPath('data.by_primary_diagnosis_category.Renal', 1)
+            ->assertJsonPath('data.age_sex.30-39.F', 2)
+            ->assertJsonPath('data.status', 'live');
+        $this->assertStringNotContainsString('PRIVATE DIAGNOSIS', $annual->getContent());
+        $this->assertDatabaseCount('reports', 0);
+    }
+
+    public function test_census_screen_is_read_only_for_rnd_and_admin_and_rejects_other_roles_and_invalid_periods(): void
+    {
+        Carbon::setTestNow('2026-06-15 12:00:00');
+        NcpRecord::factory()->create(['created_at' => '2026-05-10 08:00:00']);
+        $admin = User::factory()->create(['role' => 'Admin']);
+        $fss = User::factory()->create(['role' => 'FSS']);
+
+        $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/admin/reports/demographic_census/summary?year=2026&month=5')
+            ->assertOk()
+            ->assertJsonPath('data.total', 1);
+        $this->getJson('/api/admin/reports/demographic_census/summary?year=2027')->assertNotFound();
+        $this->getJson('/api/admin/reports/demographic_census/summary?year=2026&month=13')->assertUnprocessable();
+        $this->actingAs($fss, 'sanctum')
+            ->getJson('/api/fss/reports/demographic_census/summary?year=2026')->assertForbidden();
+        $this->assertDatabaseCount('reports', 0);
+    }
+
+    public function test_census_pdf_routes_and_legacy_report_ids_are_no_longer_available(): void
+    {
+        Carbon::setTestNow('2026-06-15 12:00:00');
+        $actor = User::factory()->rnd()->create();
+        NcpRecord::factory()->create(['created_at' => '2026-06-10 08:00:00']);
+        $legacy = Report::factory()->create([
+            'user_id' => $actor->id,
+            'type' => 'demographic_census',
+            'status' => 'archived',
+        ]);
+        $base = '/api/rnd/reports/demographic_census';
+        $period = '?start=2026-06-01&end=2026-06-30';
+
+        $this->actingAs($actor, 'sanctum')->postJson($base.'/prepare'.$period)->assertGone();
+        $this->postJson($base.'/archive'.$period)->assertGone();
+        $this->getJson($base.'/render'.$period)->assertGone();
+        $this->getJson($base.'/export'.$period)->assertGone();
+        $this->getJson($base.'/instances')->assertGone();
+        $this->getJson("/api/rnd/reports/{$legacy->uuid}")->assertGone();
+        $this->getJson("/api/rnd/reports/{$legacy->uuid}/view")->assertGone();
+        $this->getJson("/api/rnd/reports/{$legacy->uuid}/download")->assertGone();
+        $this->getJson('/api/rnd/reports?type=demographic_census')->assertOk()->assertJsonCount(0, 'data');
+        $this->assertDatabaseCount('reports', 1);
     }
 }

@@ -395,7 +395,7 @@ class AdminAuditLogTest extends TestCase
         $this->assertSame(['food_library', 'patients_ncp'], collect($metadata['filters']['module_subfilters']['nutrition_care'])->pluck('value')->all());
         $this->assertSame(['catalog', 'menus', 'procurement', 'budget'], collect($metadata['filters']['module_subfilters']['food_service_operations'])->pluck('value')->all());
         $this->assertSame([
-            'program_project_activity', 'menu_calendar', 'procurement_pack', 'demographic_census',
+            'program_project_activity', 'menu_calendar', 'procurement_pack',
             'patient_menu_plan', 'ncp_summary', 'accomplishment_report',
         ], collect($metadata['filters']['module_subfilters']['reports'])->pluck('value')->all());
         $this->assertSame(

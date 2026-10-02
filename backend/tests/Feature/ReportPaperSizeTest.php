@@ -2,15 +2,17 @@
 
 namespace Tests\Feature;
 
+use App\Models\MenuCycle;
 use App\Models\Report;
 use App\Models\ReportBranding;
 use App\Services\Reports\Generators\AccomplishmentReportGenerator;
-use App\Services\Reports\Generators\DemographicCensusGenerator;
 use App\Services\Reports\Generators\MenuCalendarGenerator;
 use App\Services\Reports\Generators\NcpSummaryGenerator;
 use App\Services\Reports\Generators\PatientMenuPlanGenerator;
 use App\Services\Reports\Generators\ProcurementPackGenerator;
 use App\Services\Reports\Generators\ProgramProjectActivityGenerator;
+use App\Services\Reports\ReportBrowser;
+use App\Services\Reports\ReportService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Tests\TestCase;
 
@@ -21,7 +23,6 @@ class ReportPaperSizeTest extends TestCase
         $expectedPaper = [0, 0, 612, 936];
         $generators = [
             AccomplishmentReportGenerator::class => 'landscape',
-            DemographicCensusGenerator::class => 'landscape',
             MenuCalendarGenerator::class => 'landscape',
             NcpSummaryGenerator::class => 'portrait',
             PatientMenuPlanGenerator::class => 'landscape',
@@ -38,44 +39,36 @@ class ReportPaperSizeTest extends TestCase
         }
     }
 
-    public function test_demographic_census_pdf_omits_ward_diagnosis_and_nutritional_status_breakdowns(): void
+    public function test_demographic_census_is_not_registered_as_a_pdf_report(): void
     {
-        $census = [
-            'total' => 1,
-            'age_sex' => collect(DemographicCensusGenerator::AGE_GROUPS)
-                ->mapWithKeys(fn (string $group): array => [$group => ['M' => 0, 'F' => 0, 'total' => 0]])
-                ->all(),
-            'by_sex' => ['M' => 0, 'F' => 1],
-            'by_ward' => ['Medical' => 1],
-            'by_primary_diagnosis_category' => ['Diabetes' => 1],
-            'by_status' => ['Normal' => 1],
-            'by_risk' => ['Low' => 1],
-        ];
-        $report = new Report(['type' => 'demographic_census']);
-        $html = view('reports.demographic-census', [
-            'census' => $census,
-            'inclusive_label' => '09/01/26 - 09/30/26',
-            'age_groups' => DemographicCensusGenerator::AGE_GROUPS,
-            'branding' => new ReportBranding,
-            'signatories' => [],
-            'generated_at' => now(),
-            'report' => $report,
+        $this->assertFalse(app(ReportService::class)->supports('demographic_census'));
+        $this->assertFalse(app(ReportBrowser::class)->supports('demographic_census'));
+    }
+
+    public function test_menu_calendar_renders_only_letterhead_weekly_menu_and_signatory_section(): void
+    {
+        $html = view('reports.menu-calendar', [
+            'report' => new Report(['title' => 'Menu Calendar']),
+            'branding' => new ReportBranding([
+                'hospital_name' => 'Romana Pangan District Hospital',
+                'address' => 'Labangan, Zamboanga del Sur',
+                'service_name' => 'Dietary Service',
+            ]),
+            'cycle' => new MenuCycle(['name' => 'October 5–11, 2026']),
+            'days' => ['Monday'],
+            'dates' => ['Monday' => 'Oct 5'],
+            'meals' => ['Lunch'],
+            'grid' => ['Lunch' => ['Monday' => ['Chicken adobo']]],
+            'signatories' => [['label' => 'Prepared by', 'name' => 'Jane Doe', 'title' => 'Dietitian']],
         ])->render();
 
-        $document = new \DOMDocument;
-        $previousLibxmlState = libxml_use_internal_errors(true);
-        $document->loadHTML($html);
-        libxml_clear_errors();
-        libxml_use_internal_errors($previousLibxmlState);
-        $xpath = new \DOMXPath($document);
-        $breakdownCells = $xpath->query('//table[contains(concat(" ", normalize-space(@class), " "), " census-breakdowns ")]/tr[1]/td');
-
-        $this->assertStringNotContainsString('By Ward', $html);
-        $this->assertStringNotContainsString('By Primary Diagnosis Category', $html);
-        $this->assertStringNotContainsString('By Nutritional Status', $html);
-        $this->assertStringContainsString('By Risk Level', $html);
-        $this->assertCount(1, $breakdownCells);
-        $this->assertSame('100%', $breakdownCells->item(0)->getAttribute('width'));
+        $this->assertStringContainsString('Romana Pangan District Hospital', $html);
+        $this->assertStringContainsString('WEEKLY MENU CALENDAR', $html);
+        $this->assertStringContainsString('Chicken adobo', $html);
+        $this->assertStringContainsString('Jane Doe', $html);
+        $this->assertStringNotContainsString('Population:', $html);
+        $this->assertStringNotContainsString('Weekly cost:', $html);
+        $this->assertStringNotContainsString('Cost / head / day:', $html);
     }
 
     public function test_long_bond_css_preserves_landscape_media_box(): void

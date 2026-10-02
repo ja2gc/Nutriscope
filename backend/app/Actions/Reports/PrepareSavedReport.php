@@ -21,12 +21,18 @@ class PrepareSavedReport
 
     public function execute(User $actor, string $type, array $parameters, ?Report $existing = null, bool $freeze = true): Report
     {
+        if ($type === 'demographic_census') {
+            throw new \InvalidArgumentException('Demographic Census no longer creates filed PDF reports.');
+        }
         ksort($parameters);
         $identity = hash('sha256', $actor->role.'|'.$type.'|'.json_encode($parameters, JSON_THROW_ON_ERROR));
         $template = ReportTemplate::query()->where('type', $type)->first();
         $title = $this->titleFor($type, $parameters, $template?->name ?? $type);
         $report = $existing ?? Report::query()->where('archive_identity', $identity)->first();
         $created = $report === null;
+        if ($report?->status === 'archived') {
+            return $report->fresh(['user:id,uuid,name,first_name,last_name', 'officialFile']);
+        }
         if ($report?->official_file_stored_object_id !== null) {
             return $report->fresh(['user:id,uuid,name,first_name,last_name', 'officialFile']);
         }
@@ -72,11 +78,20 @@ class PrepareSavedReport
         $hash = hash('sha256', $bytes);
         $path = "reports/{$report->uuid}/{$hash}.pdf";
         $disk = Storage::disk('report_cache');
+        $wroteCache = false;
+        $cacheExisted = false;
         try {
-            if (! $disk->exists($path) && ! $disk->put($path, $bytes, ['visibility' => 'private'])) {
-                throw new \RuntimeException('Prepared report storage failed.');
+            $cacheExisted = $disk->exists($path);
+            if (! $cacheExisted) {
+                if (! $disk->put($path, $bytes, ['visibility' => 'private'])) {
+                    throw new \RuntimeException('Prepared report storage failed.');
+                }
+                $wroteCache = true;
             }
         } catch (\Throwable $exception) {
+            if (! $cacheExisted) {
+                $disk->delete($path);
+            }
             if ($officialFile !== null) {
                 $this->storedObjects->deleteOrQueue($officialFile);
             }
@@ -106,7 +121,9 @@ class PrepareSavedReport
             $report->timestamps = true;
         } catch (\Throwable $exception) {
             $report->timestamps = true;
-            $disk->delete($path);
+            if ($wroteCache && $path !== $oldPath) {
+                $disk->delete($path);
+            }
             if ($officialFile !== null) {
                 $this->storedObjects->deleteOrQueue($officialFile);
             }

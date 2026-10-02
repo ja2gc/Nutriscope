@@ -17,7 +17,7 @@ It combines deterministic algorithms, including system-calculated nutrition risk
 - RND Clinical System (NCP, patients, interventions, monitoring)
 - Communication System (database-backed announcements with role visibility)
 - Document Extraction Pipeline (screening forms, lab results, procurement docs → auto-populate)
-- Report Generation Engine (NCP Summary, Nutrition Intervention Plan, Demographic Census, Program Project Activity, Menu Calendar, Procurement Pack, and Accomplishment Report)
+- Report Generation Engine (NCP Summary, Nutrition Intervention Plan, Program Project Activity, Menu Calendar, Procurement Pack, and Accomplishment Report) with an on-screen year/month Demographic Census
 - Food Service System (reference catalogs, recipes, menu cycles, procurement, served population, accomplishments, and budget outcomes)
 - Admin System (users, reports, audit, configuration)
 

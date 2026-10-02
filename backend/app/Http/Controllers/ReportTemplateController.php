@@ -23,6 +23,7 @@ class ReportTemplateController extends Controller
     public function index(): JsonResponse
     {
         $templates = ReportTemplate::where('is_active', true)
+            ->where('type', '!=', 'demographic_census')
             ->orderBy('name')
             ->get(['id', 'uuid', 'type', 'name', 'description', 'signatories']);
 
@@ -34,6 +35,7 @@ class ReportTemplateController extends Controller
 
     public function update(Request $request, ReportTemplate $reportTemplate): JsonResponse
     {
+        abort_if($reportTemplate->type === 'demographic_census', 410, 'Demographic Census no longer uses a PDF template.');
         $data = $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],
             'signatories' => ['sometimes', 'array'],

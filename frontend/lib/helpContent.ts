@@ -531,7 +531,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "Admin",
     category: "Budget & Reports",
     question: "Which reports can Admin access?",
-    answer: "Admin can access allow-listed operational and aggregate reports such as program activity, menu calendar, procurement pack, accomplishment, and demographic census. Nutrition Intervention Plan and NCP Summary are blocked.",
+    answer: "Admin can access program activity, menu calendar, procurement pack, and accomplishment PDF reports. Demographic Census opens as a year or month summary; Save PDF prints only the selected summary. Admin can edit shared branding and non-clinical signatories in Reports → Template Edit. Nutrition Intervention Plan and NCP Summary are blocked.",
     keywords: ["allow list", "aggregate", "accomplishment", "NCP summary"],
   },
   {

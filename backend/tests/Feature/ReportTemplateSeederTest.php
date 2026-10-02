@@ -55,4 +55,34 @@ class ReportTemplateSeederTest extends TestCase
 
         $this->assertSame($original, $template->fresh()->signatories);
     }
+
+    public function test_admin_can_edit_report_template_signatories(): void
+    {
+        $this->seed(ReportTemplateSeeder::class);
+        $admin = User::factory()->create(['role' => 'Admin']);
+        $template = ReportTemplate::where('type', 'inspection_report')->firstOrFail();
+        $signatories = $template->signatories;
+        $signatories[0]['name'] = 'Fictional Inspector';
+
+        $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/admin/report-templates')
+            ->assertOk();
+        $this->patchJson("/api/admin/report-templates/{$template->uuid}", [
+            'signatories' => $signatories,
+        ])->assertOk();
+
+        $this->assertSame('Fictional Inspector', $template->fresh()->signatories[0]['name']);
+    }
+
+    public function test_census_pdf_template_is_not_offered_or_editable(): void
+    {
+        $this->seed(ReportTemplateSeeder::class);
+        $admin = User::factory()->create(['role' => 'Admin']);
+        $template = ReportTemplate::where('type', 'demographic_census')->firstOrFail();
+
+        $data = $this->actingAs($admin, 'sanctum')->getJson('/api/admin/report-templates')->assertOk()->json('data');
+        $this->assertNotContains('demographic_census', array_column($data, 'type'));
+        $this->patchJson("/api/admin/report-templates/{$template->uuid}", ['name' => 'Legacy PDF'])
+            ->assertGone();
+    }
 }

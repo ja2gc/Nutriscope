@@ -125,15 +125,15 @@ Use this as both the recording checklist and narration script. Record with demo 
 **On-screen actions**
 
 1. Open **Reports** and review the report catalog.
-2. Open an allowed Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment, or aggregate Demographic Census report. For the census, show that each non-deleted ADIME cycle is counted once in its start month without exposing patient identity.
-3. Use Preview and Download and explain that they read the latest saved report data.
+2. Open an allowed Program Project Activity, Menu Calendar, Procurement Pack, or Accomplishment PDF report. Open aggregate Demographic Census as a year/month screen. Show that each non-deleted ADIME cycle counts once in its start month without exposing patient identity. Save the selected Census view as PDF.
+3. Use Preview and Download on an operational report; both show its prepared copy.
 4. Archive an inactive demo report and open the **Archived** tab.
-5. Restore or delete only the disposable archived report when permitted.
+5. Open **Template Edit** and show shared branding plus an editable non-clinical signatory. Save only fictional demo changes.
 6. Point out that Nutrition Intervention Plan and NCP Summary are unavailable to Admin.
 
 **Narration**
 
-> Admin can review approved operational and aggregate reports. Demographic Census aggregates ADIME cycles from the earliest cycle month and keeps the current month live without exposing patient identity. Preview and Download do not create a second report or alter its identity. Archiving hides an inactive saved report. Patient-specific clinical reports remain blocked by the server, not merely hidden from the page.
+> Admin can review approved operational PDF reports and the aggregate Demographic Census screen. Census begins with the earliest cycle month, offers year/month totals, and keeps the current month live without exposing patient identity. Its selected-view PDF does not create a filed report. Other PDF preview/download actions keep the original report identity; archiving freezes a saved copy. Patient-specific clinical reports remain blocked by the server, not merely hidden from the page.
 
 **Expected result:** Allowed reports can be browsed and managed, while patient-specific report types remain inaccessible.
 

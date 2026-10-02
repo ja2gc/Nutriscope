@@ -203,6 +203,13 @@ return [
             'implementation_state' => 'implemented',
             'reason' => 'This report-configuration command needs an explicit safe allow-listed change event; images and arbitrary payloads stay excluded.',
         ],
+        'PATCH api/admin/report-templates/{reportTemplate}' => [
+            'classification' => 'explicit_event',
+            'source' => 'App\\Http\\Controllers\\ReportTemplateController@update',
+            'owner_task' => 8,
+            'implementation_state' => 'implemented',
+            'reason' => 'Admin template changes emit a safe allow-listed report-configuration event without image or arbitrary payload content.',
+        ],
         'DELETE api/admin/reports/{report}' => [
             'classification' => 'explicit_event',
             'source' => 'App\\Http\\Controllers\\ReportController@destroy',

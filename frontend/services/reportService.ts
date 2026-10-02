@@ -47,6 +47,21 @@ export interface ReportInstance {
   unavailable_reason?: string | null;
 }
 
+export interface CensusSummary {
+  year: number;
+  month: number | null;
+  label: string;
+  status: "live" | "frozen";
+  total: number;
+  age_groups: string[];
+  age_sex: Record<string, { M: number; F: number; total: number }>;
+  unknown_sex: number;
+  by_risk: Record<string, number>;
+  by_primary_diagnosis_category: Record<string, number>;
+  available_years: number[];
+  available_months: Array<{ month: number; label: string; status: "live" | "frozen" }>;
+}
+
 export interface PatientNcpReportInstance extends ReportInstance {
   type: "ncp_summary" | "patient_menu_plan";
   status: string;
@@ -156,6 +171,10 @@ export async function listInstances(
   return { data: json.data, meta: json.meta };
 }
 
+export async function getCensusSummary(prefix: "rnd" | "admin", year?: number, month?: number): Promise<CensusSummary> {
+  return unwrap(await apiFetch(`/api/${prefix}/reports/demographic_census/summary${toQuery({ year, month })}`), "Failed to load census.");
+}
+
 export async function listPatientNcpReports(patientId: string, page = 1): Promise<PatientNcpReportFeed> {
   const res = await apiFetch(`/api/rnd/reports/patients/${encodeURIComponent(patientId)}/instances?page=${page}&per_page=10`);
   const json = await res.json().catch(() => ({}));
@@ -226,13 +245,13 @@ export async function saveAdminBranding(form: FormData): Promise<Branding> {
   return postBranding("/api/admin/report-branding", form);
 }
 
-export async function listTemplates(): Promise<ReportTemplate[]> {
-  return unwrap(await apiFetch("/api/rnd/report-templates"), "Failed to load templates.");
+export async function listTemplates(apiPrefix: "rnd" | "admin" = "rnd"): Promise<ReportTemplate[]> {
+  return unwrap(await apiFetch(`/api/${apiPrefix}/report-templates`), "Failed to load templates.");
 }
 
-export async function saveTemplate(id: string, payload: { name?: string; signatories?: Signatory[] }): Promise<ReportTemplate> {
+export async function saveTemplate(id: string, payload: { name?: string; signatories?: Signatory[] }, apiPrefix: "rnd" | "admin" = "rnd"): Promise<ReportTemplate> {
   return unwrap(
-    await apiFetch(`/api/rnd/report-templates/${id}`, {
+    await apiFetch(`/api/${apiPrefix}/report-templates/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),

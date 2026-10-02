@@ -166,9 +166,9 @@ class ReportsBrowseTest extends TestCase
         $this->getJson('/api/rnd/reports/patient_menu_plan/instances')
             ->assertOk()
             ->assertJsonPath('data.instances.0.params.intervention_plan_id', $intervention->uuid);
-        $this->getJson('/api/rnd/reports/demographic_census/instances')
+        $this->getJson('/api/rnd/reports/demographic_census/summary?year=2026&month=5')
             ->assertOk()
-            ->assertJsonFragment(['key' => '2026-05']);
+            ->assertJsonPath('data.total', 1);
 
         $reports = $this->createMock(ReportService::class);
         $reports->method('supports')->willReturn(true);

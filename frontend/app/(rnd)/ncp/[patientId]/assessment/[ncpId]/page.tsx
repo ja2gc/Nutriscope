@@ -41,8 +41,8 @@ const ASSESSMENT_FIELD_LABELS: Record<string, string> = {
   dry_weight_kg: "Dry weight",
   height: "Height",
   physical_activity_level: "Physical activity level",
-  primary_diagnosis_category: "Primary diagnosis category",
-  primary_diagnosis_other: "Specified diagnosis category",
+  primary_diagnosis_category: "Nutrition care category",
+  primary_diagnosis_other: "Specified nutrition care category",
 };
 
 function formatAssessmentValidationError(error: AssessmentValidationError): string {
@@ -1604,7 +1604,7 @@ export default function NcpAssessmentPage({
                   rows={2}
                 />
               </Field>
-              <Field label="Primary Diagnosis Category" required>
+              <Field label="Nutrition care category" required>
                 <SelectInput
                   value={assessment.primary_diagnosis_category ?? ""}
                   onChange={v => {

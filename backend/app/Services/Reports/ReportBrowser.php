@@ -7,7 +7,6 @@ use App\Models\MenuCycle;
 use App\Models\NcpRecord;
 use App\Models\PurchaseOrder;
 use App\Services\Reports\Contracts\InstanceSource;
-use App\Services\Reports\Instances\DemographicCensusInstanceSource;
 use App\Services\Reports\Instances\EntityInstanceSource;
 use App\Services\Reports\Instances\InterventionPlanInstanceSource;
 use App\Services\Reports\Instances\PeriodInstanceSource;
@@ -27,9 +26,6 @@ class ReportBrowser
     public function __construct()
     {
         $this->sources = [
-            // ── period axis (year → month) ───────────────────────────────────
-            'demographic_census' => fn () => new DemographicCensusInstanceSource,
-
             // ── entity axis ──────────────────────────────────────────────────
             'procurement_pack' => fn () => new EntityInstanceSource(
                 fn () => PurchaseOrder::query()->whereIn('lifecycle_status', ['completed', 'archived'])->with('supplier'),

@@ -314,10 +314,6 @@ class DemoSeederCurrentContractTest extends TestCase
             $this->assertGreaterThanOrEqual(150, (int) $log->served_population);
             $this->assertLessThanOrEqual(200, (int) $log->served_population);
         }
-        $this->assertStringContainsString(
-            "number_format(\$cost['population'])",
-            file_get_contents(resource_path('views/reports/menu-calendar.blade.php')),
-        );
         $weekStart = CarbonImmutable::parse($past->week_start_date);
         $lists = ShoppingList::query()
             ->whereIn('period_start', [

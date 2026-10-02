@@ -10,6 +10,7 @@ use App\Enums\AuditOutcome;
 use App\Http\Requests\PaginatedRequest;
 use App\Http\Requests\PrepareReportRequest;
 use App\Http\Resources\ReportResource;
+use App\Models\DemographicCensusPeriod;
 use App\Models\Intervention;
 use App\Models\MealPlan;
 use App\Models\NcpRecord;
@@ -18,6 +19,7 @@ use App\Models\Report;
 use App\Policies\AuditPolicy;
 use App\Services\Audit\AuditContextResolver;
 use App\Services\Audit\AuditLogger;
+use App\Services\Reports\Generators\DemographicCensusGenerator;
 use App\Services\Reports\ReportArchiveStorage;
 use App\Services\Reports\ReportAuditReference;
 use App\Services\Reports\ReportBrowser;
@@ -28,6 +30,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -83,6 +86,7 @@ class ReportController extends Controller
         } elseif ($role !== 'RND') {
             $query->where('user_id', Auth::id());
         }
+        $query->where('type', '!=', 'demographic_census');
 
         // FSS may only see accomplishment_report rows (fss.md §8).
         if ($role === 'FSS') {
@@ -109,6 +113,7 @@ class ReportController extends Controller
      */
     public function instances(PaginatedRequest $request, string $type, ReportBrowser $browser): JsonResponse
     {
+        $this->rejectCensusPdf($type);
         abort_unless($browser->supports($type), 404, 'Unknown report type.');
         $this->guardClinical($type);
         $this->guardAdmin($type);
@@ -134,6 +139,78 @@ class ReportController extends Controller
                 'last_page' => max(1, (int) ceil($total / $perPage)),
             ],
         ]);
+    }
+
+    public function censusSummary(Request $request, DemographicCensusGenerator $generator): JsonResponse
+    {
+        $this->guardClinical('demographic_census');
+        $this->guardAdmin('demographic_census');
+        $this->guardFss('demographic_census');
+        $validated = $request->validate([
+            'year' => ['nullable', 'integer', 'min:2000', 'max:2100'],
+            'month' => ['nullable', 'integer', 'min:1', 'max:12'],
+        ]);
+        $today = Carbon::now(config('nutriscope-reports.timezone'));
+        $year = (int) ($validated['year'] ?? $today->year);
+        $month = isset($validated['month']) ? (int) $validated['month'] : null;
+        $firstCycle = NcpRecord::query()->min('created_at');
+        abort_if($firstCycle === null, 404, 'No census data yet.');
+        $firstMonth = Carbon::parse($firstCycle, $today->getTimezone())->startOfMonth();
+        $selectedStart = Carbon::parse(sprintf('%04d-%02d-01', $year, $month ?? 1), $today->getTimezone());
+        abort_if($year < $firstMonth->year || $year > $today->year, 404, 'Census year is unavailable.');
+        abort_if($month !== null && ($selectedStart->lt($firstMonth) || $selectedStart->gt($today->copy()->startOfMonth())), 404, 'Census month is unavailable.');
+
+        $total = 0;
+        $ageSex = DemographicCensusGenerator::aggregate([])['age_sex'];
+        $byRisk = [];
+        $byPrimaryDiagnosisCategory = [];
+        $availableMonths = [];
+        $allFrozen = true;
+        for ($number = 1; $number <= 12; $number++) {
+            $start = Carbon::parse(sprintf('%04d-%02d-01', $year, $number), $today->getTimezone());
+            if ($start->lt($firstMonth) || $start->gt($today->copy()->startOfMonth())) {
+                continue;
+            }
+            $current = $start->isSameMonth($today);
+            $stored = $current ? null : DemographicCensusPeriod::query()
+                ->whereDate('period_start', $start->toDateString())
+                ->where('basis_version', DemographicCensusGenerator::BASIS_VERSION)
+                ->first();
+            $status = $stored === null ? 'live' : 'frozen';
+            $availableMonths[] = ['month' => $number, 'label' => $start->format('F'), 'status' => $status];
+            if ($month !== null && $month !== $number) {
+                continue;
+            }
+            $allFrozen = $allFrozen && $status === 'frozen';
+            $census = $stored?->census ?? $generator->currentCensus($start, $start->copy()->endOfMonth());
+            $total += (int) ($census['total'] ?? 0);
+            foreach ($ageSex as $group => $counts) {
+                foreach (['M', 'F', 'total'] as $key) {
+                    $ageSex[$group][$key] += (int) ($census['age_sex'][$group][$key] ?? 0);
+                }
+            }
+            foreach (($census['by_risk'] ?? []) as $risk => $count) {
+                $byRisk[$risk] = ($byRisk[$risk] ?? 0) + (int) $count;
+            }
+            foreach (($census['by_primary_diagnosis_category'] ?? []) as $category => $count) {
+                $byPrimaryDiagnosisCategory[$category] = ($byPrimaryDiagnosisCategory[$category] ?? 0) + (int) $count;
+            }
+        }
+
+        return response()->json(['data' => [
+            'year' => $year,
+            'month' => $month,
+            'label' => $month === null ? (string) $year : $selectedStart->format('F Y'),
+            'status' => $allFrozen ? 'frozen' : 'live',
+            'total' => $total,
+            'age_groups' => DemographicCensusGenerator::AGE_GROUPS,
+            'age_sex' => $ageSex,
+            'unknown_sex' => $total - array_sum(array_column($ageSex, 'total')),
+            'by_risk' => $byRisk,
+            'by_primary_diagnosis_category' => $byPrimaryDiagnosisCategory,
+            'available_years' => range($today->year, $firstMonth->year),
+            'available_months' => $availableMonths,
+        ]]);
     }
 
     public function patientInstances(PaginatedRequest $request, Patient $patient): JsonResponse
@@ -208,12 +285,10 @@ class ReportController extends Controller
         ]);
     }
 
-    /**
-     * On-demand render: stream a freshly rendered PDF from current frozen data,
-     * WITHOUT persisting a Report row. 404 when the params hold no data (§6, #3).
-     */
+    /** Legacy render endpoint; saved reports must be prepared before viewing. */
     public function render(Request $request, string $type, ReportService $reports, ReportBrowser $browser): JsonResponse
     {
+        $this->rejectCensusPdf($type);
         abort_unless($reports->supports($type) && $browser->supports($type), 404, 'Unknown report type.');
         $this->guardClinical($type);
         $this->guardAdmin($type);
@@ -227,6 +302,7 @@ class ReportController extends Controller
 
     public function export(Request $request, string $type, ReportService $reports, ReportBrowser $browser): JsonResponse
     {
+        $this->rejectCensusPdf($type);
         abort_unless($reports->supports($type) && $browser->supports($type), 404, 'Unknown report type.');
         $this->guardClinical($type);
         $this->guardAdmin($type);
@@ -240,6 +316,7 @@ class ReportController extends Controller
 
     public function prepare(PrepareReportRequest $request, string $type, ReportService $reports, ReportBrowser $browser, PrepareSavedReport $prepare): JsonResponse
     {
+        $this->rejectCensusPdf($type);
         abort_unless($reports->supports($type) && $browser->supports($type), 404, 'Unknown report type.');
         $this->guardClinical($type);
         $this->guardAdmin($type);
@@ -256,12 +333,10 @@ class ReportController extends Controller
         return response()->json(['data' => new ReportResource($report)]);
     }
 
-    /**
-     * Archive: render once, store the PDF, and freeze a snapshot of the branding /
-     * signatories / period used — the only path that persists a Report (§4.1).
-     */
+    /** File prepared bytes and snapshot without changing older archived reports. */
     public function archive(Request $request, string $type, ReportService $reports, ReportBrowser $browser, PrepareSavedReport $prepare): JsonResponse
     {
+        $this->rejectCensusPdf($type);
         abort_unless($reports->supports($type) && $browser->supports($type), 404, 'Unknown report type.');
         $this->guardClinical($type);
         $this->guardAdmin($type);
@@ -304,6 +379,7 @@ class ReportController extends Controller
     public function show(Report $report): JsonResponse
     {
         $this->authorizeReportAccess($report);
+        $this->rejectCensusPdf($report->type);
         $this->guardClinical($report->type);
         $this->guardAdmin($report->type);
         $this->guardFss($report->type);
@@ -316,6 +392,7 @@ class ReportController extends Controller
     public function download(Report $report): StreamedResponse|JsonResponse
     {
         $this->authorizeReportAccess($report);
+        $this->rejectCensusPdf($report->type);
         $this->guardClinical($report->type);
         $this->guardAdmin($report->type);
         $this->guardFss($report->type);
@@ -360,13 +437,11 @@ class ReportController extends Controller
         ]);
     }
 
-    /**
-     * Stream an archived copy INLINE (for the in-app preview) — frozen stored
-     * bytes, never re-rendered, same role access check as {@see download()}.
-     */
+    /** Stream prepared bytes inline, with the same access check as download. */
     public function view(Report $report): StreamedResponse|JsonResponse
     {
         $this->authorizeReportAccess($report);
+        $this->rejectCensusPdf($report->type);
         $this->guardClinical($report->type);
         $this->guardAdmin($report->type);
         $this->guardFss($report->type);
@@ -418,6 +493,7 @@ class ReportController extends Controller
     public function destroy(Report $report): JsonResponse
     {
         $this->authorizeReportAccess($report);
+        $this->rejectCensusPdf($report->type);
         $this->guardClinical($report->type);
         $this->guardAdmin($report->type);
         $this->guardFss($report->type);
@@ -428,6 +504,17 @@ class ReportController extends Controller
         });
 
         return response()->json(null, 204);
+    }
+
+    private function rejectCensusPdf(string $type): void
+    {
+        if ($type !== 'demographic_census') {
+            return;
+        }
+        $this->guardClinical($type);
+        $this->guardAdmin($type);
+        $this->guardFss($type);
+        abort(410, 'Demographic Census is available as an on-screen summary.');
     }
 
     /** Clinical reports carry PHI — only RND may browse/render/file them.
@@ -678,7 +765,7 @@ class ReportController extends Controller
     {
         $actor = Auth::user();
         $parameters = $report->parameters;
-        if ($actor === null || ! is_array($parameters)) {
+        if ($actor === null || ! is_array($parameters) || $report->status === 'archived') {
             return null;
         }
 

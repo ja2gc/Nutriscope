@@ -106,12 +106,16 @@ Admin's server-allowed report types are:
 - Accomplishment Report
 - aggregate Demographic Census
 
+Menu Calendar PDF shows the hospital header, saved weekly meal grid, and configured signatories without population or cost figures. Empty week-long AM Snack and PM Snack rows are omitted.
+
 Admin is blocked from:
 
 - Nutrition Intervention Plan
 - NCP Summary
 
-This is enforced in the report controller/model, not only hidden in the UI. Admin may browse live instances, preview, archive, view/download frozen copies, delete authorized archives, and inspect report activity for allowed types.
+This is enforced in the report controller/model, not only hidden in the UI. Admin may browse live instances, preview, archive, view/download frozen copies, delete authorized archives, and inspect report activity for allowed PDF types. Demographic Census is a year/month summary screen with selected-view **Save PDF**. It creates no filed Census report or archive.
+
+**Reports → Template Edit** lets Admin edit shared header branding and non-clinical report signatories, as RND can. Patient-report signatories remain filled from clinical records and cannot be edited here.
 
 ## Budget Oversight
 

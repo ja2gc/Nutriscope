@@ -142,14 +142,14 @@ class UpdateAssessmentRequest extends FormRequest
                     ? $this->input('primary_diagnosis_category')
                     : $assessment?->primary_diagnosis_category;
                 if (blank($category)) {
-                    $validator->errors()->add('primary_diagnosis_category', 'The primary diagnosis category field is required.');
+                    $validator->errors()->add('primary_diagnosis_category', 'The nutrition care category field is required.');
                 }
 
                 $other = $this->exists('primary_diagnosis_other')
                     ? $this->input('primary_diagnosis_other')
                     : $assessment?->primary_diagnosis_other;
                 if ($category === PrimaryDiagnosisCategory::OTHER && blank($other)) {
-                    $validator->errors()->add('primary_diagnosis_other', 'The specified category field is required when primary diagnosis category is Other.');
+                    $validator->errors()->add('primary_diagnosis_other', 'The specified category field is required when nutrition care category is Other.');
                 }
 
                 $periodValue = $this->exists('weight_change_period_value')
@@ -171,7 +171,7 @@ class UpdateAssessmentRequest extends FormRequest
         return array_merge(self::PRESCRIPTION_INPUTS, [
             'weight_change_period_value' => 'weight change duration',
             'weight_change_period_unit' => 'weight change duration unit',
-            'primary_diagnosis_category' => 'primary diagnosis category',
+            'primary_diagnosis_category' => 'nutrition care category',
             'primary_diagnosis_other' => 'specified category',
         ]);
     }

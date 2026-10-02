@@ -92,7 +92,8 @@ describe("Assessment page UX", () => {
 
   test("keeps physician diagnosis separate from required census category", () => {
     expect(page).toContain('<Field label="Medical Diagnosis"');
-    expect(page).toContain('<Field label="Primary Diagnosis Category" required>');
+    expect(page).toContain('<Field label="Nutrition care category" required>');
+    expect(page).not.toContain('label="Primary Diagnosis Category"');
     expect(page).toContain('primary_diagnosis_category');
     expect(page).toContain('<Field label="Specify category" required>');
     expect(page).toContain('assessment.primary_diagnosis_category === "Other"');

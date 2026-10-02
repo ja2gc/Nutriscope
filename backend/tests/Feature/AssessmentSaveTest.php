@@ -87,7 +87,8 @@ class AssessmentSaveTest extends TestCase
             ]));
 
         $response->assertUnprocessable()
-            ->assertJsonValidationErrors('primary_diagnosis_category');
+            ->assertJsonValidationErrors('primary_diagnosis_category')
+            ->assertJsonPath('errors.primary_diagnosis_category.0', 'The nutrition care category field is required.');
         $this->assertFalse($ncp->assessment()->exists());
     }
 

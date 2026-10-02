@@ -34,7 +34,7 @@ flowchart TD
     K --> L["Build Problem, Etiology, Signs/Symptoms"]
     L --> M["Review editable PES statement"]
     K --> N["Optional AI Review<br/>0..3 source-backed suggestions"]
-    N --> N1["Evidence + verified source shown"]
+    N --> N1["Assessment evidence shown<br/>source enforced server-side"]
     N1 --> O["Accept, edit, or dismiss<br/>matching options rehydrate as selections"]
     O --> M
     M --> P["Save at least one Diagnosis"]
