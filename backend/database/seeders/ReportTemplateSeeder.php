@@ -79,7 +79,7 @@ class ReportTemplateSeeder extends Seeder
             [
                 'type' => 'demographic_census', 'name' => 'Demographic / Research Census',
                 'blade_view' => 'reports.demographic-census',
-                'description' => 'ADIME cycle counts by primary diagnosis category, nutritional status, and risk level.',
+                'description' => 'Monthly ADIME cycle census by age, sex, and risk level.',
                 'signatories' => [
                     ['role' => 'prepared_by', 'label' => 'Prepared by:', 'name' => $rnd[0], 'title' => $rnd[1]],
                     ['role' => 'approved_by', 'label' => 'Approved by:', 'name' => $chief[0], 'title' => $chief[1]],

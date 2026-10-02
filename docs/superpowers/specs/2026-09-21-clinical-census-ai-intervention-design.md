@@ -2,14 +2,14 @@
 
 **Date:** 2026-09-21
 
-**Status:** Approved by the owner on 2026-09-21; amended on 2026-09-28 for complete dated Intervention Plans and on 2026-09-29 for complete Monitoring calculation snapshots, one menu plan per Intervention, and final PDF content order.
+**Status:** Approved by the owner on 2026-09-21; amended on 2026-09-28 for complete dated Intervention Plans, on 2026-09-29 for complete Monitoring calculation snapshots, one menu plan per Intervention, and final PDF content order, and on 2026-10-02 to limit current Demographic Census output to the age/sex matrix plus risk level and hide PES rule-source labels from draft cards.
 
 ## Purpose
 
 This design finishes the approved post-deployment clinical changes without adding a new food-recall workflow or burdening the RND with duplicate data entry. It covers:
 
 - structured weight-change duration;
-- one cycle-owned primary diagnosis category for Demographic Census;
+- one cycle-owned primary diagnosis category as structured Assessment context;
 - pregnancy/lactation prescription modifiers and removal of the unused stress-factor input;
 - fluid as guidance rather than a meal-plan scaling target;
 - a narrow, source-gated, assessment-based PES drafting assistant;
@@ -20,7 +20,7 @@ The Academy of Nutrition and Dietetics treats Assessment, Nutrition Diagnosis, I
 
 ## Product principles
 
-- Keep the existing ADIME workflow. Add only three notable RND actions: choose one primary census category, enter weight-change duration as quantity plus unit, and create another complete Intervention Plan when treatment changes.
+- Keep the existing ADIME workflow. Add only three notable RND actions: choose one primary Assessment category, enter weight-change duration as quantity plus unit, and create another complete Intervention Plan when treatment changes.
 - Prefer no suggestion over an unsupported clinical suggestion.
 - Never make the patient calculate maternal additions manually. The system calculates final targets.
 - Do not add separate non-maternal "maintenance" additions beside goal-calculated prescriptions. Existing goal/stage output remains the final target so values are not double-counted.
@@ -35,7 +35,7 @@ The Academy of Nutrition and Dietetics treats Assessment, Nutrition Diagnosis, I
 
 - Assessment, Diagnosis, Intervention, Monitoring, meal-plan scaling, Demographic Census, NCP Summary, Nutrition Intervention Plan PDF, demo seed data, Help/docs, and canonical RND storyboard changes required by this design.
 - Forward-only migrations and explicit backfills needed to preserve existing data.
-- Existing current-month and completed-month census behavior, with a deliberate basis-version rebuild for the new category semantics.
+- Existing current-month and completed-month census behavior, with a deliberate basis-version rebuild for structured category compatibility. Current output later narrows to the age/sex matrix and risk level only.
 
 ### Excluded
 
@@ -65,7 +65,7 @@ This design is the implementation authority for the remaining work from the brai
 
 - Structured weight-change duration and removal of the duplicate/fixed three-month behavior.
 - A separate required RND-selected primary diagnosis category for each Assessment/cycle, with the approved compact category set and `Other` details.
-- Explicit seeded demo categories, census basis rebuild, live-report refresh, and frozen prepared-report history.
+- Explicit seeded demo categories, census basis rebuild, current age/sex-plus-risk output, live-report refresh, and frozen prepared-report history.
 - Removal of stress-factor input/use; `BMR x PAL` TEE authority; maternal status as an Assessment modifier rather than an intervention goal.
 - Automatic maternal energy/protein additions, existing calculation disclosure reuse, final patient targets, and fluid as guidance outside meal scaling.
 - Source-gated, assessment-based, token-bounded PES drafts with deterministic eligibility, no endless regeneration, and manual RND control.
@@ -78,7 +78,7 @@ This design is the implementation authority for the remaining work from the brai
 - No sequential or creation-year-derived patient identifier.
 - No separate patient-ID search mode or patient-ID table column.
 - No physician-diagnosis parsing, intervention-goal inference, or free-text buckets for census classification.
-- Do not remove the diagnosis breakdown card; the temporary removal idea was superseded by the approved primary-category design.
+- The original diagnosis-category and nutritional-status census cards are superseded by the 2026-10-02 owner override. Keep the category as structured Assessment data, but current generated census output shows only the age/sex matrix and risk-level breakdown.
 - No separate maternal intervention goal and no patient-performed addition arithmetic.
 - No new food-recall workflow, restaurant/Filipino food database, OCR intake reconstruction, or broad USDA expansion before the exhibition.
 - USDA remains useful for existing single-food nutrient calculations and may support a future recall project, but that future project is not part of this change.
@@ -156,9 +156,9 @@ For already deployed demo rows, use one narrowly targeted, idempotent backfill t
 
 ### Census and report identity
 
-Rename the PDF breakdown heading to `By Primary Diagnosis Category`. Aggregate the Assessment category, never raw `patients.medical_diagnosis`.
+Keep the cycle-owned Assessment category in structured data and legacy-compatible aggregates, never deriving it from raw `patients.medical_diagnosis`. Under the 2026-10-02 owner override, current generated census output renders the age/sex matrix and **By Risk Level** only. It omits ward, diagnosis-category, and nutritional-status breakdowns.
 
-Bump `DemographicCensusGenerator::BASIS_VERSION` once. Existing completed monthly census snapshots are rebuilt through the existing legacy-basis path; totals remain cycle counts and only the category grouping changes. Current month remains live.
+The earlier basis-version rebuild remains valid for data compatibility. Totals remain cycle counts and the current month remains live.
 
 Prepared/archived PDFs remain byte-for-byte frozen with their original data, branding, signatories, template, and appearance. They are never rewritten. A new live preview uses rebuilt census data and current branding. This distinction must be visible in tests and documentation.
 
@@ -226,7 +226,7 @@ For restricted-fluid goals, display the RND-prescribed limit prominently and kee
 
 ### Product boundary
 
-Replace broad free-form diagnosis generation with a bounded assistant shown under the existing **AI Review** tab, with **AI Suggestions** as the panel title and **Generate AI Suggestions** as its action. It proposes PES drafts; it does not diagnose autonomously. Manual PES builder remains available for all supported terms. These owner-approved visible labels override the earlier `Assessment-based PES drafts` label without changing the bounded evidence/source contract.
+Replace broad free-form diagnosis generation with a bounded assistant shown under the existing **AI Review** tab, with **AI Suggestions** as the panel title and **Generate AI Suggestions** as its action. It proposes PES drafts; it does not diagnose autonomously. Manual PES builder remains available for all supported terms. These owner-approved visible labels override the earlier `Assessment-based PES drafts` label. Draft cards show the Assessment evidence used, while source provenance remains enforced by the bounded server-side rule contract and is not displayed on the card.
 
 The Academy's `Nutrition Diagnosis` and `Critical Thinking in Nutrition Diagnosis` sections
 describe a PES statement as a problem the RND can address, an addressable root cause, and specific
@@ -448,7 +448,7 @@ Implementation must open and inspect the exact source content before encoding an
 
 - RND enters weight duration through quantity + weeks/months once; no fixed three-month assumption remains.
 - Every newly saved Assessment has exactly one allowed primary census category; physician diagnosis, PES diagnosis, and intervention goal remain independent.
-- Demographic Census groups cycles by primary category, preserves one-cycle-one-count totals, and never silently rewrites prepared archives.
+- Demographic Census preserves one-cycle-one-count totals, renders the age/sex matrix and risk level only, and never silently rewrites prepared archives.
 - Maternal final targets are calculated automatically and transparently; patient never performs addition.
 - Stress factor is absent from workflow; fluid is visible guidance and never a meal-plan scaling target.
 - PES assistant returns only source-gated, evidence-supported drafts for unchanged data at most once, with no invented evidence or sources.

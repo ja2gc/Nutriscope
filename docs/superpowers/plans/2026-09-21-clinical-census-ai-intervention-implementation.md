@@ -317,7 +317,7 @@ php artisan test --compact tests/Feature/MonthlyDemographicCensusTest.php tests/
 
 - [ ] **Step 3: Update generator and monthly basis**
 
-Increment `DemographicCensusGenerator::BASIS_VERSION` from 2 to 3. Replace cycle patient `medical_diagnosis` projection with Assessment category fallback `Unclassified`. Rename output key to `by_primary_diagnosis_category` and Blade heading to `By Primary Diagnosis Category`. Rebuild completed period data only through existing basis-version path; never mutate prepared report bytes.
+Increment `DemographicCensusGenerator::BASIS_VERSION` from 2 to 3. Replace cycle patient `medical_diagnosis` projection with Assessment category fallback `Unclassified` for structured data and compatibility. The later 2026-10-02 owner override removes diagnosis-category and nutritional-status breakdowns from current generated census output; render only the age/sex matrix and **By Risk Level**. Rebuild completed period data only through the existing basis-version path; never mutate prepared report bytes.
 
 - [ ] **Step 4: Seed and narrowly backfill fictional fixture categories**
 
@@ -492,7 +492,7 @@ Evidence builder excludes name/code/hospital number/address/physician/attachment
 
 - [ ] **Step 6: Simplify UI**
 
-Keep the existing **AI Review** tab, **AI Suggestions** panel title, and **Generate AI Suggestions** action. Remove numeric confidence and endless Generate behavior. Show at most three cards, paginated two per page, with concise Evidence used and Source, plus Edit/Accept/Dismiss. Editing selects the mapped structured checkboxes and preserves only unmatched detail in notes. Show cached state, refresh only after Assessment changed, successful zero-result message, and short external-AI-unavailable message while manual PES stays present. This owner override changes visible naming only; the bounded Assessment-based pipeline remains authoritative.
+Keep the existing **AI Review** tab, **AI Suggestions** panel title, and **Generate AI Suggestions** action. Remove numeric confidence and endless Generate behavior. Show at most three cards, paginated two per page, with concise Evidence used plus Edit/Accept/Dismiss. Keep source provenance in the server-side rule contract and comments, not on the draft card. Editing selects the mapped structured checkboxes and preserves only unmatched detail in notes. Show cached state, refresh only after Assessment changed, successful zero-result message, and short external-AI-unavailable message while manual PES stays present. This owner override changes visible naming only; the bounded Assessment-based pipeline remains authoritative.
 
 - [ ] **Step 7: Run focused backend/frontend tests and commit**
 
@@ -968,10 +968,10 @@ Use the Codex in-app/native browser, not the Playwright plugin. Take screenshots
 
 1. Existing login branding hover/fit and patient-code search/header baseline.
 2. Assessment quantity/unit, category/Other, maternal status, save/reload, validation, no stress control, no fixed three-month text.
-3. Census earliest month/current month, cycle counts, category buckets, and frozen archived report behavior.
+3. Census earliest month/current month, cycle counts, age/sex matrix, risk-only breakdown, omitted ward/diagnosis-category/nutritional-status cards, and frozen archived report behavior.
 4. Intervention goal/stage progressive disclosure, baseline/modifier/final calculation panel, final maternal prescription, and separate fluid guidance.
 5. Meal generation/scaling with no fluid target-match influence.
-6. PES drafts end to end: open the Diagnosis workflow for fictional data; request drafts; verify the real network response and zero-to-three UI; inspect evidence/source; accept a mapped candidate into the existing structured Diagnosis selections rather than an unrelated `Other` free-text field; edit; dismiss; confirm cached state; change Assessment evidence and confirm refresh/invalidation; verify manual fallback; verify compact request/result behavior, authorization, and no demo/env gate.
+6. PES drafts end to end: open the Diagnosis workflow for fictional data; request drafts; verify the real network response and zero-to-three UI; inspect visible Assessment evidence and confirm no visible source label; accept a mapped candidate into the existing structured Diagnosis selections rather than an unrelated `Other` free-text field; edit; dismiss; confirm cached state; change Assessment evidence and confirm refresh/invalidation; verify manual fallback; verify compact request/result behavior, authorization, server-side source validation, and no demo/env gate.
 7. Monitoring form section order; saved visit summary/detail; omitted empty sections; pagination; no plan/revision controls; Progress Trends separate.
 8. Intervention Plans tab: newest-first pagination, no status, old plan exact read-only UI, new-plan prefill, latest Monitoring calculation source, cancel/no-save behavior, save atomicity, and no copied meal plan.
 9. Multiple saved plans with distinct meal plans; Reports one item per saved plan; no-meal-plan disabled state; NCP Summary newest only; prepared archive unchanged.

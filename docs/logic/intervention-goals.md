@@ -14,7 +14,7 @@
 > **Authority hierarchy:** This document → `prescription-targets.json` (machine-readable contract) →
 > PHP backend (authoritative runtime) → TypeScript mirror.
 
-**Last updated:** 2026-09-28
+**Last updated:** 2026-10-02
 **References:** PDRI 2015 (FNRI-DOST, rev. Sept 2018) · WHO Asia-Pacific Perspective (2000) ·
 KDOQI 2020 · ADA 2024/2026 · ESPEN 2019 · NICE CG32 · GLIM 2019/2025
 
@@ -27,9 +27,10 @@ Intervention, and Monitoring/Evaluation as distinct but related Nutrition Care P
 Accordingly, a physician diagnosis, a broad demographic-census diagnosis category, a nutrition
 diagnosis, and an intervention `goal_type` are **not interchangeable fields**.
 
-- A demographic-census diagnosis category is selected and confirmed for the individual ADIME
+- A structured primary diagnosis category is selected and confirmed for the individual ADIME
   cycle. It may summarize a detailed physician diagnosis, but it must not replace or rewrite that
-  diagnosis in the clinical record.
+  diagnosis in the clinical record. Current Demographic Census output does not display category or
+  nutritional-status breakdowns; it shows the age/sex matrix and risk-level breakdown only.
 - An intervention goal must be selected from the assessed nutrition problem and care plan. The
   system must not silently infer a diagnosis category from that goal or infer a goal from a
   diagnosis category.
@@ -1126,12 +1127,27 @@ override an individualized prescription.
 No new clinical source was introduced for this workflow boundary. Nutrition calculations and meal
 composition continue to use the authorities recorded in §§2–15.2.
 
+### 15.4 Census and PES presentation boundary
+
+- The cycle-owned primary diagnosis category remains structured Assessment context and stays
+  separate from physician diagnosis, PES diagnosis, and intervention goal. Current Demographic
+  Census output renders the age/sex matrix and **By Risk Level** only; it omits ward,
+  diagnosis-category, and nutritional-status breakdowns. Existing prepared report bytes remain
+  frozen and may retain historical sections.
+- PES rule cards remain locally source-gated. The provider receives compact de-identified evidence
+  and source-constrained candidates, but the review card displays only the Assessment evidence used.
+  Source provenance remains in the server-side rule contract and code comments rather than adding
+  report-like citation clutter to the clinical review UI.
+
+No new clinical or nutrition source was introduced for these presentation decisions.
+
 ---
 
 ## 16. Changelog
 
 | Date | Change |
 |---|---|
+| 2026-10-02 | **Census and PES presentation override reconciled.** Current census output is limited to the age/sex matrix and risk level while the Assessment category remains structured data. PES cards show Assessment evidence but not source labels; server-side source gating remains authoritative. No new clinical or nutrition source was introduced. |
 | 2026-09-29 | **Dated-plan workflow and print boundary reconciled.** Complete immutable Intervention Plans replace active revision consumers; Monitoring remains visit data only; each plan owns zero or one menu; reports use newest-plan or selected-plan semantics. Added the 1,200-per-field/2,200-combined guidance limit and long-bond menu-first print contract. No new clinical source was introduced. |
 | 2026-09-28 | **Deployed QA follow-up reconciled.** Repeated foods now share one compact portion card with separately referenced saved amounts. This changes presentation only; no new nutrition calculation or external clinical source was introduced. Monitoring target-status, progressive help, and food-alert disclosure were aligned with the already approved clinical/runtime contract. |
 | 2026-09-28 | **Meal-plan composition research and runtime boundary documented.** Added Academy, PDRI, FNRI Food Exchange List, Nutritional Guidelines, Pinggang Pinoy, maternal-menu, and current U.S. guideline review locations. The hierarchy makes the individualized prescription authoritative and limits Pinggang Pinoy to a visual cross-check; direct carbohydrates, rice preference, intrinsic-carbohydrate, balanced custom, maternal composition, snack safety, and goal-specific review rules are explicit. |

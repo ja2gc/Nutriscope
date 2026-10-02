@@ -10,8 +10,9 @@ use App\Support\ReportPaper;
 use Carbon\Carbon;
 
 /**
- * Demographic / Research Census — NCP-cycle counts broken down by age group, sex,
- * ward, cycle-owned primary diagnosis category, nutritional status, and risk level.
+ * Demographic / Research Census — NCP-cycle counts with an age/sex matrix and
+ * risk-level breakdown. Legacy aggregate keys remain available for frozen-history
+ * compatibility but are not rendered in current reports.
  *
  * Refocus of the old "NCP bi-annual" sheet (now a layout reference only): the form's
  * age × sex matrix is kept, but it's a research census, not a fixed bi-annual format.

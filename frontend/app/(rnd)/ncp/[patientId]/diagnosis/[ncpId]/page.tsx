@@ -3,7 +3,7 @@
 import React, { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  Stethoscope, Sparkles, User, ChevronRight,
+  Stethoscope, User, ChevronRight,
   Plus, Trash2, Pencil, AlertTriangle, CheckCircle2,
   RefreshCw, X, CheckCheck, Lock,
 } from "lucide-react";
@@ -1022,7 +1022,7 @@ export default function NcpDiagnosisPage({
             disabled={aiLoading || !hasAssessment}
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-warm-300 text-white text-xs font-extrabold uppercase tracking-wider rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed"
           >
-            {aiLoading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            {aiLoading && <RefreshCw className="h-3.5 w-3.5 animate-spin" />}
             {aiLoading ? "Generating suggestions..." : "Generate AI Suggestions"}
           </button>
         )}

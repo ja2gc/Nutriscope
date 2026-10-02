@@ -34,7 +34,7 @@ class ReportTemplateSeederTest extends TestCase
         $this->assertSame('ELAINE JUSTINA L. ABRIOL', $accomplishment->firstWhere('role', 'noted_by')['name']);
         $this->assertSame('MA. CONCEPCION D. LUGTU, MPA', $accomplishment->firstWhere('role', 'approved_by')['name']);
         $this->assertSame(
-            'ADIME cycle counts by primary diagnosis category, nutritional status, and risk level.',
+            'Monthly ADIME cycle census by age, sex, and risk level.',
             ReportTemplate::where('type', 'demographic_census')->firstOrFail()->description,
         );
     }

@@ -167,7 +167,7 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### RND-NCP-09 — AI Diagnosis Review
 
-**Description:** The AI Review tab uses deterministic source-backed rules to select zero to three AI Suggestions, paginated two per page. The provider receives compact de-identified evidence and only words those candidates. Cards show Evidence used and Source; unchanged Assessment data reuses a validated cache, changed evidence enables refresh, and zero results/manual entry remain valid. There is no demo-patient marker or demo-only gate.
+**Description:** The AI Review tab uses deterministic source-backed rules to select zero to three AI Suggestions, paginated two per page. The provider receives compact de-identified evidence and only words those candidates. Cards show Evidence used; source provenance remains in the server-side rule contract. Unchanged Assessment data reuses a validated cache, changed evidence enables refresh, and zero results/manual entry remain valid. There is no demo-patient marker or demo-only gate.
 
 **User should do:** Demonstrate **Edit** on a fictional suggestion. Matching Problem/Etiology/Signs should rehydrate as selected options or checked boxes; only unmatched detail should remain in notes. Then explain Accept/Dismiss and the manual fallback.
 
@@ -375,13 +375,13 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### RND-FS-09 — Operational Reports
 
-**Description:** RND previews and archives Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment, and Demographic Census outputs. All PDFs use 8.5 × 13-inch long bond paper with report-specific orientation. Demographic Census starts at the earliest non-deleted ADIME cycle, counts each cycle once in its start month even when one person has multiple cycles, freezes completed months, and keeps the current month live. Its three breakdowns are Assessment primary diagnosis category, nutritional status, and risk level; there is no ward breakdown.
+**Description:** RND previews and archives Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment, and Demographic Census outputs. All PDFs use 8.5 × 13-inch long bond paper with report-specific orientation. Demographic Census starts at the earliest non-deleted ADIME cycle, counts each cycle once in its start month even when one person has multiple cycles, freezes completed months, and keeps the current month live. Current output contains the age/sex matrix and **By Risk Level** breakdown only; ward, diagnosis-category, and nutritional-status breakdowns are omitted. Older prepared archives remain frozen.
 
 **User should do:** Open Demographic Census, show the earliest month and live current month, preview one completed month, and explain cycle counts plus live versus frozen state.
 
 **Next scene:** End of food-service planning story.
 
-> **Screenshot needed:** Reports Browse with Demographic Census selected, the month list spanning the earliest cycle through the current month, and one long-bond census preview showing Total ADIME Cycles plus the three breakdowns. Optional second image: another Food Service report with preview/action controls.
+> **Screenshot needed:** Reports Browse with Demographic Census selected, the month list spanning the earliest cycle through the current month, and one long-bond census preview showing Total ADIME Cycles, the age/sex matrix, and **By Risk Level**. Optional second image: another Food Service report with preview/action controls.
 >
 > **Insert screenshot below this line.**
 

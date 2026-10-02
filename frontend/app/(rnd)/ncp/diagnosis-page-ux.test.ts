@@ -35,7 +35,7 @@ describe("NCP explicit save and diagnosis UX", () => {
     expect(page).toContain("dismissPesSuggestion");
     expect(page).toContain("> Dismiss");
     expect(page).toContain("Generate AI Suggestions");
-    expect(page).not.toContain('<Sparkles className="h-4 w-4" />');
+    expect(page).not.toContain("<Sparkles");
     expect(page).toContain("paginateAiDrafts(aiSuggestions, aiDraftsPage)");
     expect(page).toContain("meta={aiDraftsMeta}");
     expect(page).not.toContain("% confidence");

@@ -53,10 +53,11 @@ describe("Patients NCP report navigation", () => {
     expect(help).not.toContain("Patient Menu Plan");
   });
 
-  test("describes the current census groupings without ward or free-text diagnosis", () => {
+  test("describes the current census groupings without ward, diagnosis, or nutritional status", () => {
     const browser = readFileSync(join(root, "components", "reports", "ReportsBrowser.tsx"), "utf8");
 
-    expect(browser).toContain("primary diagnosis category, nutritional status, and risk level");
-    expect(browser).not.toContain("age, sex, ward, diagnosis");
+    expect(browser).toContain("Monthly ADIME cycle census by age, sex, and risk level.");
+    expect(browser).not.toContain("primary diagnosis category, nutritional status");
+    expect(browser).not.toContain("ward");
   });
 });
