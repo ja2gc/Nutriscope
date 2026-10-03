@@ -83,6 +83,24 @@ class NcpInterventionTest extends TestCase
         $this->assertDatabaseMissing('interventions', ['ncp_record_id' => $ncp->id]);
     }
 
+    public function test_intervention_rejects_prescription_values_above_supported_ranges(): void
+    {
+        $rnd = $this->rnd();
+        $ncp = $this->ncpRecord($this->patient(), $rnd);
+        $url = "/api/rnd/ncp-records/{$ncp->uuid}/interventions";
+
+        foreach ([
+            [['energy_kcal' => 10000.01], 'energy_kcal'],
+            [['fluid_ml' => 10000.01], 'fluid_ml'],
+            [['protein_g' => 1000.01], 'protein_g'],
+        ] as [$input, $field]) {
+            $this->actingAs($rnd, 'sanctum')
+                ->postJson($url, $input)
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors($field);
+        }
+    }
+
     public function test_autofill_returns_authoritative_prescription(): void
     {
         $rnd = $this->rnd();

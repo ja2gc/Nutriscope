@@ -341,6 +341,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                 <textarea
                   name="body"
                   value={draft.body}
+                  maxLength={5000}
                   onChange={handleDraftChange}
                   className="w-full px-3 py-2 text-base bg-white border border-warm-300 rounded-xl text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 placeholder:text-warm-400 min-h-32"
                 />
@@ -374,6 +375,9 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                 images={draft.images}
                 onImagesChange={(images) => setDraft((prev) => ({ ...prev, images }))}
                 label="Images"
+                maxBytes={5 * 1024 * 1024}
+                allowedTypes={["image/jpeg", "image/png", "image/webp"]}
+                maxFiles={10}
               />
               </div>
 

@@ -116,4 +116,17 @@ class BudgetAuditTest extends TestCase
         $this->assertSame($po->uuid, $details['purchase_order_public_id']['value']);
         $this->assertSame($po->po_number, $details['reference']['value']);
     }
+
+    public function test_budget_rejects_allocation_above_ninety_nine_million(): void
+    {
+        $rnd = User::factory()->create(['role' => 'RND']);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->postJson('/api/fss/budgets', [
+                'fiscal_year' => 2027,
+                'allocated_amount' => 100000000,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('allocated_amount');
+    }
 }

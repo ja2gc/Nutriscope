@@ -250,4 +250,19 @@ class RecipeControllerTest extends TestCase
             'rnd_user_id' => $this->rnd->id,
         ]);
     }
+
+    public function test_recipe_rejects_oversized_notes_servings_and_ingredient_quantities(): void
+    {
+        $food = FoodItem::factory()->create();
+
+        foreach ([
+            [['prep_notes' => str_repeat('x', 2001)], 'prep_notes'],
+            [['servings' => 10001], 'servings'],
+            [['ingredients' => [['food_item_id' => $food->uuid, 'quantity' => 100000.01, 'unit' => 'g']]], 'ingredients.0.quantity'],
+        ] as [$override, $field]) {
+            $this->actingAs($this->rnd)->postJson('/api/rnd/recipes', array_merge([
+                'name' => 'Validation '.$field,
+            ], $override))->assertUnprocessable()->assertJsonValidationErrors($field);
+        }
+    }
 }

@@ -15,11 +15,11 @@ class UpdateSupplierRequest extends FormRequest
     {
         return [
             'name' => ['nullable', 'string', 'max:255'],
-            'category' => ['nullable', 'string'],
-            'contact' => ['nullable', 'string'],
-            'address' => ['nullable', 'string'],
-            'payment_terms' => ['nullable', 'string'],
-            'notes' => ['nullable', 'string'],
+            'category' => ['nullable', 'string', 'max:255'],
+            'contact' => ['nullable', 'string', 'max:255'],
+            'address' => ['nullable', 'string', 'max:255'],
+            'payment_terms' => ['nullable', 'string', 'max:255'],
+            'notes' => ['nullable', 'string', 'max:1000'],
         ];
     }
 }

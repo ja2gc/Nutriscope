@@ -268,4 +268,23 @@ class NcpMonitoringTest extends TestCase
             ->assertNoContent();
         $this->assertModelMissing($monitoring);
     }
+
+    public function test_monitoring_rejects_oversized_notes_summaries_and_out_of_range_labs(): void
+    {
+        $rnd = $this->rnd();
+        $ncp = $this->ncpRecord($this->patient(), $rnd);
+        $url = "/api/rnd/ncp-records/{$ncp->uuid}/monitorings";
+
+        foreach ([
+            [['intake_notes' => str_repeat('x', 401)], 'intake_notes'],
+            [['symptoms' => str_repeat('x', 401)], 'symptoms'],
+            [['clinical_summary' => str_repeat('x', 3001)], 'clinical_summary'],
+            [['lab_values' => ['glucose' => 2001]], 'lab_values.glucose'],
+        ] as [$override, $field]) {
+            $this->actingAs($rnd, 'sanctum')
+                ->postJson($url, $this->payload($override))
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors($field);
+        }
+    }
 }

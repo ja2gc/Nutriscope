@@ -19,10 +19,10 @@ class UpdateDiagnosisRequest extends FormRequest
         return [
             'domain' => ['sometimes', 'required', 'string', 'in:NI,NC,NB'],
             'problem' => ['sometimes', 'required', 'string', 'max:255'],
-            'etiology' => ['sometimes', 'required', 'string'],
-            'signs_symptoms' => ['sometimes', 'required', 'string'],
-            'pes_statement' => ['nullable', 'string'],
-            'extra_notes' => ['nullable', 'string'],
+            'etiology' => ['sometimes', 'required', 'string', 'max:400'],
+            'signs_symptoms' => ['sometimes', 'required', 'string', 'max:400'],
+            'pes_statement' => ['nullable', 'string', 'max:1000'],
+            'extra_notes' => ['nullable', 'string', 'max:400'],
             'ai_generated' => ['nullable', 'boolean'],
         ];
     }

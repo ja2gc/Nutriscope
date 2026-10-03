@@ -36,6 +36,7 @@ import { getToken } from '../../lib/auth';
 import { authenticatedImageSource, collectAllPages } from '../../lib/mobileContracts';
 import { PaginatedListFooter } from '../../components/PaginatedListFooter';
 import { MOBILE_PAGE_SIZE, PaginatedResponse, flattenUniquePages, getNextPageParam } from '../../lib/pagination';
+import { validateUploadFiles } from '../../lib/uploadValidation';
 
 type AttachmentType = 'receipt' | 'proof';
 
@@ -205,6 +206,7 @@ function UploadAttachmentModal({ group, visible, type, onChangeType, onClose }: 
           quality: 0.85,
           allowsEditing: false,
           allowsMultipleSelection: true,
+          selectionLimit: 15,
         });
         if (result.canceled || !result.assets?.length) return;
         assets = result.assets;
@@ -223,12 +225,28 @@ function UploadAttachmentModal({ group, visible, type, onChangeType, onClose }: 
         assets = result.assets;
       }
 
-      uploadMutation.mutate(assets.map((asset, index) => {
+      const files = assets.map((asset, index) => {
         const uri = asset.uri;
         const ext = uri.split('.').pop() ?? 'jpg';
         const mimeType = asset.mimeType ?? `image/${ext === 'png' ? 'png' : 'jpeg'}`;
-        return { uri, name: `${type}_${Date.now()}_${index}.${ext}`, type: mimeType };
-      }));
+        return {
+          uri,
+          size: asset.fileSize,
+          name: asset.fileName ?? `${type}_${Date.now()}_${index}.${ext}`,
+          type: mimeType,
+        };
+      });
+      const validation = validateUploadFiles(files, {
+        maxBytes: 5 * 1024 * 1024,
+        allowedTypes: ['image/jpeg', 'image/png', 'image/webp'],
+        maxFiles: 15,
+      });
+      if (!validation.valid) {
+        setError(validation.error);
+        return;
+      }
+
+      uploadMutation.mutate(files.map(({ uri, name, type: mimeType }) => ({ uri, name, type: mimeType })));
     },
     [type, uploadMutation],
   );

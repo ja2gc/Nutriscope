@@ -22,9 +22,9 @@ class StoreDietListCountRequest extends FormRequest
         return [
             'service_date' => ['required', 'date_format:Y-m-d'],
             'ward' => ['nullable', 'string', 'max:255'],
-            'population' => ['nullable', 'integer', 'min:0'],
-            'collected_ward_diet_lists' => ['nullable', 'integer', 'min:0'],
-            'apportioned_distributed_meals' => ['nullable', 'integer', 'min:0'],
+            'population' => ['nullable', 'integer', 'between:0,5000'],
+            'collected_ward_diet_lists' => ['nullable', 'integer', 'between:0,5000'],
+            'apportioned_distributed_meals' => ['nullable', 'integer', 'between:0,5000'],
             'menu_cycle_id' => ['nullable', 'string', 'exists:menu_cycles,uuid'],
             'helped_food_prep' => ['sometimes', 'boolean'],
             'stored_supplies' => ['sometimes', 'boolean'],

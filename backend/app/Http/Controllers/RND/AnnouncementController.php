@@ -10,6 +10,7 @@ use App\Http\Requests\Announcement\UpdateAnnouncementRequest;
 use App\Http\Requests\PaginatedRequest;
 use App\Http\Resources\AnnouncementResource;
 use App\Models\Announcement;
+use App\Models\StoredObject;
 use App\Services\Audit\AuditLogger;
 use App\Services\NotificationService;
 use App\Services\StoredObjectStorage;
@@ -17,6 +18,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 class AnnouncementController extends Controller
 {
@@ -48,33 +50,38 @@ class AnnouncementController extends Controller
         return AnnouncementResource::collection($announcements);
     }
 
-    public function store(StoreAnnouncementRequest $request, NotificationService $notifications): JsonResponse
+    public function store(StoreAnnouncementRequest $request, NotificationService $notifications, StoredObjectStorage $objects): JsonResponse
     {
         $user = $request->user();
-        $data = $this->normalizeAttachments($request->validated());
+        [$data, $newObjects] = $this->storeAttachments($request->validated(), $objects);
 
-        $announcement = $this->audited(function () use ($data, $user): Announcement {
-            $announcement = Announcement::create([
-                ...$data,
-                'user_id' => $user->id,
-                'pinned' => in_array($user->role, ['Admin', 'RND'], true) ? (bool) ($data['pinned'] ?? false) : false,
-            ]);
-            $this->auditLogger->recordMutation(
-                AuditAction::Created,
-                AuditDomain::System,
-                $announcement,
-                array_map(
-                    fn (string $field): string => match ($field) {
-                        'body' => 'content',
-                        'attachment' => 'attachment',
-                        default => $field,
-                    },
-                    array_keys($announcement->getAttributes()),
-                ),
-            );
+        try {
+            $announcement = $this->audited(function () use ($data, $user): Announcement {
+                $announcement = Announcement::create([
+                    ...$data,
+                    'user_id' => $user->id,
+                    'pinned' => in_array($user->role, ['Admin', 'RND'], true) ? (bool) ($data['pinned'] ?? false) : false,
+                ]);
+                $this->auditLogger->recordMutation(
+                    AuditAction::Created,
+                    AuditDomain::System,
+                    $announcement,
+                    array_map(
+                        fn (string $field): string => match ($field) {
+                            'body' => 'content',
+                            'attachment' => 'attachment',
+                            default => $field,
+                        },
+                        array_keys($announcement->getAttributes()),
+                    ),
+                );
 
-            return $announcement;
-        });
+                return $announcement;
+            });
+        } catch (Throwable $exception) {
+            $this->cleanupObjects($newObjects, $objects);
+            throw $exception;
+        }
 
         // Trigger A (rnd.md §7) — fan out to users matching the announcement's visibility.
         $notifications->fanOutAnnouncement($announcement);
@@ -84,7 +91,7 @@ class AnnouncementController extends Controller
         ], 201);
     }
 
-    public function update(UpdateAnnouncementRequest $request, Announcement $announcement): JsonResponse
+    public function update(UpdateAnnouncementRequest $request, Announcement $announcement, StoredObjectStorage $objects): JsonResponse
     {
         $user = $request->user();
 
@@ -92,28 +99,37 @@ class AnnouncementController extends Controller
             return response()->json(['message' => 'Forbidden. You can only edit your own announcements.'], 403);
         }
 
-        $data = $this->normalizeAttachments($request->validated());
+        $attachmentWasProvided = array_key_exists('attachments', $request->validated())
+            || array_key_exists('attachment', $request->validated());
+        $oldObjects = $attachmentWasProvided ? $this->storedAttachmentUuids($announcement->attachment) : [];
+        [$data, $newObjects] = $this->storeAttachments($request->validated(), $objects);
 
         if (! in_array($user->role, ['Admin', 'RND'], true)) {
             unset($data['pinned']);
         }
 
-        $this->audited(function () use ($announcement, $data): void {
-            $announcement->update($data);
-            $this->auditLogger->recordMutation(
-                AuditAction::Updated,
-                AuditDomain::System,
-                $announcement,
-                array_map(
-                    fn (string $field): string => match ($field) {
-                        'body' => 'content',
-                        'attachment' => 'attachment',
-                        default => $field,
-                    },
-                    array_keys($announcement->getChanges()),
-                ),
-            );
-        });
+        try {
+            $this->audited(function () use ($announcement, $data): void {
+                $announcement->update($data);
+                $this->auditLogger->recordMutation(
+                    AuditAction::Updated,
+                    AuditDomain::System,
+                    $announcement,
+                    array_map(
+                        fn (string $field): string => match ($field) {
+                            'body' => 'content',
+                            'attachment' => 'attachment',
+                            default => $field,
+                        },
+                        array_keys($announcement->getChanges()),
+                    ),
+                );
+            });
+        } catch (Throwable $exception) {
+            $this->cleanupObjects($newObjects, $objects);
+            throw $exception;
+        }
+        $this->deleteStoredObjects($oldObjects, $objects);
         $announcement->load('user:id,uuid,name,first_name,last_name,role,profile_photo_stored_object_id');
 
         return response()->json([
@@ -121,7 +137,7 @@ class AnnouncementController extends Controller
         ]);
     }
 
-    public function destroy(Request $request, Announcement $announcement): JsonResponse
+    public function destroy(Request $request, Announcement $announcement, StoredObjectStorage $objects): JsonResponse
     {
         $user = $request->user();
 
@@ -129,10 +145,12 @@ class AnnouncementController extends Controller
             return response()->json(['message' => 'Forbidden. You can only delete your own announcements.'], 403);
         }
 
+        $oldObjects = $this->storedAttachmentUuids($announcement->attachment);
         $this->audited(function () use ($announcement): void {
             $announcement->delete();
             $this->auditLogger->recordMutation(AuditAction::Deleted, AuditDomain::System, $announcement, []);
         });
+        $this->deleteStoredObjects($oldObjects, $objects);
 
         return response()->json(null, 204);
     }
@@ -166,25 +184,63 @@ class AnnouncementController extends Controller
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    private function normalizeAttachments(array $data): array
+    private function storeAttachments(array $data, StoredObjectStorage $objects): array
     {
-        if (! array_key_exists('attachments', $data)) {
-            return $data;
+        if (! array_key_exists('attachments', $data) && ! array_key_exists('attachment', $data)) {
+            return [$data, []];
         }
 
-        $attachments = array_values(array_filter(
-            $data['attachments'],
-            fn (mixed $attachment): bool => is_string($attachment) && trim($attachment) !== ''
-        ));
-
-        $data['attachment'] = match (count($attachments)) {
-            0 => null,
-            1 => $attachments[0],
-            default => json_encode($attachments, JSON_THROW_ON_ERROR),
-        };
-
+        $attachments = array_key_exists('attachments', $data)
+            ? array_values(array_filter($data['attachments'], fn (mixed $value): bool => is_string($value) && trim($value) !== ''))
+            : (is_string($data['attachment'] ?? null) && $data['attachment'] !== '' ? [$data['attachment']] : []);
         unset($data['attachments']);
 
-        return $data;
+        $stored = [];
+        try {
+            foreach ($attachments as $index => $source) {
+                preg_match('#\Adata:(image/(?:jpeg|png|webp));base64,(.*)\z#sD', $source, $matches);
+                $bytes = base64_decode($matches[2] ?? '', true);
+                if (! is_string($bytes) || $bytes === '') {
+                    throw new \RuntimeException('Announcement image data is invalid.');
+                }
+                $stored[] = $objects->storeBytes($bytes, $matches[1], '', 'announcement', 'announcement-'.$index);
+            }
+        } catch (Throwable $exception) {
+            $this->cleanupObjects($stored, $objects);
+            throw $exception;
+        }
+
+        $data['attachment'] = $stored === [] ? null : json_encode([
+            'version' => 1,
+            'stored_object_uuids' => array_map(fn (StoredObject $object): string => $object->uuid, $stored),
+        ], JSON_THROW_ON_ERROR);
+
+        return [$data, $stored];
+    }
+
+    /** @return list<string> */
+    private function storedAttachmentUuids(?string $attachment): array
+    {
+        $decoded = is_string($attachment) ? json_decode($attachment, true) : null;
+        if (! is_array($decoded) || ($decoded['version'] ?? null) !== 1 || ! is_array($decoded['stored_object_uuids'] ?? null)) {
+            return [];
+        }
+
+        return array_values(array_filter($decoded['stored_object_uuids'], 'is_string'));
+    }
+
+    /** @param list<StoredObject> $objects */
+    private function cleanupObjects(array $objectsToDelete, StoredObjectStorage $objects): void
+    {
+        foreach ($objectsToDelete as $object) {
+            $objects->deleteOrQueue($object);
+        }
+    }
+
+    /** @param list<string> $uuids */
+    private function deleteStoredObjects(array $uuids, StoredObjectStorage $objects): void
+    {
+        StoredObject::query()->where('purpose', 'announcement')->whereIn('uuid', $uuids)->get()
+            ->each(fn (StoredObject $object) => $objects->deleteOrQueue($object));
     }
 }

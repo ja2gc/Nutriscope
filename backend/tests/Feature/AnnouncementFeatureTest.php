@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Announcement;
+use App\Models\StoredObject;
 use App\Models\User;
 use App\Services\StoredObjectStorage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -184,23 +185,89 @@ class AnnouncementFeatureTest extends TestCase
 
     public function test_announcement_accepts_multiple_image_attachments(): void
     {
+        Storage::fake((string) config('filesystems.private_uploads'));
         $rnd = $this->user('RND', 'rnd-images@example.com');
+        $image = 'data:image/png;base64,'.base64_encode($this->pngBytes());
 
         $response = $this->actingAs($rnd, 'sanctum')->postJson('/api/rnd/announcements', [
             'title' => 'Prep photos',
             'body' => 'Two images attached.',
             'category' => 'Operational',
             'visibility' => 'All',
-            'attachments' => [
-                'data:image/png;base64,one',
-                'data:image/jpeg;base64,two',
-            ],
+            'attachments' => [$image, $image],
         ]);
 
         $response->assertCreated()
             ->assertJsonCount(2, 'data.attachments')
-            ->assertJsonPath('data.attachments.0', 'data:image/png;base64,one')
-            ->assertJsonPath('data.attachment', 'data:image/png;base64,one');
+            ->assertJsonPath('data.attachment', fn (string $src): bool => str_starts_with($src, 'data:image/png;base64,'));
+
+        $announcement = Announcement::query()->where('user_id', $rnd->id)->firstOrFail();
+        $storedReferences = json_decode($announcement->attachment, true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame(1, $storedReferences['version']);
+        $this->assertCount(2, $storedReferences['stored_object_uuids']);
+        $this->assertStringNotContainsString('base64', $announcement->attachment);
+        $this->assertDatabaseCount('stored_objects', 2);
+        $this->assertSame('announcement', StoredObject::query()->firstOrFail()->purpose);
+    }
+
+    public function test_announcement_enforces_image_count_size_and_body_limits(): void
+    {
+        $rnd = $this->user('RND', 'rnd-image-limits@example.com');
+        $url = '/api/rnd/announcements';
+        $image = 'data:image/png;base64,'.base64_encode($this->pngBytes());
+
+        $this->actingAs($rnd, 'sanctum')->postJson($url, [
+            'title' => 'Too many images',
+            'body' => 'Body',
+            'category' => 'General',
+            'visibility' => 'All',
+            'attachments' => array_fill(0, 11, $image),
+        ])->assertUnprocessable()->assertJsonValidationErrors('attachments');
+
+        $this->actingAs($rnd, 'sanctum')->postJson($url, [
+            'title' => 'Oversized image',
+            'body' => 'Body',
+            'category' => 'General',
+            'visibility' => 'All',
+            'attachments' => ['data:image/png;base64,'.base64_encode(str_repeat('x', 5 * 1024 * 1024 + 1))],
+        ])->assertUnprocessable()->assertJsonValidationErrors('attachments.0');
+
+        $this->actingAs($rnd, 'sanctum')->postJson($url, [
+            'title' => 'Invalid image bytes',
+            'body' => 'Body',
+            'category' => 'General',
+            'visibility' => 'All',
+            'attachments' => ['data:image/png;base64,'.base64_encode('not an image')],
+        ])->assertUnprocessable()->assertJsonValidationErrors('attachments.0');
+
+        $this->actingAs($rnd, 'sanctum')->postJson($url, [
+            'title' => 'Long body',
+            'body' => str_repeat('x', 5001),
+            'category' => 'General',
+            'visibility' => 'All',
+        ])->assertUnprocessable()->assertJsonValidationErrors('body');
+    }
+
+    public function test_replacing_announcement_images_cleans_up_previous_private_objects(): void
+    {
+        Storage::fake((string) config('filesystems.private_uploads'));
+        $rnd = $this->user('RND', 'rnd-replace-images@example.com');
+        $image = 'data:image/png;base64,'.base64_encode($this->pngBytes());
+        $created = $this->actingAs($rnd, 'sanctum')->postJson('/api/rnd/announcements', [
+            'title' => 'Replace images',
+            'body' => 'Body',
+            'category' => 'General',
+            'visibility' => 'All',
+            'attachments' => [$image],
+        ])->assertCreated();
+        $uuid = $created->json('data.id');
+
+        $this->actingAs($rnd, 'sanctum')->patchJson("/api/rnd/announcements/{$uuid}", [
+            'attachments' => [],
+        ])->assertOk()->assertJsonPath('data.attachments', []);
+
+        $this->assertDatabaseCount('stored_objects', 0);
+        $this->assertDatabaseHas('announcements', ['uuid' => $uuid, 'attachment' => null]);
     }
 
     public function test_updating_announcement_with_empty_attachments_removes_images(): void
@@ -262,5 +329,10 @@ class AnnouncementFeatureTest extends TestCase
             'role' => $role,
             'is_active' => true,
         ]);
+    }
+
+    private function pngBytes(): string
+    {
+        return base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=');
     }
 }

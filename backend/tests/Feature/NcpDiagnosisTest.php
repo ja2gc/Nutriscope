@@ -397,4 +397,52 @@ class NcpDiagnosisTest extends TestCase
         $response->assertOk()
             ->assertJsonCount(0, 'data');
     }
+
+    public function test_diagnosis_rejects_oversized_pes_fields_and_notes(): void
+    {
+        $rnd = $this->rnd();
+        $ncp = $this->ncpRecord($this->patient(), $rnd);
+        $this->assessment($ncp);
+        $url = "/api/rnd/ncp-records/{$ncp->uuid}/diagnoses";
+        $base = [
+            'domain' => 'NI',
+            'problem' => 'Inadequate oral food intake',
+            'etiology' => 'Reduced appetite',
+            'signs_symptoms' => 'Low intake',
+        ];
+
+        foreach ([
+            [['etiology' => str_repeat('x', 401)], 'etiology'],
+            [['signs_symptoms' => str_repeat('x', 401)], 'signs_symptoms'],
+            [['pes_statement' => str_repeat('x', 1001)], 'pes_statement'],
+            [['extra_notes' => str_repeat('x', 401)], 'extra_notes'],
+        ] as [$override, $field]) {
+            $this->actingAs($rnd, 'sanctum')
+                ->postJson($url, array_merge($base, $override))
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors($field);
+        }
+    }
+
+    public function test_diagnosis_update_rejects_oversized_fields(): void
+    {
+        $rnd = $this->rnd();
+        $ncp = $this->ncpRecord($this->patient(), $rnd);
+        $this->assessment($ncp);
+        $diagnosis = Diagnosis::forceCreate([
+            'ncp_record_id' => $ncp->id,
+            'domain' => 'NI',
+            'problem' => 'Inadequate intake',
+            'etiology' => 'Reduced appetite',
+            'signs_symptoms' => 'Low intake',
+            'pes_statement' => 'PES',
+        ]);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/diagnoses/{$diagnosis->uuid}", [
+                'extra_notes' => str_repeat('x', 401),
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('extra_notes');
+    }
 }

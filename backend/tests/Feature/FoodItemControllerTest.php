@@ -131,6 +131,20 @@ class FoodItemControllerTest extends TestCase
             ->assertJsonValidationErrors(['name', 'calories']);
     }
 
+    public function test_food_item_rejects_nutrient_and_serving_values_above_bounds(): void
+    {
+        foreach ([
+            [['calories' => 10001], 'calories'],
+            [['protein' => 1000.01], 'protein'],
+            [['serving_size' => 10000.01], 'serving_size'],
+        ] as [$override, $field]) {
+            $this->actingAs($this->rnd)->postJson('/api/rnd/food-items', array_merge([
+                'name' => 'Validation '.$field,
+                'calories' => 200,
+            ], $override))->assertUnprocessable()->assertJsonValidationErrors($field);
+        }
+    }
+
     public function test_rnd_can_view_single_food_item(): void
     {
         $food = FoodItem::factory()->create();

@@ -2,8 +2,11 @@
 
 namespace App\Http\Resources;
 
+use App\Models\StoredObject;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 class AnnouncementResource extends JsonResource
 {
@@ -45,6 +48,30 @@ class AnnouncementResource extends JsonResource
         $decoded = json_decode($this->attachment, true);
 
         if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            if (($decoded['version'] ?? null) === 1 && is_array($decoded['stored_object_uuids'] ?? null)) {
+                $objects = StoredObject::query()
+                    ->where('purpose', 'announcement')
+                    ->whereIn('uuid', $decoded['stored_object_uuids'])
+                    ->get()
+                    ->keyBy('uuid');
+
+                return array_values(array_filter(array_map(function (mixed $uuid) use ($objects): ?string {
+                    if (! is_string($uuid) || ! ($object = $objects->get($uuid))) {
+                        return null;
+                    }
+
+                    try {
+                        $bytes = Storage::disk($object->storage_disk)->get($object->object_key);
+
+                        return 'data:'.$object->mime_type.';base64,'.base64_encode($bytes);
+                    } catch (Throwable $exception) {
+                        report($exception);
+
+                        return null;
+                    }
+                }, $decoded['stored_object_uuids']), 'is_string'));
+            }
+
             return array_values(array_filter($decoded, is_string(...)));
         }
 

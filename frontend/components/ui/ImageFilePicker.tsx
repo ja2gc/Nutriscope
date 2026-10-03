@@ -1,7 +1,8 @@
 "use client";
 
-import { forwardRef } from "react";
+import { forwardRef, useState } from "react";
 import { Upload } from "lucide-react";
+import { validateUploadFile } from "@/lib/uploadValidation";
 
 type ImageFilePickerProps = {
   id: string;
@@ -9,16 +10,34 @@ type ImageFilePickerProps = {
   label: string;
   current?: string | null;
   disabled?: boolean;
+  maxBytes?: number;
 };
 
 export const ImageFilePicker = forwardRef<HTMLInputElement, ImageFilePickerProps>(function ImageFilePicker(
-  { id, name, label, current, disabled = false },
+  { id, name, label, current, disabled = false, maxBytes = 2 * 1024 * 1024 },
   ref,
 ) {
+  const [error, setError] = useState<string | null>(null);
+
   return (
     <div className="space-y-2">
       <span className="block text-xs font-extrabold uppercase tracking-wider text-warm-500">{label}</span>
-      <input ref={ref} id={id} type="file" name={name} accept="image/*" disabled={disabled} className="sr-only" />
+      <input
+        ref={ref}
+        id={id}
+        type="file"
+        name={name}
+        accept="image/jpeg,image/png,image/webp"
+        disabled={disabled}
+        onChange={(event) => {
+          const file = event.currentTarget.files?.[0];
+          if (!file) return;
+          const result = validateUploadFile(file, { maxBytes, allowedTypes: ["image/jpeg", "image/png", "image/webp"] });
+          setError(result.valid ? null : result.error);
+          if (!result.valid) event.currentTarget.value = "";
+        }}
+        className="sr-only"
+      />
       <label
         htmlFor={disabled ? undefined : id}
         aria-disabled={disabled}
@@ -31,6 +50,7 @@ export const ImageFilePicker = forwardRef<HTMLInputElement, ImageFilePickerProps
         <Upload className="h-4 w-4" /> Choose image
       </label>
       <p className="text-xs text-warm-500">{current ? "Current image saved" : "No image saved"}</p>
+      {error && <p role="alert" className="text-xs font-semibold text-red-700">{error}</p>}
     </div>
   );
 });

@@ -585,6 +585,10 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
               deletingImageId={deletingImageId}
               error={imageError}
               disabled={locked}
+              maxBytes={5 * 1024 * 1024}
+              allowedTypes={["image/jpeg", "image/png", "image/webp"]}
+              maxFiles={15}
+              existingFilesCountTowardsLimit={false}
             />
           </div>
           <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm">
@@ -597,6 +601,10 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
               deletingImageId={deletingImageId}
               error={imageError}
               disabled={locked}
+              maxBytes={5 * 1024 * 1024}
+              allowedTypes={["image/jpeg", "image/png", "image/webp"]}
+              maxFiles={15}
+              existingFilesCountTowardsLimit={false}
             />
           </div>
         </div>

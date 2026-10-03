@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Upload, X } from "lucide-react";
+import { validateUploadFiles } from "@/lib/uploadValidation";
 
 export type UploadImage = {
   id: string;
@@ -132,6 +133,10 @@ export function ImageUploadGallery({
   variant = "default",
   uploadLabel,
   removeLabel,
+  maxBytes = 5 * 1024 * 1024,
+  allowedTypes = ["image/jpeg", "image/png", "image/webp"],
+  maxFiles = 15,
+  existingFilesCountTowardsLimit = true,
 }: {
   images: UploadImage[];
   onImagesChange: (images: UploadImage[]) => void | Promise<void>;
@@ -145,17 +150,32 @@ export function ImageUploadGallery({
   variant?: "default" | "avatar";
   uploadLabel?: string;
   removeLabel?: string;
+  maxBytes?: number;
+  allowedTypes?: readonly string[];
+  maxFiles?: number;
+  existingFilesCountTowardsLimit?: boolean;
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const activeImage = images[Math.min(activeIndex, Math.max(images.length - 1, 0))] ?? null;
   const isAvatar = variant === "avatar";
   const hasMany = !isAvatar && images.length > 1;
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const inputId = useMemo(() => `image-upload-${label.toLowerCase().replace(/\W+/g, "-")}`, [label]);
 
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
     try {
+      const validation = validateUploadFiles(
+        files,
+        { maxBytes, allowedTypes, maxFiles: isAvatar ? 1 : maxFiles },
+        isAvatar || !existingFilesCountTowardsLimit ? 0 : images.length,
+      );
+      if (!validation.valid) {
+        setValidationError(validation.error);
+        return;
+      }
+      setValidationError(null);
       if (onFilesSelected) {
         await onFilesSelected(files);
       } else {
@@ -187,7 +207,7 @@ export function ImageUploadGallery({
       <input
         id={inputId}
         type="file"
-        accept="image/*"
+        accept={allowedTypes.join(",")}
         multiple={!isAvatar}
         disabled={disabled || uploading}
         onChange={(event) => { void handleFileChange(event); }}
@@ -205,9 +225,9 @@ export function ImageUploadGallery({
         <Upload className="h-3.5 w-3.5" />
         {uploading ? "Uploading..." : (uploadLabel ?? "Upload image")}
       </label>
-      {error && (
+      {(error ?? validationError) && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
-          {error}
+          {error ?? validationError}
         </div>
       )}
 

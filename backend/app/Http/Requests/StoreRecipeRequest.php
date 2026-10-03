@@ -21,11 +21,11 @@ class StoreRecipeRequest extends FormRequest
             'category' => 'sometimes|nullable|string|max:100',
             'meal_types' => 'sometimes|nullable|array',
             'meal_types.*' => 'string|in:breakfast,am_snack,lunch,pm_snack,dinner,snack,any',
-            'prep_notes' => 'sometimes|nullable|string',
-            'servings' => 'sometimes|nullable|integer|min:1',
+            'prep_notes' => 'sometimes|nullable|string|max:2000',
+            'servings' => 'sometimes|nullable|integer|between:1,10000',
             'ingredients' => 'sometimes|array',
             'ingredients.*.food_item_id' => 'required_with:ingredients.*|string|exists:food_items,uuid',
-            'ingredients.*.quantity' => 'required_with:ingredients.*|numeric|min:0.01',
+            'ingredients.*.quantity' => 'required_with:ingredients.*|numeric|between:0.01,100000|decimal:0,2',
             'ingredients.*.unit' => 'required_with:ingredients.*|string|max:50',
         ];
     }
