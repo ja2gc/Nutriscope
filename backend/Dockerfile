@@ -26,7 +26,7 @@ RUN { \
     && { \
         echo 'memory_limit=256M'; \
         echo 'upload_max_filesize=20M'; \
-        echo 'post_max_size=25M'; \
+        echo 'post_max_size=80M'; \
     } > /usr/local/etc/php/conf.d/zz-app.ini
 
 COPY --from=composer:2.10 /usr/bin/composer /usr/bin/composer
