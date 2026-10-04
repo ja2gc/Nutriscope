@@ -24,7 +24,7 @@ class UsdaController extends Controller
 
     public function search(Request $request): JsonResponse
     {
-        $request->validate(['query' => 'required|string|min:2|max:200']);
+        $request->validate(['query' => 'required|string|min:1|max:200']);
 
         try {
             $results = $this->usda->search($request->query('query'));

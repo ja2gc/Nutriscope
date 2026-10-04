@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Models\FoodItem;
+use App\Models\User;
 use App\Services\UsdaService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
@@ -99,7 +100,8 @@ class UsdaServiceTest extends TestCase
         $results = $this->service->search('chicken breast');
 
         Http::assertSent(function (Request $request) {
-            return $request['dataType'] === ['SR Legacy', 'Foundation', 'Survey (FNDDS)']
+            return $request->method() === 'POST'
+                && $request['dataType'] === ['SR Legacy', 'Foundation', 'Survey (FNDDS)', 'Branded']
                 && $request['query'] === 'chicken breast';
         });
 
@@ -116,6 +118,42 @@ class UsdaServiceTest extends TestCase
 
         $this->expectException(RuntimeException::class);
         $this->service->search('chicken');
+    }
+
+    public function test_search_accepts_first_letter_for_live_matching(): void
+    {
+        Http::fake([self::SEARCH_URL => Http::response($this->searchResponse, 200)]);
+        $rnd = User::factory()->rnd()->create();
+
+        $this->actingAs($rnd, 'sanctum')
+            ->getJson('/api/rnd/usda/search?query=a')
+            ->assertOk()
+            ->assertJsonPath('data.0.fdc_id', 12345);
+    }
+
+    public function test_search_places_closest_generic_food_ahead_of_branded_matches(): void
+    {
+        Http::fake([self::SEARCH_URL => Http::response(['foods' => [
+            ['fdcId' => 1, 'description' => 'Apple Flavored Candy', 'dataType' => 'Branded', 'foodNutrients' => []],
+            ['fdcId' => 2, 'description' => 'Apples, raw, with skin', 'dataType' => 'Foundation', 'foodNutrients' => []],
+            ['fdcId' => 3, 'description' => 'Sweetened apple drink', 'dataType' => 'Survey (FNDDS)', 'foodNutrients' => []],
+        ]], 200)]);
+
+        $results = $this->service->search('apple');
+
+        $this->assertSame(2, $results[0]['fdc_id']);
+        $this->assertSame([2, 1, 3], array_column($results, 'fdc_id'));
+    }
+
+    public function test_repeated_search_reuses_recent_results(): void
+    {
+        Http::fake([self::SEARCH_URL => Http::response($this->searchResponse, 200)]);
+
+        $first = $this->service->search('apple');
+        $second = $this->service->search('apple');
+
+        $this->assertSame($first, $second);
+        Http::assertSentCount(1);
     }
 
     // ── Fetch / Caching ───────────────────────────────────────────────────────

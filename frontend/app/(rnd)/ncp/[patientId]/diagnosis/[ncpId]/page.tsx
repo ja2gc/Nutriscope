@@ -274,7 +274,7 @@ function loadBuilderFromDiagnosis(d: Diagnosis): BuilderState {
 function DomainBadge({ domain }: { domain: "NI" | "NC" | "NB" }) {
   const meta = DOMAIN_META[domain];
   return (
-    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-extrabold uppercase tracking-wider border ${meta.color}`}>
+    <span className="text-xs font-semibold text-warm-700 whitespace-nowrap">
       {meta.label}
     </span>
   );
@@ -663,10 +663,10 @@ export default function NcpDiagnosisPage({
                 <tr key={d.id} className="border-b border-warm-100 hover:bg-warm-50/60 transition-colors">
                   <td className="px-4 py-3 text-warm-400 font-mono font-bold">{i + 1}</td>
                   <td className="px-4 py-3">
-                    <div className="space-y-1">
+                    <div className="flex items-center gap-2 whitespace-nowrap">
                       <DomainBadge domain={d.domain} />
                       {d.ai_generated && (
-                        <span className="block mt-1 text-xs font-bold text-orange-600 uppercase tracking-wider">AI</span>
+                        <span className="border-l border-warm-200 pl-2 text-xs font-bold text-orange-600 uppercase tracking-wider" title="AI-assisted diagnosis">AI</span>
                       )}
                     </div>
                   </td>
@@ -1054,9 +1054,9 @@ export default function NcpDiagnosisPage({
             const pes = `${s.label} related to ${s.etiology} as evidenced by ${s.signs}`;
             return (
               <div key={s.candidate_id} className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm space-y-3">
-                <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <DomainBadge domain={s.domain} />
-                  <span className="block text-xs font-bold text-orange-500 uppercase tracking-wider">Draft for RND review</span>
+                  <span className="text-xs font-bold text-orange-600 uppercase tracking-wider">AI draft for RND review</span>
                 </div>
                 <div className="space-y-2 text-sm">
                   <div><span className="font-bold text-sky-600">P:</span> <span className="text-warm-700">{s.label}</span></div>

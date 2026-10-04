@@ -362,4 +362,23 @@ class AssessmentSaveTest extends TestCase
             'risk_score_manual_override' => false,
         ]);
     }
+
+    public function test_full_edit_payload_accepts_null_manual_risk_factors(): void
+    {
+        [$rnd, $ncp] = $this->setup_assessment();
+
+        $this->actingAs($rnd, 'sanctum')
+            ->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
+                'weight' => 70,
+                'usual_weight' => 72,
+                'height' => 170,
+                'physical_activity_level' => 'sedentary',
+                'primary_diagnosis_category' => PrimaryDiagnosisCategory::DIABETES,
+                'risk_score_manual_override' => false,
+                'risk_score_manual_factors' => null,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.risk_score_manual_factors', null)
+            ->assertJsonPath('data.risk_score', '1.00');
+    }
 }

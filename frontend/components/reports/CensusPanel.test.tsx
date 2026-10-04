@@ -22,8 +22,13 @@ const summary: CensusSummary = {
   age_groups: ["30-39"],
   age_sex: { "30-39": { M: 1, F: 1, total: 2 } },
   unknown_sex: 0,
-  by_risk: { Low: 1, High: 1 },
-  by_nutritional_status: { Normal: 2, "Moderate Malnutrition": 0, "Severe Malnutrition": 0, Unspecified: 0 },
+  by_risk: { Low: 1, Moderate: 0, High: 1 },
+  by_nutritional_status: {
+    "Severe Malnutrition": 0, "Moderate Malnutrition": 0,
+    "Mild Malnutrition / Underweight": 0, Normal: 0, Overweight: 2,
+    "Obese Class I": 0, "Obese Class II": 0, "Obese Class II (Severe)": 0,
+    Unspecified: 0,
+  },
   by_primary_diagnosis_category: { Diabetes: 1, Renal: 1 },
   available_years: [2026, 2025],
   available_months: [{ month: 1, label: "January", status: "frozen" }, { month: 6, label: "June", status: "live" }],
@@ -53,6 +58,8 @@ describe("CensusPanel", () => {
     expect(container.textContent).toContain("Diabetes");
     expect(container.textContent).toContain("By nutritional status");
     expect(container.textContent).toContain("Moderate Malnutrition");
+    expect(container.textContent).toContain("Mild Malnutrition / Underweight");
+    expect(container.textContent).toContain("Obese Class II (Severe)");
     expect(container.querySelector("[data-census-screen]")).not.toBeNull();
     expect(document.body.querySelector(":scope > [data-census-print]")).toBeNull();
     expect(container.querySelector("thead")?.textContent).toContain("Sex30-39Total");
@@ -68,6 +75,22 @@ describe("CensusPanel", () => {
     const download = container.querySelector<HTMLAnchorElement>('a[download]');
     expect(download?.textContent).toContain("Download PDF");
     expect(download?.getAttribute("href")).toContain("demographic_census/export");
+    await act(async () => root.unmount());
+  });
+
+  it("shows three risk categories as compact text without progress bars", async () => {
+    vi.mocked(getCensusSummary).mockResolvedValue(summary);
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => { root.render(<CensusPanel apiPrefix="rnd" />); });
+
+    const risk = container.querySelector('section[aria-label="By risk level"]');
+    expect(risk?.textContent).toContain("Low");
+    expect(risk?.textContent).toContain("Moderate");
+    expect(risk?.textContent).toContain("High");
+    expect(risk?.querySelector('[role="img"]')).toBeNull();
     await act(async () => root.unmount());
   });
 

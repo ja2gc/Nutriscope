@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { Download, Loader2 } from "lucide-react";
-import { Card } from "@/components/ui/Card";
 import { censusExportUrl, getCensusSummary, type CensusSummary } from "@/services/reportService";
 
 const selectClass = "w-full rounded-lg border border-warm-200 bg-white px-3 py-2 text-base text-warm-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500";
@@ -24,36 +23,32 @@ export function CensusPanel({ apiPrefix }: { apiPrefix: "rnd" | "admin" }) {
     return () => { active = false; };
   }, [apiPrefix, year, month]);
 
-  const riskOrder = ["Low", "Moderate", "High", "Unspecified"];
   const riskEntries = summary
-    ? Object.entries(summary.by_risk).sort(([left], [right]) => riskOrder.indexOf(left) - riskOrder.indexOf(right))
+    ? (["Low", "Moderate", "High"] as const).map((risk) => [risk, summary.by_risk[risk] ?? 0] as const)
     : [];
   const categoryEntries = summary
     ? Object.entries(summary.by_primary_diagnosis_category).sort(([left, leftCount], [right, rightCount]) => rightCount - leftCount || left.localeCompare(right))
     : [];
   const nutritionalStatusEntries = summary ? Object.entries(summary.by_nutritional_status) : [];
+  const unscored = summary?.by_risk.Unspecified ?? 0;
   const ageTotals = summary?.age_groups.reduce((result, group) => {
     const row = summary.age_sex[group];
     return { M: result.M + (row?.M ?? 0), F: result.F + (row?.F ?? 0), total: result.total + (row?.total ?? 0) };
   }, { M: 0, F: 0, total: 0 });
 
   const content = !loading && summary ? (
-        <div className="space-y-6 bg-white p-5 sm:p-7">
-          <header className="flex flex-wrap items-end justify-between gap-3 border-b border-warm-200 pb-4">
+        <div className="space-y-5 py-5">
+          <header className="flex flex-wrap items-end justify-between gap-4 border-b border-warm-200 pb-4">
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">Demographic Census</p>
               <h2 className="mt-1 text-2xl font-bold text-warm-900">{summary.label}</h2>
               <p className="mt-1 text-sm text-warm-500">ADIME cycles counted in month each cycle started.</p>
             </div>
-            <span className="rounded-full border border-warm-200 bg-warm-50 px-3 py-1 text-xs font-semibold text-warm-700">
-              {summary.status === "frozen" ? "Completed snapshot" : "Includes current data"}
-            </span>
+            <div className="text-left sm:text-right">
+              <p className="text-3xl font-bold tabular-nums text-warm-900">{summary.total.toLocaleString()} <span className="text-base font-medium">{summary.total === 1 ? "cycle" : "cycles"}</span></p>
+              <p className="mt-1 text-xs text-warm-500">{summary.status === "frozen" ? "Completed snapshot" : "Includes current data"}</p>
+            </div>
           </header>
-
-          <section aria-label="Cycle total" className="rounded-xl border border-emerald-100 bg-emerald-50 px-5 py-4">
-            <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">Total</p>
-            <p className="mt-1 text-3xl font-bold tabular-nums text-emerald-900">{summary.total.toLocaleString()} <span className="text-base font-medium">{summary.total === 1 ? "cycle" : "cycles"}</span></p>
-          </section>
 
           <section aria-label="Age and sex">
             <h3 className="mb-3 text-base font-bold text-warm-800">Age and sex</h3>
@@ -69,45 +64,44 @@ export function CensusPanel({ apiPrefix }: { apiPrefix: "rnd" | "admin" }) {
             {summary.unknown_sex > 0 && <p className="mt-2 text-sm text-warm-600">Unclassified age or sex: {summary.unknown_sex}</p>}
           </section>
 
-          <section aria-label="By nutritional status">
-            <h3 className="mb-3 text-base font-bold text-warm-800">By nutritional status</h3>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {nutritionalStatusEntries.map(([status, count]) => <div key={status} className="flex items-center justify-between gap-3 rounded-lg border border-warm-200 px-4 py-2.5 text-sm">
-                <span className="font-medium text-warm-700">{status}</span><span className="font-bold tabular-nums text-warm-900">{count}</span>
-              </div>)}
+          <div className="grid gap-x-10 gap-y-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+            <section aria-label="By nutritional status">
+              <h3 className="mb-2 text-base font-bold text-warm-800">By nutritional status</h3>
+              <dl className="text-sm">
+                {nutritionalStatusEntries.map(([status, count]) => <div key={status} className="flex items-baseline justify-between gap-4 border-b border-warm-100 py-1.5">
+                  <dt className="text-warm-700">{status}</dt><dd className="font-semibold tabular-nums text-warm-900">{count}</dd>
+                </div>)}
+              </dl>
+            </section>
+            <div className="space-y-6">
+              <section aria-label="By risk level">
+                <h3 className="mb-2 text-base font-bold text-warm-800">By risk level</h3>
+                <dl className="text-sm">
+                  {riskEntries.map(([risk, count]) => <div key={risk} className="flex items-baseline justify-between gap-4 border-b border-warm-100 py-1.5">
+                    <dt className="text-warm-700">{risk}</dt><dd className="font-semibold tabular-nums text-warm-900">{count}</dd>
+                  </div>)}
+                </dl>
+                {unscored > 0 && <p className="mt-2 text-xs text-warm-500">Not scored: {unscored}</p>}
+              </section>
+              <section aria-label="By nutrition care category">
+                <h3 className="mb-2 text-base font-bold text-warm-800">By nutrition care category</h3>
+                {categoryEntries.length === 0 ? <p className="text-sm text-warm-500">No cycles in selected period.</p> : (
+                  <dl className="text-sm">
+                    {categoryEntries.map(([category, count]) => <div key={category} className="flex items-baseline justify-between gap-4 border-b border-warm-100 py-1.5">
+                      <dt className="text-warm-700">{category}</dt><dd className="font-semibold tabular-nums text-warm-900">{count}</dd>
+                    </div>)}
+                  </dl>
+                )}
+              </section>
             </div>
-          </section>
-
-          <section aria-label="By risk level">
-            <h3 className="mb-3 text-base font-bold text-warm-800">By risk level</h3>
-            {riskEntries.length === 0 ? <p className="text-sm text-warm-500">No cycles in selected period.</p> : (
-              <div className="grid gap-3 sm:grid-cols-2">
-                {riskEntries.map(([risk, count]) => <div key={risk} className="rounded-xl border border-warm-200 p-4">
-                  <div className="flex items-baseline justify-between gap-3"><span className="font-semibold text-warm-700">{risk}</span><span className="font-bold tabular-nums text-warm-900">{count}</span></div>
-                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-warm-100" role="img" aria-label={`${risk}: ${count} of ${summary.total} cycles`}><div className="h-full rounded-full bg-emerald-600" style={{ width: `${summary.total ? count / summary.total * 100 : 0}%` }} /></div>
-                </div>)}
-              </div>
-            )}
-          </section>
-
-          <section aria-label="By nutrition care category">
-            <h3 className="mb-3 text-base font-bold text-warm-800">By nutrition care category</h3>
-            {categoryEntries.length === 0 ? <p className="text-sm text-warm-500">No cycles in selected period.</p> : (
-              <div className="grid gap-2 sm:grid-cols-2">
-                {categoryEntries.map(([category, count]) => <div key={category} className="flex items-center justify-between gap-3 rounded-lg border border-warm-200 px-4 py-2.5 text-sm">
-                  <span className="font-medium text-warm-700">{category}</span>
-                  <span className="font-bold tabular-nums text-warm-900">{count}</span>
-                </div>)}
-              </div>
-            )}
-          </section>
+          </div>
         </div>
   ) : null;
 
   return (
     <>
-    <Card className="min-w-0 overflow-hidden">
-      <div className="flex flex-wrap items-end gap-3 border-b border-warm-100 px-5 py-4">
+    <div className="min-w-0">
+      <div className="flex flex-wrap items-end gap-3 border-b border-warm-200 pb-4">
         <div className="min-w-[110px] flex-1 sm:flex-none">
           <label htmlFor="census-year" className="mb-1 block text-xs font-bold uppercase tracking-wider text-warm-500">Year</label>
           <select id="census-year" aria-label="Census year" className={selectClass} value={year} onChange={(event) => { setYear(Number(event.target.value)); setMonth(null); }}>
@@ -127,9 +121,9 @@ export function CensusPanel({ apiPrefix }: { apiPrefix: "rnd" | "admin" }) {
       </div>
 
       {loading && <div className="flex items-center justify-center gap-2 py-16 text-sm text-warm-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading census…</div>}
-      {!loading && error && <p role="alert" className="px-5 py-12 text-center text-sm text-red-700">{error}</p>}
+      {!loading && error && <p role="alert" className="py-12 text-center text-sm text-red-700">{error}</p>}
       {content && <div data-census-screen>{content}</div>}
-    </Card>
+    </div>
     </>
   );
 }

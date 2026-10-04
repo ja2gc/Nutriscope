@@ -2,6 +2,7 @@
 
 namespace App\Services\Reports\Generators;
 
+use App\Models\Assessment;
 use App\Models\NcpRecord;
 use Carbon\Carbon;
 
@@ -12,12 +13,16 @@ use Carbon\Carbon;
  */
 class DemographicCensusGenerator
 {
-    public const BASIS_VERSION = 3;
+    public const BASIS_VERSION = 4;
 
     /** Age buckets mirror the bi-annual census columns. */
     public const AGE_GROUPS = ['0-4', '5-9', '10-14', '15-18', '19-29', '30-39', '40-59', '60+'];
 
-    public const NUTRITIONAL_STATUSES = ['Normal', 'Moderate Malnutrition', 'Severe Malnutrition', 'Unspecified'];
+    public const NUTRITIONAL_STATUSES = [
+        'Severe Malnutrition', 'Moderate Malnutrition', 'Mild Malnutrition / Underweight',
+        'Normal', 'Overweight', 'Obese Class I', 'Obese Class II', 'Obese Class II (Severe)',
+        'Unspecified',
+    ];
 
     /** @return array<string,mixed> */
     public function currentCensus(Carbon $start, Carbon $end): array
@@ -30,16 +35,20 @@ class DemographicCensusGenerator
                 $end->copy()->endOfDay(),
             ])
             ->get()
-            ->map(fn (NcpRecord $cycle) => [
-                'age' => $cycle->patient?->dob?->diffInYears($cycle->created_at),
-                'sex' => $cycle->patient?->sex,
-                'ward' => $cycle->patient?->ward,
-                'primary_diagnosis_category' => $cycle->assessment?->primary_diagnosis_category,
-                'nutritional_status' => $cycle->assessment?->nutritional_status,
-                'risk_level' => self::riskLevel(
-                    $cycle->risk_score === null ? null : (float) $cycle->risk_score,
-                ),
-            ])->all();
+            ->map(function (NcpRecord $cycle): array {
+                $age = $cycle->patient?->dob?->diffInYears($cycle->created_at);
+
+                return [
+                    'age' => $age,
+                    'sex' => $cycle->patient?->sex,
+                    'ward' => $cycle->patient?->ward,
+                    'primary_diagnosis_category' => $cycle->assessment?->primary_diagnosis_category,
+                    'nutritional_status' => self::adultNutritionalStatus($cycle->assessment, $age),
+                    'risk_level' => self::riskLevel(
+                        $cycle->risk_score === null ? null : (float) $cycle->risk_score,
+                    ),
+                ];
+            })->all();
 
         return self::aggregate($cycles);
     }
@@ -58,6 +67,34 @@ class DemographicCensusGenerator
             $score > 3.0 => 'High',
             $score >= 2.0 => 'Moderate',
             default => 'Low',
+        };
+    }
+
+    private static function adultNutritionalStatus(?Assessment $assessment, ?float $age): string
+    {
+        if ($assessment === null || $age === null || $age < 19) {
+            return 'Unspecified';
+        }
+
+        $bmiValue = $assessment->bmi ?? $assessment->calculateBmi();
+        if (! is_numeric($bmiValue) || (float) $bmiValue <= 0) {
+            return 'Unspecified';
+        }
+
+        $bmi = (float) $bmiValue;
+        $ibw = is_numeric($assessment->ibw_percentage) && (float) $assessment->ibw_percentage > 0
+            ? (float) $assessment->ibw_percentage
+            : 100.0;
+
+        return match (true) {
+            $ibw < 70 || $bmi < 16 => 'Severe Malnutrition',
+            $ibw < 85 || $bmi < 17 => 'Moderate Malnutrition',
+            $ibw < 90 || $bmi < 18.5 => 'Mild Malnutrition / Underweight',
+            $bmi < 23 && $ibw <= 120 => 'Normal',
+            $bmi < 25 => 'Overweight',
+            $bmi < 30 => 'Obese Class I',
+            $bmi < 35 => 'Obese Class II',
+            default => 'Obese Class II (Severe)',
         };
     }
 

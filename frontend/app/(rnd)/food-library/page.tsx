@@ -50,18 +50,15 @@ function UsdaImportModal({ onClose, onImported }: {
   const activeSearchRef           = useRef<number>(0);
   const debounceRef               = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const runSearch = useCallback(async (q: string) => {
-    if (q.trim().length < 2) { setResults([]); return; }
-    const searchId = ++activeSearchRef.current;
-    setSearching(true);
-    setError(null);
+  const runSearch = useCallback(async (q: string, searchId: number) => {
     try {
       const res = await searchUsda(q.trim());
       if (searchId === activeSearchRef.current) setResults(res);
     } catch (e: unknown) {
       if (searchId === activeSearchRef.current) {
         const msg = e instanceof Error ? e.message : "Search failed.";
-        setError(msg.includes("400") ? "Please try a more specific search term." : msg);
+        setResults([]);
+        setError(msg.includes("USDA API search failed:") ? "USDA search could not complete. Try again." : msg);
       }
     } finally {
       if (searchId === activeSearchRef.current) setSearching(false);
@@ -69,10 +66,20 @@ function UsdaImportModal({ onClose, onImported }: {
   }, []);
 
   const handleQueryChange = (val: string) => {
+    const searchId = ++activeSearchRef.current;
     setQuery(val);
+    setResults([]);
+    setError(null);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => runSearch(val), 420);
+    if (!val.trim()) { setSearching(false); return; }
+    setSearching(true);
+    debounceRef.current = setTimeout(() => void runSearch(val, searchId), 160);
   };
+
+  useEffect(() => () => {
+    activeSearchRef.current++;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+  }, []);
 
   const handleImport = async (item: UsdaSearchResult) => {
     setImporting(item.fdc_id);
@@ -100,7 +107,7 @@ function UsdaImportModal({ onClose, onImported }: {
             </div>
             <div>
               <h3 className="text-base font-extrabold text-warm-900">Import from USDA FoodData Central</h3>
-              <p className="text-xs text-warm-400 mt-0.5">Foundation · SR Legacy · Survey (FNDDS) — all nutrients auto-extracted</p>
+              <p className="text-xs text-warm-400 mt-0.5">Foundation · SR Legacy · Survey (FNDDS) · Branded</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-warm-200 text-warm-400 hover:text-warm-700 cursor-pointer transition-colors mt-0.5">
@@ -134,7 +141,7 @@ function UsdaImportModal({ onClose, onImported }: {
             <div className="text-center py-12 select-none">
               <FlaskConical className="h-8 w-8 text-warm-200 mx-auto mb-3" />
               <p className="text-sm text-warm-400">
-                {query.length >= 2 ? "No results found." : "Start typing to search the USDA database."}
+                {query.trim() ? "No results found." : "Start typing to search the USDA database."}
               </p>
             </div>
           )}
@@ -178,7 +185,7 @@ function UsdaImportModal({ onClose, onImported }: {
 
         <div className="px-6 py-3 border-t border-warm-100 bg-warm-50/60">
           <p className="text-xs text-warm-400 text-center">
-            FDC ID · Foundation Foods · SR Legacy · Survey (FNDDS) — Branded foods excluded
+            FDC ID · Foundation Foods · SR Legacy · Survey (FNDDS) · Branded
           </p>
         </div>
       </div>

@@ -143,6 +143,10 @@ class MonthlyDemographicCensusTest extends TestCase
         ]);
         Assessment::factory()->create([
             'ncp_record_id' => $may->id,
+            'weight' => 56.32,
+            'height' => 160,
+            'bmi' => 22,
+            'ibw_percentage' => 100,
             'nutritional_status' => 'Normal',
             'primary_diagnosis_category' => 'Diabetes',
         ]);
@@ -154,6 +158,10 @@ class MonthlyDemographicCensusTest extends TestCase
         ]);
         Assessment::factory()->create([
             'ncp_record_id' => $june->id,
+            'weight' => 61.44,
+            'height' => 160,
+            'bmi' => 24,
+            'ibw_percentage' => 110,
             'nutritional_status' => 'Severe Malnutrition',
             'primary_diagnosis_category' => 'Malnutrition',
         ]);
@@ -165,9 +173,14 @@ class MonthlyDemographicCensusTest extends TestCase
 
         $this->assertSame(1, $census['total']);
         $this->assertSame([
-            'Normal' => 1,
-            'Moderate Malnutrition' => 0,
             'Severe Malnutrition' => 0,
+            'Moderate Malnutrition' => 0,
+            'Mild Malnutrition / Underweight' => 0,
+            'Normal' => 1,
+            'Overweight' => 0,
+            'Obese Class I' => 0,
+            'Obese Class II' => 0,
+            'Obese Class II (Severe)' => 0,
             'Unspecified' => 0,
         ], $census['by_status']);
         $this->assertSame(['Low' => 1], $census['by_risk']);
@@ -197,6 +210,57 @@ class MonthlyDemographicCensusTest extends TestCase
 
         $this->assertSame(['Unclassified' => 1], $census['by_primary_diagnosis_category']);
         $this->assertStringNotContainsString('PRIVATE FREE-TEXT DIAGNOSIS', json_encode($census, JSON_THROW_ON_ERROR));
+    }
+
+    public function test_census_uses_adult_anthropometric_status_and_keeps_risk_separate(): void
+    {
+        $adult = Patient::factory()->create(['dob' => '1990-01-01']);
+        $adultCycle = NcpRecord::factory()->create([
+            'patient_id' => $adult->id,
+            'risk_score' => 5,
+            'created_at' => '2026-05-10 08:00:00',
+        ]);
+        Assessment::factory()->create([
+            'ncp_record_id' => $adultCycle->id,
+            'weight' => 61.44,
+            'height' => 160,
+            'bmi' => 24,
+            'ibw_percentage' => 110,
+            'nutritional_status' => 'Severe Malnutrition',
+        ]);
+
+        $child = Patient::factory()->create(['dob' => '2016-01-01']);
+        $childCycle = NcpRecord::factory()->create([
+            'patient_id' => $child->id,
+            'risk_score' => 1,
+            'created_at' => '2026-05-11 08:00:00',
+        ]);
+        Assessment::factory()->create([
+            'ncp_record_id' => $childCycle->id,
+            'weight' => 61.44,
+            'height' => 160,
+            'bmi' => 24,
+            'ibw_percentage' => 110,
+        ]);
+
+        $census = app(DemographicCensusGenerator::class)->currentCensus(
+            Carbon::parse('2026-05-01'),
+            Carbon::parse('2026-05-31'),
+        );
+
+        $this->assertSame(2, $census['total']);
+        $this->assertSame([
+            'Severe Malnutrition' => 0,
+            'Moderate Malnutrition' => 0,
+            'Mild Malnutrition / Underweight' => 0,
+            'Normal' => 0,
+            'Overweight' => 1,
+            'Obese Class I' => 0,
+            'Obese Class II' => 0,
+            'Obese Class II (Severe)' => 0,
+            'Unspecified' => 1,
+        ], $census['by_status']);
+        $this->assertSame(['High' => 1, 'Low' => 1], $census['by_risk']);
     }
 
     public function test_selected_census_view_downloads_directly_without_creating_a_report_identity(): void

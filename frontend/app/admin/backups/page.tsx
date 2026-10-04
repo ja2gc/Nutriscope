@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { DatabaseBackup, RefreshCw } from "lucide-react";
 import { BackupActionDialog } from "@/components/backups/BackupActionDialog";
 import { BackupList } from "@/components/backups/BackupList";
@@ -69,6 +69,7 @@ export default function BackupsPage() {
   const [activeBackups, setActiveBackups] = useState<BackupRunDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [listLoading, setListLoading] = useState(true);
+  const [listError, setListError] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,35 +81,49 @@ export default function BackupsPage() {
   const [page, setPage] = useState(1);
   const [section, setSection] = useState<BackupView>("available");
   const [category, setCategory] = useState<BackupCategory>("daily");
+  const latestLoad = useRef(0);
 
   const load = useCallback(async (quiet = false, requestedPage = page) => {
+    const loadId = ++latestLoad.current;
     if (!quiet) {
       setLoading(true);
       setListLoading(true);
     }
-    try {
-      const [initialBackups, automatic, activity] = await Promise.all([
-        listBackups(requestedPage, section, category),
-        getBackupSchedules(),
-        listBackups(1, "in_progress", "all"),
-      ]);
-      let backups = initialBackups;
+    const [listResult, scheduleResult, activityResult] = await Promise.allSettled([
+      listBackups(requestedPage, section, category),
+      getBackupSchedules(),
+      listBackups(1, "in_progress", "all"),
+    ]);
+    if (loadId !== latestLoad.current) return;
+    const failures: string[] = [];
+    if (listResult.status === "fulfilled") {
+      let backups = listResult.value;
+      let fallbackFailed = false;
       if (backups.data.length === 0 && requestedPage > 1) {
-        requestedPage -= 1;
-        backups = await listBackups(requestedPage, section, category);
-        setPage(requestedPage);
+        try {
+          requestedPage -= 1;
+          backups = await listBackups(requestedPage, section, category);
+          if (loadId !== latestLoad.current) return;
+          setPage(requestedPage);
+        } catch {
+          failures.push("Restore points could not be loaded.");
+          fallbackFailed = true;
+        }
       }
       setData(backups);
-      setSchedules(automatic);
-      setActiveBackups(activity.data);
-      setError(null);
-    } catch {
-      setError("Backups could not be loaded. Check the connection and try again.");
-    } finally {
-      if (!quiet) {
-        setLoading(false);
-        setListLoading(false);
-      }
+      setListError(fallbackFailed);
+    } else {
+      failures.push("Restore points could not be loaded.");
+      setListError(true);
+    }
+    if (scheduleResult.status === "fulfilled") setSchedules(scheduleResult.value);
+    else failures.push("Backup schedules could not be loaded.");
+    if (activityResult.status === "fulfilled") setActiveBackups(activityResult.value.data);
+    else failures.push("Backup activity could not be loaded.");
+    setError(failures.length ? `${failures.join(" ")} Try again.` : null);
+    if (!quiet) {
+      setLoading(false);
+      setListLoading(false);
     }
   }, [category, page, section]);
 
@@ -252,15 +267,15 @@ export default function BackupsPage() {
         </div>
       )}
 
-      {loading && (!data || !schedules) ? (
+      {loading && !data ? (
         <Card padded role="status" className="py-12 text-center">
           <RefreshCw className="mx-auto h-6 w-6 animate-spin text-brand-green-600" />
           <p className="mt-3 text-sm font-semibold text-warm-600">Loading backup status</p>
         </Card>
-      ) : data && schedules && (
+      ) : data && (
         <>
-          <BackupStatusSummary summary={data.summary} schedules={schedules} />
-          <BackupScheduleSettings schedules={schedules} disabled={savingSchedules || hasActive} onChange={(input) => void saveSchedules(input)} />
+          {schedules && <BackupStatusSummary summary={data.summary} schedules={schedules} />}
+          {schedules && <BackupScheduleSettings schedules={schedules} disabled={savingSchedules || hasActive} onChange={(input) => void saveSchedules(input)} />}
 
           {activeBackups.length > 0 && (
             <section aria-labelledby="backup-activity-heading" className="space-y-3">
@@ -310,6 +325,7 @@ export default function BackupsPage() {
               value={section}
               onChange={(value) => {
                 setListLoading(true);
+                setListError(false);
                 setSection(value);
                 setPage(1);
               }}
@@ -329,6 +345,7 @@ export default function BackupsPage() {
                   className="min-h-11"
                   onClick={() => {
                     setListLoading(true);
+                    setListError(false);
                     setCategory(key);
                     setPage(1);
                   }}
@@ -344,10 +361,14 @@ export default function BackupsPage() {
               <RefreshCw className="mx-auto h-5 w-5 animate-spin text-brand-green-600" />
               <p className="mt-3 text-sm font-semibold text-warm-600">Loading selected backups</p>
             </Card>
+          ) : listError ? (
+            <Card padded role="status" className="py-10 text-center">
+              <p className="text-sm font-semibold text-warm-600">Selected backups are unavailable. Try again.</p>
+            </Card>
           ) : (
             <>
               <BackupList backups={data.data} section={section} busyId={busyId} onDelete={setDeleting} onKeep={(backup) => void keep(backup)} onRecovery={setRecovering} onCancelRecovery={(backup) => backup.recovery && void cancel(backup.recovery.id)} />
-              <Pagination meta={data.meta} page={page} onPageChange={(nextPage) => { setListLoading(true); setPage(nextPage); }} />
+              <Pagination meta={data.meta} page={page} onPageChange={(nextPage) => { setListLoading(true); setListError(false); setPage(nextPage); }} />
             </>
           )}
         </>

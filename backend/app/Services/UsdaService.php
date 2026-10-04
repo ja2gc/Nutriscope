@@ -111,31 +111,50 @@ class UsdaService
      */
     public function search(string $query, int $pageSize = 10): array
     {
-        $response = Http::withoutVerifying()->get("{$this->baseUrl}/foods/search", [
-            'query' => $query,
-            'pageSize' => $pageSize,
-            'api_key' => $this->apiKey,
-            'dataType' => ['SR Legacy', 'Foundation', 'Survey (FNDDS)'],
-        ]);
+        $cacheKey = 'usda_search_'.hash('sha256', mb_strtolower(trim($query)).'|'.$pageSize);
 
-        if (! $response->successful()) {
-            throw new RuntimeException("USDA API search failed: {$response->status()}");
-        }
+        return Cache::remember($cacheKey, now()->addMinutes(10), function () use ($query, $pageSize): array {
+            $response = Http::withoutVerifying()->connectTimeout(3)->timeout(10)->post("{$this->baseUrl}/foods/search?api_key=".urlencode($this->apiKey), [
+                'query' => $query,
+                'pageSize' => $pageSize,
+                'dataType' => ['SR Legacy', 'Foundation', 'Survey (FNDDS)', 'Branded'],
+            ]);
 
-        return collect($response->json('foods', []))->map(function ($food) {
-            $nutrients = collect($food['foodNutrients'] ?? []);
+            if (! $response->successful()) {
+                throw new RuntimeException("USDA API search failed: {$response->status()}");
+            }
 
-            return [
-                'fdc_id' => $food['fdcId'],
-                'name' => $food['description'],
-                'data_type' => $food['dataType'] ?? null,
-                'food_category' => $food['foodCategory'] ?? null,
-                'calories' => $this->findInSearch($nutrients, self::ENERGY_ID),
-                'protein' => $this->findInSearch($nutrients, self::PROTEIN_ID),
-                'carbs' => $this->findInSearch($nutrients, self::CARBS_ID),
-                'fat' => $this->findInSearch($nutrients, self::FAT_ID),
-            ];
-        })->values()->all();
+            $results = collect($response->json('foods', []))->map(function ($food) {
+                $nutrients = collect($food['foodNutrients'] ?? []);
+
+                return [
+                    'fdc_id' => $food['fdcId'],
+                    'name' => $food['description'],
+                    'data_type' => $food['dataType'] ?? null,
+                    'food_category' => $food['foodCategory'] ?? null,
+                    'calories' => $this->findInSearch($nutrients, self::ENERGY_ID),
+                    'protein' => $this->findInSearch($nutrients, self::PROTEIN_ID),
+                    'carbs' => $this->findInSearch($nutrients, self::CARBS_ID),
+                    'fat' => $this->findInSearch($nutrients, self::FAT_ID),
+                ];
+            })->values()->all();
+
+            $needle = mb_strtolower(trim($query));
+            $rank = static function (array $food) use ($needle): array {
+                $name = mb_strtolower(trim($food['name']));
+                $match = match (true) {
+                    $name === $needle => 0,
+                    str_starts_with($name, $needle) => 1,
+                    str_contains($name, $needle) => 2,
+                    default => 3,
+                };
+
+                return [$match, $food['data_type'] === 'Branded' ? 1 : 0, mb_strlen($name)];
+            };
+            usort($results, static fn (array $left, array $right): int => $rank($left) <=> $rank($right));
+
+            return $results;
+        });
     }
 
     /**

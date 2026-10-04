@@ -92,7 +92,7 @@ class AssessmentController extends Controller
             ? (bool) $data['risk_score_manual_override']
             : (bool) $ncpRecord->risk_score_manual_override;
         $manualFactors = array_key_exists('risk_score_manual_factors', $data)
-            ? $data['risk_score_manual_factors']
+            ? ($data['risk_score_manual_factors'] ?? [])
             : ($ncpRecord->risk_score_manual_factors ?? []);
         unset($data['biochemical_data'], $data['risk_score_manual_override'], $data['risk_score_manual_factors']);
 
