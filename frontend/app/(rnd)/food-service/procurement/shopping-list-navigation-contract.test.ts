@@ -3,15 +3,19 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 describe("shopping list navigation", () => {
-  test("opens from the name and keeps rename controls inside detail", () => {
+  test("uses the row pencil to open a plain shopping list name", () => {
     const source = readFileSync(join(process.cwd(), "app", "(rnd)", "food-service", "procurement", "page.tsx"), "utf8");
 
-    expect(source).toContain("onClick={() => setListDetail(l.id)}");
+    expect(source).toContain('aria-label={`Open list: ${l.name}`} title="Open list"');
+    expect(source).toContain('<Pencil className="h-3.5 w-3.5" />');
+    expect(source).not.toContain('aria-label={`Rename ${l.name}`} title="Edit name"');
+    expect(source).toContain('<span className="block min-w-0 truncate font-semibold text-warm-800">{l.name}</span>');
+    expect(source).not.toContain('<button type="button" onClick={() => setListDetail(l.id)} className="text-left');
     expect(source).toContain("editingName");
     expect(source).toContain("Save name");
     expect(source).toContain("Cancel rename");
-    expect(source).not.toContain("editingListId");
-    expect(source).not.toContain('<Eye className="h-3.5 w-3.5" />\n                          </button>\n                          <button\n                            onClick={() => { setEditingListId');
+    expect(source).toContain('onClick={() => setListDetail(l.id)}');
+    expect(source).not.toContain('<span>Open</span>');
   });
 
   test("purchase unit is selected from the shared catalog units", () => {

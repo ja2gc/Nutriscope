@@ -22,6 +22,11 @@ const TABS: { key: FsItemKind; label: string }[] = [
   { key: "supply", label: "Supplies" },
 ];
 
+const FOOD_SERVICE_CATEGORIES = [
+  "Bakery", "Beverage", "Cleaning", "Condiment", "Disposable", "Fish", "Fruit", "Grain",
+  "Meat", "Poultry", "Snack", "Utility", "Vegetable",
+];
+
 function Label({ children }: { children: React.ReactNode }) {
   return <label className="block text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1">{children}</label>;
 }
@@ -106,8 +111,12 @@ function ItemFormModal({ kind, editing, suppliers, onClose, onSaved }: {
             <input value={form.name} onChange={(e) => set("name", e.target.value)} className={inputCls} />
           </div>
           <div>
-            <Label>Category</Label>
-            <input value={form.category} onChange={(e) => set("category", e.target.value)} className={inputCls} />
+            <Label>Food Service Category</Label>
+            <select aria-label="Food Service Category" value={form.category} onChange={(e) => set("category", e.target.value)} className={`${inputCls} bg-white`}>
+              <option value="">Select category…</option>
+              {form.category && !FOOD_SERVICE_CATEGORIES.includes(form.category) && <option value={form.category}>{form.category}</option>}
+              {FOOD_SERVICE_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
+            </select>
           </div>
           <div>
             <Label>Vendor</Label>
@@ -119,8 +128,8 @@ function ItemFormModal({ kind, editing, suppliers, onClose, onSaved }: {
 
           {isSupply ? (
             <div>
-              <Label>Cost / unit (₱)</Label>
-              <input type="number" min="0" step="0.01" value={form.purchase_price} onChange={(e) => set("purchase_price", e.target.value)} className={inputCls} />
+              <Label>Cost/unit (₱)</Label>
+              <input type="number" min="0" step="any" value={form.purchase_price} onChange={(e) => set("purchase_price", e.target.value)} className={inputCls} />
             </div>
           ) : (
             <>
@@ -132,8 +141,8 @@ function ItemFormModal({ kind, editing, suppliers, onClose, onSaved }: {
                 </select>
               </div>
               <div>
-                <Label>Unit / cost (₱)</Label>
-                <input type="number" min="0" step="0.01" value={form.purchase_price} onChange={(e) => set("purchase_price", e.target.value)} className={inputCls} />
+                <Label>Cost/unit (₱)</Label>
+                <input type="number" min="0" step="any" value={form.purchase_price} onChange={(e) => set("purchase_price", e.target.value)} className={inputCls} />
               </div>
             </>
           )}
@@ -229,8 +238,8 @@ export default function InventoryCatalogPage() {
             <thead className="bg-warm-50 border-b border-warm-100">
               <tr>
                 {(isSupply
-                  ? ["Name", "Category", "Vendor", "Cost", "Actions"]
-                  : ["Name", "Category", "Vendor", "Unit", "Cost", "Actions"]
+                  ? ["Name", "Category", "Vendor", "Cost/unit", "Actions"]
+                  : ["Name", "Category", "Vendor", "Unit", "Cost/unit", "Shopping list behavior", "Actions"]
                 ).map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
                 ))}
@@ -241,16 +250,14 @@ export default function InventoryCatalogPage() {
                 <tr key={it.id} className="hover:bg-warm-50/60">
                   <td className="px-4 py-3 font-semibold text-warm-800">
                     {it.name}
-                    {!isSupply && <span className={`ml-2 inline-flex rounded-full px-2 py-0.5 text-xs font-bold ${it.include_in_generated_lists ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}>
-                      {it.include_in_generated_lists ? "Auto grocery" : "Purchase when needed"}
-                    </span>}
                   </td>
                   <td className="px-4 py-3 text-warm-500">{it.category ?? "—"}</td>
                   <td className="px-4 py-3 text-warm-500">{it.vendor ?? "—"}{it.vendor_locked && <span className="ml-1 text-xs text-amber-600 font-bold">🔒</span>}</td>
                   {!isSupply && <td className="px-4 py-3 text-warm-500">{it.base_unit}</td>}
                   <td className="px-4 py-3 text-warm-700 font-mono">
-                    {isSupply ? peso(it.purchase_price) : `${peso(it.purchase_price)} / ${it.base_unit}`}
+                    {peso(it.purchase_price)}
                   </td>
+                  {!isSupply && <td className="px-4 py-3 text-warm-500">{it.include_in_generated_lists ? "Auto grocery" : "Purchase when needed"}</td>}
                   <td className="px-4 py-3">
                     {isRnd ? (
                       <div className="flex items-center gap-1">

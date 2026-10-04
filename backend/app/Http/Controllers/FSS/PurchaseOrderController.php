@@ -453,7 +453,7 @@ class PurchaseOrderController extends Controller
                         abort(422, 'Upload at least one proof of purchase before marking this vendor received.');
                     }
                     if ($vendorGroup->items->contains(fn ($item) => $item->actual_qty === null || $item->actual_unit_price === null)) {
-                        abort(422, 'Review actual quantity and unit price for every item before marking this vendor received.');
+                        abort(422, 'Actual quantity and unit price are required for every item before marking this vendor received.');
                     }
 
                     $vendorGroup->forceFill(['status' => 'received', 'received_at' => now()])->save();

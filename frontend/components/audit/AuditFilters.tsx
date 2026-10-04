@@ -82,10 +82,10 @@ export function AuditFilters({
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <fieldset className="grid grid-cols-2 gap-2 sm:col-span-2">
+        <fieldset className="flex flex-wrap items-start justify-start gap-3 sm:col-span-2 lg:col-span-3 xl:col-span-4">
           <legend className="mb-1 text-xs font-bold uppercase tracking-wider text-warm-500">Date range</legend>
-          <DatePicker ariaLabel="Start date" value={value.start || ""} onChange={(next) => update("start", next || undefined)} />
-          <DatePicker ariaLabel="End date" value={value.end || ""} onChange={(next) => update("end", next || undefined)} />
+          <DatePicker label="Start date" ariaLabel="Start date" value={value.start || ""} onChange={(next) => update("start", next || undefined)} compactLabels />
+          <DatePicker label="End date" ariaLabel="End date" value={value.end || ""} onChange={(next) => update("end", next || undefined)} compactLabels />
         </fieldset>
 
         {value.module && subfilterOptions.length > 0 && (

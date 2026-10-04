@@ -14,14 +14,37 @@ describe("purchase-order receiving UX contract", () => {
     expect(controls).toContain("can_change_vendor");
   });
 
-  it("shows planned values first and calculation details only on request", () => {
+  it("keeps Actual Total and the collapsed planned/actual details while removing three comparison fields", () => {
+    const web = read("app/(rnd)/food-service/procurement/page.tsx");
+    const native = fs.readFileSync(path.join(frontend, "..", "mobile", "app", "(tabs)", "procurement.tsx"), "utf8");
     const comparison = read("components/foodservice/PurchaseValueComparison.tsx");
-    expect(comparison).toContain("Planned purchase");
-    expect(comparison).toContain("Actual purchased");
-    expect(comparison).toContain("Calculation details");
-    expect(comparison).toContain("Calculated need");
-    expect(comparison).toContain("Not reviewed");
-    expect(comparison).not.toContain("Calculated qty");
+    for (const label of ["Actual Quantity", "Unit", "Actual Cost/unit", "Actual Total"]) {
+      expect(web).toContain(label);
+      expect(native).toContain(label);
+    }
+    expect(web).toContain("Show planned total");
+    expect(native).toContain("Show planned total");
+    expect(web).toContain("PurchaseValueComparison");
+    for (const label of ["Calculation details", "Planned purchase:", "Actual purchased:"]) {
+      expect(comparison).toContain(label);
+      expect(native).toContain(label);
+    }
+    for (const label of ["Calculated need", "Quantity difference", "Cost difference"]) {
+      expect(comparison).not.toContain(label);
+      expect(native).not.toContain(label);
+    }
+    expect(comparison).not.toContain("Not reviewed");
+    expect(comparison).not.toContain("Reviewed");
+    expect(native).not.toContain("Not reviewed");
+    expect(native).not.toContain("Reviewed");
+  });
+
+  it("removes the purchase-order activity panel from the user-facing screen", () => {
+    const web = read("app/(rnd)/food-service/procurement/page.tsx");
+    const native = fs.readFileSync(path.join(frontend, "..", "mobile", "app", "(tabs)", "procurement.tsx"), "utf8");
+    expect(web).not.toContain('title="Purchase order activity"');
+    expect(web).not.toContain("/purchase-orders/${po.id}/activity");
+    expect(native).not.toContain("po.ppa.activity");
   });
 
   it("keeps vendor correction available in both web and native purchase screens", () => {

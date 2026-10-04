@@ -37,7 +37,7 @@ test('mobile screens retain actionable safety and state guidance', () => {
   const help = read('app', 'help.tsx');
   const foodDetails = read('app', 'food-details.tsx');
 
-  assert.match(procurement, /Receipt, proof, and reviewed actual values are required\. OR number is optional\./);
+  assert.match(procurement, /Receipt, proof, and actual quantity and cost are required\. OR number is optional\./);
   assert.match(help, /Never share passwords, verification codes, or unnecessary patient information\./);
   assert.ok(
     foodDetails.includes('No planned population is set for this slot. Baseline recipe quantities are shown.'),

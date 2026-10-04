@@ -306,7 +306,7 @@ class PurchaseOrderExecutionLockTest extends TestCase
         $this->assertSame('21.50', $line->actual_unit_price);
     }
 
-    public function test_evidence_upload_does_not_receive_until_actuals_are_reviewed_and_confirmed(): void
+    public function test_receiving_can_start_once_required_evidence_is_present_without_a_review_step(): void
     {
         Storage::fake('private_uploads');
         [, $group] = $this->convertedPo();
@@ -339,6 +339,13 @@ class PurchaseOrderExecutionLockTest extends TestCase
 
         $this->assertSame('pending', $group->fresh()->status);
 
+        $this->actingAs($this->rnd)
+            ->getJson("/api/fss/purchase-orders/{$group->purchaseOrder->uuid}")
+            ->assertOk()
+            ->assertJsonPath('data.vendor_groups.0.evidence_requirements.can_mark_received', true)
+            ->assertJsonMissingPath('data.vendor_groups.0.evidence_requirements.actual_values_reviewed')
+            ->assertJsonMissingPath('data.vendor_groups.0.items.0.actual_values_confirmed');
+
         $this->actingAs($fss)->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
             'status' => 'received',
             'items' => [[
@@ -361,7 +368,7 @@ class PurchaseOrderExecutionLockTest extends TestCase
         $this->assertNotNull($group->fresh()->stocked_at);
     }
 
-    public function test_resource_prefills_actual_inputs_without_marking_them_reviewed(): void
+    public function test_resource_prefills_actual_inputs_without_review_status_fields(): void
     {
         [$po] = $this->convertedPo();
 
@@ -369,7 +376,8 @@ class PurchaseOrderExecutionLockTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.vendor_groups.0.items.0.actual_qty', '5.000')
             ->assertJsonPath('data.vendor_groups.0.items.0.actual_unit_price', '20.00')
-            ->assertJsonPath('data.vendor_groups.0.items.0.actual_values_confirmed', false);
+            ->assertJsonMissingPath('data.vendor_groups.0.items.0.actual_values_confirmed')
+            ->assertJsonMissingPath('data.vendor_groups.0.evidence_requirements.actual_values_reviewed');
     }
 
     public function test_actual_quantity_can_be_calculated_from_receipt_total(): void
