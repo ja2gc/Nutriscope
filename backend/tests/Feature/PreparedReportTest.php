@@ -41,7 +41,7 @@ class PreparedReportTest extends TestCase
     }
 
     #[Test]
-    public function preparation_preserves_identity_creation_snapshot_and_original_bytes(): void
+    public function archived_preparation_preserves_identity_creation_snapshot_and_original_bytes(): void
     {
         Storage::fake('report_cache');
         Storage::fake('private_uploads');
@@ -64,6 +64,7 @@ class PreparedReportTest extends TestCase
         $snapshot = $first->snapshot;
         $officialObjectId = $first->official_file_stored_object_id;
         $originalHash = $first->content_hash;
+        $first->update(['status' => 'archived']);
 
         $this->assertNotNull($officialObjectId);
         $this->assertSame($originalHash, $first->officialFile->sha256);
@@ -135,22 +136,33 @@ class PreparedReportTest extends TestCase
     }
 
     #[Test]
-    public function legacy_active_official_file_is_not_silently_rewritten(): void
+    public function legacy_active_official_file_is_replaced_by_refreshable_cache_without_rewriting_old_bytes(): void
     {
         Storage::fake('report_cache');
         Storage::fake('private_uploads');
         $actor = User::factory()->rnd()->create();
         $service = $this->createMock(ReportService::class);
         $service->method('signatoriesFor')->willReturn([]);
-        $service->expects($this->once())->method('buildPdf')->willReturn(['bytes' => "%PDF-1.4\nlegacy\n%%EOF", 'meta' => []]);
+        $bytes = "%PDF-1.4\nlegacy\n%%EOF";
+        $service->expects($this->exactly(2))->method('buildPdf')->willReturnCallback(function () use (&$bytes): array {
+            return ['bytes' => $bytes, 'meta' => []];
+        });
         $this->app->instance(ReportService::class, $service);
         $action = app(PrepareSavedReport::class);
 
         $legacy = $action->execute($actor, 'procurement_pack', ['purchase_order_id' => 11]);
-        $same = $action->execute($actor, 'procurement_pack', ['purchase_order_id' => 11]);
+        $oldOfficial = $legacy->officialFile;
+        $oldBytes = Storage::disk('private_uploads')->get($oldOfficial->object_key);
+        $bytes = "%PDF-1.4\ncurrent template\n%%EOF";
+        $same = $action->execute($actor, 'procurement_pack', ['purchase_order_id' => 11], freeze: false);
 
         $this->assertSame($legacy->uuid, $same->uuid);
-        $this->assertSame($legacy->official_file_stored_object_id, $same->official_file_stored_object_id);
+        $this->assertNull($same->official_file_stored_object_id);
+        $this->assertSame(hash('sha256', $bytes), $same->content_hash);
+        $this->assertSame($bytes, Storage::disk('report_cache')->get($same->cache_path));
+        $this->assertSame("%PDF-1.4\nlegacy\n%%EOF", $oldBytes);
+        $this->assertDatabaseMissing('stored_objects', ['id' => $oldOfficial->id]);
+        Storage::disk('private_uploads')->assertMissing($oldOfficial->object_key);
     }
 
     #[Test]
@@ -198,7 +210,7 @@ class PreparedReportTest extends TestCase
     }
 
     #[Test]
-    public function expired_cache_still_streams_the_immutable_official_file(): void
+    public function archived_expired_cache_still_streams_the_immutable_official_file(): void
     {
         Storage::fake('private_uploads');
         Storage::fake('report_cache');
@@ -214,7 +226,7 @@ class PreparedReportTest extends TestCase
         $report = Report::factory()->create([
             'user_id' => $actor->id,
             'type' => 'procurement_pack',
-            'status' => 'completed',
+            'status' => 'archived',
             'official_file_stored_object_id' => $official->id,
             'cache_path' => 'reports/expired.pdf',
             'cache_expires_at' => now()->subMinute(),
@@ -228,6 +240,51 @@ class PreparedReportTest extends TestCase
         $download->assertOk();
         $this->assertSame($bytes, $view->streamedContent());
         $this->assertSame($bytes, $download->streamedContent());
+    }
+
+    #[Test]
+    public function active_legacy_official_file_is_refreshed_when_cache_expires(): void
+    {
+        Storage::fake('private_uploads');
+        Storage::fake('report_cache');
+        $actor = User::factory()->rnd()->create();
+        $oldBytes = "%PDF-1.4\nlegacy active report\n%%EOF";
+        $currentBytes = "%PDF-1.4\nrefreshed active report\n%%EOF";
+        $official = app(StoredObjectStorage::class)->storeBytes(
+            $oldBytes,
+            'application/pdf',
+            'pdf',
+            'report',
+            'legacy-active.pdf',
+        );
+        $report = Report::factory()->create([
+            'user_id' => $actor->id,
+            'type' => 'procurement_pack',
+            'status' => 'completed',
+            'parameters' => ['purchase_order_id' => 10],
+            'official_file_stored_object_id' => $official->id,
+            'cache_path' => 'reports/expired-active.pdf',
+            'cache_expires_at' => now()->subMinute(),
+            'content_hash' => $official->sha256,
+        ]);
+        $service = $this->createMock(ReportService::class);
+        $service->method('signatoriesFor')->willReturn([]);
+        $service->expects($this->once())->method('buildPdf')->willReturn(['bytes' => $currentBytes, 'meta' => []]);
+        $this->app->instance(ReportService::class, $service);
+
+        $view = $this->actingAs($actor, 'sanctum')->get("/api/rnd/reports/{$report->uuid}/view");
+        $download = $this->get("/api/rnd/reports/{$report->uuid}/download");
+
+        $view->assertOk();
+        $download->assertOk();
+        $this->assertSame($currentBytes, $view->streamedContent());
+        $this->assertSame($currentBytes, $download->streamedContent());
+        $this->assertSame($report->uuid, $report->fresh()->uuid);
+        $this->assertNull($report->fresh()->official_file_stored_object_id);
+        $this->assertSame(hash('sha256', $currentBytes), $report->fresh()->content_hash);
+        $this->assertDatabaseMissing('stored_objects', ['id' => $official->id]);
+        Storage::disk('private_uploads')->assertMissing($official->object_key);
+        $this->assertDatabaseCount('reports', 1);
     }
 
     #[Test]

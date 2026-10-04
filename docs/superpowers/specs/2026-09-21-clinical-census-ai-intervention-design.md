@@ -156,9 +156,9 @@ For already deployed demo rows, use one narrowly targeted, idempotent backfill t
 
 ### Census and report identity
 
-Keep the cycle-owned Assessment category in structured data and legacy-compatible aggregates, never deriving it from raw `patients.medical_diagnosis`. Reports shows Demographic Census as a year or month summary. Each non-deleted ADIME cycle counts once in its start month; continuing visits do not add counts. A later separate cycle for the same patient counts in its own start month. Annual totals sum the months. The screen shows total cycles, the age/sex matrix, **By Risk Level**, and aggregate **By nutrition care category**. It omits ward and nutritional-status breakdowns, patient names, and free-text Other details.
+Keep the cycle-owned Assessment category in structured data and legacy-compatible aggregates, never deriving it from raw `patients.medical_diagnosis`. Reports shows Demographic Census as a year or month summary. Each non-deleted ADIME cycle counts once in its start month; continuing visits do not add counts. A later separate cycle for the same patient counts in its own start month. Annual totals sum the months. The screen shows total cycles; a compact age/sex matrix with sex as rows and age bands as columns; **By nutritional status**, including every supported status with zero counts; **By Risk Level**; and sparse aggregate **By nutrition care category** totals. It omits ward, patient names, and free-text Other details.
 
-The earlier basis-version rebuild remains valid for data compatibility. Completed months use frozen census snapshots, including zero-cycle months. The current month stays live. A selected year or month can be saved through the browser's PDF print flow; the PDF contains Census content only, without Reports navigation.
+The earlier basis-version rebuild remains valid for data compatibility. Completed months use frozen census snapshots, including zero-cycle months. The current month stays live. A selected year or month downloads through a dedicated server-rendered PDF response. It contains Census content only, without Reports navigation or browser-added page URLs, and does not open the browser print dialog.
 
 Demographic Census no longer creates a prepared report identity or filed PDF. Census PDF prepare, preview, download, and archive routes reject requests; old Census reports are hidden. A targeted dry-run-first cleanup command removes legacy Census report rows and PDF files only after its explicit execute option is used. Other report archives remain byte-for-byte frozen with their original data, branding, signatories, template, and appearance.
 
@@ -210,7 +210,7 @@ Goal selection retains progressive disclosure: show no stage list before a goal 
 
 ## 4. Fluid boundary and meal-plan scaling
 
-Fluid remains a prescribed daily guidance value and appears in Intervention UI and patient report. It must not be a meal-plan generation, candidate-selection, scaling, variance, or success target because beverage intake is not fully represented by food-water values.
+Fluid remains a prescribed daily guidance value and appears in Intervention UI and patient report. The displayed calculation shows required fluid, approximate fluid provided by the planned foods, and the nonnegative remaining amount to consume as drinking fluid. It must not be a meal-plan generation, candidate-selection, scaling, variance, or success target because beverage intake is not fully represented by food-water values.
 
 Remove `water`/`fluid_ml` from:
 
@@ -392,7 +392,7 @@ Keep output compact and deduplicate identical dish-plus-portion combinations whe
 - AI/provider failure leaves manual Diagnosis workflow fully usable.
 - Malformed or unsupported AI output is rejected and never persisted.
 - Audit events record field names and plan identity metadata while preserving existing clinical PHI redaction.
-- Prepared report preview/download remains read-only and never creates a second identity or mutates an archived file.
+- Preparing an active report refreshes its current source data, branding, and template without creating a second identity. Prepared report preview/download remains read-only. Explicit archive freezes the resulting bytes, and later preparation never mutates an archived file.
 
 ## 9. Testing and verification
 
@@ -400,7 +400,7 @@ Keep output compact and deduplicate identical dish-plus-portion combinations whe
 
 - Structured weight period validation, formatting, legacy parsing, and unparseable fallback.
 - Category allow-list, `Other` detail requirement, cycle ownership, authorization, and resources.
-- Census aggregates categories, uses `Unclassified` for unresolved legacy records, counts every non-deleted cycle once, and rebuilds old basis versions. Other report archives preserve their bytes; legacy Census PDFs are removed by targeted cleanup.
+- Census aggregates categories, uses `Unclassified` for unresolved legacy records, counts every non-deleted cycle once, renders every nutritional status including zero, and rebuilds old basis versions. Its selected-view PDF is direct and identity-free. Other report archives preserve their bytes; legacy Census PDFs are removed by targeted cleanup.
 - Seeder is deterministic and repeatable; fictional seeded cycles receive explicit categories with no duplicates or invented history.
 - Maternal modifiers for first, second, and third trimester and lactation, including RND overrides and restricted-fluid behavior.
 - Meal generation/scaling/variance ignores water while retaining energy, macros, and existing micronutrient behavior.
@@ -414,7 +414,7 @@ Keep output compact and deduplicate identical dish-plus-portion combinations whe
 - Required category UX and conditional Other details.
 - Maternal status controls and existing calculation disclosure baseline/modifier/final rows.
 - No visible stress-factor field.
-- Fluid displayed as guidance and absent from meal target-match UI.
+- Fluid calculation displays required, food-provided, and remaining drinking amounts while staying absent from generation, scaling, variance, and meal target-match logic.
 - PES draft cache/refresh/dismiss/accept/edit/zero-result/source/evidence states.
 - Monitoring form and saved logs use the same clinical section structure, hide unrecorded sections, and paginate newest first.
 - Intervention `Plans` tab paginates complete dated plans newest first; each selected saved plan is read-only and new-plan mode reuses the Intervention UI.
@@ -448,9 +448,9 @@ Implementation must open and inspect the exact source content before encoding an
 
 - RND enters weight duration through quantity + weeks/months once; no fixed three-month assumption remains.
 - Every newly saved Assessment has exactly one allowed Nutrition care category; medical diagnosis, PES diagnosis, and intervention goal remain independent.
-- Demographic Census offers year/month summaries with one count per cycle start, shows the age/sex matrix, risk level, and aggregate Nutrition care category totals, and saves selected content as a navigation-free PDF without creating a filed report. Legacy Census PDFs are removed by targeted cleanup; other prepared archives remain unchanged.
+- Demographic Census offers year/month summaries with one count per cycle start, shows the transposed age/sex matrix, every nutritional status including zero, risk level, and aggregate Nutrition care category totals, and directly downloads selected content as a navigation-free PDF without creating a filed report. Legacy Census PDFs are removed by targeted cleanup; other prepared archives remain unchanged.
 - Maternal final targets are calculated automatically and transparently; patient never performs addition.
-- Stress factor is absent from workflow; fluid is visible guidance and never a meal-plan scaling target.
+- Stress factor is absent from workflow; fluid shows required, food-provided, and remaining drinking amounts and never becomes a meal-plan scaling target.
 - PES assistant returns only source-gated, evidence-supported drafts for unchanged data at most once, with no invented evidence or sources.
 - RND can create another complete Intervention Plan from the Intervention page; each plan owns at most one menu plan, and older plans/menu plans remain immutable and readable by date.
 - Patient document is titled `Nutrition Intervention Plan`, contains compact precise portions, and contains no preparation instructions or USDA source note.

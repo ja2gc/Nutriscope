@@ -88,6 +88,7 @@ class ReportPaperSizeTest extends TestCase
         $service = file_get_contents(app_path('Services/Reports/ReportService.php'));
 
         $this->assertStringContainsString("'paper_orientation' => \$orientation", $service);
+        $this->assertStringContainsString("setOption('enable_font_subsetting', true)", $service);
         $this->assertStringContainsString('page-break-after: avoid', $layout);
         $this->assertStringContainsString('table-layout: fixed', $layout);
         $this->assertStringContainsString('word-wrap: break-word', $layout);

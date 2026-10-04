@@ -135,6 +135,7 @@ class PatientMenuPlanGenerator implements ReportGenerator
                 'micronutrient_limits' => $snapshot['micronutrient_limits'] ?? [],
             ],
             'fluid_balance' => [
+                'required_fluid_ml' => $fluidTarget,
                 'food_fluid_ml' => $dailyFoodFluid,
                 'remaining_ml' => max(0, round($fluidTarget - $dailyFoodFluid)),
             ],

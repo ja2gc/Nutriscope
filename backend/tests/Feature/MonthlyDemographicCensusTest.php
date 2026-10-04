@@ -164,7 +164,12 @@ class MonthlyDemographicCensusTest extends TestCase
         );
 
         $this->assertSame(1, $census['total']);
-        $this->assertSame(['Normal' => 1], $census['by_status']);
+        $this->assertSame([
+            'Normal' => 1,
+            'Moderate Malnutrition' => 0,
+            'Severe Malnutrition' => 0,
+            'Unspecified' => 0,
+        ], $census['by_status']);
         $this->assertSame(['Low' => 1], $census['by_risk']);
         $this->assertSame(['Diabetes' => 1], $census['by_primary_diagnosis_category']);
         $this->assertArrayNotHasKey('Diagnosis A', $census['by_primary_diagnosis_category']);
@@ -192,6 +197,30 @@ class MonthlyDemographicCensusTest extends TestCase
 
         $this->assertSame(['Unclassified' => 1], $census['by_primary_diagnosis_category']);
         $this->assertStringNotContainsString('PRIVATE FREE-TEXT DIAGNOSIS', json_encode($census, JSON_THROW_ON_ERROR));
+    }
+
+    public function test_selected_census_view_downloads_directly_without_creating_a_report_identity(): void
+    {
+        Carbon::setTestNow('2026-06-15 12:00:00');
+        $patient = Patient::factory()->create(['dob' => '1990-01-01', 'sex' => 'Female']);
+        $cycle = NcpRecord::factory()->create([
+            'patient_id' => $patient->id,
+            'risk_score' => 1,
+            'created_at' => '2026-06-10 08:00:00',
+        ]);
+        Assessment::factory()->create([
+            'ncp_record_id' => $cycle->id,
+            'nutritional_status' => 'Normal',
+            'primary_diagnosis_category' => 'Diabetes',
+        ]);
+        $actor = User::factory()->rnd()->create();
+
+        $response = $this->actingAs($actor, 'sanctum')
+            ->get('/api/rnd/reports/demographic_census/export?year=2026&month=6');
+
+        $response->assertOk()->assertHeader('Content-Type', 'application/pdf');
+        $this->assertStringStartsWith('%PDF-', $response->streamedContent());
+        $this->assertDatabaseCount('reports', 0);
     }
 
     public function test_current_month_is_browsable_live_but_not_stored_as_frozen(): void
@@ -336,7 +365,7 @@ class MonthlyDemographicCensusTest extends TestCase
         $this->assertDatabaseCount('reports', 0);
     }
 
-    public function test_census_pdf_routes_and_legacy_report_ids_are_no_longer_available(): void
+    public function test_census_prepared_pdf_routes_and_legacy_report_ids_are_no_longer_available(): void
     {
         Carbon::setTestNow('2026-06-15 12:00:00');
         $actor = User::factory()->rnd()->create();
@@ -352,7 +381,6 @@ class MonthlyDemographicCensusTest extends TestCase
         $this->actingAs($actor, 'sanctum')->postJson($base.'/prepare'.$period)->assertGone();
         $this->postJson($base.'/archive'.$period)->assertGone();
         $this->getJson($base.'/render'.$period)->assertGone();
-        $this->getJson($base.'/export'.$period)->assertGone();
         $this->getJson($base.'/instances')->assertGone();
         $this->getJson("/api/rnd/reports/{$legacy->uuid}")->assertGone();
         $this->getJson("/api/rnd/reports/{$legacy->uuid}/view")->assertGone();

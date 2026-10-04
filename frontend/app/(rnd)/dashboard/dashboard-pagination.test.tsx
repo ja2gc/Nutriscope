@@ -39,6 +39,8 @@ const announcement = (id: number) => ({
   category: "General" as const,
   visibility: "All" as const,
   pinned: false,
+  can_edit: false,
+  can_delete: false,
   attachment: null,
   attachments: [],
   created_at: `2026-07-${String(10 + id).padStart(2, "0")}T08:00:00Z`,

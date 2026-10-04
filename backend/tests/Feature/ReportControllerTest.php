@@ -105,6 +105,7 @@ class ReportControllerTest extends TestCase
         $report = Report::factory()->create([
             'user_id' => $this->rnd->id,
             'type' => 'ncp_summary',
+            'status' => 'archived',
             'parameters' => [],
             'file_path' => 'reports/deleted-ncp.pdf',
             'audit_patient_id' => $ncp->patient_id,

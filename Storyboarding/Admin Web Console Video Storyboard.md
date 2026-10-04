@@ -125,7 +125,7 @@ Use this as both the recording checklist and narration script. Record with demo 
 **On-screen actions**
 
 1. Open **Reports** and review the report catalog.
-2. Open an allowed Program Project Activity, Menu Calendar, Procurement Pack, or Accomplishment PDF report. Open aggregate Demographic Census as a year/month screen. Show that each non-deleted ADIME cycle counts once in its start month without exposing patient identity. Save the selected Census view as PDF.
+2. Open an allowed Program Project Activity, Menu Calendar, Procurement Pack, or Accomplishment PDF report. Open aggregate Demographic Census as a year/month screen. Show that each non-deleted ADIME cycle counts once in its start month without exposing patient identity. Show every nutritional-status category, including zero totals, and download the selected Census view as PDF.
 3. Use Preview and Download on an operational report; both show its prepared copy.
 4. Archive an inactive demo report and open the **Archived** tab.
 5. Open **Template Edit** and show shared branding plus an editable non-clinical signatory. Save only fictional demo changes.

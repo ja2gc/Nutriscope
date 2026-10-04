@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import { Download, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
-import { getCensusSummary, type CensusSummary } from "@/services/reportService";
+import { censusExportUrl, getCensusSummary, type CensusSummary } from "@/services/reportService";
 
 const selectClass = "w-full rounded-lg border border-warm-200 bg-white px-3 py-2 text-base text-warm-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500";
 
@@ -14,10 +13,6 @@ export function CensusPanel({ apiPrefix }: { apiPrefix: "rnd" | "admin" }) {
   const [summary, setSummary] = useState<CensusSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => setMounted(true), []);
-
   useEffect(() => {
     let active = true;
     setLoading(true);
@@ -36,6 +31,7 @@ export function CensusPanel({ apiPrefix }: { apiPrefix: "rnd" | "admin" }) {
   const categoryEntries = summary
     ? Object.entries(summary.by_primary_diagnosis_category).sort(([left, leftCount], [right, rightCount]) => rightCount - leftCount || left.localeCompare(right))
     : [];
+  const nutritionalStatusEntries = summary ? Object.entries(summary.by_nutritional_status) : [];
   const ageTotals = summary?.age_groups.reduce((result, group) => {
     const row = summary.age_sex[group];
     return { M: result.M + (row?.M ?? 0), F: result.F + (row?.F ?? 0), total: result.total + (row?.total ?? 0) };
@@ -56,21 +52,30 @@ export function CensusPanel({ apiPrefix }: { apiPrefix: "rnd" | "admin" }) {
 
           <section aria-label="Cycle total" className="rounded-xl border border-emerald-100 bg-emerald-50 px-5 py-4">
             <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">Total</p>
-            <p className="mt-1 text-3xl font-bold tabular-nums text-emerald-900">{summary.total.toLocaleString()} <span className="text-base font-medium">cycles</span></p>
+            <p className="mt-1 text-3xl font-bold tabular-nums text-emerald-900">{summary.total.toLocaleString()} <span className="text-base font-medium">{summary.total === 1 ? "cycle" : "cycles"}</span></p>
           </section>
 
           <section aria-label="Age and sex">
             <h3 className="mb-3 text-base font-bold text-warm-800">Age and sex</h3>
             <div className="overflow-x-auto rounded-xl border border-warm-200">
               <table className="w-full min-w-[300px] border-collapse text-sm tabular-nums">
-                <thead className="bg-warm-50 text-warm-600"><tr><th scope="col" className="px-4 py-2 text-left">Age</th><th scope="col" className="px-4 py-2 text-right">Male</th><th scope="col" className="px-4 py-2 text-right">Female</th><th scope="col" className="px-4 py-2 text-right">Total</th></tr></thead>
+                <thead className="bg-warm-50 text-warm-600"><tr><th scope="col" className="px-3 py-2 text-left">Sex</th>{summary.age_groups.map((group) => <th key={group} scope="col" className="px-3 py-2 text-right">{group}</th>)}<th scope="col" className="px-3 py-2 text-right">Total</th></tr></thead>
                 <tbody className="divide-y divide-warm-100">
-                  {summary.age_groups.map((group) => <tr key={group}><th scope="row" className="px-4 py-2 text-left font-medium text-warm-700">{group}</th><td className="px-4 py-2 text-right">{summary.age_sex[group]?.M ?? 0}</td><td className="px-4 py-2 text-right">{summary.age_sex[group]?.F ?? 0}</td><td className="px-4 py-2 text-right font-semibold">{summary.age_sex[group]?.total ?? 0}</td></tr>)}
+                  {([['M', 'Male'], ['F', 'Female']] as const).map(([sex, label]) => <tr key={sex}><th scope="row" className="px-3 py-2 text-left font-medium text-warm-700">{label}</th>{summary.age_groups.map((group) => <td key={group} className="px-3 py-2 text-right">{summary.age_sex[group]?.[sex] ?? 0}</td>)}<td className="px-3 py-2 text-right font-semibold">{sex === 'M' ? ageTotals?.M ?? 0 : ageTotals?.F ?? 0}</td></tr>)}
                 </tbody>
-                <tfoot className="border-t border-warm-200 bg-warm-50 font-bold"><tr><th scope="row" className="px-4 py-2 text-left">Total classified</th><td className="px-4 py-2 text-right">{ageTotals?.M ?? 0}</td><td className="px-4 py-2 text-right">{ageTotals?.F ?? 0}</td><td className="px-4 py-2 text-right">{ageTotals?.total ?? 0}</td></tr></tfoot>
+                <tfoot className="border-t border-warm-200 bg-warm-50 font-bold"><tr><th scope="row" className="px-3 py-2 text-left">Total</th>{summary.age_groups.map((group) => <td key={group} className="px-3 py-2 text-right">{summary.age_sex[group]?.total ?? 0}</td>)}<td className="px-3 py-2 text-right">{ageTotals?.total ?? 0}</td></tr></tfoot>
               </table>
             </div>
             {summary.unknown_sex > 0 && <p className="mt-2 text-sm text-warm-600">Unclassified age or sex: {summary.unknown_sex}</p>}
+          </section>
+
+          <section aria-label="By nutritional status">
+            <h3 className="mb-3 text-base font-bold text-warm-800">By nutritional status</h3>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {nutritionalStatusEntries.map(([status, count]) => <div key={status} className="flex items-center justify-between gap-3 rounded-lg border border-warm-200 px-4 py-2.5 text-sm">
+                <span className="font-medium text-warm-700">{status}</span><span className="font-bold tabular-nums text-warm-900">{count}</span>
+              </div>)}
+            </div>
           </section>
 
           <section aria-label="By risk level">
@@ -116,16 +121,15 @@ export function CensusPanel({ apiPrefix }: { apiPrefix: "rnd" | "admin" }) {
             {summary?.available_months.map((value) => <option key={value.month} value={value.month}>{value.label}</option>)}
           </select>
         </div>
-        <button type="button" onClick={() => window.print()} disabled={loading || !summary} className="inline-flex items-center gap-2 rounded-lg border border-emerald-600 bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:cursor-not-allowed disabled:opacity-50">
-          <Download className="h-4 w-4" aria-hidden="true" /> Save PDF
-        </button>
+        {!loading && summary && <a href={censusExportUrl(apiPrefix, year, month ?? undefined)} download className="inline-flex items-center gap-2 rounded-lg border border-emerald-600 bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600">
+          <Download className="h-4 w-4" aria-hidden="true" /> Download PDF
+        </a>}
       </div>
 
       {loading && <div className="flex items-center justify-center gap-2 py-16 text-sm text-warm-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading census…</div>}
       {!loading && error && <p role="alert" className="px-5 py-12 text-center text-sm text-red-700">{error}</p>}
       {content && <div data-census-screen>{content}</div>}
     </Card>
-    {mounted && content && createPortal(<div data-census-print>{content}</div>, document.body)}
     </>
   );
 }

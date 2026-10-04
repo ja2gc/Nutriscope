@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import {
   FileText, CalendarRange, CalendarDays, PackageCheck,
   Download, Trash2, ClipboardList, Save,
@@ -20,7 +21,7 @@ import {
   ReportItem, ReportTemplate, Branding, ReportAxis, ReportInstance,
   listReports, deleteReport, reportDownloadUrl, reportViewUrl,
   listInstances, prepareReport,
-  getBranding, saveBranding, getAdminBranding, saveAdminBranding, listTemplates, saveTemplate,
+   getBranding, saveBranding, getAdminBranding, saveAdminBranding, brandingLogoUrl, listTemplates, saveTemplate,
 } from "@/services/reportService";
 import { ReportPreview } from "@/components/ReportPreview";
 import { AuditTrail } from "@/components/audit/AuditTrail";
@@ -562,7 +563,9 @@ function TemplateEditor({ apiPrefix, onFlash }: { apiPrefix: "rnd" | "admin"; on
         </div>
         {!editingBranding ? (
           <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {[["Hospital name", branding.hospital_name], ["Address", branding.address], ["Accreditation", branding.accreditation], ["Service name", branding.service_name], ["Province", branding.province], ["LGU", branding.lgu], ["Left logo", branding.logo_left_path ? "Saved" : "Not set"], ["Right logo", branding.logo_right_path ? "Saved" : "Not set"]].map(([label, value]) => <div key={label}><dt className={lbl}>{label}</dt><dd className="text-sm text-warm-800">{value || "—"}</dd></div>)}
+            {[["Hospital name", branding.hospital_name], ["Address", branding.address], ["Accreditation", branding.accreditation], ["Service name", branding.service_name], ["Province", branding.province], ["LGU", branding.lgu]].map(([label, value]) => <div key={label}><dt className={lbl}>{label}</dt><dd className="text-sm text-warm-800">{value || "—"}</dd></div>)}
+            <div><dt className={lbl}>Left logo</dt><dd>{branding.logo_left_path ? <Image src={brandingLogoUrl(apiPrefix, "left")} alt="Current left report logo" width={72} height={72} unoptimized className="h-18 w-18 rounded-lg border border-warm-200 bg-white object-contain p-1" /> : <span className="text-sm text-warm-800">Not set</span>}</dd></div>
+            <div><dt className={lbl}>Right logo</dt><dd>{branding.logo_right_path ? <Image src={brandingLogoUrl(apiPrefix, "right")} alt="Current right report logo" width={72} height={72} unoptimized className="h-18 w-18 rounded-lg border border-warm-200 bg-white object-contain p-1" /> : <span className="text-sm text-warm-800">Not set</span>}</dd></div>
           </dl>
         ) : <form onSubmit={saveB} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -579,8 +582,8 @@ function TemplateEditor({ apiPrefix, onFlash }: { apiPrefix: "rnd" | "admin"; on
                 <input name={name} value={value ?? ""} onChange={(e) => setB({ [name]: e.target.value } as Partial<Branding>)} className={inp} />
               </div>
             ))}
-            <ImageFilePicker id="report-logo-left" name="logo_left" label="Left logo" current={branding.logo_left_path} />
-            <ImageFilePicker id="report-logo-right" name="logo_right" label="Right logo" current={branding.logo_right_path} />
+            <div className="space-y-2">{branding.logo_left_path && <Image src={brandingLogoUrl(apiPrefix, "left")} alt="Current left report logo" width={72} height={72} unoptimized className="h-18 w-18 rounded-lg border border-warm-200 bg-white object-contain p-1" />}<ImageFilePicker id="report-logo-left" name="logo_left" label="Left logo" current={branding.logo_left_path} /></div>
+            <div className="space-y-2">{branding.logo_right_path && <Image src={brandingLogoUrl(apiPrefix, "right")} alt="Current right report logo" width={72} height={72} unoptimized className="h-18 w-18 rounded-lg border border-warm-200 bg-white object-contain p-1" />}<ImageFilePicker id="report-logo-right" name="logo_right" label="Right logo" current={branding.logo_right_path} /></div>
           </div>
           <div className="flex gap-2"><Button variant="primary" type="submit" loading={savingB} className="!w-auto !py-2 !px-4 flex items-center gap-2"><Save className="h-4 w-4" /> Save</Button><Button variant="secondary" type="button" onClick={() => { setBrandingDraft(branding); setEditingBranding(false); }} className="!w-auto !py-2 !px-4">Cancel</Button></div>
         </form>}

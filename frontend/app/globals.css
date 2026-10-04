@@ -68,20 +68,3 @@ body {
     font-variant-numeric: tabular-nums;
   }
 }
-
-@media screen {
-  [data-census-print] { display: none; }
-}
-
-@media print {
-  @page { size: 8.5in 13in; margin: 0.5in; }
-
-  body:has(> [data-census-print]) > :not([data-census-print]) { display: none !important; }
-  body > [data-census-print] {
-    display: block !important;
-    width: 100%;
-    print-color-adjust: exact;
-    -webkit-print-color-adjust: exact;
-  }
-  [data-census-print] section { break-inside: avoid; }
-}

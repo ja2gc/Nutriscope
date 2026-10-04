@@ -278,7 +278,7 @@ flowchart TD
     A["Operational source tables"] --> B{"Report / graph type?"}
     B -->|"NCP Summary"| C["Patient + assessment + diagnoses + intervention + monitoring"]
     B -->|"Nutrition Intervention Plan"| D["Patient + selected saved plan + sole menu + compact portions"]
-    B -->|"Demographic Census"| E["Each ADIME cycle's start date + age/sex matrix + risk + nutrition care category"]
+    B -->|"Demographic Census"| E["Each ADIME cycle's start date + age/sex matrix + risk + nutritional status + nutrition care category"]
     B -->|"Budget summary / burn"| F["Fiscal-year budget + budget ledger"]
     B -->|"Per-head actual vs limit"| G["PO costs + served population + per-head/day limit"]
     B -->|"Menu / PPA / procurement"| H["Menu cycle + shopping list + PO + frozen PPA"]
@@ -288,6 +288,7 @@ flowchart TD
     D --> J
     E --> O["Monthly census from earliest cycle; completed months frozen, current month live"]
     O --> J
+    O --> P["Selected-view PDF download without a filed report identity"]
     F --> J
     G --> J
     H --> J
@@ -322,7 +323,7 @@ flowchart TD
 4. Explicitly start the scheduled visit. If navigation changes, use the persistent Resume banner.
 5. On a fictional cycle, save Assessment with a quantity-plus-weeks/months weight duration, required category (including conditional **Specify category** when testing Other), and confirmed maternal status. Verify save/reload, no stress control, and no fixed three-month wording.
 6. In Diagnosis, open **AI Review** and choose **Generate AI Suggestions**. Verify zero to three Assessment-evidence-backed results paginated two per page, no visible source label, unchanged-data cache, dismiss, Assessment-change refresh, structured edit/accept, and manual fallback.
-7. In Intervention, open **Plans**, create a dated plan, choose a goal/stage, and expand the calculation panel. Verify goal baseline, maternal modifier, final prescription, separate fluid guidance, and concise education/counseling fields; save the complete plan.
+7. In Intervention, open **Plans**, create a dated plan, choose a goal/stage, and expand the calculation panel. Verify goal baseline, maternal modifier, final prescription, required fluid, food-provided fluid, remaining drinking fluid, and concise education/counseling fields; save the complete plan.
 8. Create, load, or generate that plan's sole menu and verify fluid does not affect generation/scaling variance. Confirm a second menu for the same plan is unavailable.
 9. In Monitoring, save a complete follow-up calculation snapshot and inspect its organized read-only Visit Log detail. Then return to Intervention, create another dated plan, and verify it prefills the newest plan while recalculating from the latest Monitoring values without copying the prior menu.
 10. Finish or end the visit from the shared controls on any ADIME step. Use Discard only for an empty mistaken start.
@@ -330,7 +331,7 @@ flowchart TD
 12. In ADIME Records, complete/protect or discontinue the current cycle when clinically appropriate and review it in Past Records.
 13. Select a dated plan to open its **Nutrition Intervention Plan**, then verify plan date, menu-before-guidance order, omitted blank snack rows, concise three-column portions, and view/download actions.
 14. In Reports, open **Patients NCP**, choose the same fictional patient/cycle, inspect every long-bond page of each available dated Nutrition Intervention Plan and NCP Summary, and confirm that NCP Summary uses only the newest plan while archived copies remain frozen.
-15. Open **Demographic Census**, select the earliest year, an earlier month, and the live current month. Verify each cycle counts in its start month, year totals sum months, completed snapshots stay frozen, and the age/sex matrix, risk-level breakdown, and aggregate Nutrition care category totals appear without ward or nutritional-status breakdowns. Use **Save PDF** for selected Census content only; no filed Census report appears in Archives.
+15. Open **Demographic Census**, select the earliest year, an earlier month, and the live current month. Verify each cycle counts in its start month, year totals sum months, completed snapshots stay frozen, and the transposed age/sex matrix, risk-level breakdown, all nutritional-status totals (including zeros), and aggregate Nutrition care category totals appear without a ward breakdown. Use **Download PDF** for selected Census content only; no filed Census report appears in Archives.
 
 ### Part C - FSS executes food-service work on mobile
 
@@ -386,7 +387,7 @@ Monitoring unlocks after Assessment, Diagnosis, and Intervention exist. RND reco
 
 ### Clinical Reports
 
-The Reports page prepares current PDF report data for preview. PDFs use 8.5 × 13-inch long bond paper with report-specific portrait or landscape orientation. **Patients NCP** presents recent patients first and keeps each patient's dated Nutrition Intervention Plans and NCP Summary together. A saved plan without a menu is listed but unavailable. The document prints the saved prescription and Weekly Meal Plan before concise education/counseling/barriers/strategies, omits empty snack rows, then uses three-column portion details with one card per repeated dish/food and separate references for distinct saved amounts. NCP Summary uses only the newest saved plan. Demographic Census instead shows a year or month summary with the age/sex matrix, **By Risk Level**, and **By nutrition care category**. **Save PDF** prints selected Census content without report navigation or a filed identity. Legacy Census PDFs stay hidden until targeted cleanup removes their records and bytes. Other archived report bytes remain frozen.
+The Reports page prepares current PDF report data for preview. PDFs use 8.5 × 13-inch long bond paper with report-specific portrait or landscape orientation. **Patients NCP** presents recent patients first and keeps each patient's dated Nutrition Intervention Plans and NCP Summary together. A saved plan without a menu is listed but unavailable. The document prints the saved prescription and Weekly Meal Plan before concise education/counseling/barriers/strategies, omits empty snack rows, then uses three-column portion details with one card per repeated dish/food and separate references for distinct saved amounts. NCP Summary uses only the newest saved plan. Demographic Census instead shows a year or month summary with sex rows and age columns, **By Risk Level**, **By nutritional status** with zero counts, and **By nutrition care category**. **Download PDF** saves selected Census content directly without report navigation or a filed identity. Legacy Census PDFs stay hidden until targeted cleanup removes their records and bytes. Other archived report bytes remain frozen.
 
 ## 11. Current NCP and Visit Workflow Diagram
 

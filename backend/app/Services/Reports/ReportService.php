@@ -76,7 +76,9 @@ class ReportService
 
         $data = array_merge($generator->data($report), $meta, ['report' => $report]);
 
-        $pdf = Pdf::loadView($generator->view(), $data)->setPaper($size, $orientation);
+        $pdf = Pdf::loadView($generator->view(), $data)
+            ->setPaper($size, $orientation)
+            ->setOption('enable_font_subsetting', true);
 
         return ['bytes' => $pdf->output(), 'meta' => $meta];
     }
@@ -90,6 +92,28 @@ class ReportService
         $report = new Report(['type' => $type, 'parameters' => $params]);
 
         return $this->buildPdf($report)['bytes'];
+    }
+
+    /** @param array<string,mixed> $summary */
+    public function buildCensusPdf(array $summary): string
+    {
+        $branding = ReportBranding::singleton();
+        foreach (['left', 'right'] as $side) {
+            $id = $branding->getAttribute("logo_{$side}_stored_object_id");
+            $object = $id ? StoredObject::query()->find($id) : null;
+            if ($object !== null && Storage::disk($object->storage_disk)->exists($object->object_key)) {
+                $branding->setAttribute("logo_{$side}_data_uri", 'data:'.$object->mime_type.';base64,'.base64_encode(Storage::disk($object->storage_disk)->get($object->object_key)));
+            }
+        }
+
+        return Pdf::loadView('reports.demographic-census-download', [
+            'summary' => $summary,
+            'branding' => $branding,
+            'report' => new Report(['title' => 'Demographic Census']),
+            'paper_orientation' => 'landscape',
+        ])->setPaper('legal', 'landscape')
+            ->setOption('enable_font_subsetting', true)
+            ->output();
     }
 
     public function generate(Report $report): string

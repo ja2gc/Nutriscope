@@ -24,13 +24,17 @@ export async function privateBinaryProxy(path: string): Promise<NextResponse> {
       );
     }
 
+    const headers = new Headers({
+      "Content-Type": upstream.headers.get("Content-Type") ?? "application/octet-stream",
+      "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff",
+    });
+    const contentDisposition = upstream.headers.get("Content-Disposition");
+    if (contentDisposition) headers.set("Content-Disposition", contentDisposition);
+
     return new NextResponse(await upstream.arrayBuffer(), {
       status: 200,
-      headers: {
-        "Content-Type": upstream.headers.get("Content-Type") ?? "application/octet-stream",
-        "Cache-Control": "private, no-store",
-        "X-Content-Type-Options": "nosniff",
-      },
+      headers,
     });
   } catch {
     return NextResponse.json({ message: "File service unavailable." }, { status: 502 });

@@ -264,11 +264,11 @@ RND can set up budgets and create manual ledger adjustments. Admin's Budget page
 
 ### What is the difference between live preview and archived report?
 
-Preparing a report uses its saved source context. **Archive** freezes exact as-filed PDF bytes and snapshot so later data, plans, templates, or branding changes do not alter it. Demographic Census uses a year/month screen instead of report preparation or archiving. **Save PDF** prints only the selected Census summary; it creates no filed report.
+Preparing an active report refreshes its current source and template. **Archive** freezes exact as-filed PDF bytes and snapshot so later data, plans, templates, or branding changes do not alter it. Demographic Census uses a year/month screen instead of report preparation or archiving. **Download PDF** saves only the selected Census summary directly; it creates no filed report.
 
 ### Which reports can RND access?
 
-Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment Report, Nutrition Intervention Plan, and NCP Summary are PDF reports. Demographic Census is a year/month screen with selected-view PDF saving. The internal compatibility identifier for Nutrition Intervention Plan remains `patient_menu_plan`.
+Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment Report, Nutrition Intervention Plan, and NCP Summary are PDF reports. Demographic Census is a year/month screen with direct selected-view PDF download. The internal compatibility identifier for Nutrition Intervention Plan remains `patient_menu_plan`.
 
 ### Which reports can Admin access?
 

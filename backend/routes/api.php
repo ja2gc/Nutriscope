@@ -62,6 +62,7 @@ use Illuminate\Support\Facades\Route;
  */
 $reportRoutes = function (string $routeName) {
     Route::get('reports/demographic_census/summary', [ReportController::class, 'censusSummary']);
+    Route::get('reports/demographic_census/export', [ReportController::class, 'censusExport']);
     Route::get('reports/{type}/instances', [ReportController::class, 'instances'])->where('type', '[a-z_]+');
     Route::middleware('throttle:reports')->group(function () {
         Route::post('reports/{type}/prepare', [ReportController::class, 'prepare'])->where('type', '[a-z_]+');
@@ -75,6 +76,8 @@ $reportRoutes = function (string $routeName) {
     Route::get('report-branding', [ReportBrandingController::class, 'show']);
     Route::get('report-templates', [ReportTemplateController::class, 'index']);
     Route::middleware('role:RND,Admin')->group(function () {
+        Route::get('report-branding/logo/{side}', [ReportBrandingController::class, 'logo'])
+            ->whereIn('side', ['left', 'right']);
         Route::post('report-branding', [ReportBrandingController::class, 'update']);
         Route::patch('report-templates/{reportTemplate}', [ReportTemplateController::class, 'update']);
     });
@@ -383,6 +386,8 @@ Route::middleware(['auth:sanctum', 'active', 'role:Admin'])->prefix('admin')->gr
     Route::get('budgets/{budget}/activity', [ActivityController::class, 'budget']);
     Route::apiResource('budgets', BudgetController::class)->only(['index', 'show'])->names('admin.budgets');
     Route::get('report-branding', [ReportBrandingController::class, 'show']);
+    Route::get('report-branding/logo/{side}', [ReportBrandingController::class, 'logo'])
+        ->whereIn('side', ['left', 'right']);
     Route::post('report-branding', [ReportBrandingController::class, 'update']);
     Route::get('report-templates', [ReportTemplateController::class, 'index']);
     Route::patch('report-templates/{reportTemplate}', [ReportTemplateController::class, 'update']);
@@ -400,6 +405,7 @@ Route::middleware(['auth:sanctum', 'active', 'role:Admin'])->prefix('admin')->gr
     // Reports browse: Admin-scoped subset with RND parity except patient-specific reports.
     // ReportController::guardAdmin() enforces the allowlist; 403 for any other type.
     Route::get('reports/demographic_census/summary', [ReportController::class, 'censusSummary']);
+    Route::get('reports/demographic_census/export', [ReportController::class, 'censusExport']);
     Route::get('reports/{type}/instances', [ReportController::class, 'instances'])->where('type', '[a-z_]+');
     Route::post('reports/{type}/prepare', [ReportController::class, 'prepare'])->where('type', '[a-z_]+')->middleware('throttle:reports');
     Route::get('reports/{type}/render', [ReportController::class, 'render'])->where('type', '[a-z_]+');

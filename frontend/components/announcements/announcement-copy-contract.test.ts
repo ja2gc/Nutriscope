@@ -18,6 +18,9 @@ describe("announcement copy", () => {
     expect(board).toContain('className="flex max-w-full flex-wrap items-center justify-end gap-2"');
     expect(dashboard).toContain('className="flex max-w-full flex-wrap items-center justify-end gap-1.5"');
     expect(board).not.toMatch(/<Megaphone\b/);
+    expect(board).toContain("post.can_edit &&");
+    expect(board).toContain("post.can_delete &&");
+    expect(board).toContain("selectedPost.can_edit &&");
   });
 
   it("keeps native unread notification cards white", () => {

@@ -32,6 +32,16 @@ class DispatchDueBackups
 
         $backup = DB::transaction(function () use ($due): ?BackupRun {
             BackupScheduleSetting::query()->whereKey(1)->lockForUpdate()->first();
+            $due->each(function (CarbonImmutable $target, string $category): void {
+                BackupSchedulePeriod::query()
+                    ->where('category', $category)
+                    ->where('period_key', $this->periodKey(BackupRetentionTier::from($category), $target))
+                    ->whereHas('backupRun', fn ($query) => $query->whereIn('state', [
+                        BackupState::Failed,
+                        BackupState::Purged,
+                    ]))
+                    ->delete();
+            });
             $missing = $due->reject(fn (CarbonImmutable $target, string $category): bool => BackupSchedulePeriod::query()
                 ->where('category', $category)
                 ->where('period_key', $this->periodKey(BackupRetentionTier::from($category), $target))

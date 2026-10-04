@@ -813,7 +813,7 @@ Paginate plan-backed instances newest-first with the stable tie-break. Validate 
 
 - [ ] **Step 4: Update generators and views**
 
-`PatientMenuPlanGenerator` resolves the plan and its `mealPlan(): HasOne`; `NcpSummaryGenerator` resolves `latestIntervention()`. Remove revision labels/tables. Add the plan creation date to Nutrition Intervention Plan content/title metadata. Render identity/prescription first, the menu immediately next, intervention text fields after the menu, and portion details last. Do not force the menu onto a later page merely because text fields are long. Preserve patient-intended content, maternal note, separate fluid guidance, the existing validated carbs/rice separation, snack configurability, maternal templates, and meal-generation algorithms; regression-test rather than redesign them.
+`PatientMenuPlanGenerator` resolves the plan and its `mealPlan(): HasOne`; `NcpSummaryGenerator` resolves `latestIntervention()`. Remove revision labels/tables. Add the plan creation date to Nutrition Intervention Plan content/title metadata. Render identity/prescription first, the menu immediately next, intervention text fields after the menu, and portion details last. Do not force the menu onto a later page merely because text fields are long. Show required fluid, food-provided fluid, and remaining drinking fluid as one informational calculation while excluding fluid from generation and scaling. Preserve patient-intended content, maternal note, the existing validated carbs/rice separation, snack configurability, maternal templates, and meal-generation algorithms; regression-test rather than redesign them.
 
 - [ ] **Step 5: Apply one long-bond page contract and inspect real PDFs**
 
@@ -968,14 +968,14 @@ Use the Codex in-app/native browser, not the Playwright plugin. Take screenshots
 
 1. Existing login branding hover/fit and patient-code search/header baseline.
 2. Assessment quantity/unit, category/Other, maternal status, save/reload, validation, no stress control, no fixed three-month text.
-3. Census earliest year/month and current month, cycle-start counts, annual sum, age/sex matrix, risk and aggregate Nutrition care category breakdowns, omitted ward/nutritional-status cards, selected-view Save PDF without navigation or a new report identity, and removal of legacy Census PDFs. Check frozen archives for the remaining report types.
-4. Intervention goal/stage progressive disclosure, baseline/modifier/final calculation panel, final maternal prescription, and separate fluid guidance.
+3. Census earliest year/month and current month, cycle-start counts, annual sum, transposed age/sex matrix, all nutritional statuses including zero, risk and sparse aggregate Nutrition care category breakdowns, omitted ward, direct selected-view PDF download without navigation, browser URL footer, print dialog, or a new report identity, and removal of legacy Census PDFs. Check frozen archives for the remaining report types.
+4. Intervention goal/stage progressive disclosure, baseline/modifier/final calculation panel, final maternal prescription, and required/food-provided/remaining-drinking fluid calculation.
 5. Meal generation/scaling with no fluid target-match influence.
 6. PES drafts end to end: open the Diagnosis workflow for fictional data; request drafts; verify the real network response and zero-to-three UI; inspect visible Assessment evidence and confirm no visible source label; accept a mapped candidate into the existing structured Diagnosis selections rather than an unrelated `Other` free-text field; edit; dismiss; confirm cached state; change Assessment evidence and confirm refresh/invalidation; verify manual fallback; verify compact request/result behavior, authorization, server-side source validation, and no demo/env gate.
 7. Monitoring form section order; saved visit summary/detail; omitted empty sections; pagination; no plan/revision controls; Progress Trends separate.
 8. Intervention Plans tab: newest-first pagination, no status, old plan exact read-only UI, new-plan prefill, latest Monitoring calculation source, cancel/no-save behavior, save atomicity, and no copied meal plan.
 9. Multiple saved plans with distinct meal plans; Reports one item per saved plan; no-meal-plan disabled state; NCP Summary newest only; prepared archive unchanged.
-10. Real Nutrition Intervention Plan and every other remaining filed PDF: long-bond dimensions, plan date, no blank snack rows, concise/deduplicated portions, no prep/USDA note, no clipping/overlap/orphan heading. Check the Census browser-saved PDF separately for selected content only.
+10. Real Nutrition Intervention Plan and every other remaining filed PDF: long-bond dimensions, plan date, no blank snack rows, concise/deduplicated portions, no prep/USDA note, no clipping/overlap/orphan heading. Check the Census direct selected-view PDF separately for selected content only and no browser URL footer.
 11. Every other user-visible behavior changed by Tasks 1–13, checked against the requirement-to-evidence checklist rather than sampled: validation/reload/error states, patient identifiers, navigation, all report browse/preview/download paths, seed-backed examples, and documentation/storyboard-visible labels.
 12. Browser console/network errors, horizontal overflow, keyboard/focus/labels, unnecessary notes/icons/cards, and report preview performance.
 
@@ -992,6 +992,6 @@ Report separately: requirement/audit disposition; changed; local tests; generate
 - Paginated authorized APIs, complete Monitoring calculation snapshots, legacy fallback, and one-menu enforcement: Task 9.
 - Plans tab, exact read-only UI reuse, newest-plan prefill, save/cancel behavior, and no meal copy: Task 10.
 - Monitoring-only form/log structure, pagination, neutral styling, and no intervention controls: Task 11.
-- One saved-plan report each, newest-only NCP Summary, frozen archives for remaining PDF types, long-bond PDFs, blank-snack removal, and compact portions: Task 12. The 2026-10-02 owner override replaces the filed Census PDF with a year/month screen and selected-view PDF saving.
+- One saved-plan report each, newest-only NCP Summary, frozen archives for remaining PDF types, refreshable active reports, long-bond PDFs, blank-snack removal, and compact portions: Task 12. The 2026-10-02 owner override replaces the filed Census PDF with a year/month screen and direct selected-view PDF download.
 - Active revision retirement plus docs/storyboard/research reconciliation: Task 13.
 - Focused/full checks, deterministic seeds, real PDF inspection, task commits, push/parity, owner-triggered deployment, deployed health/revision, and native live acceptance: Task 14.

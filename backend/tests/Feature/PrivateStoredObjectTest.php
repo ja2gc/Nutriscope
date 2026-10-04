@@ -95,6 +95,31 @@ class PrivateStoredObjectTest extends TestCase
     }
 
     #[Test]
+    public function report_logo_preview_streams_current_private_bytes_only_to_authorized_report_roles(): void
+    {
+        Storage::fake('private_uploads');
+        $bytes = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=');
+        $object = app(StoredObjectStorage::class)->storeBytes($bytes, 'image/png', 'png', 'branding', 'left.png');
+        $storedBytes = Storage::disk('private_uploads')->get($object->object_key);
+        ReportBranding::singleton()->update(['logo_left_stored_object_id' => $object->id]);
+        $rnd = User::factory()->rnd()->create();
+        $admin = User::factory()->admin()->create();
+
+        $this->getJson('/api/rnd/report-branding/logo/left')->assertUnauthorized();
+
+        $rndResponse = $this->actingAs($rnd, 'sanctum')->get('/api/rnd/report-branding/logo/left');
+        $rndResponse->assertOk()->assertHeader('Content-Type', 'image/png');
+        $this->assertSame($storedBytes, $rndResponse->streamedContent());
+
+        $this->actingAs($admin, 'sanctum')
+            ->get('/api/admin/report-branding/logo/right')
+            ->assertNotFound();
+        $this->actingAs($admin, 'sanctum')
+            ->get('/api/admin/report-branding/logo/center')
+            ->assertNotFound();
+    }
+
+    #[Test]
     public function deferred_cleanup_can_remove_bytes_after_metadata_has_rolled_back(): void
     {
         Storage::fake('private_uploads');

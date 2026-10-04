@@ -202,9 +202,9 @@ export default function LogVisitForm({ plan, context, intervention, onSubmit, on
   const [dryWeight, setDryWeight] = useState(fieldValue(context.dry_weight_kg));
   const [activityLevel, setActivityLevel] = useState(context.physical_activity_level ?? "");
   const [maternalStatus, setMaternalStatus] = useState<PregnancyLactationStatus>(context.pregnancy_lactation_status ?? "none");
-  const [allergies, setAllergies] = useState(context.allergies.join(", "));
+  const [allergies, setAllergies] = useState((context.allergies ?? []).join(", "));
   const [dietaryRestrictions, setDietaryRestrictions] = useState(context.dietary_restrictions ?? "");
-  const [foodDislikes, setFoodDislikes] = useState(context.food_dislikes.join(", "));
+  const [foodDislikes, setFoodDislikes] = useState((context.food_dislikes ?? []).join(", "));
   const [compliance, setCompliance] = useState<ComplianceStatus | null>(null);
   const [giTolerance, setGiTolerance] = useState<GiToleranceStatus | null>(null);
   const [decision, setDecision] = useState<ContinuationDecision>(null);

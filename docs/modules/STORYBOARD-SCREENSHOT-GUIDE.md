@@ -181,11 +181,11 @@ Use this version when screenshots are available. Each scene already contains the
 
 **Description:** RND selects the intervention goal and only that goal's applicable stages appear. Laravel returns authoritative targets; the calculation panel separates goal-calculated baseline, maternal modifier, and final energy/protein prescription. Fluid remains daily guidance outside meal generation/scaling.
 
-**User should do:** Set a fictional goal and confirmed maternal status, expand the calculation explanation, review baseline/modifier/final values plus separate fluid guidance, and save the prescription.
+**User should do:** Set a fictional goal and confirmed maternal status, expand the calculation explanation, review baseline/modifier/final values plus required, food-provided, and remaining drinking fluid, and save the prescription.
 
 **Next scene:** Patient Meal Plan and supporting Intervention tabs.
 
-> **Screenshot needed:** Intervention Food/Nutrient Delivery tab showing one selected goal/stage, prescription values, Save action, and expanded baseline/modifier/final trace with separate fluid guidance. Use fictional values.
+> **Screenshot needed:** Intervention Food/Nutrient Delivery tab showing one selected goal/stage, prescription values, Save action, and expanded baseline/modifier/final trace with required, food-provided, and remaining drinking fluid. Use fictional values.
 >
 > **Insert screenshot below this line.**
 
@@ -375,13 +375,13 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### RND-FS-09 — Operational Reports
 
-**Description:** RND previews and archives Program Project Activity, Menu Calendar, Procurement Pack, and Accomplishment PDFs. Menu Calendar shows the header, saved weekly meal grid, and signatories without population or cost figures; an AM or PM snack row appears only when used that week. Demographic Census is a year/month screen that starts at the earliest non-deleted ADIME cycle and counts each cycle once in its start month. Completed months use frozen snapshots; the current month is live. Its screen contains the age/sex matrix, **By Risk Level**, and aggregate **By nutrition care category**. **Save PDF** prints selected Census content without navigation or a filed archive.
+**Description:** RND previews and archives Program Project Activity, Menu Calendar, Procurement Pack, and Accomplishment PDFs. Menu Calendar shows the header, saved weekly meal grid, and signatories without population or cost figures; an AM or PM snack row appears only when used that week. Demographic Census is a year/month screen that starts at the earliest non-deleted ADIME cycle and counts each cycle once in its start month. Completed months use frozen snapshots; the current month is live. Its screen contains sex rows and age columns, **By Risk Level**, all **By nutritional status** totals including zeros, and aggregate **By nutrition care category**. **Download PDF** saves selected Census content directly without navigation or a filed archive.
 
-**User should do:** Open Demographic Census, select earliest year, a completed month, and current month. Explain cycle counts and live versus frozen state. Save selected view as PDF.
+**User should do:** Open Demographic Census, select earliest year, a completed month, and current month. Explain cycle counts and live versus frozen state. Download the selected view as PDF.
 
 **Next scene:** End of food-service planning story.
 
-> **Screenshot needed:** Reports Browse with Demographic Census selected, year/month controls, total cycles, age/sex matrix, **By Risk Level**, and **By nutrition care category**. Optional second image: saved Census PDF without navigation.
+> **Screenshot needed:** Reports Browse with Demographic Census selected, year/month controls, total cycles, age/sex matrix, **By Risk Level**, **By nutritional status**, and **By nutrition care category**. Optional second image: downloaded Census PDF without navigation.
 >
 > **Insert screenshot below this line.**
 
@@ -683,7 +683,7 @@ Use this version when screenshots are available. Each scene already contains the
 
 **Description:** Admin can use Program Project Activity, Menu Calendar, Procurement Pack, and Accomplishment PDFs, plus the aggregate Demographic Census year/month screen. Census totals count non-deleted ADIME cycles by start month, not unique people; completed months are frozen and the current month remains live. Admin can also open Reports **Template Edit**. Nutrition Intervention Plan and NCP Summary are absent/blocked.
 
-**User should do:** Open aggregate Demographic Census, explain cycle-based year/month totals without exposing patient identity, save selected view as PDF, then show an allowed PDF preview, Template Edit, and the privacy boundary.
+**User should do:** Open aggregate Demographic Census, explain cycle-based year/month totals without exposing patient identity, download selected view as PDF, then show an allowed PDF preview, Template Edit, and the privacy boundary.
 
 **Next scene:** Budget.
 

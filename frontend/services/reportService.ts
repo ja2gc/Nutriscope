@@ -57,6 +57,7 @@ export interface CensusSummary {
   age_sex: Record<string, { M: number; F: number; total: number }>;
   unknown_sex: number;
   by_risk: Record<string, number>;
+  by_nutritional_status: Record<string, number>;
   by_primary_diagnosis_category: Record<string, number>;
   available_years: number[];
   available_months: Array<{ month: number; label: string; status: "live" | "frozen" }>;
@@ -175,6 +176,9 @@ export async function getCensusSummary(prefix: "rnd" | "admin", year?: number, m
   return unwrap(await apiFetch(`/api/${prefix}/reports/demographic_census/summary${toQuery({ year, month })}`), "Failed to load census.");
 }
 
+export const censusExportUrl = (prefix: "rnd" | "admin", year: number, month?: number) =>
+  `/api/${prefix}/reports/demographic_census/export${toQuery({ year, month })}`;
+
 export async function listPatientNcpReports(patientId: string, page = 1): Promise<PatientNcpReportFeed> {
   const res = await apiFetch(`/api/rnd/reports/patients/${encodeURIComponent(patientId)}/instances?page=${page}&per_page=10`);
   const json = await res.json().catch(() => ({}));
@@ -244,6 +248,9 @@ export async function getAdminBranding(): Promise<Branding> {
 export async function saveAdminBranding(form: FormData): Promise<Branding> {
   return postBranding("/api/admin/report-branding", form);
 }
+
+export const brandingLogoUrl = (apiPrefix: "rnd" | "admin", side: "left" | "right") =>
+  `/api/${apiPrefix}/report-branding/logo/${side}`;
 
 export async function listTemplates(apiPrefix: "rnd" | "admin" = "rnd"): Promise<ReportTemplate[]> {
   return unwrap(await apiFetch(`/api/${apiPrefix}/report-templates`), "Failed to load templates.");

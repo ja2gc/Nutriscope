@@ -164,6 +164,7 @@ class AdminBackupApiTest extends TestCase
     public function admin_can_permanently_delete_a_recently_deleted_backup(): void
     {
         Storage::fake('backups');
+        Queue::fake();
         $admin = User::factory()->admin()->create();
         $available = BackupRun::factory()->completed()->create(['verified_at' => now()]);
         Storage::disk('backups')->put('deleted.zip', 'backup');
@@ -179,7 +180,8 @@ class AdminBackupApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.state', 'purged');
 
-        Storage::disk('backups')->assertMissing('deleted.zip');
+        Storage::disk('backups')->assertExists('deleted.zip');
+        Queue::assertPushed('App\\Jobs\\PurgeBackupObjects');
         $this->assertSame(BackupState::Purged, $deleted->refresh()->state);
         $this->assertSame(BackupState::Completed, $available->refresh()->state);
     }

@@ -88,7 +88,7 @@ class AnnouncementController extends Controller
     {
         $user = $request->user();
 
-        if ($user->role !== 'Admin' && $announcement->user_id !== $user->id) {
+        if ($announcement->user_id !== $user->id) {
             return response()->json(['message' => 'Forbidden. You can only edit your own announcements.'], 403);
         }
 

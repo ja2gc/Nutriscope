@@ -2,8 +2,10 @@
 
 namespace Tests\Feature\Backup;
 
+use App\Enums\BackupSource;
 use App\Enums\BackupState;
 use App\Jobs\CreateDatabaseBackup;
+use App\Models\BackupRun;
 use App\Models\BackupSchedulePeriod;
 use App\Models\BackupScheduleSetting;
 use App\Models\User;
@@ -177,6 +179,35 @@ class BackupScheduleSettingsTest extends TestCase
         $this->assertDatabaseHas('backup_schedule_periods', ['category' => 'daily', 'period_key' => '2027-07-31']);
         $this->assertDatabaseHas('backup_schedule_periods', ['category' => 'weekly', 'period_key' => '2027-W29']);
         $this->assertDatabaseHas('backup_schedule_periods', ['category' => 'monthly', 'period_key' => '2027-07']);
+    }
+
+    #[Test]
+    public function coordinator_retries_a_period_when_its_automatic_backup_failed(): void
+    {
+        Queue::fake();
+        Carbon::setTestNow(Carbon::parse('2027-08-01 02:00:00', 'Asia/Manila'));
+        BackupScheduleSetting::current()->update(['daily' => true]);
+        $failed = BackupRun::factory()->create([
+            'state' => BackupState::Failed,
+            'source' => BackupSource::Automatic,
+        ]);
+        $failed->schedulePeriods()->create([
+            'category' => 'daily',
+            'period_key' => '2027-08-01',
+            'expires_at' => now()->addDays(7),
+        ]);
+
+        $retry = app(DispatchDueBackups::class)->handle(now('Asia/Manila')->toImmutable());
+
+        $this->assertNotNull($retry);
+        $this->assertNotSame($failed->id, $retry->id);
+        $this->assertDatabaseMissing('backup_schedule_periods', ['backup_run_id' => $failed->id]);
+        $this->assertDatabaseHas('backup_schedule_periods', [
+            'backup_run_id' => $retry->id,
+            'category' => 'daily',
+            'period_key' => '2027-08-01',
+        ]);
+        Queue::assertPushed(CreateDatabaseBackup::class, 1);
     }
 
     private function ready(): void

@@ -10,6 +10,7 @@ use App\Services\Audit\AuditLogger;
 use App\Services\StoredObjectStorage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportBrandingController extends Controller
 {
@@ -21,6 +22,32 @@ class ReportBrandingController extends Controller
     public function show(): JsonResponse
     {
         return response()->json(['data' => $this->publicData(ReportBranding::singleton())]);
+    }
+
+    public function logo(string $side): StreamedResponse
+    {
+        abort_unless(in_array($side, ['left', 'right'], true), 404);
+
+        $branding = ReportBranding::singleton();
+        $object = $side === 'left'
+            ? $branding->logoLeftObject()->first()
+            : $branding->logoRightObject()->first();
+        abort_if($object === null, 404);
+
+        $stream = $this->storedObjects->readStream($object);
+
+        return response()->stream(function () use ($stream): void {
+            try {
+                fpassthru($stream);
+            } finally {
+                fclose($stream);
+            }
+        }, 200, [
+            'Content-Type' => $object->mime_type,
+            'Content-Length' => (string) $object->bytes,
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     public function update(Request $request): JsonResponse

@@ -533,20 +533,25 @@ class AccomplishmentReportTest extends TestCase
         $this->assertStringStartsWith('%PDF', $download->streamedContent());
     }
 
-    public function test_expired_prepared_pdf_still_streams_immutable_official_bytes(): void
+    public function test_expired_active_pdf_refreshes_current_data_without_filing_official_bytes(): void
     {
         $this->seedCount($this->fss1, '2026-06-10', ['helped_food_prep' => true]);
         $prepared = $this->actingAs($this->fss1)
             ->postJson('/api/fss/reports/accomplishment_report/prepare', ['start' => '2026-06-10', 'end' => '2026-06-10'])
             ->assertOk();
         $report = Report::where('uuid', $prepared->json('data.id'))->firstOrFail();
-        $oldExpiry = now()->subMinute();
-        $report->update(['cache_expires_at' => $oldExpiry]);
-        $persistedExpiry = $report->fresh()->cache_expires_at;
+        $beforeHash = $report->content_hash;
+        $report->update(['cache_expires_at' => now()->subMinute()]);
+        DietListCount::where('fss_user_id', $this->fss1->id)
+            ->whereDate('service_date', '2026-06-10')
+            ->update(['population' => 42]);
 
         $response = $this->get('/api/fss/reports/'.$report->uuid.'/view')->assertOk();
 
         $this->assertStringStartsWith('%PDF', $response->streamedContent());
-        $this->assertTrue($report->fresh()->cache_expires_at->equalTo($persistedExpiry));
+        $this->assertSame($report->uuid, $report->fresh()->uuid);
+        $this->assertNotSame($beforeHash, $report->fresh()->content_hash);
+        $this->assertTrue($report->fresh()->cache_expires_at->isFuture());
+        $this->assertNull($report->fresh()->official_file_stored_object_id);
     }
 }

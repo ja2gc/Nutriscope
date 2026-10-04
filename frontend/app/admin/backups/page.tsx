@@ -68,6 +68,7 @@ export default function BackupsPage() {
   const [schedules, setSchedules] = useState<BackupSchedulesDto | null>(null);
   const [activeBackups, setActiveBackups] = useState<BackupRunDto[]>([]);
   const [loading, setLoading] = useState(true);
+  const [listLoading, setListLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,7 +82,10 @@ export default function BackupsPage() {
   const [category, setCategory] = useState<BackupCategory>("daily");
 
   const load = useCallback(async (quiet = false, requestedPage = page) => {
-    if (!quiet) setLoading(true);
+    if (!quiet) {
+      setLoading(true);
+      setListLoading(true);
+    }
     try {
       const [initialBackups, automatic, activity] = await Promise.all([
         listBackups(requestedPage, section, category),
@@ -101,7 +105,10 @@ export default function BackupsPage() {
     } catch {
       setError("Backups could not be loaded. Check the connection and try again.");
     } finally {
-      if (!quiet) setLoading(false);
+      if (!quiet) {
+        setLoading(false);
+        setListLoading(false);
+      }
     }
   }, [category, page, section]);
 
@@ -302,6 +309,7 @@ export default function BackupsPage() {
               }))}
               value={section}
               onChange={(value) => {
+                setListLoading(true);
                 setSection(value);
                 setPage(1);
               }}
@@ -320,6 +328,7 @@ export default function BackupsPage() {
                   aria-pressed={category === key}
                   className="min-h-11"
                   onClick={() => {
+                    setListLoading(true);
                     setCategory(key);
                     setPage(1);
                   }}
@@ -330,8 +339,17 @@ export default function BackupsPage() {
             </div>
           </div>
 
-          <BackupList backups={data.data} section={section} busyId={busyId} onDelete={setDeleting} onKeep={(backup) => void keep(backup)} onRecovery={setRecovering} onCancelRecovery={(backup) => backup.recovery && void cancel(backup.recovery.id)} />
-          <Pagination meta={data.meta} page={page} onPageChange={setPage} />
+          {listLoading ? (
+            <Card padded role="status" className="py-10 text-center">
+              <RefreshCw className="mx-auto h-5 w-5 animate-spin text-brand-green-600" />
+              <p className="mt-3 text-sm font-semibold text-warm-600">Loading selected backups</p>
+            </Card>
+          ) : (
+            <>
+              <BackupList backups={data.data} section={section} busyId={busyId} onDelete={setDeleting} onKeep={(backup) => void keep(backup)} onRecovery={setRecovering} onCancelRecovery={(backup) => backup.recovery && void cancel(backup.recovery.id)} />
+              <Pagination meta={data.meta} page={page} onPageChange={(nextPage) => { setListLoading(true); setPage(nextPage); }} />
+            </>
+          )}
         </>
       )}
 

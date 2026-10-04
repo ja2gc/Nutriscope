@@ -76,4 +76,11 @@ describe("admin backup page contract", () => {
     expect(page).toContain("data?.summary.active_recovery");
     expect(page).toContain("activeRecovery.can_cancel");
   });
+
+  test("hides stale backup rows while a different tab or category loads", () => {
+    const page = readFileSync(resolve(process.cwd(), "app/admin/backups/page.tsx"), "utf8");
+    expect(page).toContain("listLoading");
+    expect(page).toContain("Loading selected backups");
+    expect(page).toContain("listLoading ? (");
+  });
 });

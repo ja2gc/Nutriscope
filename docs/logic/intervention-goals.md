@@ -1123,6 +1123,12 @@ override an individualized prescription.
   only the newest plan. All report types use 8.5 × 13-inch long bond paper with their defined
   portrait or landscape orientation. The plan PDF prints the weekly menu before concise guidance,
   omits empty snack rows, and flows deduplicated portion cards in three columns.
+- The Intervention meal-plan fluid calculation displays required fluid, approximate fluid from
+  saved planned foods, and the nonnegative remaining amount for drinking. Food-water values remain
+  informational and never enter recipe generation, scaling, variance, or target-match success.
+- The food-service Menu Calendar PDF contains the shared hospital letterhead, saved weekly menu,
+  and configured signatories only. It omits population and cost fields and removes an AM or PM
+  snack row when that snack has no saved item anywhere in the selected cycle.
 
 No new clinical source was introduced for this workflow boundary. Nutrition calculations and meal
 composition continue to use the authorities recorded in §§2–15.2.
@@ -1131,10 +1137,12 @@ composition continue to use the authorities recorded in §§2–15.2.
 
 - The cycle-owned Nutrition care category remains structured Assessment context and stays
   separate from physician diagnosis, PES diagnosis, and intervention goal. Current Demographic
-  Census year/month screens count each ADIME cycle in its start month and render the age/sex matrix,
-  **By Risk Level**, and aggregate **By nutrition care category**; they omit ward and nutritional-status breakdowns.
-  Completed month snapshots stay frozen, while the current month remains live. Saving the selected
-  screen as PDF does not create a filed report. Legacy Census PDFs require targeted cleanup.
+  Census year/month screens count each ADIME cycle in its start month and render a compact age/sex
+  matrix with sex as rows, every nutritional status including zero, **By Risk Level**, and sparse
+  aggregate **By nutrition care category** totals; they omit ward. Completed month snapshots stay
+  frozen, while the current month remains live. The selected view downloads through a dedicated
+  server-rendered PDF without a browser print dialog, page URL footer, or filed report identity.
+  Legacy Census PDFs require targeted cleanup.
 - PES rule cards remain locally source-gated. The provider receives compact de-identified evidence
   and source-constrained candidates, but the review card displays only the Assessment evidence used.
   Source provenance remains in the server-side rule contract and code comments rather than adding
@@ -1148,6 +1156,7 @@ No new clinical or nutrition source was introduced for these presentation decisi
 
 | Date | Change |
 |---|---|
+| 2026-10-03 | **Census download, fluid display, and menu-calendar boundary reconciled.** Census adds all nutritional-status totals and a direct identity-free selected-view PDF; fluid displays required, food-provided, and remaining drinking amounts without affecting meal generation; Menu Calendar retains only the letterhead, saved weekly menu, applicable snack rows, and signatories. No new clinical or nutrition source was introduced. |
 | 2026-10-02 | **Census and PES presentation override reconciled.** Census year/month summaries show age/sex, risk, and aggregate Nutrition care category totals. The category remains separate from confirmed medical diagnosis. PES cards show Assessment evidence but not source labels; server-side source gating remains authoritative. No new clinical or nutrition source was introduced. |
 | 2026-09-29 | **Dated-plan workflow and print boundary reconciled.** Complete immutable Intervention Plans replace active revision consumers; Monitoring remains visit data only; each plan owns zero or one menu; reports use newest-plan or selected-plan semantics. Added the 1,200-per-field/2,200-combined guidance limit and long-bond menu-first print contract. No new clinical source was introduced. |
 | 2026-09-28 | **Deployed QA follow-up reconciled.** Repeated foods now share one compact portion card with separately referenced saved amounts. This changes presentation only; no new nutrition calculation or external clinical source was introduced. Monitoring target-status, progressive help, and food-alert disclosure were aligned with the already approved clinical/runtime contract. |

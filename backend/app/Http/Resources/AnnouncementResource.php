@@ -10,6 +10,8 @@ class AnnouncementResource extends JsonResource
     public function toArray(Request $request): array
     {
         $attachments = $this->attachments();
+        $user = $request->user();
+        $isOwner = $user !== null && $this->user_id === $user->id;
 
         return [
             'id' => $this->uuid,
@@ -22,6 +24,8 @@ class AnnouncementResource extends JsonResource
             'visibility' => $this->visibility,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
+            'can_edit' => $isOwner,
+            'can_delete' => $isOwner || $user?->role === 'Admin',
             'author' => [
                 'id' => $this->user?->uuid,
                 'name' => $this->user?->display_name,

@@ -522,8 +522,9 @@ class PatientMenuPlanGeneratorTest extends TestCase
         $this->assertStringContainsString('Sodium: max 2,000 mg', $plainText);
         $this->assertStringContainsString('Fiber: min 25 g', $plainText);
         $this->assertStringContainsString('Fluid guidance: 2,000 mL', $plainText);
-        $this->assertStringContainsString('Fluid from foods:', $plainText);
-        $this->assertStringContainsString('Remaining drink guidance:', $plainText);
+        $this->assertStringContainsString('Required fluid:', $plainText);
+        $this->assertStringContainsString('Fluid from planned foods:', $plainText);
+        $this->assertStringContainsString('Remaining drinking fluid:', $plainText);
         $this->assertStringContainsString('Fluid is excluded from automatic food scaling', $plainText);
         $this->assertStringNotContainsString('not counted as satisfied by foods', $plainText);
     }
@@ -554,6 +555,7 @@ class PatientMenuPlanGeneratorTest extends TestCase
         ]));
 
         $this->assertSame(23.0, $data['fluid_balance']['food_fluid_ml']);
+        $this->assertSame(2000.0, $data['fluid_balance']['required_fluid_ml']);
         $this->assertSame(1977.0, $data['fluid_balance']['remaining_ml']);
     }
 

@@ -23,6 +23,10 @@ describe("report template editor", () => {
     expect(adminSettings).toContain("<ImageFilePicker");
     expect(adminSettings).toContain("editingBranding");
     expect(letterhead).toContain("width:56px; height:56px; object-fit:contain;");
+    expect(editor).toContain("brandingLogoUrl(apiPrefix, \"left\")");
+    expect(editor).toContain("brandingLogoUrl(apiPrefix, \"right\")");
+    expect(editor).toContain('alt="Current left report logo"');
+    expect(editor).toContain('alt="Current right report logo"');
   });
 
   test("offers template editing to Admin through Admin report APIs", () => {

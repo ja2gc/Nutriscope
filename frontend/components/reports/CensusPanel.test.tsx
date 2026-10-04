@@ -4,11 +4,14 @@ import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CensusPanel } from "./CensusPanel";
-import { getCensusSummary, type CensusSummary } from "@/services/reportService";
+import { censusExportUrl, getCensusSummary, type CensusSummary } from "@/services/reportService";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
-vi.mock("@/services/reportService", () => ({ getCensusSummary: vi.fn() }));
+vi.mock("@/services/reportService", () => ({
+  getCensusSummary: vi.fn(),
+  censusExportUrl: vi.fn(() => "/api/rnd/reports/demographic_census/export?year=2026"),
+}));
 
 const summary: CensusSummary = {
   year: 2026,
@@ -20,6 +23,7 @@ const summary: CensusSummary = {
   age_sex: { "30-39": { M: 1, F: 1, total: 2 } },
   unknown_sex: 0,
   by_risk: { Low: 1, High: 1 },
+  by_nutritional_status: { Normal: 2, "Moderate Malnutrition": 0, "Severe Malnutrition": 0, Unspecified: 0 },
   by_primary_diagnosis_category: { Diabetes: 1, Renal: 1 },
   available_years: [2026, 2025],
   available_months: [{ month: 1, label: "January", status: "frozen" }, { month: 6, label: "June", status: "live" }],
@@ -31,12 +35,10 @@ afterEach(() => {
 });
 
 describe("CensusPanel", () => {
-  it("shows year and month summaries and prints only selected census content", async () => {
+  it("shows year and month summaries and downloads only the selected census content", async () => {
     vi.mocked(getCensusSummary).mockImplementation(async (_prefix, _year, month) => month
       ? { ...summary, month, label: "June 2026", total: 1, age_sex: { "30-39": { M: 0, F: 1, total: 1 } }, by_risk: { High: 1 }, by_primary_diagnosis_category: { Renal: 1 } }
       : summary);
-    const print = vi.fn();
-    Object.defineProperty(window, "print", { value: print, configurable: true });
     const container = document.createElement("div");
     document.body.appendChild(container);
     const root = createRoot(container);
@@ -49,10 +51,11 @@ describe("CensusPanel", () => {
     expect(container.textContent).toContain("By nutrition care category");
     expect(container.textContent).not.toContain("By primary diagnosis category");
     expect(container.textContent).toContain("Diabetes");
+    expect(container.textContent).toContain("By nutritional status");
+    expect(container.textContent).toContain("Moderate Malnutrition");
     expect(container.querySelector("[data-census-screen]")).not.toBeNull();
-    const printable = document.body.querySelector(":scope > [data-census-print]");
-    expect(printable).not.toBeNull();
-    expect(printable?.textContent).toContain("2 cycles");
+    expect(document.body.querySelector(":scope > [data-census-print]")).toBeNull();
+    expect(container.querySelector("thead")?.textContent).toContain("Sex30-39Total");
 
     const month = container.querySelector<HTMLSelectElement>('select[aria-label="Census month"]');
     expect(month).not.toBeNull();
@@ -61,12 +64,10 @@ describe("CensusPanel", () => {
       month!.dispatchEvent(new Event("change", { bubbles: true }));
     });
     expect(getCensusSummary).toHaveBeenLastCalledWith("rnd", 2026, 6);
-    expect(document.body.querySelector(":scope > [data-census-print]")?.textContent).toContain("June 2026");
-    expect(document.body.querySelector(":scope > [data-census-print]")?.textContent).not.toContain("Save PDF");
-
-    const button = Array.from(container.querySelectorAll("button")).find((item) => item.textContent?.includes("Save PDF"));
-    await act(async () => button?.click());
-    expect(print).toHaveBeenCalledOnce();
+    expect(censusExportUrl).toHaveBeenLastCalledWith("rnd", 2026, 6);
+    const download = container.querySelector<HTMLAnchorElement>('a[download]');
+    expect(download?.textContent).toContain("Download PDF");
+    expect(download?.getAttribute("href")).toContain("demographic_census/export");
     await act(async () => root.unmount());
   });
 
@@ -84,6 +85,31 @@ describe("CensusPanel", () => {
     await act(async () => { root.render(<CensusPanel apiPrefix="rnd" />); });
     expect(container.textContent).toContain("Unclassified age or sex: 1");
     expect(container.textContent).not.toContain("Unspecified sex");
+    await act(async () => root.unmount());
+  });
+
+  it("hides the prior period and its download while the next period loads", async () => {
+    let resolveMonth!: (value: CensusSummary) => void;
+    const nextMonth = new Promise<CensusSummary>((resolve) => { resolveMonth = resolve; });
+    vi.mocked(getCensusSummary).mockImplementation((_prefix, _year, month) => month ? nextMonth : Promise.resolve(summary));
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => { root.render(<CensusPanel apiPrefix="rnd" />); });
+    expect(container.querySelector("[data-census-screen]")).not.toBeNull();
+
+    await act(async () => {
+      const month = container.querySelector<HTMLSelectElement>('select[aria-label="Census month"]')!;
+      month.value = "6";
+      month.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    expect(container.querySelector("[data-census-screen]")).toBeNull();
+    expect(container.querySelector("a[download]")).toBeNull();
+    resolveMonth({ ...summary, month: 6, label: "June 2026", total: 1 });
+    await act(async () => { await nextMonth; });
+    expect(container.querySelector("[data-census-screen]")?.textContent).toContain("June 2026");
     await act(async () => root.unmount());
   });
 });

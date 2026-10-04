@@ -156,12 +156,11 @@ class AnnouncementFeatureTest extends TestCase
             ->assertJsonMissing(['title' => 'Admin only memo']);
     }
 
-    public function test_admin_can_pin_announcement(): void
+    public function test_admin_can_pin_own_announcement(): void
     {
         $admin = $this->user('Admin', 'admin-pin@example.com');
-        $rnd = $this->user('RND', 'rnd-pin@example.com');
         $announcement = Announcement::forceCreate([
-            'user_id' => $rnd->id,
+            'user_id' => $admin->id,
             'title' => 'Menu cycle review',
             'body' => 'Review menu cycle adjustments.',
             'category' => 'Event',
@@ -251,6 +250,53 @@ class AnnouncementFeatureTest extends TestCase
             'id' => $announcement->id,
             'title' => 'Original title',
         ]);
+    }
+
+    public function test_admin_cannot_edit_another_users_announcement_but_can_delete_it(): void
+    {
+        $owner = $this->user('RND', 'rnd-admin-boundary@example.com');
+        $admin = $this->user('Admin', 'admin-boundary@example.com');
+        $announcement = Announcement::forceCreate([
+            'user_id' => $owner->id,
+            'title' => 'Owner text',
+            'body' => 'Owner body.',
+            'category' => 'General',
+            'visibility' => 'All',
+        ]);
+
+        $this->actingAs($admin, 'sanctum')
+            ->patchJson("/api/admin/announcements/{$announcement->uuid}", ['title' => 'Admin edit'])
+            ->assertForbidden();
+        $this->assertDatabaseHas('announcements', ['id' => $announcement->id, 'title' => 'Owner text']);
+
+        $this->actingAs($admin, 'sanctum')
+            ->deleteJson("/api/admin/announcements/{$announcement->uuid}")
+            ->assertNoContent();
+        $this->assertModelMissing($announcement);
+    }
+
+    public function test_feed_exposes_server_authorized_edit_and_delete_actions(): void
+    {
+        $owner = $this->user('RND', 'rnd-action-owner@example.com');
+        $other = $this->user('RND', 'rnd-action-other@example.com');
+        $admin = $this->user('Admin', 'admin-actions@example.com');
+        Announcement::forceCreate([
+            'user_id' => $owner->id,
+            'title' => 'Action boundary',
+            'body' => 'Owner body.',
+            'category' => 'General',
+            'visibility' => 'All',
+        ]);
+
+        $this->actingAs($other, 'sanctum')->getJson('/api/rnd/announcements')
+            ->assertOk()
+            ->assertJsonPath('data.0.can_edit', false)
+            ->assertJsonPath('data.0.can_delete', false);
+
+        $this->actingAs($admin, 'sanctum')->getJson('/api/admin/announcements')
+            ->assertOk()
+            ->assertJsonPath('data.0.can_edit', false)
+            ->assertJsonPath('data.0.can_delete', true);
     }
 
     private function user(string $role, string $email): User

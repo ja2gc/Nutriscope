@@ -424,14 +424,14 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                 Announcement
               </h3>
               <div className="flex max-w-full flex-wrap items-center justify-end gap-2">
-                <button
+                {selectedPost.can_edit && <button
                   type="button"
                   onClick={() => openEdit(selectedPost)}
                   className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-warm-200 text-xs font-bold uppercase tracking-wider text-warm-600 hover:text-warm-900 hover:bg-white transition-colors"
                 >
                   <PencilLine className="h-3.5 w-3.5" />
                   Edit
-                </button>
+                </button>}
                 <button
                   type="button"
                   onClick={closeViewer}
@@ -604,7 +604,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                         </span>
 
                         {/* Edit / Delete — stop propagation so click doesn't open viewer */}
-                        <button
+                        {post.can_edit && <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); openEdit(post); }}
                           className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-warm-200 text-xs font-extrabold uppercase tracking-wider text-warm-600 hover:text-warm-900 hover:bg-warm-50 transition-colors"
@@ -612,8 +612,8 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                         >
                           <PencilLine className="h-3 w-3" />
                           Edit
-                        </button>
-                        <button
+                        </button>}
+                        {post.can_delete && <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); void handleDelete(post); }}
                           className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-red-100 text-xs font-extrabold uppercase tracking-wider text-red-600 hover:bg-red-50 transition-colors"
@@ -621,7 +621,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                         >
                           <Trash2 className="h-3 w-3" />
                           Delete
-                        </button>
+                        </button>}
                       </div>
                     </div>
 

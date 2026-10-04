@@ -17,6 +17,8 @@ class DemographicCensusGenerator
     /** Age buckets mirror the bi-annual census columns. */
     public const AGE_GROUPS = ['0-4', '5-9', '10-14', '15-18', '19-29', '30-39', '40-59', '60+'];
 
+    public const NUTRITIONAL_STATUSES = ['Normal', 'Moderate Malnutrition', 'Severe Malnutrition', 'Unspecified'];
+
     /** @return array<string,mixed> */
     public function currentCensus(Carbon $start, Carbon $end): array
     {
@@ -88,7 +90,8 @@ class DemographicCensusGenerator
         }
 
         $bySex = ['M' => 0, 'F' => 0, 'Unknown' => 0];
-        $byWard = $byPrimaryDiagnosisCategory = $byStatus = $byRisk = [];
+        $byWard = $byPrimaryDiagnosisCategory = $byRisk = [];
+        $byStatus = array_fill_keys(self::NUTRITIONAL_STATUSES, 0);
 
         foreach ($cycles as $p) {
             $sex = self::normalizeSex($p['sex'] ?? null);
@@ -108,7 +111,6 @@ class DemographicCensusGenerator
 
         arsort($byWard);
         arsort($byPrimaryDiagnosisCategory);
-        arsort($byStatus);
         arsort($byRisk);
 
         return [

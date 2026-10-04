@@ -16,6 +16,8 @@ export interface Announcement {
   visibility: AnnouncementVisibility;
   created_at: string;
   updated_at: string;
+  can_edit: boolean;
+  can_delete: boolean;
   author: {
     id: string | number;
     name: string;

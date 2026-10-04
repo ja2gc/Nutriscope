@@ -27,8 +27,9 @@
             {{ $limit['unit'] ?? '' }}
         @endforeach
         <div class="muted" style="margin-top:2px;">
-            Fluid from foods: {{ number_format($fluid_balance['food_fluid_ml']) }} mL/day average ·
-            Remaining drink guidance: {{ number_format($fluid_balance['remaining_ml']) }} mL/day.
+            Required fluid: {{ number_format($fluid_balance['required_fluid_ml']) }} mL/day ·
+            Fluid from planned foods: {{ number_format($fluid_balance['food_fluid_ml']) }} mL/day average ·
+            Remaining drinking fluid: {{ number_format($fluid_balance['remaining_ml']) }} mL/day.
             Fluid is excluded from automatic food scaling.
         </div>
         @if($maternal_note)

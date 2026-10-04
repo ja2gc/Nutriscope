@@ -147,6 +147,21 @@ describe("monitoring workflow UI", () => {
     expect(full).not.toMatch(/null (cm|kg)/);
   });
 
+  it("opens the visit form when assessment allergy and dislike lists are null", () => {
+    const nullableContext = {
+      ...context,
+      allergies: null,
+      food_dislikes: null,
+    } as unknown as MonitoringContext;
+
+    expect(() => renderToStaticMarkup(<LogVisitForm
+      context={nullableContext}
+      intervention={null}
+      onSubmit={async () => undefined}
+      onCancel={() => undefined}
+    />)).not.toThrow();
+  });
+
   it("uses neutral responsive visit rows without revision or raw-cycle language", () => {
     const html = renderToStaticMarkup(<EncounterLog
       entries={[entry]}

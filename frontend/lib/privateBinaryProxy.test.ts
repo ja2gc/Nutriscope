@@ -44,6 +44,20 @@ describe("privateBinaryProxy", () => {
     );
   });
 
+  it("preserves the selected Census PDF download filename", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(new Uint8Array([37, 80, 68, 70]), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": 'attachment; filename="demographic-census-october-2026.pdf"',
+      },
+    }));
+
+    const response = await privateBinaryProxy("/rnd/reports/demographic_census/export?year=2026&month=10");
+
+    expect(response.headers.get("Content-Disposition")).toBe('attachment; filename="demographic-census-october-2026.pdf"');
+  });
+
   it("keeps the upstream error status", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 404 }));
 

@@ -5,10 +5,11 @@ namespace App\Services\Backup;
 use App\Enums\BackupRetentionTier;
 use App\Enums\BackupSource;
 use App\Enums\BackupState;
+use App\Jobs\PurgeBackupObjects;
 use App\Models\BackupManifestObject;
 use App\Models\BackupRun;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 class BackupRetentionService
@@ -19,27 +20,36 @@ class BackupRetentionService
             throw new RuntimeException('Only failed or recently deleted backups can be purged.');
         }
 
-        if (filled($backup->object_key) && ! Storage::disk($backup->storage_disk)->delete($backup->object_key)) {
-            throw new RuntimeException('Backup object could not be removed.');
+        $manifest = $backup->manifest()->with('objects')->first();
+        $protectedKeys = $manifest?->objects->pluck('protected_key')->all() ?? [];
+        $sharedKeys = $protectedKeys === [] ? [] : BackupManifestObject::query()
+            ->whereIn('protected_key', $protectedKeys)
+            ->when($manifest !== null, fn ($query) => $query->where('backup_manifest_id', '!=', $manifest->id))
+            ->pluck('protected_key')
+            ->all();
+        $keysByDisk = [];
+        if (filled($backup->object_key)) {
+            $keysByDisk[$backup->storage_disk][] = $backup->object_key;
+        }
+        if ($manifest !== null) {
+            $keysByDisk[$manifest->storage_disk][] = $manifest->object_key;
+        }
+        foreach (array_diff($protectedKeys, $sharedKeys) as $key) {
+            $keysByDisk[config('nutriscope-backups.disk')][] = $key;
         }
 
-        $protectedKeys = $backup->manifest?->objects()->pluck('protected_key')->all() ?? [];
-        if ($backup->manifest !== null) {
-            Storage::disk($backup->manifest->storage_disk)->delete($backup->manifest->object_key);
-            $backup->manifest->delete();
-        }
-        foreach ($protectedKeys as $key) {
-            if (! BackupManifestObject::query()->where('protected_key', $key)->exists()) {
-                Storage::disk(config('nutriscope-backups.disk'))->delete($key);
+        DB::transaction(function () use ($backup, $manifest, $keysByDisk): void {
+            $backup->transitionTo(BackupState::Purged);
+            $backup->update([
+                'purged_at' => now(),
+                'object_key' => null,
+                'integrity_value' => null,
+            ]);
+            $manifest?->delete();
+            if ($keysByDisk !== []) {
+                PurgeBackupObjects::dispatch($keysByDisk)->afterCommit();
             }
-        }
-
-        $backup->transitionTo(BackupState::Purged);
-        $backup->update([
-            'purged_at' => now(),
-            'object_key' => null,
-            'integrity_value' => null,
-        ]);
+        });
     }
 
     public function apply(): void

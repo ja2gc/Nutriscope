@@ -16,6 +16,7 @@ export function foodFluidBalance(items: FoodFluidItem[], targetMl: number) {
   }, 0));
 
   return {
+    requiredFluidMl: targetMl,
     foodFluidMl,
     remainingMl: Math.max(0, Math.round(targetMl - foodFluidMl)),
   };

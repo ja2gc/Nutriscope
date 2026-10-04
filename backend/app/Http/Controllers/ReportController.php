@@ -163,6 +163,7 @@ class ReportController extends Controller
         $total = 0;
         $ageSex = DemographicCensusGenerator::aggregate([])['age_sex'];
         $byRisk = [];
+        $byStatus = array_fill_keys(DemographicCensusGenerator::NUTRITIONAL_STATUSES, 0);
         $byPrimaryDiagnosisCategory = [];
         $availableMonths = [];
         $allFrozen = true;
@@ -192,6 +193,9 @@ class ReportController extends Controller
             foreach (($census['by_risk'] ?? []) as $risk => $count) {
                 $byRisk[$risk] = ($byRisk[$risk] ?? 0) + (int) $count;
             }
+            foreach (($census['by_status'] ?? []) as $status => $count) {
+                $byStatus[$status] = ($byStatus[$status] ?? 0) + (int) $count;
+            }
             foreach (($census['by_primary_diagnosis_category'] ?? []) as $category => $count) {
                 $byPrimaryDiagnosisCategory[$category] = ($byPrimaryDiagnosisCategory[$category] ?? 0) + (int) $count;
             }
@@ -207,10 +211,24 @@ class ReportController extends Controller
             'age_sex' => $ageSex,
             'unknown_sex' => $total - array_sum(array_column($ageSex, 'total')),
             'by_risk' => $byRisk,
+            'by_nutritional_status' => $byStatus,
             'by_primary_diagnosis_category' => $byPrimaryDiagnosisCategory,
             'available_years' => range($today->year, $firstMonth->year),
             'available_months' => $availableMonths,
         ]]);
+    }
+
+    public function censusExport(Request $request, DemographicCensusGenerator $generator, ReportService $reports): StreamedResponse
+    {
+        $summary = $this->censusSummary($request, $generator)->getData(true)['data'];
+        $bytes = $reports->buildCensusPdf($summary);
+        $filename = 'demographic-census-'.str($summary['label'])->slug().'.pdf';
+
+        return response()->streamDownload(
+            static fn () => print $bytes,
+            $filename,
+            ['Content-Type' => 'application/pdf', 'Cache-Control' => 'private, no-store'],
+        );
     }
 
     public function patientInstances(PaginatedRequest $request, Patient $patient): JsonResponse
@@ -326,7 +344,7 @@ class ReportController extends Controller
         $this->assertPatientMenuPlanRenderable($type, $params);
         abort_unless($browser->sourceFor($type)->hasData($params), 404, 'No data for this report period.');
         $this->auditLogger->assertAvailable();
-        $report = $prepare->execute($request->user(), $type, $params);
+        $report = $prepare->execute($request->user(), $type, $params, freeze: false);
         $this->applyReportContext($report, $type, $params);
         $this->recordReportEvent(AuditAction::Created, $type, $params, $report, 200);
 
@@ -348,7 +366,7 @@ class ReportController extends Controller
         abort_unless($browser->sourceFor($type)->hasData($params), 404, 'No data for this report period.');
 
         $this->auditLogger->assertAvailable();
-        $report = $prepare->execute($request->user(), $type, $params);
+        $report = $prepare->execute($request->user(), $type, $params, freeze: true);
         $this->applyReportContext($report, $type, $params);
         $this->audited(function () use ($report, $type, $params): void {
             $report->update(['status' => 'archived']);
@@ -403,7 +421,7 @@ class ReportController extends Controller
             && $report->cache_expires_at?->isFuture()
             && Storage::disk($diskName)->exists($path);
 
-        if (! $cacheUsable && ($officialFile = $report->officialFile)) {
+        if ($report->status === 'archived' && ! $cacheUsable && ($officialFile = $report->officialFile)) {
             if (! Storage::disk($officialFile->storage_disk)->exists($officialFile->object_key)) {
                 return response()->json(['message' => 'The filed report is unavailable.', 'code' => 'official_file_unavailable'], 409);
             }
@@ -416,7 +434,7 @@ class ReportController extends Controller
             );
         }
 
-        if (! $cacheUsable && $report->file_path && Storage::disk('public')->exists($report->file_path)) {
+        if ($report->status === 'archived' && ! $cacheUsable && $report->file_path && Storage::disk('public')->exists($report->file_path)) {
             [$diskName, $path, $cacheUsable] = ['public', $report->file_path, true];
         }
         if (! $cacheUsable) {
@@ -452,7 +470,7 @@ class ReportController extends Controller
             && $report->cache_expires_at?->isFuture()
             && Storage::disk($diskName)->exists($path);
 
-        if (! $cacheUsable && ($officialFile = $report->officialFile)) {
+        if ($report->status === 'archived' && ! $cacheUsable && ($officialFile = $report->officialFile)) {
             if (! Storage::disk($officialFile->storage_disk)->exists($officialFile->object_key)) {
                 return response()->json(['message' => 'The filed report is unavailable.', 'code' => 'official_file_unavailable'], 409);
             }
@@ -469,7 +487,7 @@ class ReportController extends Controller
             );
         }
 
-        if (! $cacheUsable && $report->file_path && Storage::disk('public')->exists($report->file_path)) {
+        if ($report->status === 'archived' && ! $cacheUsable && $report->file_path && Storage::disk('public')->exists($report->file_path)) {
             [$diskName, $path, $cacheUsable] = ['public', $report->file_path, true];
         }
         if (! $cacheUsable) {
@@ -770,7 +788,7 @@ class ReportController extends Controller
         }
 
         try {
-            return $this->prepareSavedReport->execute($actor, $report->type, $parameters, $report);
+            return $this->prepareSavedReport->execute($actor, $report->type, $parameters, $report, freeze: false);
         } catch (\Throwable $exception) {
             report($exception);
 

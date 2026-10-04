@@ -33,9 +33,15 @@ class PrepareSavedReport
         if ($report?->status === 'archived') {
             return $report->fresh(['user:id,uuid,name,first_name,last_name', 'officialFile']);
         }
-        if ($report?->official_file_stored_object_id !== null) {
-            return $report->fresh(['user:id,uuid,name,first_name,last_name', 'officialFile']);
-        }
+        $snapshot = [
+            'branding' => ReportBranding::singleton()->only([
+                'hospital_name', 'address', 'accreditation', 'service_name', 'province', 'lgu',
+                'logo_left_path', 'logo_right_path', 'logo_left_stored_object_id', 'logo_right_stored_object_id',
+            ]),
+            'signatories' => $this->reports->signatoriesFor(new Report(['type' => $type, 'parameters' => $parameters])),
+            'params' => $parameters,
+        ];
+        $templateVersion = hash('sha256', (string) ($template?->updated_at?->toJSON() ?? 'default'));
         if ($report === null) {
             $report = Report::query()->create([
                 'user_id' => $actor->id,
@@ -44,19 +50,20 @@ class PrepareSavedReport
                 'archive_identity' => $identity,
                 'parameters' => $parameters,
                 'status' => 'completed',
-                'template_version' => hash('sha256', (string) ($template?->updated_at?->toJSON() ?? 'default')),
+                'template_version' => $templateVersion,
                 'appearance_version' => 'v1',
-                'snapshot' => [
-                    'branding' => ReportBranding::singleton()->only([
-                        'hospital_name', 'address', 'accreditation', 'service_name', 'province', 'lgu',
-                        'logo_left_path', 'logo_right_path', 'logo_left_stored_object_id', 'logo_right_stored_object_id',
-                    ]),
-                    'signatories' => $this->reports->signatoriesFor(new Report(['type' => $type, 'parameters' => $parameters])),
-                    'params' => $parameters,
-                ],
+                'snapshot' => $snapshot,
+            ]);
+        } else {
+            $report->forceFill([
+                'title' => $title,
+                'parameters' => $parameters,
+                'snapshot' => $snapshot,
+                'template_version' => $templateVersion,
             ]);
         }
 
+        $oldOfficialFile = $report->officialFile;
         $officialFile = null;
         try {
             $bytes = $this->reports->buildPdf($report)['bytes'];
@@ -134,6 +141,9 @@ class PrepareSavedReport
         }
         if ($oldPath && $oldPath !== $path) {
             $disk->delete($oldPath);
+        }
+        if ($oldOfficialFile !== null && $oldOfficialFile->id !== $officialFile?->id) {
+            $this->storedObjects->deleteOrQueue($oldOfficialFile);
         }
 
         return $report->fresh(['user:id,uuid,name,first_name,last_name', 'officialFile']);
