@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Assessment;
 use App\Models\DemographicCensusPeriod;
+use App\Models\NcpAppointment;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\Report;
@@ -23,22 +24,70 @@ class MonthlyDemographicCensusTest extends TestCase
         parent::tearDown();
     }
 
+    public function test_new_cycle_enters_census_only_after_assessment_work_and_visit_finish(): void
+    {
+        $patient = Patient::factory()->create(['dob' => '1990-01-01']);
+        $cycle = NcpRecord::factory()->create([
+            'patient_id' => $patient->id,
+            'created_at' => '2026-10-02 08:00:00',
+        ]);
+        $generator = app(DemographicCensusGenerator::class);
+        $start = Carbon::parse('2026-10-01');
+        $end = Carbon::parse('2026-10-31');
+
+        $this->assertSame(0, $generator->currentCensus($start, $end)['total']);
+
+        Assessment::factory()->create(['ncp_record_id' => $cycle->id]);
+        $visit = NcpAppointment::factory()->create([
+            'patient_id' => $patient->id,
+            'ncp_record_id' => $cycle->id,
+            'status' => 'in_progress',
+            'worked_on' => ['assessment'],
+        ]);
+        $this->assertSame(0, $generator->currentCensus($start, $end)['total']);
+
+        $visit->update(['status' => 'completed', 'worked_on' => []]);
+        $this->assertSame(0, $generator->currentCensus($start, $end)['total']);
+
+        $visit->update(['worked_on' => ['assessment']]);
+        $this->assertSame(1, $generator->currentCensus($start, $end)['total']);
+    }
+
+    public function test_assessed_legacy_cycle_without_visit_remains_in_census(): void
+    {
+        $patient = Patient::factory()->create(['dob' => '1990-01-01']);
+        $cycle = NcpRecord::factory()->create([
+            'patient_id' => $patient->id,
+            'created_at' => '2026-08-12 08:00:00',
+        ]);
+        Assessment::factory()->create(['ncp_record_id' => $cycle->id]);
+
+        $census = app(DemographicCensusGenerator::class)->currentCensus(
+            Carbon::parse('2026-08-01'),
+            Carbon::parse('2026-08-31'),
+        );
+
+        $this->assertSame(1, $census['total']);
+    }
+
     public function test_catch_up_starts_at_earliest_cycle_and_counts_each_cycle_once(): void
     {
         Carbon::setTestNow('2026-09-15 12:00:00');
         $patient = Patient::factory()->create(['admission_date' => '2026-01-12']);
-        NcpRecord::factory()->create([
+        $april = NcpRecord::factory()->create([
             'patient_id' => $patient->id,
             'status' => 'completed',
             'created_at' => '2026-04-09 08:00:00',
             'updated_at' => '2026-04-30 08:00:00',
         ]);
-        NcpRecord::factory()->create([
+        $june = NcpRecord::factory()->create([
             'patient_id' => $patient->id,
             'status' => 'active',
             'created_at' => '2026-06-12 08:00:00',
             'updated_at' => '2026-06-12 08:00:00',
         ]);
+        Assessment::factory()->create(['ncp_record_id' => $april->id]);
+        Assessment::factory()->create(['ncp_record_id' => $june->id]);
 
         $this->artisan('reports:demographic-census-catch-up')
             ->assertSuccessful();
@@ -72,6 +121,7 @@ class MonthlyDemographicCensusTest extends TestCase
             'created_at' => '2026-06-12 08:00:00',
             'updated_at' => '2026-06-12 08:00:00',
         ]);
+        Assessment::factory()->create(['ncp_record_id' => $cycle->id]);
         $this->artisan('reports:demographic-census-catch-up')->assertSuccessful();
         $june = DemographicCensusPeriod::query()->whereDate('period_start', '2026-06-01')->firstOrFail();
         $frozenAt = $june->frozen_at->copy();
@@ -340,12 +390,13 @@ class MonthlyDemographicCensusTest extends TestCase
     {
         $patient = Patient::factory()->create(['admission_date' => '2026-05-01']);
         foreach (['draft', 'active', 'completed', 'discontinued', 'discharged'] as $day => $status) {
-            NcpRecord::factory()->create([
+            $cycle = NcpRecord::factory()->create([
                 'patient_id' => $patient->id,
                 'status' => $status,
                 'created_at' => Carbon::parse('2026-05-10 08:00:00')->addDays($day),
                 'updated_at' => Carbon::parse('2026-05-10 08:00:00')->addDays($day),
             ]);
+            Assessment::factory()->create(['ncp_record_id' => $cycle->id]);
         }
         $deleted = NcpRecord::factory()->create([
             'patient_id' => $patient->id,
@@ -366,11 +417,12 @@ class MonthlyDemographicCensusTest extends TestCase
     {
         Carbon::setTestNow('2026-07-02 12:00:00');
         $patient = Patient::factory()->create(['admission_date' => '2026-05-01']);
-        NcpRecord::factory()->create([
+        $cycle = NcpRecord::factory()->create([
             'patient_id' => $patient->id,
             'created_at' => '2026-05-10 08:00:00',
             'updated_at' => '2026-05-10 08:00:00',
         ]);
+        Assessment::factory()->create(['ncp_record_id' => $cycle->id]);
         DemographicCensusPeriod::query()->create([
             'period_start' => '2026-05-01',
             'period_end' => '2026-05-31',
@@ -443,7 +495,8 @@ class MonthlyDemographicCensusTest extends TestCase
     public function test_census_screen_is_read_only_for_rnd_and_admin_and_rejects_other_roles_and_invalid_periods(): void
     {
         Carbon::setTestNow('2026-06-15 12:00:00');
-        NcpRecord::factory()->create(['created_at' => '2026-05-10 08:00:00']);
+        $cycle = NcpRecord::factory()->create(['created_at' => '2026-05-10 08:00:00']);
+        Assessment::factory()->create(['ncp_record_id' => $cycle->id]);
         $admin = User::factory()->create(['role' => 'Admin']);
         $fss = User::factory()->create(['role' => 'FSS']);
 

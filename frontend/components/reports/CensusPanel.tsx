@@ -54,12 +54,12 @@ export function CensusPanel({ apiPrefix }: { apiPrefix: "rnd" | "admin" }) {
           <section aria-label="Age and sex">
             <h3 className="mb-3 text-base font-bold text-warm-800">Age and sex</h3>
             <div className="overflow-x-auto rounded-xl border border-warm-200">
-              <table className="w-full table-fixed border-collapse text-xs tabular-nums sm:text-sm">
-                <thead className="bg-warm-50 text-warm-600"><tr><th scope="col" className="w-10 px-0.5 py-2 text-left sm:w-auto sm:px-3">Sex</th>{summary.age_groups.map((group) => <th key={group} scope="col" className="px-0.5 py-2 text-right sm:px-3">{group}</th>)}<th scope="col" className="px-0.5 py-2 text-right sm:px-3">Total</th></tr></thead>
+              <table className="w-full min-w-[640px] table-auto border-collapse whitespace-nowrap text-sm tabular-nums">
+                <thead className="bg-warm-50 text-warm-600"><tr><th scope="col" className="sticky left-0 bg-warm-50 px-3 py-2 text-left">Sex</th>{summary.age_groups.map((group) => <th key={group} scope="col" className="px-3 py-2 text-right">{group}</th>)}<th scope="col" className="px-3 py-2 text-right">Total</th></tr></thead>
                 <tbody className="divide-y divide-warm-100">
-                  {([['M', 'Male'], ['F', 'Female']] as const).map(([sex, label]) => <tr key={sex}><th scope="row" className="px-0.5 py-2 text-left font-medium text-warm-700 sm:px-3">{label}</th>{summary.age_groups.map((group) => <td key={group} className="px-0.5 py-2 text-right sm:px-3">{summary.age_sex[group]?.[sex] ?? 0}</td>)}<td className="px-0.5 py-2 text-right font-semibold sm:px-3">{sex === 'M' ? ageTotals?.M ?? 0 : ageTotals?.F ?? 0}</td></tr>)}
+                  {([['M', 'Male'], ['F', 'Female']] as const).map(([sex, label]) => <tr key={sex}><th scope="row" className="sticky left-0 bg-white px-3 py-2 text-left font-medium text-warm-700">{label}</th>{summary.age_groups.map((group) => <td key={group} className="px-3 py-2 text-right">{summary.age_sex[group]?.[sex] ?? 0}</td>)}<td className="px-3 py-2 text-right font-semibold">{sex === 'M' ? ageTotals?.M ?? 0 : ageTotals?.F ?? 0}</td></tr>)}
                 </tbody>
-                <tfoot className="border-t border-warm-200 bg-warm-50 font-bold"><tr><th scope="row" className="px-0.5 py-2 text-left sm:px-3">Total</th>{summary.age_groups.map((group) => <td key={group} className="px-0.5 py-2 text-right sm:px-3">{summary.age_sex[group]?.total ?? 0}</td>)}<td className="px-0.5 py-2 text-right sm:px-3">{ageTotals?.total ?? 0}</td></tr></tfoot>
+                <tfoot className="border-t border-warm-200 bg-warm-50 font-bold"><tr><th scope="row" className="sticky left-0 bg-warm-50 px-3 py-2 text-left">Total</th>{summary.age_groups.map((group) => <td key={group} className="px-3 py-2 text-right">{summary.age_sex[group]?.total ?? 0}</td>)}<td className="px-3 py-2 text-right">{ageTotals?.total ?? 0}</td></tr></tfoot>
               </table>
             </div>
             {summary.unknown_sex > 0 && <p className="mt-2 text-sm text-warm-600">Unclassified age or sex: {summary.unknown_sex}</p>}

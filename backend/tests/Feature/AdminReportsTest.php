@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\Assessment;
 use App\Models\Budget;
+use App\Models\NcpAppointment;
 use App\Models\NcpRecord;
 use App\Models\Report;
 use App\Models\ReportBranding;
@@ -34,7 +36,14 @@ class AdminReportsTest extends TestCase
 
     public function test_admin_can_read_demographic_census_summary(): void
     {
-        NcpRecord::factory()->create(['created_at' => now()->startOfMonth()->addDay()]);
+        $cycle = NcpRecord::factory()->create(['created_at' => now()->startOfMonth()->addDay()]);
+        Assessment::factory()->create(['ncp_record_id' => $cycle->id]);
+        NcpAppointment::factory()->create([
+            'patient_id' => $cycle->patient_id,
+            'ncp_record_id' => $cycle->id,
+            'status' => 'completed',
+            'worked_on' => ['assessment'],
+        ]);
         $this->actingAs($this->admin)
             ->getJson('/api/admin/reports/demographic_census/summary')
             ->assertOk()

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Assessment;
 use App\Models\AuditActivity;
 use App\Models\Intervention;
 use App\Models\MealPlan;
@@ -152,6 +153,7 @@ class ReportsBrowseTest extends TestCase
             'created_at' => '2026-05-10 08:00:00',
             'updated_at' => '2026-05-10 08:00:00',
         ]);
+        Assessment::factory()->create(['ncp_record_id' => $ncp->id]);
         $intervention = Intervention::factory()->create(['ncp_record_id' => $ncp->id]);
         $mealPlan = MealPlan::factory()->create([
             'intervention_id' => $intervention->id,

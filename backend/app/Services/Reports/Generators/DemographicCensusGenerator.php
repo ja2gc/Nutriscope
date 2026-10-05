@@ -13,7 +13,10 @@ use Carbon\Carbon;
  */
 class DemographicCensusGenerator
 {
-    public const BASIS_VERSION = 5;
+    public const BASIS_VERSION = 6;
+
+    /** Visit workflow was introduced during September 2026. Earlier assessed cycles have no visit record. */
+    private const LEGACY_VISIT_CUTOFF = '2026-09-08 00:00:00';
 
     /** Age buckets mirror the bi-annual census columns. */
     public const AGE_GROUPS = ['0-4', '5-9', '10-14', '15-18', '19-29', '30-39', '40-59', '60+'];
@@ -34,6 +37,14 @@ class DemographicCensusGenerator
                 $start->copy()->startOfDay(),
                 $end->copy()->endOfDay(),
             ])
+            ->whereHas('assessment')
+            ->where(function ($query): void {
+                $query->where('created_at', '<', self::LEGACY_VISIT_CUTOFF)
+                    ->orWhereHas('appointments', function ($visit): void {
+                        $visit->where('status', 'completed')
+                            ->whereJsonContains('worked_on', 'assessment');
+                    });
+            })
             ->get()
             ->map(function (NcpRecord $cycle): array {
                 $age = $cycle->patient?->dob?->diffInYears($cycle->created_at);
