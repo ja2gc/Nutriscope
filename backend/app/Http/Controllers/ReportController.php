@@ -260,12 +260,12 @@ class ReportController extends Controller
                     return [
                         'key' => 'intervention-'.$plan->uuid,
                         'type' => 'patient_menu_plan',
-                        'label' => 'Nutrition Intervention Plan — '.$plan->created_at?->format('M j, Y'),
+                        'label' => 'Nutrition Intervention Plan — '.$plan->created_at?->copy()->timezone(config('nutriscope-reports.timezone'))->format('M j, Y'),
                         'status' => $record->status,
                         'date' => $plan->created_at?->toIso8601String(),
                         'params' => ['intervention_plan_id' => $plan->uuid],
                         'intervention_plan_id' => $plan->uuid,
-                        'intervention_plan_date' => $plan->created_at?->toDateString(),
+                        'intervention_plan_date' => $plan->created_at?->copy()->timezone(config('nutriscope-reports.timezone'))->toDateString(),
                         'meal_plan_id' => $mealPlan?->uuid,
                         'available' => $mealPlan !== null,
                         'unavailable_reason' => $mealPlan === null

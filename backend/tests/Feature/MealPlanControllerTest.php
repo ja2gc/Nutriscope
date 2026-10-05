@@ -14,6 +14,9 @@ use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\Recipe;
 use App\Models\User;
+use Database\Seeders\FoodItemsSeeder;
+use Database\Seeders\InterventionMealPlanTemplateSeeder;
+use Database\Seeders\RecipeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -689,6 +692,37 @@ class MealPlanControllerTest extends TestCase
         $this->assertSame(['200.00', '200.00'], $day->items()->orderBy('id')->pluck('quantity')->all());
         $this->assertFalse($plan->fresh()->needs_rescaling);
         $this->assertNotNull($plan->fresh()->scaled_at);
+    }
+
+    public function test_full_maternal_template_can_scale_against_its_dated_plan(): void
+    {
+        $this->seed(FoodItemsSeeder::class);
+        $this->seed(RecipeSeeder::class);
+        $this->seed(InterventionMealPlanTemplateSeeder::class);
+        [$ncpRecord, $intervention] = $this->makeInterventionWithNcpRecord([
+            'goal_type' => 'custom',
+            'energy_kcal' => 2081,
+            'protein_g' => 69,
+            'carbs_g' => 323,
+            'fat_g' => 57,
+            'micronutrient_limits' => [
+                'fiber' => ['min' => 22, 'unit' => 'g'],
+                'sodium' => ['max' => 2000, 'unit' => 'mg'],
+            ],
+        ]);
+        $template = MealPlanTemplate::query()->where('name', 'Demo — Maternal Nutrition — Pregnancy — Balanced')->sole();
+
+        $response = $this->actingAs($this->rnd)
+            ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans/from-template", [
+                'template_id' => $template->uuid,
+                'intervention_plan_id' => $intervention->uuid,
+                'week_start_date' => '2026-10-05',
+            ])
+            ->assertCreated();
+
+        $this->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans/{$response->json('data.id')}/scale-to-prescription")
+            ->assertOk()
+            ->assertJsonPath('data.scale_status', 'already_scaled');
     }
 
     public function test_unchanged_auto_generated_plan_rejects_meaningless_scaling(): void

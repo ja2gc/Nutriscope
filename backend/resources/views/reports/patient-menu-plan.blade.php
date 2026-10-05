@@ -7,7 +7,7 @@
         <tr>
             <td style="border:0;">Patient: <span class="bold">{{ $patient->display_name ?? '-' }}</span></td>
             <td style="border:0;">Ward: <span class="bold">{{ $patient->ward ?? '-' }}</span></td>
-            <td style="border:0;">Plan created: <span class="bold">{{ optional($intervention_plan->created_at)->format('M j, Y') ?? '-' }}</span></td>
+            <td style="border:0;">Plan created: <span class="bold">{{ $intervention_plan->created_at?->copy()->timezone(config('nutriscope-reports.timezone'))->format('M j, Y') ?? '-' }}</span></td>
             <td style="border:0;">Menu week: <span class="bold">{{ optional($meal_plan->week_start_date)->format('M j, Y') ?? '-' }}</span></td>
         </tr>
     </table>

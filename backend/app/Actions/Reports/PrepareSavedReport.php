@@ -177,7 +177,7 @@ class PrepareSavedReport
         }
 
         return $plan?->created_at
-            ? 'Nutrition Intervention Plan — '.$plan->created_at->format('M j, Y')
+            ? 'Nutrition Intervention Plan — '.$plan->created_at->copy()->timezone(config('nutriscope-reports.timezone'))->format('M j, Y')
             : $fallback;
     }
 }

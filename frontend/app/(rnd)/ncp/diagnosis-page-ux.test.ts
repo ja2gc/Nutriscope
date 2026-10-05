@@ -29,7 +29,7 @@ describe("NCP explicit save and diagnosis UX", () => {
     expect(page).toContain("Evidence used");
     expect(page).not.toContain(">Source</span>");
     expect(page).not.toContain("s.source.url");
-    expect(page).toContain("Cached for this unchanged Assessment");
+    expect(page).not.toContain("Cached for this unchanged Assessment");
     expect(page).toContain("No sufficiently supported PES draft was found.");
     expect(page).toContain("External AI drafts are unavailable");
     expect(page).toContain("dismissPesSuggestion");

@@ -142,7 +142,47 @@ class UsdaServiceTest extends TestCase
         $results = $this->service->search('apple');
 
         $this->assertSame(2, $results[0]['fdc_id']);
-        $this->assertSame([2, 1, 3], array_column($results, 'fdc_id'));
+        $this->assertSame([2, 3, 1], array_column($results, 'fdc_id'));
+    }
+
+    public function test_search_requests_enough_candidates_and_prefers_raw_generic_to_exact_branded_label(): void
+    {
+        Http::fake([self::SEARCH_URL => Http::response(['foods' => [
+            ['fdcId' => 1, 'description' => 'APPLE', 'dataType' => 'Branded', 'foodNutrients' => []],
+            ['fdcId' => 2, 'description' => 'Apple, raw', 'dataType' => 'Survey (FNDDS)', 'foodNutrients' => []],
+        ]], 200)]);
+
+        $results = $this->service->search('apple', 10);
+
+        Http::assertSent(fn (Request $request) => $request['pageSize'] >= 50);
+        $this->assertSame(2, $results[0]['fdc_id']);
+        $this->assertCount(2, $results);
+    }
+
+    public function test_foundation_search_and_detail_use_atwater_energy_when_legacy_energy_is_absent(): void
+    {
+        Http::fake([
+            self::SEARCH_URL => Http::response(['foods' => [[
+                'fdcId' => 12345,
+                'description' => 'Sweet potatoes, raw',
+                'dataType' => 'Foundation',
+                'foodNutrients' => [
+                    ['nutrientId' => 1008, 'value' => 0, 'unitName' => 'kcal'],
+                    ['nutrientId' => 2047, 'value' => 86, 'unitName' => 'kcal'],
+                ],
+            ]]], 200),
+            self::DETAIL_URL => Http::response([
+                'fdcId' => 12345,
+                'description' => 'Sweet potatoes, raw',
+                'foodNutrients' => [
+                    ['nutrient' => ['id' => 1008, 'unitName' => 'kcal'], 'amount' => 0],
+                    ['nutrient' => ['id' => 2048, 'unitName' => 'kcal'], 'amount' => 90],
+                ],
+            ], 200),
+        ]);
+
+        $this->assertSame(86.0, $this->service->search('sweet potato')[0]['calories']);
+        $this->assertSame(90.0, $this->service->fetch(12345)['calories']);
     }
 
     public function test_repeated_search_reuses_recent_results(): void

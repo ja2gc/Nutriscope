@@ -1026,9 +1026,6 @@ export default function NcpDiagnosisPage({
             {aiLoading ? "Generating suggestions..." : "Generate AI Suggestions"}
           </button>
         )}
-        {aiMeta?.cached && (
-          <p className="text-xs font-semibold text-warm-500">Cached for this unchanged Assessment.</p>
-        )}
         {aiUnavailable && (
           <p className="text-xs font-semibold text-amber-700">{aiUnavailable}</p>
         )}

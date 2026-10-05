@@ -25,7 +25,7 @@ class PatientMenuPlanGeneratorTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function makePlan(): MealPlan
+    private function makePlan(?string $createdAt = null): MealPlan
     {
         $rnd = User::factory()->create(['role' => 'RND']);
         $patient = Patient::factory()->create([
@@ -49,7 +49,7 @@ class PatientMenuPlanGeneratorTest extends TestCase
             'counseling_goals' => 'Follow the planned meal pattern.',
             'strategies' => 'Prepare measured portions before meals.',
             'barriers' => 'Limited access to cooking equipment.',
-            'created_at' => '2026-06-14 09:00:00',
+            'created_at' => $createdAt ?? '2026-06-14 09:00:00',
         ]);
 
         return MealPlan::create([
@@ -474,6 +474,24 @@ class PatientMenuPlanGeneratorTest extends TestCase
         $this->assertSame($firstPlan->uuid, $plans[1]['params']['intervention_plan_id']);
         $this->assertSame($mealPlan->uuid, $plans[1]['meal_plan_id']);
         $this->assertTrue($plans[1]['available']);
+    }
+
+    public function test_new_plan_report_dates_use_manila_calendar_day(): void
+    {
+        $mealPlan = $this->makePlan('2026-10-04 16:30:00');
+        $plan = $mealPlan->intervention;
+        $rnd = $plan->ncpRecord->rnd;
+
+        $this->actingAs($rnd, 'sanctum')
+            ->getJson('/api/rnd/reports/patients/'.$plan->ncpRecord->patient->uuid.'/instances')
+            ->assertOk()
+            ->assertJsonPath('data.0.reports.1.label', 'Nutrition Intervention Plan — Oct 5, 2026')
+            ->assertJsonPath('data.0.reports.1.intervention_plan_date', '2026-10-05');
+
+        $this->actingAs($rnd, 'sanctum')
+            ->postJson('/api/rnd/reports/patient_menu_plan/prepare?intervention_plan_id='.$plan->uuid)
+            ->assertOk()
+            ->assertJsonPath('data.title', 'Nutrition Intervention Plan — Oct 5, 2026');
     }
 
     public function test_report_view_uses_current_patient_display_name(): void

@@ -24,4 +24,17 @@ describe("intervention plan proxy routes", () => {
 
     expect(proxy).toHaveBeenCalledWith("/rnd/ncp-records/ncp-uuid/interventions/recommendations");
   });
+
+  it("proxies saved menu scaling to Laravel", async () => {
+    const { POST } = await import("./[ncpRecordId]/meal-plans/[mealPlanId]/scale-to-prescription/route");
+
+    await POST(new Request("http://localhost", { method: "POST" }) as never, {
+      params: Promise.resolve({ ncpRecordId: "ncp-uuid", mealPlanId: "menu-uuid" }),
+    });
+
+    expect(proxy).toHaveBeenCalledWith(
+      "/rnd/ncp-records/ncp-uuid/meal-plans/menu-uuid/scale-to-prescription",
+      { method: "POST" },
+    );
+  });
 });

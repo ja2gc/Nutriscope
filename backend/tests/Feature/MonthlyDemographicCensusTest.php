@@ -103,6 +103,9 @@ class MonthlyDemographicCensusTest extends TestCase
             ->getJson('/api/admin/reports/demographic_census/summary?year=2026&month=6')
             ->assertOk()
             ->assertJsonPath('data.total', 0)
+            ->assertJsonPath('data.by_risk.Low', 0)
+            ->assertJsonPath('data.by_risk.Moderate', 0)
+            ->assertJsonPath('data.by_risk.High', 0)
             ->assertJsonPath('data.status', 'frozen')
             ->assertJsonPath('data.available_months.0.month', 5);
 
@@ -183,7 +186,7 @@ class MonthlyDemographicCensusTest extends TestCase
             'Obese Class II (Severe)' => 0,
             'Unspecified' => 0,
         ], $census['by_status']);
-        $this->assertSame(['Low' => 1], $census['by_risk']);
+        $this->assertSame(['Low' => 1, 'Moderate' => 0, 'High' => 0], $census['by_risk']);
         $this->assertSame(['Diabetes' => 1], $census['by_primary_diagnosis_category']);
         $this->assertArrayNotHasKey('Diagnosis A', $census['by_primary_diagnosis_category']);
     }
@@ -260,7 +263,7 @@ class MonthlyDemographicCensusTest extends TestCase
             'Obese Class II (Severe)' => 0,
             'Unspecified' => 1,
         ], $census['by_status']);
-        $this->assertSame(['High' => 1, 'Low' => 1], $census['by_risk']);
+        $this->assertSame(['Low' => 1, 'Moderate' => 0, 'High' => 1], $census['by_risk']);
     }
 
     public function test_selected_census_view_downloads_directly_without_creating_a_report_identity(): void
@@ -333,7 +336,7 @@ class MonthlyDemographicCensusTest extends TestCase
         $this->assertSame(5, $census['total']);
     }
 
-    public function test_catch_up_rebuilds_legacy_patient_based_snapshots_once(): void
+    public function test_catch_up_rebuilds_previous_basis_snapshots_once(): void
     {
         Carbon::setTestNow('2026-07-02 12:00:00');
         $patient = Patient::factory()->create(['admission_date' => '2026-05-01']);
@@ -347,7 +350,7 @@ class MonthlyDemographicCensusTest extends TestCase
             'period_end' => '2026-05-31',
             'census' => DemographicCensusGenerator::aggregate([]),
             'source_count' => 0,
-            'basis_version' => 1,
+            'basis_version' => 4,
             'frozen_at' => '2026-06-01 00:05:00',
         ]);
 

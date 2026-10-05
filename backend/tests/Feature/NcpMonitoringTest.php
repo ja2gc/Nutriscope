@@ -9,6 +9,7 @@ use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\User;
 use App\Services\NotificationLifecycleService;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Mockery;
@@ -162,12 +163,26 @@ class NcpMonitoringTest extends TestCase
 
         $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings", $this->payload([
-                'observed_at' => now()->addDay()->toDateString(),
+                'observed_at' => CarbonImmutable::now('Asia/Manila')->addDay()->toDateString(),
                 'edema_present' => true,
                 'dry_weight_kg' => null,
             ]))
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['observed_at', 'dry_weight_kg']);
+    }
+
+    public function test_visit_on_current_manila_date_is_accepted_before_utc_midnight(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-10-04 16:30:00', 'UTC'));
+        $rnd = $this->rnd();
+        $ncp = $this->ncpRecord($this->patient(), $rnd);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings", $this->payload([
+                'observed_at' => '2026-10-05',
+            ]))
+            ->assertCreated()
+            ->assertJsonPath('data.observed_at', '2026-10-05');
     }
 
     public function test_nested_intervention_revision_is_rejected_without_partial_write(): void

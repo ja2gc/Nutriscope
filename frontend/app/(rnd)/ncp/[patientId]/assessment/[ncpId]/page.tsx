@@ -1726,6 +1726,9 @@ export default function NcpAssessmentPage({
         <h4 className="text-xs font-extrabold text-warm-800 uppercase tracking-wider flex items-center gap-1.5">
           <Activity className="h-3.5 w-3.5 text-emerald-600" />
           Scoring of Nutritional Risk Related Factors
+          <InfoHint label="Nutritional risk score legend" title="Risk score legend">
+            <p>Low: 0–1 point. Moderate: 2–3 points. High: more than 3 points.</p>
+          </InfoHint>
         </h4>
         <div className="flex items-center gap-2 flex-wrap justify-end">
           <button

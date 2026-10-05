@@ -15,6 +15,10 @@ class UsdaService
 
     private const ENERGY_ID = 1008;
 
+    private const ATWATER_SPECIFIC_ENERGY_ID = 2048;
+
+    private const ATWATER_GENERAL_ENERGY_ID = 2047;
+
     private const PROTEIN_ID = 1003;
 
     private const CARBS_ID = 1005;
@@ -111,12 +115,12 @@ class UsdaService
      */
     public function search(string $query, int $pageSize = 10): array
     {
-        $cacheKey = 'usda_search_'.hash('sha256', mb_strtolower(trim($query)).'|'.$pageSize);
+        $cacheKey = 'usda_search_v2_'.hash('sha256', mb_strtolower(trim($query)).'|'.$pageSize);
 
         return Cache::remember($cacheKey, now()->addMinutes(10), function () use ($query, $pageSize): array {
             $response = Http::withoutVerifying()->connectTimeout(3)->timeout(10)->post("{$this->baseUrl}/foods/search?api_key=".urlencode($this->apiKey), [
                 'query' => $query,
-                'pageSize' => $pageSize,
+                'pageSize' => max($pageSize, 50),
                 'dataType' => ['SR Legacy', 'Foundation', 'Survey (FNDDS)', 'Branded'],
             ]);
 
@@ -132,7 +136,7 @@ class UsdaService
                     'name' => $food['description'],
                     'data_type' => $food['dataType'] ?? null,
                     'food_category' => $food['foodCategory'] ?? null,
-                    'calories' => $this->findInSearch($nutrients, self::ENERGY_ID),
+                    'calories' => $this->findEnergyInSearch($nutrients),
                     'protein' => $this->findInSearch($nutrients, self::PROTEIN_ID),
                     'carbs' => $this->findInSearch($nutrients, self::CARBS_ID),
                     'fat' => $this->findInSearch($nutrients, self::FAT_ID),
@@ -149,11 +153,11 @@ class UsdaService
                     default => 3,
                 };
 
-                return [$match, $food['data_type'] === 'Branded' ? 1 : 0, mb_strlen($name)];
+                return [$match + ($food['data_type'] === 'Branded' ? 2 : 0), mb_strlen($name)];
             };
             usort($results, static fn (array $left, array $right): int => $rank($left) <=> $rank($right));
 
-            return $results;
+            return array_slice($results, 0, $pageSize);
         });
     }
 
@@ -163,7 +167,7 @@ class UsdaService
      */
     public function fetch(int $fdcId): array
     {
-        return Cache::remember("usda_food_{$fdcId}", now()->addDays(self::CACHE_TTL_DAYS), function () use ($fdcId) {
+        return Cache::remember("usda_food_v2_{$fdcId}", now()->addDays(self::CACHE_TTL_DAYS), function () use ($fdcId) {
             $response = Http::withoutVerifying()->get("{$this->baseUrl}/food/{$fdcId}", [
                 'api_key' => $this->apiKey,
             ]);
@@ -186,7 +190,7 @@ class UsdaService
                 'fdc_id' => $data['fdcId'],
                 'name' => $data['description'],
                 'food_category' => $foodCategory,
-                'calories' => $this->findInDetail($nutrients, self::ENERGY_ID),
+                'calories' => $this->findEnergyInDetail($nutrients),
                 'protein' => $this->findInDetail($nutrients, self::PROTEIN_ID),
                 'carbs' => $this->findInDetail($nutrients, self::CARBS_ID),
                 'fat' => $this->findInDetail($nutrients, self::FAT_ID),
@@ -340,12 +344,36 @@ class UsdaService
         return (float) ($nutrients->firstWhere('nutrientId', $id)['value'] ?? 0);
     }
 
+    private function findEnergyInSearch($nutrients): float
+    {
+        foreach ([self::ENERGY_ID, self::ATWATER_SPECIFIC_ENERGY_ID, self::ATWATER_GENERAL_ENERGY_ID] as $id) {
+            $found = $nutrients->firstWhere('nutrientId', $id);
+            if (isset($found['value']) && (float) $found['value'] > 0) {
+                return (float) $found['value'];
+            }
+        }
+
+        return 0.0;
+    }
+
     /** Detail response: nested structure — nutrient.id + amount */
     private function findInDetail($nutrients, int $id): float
     {
         $found = $nutrients->first(fn ($n) => ($n['nutrient']['id'] ?? null) === $id);
 
         return (float) ($found['amount'] ?? 0);
+    }
+
+    private function findEnergyInDetail($nutrients): float
+    {
+        foreach ([self::ENERGY_ID, self::ATWATER_SPECIFIC_ENERGY_ID, self::ATWATER_GENERAL_ENERGY_ID] as $id) {
+            $found = $nutrients->first(fn ($nutrient) => ($nutrient['nutrient']['id'] ?? null) === $id);
+            if (isset($found['amount']) && (float) $found['amount'] > 0) {
+                return (float) $found['amount'];
+            }
+        }
+
+        return 0.0;
     }
 
     private function extractMicros($nutrients): array

@@ -3,6 +3,7 @@
 namespace App\Http\Requests\RND;
 
 use App\Support\MonitoringVisitType;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -19,7 +20,7 @@ abstract class MonitoringRequest extends FormRequest
         $bounds = config('clinical.assessment_input_bounds');
 
         return [
-            'observed_at' => ['required', 'date', 'before_or_equal:today'],
+            'observed_at' => ['required', 'date', 'before_or_equal:'.CarbonImmutable::now('Asia/Manila')->toDateString()],
             'visit_type' => ['required', 'string', Rule::in(MonitoringVisitType::values())],
             'weight' => ['required', 'numeric', "between:{$bounds['weight']['min']},{$bounds['weight']['max']}"],
             'height' => ['required', 'numeric', "between:{$bounds['height']['min']},{$bounds['height']['max']}"],
