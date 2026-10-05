@@ -159,6 +159,19 @@ class UsdaServiceTest extends TestCase
         $this->assertCount(2, $results);
     }
 
+    public function test_search_ranks_plain_sweet_potato_ahead_of_prepared_products(): void
+    {
+        Http::fake([self::SEARCH_URL => Http::response(['foods' => [
+            ['fdcId' => 1, 'description' => 'Sweet potato tots', 'dataType' => 'Survey (FNDDS)', 'foodNutrients' => []],
+            ['fdcId' => 2, 'description' => 'Sweet potato, NFS', 'dataType' => 'Survey (FNDDS)', 'foodNutrients' => []],
+            ['fdcId' => 3, 'description' => 'Sweet potato chips', 'dataType' => 'Survey (FNDDS)', 'foodNutrients' => []],
+        ]], 200)]);
+
+        $results = $this->service->search('sweet potato');
+
+        $this->assertSame(2, $results[0]['fdc_id']);
+    }
+
     public function test_foundation_search_and_detail_use_atwater_energy_when_legacy_energy_is_absent(): void
     {
         Http::fake([

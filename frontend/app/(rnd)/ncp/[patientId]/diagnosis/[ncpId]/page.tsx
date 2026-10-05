@@ -28,9 +28,9 @@ import { paginateAiDrafts } from "@/lib/aiDraftPagination";
 // ─── Domain Metadata ─────────────────────────────────────────────────────────
 
 const DOMAIN_META = {
-  NI: { label: "Intake (NI)", color: "bg-sky-50 text-sky-700 border-sky-200" },
-  NC: { label: "Clinical (NC)", color: "bg-sky-50 text-sky-700 border-sky-200" },
-  NB: { label: "Behavioral-Env (NB)", color: "bg-amber-50 text-amber-700 border-amber-200" },
+  NI: { label: "Intake (NI)" },
+  NC: { label: "Clinical (NC)" },
+  NB: { label: "Behavioral-Env (NB)" },
 } as const;
 
 // ─── G-NCP Problem Options ────────────────────────────────────────────────────
@@ -663,10 +663,10 @@ export default function NcpDiagnosisPage({
                 <tr key={d.id} className="border-b border-warm-100 hover:bg-warm-50/60 transition-colors">
                   <td className="px-4 py-3 text-warm-400 font-mono font-bold">{i + 1}</td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2 whitespace-nowrap">
+                    <div className="flex flex-col items-start gap-1">
                       <DomainBadge domain={d.domain} />
                       {d.ai_generated && (
-                        <span className="border-l border-warm-200 pl-2 text-xs font-bold text-orange-600 uppercase tracking-wider" title="AI-assisted diagnosis">AI</span>
+                        <span className="text-xs font-semibold text-orange-700" title="AI-assisted diagnosis">AI assisted</span>
                       )}
                     </div>
                   </td>
@@ -721,16 +721,16 @@ export default function NcpDiagnosisPage({
     <div className="space-y-6 max-w-2xl">
       <div>
         <SectionLabel>Step 1: Select Diagnostic Domain</SectionLabel>
-        <div className="flex gap-3 flex-wrap">
+        <div className="flex gap-4 flex-wrap border-b border-warm-200">
           {(["NI", "NC", "NB"] as const).map(d => (
             <button
               key={d}
               type="button"
               onClick={() => updateBuilder({ domain: d, ncProblems: [], nbProblems: [], niNutrient: "", etiologyChecks: [], signChecks: [], problemOverride: "" })}
-              className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border-2 transition-all cursor-pointer ${
+              className={`px-1 py-2 text-sm font-semibold border-b-2 transition-colors cursor-pointer ${
                 builder.domain === d
-                  ? `${DOMAIN_META[d].color} border-current`
-                  : "bg-white text-warm-500 border-warm-200 hover:border-zinc-400"
+                  ? "border-emerald-700 text-emerald-800"
+                  : "border-transparent text-warm-600 hover:text-warm-900"
               }`}
             >
               {DOMAIN_META[d].label}

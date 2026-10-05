@@ -300,6 +300,7 @@ class MonthlyDemographicCensusTest extends TestCase
         $summary['age_groups'] = DemographicCensusGenerator::AGE_GROUPS;
         $summary['unknown_sex'] = 0;
         $summary['by_nutritional_status'] = $summary['by_status'];
+        $summary['by_risk'] = ['Low' => 1, 'High' => 0, 'Moderate' => 0];
 
         $html = view('reports.demographic-census-download', [
             'summary' => $summary,
@@ -312,6 +313,7 @@ class MonthlyDemographicCensusTest extends TestCase
         $this->assertStringNotContainsString('<td>Unspecified</td>', $html);
         $this->assertStringContainsString('Not classified: 1', $html);
         $this->assertStringNotContainsString('Includes current data', $html);
+        $this->assertLessThan(strpos($html, '>High</td>'), strpos($html, '>Moderate</td>'));
     }
 
     public function test_current_month_is_browsable_live_but_not_stored_as_frozen(): void

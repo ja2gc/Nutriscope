@@ -25,7 +25,8 @@
         </td>
         <td style="border:0; padding:0 5px; vertical-align:top;">
             <div class="section">By risk level</div>
-            <table class="grid">@foreach($summary['by_risk'] as $label => $count)<tr><td>{{ $label }}</td><td class="right bold">{{ $count }}</td></tr>@endforeach</table>
+            <table class="grid">@foreach(['Low', 'Moderate', 'High'] as $label)<tr><td>{{ $label }}</td><td class="right bold">{{ $summary['by_risk'][$label] ?? 0 }}</td></tr>@endforeach</table>
+            @if(($summary['by_risk']['Unspecified'] ?? 0) > 0)<p class="muted">Not scored: {{ $summary['by_risk']['Unspecified'] }}</p>@endif
         </td>
         <td style="border:0; padding-left:5px; vertical-align:top;">
             <div class="section">By nutrition care category</div>

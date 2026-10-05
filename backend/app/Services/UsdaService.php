@@ -115,7 +115,7 @@ class UsdaService
      */
     public function search(string $query, int $pageSize = 10): array
     {
-        $cacheKey = 'usda_search_v2_'.hash('sha256', mb_strtolower(trim($query)).'|'.$pageSize);
+        $cacheKey = 'usda_search_v3_'.hash('sha256', mb_strtolower(trim($query)).'|'.$pageSize);
 
         return Cache::remember($cacheKey, now()->addMinutes(10), function () use ($query, $pageSize): array {
             $response = Http::withoutVerifying()->connectTimeout(3)->timeout(10)->post("{$this->baseUrl}/foods/search?api_key=".urlencode($this->apiKey), [
@@ -148,9 +148,10 @@ class UsdaService
                 $name = mb_strtolower(trim($food['name']));
                 $match = match (true) {
                     $name === $needle => 0,
-                    str_starts_with($name, $needle) => 1,
-                    str_contains($name, $needle) => 2,
-                    default => 3,
+                    str_starts_with($name, $needle) && mb_substr($name, mb_strlen($needle), 1) === ',' => 1,
+                    str_starts_with($name, $needle) => 2,
+                    str_contains($name, $needle) => 3,
+                    default => 4,
                 };
 
                 return [$match + ($food['data_type'] === 'Branded' ? 2 : 0), mb_strlen($name)];
