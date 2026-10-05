@@ -290,6 +290,30 @@ class MonthlyDemographicCensusTest extends TestCase
         $this->assertDatabaseCount('reports', 0);
     }
 
+    public function test_census_pdf_orders_status_first_and_separates_unclassified_cycles(): void
+    {
+        $summary = DemographicCensusGenerator::aggregate([
+            ['age' => 35, 'sex' => 'F', 'nutritional_status' => 'Unspecified', 'risk_level' => 'Low'],
+        ]);
+        $summary['label'] = 'October 2026';
+        $summary['status'] = 'live';
+        $summary['age_groups'] = DemographicCensusGenerator::AGE_GROUPS;
+        $summary['unknown_sex'] = 0;
+        $summary['by_nutritional_status'] = $summary['by_status'];
+
+        $html = view('reports.demographic-census-download', [
+            'summary' => $summary,
+            'branding' => (object) ['hospital_name' => 'Test Hospital', 'address' => '', 'accreditation' => '', 'service_name' => '', 'logo_left_path' => null, 'logo_right_path' => null],
+            'report' => new Report(['title' => 'Demographic Census']),
+            'paper_orientation' => 'landscape',
+        ])->render();
+
+        $this->assertLessThan(strpos($html, 'By risk level'), strpos($html, 'By nutritional status'));
+        $this->assertStringNotContainsString('<td>Unspecified</td>', $html);
+        $this->assertStringContainsString('Not classified: 1', $html);
+        $this->assertStringNotContainsString('Includes current data', $html);
+    }
+
     public function test_current_month_is_browsable_live_but_not_stored_as_frozen(): void
     {
         Carbon::setTestNow('2026-09-15 12:00:00');

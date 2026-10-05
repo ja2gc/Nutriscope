@@ -29,7 +29,8 @@ export function CensusPanel({ apiPrefix }: { apiPrefix: "rnd" | "admin" }) {
   const categoryEntries = summary
     ? Object.entries(summary.by_primary_diagnosis_category).sort(([left, leftCount], [right, rightCount]) => rightCount - leftCount || left.localeCompare(right))
     : [];
-  const nutritionalStatusEntries = summary ? Object.entries(summary.by_nutritional_status) : [];
+  const nutritionalStatusEntries = summary ? Object.entries(summary.by_nutritional_status).filter(([status]) => status !== "Unspecified") : [];
+  const unclassifiedStatus = summary?.by_nutritional_status.Unspecified ?? 0;
   const unscored = summary?.by_risk.Unspecified ?? 0;
   const ageTotals = summary?.age_groups.reduce((result, group) => {
     const row = summary.age_sex[group];
@@ -46,19 +47,19 @@ export function CensusPanel({ apiPrefix }: { apiPrefix: "rnd" | "admin" }) {
             </div>
             <div className="text-left sm:text-right">
               <p className="text-3xl font-bold tabular-nums text-warm-900">{summary.total.toLocaleString()} <span className="text-base font-medium">{summary.total === 1 ? "cycle" : "cycles"}</span></p>
-              <p className="mt-1 text-xs text-warm-500">{summary.status === "frozen" ? "Completed snapshot" : "Includes current data"}</p>
+              {summary.status === "frozen" && <p className="mt-1 text-xs text-warm-500">Completed snapshot</p>}
             </div>
           </header>
 
           <section aria-label="Age and sex">
             <h3 className="mb-3 text-base font-bold text-warm-800">Age and sex</h3>
             <div className="overflow-x-auto rounded-xl border border-warm-200">
-              <table className="w-full min-w-[300px] border-collapse text-sm tabular-nums">
-                <thead className="bg-warm-50 text-warm-600"><tr><th scope="col" className="px-3 py-2 text-left">Sex</th>{summary.age_groups.map((group) => <th key={group} scope="col" className="px-3 py-2 text-right">{group}</th>)}<th scope="col" className="px-3 py-2 text-right">Total</th></tr></thead>
+              <table className="w-full table-fixed border-collapse text-xs tabular-nums sm:text-sm">
+                <thead className="bg-warm-50 text-warm-600"><tr><th scope="col" className="w-10 px-0.5 py-2 text-left sm:w-auto sm:px-3">Sex</th>{summary.age_groups.map((group) => <th key={group} scope="col" className="px-0.5 py-2 text-right sm:px-3">{group}</th>)}<th scope="col" className="px-0.5 py-2 text-right sm:px-3">Total</th></tr></thead>
                 <tbody className="divide-y divide-warm-100">
-                  {([['M', 'Male'], ['F', 'Female']] as const).map(([sex, label]) => <tr key={sex}><th scope="row" className="px-3 py-2 text-left font-medium text-warm-700">{label}</th>{summary.age_groups.map((group) => <td key={group} className="px-3 py-2 text-right">{summary.age_sex[group]?.[sex] ?? 0}</td>)}<td className="px-3 py-2 text-right font-semibold">{sex === 'M' ? ageTotals?.M ?? 0 : ageTotals?.F ?? 0}</td></tr>)}
+                  {([['M', 'Male'], ['F', 'Female']] as const).map(([sex, label]) => <tr key={sex}><th scope="row" className="px-0.5 py-2 text-left font-medium text-warm-700 sm:px-3">{label}</th>{summary.age_groups.map((group) => <td key={group} className="px-0.5 py-2 text-right sm:px-3">{summary.age_sex[group]?.[sex] ?? 0}</td>)}<td className="px-0.5 py-2 text-right font-semibold sm:px-3">{sex === 'M' ? ageTotals?.M ?? 0 : ageTotals?.F ?? 0}</td></tr>)}
                 </tbody>
-                <tfoot className="border-t border-warm-200 bg-warm-50 font-bold"><tr><th scope="row" className="px-3 py-2 text-left">Total</th>{summary.age_groups.map((group) => <td key={group} className="px-3 py-2 text-right">{summary.age_sex[group]?.total ?? 0}</td>)}<td className="px-3 py-2 text-right">{ageTotals?.total ?? 0}</td></tr></tfoot>
+                <tfoot className="border-t border-warm-200 bg-warm-50 font-bold"><tr><th scope="row" className="px-0.5 py-2 text-left sm:px-3">Total</th>{summary.age_groups.map((group) => <td key={group} className="px-0.5 py-2 text-right sm:px-3">{summary.age_sex[group]?.total ?? 0}</td>)}<td className="px-0.5 py-2 text-right sm:px-3">{ageTotals?.total ?? 0}</td></tr></tfoot>
               </table>
             </div>
             {summary.unknown_sex > 0 && <p className="mt-2 text-sm text-warm-600">Unclassified age or sex: {summary.unknown_sex}</p>}
@@ -72,6 +73,7 @@ export function CensusPanel({ apiPrefix }: { apiPrefix: "rnd" | "admin" }) {
                   <dt className="text-warm-700">{status}</dt><dd className="font-semibold tabular-nums text-warm-900">{count}</dd>
                 </div>)}
               </dl>
+              {unclassifiedStatus > 0 && <p className="mt-2 text-sm text-warm-600">Not classified: {unclassifiedStatus}</p>}
             </section>
             <div className="space-y-6">
               <section aria-label="By risk level">

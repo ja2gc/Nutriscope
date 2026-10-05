@@ -60,6 +60,8 @@ describe("CensusPanel", () => {
     expect(container.textContent).toContain("Moderate Malnutrition");
     expect(container.textContent).toContain("Mild Malnutrition / Underweight");
     expect(container.textContent).toContain("Obese Class II (Severe)");
+    expect(container.querySelector('section[aria-label="By nutritional status"]')?.textContent).not.toContain("Unspecified");
+    expect(container.textContent).not.toContain("Includes current data");
     expect(container.querySelector("[data-census-screen]")).not.toBeNull();
     expect(document.body.querySelector(":scope > [data-census-print]")).toBeNull();
     expect(container.querySelector("thead")?.textContent).toContain("Sex30-39Total");
@@ -75,6 +77,22 @@ describe("CensusPanel", () => {
     const download = container.querySelector<HTMLAnchorElement>('a[download]');
     expect(download?.textContent).toContain("Download PDF");
     expect(download?.getAttribute("href")).toContain("demographic_census/export");
+    await act(async () => root.unmount());
+  });
+
+  it("keeps unclassified cycles visible outside the nutritional status categories", async () => {
+    vi.mocked(getCensusSummary).mockResolvedValue({
+      ...summary,
+      by_nutritional_status: { ...summary.by_nutritional_status, Unspecified: 1 },
+    });
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => { root.render(<CensusPanel apiPrefix="rnd" />); });
+    const status = container.querySelector('section[aria-label="By nutritional status"]');
+    expect(status?.querySelector("dl")?.textContent).not.toContain("Unspecified");
+    expect(status?.textContent).toContain("Not classified: 1");
     await act(async () => root.unmount());
   });
 

@@ -3,12 +3,7 @@
 @section('body')
     @include('reports.partials.letterhead', ['title' => 'DEMOGRAPHIC CENSUS', 'subtitle' => $summary['label']])
 
-    <table style="border:0; margin:6px 0 8px;">
-        <tr>
-            <td style="border:0; font-size:9pt;"><span class="bold">Total ADIME cycles:</span> {{ number_format($summary['total']) }}</td>
-            <td style="border:0; font-size:9pt;" class="right">{{ $summary['status'] === 'frozen' ? 'Completed snapshot' : 'Includes current data' }}</td>
-        </tr>
-    </table>
+    <p style="margin:6px 0 8px; font-size:9pt;"><span class="bold">Total ADIME cycles:</span> {{ number_format($summary['total']) }}</p>
 
     <div class="section">Age and sex</div>
     <table class="grid" style="table-layout:fixed; font-size:9pt;">
@@ -24,12 +19,13 @@
 
     <table style="border:0; margin-top:8px; table-layout:fixed;"><tr>
         <td style="border:0; padding-right:5px; vertical-align:top;">
-            <div class="section">By risk level</div>
-            <table class="grid">@foreach($summary['by_risk'] as $label => $count)<tr><td>{{ $label }}</td><td class="right bold">{{ $count }}</td></tr>@endforeach</table>
+            <div class="section">By nutritional status</div>
+            <table class="grid">@foreach($summary['by_nutritional_status'] as $label => $count)@if($label !== 'Unspecified')<tr><td>{{ $label }}</td><td class="right bold">{{ $count }}</td></tr>@endif @endforeach</table>
+            @if(($summary['by_nutritional_status']['Unspecified'] ?? 0) > 0)<p class="muted">Not classified: {{ $summary['by_nutritional_status']['Unspecified'] }}</p>@endif
         </td>
         <td style="border:0; padding:0 5px; vertical-align:top;">
-            <div class="section">By nutritional status</div>
-            <table class="grid">@foreach($summary['by_nutritional_status'] as $label => $count)<tr><td>{{ $label }}</td><td class="right bold">{{ $count }}</td></tr>@endforeach</table>
+            <div class="section">By risk level</div>
+            <table class="grid">@foreach($summary['by_risk'] as $label => $count)<tr><td>{{ $label }}</td><td class="right bold">{{ $count }}</td></tr>@endforeach</table>
         </td>
         <td style="border:0; padding-left:5px; vertical-align:top;">
             <div class="section">By nutrition care category</div>
