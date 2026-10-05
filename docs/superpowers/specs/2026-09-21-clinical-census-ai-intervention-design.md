@@ -56,7 +56,7 @@ This design is the implementation authority for the remaining work from the brai
 - Random, immutable, non-sequential `NS-XXXX-XXXX` patient codes replaced the proposed year-plus-sequence format. They appear as smaller muted text only beneath the patient name on the profile header, are accepted by the existing unified name/physician/hospital-number search field, and identify patients in privacy-limited audit views without exposing patient names.
 - The login image panel contains only a larger centered brand lockup; its logo remains hover-rotatable and the background/card contrast was corrected.
 - The redundant Patients NCP cycle-separation helper text was removed.
-- Demographic Census starts at the earliest non-deleted ADIME cycle, includes the current month, and counts each separate cycle once even when several cycles belong to one person. The seeded April cycle is included.
+- Demographic Census starts at the earliest qualifying ADIME cycle, includes the current month, and counts each separate cycle once even when several cycles belong to one person. The seeded April cycle is included. The later visit qualification rule below supersedes the original all-cycle count.
 - Relevant card Edit actions were aligned at the top-right beside their card headings.
 - PDF preview parsing was cached/lazy enough to remove repeated report-render delay, and the patient-plan PDF pagination defect was corrected.
 - The above baseline was committed, deployed, documented/storyboarded, and live-browser tested. The new implementation must regression-test it but must not rebuild or redesign it.
@@ -156,7 +156,7 @@ For already deployed demo rows, use one narrowly targeted, idempotent backfill t
 
 ### Census and report identity
 
-Keep the cycle-owned Assessment category in structured data and legacy-compatible aggregates, never deriving it from raw `patients.medical_diagnosis`. Reports shows Demographic Census as a year or month summary. Each non-deleted ADIME cycle counts once in its start month; continuing visits do not add counts. A later separate cycle for the same patient counts in its own start month. Annual totals sum the months. The screen shows total cycles; a compact age/sex matrix with sex as rows and age bands as columns; **By nutritional status**, including every supported status with zero counts; **By Risk Level**; and sparse aggregate **By nutrition care category** totals. It omits ward, patient names, and free-text Other details.
+Keep the cycle-owned Assessment category in structured data and legacy-compatible aggregates, never deriving it from raw `patients.medical_diagnosis`. Reports shows Demographic Census as a year or month summary. A new ADIME cycle counts once in its start month after a saved Assessment and a finished visit whose recorded work includes Assessment; finishing a visit without Assessment work does not qualify it. Assessed legacy cycles without visit records remain included. Continuing visits do not add counts. A later separate qualifying cycle for the same patient counts in its own start month. Annual totals sum the months. The screen shows total cycles; a compact age/sex matrix with sex as rows and age bands as columns; **By nutritional status**, including every supported status with zero counts; **By Risk Level**; and sparse aggregate **By nutrition care category** totals. It omits ward, patient names, and free-text Other details.
 
 The earlier basis-version rebuild remains valid for data compatibility. Completed months use frozen census snapshots, including zero-cycle months. The current month stays live. A selected year or month downloads through a dedicated server-rendered PDF response. It contains Census content only, without Reports navigation or browser-added page URLs, and does not open the browser print dialog.
 
@@ -400,7 +400,7 @@ Keep output compact and deduplicate identical dish-plus-portion combinations whe
 
 - Structured weight period validation, formatting, legacy parsing, and unparseable fallback.
 - Category allow-list, `Other` detail requirement, cycle ownership, authorization, and resources.
-- Census aggregates categories, uses `Unclassified` for unresolved legacy records, counts every non-deleted cycle once, renders every nutritional status including zero, and rebuilds old basis versions. Its selected-view PDF is direct and identity-free. Other report archives preserve their bytes; legacy Census PDFs are removed by targeted cleanup.
+- Census aggregates categories, uses `Unclassified` for unresolved legacy care categories, counts qualifying cycles once, renders every nutritional status including zero, and rebuilds old basis versions. Its selected-view PDF is direct and identity-free. Other report archives preserve their bytes; legacy Census PDFs are removed by targeted cleanup.
 - Seeder is deterministic and repeatable; fictional seeded cycles receive explicit categories with no duplicates or invented history.
 - Maternal modifiers for first, second, and third trimester and lactation, including RND overrides and restricted-fluid behavior.
 - Meal generation/scaling/variance ignores water while retaining energy, macros, and existing micronutrient behavior.
@@ -448,7 +448,7 @@ Implementation must open and inspect the exact source content before encoding an
 
 - RND enters weight duration through quantity + weeks/months once; no fixed three-month assumption remains.
 - Every newly saved Assessment has exactly one allowed Nutrition care category; medical diagnosis, PES diagnosis, and intervention goal remain independent.
-- Demographic Census offers year/month summaries with one count per cycle start, shows the transposed age/sex matrix, every nutritional status including zero, risk level, and aggregate Nutrition care category totals, and directly downloads selected content as a navigation-free PDF without creating a filed report. Legacy Census PDFs are removed by targeted cleanup; other prepared archives remain unchanged.
+- Demographic Census offers year/month summaries with one count per qualifying cycle start. New cycles require saved Assessment and a finished visit with Assessment work; assessed legacy cycles without visit records remain included. Census shows the transposed age/sex matrix, every nutritional status including zero, risk level, and aggregate Nutrition care category totals, and directly downloads selected content as a navigation-free PDF without creating a filed report. Legacy Census PDFs are removed by targeted cleanup; other prepared archives remain unchanged.
 - Maternal final targets are calculated automatically and transparently; patient never performs addition.
 - Stress factor is absent from workflow; fluid shows required, food-provided, and remaining drinking amounts and never becomes a meal-plan scaling target.
 - PES assistant returns only source-gated, evidence-supported drafts for unchanged data at most once, with no invented evidence or sources.

@@ -150,7 +150,7 @@ class BackupRetentionService
 
     private function moveToRecentlyDeleted(BackupRun $backup): void
     {
-        if ($backup->recoveryRequests()->whereNotIn('state', ['completed', 'failed', 'rolled_back', 'cancelled'])->exists()) {
+        if ($backup->isProtectedFromDeletion()) {
             return;
         }
 

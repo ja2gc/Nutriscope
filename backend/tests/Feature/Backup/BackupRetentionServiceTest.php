@@ -8,8 +8,10 @@ use App\Enums\RecoveryStatus;
 use App\Models\BackupRun;
 use App\Models\RecoveryRequest;
 use App\Services\Backup\BackupRetentionService;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Artisan;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -69,5 +71,43 @@ class BackupRetentionServiceTest extends TestCase
         app(BackupRetentionService::class)->apply();
 
         $this->assertSame(BackupState::Completed, $backup->refresh()->state);
+    }
+
+    #[Test]
+    public function scheduled_retention_moves_an_expired_backup_without_waiting_for_another_successful_backup(): void
+    {
+        Carbon::setTestNow('2026-10-05 10:00:00');
+        BackupRun::factory()->completed()->create(['verified_at' => now()->subHour()]);
+        $expired = BackupRun::factory()->completed()->create(['verified_at' => now()->subDays(3)]);
+        $expired->schedulePeriods()->create([
+            'category' => BackupRetentionTier::Daily,
+            'period_key' => '2026-10-02',
+            'expires_at' => now()->subMinutes(30),
+        ]);
+
+        Artisan::call('schedule:list');
+        $event = collect(app(Schedule::class)->events())
+            ->first(fn ($event): bool => $event->getSummaryForDisplay() === 'backups:apply-retention');
+
+        $this->assertNotNull($event);
+        $this->assertTrue($event->isDue(app()));
+        $event->run(app());
+
+        $this->assertSame(BackupState::RecentlyDeleted, $expired->refresh()->state);
+    }
+
+    #[Test]
+    public function scheduled_retention_keeps_the_latest_verified_backup_when_all_periods_expire(): void
+    {
+        $latest = BackupRun::factory()->completed()->create(['verified_at' => now()->subDays(4)]);
+        $latest->schedulePeriods()->create([
+            'category' => BackupRetentionTier::Daily,
+            'period_key' => now()->subDays(4)->format('Y-m-d'),
+            'expires_at' => now()->subDay(),
+        ]);
+
+        app(BackupRetentionService::class)->apply();
+
+        $this->assertSame(BackupState::Completed, $latest->refresh()->state);
     }
 }

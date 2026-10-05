@@ -86,4 +86,34 @@ describe("backup page loading", () => {
 
     await act(async () => { finishFailed({ ...list, data: [] }); });
   });
+
+  it("shows a failed automatic backup even when its schedule period was cleared for retry", async () => {
+    vi.mocked(listBackups).mockImplementation(async (_page, section, category) => {
+      if (section === "in_progress") return { ...list, data: [] } as never;
+      if (section === "failed") {
+        return { ...list, data: category === "all" ? [{ id: "failed-without-period" }] : [], summary: {
+          ...list.summary,
+          counts: { ...list.summary.counts, failed: 1 },
+          category_counts: { ...list.summary.category_counts, daily: 0 },
+        } } as never;
+      }
+      return list as never;
+    });
+    vi.mocked(getBackupSchedules).mockResolvedValue({
+      daily: { enabled: false, next_at: null },
+      weekly: { enabled: false, next_at: null },
+      monthly: { enabled: false, next_at: null }, message: null,
+    });
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => { root.render(<BackupsPage />); });
+    await act(async () => { await Promise.resolve(); });
+    const failedTab = Array.from(container.querySelectorAll("button")).find((button) => button.textContent?.startsWith("Failed ("));
+    await act(async () => { failedTab!.click(); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(container.textContent).toContain("failed-without-period");
+  });
 });

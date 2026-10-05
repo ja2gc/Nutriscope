@@ -306,7 +306,7 @@ git commit -m "feat(clinical): simplify assessment inputs"
 
 - [ ] **Step 1: Write failing census/seeder tests**
 
-Assert each non-deleted cycle counts once; category comes from that cycle's Assessment; null legacy value groups as `Unclassified`; free-text physician diagnosis never becomes a bucket; `Other` free text remains private; Maria is `Diabetes`; both Roberto cycles are `Malnutrition`; running PatientSeeder twice creates no duplicate patients/cycles/plans/reports.
+Assert each qualifying cycle counts once in its start month: new cycles require saved Assessment plus a finished visit with Assessment work, while assessed legacy cycles without visit records remain included. Category comes from that cycle's Assessment; null legacy care category groups as `Unclassified`; free-text physician diagnosis never becomes a bucket; `Other` free text remains private; Maria is `Diabetes`; both Roberto cycles are `Malnutrition`; running PatientSeeder twice creates no duplicate patients/cycles/plans/reports.
 
 - [ ] **Step 2: Confirm failures**
 
@@ -317,7 +317,7 @@ php artisan test --compact tests/Feature/MonthlyDemographicCensusTest.php tests/
 
 - [ ] **Step 3: Update generator and monthly basis**
 
-Increment `DemographicCensusGenerator::BASIS_VERSION` from 2 to 3. Replace cycle patient `medical_diagnosis` projection with Assessment category fallback `Unclassified` for structured data and compatibility. The later 2026-10-02 owner override replaces filed Census PDFs with year/month screens showing the age/sex matrix, **By Risk Level**, and aggregate **By nutrition care category**. Keep Other details private. Rebuild completed period data only through the existing basis-version path; never mutate prepared report bytes for other report types.
+Increment `DemographicCensusGenerator::BASIS_VERSION` from 2 to 3 for the original category change; the later visit qualification rule advances the basis again. Replace cycle patient `medical_diagnosis` projection with Assessment category fallback `Unclassified` for structured data and compatibility. The later 2026-10-02 owner override replaces filed Census PDFs with year/month screens showing the age/sex matrix, **By Risk Level**, and aggregate **By nutrition care category**. Keep Other details private. Rebuild completed period data only through the existing basis-version path; never mutate prepared report bytes for other report types.
 
 - [ ] **Step 4: Seed and narrowly backfill fictional fixture categories**
 
@@ -968,7 +968,7 @@ Use the Codex in-app/native browser, not the Playwright plugin. Take screenshots
 
 1. Existing login branding hover/fit and patient-code search/header baseline.
 2. Assessment quantity/unit, category/Other, maternal status, save/reload, validation, no stress control, no fixed three-month text.
-3. Census earliest year/month and current month, cycle-start counts, annual sum, transposed age/sex matrix, all nutritional statuses including zero, risk and sparse aggregate Nutrition care category breakdowns, omitted ward, direct selected-view PDF download without navigation, browser URL footer, print dialog, or a new report identity, and removal of legacy Census PDFs. Check frozen archives for the remaining report types.
+3. Census earliest year/month and current month, qualifying cycle-start counts after saved Assessment plus finished Assessment-working visit (or assessed legacy cycle), annual sum, transposed age/sex matrix, all nutritional statuses including zero, risk and sparse aggregate Nutrition care category breakdowns, omitted ward, direct selected-view PDF download without navigation, browser URL footer, print dialog, or a new report identity, and removal of legacy Census PDFs. Check frozen archives for the remaining report types.
 4. Intervention goal/stage progressive disclosure, baseline/modifier/final calculation panel, final maternal prescription, and required/food-provided/remaining-drinking fluid calculation.
 5. Meal generation/scaling with no fluid target-match influence.
 6. PES drafts end to end: open the Diagnosis workflow for fictional data; request drafts; verify the real network response and zero-to-three UI; inspect visible Assessment evidence and confirm no visible source label; accept a mapped candidate into the existing structured Diagnosis selections rather than an unrelated `Other` free-text field; edit; dismiss; confirm cached state; change Assessment evidence and confirm refresh/invalidation; verify manual fallback; verify compact request/result behavior, authorization, server-side source validation, and no demo/env gate.

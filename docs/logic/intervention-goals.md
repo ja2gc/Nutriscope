@@ -1137,7 +1137,9 @@ composition continue to use the authorities recorded in §§2–15.2.
 
 - The cycle-owned Nutrition care category remains structured Assessment context and stays
   separate from physician diagnosis, PES diagnosis, and intervention goal. Current Demographic
-  Census year/month screens count each ADIME cycle in its start month and render a compact age/sex
+  Census year/month screens count a new ADIME cycle in its start month after its first saved
+  Assessment and a finished visit with Assessment work; assessed legacy cycles without visit
+  records remain included. They render a compact age/sex
   matrix with sex as rows, every nutritional status including zero, **By Risk Level**, and sparse
   aggregate **By nutrition care category** totals; they omit ward. Completed month snapshots stay
   frozen, while the current month remains live. The selected view downloads through a dedicated

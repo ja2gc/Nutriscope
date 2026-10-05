@@ -125,7 +125,7 @@ Use this as both the recording checklist and narration script. Record with demo 
 **On-screen actions**
 
 1. Open **Reports** and review the report catalog.
-2. Open an allowed Program Project Activity, Menu Calendar, Procurement Pack, or Accomplishment PDF report. Open aggregate Demographic Census as a year/month screen. Show that each non-deleted ADIME cycle counts once in its start month without exposing patient identity. Show every nutritional-status category, including zero totals, and download the selected Census view as PDF.
+2. Open an allowed Program Project Activity, Menu Calendar, Procurement Pack, or Accomplishment PDF report. Open aggregate Demographic Census as a year/month screen. Show that a new ADIME cycle counts once in its start month after its first saved Assessment and a finished visit with Assessment work; assessed legacy cycles remain included. Do not expose patient identity. Show every nutritional-status category, including zero totals, and download the selected Census view as PDF.
 3. Use Preview and Download on an operational report; both show its prepared copy.
 4. Archive an inactive demo report and open the **Archived** tab.
 5. Open **Template Edit** and show shared branding plus an editable non-clinical signatory. Save only fictional demo changes.
@@ -187,7 +187,7 @@ Use this as both the recording checklist and narration script. Record with demo 
 
 1. Open **Backups** and review backup health, storage use, and the latest successful recovery-test date. Explain that **Failed** means a backup attempt produced no usable restore point and may be removed as a failed record; **Recovery test** is the latest successful isolated restore verification, not a production restore. Dates come from stored backup/recovery records, so investigate any unexpected old date instead of treating it as a hardcoded label. For a clean demo, show the default **Automatic backups are disabled.** message before enabling anything.
 2. Point out the independent Daily, Weekly, and Monthly toggles, fixed retention counts, and next Asia/Manila run for each enabled schedule.
-3. Use **Restore points**, **Failed**, and **Recently deleted** to show the primary views. Use the wrapping Daily, Weekly, Monthly, Manual, and Pre-restore filters and pagination. Explain that one automatic archive may appear under several schedule filters when it satisfies coinciding schedules.
+3. Use **Restore points**, **Failed**, and **Recently deleted** to show the primary views. Use **All** to include failed attempts whose schedule period was cleared for retry, then use the wrapping Daily, Weekly, Monthly, Manual, and Pre-restore filters and pagination. Explain that one automatic archive may appear under several schedule filters when it satisfies coinciding schedules.
 4. In configured staging, select **Create backup now**, then show the conditional **Backup activity** panel moving through Queued, Creating, and Verifying before the result appears in Restore points. Confirm the Manual filter shows the point without an automatic expiry date.
 5. Show an automatic point's **Expires on** date. Show that a protected Pre-restore row has no Delete action. Move an older eligible demo point with **Delete**, show its 48-hour Recently deleted deadline, then select **Keep backup**.
 6. Open one failed attempt, review its safe message, open the delete confirmation, and cancel. If the staging record is disposable, remove it and confirm the audit event remains.

@@ -11,6 +11,7 @@ use App\Models\RecoveryTest;
 use App\Services\Audit\AuditHealthMonitor;
 use App\Services\Audit\AuditRetentionState;
 use App\Services\Audit\SecurityAuditDeduplicator;
+use App\Services\Backup\BackupRetentionService;
 use App\Services\Backup\DispatchDueBackups;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Database\QueryException;
@@ -34,6 +35,12 @@ return Application::configure(basePath: dirname(__DIR__))
             ->everyTenMinutes()
             ->timezone(config('nutriscope-backups.timezone'))
             ->name('backups:dispatch-due')
+            ->withoutOverlapping()
+            ->onOneServer();
+        $schedule->call(fn (): mixed => app(BackupRetentionService::class)->apply())
+            ->hourly()
+            ->timezone(config('nutriscope-backups.timezone'))
+            ->name('backups:apply-retention')
             ->withoutOverlapping()
             ->onOneServer();
         $schedule->command('backup:monitor')

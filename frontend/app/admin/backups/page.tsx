@@ -23,7 +23,7 @@ import {
   updateBackupSchedules,
 } from "@/services/backupService";
 import type {
-  BackupCategory,
+  BackupCategoryFilter,
   BackupListResponse,
   BackupRunDto,
   BackupScheduleInput,
@@ -43,7 +43,8 @@ const activeRecoveryStates = new Set<RecoveryStatus>([
   "switching",
 ]);
 
-const categoryOptions: Array<[BackupCategory, string]> = [
+const categoryOptions: Array<[BackupCategoryFilter, string]> = [
+  ["all", "All"],
   ["daily", "Daily"],
   ["weekly", "Weekly"],
   ["monthly", "Monthly"],
@@ -80,7 +81,7 @@ export default function BackupsPage() {
   const [savingSchedules, setSavingSchedules] = useState(false);
   const [page, setPage] = useState(1);
   const [section, setSection] = useState<BackupView>("available");
-  const [category, setCategory] = useState<BackupCategory>("daily");
+  const [category, setCategory] = useState<BackupCategoryFilter>("daily");
   const latestLoad = useRef(0);
 
   const load = useCallback(async (quiet = false, requestedPage = page) => {
@@ -327,6 +328,7 @@ export default function BackupsPage() {
                 setListLoading(true);
                 setListError(false);
                 setSection(value);
+                setCategory("all");
                 setPage(1);
               }}
             />
@@ -350,7 +352,7 @@ export default function BackupsPage() {
                     setPage(1);
                   }}
                 >
-                  {label} ({data.summary.category_counts[key]})
+                  {label} ({key === "all" ? data.summary.counts[section] : data.summary.category_counts[key]})
                 </Button>
               ))}
             </div>
