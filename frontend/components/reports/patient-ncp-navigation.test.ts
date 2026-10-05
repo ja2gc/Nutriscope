@@ -33,7 +33,7 @@ describe("Patients NCP report navigation", () => {
     expect(service).toContain("meal_plan_id: string | null");
     expect(service).toContain("available: boolean");
     expect(browser).toContain("if (i.available === false) return");
-    expect(browser).toContain("disabled={i.available === false}");
+    expect(browser).toContain("disabled={i.available === false || busy !== null}");
     expect(browser).toContain("i.unavailable_reason");
     expect(page).toContain("<Pagination");
     expect(page).not.toContain("Only reports belonging to this ADIME cycle are shown.");

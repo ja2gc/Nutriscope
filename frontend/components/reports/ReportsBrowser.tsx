@@ -20,7 +20,7 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import {
   ReportItem, ReportTemplate, Branding, ReportAxis, ReportInstance,
   listReports, deleteReport, reportDownloadUrl, reportViewUrl,
-  listInstances, prepareReport,
+  listInstances, prepareReport, archiveReport,
    getBranding, saveBranding, getAdminBranding, saveAdminBranding, brandingLogoUrl, listTemplates, saveTemplate,
 } from "@/services/reportService";
 import { ReportPreview } from "@/components/ReportPreview";
@@ -256,6 +256,20 @@ function InstancesPanel({
     }
   }
 
+  async function onArchive(i: ReportInstance) {
+    if (i.available === false) return;
+
+    setBusy(i.key);
+    try {
+      await archiveReport(entry.type, i.params, apiPrefix);
+      onFlash(true, `Archived ${i.label}.`);
+    } catch (e) {
+      onFlash(false, e instanceof Error ? e.message : "Report archive failed.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <Card className="overflow-hidden">
       <div className="px-5 py-4 border-b border-warm-100 flex items-start justify-between gap-4">
@@ -307,7 +321,7 @@ function InstancesPanel({
             <li key={i.key} className="flex items-center justify-between gap-3 hover:bg-warm-50/60">
               <button
                 onClick={() => void onPreview(i)}
-                disabled={i.available === false}
+                disabled={i.available === false || busy !== null}
                 className="flex-1 min-w-0 text-left px-5 py-3 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 flex items-center gap-2.5 group focus:outline-none focus-visible:bg-emerald-50/40"
               >
                 <Eye className="h-4 w-4 text-warm-300 group-hover:text-emerald-500 shrink-0" />
@@ -320,6 +334,19 @@ function InstancesPanel({
                 <InfoHint label="Why this report is unavailable" title="Menu plan required">
                   {i.unavailable_reason}
                 </InfoHint>
+              )}
+              {i.available !== false && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  aria-label={`Archive ${i.label}`}
+                  className="mr-5 shrink-0"
+                  disabled={busy !== null}
+                  onClick={() => void onArchive(i)}
+                >
+                  <Archive className="h-4 w-4" /> Archive
+                </Button>
               )}
               {busy === i.key && <Loader2 className="mr-5 h-4 w-4 animate-spin text-emerald-600" />}
             </li>
