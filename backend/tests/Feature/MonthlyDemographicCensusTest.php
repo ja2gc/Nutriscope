@@ -103,6 +103,37 @@ class MonthlyDemographicCensusTest extends TestCase
         $this->assertFalse(DemographicCensusPeriod::query()->where('period_start', '<', '2026-04-01')->exists());
     }
 
+    public function test_unassessed_earlier_cycle_does_not_extend_available_census_months(): void
+    {
+        Carbon::setTestNow('2026-10-15 12:00:00');
+        $patient = Patient::factory()->create();
+        NcpRecord::factory()->create([
+            'patient_id' => $patient->id,
+            'created_at' => '2026-04-09 08:00:00',
+        ]);
+        $june = NcpRecord::factory()->create([
+            'patient_id' => $patient->id,
+            'created_at' => '2026-06-12 08:00:00',
+        ]);
+        Assessment::factory()->create(['ncp_record_id' => $june->id]);
+
+        $this->artisan('reports:demographic-census-catch-up')->assertSuccessful();
+
+        $this->assertSame(
+            ['2026-06-01', '2026-07-01', '2026-08-01', '2026-09-01'],
+            DemographicCensusPeriod::query()->orderBy('period_start')->pluck('period_start')->map->toDateString()->all(),
+        );
+
+        $admin = User::factory()->admin()->create();
+        $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/admin/reports/demographic_census/summary?year=2026&month=5')
+            ->assertNotFound();
+        $this->getJson('/api/admin/reports/demographic_census/summary?year=2026&month=6')
+            ->assertOk()
+            ->assertJsonPath('data.available_months.0.month', 6)
+            ->assertJsonPath('data.total', 1);
+    }
+
     public function test_catch_up_stores_nothing_before_the_first_patient_exists(): void
     {
         Carbon::setTestNow('2026-09-15 12:00:00');
@@ -141,11 +172,12 @@ class MonthlyDemographicCensusTest extends TestCase
     {
         Carbon::setTestNow('2026-09-15 12:00:00');
         $patient = Patient::factory()->create(['admission_date' => '2026-05-12']);
-        NcpRecord::factory()->create([
+        $cycle = NcpRecord::factory()->create([
             'patient_id' => $patient->id,
             'created_at' => '2026-05-12 08:00:00',
             'updated_at' => '2026-05-12 08:00:00',
         ]);
+        Assessment::factory()->create(['ncp_record_id' => $cycle->id]);
         $this->artisan('reports:demographic-census-catch-up')->assertSuccessful();
         $admin = User::factory()->create(['role' => 'Admin']);
 
@@ -166,11 +198,12 @@ class MonthlyDemographicCensusTest extends TestCase
     {
         Carbon::setTestNow('2026-06-02 12:00:00');
         $patient = Patient::factory()->create(['admission_date' => '2026-05-12']);
-        NcpRecord::factory()->create([
+        $cycle = NcpRecord::factory()->create([
             'patient_id' => $patient->id,
             'created_at' => '2026-05-12 08:00:00',
             'updated_at' => '2026-05-12 08:00:00',
         ]);
+        Assessment::factory()->create(['ncp_record_id' => $cycle->id]);
         $this->artisan('reports:demographic-census-catch-up')->assertSuccessful();
         $period = DemographicCensusPeriod::query()->firstOrFail();
 
@@ -370,11 +403,12 @@ class MonthlyDemographicCensusTest extends TestCase
     {
         Carbon::setTestNow('2026-09-15 12:00:00');
         $patient = Patient::factory()->create(['admission_date' => '2026-04-09']);
-        NcpRecord::factory()->create([
+        $cycle = NcpRecord::factory()->create([
             'patient_id' => $patient->id,
             'created_at' => '2026-04-09 08:00:00',
             'updated_at' => '2026-04-09 08:00:00',
         ]);
+        Assessment::factory()->create(['ncp_record_id' => $cycle->id]);
         $this->artisan('reports:demographic-census-catch-up')->assertSuccessful();
         $admin = User::factory()->create(['role' => 'Admin']);
 
@@ -525,7 +559,7 @@ class MonthlyDemographicCensusTest extends TestCase
         $period = '?start=2026-06-01&end=2026-06-30';
 
         $this->actingAs($actor, 'sanctum')->postJson($base.'/prepare'.$period)->assertGone();
-        $this->postJson($base.'/archive'.$period)->assertGone();
+        $this->postJson($base.'/archive'.$period)->assertNotFound();
         $this->getJson($base.'/render'.$period)->assertGone();
         $this->getJson($base.'/instances')->assertGone();
         $this->getJson("/api/rnd/reports/{$legacy->uuid}")->assertGone();

@@ -17,3 +17,12 @@ export async function DELETE(_req: NextRequest, { params }: Ctx) {
     method: "DELETE",
   });
 }
+
+export async function PUT(req: NextRequest, { params }: Ctx) {
+  const { templateId } = await params;
+
+  return proxy(`/rnd/meal-plan-templates/${templateId}`, {
+    method: "PUT",
+    body: await req.json(),
+  });
+}

@@ -92,19 +92,16 @@ describe("createPlanFromTemplate", () => {
 });
 
 describe("meal-plan fluid boundary", () => {
-  test("keeps water snapshots but removes fluid from matching UI", () => {
+  test("keeps water snapshots and fluid out of menu matching", () => {
     const root = process.cwd();
-    const page = readFileSync(join(root, "app/(rnd)/ncp/[patientId]/intervention/[ncpId]/page.tsx"), "utf8");
     const section = readFileSync(join(root, "app/(rnd)/ncp/[patientId]/intervention/[ncpId]/_components/MealPlanSection.tsx"), "utf8");
     const tracker = readFileSync(join(root, "app/(rnd)/ncp/[patientId]/intervention/[ncpId]/_components/MacroTrackerBar.tsx"), "utf8");
     const service = readFileSync(join(root, "services/mealPlanService.ts"), "utf8");
+    const report = readFileSync(join(root, "../backend/resources/views/reports/patient-menu-plan.blade.php"), "utf8");
 
-    expect(page).toContain("Daily fluid guidance");
-    expect(page).toContain("<InfoHint");
-    expect(page).toContain("How fluid guidance relates to the meal plan");
-    expect(page).toContain("Food listings do not guarantee beverage intake or a fluid limit.");
     expect(section).not.toContain("label: 'Fluid'");
     expect(tracker).toContain('target.label !== "Fluid"');
     expect(service).toContain("water_g?: number | null");
+    expect(report).toContain("Estimated fluid from this menu if followed.");
   });
 });

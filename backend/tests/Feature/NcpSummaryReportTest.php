@@ -223,6 +223,7 @@ class NcpSummaryReportTest extends TestCase
     public function test_summary_uses_only_the_newest_complete_intervention_plan_without_revision_history(): void
     {
         $ncp = $this->makeRecord();
+        $ncp->update(['status' => 'active']);
         $firstPlan = $ncp->intervention;
         $latestPlan = Intervention::create([
             'ncp_record_id' => $ncp->id,
@@ -259,6 +260,7 @@ class NcpSummaryReportTest extends TestCase
             'report' => $report,
         ])->render();
         $this->assertStringContainsString('Newest saved education.', $html);
+        $this->assertStringNotContainsString('Ana Marie Santos Cruz — Active', $html);
         $this->assertStringNotContainsString('Intervention revision history', $html);
         $this->assertStringNotContainsString('Version 1', $html);
     }
@@ -266,6 +268,18 @@ class NcpSummaryReportTest extends TestCase
     public function test_intervention_guidance_renders_as_one_pagination_block(): void
     {
         $ncp = $this->makeRecord();
+        Intervention::create([
+            'ncp_record_id' => $ncp->id,
+            'energy_kcal' => 1800,
+            'protein_g' => 70,
+            'carbs_g' => 250,
+            'fat_g' => 50,
+            'fluid_ml' => 2000,
+            'counseling_goals' => 'Eat regular meals.',
+            'barriers' => 'Irregular schedule.',
+            'strategies' => 'Prepare meals ahead.',
+            'created_at' => now()->addDay(),
+        ]);
         $report = new Report(['type' => 'ncp_summary', 'parameters' => ['ncp_record_id' => $ncp->id]]);
         $generator = app(NcpSummaryGenerator::class);
         $html = view($generator->view(), [
@@ -286,7 +300,9 @@ class NcpSummaryReportTest extends TestCase
 
         $this->assertCount(1, $guidance);
         $this->assertStringContainsString('Nutrition Education:', $guidance->item(0)->textContent);
-        $this->assertStringContainsString('Counseling Goals:', $guidance->item(0)->textContent);
+        $this->assertStringContainsString('Behavioral Goals: Eat regular meals.', $guidance->item(0)->textContent);
+        $this->assertStringContainsString('Identified Barriers: Irregular schedule.', $guidance->item(0)->textContent);
+        $this->assertStringContainsString('Strategies: Prepare meals ahead.', $guidance->item(0)->textContent);
     }
 
     public function test_report_query_count_does_not_grow_with_more_clinical_rows(): void

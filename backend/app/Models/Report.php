@@ -26,6 +26,7 @@ class Report extends Model
         'file_path', 'status', 'generated_at', 'expires_at',
         'official_file_stored_object_id', 'source_fingerprint', 'content_hash',
         'template_version', 'appearance_version', 'cache_path', 'cache_expires_at',
+        'archived_at', 'retention_expires_at', 'report_covered_until', 'report_covered_from',
     ];
 
     protected $casts = [
@@ -35,6 +36,10 @@ class Report extends Model
         'generated_at' => 'datetime',
         'expires_at' => 'datetime',
         'cache_expires_at' => 'datetime',
+        'archived_at' => 'datetime',
+        'retention_expires_at' => 'datetime',
+        'report_covered_until' => 'date',
+        'report_covered_from' => 'date',
     ];
 
     public function user(): BelongsTo

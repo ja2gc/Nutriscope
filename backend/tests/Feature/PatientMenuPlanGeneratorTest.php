@@ -405,7 +405,7 @@ class PatientMenuPlanGeneratorTest extends TestCase
             ->getJson('/api/rnd/reports/patient_menu_plan/export'.$query)
             ->assertUnprocessable();
         $this->actingAs($user, 'sanctum')
-            ->postJson('/api/rnd/reports/patient_menu_plan/archive'.$query)
+            ->postJson('/api/rnd/reports/patient_menu_plan/prepare'.$query)
             ->assertUnprocessable();
     }
 
@@ -539,11 +539,12 @@ class PatientMenuPlanGeneratorTest extends TestCase
         $this->assertStringContainsString('Energy: 1,800 kcal', $plainText);
         $this->assertStringContainsString('Sodium: max 2,000 mg', $plainText);
         $this->assertStringContainsString('Fiber: min 25 g', $plainText);
-        $this->assertStringContainsString('Fluid guidance: 2,000 mL', $plainText);
+        $this->assertStringNotContainsString('Fluid guidance:', $plainText);
         $this->assertStringContainsString('Required fluid:', $plainText);
-        $this->assertStringContainsString('Fluid from planned foods:', $plainText);
+        $this->assertStringContainsString('Daily nutrient targets. These are not the nutrient totals of this menu.', $plainText);
+        $this->assertStringContainsString('Estimated fluid from this menu if followed. The remaining amount should come from drinks.', $plainText);
         $this->assertStringContainsString('Remaining drinking fluid:', $plainText);
-        $this->assertStringContainsString('Fluid is excluded from automatic food scaling', $plainText);
+        $this->assertStringNotContainsString('Fluid is excluded from automatic food scaling', $plainText);
         $this->assertStringNotContainsString('not counted as satisfied by foods', $plainText);
     }
 

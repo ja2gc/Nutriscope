@@ -20,6 +20,8 @@ export interface ReportItem {
   snapshot: ReportSnapshot | null;
   generated_at: string | null;
   created_at: string;
+  report_covered_until?: string | null;
+  retention_expires_at?: string | null;
   updated_at: string;
 }
 
@@ -140,11 +142,6 @@ export async function listReports(
   return { data: json.data ?? [], meta: json.meta ?? { current_page: page, per_page: 10, total: 0, last_page: 1 } };
 }
 
-export async function deleteReport(id: string, prefix: ReportApiPrefix = "rnd"): Promise<void> {
-  const res = await apiFetch(`/api/${prefix}/reports/${id}`, { method: "DELETE" });
-  if (!res.ok && res.status !== 204) throw new Error("Failed to delete report.");
-}
-
 export const reportDownloadUrl = (id: string, prefix: ReportApiPrefix = "rnd") =>
   `/api/${prefix}/reports/${id}/download`;
 
@@ -204,16 +201,40 @@ export const reportRenderUrl = (
 export const reportExportUrl = (type: ReportType | string, params: ReportParams, prefix: ReportApiPrefix = "rnd") =>
   `/api/${prefix}/reports/${type}/export${toQuery(params)}`;
 
-/** Freeze an as-filed copy: render, store, and persist a snapshot. */
+/** Freeze the exact PDF already prepared for preview. */
 export async function archiveReport(
-  type: ReportType | string,
-  params: ReportParams,
+  id: string,
   prefix: ReportApiPrefix = "rnd",
 ): Promise<ReportItem> {
   return unwrap(
-    await apiFetch(`/api/${prefix}/reports/${type}/archive${toQuery(params)}`, { method: "POST" }),
+    await apiFetch(`/api/${prefix}/reports/${id}/archive`, { method: "POST" }),
     "Failed to archive report.",
   );
+}
+
+export async function unarchiveReport(id: string, prefix: ReportApiPrefix = "rnd"): Promise<ReportItem> {
+  return unwrap(await apiFetch(`/api/${prefix}/reports/${id}/unarchive`, { method: "POST" }), "Failed to unarchive report.");
+}
+
+export interface ReportArchiveSettings {
+  enabled: boolean;
+  years: number;
+}
+
+export async function getReportArchiveSettings(): Promise<ReportArchiveSettings> {
+  const response = await apiFetch("/api/reports/archive-settings");
+  if (!response.ok) throw new Error("Failed to load report archive settings.");
+  return response.json();
+}
+
+export async function setReportArchiveSettings(enabled: boolean): Promise<ReportArchiveSettings> {
+  const response = await apiFetch("/api/admin/reports/archive-settings", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ enabled }),
+  });
+  if (!response.ok) throw new Error("Failed to save report archive settings.");
+  return response.json();
 }
 
 // ── Branding + templates (Template Edit tab) ──────────────────────────────

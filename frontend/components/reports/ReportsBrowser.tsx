@@ -1,17 +1,15 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import {
   FileText, CalendarRange, CalendarDays, PackageCheck,
-  Download, Trash2, ClipboardList, Save,
+  ClipboardList, Save,
   Archive, Loader2, CheckCircle2, AlertTriangle, Eye,
-  History,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Tabs } from "@/components/ui/Tabs";
-import { Badge, BadgeTone } from "@/components/ui/Badge";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -19,12 +17,11 @@ import SearchInput from "@/components/ui/SearchInput";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import {
   ReportItem, ReportTemplate, Branding, ReportAxis, ReportInstance,
-  listReports, deleteReport, reportDownloadUrl, reportViewUrl,
+  listReports, unarchiveReport, getReportArchiveSettings, setReportArchiveSettings, reportDownloadUrl, reportViewUrl,
   listInstances, prepareReport, archiveReport,
    getBranding, saveBranding, getAdminBranding, saveAdminBranding, brandingLogoUrl, listTemplates, saveTemplate,
 } from "@/services/reportService";
 import { ReportPreview } from "@/components/ReportPreview";
-import { AuditTrail } from "@/components/audit/AuditTrail";
 import { PatientsNcpTab } from "@/components/reports/PatientsNcpTab";
 import { CensusPanel } from "@/components/reports/CensusPanel";
 import { ImageFilePicker } from "@/components/ui/ImageFilePicker";
@@ -33,16 +30,16 @@ import { InfoHint } from "@/components/ui/InfoHint";
 const inp = "w-full px-3 py-2 text-base border border-warm-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500";
 const lbl = "block text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1";
 
-const STATUS_TONE: Record<string, BadgeTone> = {
-  archived: "violet", completed: "emerald", generating: "amber", pending: "amber", queued: "amber", failed: "red",
-};
-
 function reportDate(value: string): string {
   return new Date(value).toLocaleString("en-PH", {
     timeZone: "Asia/Manila",
     dateStyle: "medium",
     timeStyle: "short",
   });
+}
+
+function reportCalendarDate(value: string): string {
+  return new Date(value).toLocaleDateString("en-PH", { timeZone: "Asia/Manila", dateStyle: "medium" });
 }
 
 type TabKey = "browse" | "archived" | "templates";
@@ -215,30 +212,25 @@ function InstancesPanel({
   const [loading, setLoading] = useState(true);
   const [axis, setAxis] = useState<ReportAxis>("entity");
   const [instances, setInstances] = useState<ReportInstance[]>([]);
-  const [year, setYear] = useState<string>("all");
+  const [coveredMonth, setCoveredMonth] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ report: ReportItem; label: string } | null>(null);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search);
   const [instancesMeta, setInstancesMeta] = useState<PaginationMeta | null>(null);
+  const [refreshVersion, setRefreshVersion] = useState(0);
   const Icon = entry.icon;
 
   useEffect(() => {
     let alive = true;
     setLoading(true);
-    listInstances(entry.type, { page, per_page: 10, search: debouncedSearch, ...(year !== "all" ? { year } : {}) }, apiPrefix)
+    listInstances(entry.type, { page, per_page: 10, search: debouncedSearch, covered_month: coveredMonth }, apiPrefix)
       .then((r) => { if (alive) { setAxis(r.data.axis); setInstances(r.data.instances); setInstancesMeta(r.meta); } })
       .catch((e) => { if (alive) onFlash(false, e instanceof Error ? e.message : "Failed to load."); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [entry.type, apiPrefix, onFlash, page, year, debouncedSearch]);
-
-  const years = useMemo(() => {
-    const ys = new Set<string>();
-    instances.forEach((i) => { if (i.date) ys.add(i.date.slice(0, 4)); });
-    return Array.from(ys).sort().reverse();
-  }, [instances]);
+  }, [entry.type, apiPrefix, onFlash, page, coveredMonth, debouncedSearch, refreshVersion]);
 
   const pagedShown = instances;
 
@@ -256,13 +248,14 @@ function InstancesPanel({
     }
   }
 
-  async function onArchive(i: ReportInstance) {
-    if (i.available === false) return;
-
-    setBusy(i.key);
+  async function onArchive() {
+    if (!preview) return;
+    setBusy(preview.report.id);
     try {
-      await archiveReport(entry.type, i.params, apiPrefix);
-      onFlash(true, `Archived ${i.label}.`);
+      await archiveReport(preview.report.id, apiPrefix);
+      onFlash(true, `Archived ${preview.label}.`);
+      setPreview(null);
+      setRefreshVersion((version) => version + 1);
     } catch (e) {
       onFlash(false, e instanceof Error ? e.message : "Report archive failed.");
     } finally {
@@ -280,15 +273,6 @@ function InstancesPanel({
             <p className="text-xs text-warm-500 mt-0.5 leading-snug">{entry.desc}</p>
           </div>
         </div>
-        {axis === "period" && years.length > 0 && (
-          <div>
-            <label className={lbl} htmlFor="year">Year</label>
-            <select id="year" value={year} onChange={(e) => setYear(e.target.value)} className={inp}>
-              <option value="all">All years</option>
-              {years.map((y) => <option key={y} value={y}>{y}</option>)}
-            </select>
-          </div>
-        )}
       </div>
 
       {axis === "entity" && (
@@ -302,6 +286,13 @@ function InstancesPanel({
         </div>
       )}
 
+      {entry.group === "Food Service" && <div className="border-b border-warm-100 px-5 py-3">
+        <label className="block max-w-xs text-xs font-semibold text-warm-600">Report month
+          <input type="month" aria-label="Report month" value={coveredMonth}
+            onChange={(event) => { setCoveredMonth(event.target.value); setPage(1); }} className={inp} />
+        </label>
+      </div>}
+
       {loading ? (
         <div className="py-16 text-center text-sm text-warm-400 flex items-center justify-center gap-2">
           <Loader2 className="h-4 w-4 animate-spin" /> Loading…
@@ -311,7 +302,7 @@ function InstancesPanel({
           <EmptyState
             icon={<Icon className="h-6 w-6" />}
             title="Nothing to show yet"
-            message={`No ${entry.name.toLowerCase()} data is available${year !== "all" ? ` for ${year}` : ""}. Records appear here once the underlying data exists.`}
+            message={`No ${entry.name.toLowerCase()} data is available${coveredMonth ? ` for ${coveredMonth}` : ""}. Records appear here once the underlying data exists.`}
           />
         </div>
       ) : (
@@ -335,19 +326,6 @@ function InstancesPanel({
                   {i.unavailable_reason}
                 </InfoHint>
               )}
-              {i.available !== false && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  type="button"
-                  aria-label={`Archive ${i.label}`}
-                  className="mr-5 shrink-0"
-                  disabled={busy !== null}
-                  onClick={() => void onArchive(i)}
-                >
-                  <Archive className="h-4 w-4" /> Archive
-                </Button>
-              )}
               {busy === i.key && <Loader2 className="mr-5 h-4 w-4 animate-spin text-emerald-600" />}
             </li>
           ))}
@@ -363,6 +341,8 @@ function InstancesPanel({
           title={`${entry.name} — ${preview.label}`}
           src={reportViewUrl(preview.report.id, apiPrefix)}
           downloadUrl={reportDownloadUrl(preview.report.id, apiPrefix)}
+          onArchive={() => void onArchive()}
+          archiveBusy={busy === preview.report.id}
           onClose={() => setPreview(null)}
         />
       )}
@@ -383,7 +363,11 @@ function ArchivedTab({
   const [reports, setReports] = useState<ReportItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [preview, setPreview] = useState<ReportItem | null>(null);
-  const [historyReport, setHistoryReport] = useState<ReportItem | null>(null);
+  const types = catalog.filter((entry) => entry.group === "Food Service");
+  const [selectedType, setSelectedType] = useState(types[0]?.type ?? "");
+  const [coveredMonth, setCoveredMonth] = useState("");
+  const [retentionEnabled, setRetentionEnabled] = useState(false);
+  const [savingRetention, setSavingRetention] = useState(false);
   const [page, setPage] = useState(1);
   const [archiveMeta, setArchiveMeta] = useState<PaginationMeta | null>(null);
   const [search, setSearch] = useState("");
@@ -392,7 +376,7 @@ function ArchivedTab({
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await listReports(apiPrefix, page, { status: "archived", search: debouncedSearch });
+      const result = await listReports(apiPrefix, page, { status: "archived", type: selectedType, search: debouncedSearch, covered_month: coveredMonth });
       setReports(result.data);
       setArchiveMeta(result.meta);
     } catch (e) {
@@ -400,35 +384,74 @@ function ArchivedTab({
     } finally {
       setLoading(false);
     }
-  }, [apiPrefix, onFlash, page, debouncedSearch]);
+  }, [apiPrefix, onFlash, page, debouncedSearch, selectedType, coveredMonth]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    void getReportArchiveSettings()
+      .then((settings) => setRetentionEnabled(settings.enabled))
+      .catch((error) => onFlash(false, error instanceof Error ? error.message : "Failed to load retention settings."));
+  }, [apiPrefix, onFlash]);
   const pagedReports = reports;
 
-  async function onDelete(id: string) {
+  async function changeRetention(enabled: boolean) {
+    setSavingRetention(true);
     try {
-      await deleteReport(id, apiPrefix);
-      onFlash(true, "Report remains archived.");
-      load();
-    } catch (e) {
-      onFlash(false, e instanceof Error ? e.message : "Delete failed.");
+      const settings = await setReportArchiveSettings(enabled);
+      setRetentionEnabled(settings.enabled);
+      await load();
+    } catch (error) {
+      onFlash(false, error instanceof Error ? error.message : "Failed to save retention settings.");
+    } finally {
+      setSavingRetention(false);
     }
   }
 
-  const label = (type: string) => catalog.find((c) => c.type === type)?.name ?? type;
+  async function onUnarchive(id: string) {
+    try {
+      await unarchiveReport(id, apiPrefix);
+      onFlash(true, "Report restored to Browse.");
+      await load();
+    } catch (e) {
+      onFlash(false, e instanceof Error ? e.message : "Unarchive failed.");
+    }
+  }
 
   return (
+    <div className="grid gap-5 items-start lg:grid-cols-[260px_1fr]">
+    <Card className="overflow-hidden">
+      {types.map((entry) => {
+        return <button key={entry.type} type="button" aria-current={selectedType === entry.type}
+          onClick={() => { setSelectedType(entry.type); setPage(1); }}
+          className={`w-full px-4 py-2.5 text-left text-sm border-l-2 hover:bg-warm-50 ${selectedType === entry.type ? "border-emerald-600 bg-emerald-50/60 text-emerald-700 font-semibold" : "border-transparent text-warm-600"}`}>
+          {entry.name}
+        </button>;
+      })}
+    </Card>
     <Card className="overflow-hidden">
       <div className="px-5 py-3 border-b border-warm-100 flex items-center justify-between">
         <h2 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Archived Reports</h2>
+        {apiPrefix === "admin" && <label className="flex items-center gap-2 text-xs font-semibold text-warm-600">
+          <input type="checkbox" aria-label="Enable five-year report retention" checked={retentionEnabled}
+            disabled={savingRetention} onChange={(event) => void changeRetention(event.target.checked)} />
+          Five-year retention
+        </label>}
       </div>
-      <div className="border-b border-warm-100 px-5 py-3">
+      {retentionEnabled && <p className="px-5 py-2 text-xs text-warm-600 border-b border-warm-100">
+        Archived reports and their PDFs are purged five years after archiving. Unarchive before expiry to keep a report.
+      </p>}
+      <div className="border-b border-warm-100 px-5 py-3 space-y-3">
         <SearchInput
           label="Search archived reports"
           value={search}
           onChange={(value) => { setSearch(value); setPage(1); }}
           loading={loading && search !== debouncedSearch}
         />
+        <div>
+          <label className="block max-w-xs text-xs font-semibold text-warm-600">Report month
+            <input type="month" aria-label="Report month" value={coveredMonth} onChange={(event) => { setCoveredMonth(event.target.value); setPage(1); }} className={inp} />
+          </label>
+        </div>
       </div>
 
       {loading ? (
@@ -443,49 +466,32 @@ function ArchivedTab({
         </div>
       ) : (
         <div className="overflow-x-auto">
-        <table className="w-full min-w-[760px] text-sm">
+        <table className="w-full min-w-[540px] text-sm">
           <thead className="bg-warm-50 border-b border-warm-100">
-            <tr>{["Report", "Type", "Created by", "Archived", "Status", "Actions"].map((h) => (
+            <tr>{["Report", "Created by", "Covers through", "Actions"].map((h) => (
               <th key={h} className="px-4 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
             ))}</tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
             {pagedReports.map((r) => (
               <tr key={r.id} className="hover:bg-warm-50/60">
-                <td className="px-4 py-3 font-semibold text-warm-800">{r.title}</td>
-                <td className="px-4 py-3 text-warm-500">{label(r.type)}</td>
+                <td className="px-4 py-3 font-semibold text-warm-800">{r.title}
+                  {retentionEnabled && r.retention_expires_at && <span className="block text-xs font-normal text-warm-500">Expires on {reportDate(r.retention_expires_at)}</span>}
+                </td>
                 <td className="px-4 py-3 text-warm-600">{r.created_by?.name ?? "Former user"}</td>
                 <td className="px-4 py-3 text-warm-500 tabular-nums">
-                  {r.snapshot?.archived_at || r.generated_at ? (
+                  {r.report_covered_until ? (
                     <time
-                      dateTime={r.snapshot?.archived_at ?? r.generated_at ?? undefined}
-                      title={new Date(r.snapshot?.archived_at ?? r.generated_at!).toISOString()}
+                      dateTime={r.report_covered_until}
                     >
-                      {reportDate(r.snapshot?.archived_at ?? r.generated_at!)}
+                      {reportCalendarDate(r.report_covered_until)}
                     </time>
                   ) : "—"}
                 </td>
-                <td className="px-4 py-3"><Badge tone={STATUS_TONE[r.status] ?? "zinc"}>{r.status}</Badge></td>
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-1">
-                    {r.file_path && (
-                      <button onClick={() => setPreview(r)} className="p-1.5 rounded-lg hover:bg-warm-100 text-warm-500 cursor-pointer" aria-label={`View ${r.title}`} title="View"><Eye className="h-3.5 w-3.5" /></button>
-                    )}
-                    {r.file_path && (
-                      <a href={reportDownloadUrl(r.id, apiPrefix)} download className="p-1.5 rounded-lg hover:bg-emerald-50 text-warm-500 hover:text-emerald-600" aria-label={`Download ${r.title}`} title="Download archived copy">
-                        <Download className="h-3.5 w-3.5" />
-                      </a>
-                    )}
-                    {apiPrefix !== "fss" && (
-                      <button onClick={() => setHistoryReport(r)} className="p-1.5 rounded-lg hover:bg-sky-50 text-warm-500 hover:text-sky-700 cursor-pointer" aria-label={`Show activity for ${r.title}`} title="Activity trail">
-                        <History className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                    {apiPrefix !== "fss" && (
-                      <button onClick={() => onDelete(r.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-warm-500 hover:text-red-600 cursor-pointer" aria-label={`Delete ${r.title}`} title="Delete">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    )}
+                    <button onClick={() => setPreview(r)} className="p-1.5 rounded-lg hover:bg-warm-100 text-warm-500 cursor-pointer" aria-label={`View ${r.title}`} title="View"><Eye className="h-3.5 w-3.5" /></button>
+                    <button onClick={() => void onUnarchive(r.id)} className="p-1.5 rounded-lg hover:bg-emerald-50 text-warm-500 hover:text-emerald-700 cursor-pointer" aria-label={`Unarchive ${r.title}`} title="Unarchive"><Archive className="h-3.5 w-3.5" /></button>
                   </div>
                 </td>
               </tr>
@@ -498,15 +504,6 @@ function ArchivedTab({
         <Pagination meta={archiveMeta} page={page} onPageChange={setPage} />
       )}
 
-      {historyReport && apiPrefix !== "fss" && (
-        <div className="border-t border-warm-100 p-4">
-          <AuditTrail
-            path={`/api/${apiPrefix}/reports/${historyReport.id}/activity`}
-            title={`${historyReport.title} lifecycle`}
-          />
-        </div>
-      )}
-
       {preview && (
         <ReportPreview
           title={preview.title}
@@ -516,6 +513,7 @@ function ArchivedTab({
         />
       )}
     </Card>
+    </div>
   );
 }
 

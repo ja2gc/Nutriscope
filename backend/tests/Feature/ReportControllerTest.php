@@ -8,6 +8,7 @@ use App\Models\Intervention;
 use App\Models\MealPlan;
 use App\Models\NcpRecord;
 use App\Models\Patient;
+use App\Models\PurchaseOrder;
 use App\Models\Report;
 use App\Models\User;
 use App\Services\Reports\ReportService;
@@ -51,6 +52,78 @@ class ReportControllerTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $archived->uuid)
             ->assertJsonPath('meta.total', 1);
+    }
+
+    public function test_archived_report_filters_by_type_and_overlapping_report_month(): void
+    {
+        $inRange = PurchaseOrder::factory()->create(['completed_at' => '2026-05-10', 'order_date' => '2026-05-10']);
+        $newer = PurchaseOrder::factory()->create(['completed_at' => '2026-05-12', 'order_date' => '2026-05-12']);
+        $outOfRange = PurchaseOrder::factory()->create(['completed_at' => '2026-06-08', 'order_date' => '2026-06-08']);
+        $target = Report::factory()->create([
+            'user_id' => $this->rnd->id,
+            'type' => 'procurement_pack',
+            'status' => 'archived',
+            'parameters' => ['purchase_order_id' => $inRange->id],
+            'report_covered_from' => '2026-05-10',
+            'report_covered_until' => '2026-05-10',
+            'created_at' => '2026-06-10 08:00:00',
+        ]);
+        Report::factory()->create([
+            'user_id' => $this->rnd->id,
+            'type' => 'menu_calendar',
+            'status' => 'archived',
+            'created_at' => '2026-05-10 08:00:00',
+        ]);
+        $newestCovered = Report::factory()->create([
+            'user_id' => $this->rnd->id,
+            'type' => 'procurement_pack',
+            'status' => 'archived',
+            'parameters' => ['purchase_order_id' => $newer->id],
+            'report_covered_from' => '2026-05-12',
+            'report_covered_until' => '2026-05-12',
+            'created_at' => '2026-05-09 08:00:00',
+        ]);
+        Report::factory()->create([
+            'user_id' => $this->rnd->id,
+            'type' => 'procurement_pack',
+            'status' => 'archived',
+            'parameters' => ['purchase_order_id' => $outOfRange->id],
+            'report_covered_from' => '2026-06-08',
+            'report_covered_until' => '2026-06-08',
+            'created_at' => '2026-05-10 08:00:00',
+        ]);
+
+        $this->actingAs($this->rnd)
+            ->getJson('/api/rnd/reports?status=archived&type=procurement_pack&covered_month=2026-05')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonPath('data.0.report_covered_until', '2026-05-12')
+            ->assertJsonPath('data.0.id', $newestCovered->uuid)
+            ->assertJsonPath('data.1.id', $target->uuid);
+    }
+
+    public function test_archived_report_month_includes_a_range_that_crosses_into_selected_month(): void
+    {
+        $crossing = Report::factory()->create([
+            'user_id' => $this->rnd->id,
+            'type' => 'program_project_activity',
+            'status' => 'archived',
+            'report_covered_from' => '2026-05-25',
+            'report_covered_until' => '2026-06-05',
+        ]);
+        Report::factory()->create([
+            'user_id' => $this->rnd->id,
+            'type' => 'program_project_activity',
+            'status' => 'archived',
+            'report_covered_from' => '2026-07-01',
+            'report_covered_until' => '2026-07-15',
+        ]);
+
+        $this->actingAs($this->rnd)
+            ->getJson('/api/rnd/reports?status=archived&type=program_project_activity&covered_month=2026-06')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.id', $crossing->uuid);
     }
 
     public function test_reports_can_be_searched_by_title_with_typo_tolerance(): void
@@ -175,7 +248,7 @@ class ReportControllerTest extends TestCase
             ->assertJsonPath('data.id', $report->uuid);
     }
 
-    public function test_rnd_can_view_download_and_delete_another_rnds_archived_report(): void
+    public function test_rnd_can_view_download_and_unarchive_another_rnds_archived_report(): void
     {
         Storage::fake('public');
         $owner = User::factory()->rnd()->create();
@@ -191,9 +264,9 @@ class ReportControllerTest extends TestCase
             ->get("/api/rnd/reports/{$report->uuid}/view")
             ->assertOk();
         $this->get("/api/rnd/reports/{$report->uuid}/download")->assertOk();
-        $this->deleteJson("/api/rnd/reports/{$report->uuid}")->assertNoContent();
+        $this->postJson("/api/rnd/reports/{$report->uuid}/unarchive")->assertOk();
 
-        $this->assertSame('archived', $report->refresh()->status);
+        $this->assertSame('completed', $report->refresh()->status);
     }
 
     public function test_historical_report_name_snapshots_are_not_rewritten(): void

@@ -182,6 +182,8 @@ export interface MealPlanTemplate {
 
 export interface MealPlanTemplateItem {
   id: string;
+  food_item_id: string | null;
+  recipe_id: string | null;
   quantity: string;
   unit: string;
   food_name: string | null;
@@ -202,6 +204,34 @@ export interface MealPlanTemplateDay {
 
 export interface MealPlanTemplateDetail extends MealPlanTemplate {
   days: MealPlanTemplateDay[];
+}
+
+export interface LibraryTemplateLine {
+  day_of_week: string;
+  meal_type: string;
+  food_item_id?: string | null;
+  recipe_id?: string | null;
+  quantity: number;
+  unit: string;
+}
+
+export interface LibraryTemplatePayload {
+  name: string;
+  description?: string | null;
+  lines: LibraryTemplateLine[];
+}
+
+export async function saveLibraryMealPlanTemplate(payload: LibraryTemplatePayload, templateId?: string): Promise<MealPlanTemplateDetail> {
+  const res = await apiFetch(`/api/rnd/meal-plan-templates${templateId ? `/${templateId}` : ""}`, {
+    method: templateId ? "PUT" : "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    throw new Error(error.message || "Failed to save template.");
+  }
+  return (await res.json()).data;
 }
 
 export async function fetchMealPlanTemplates(page = 1): Promise<{ data: MealPlanTemplate[]; meta: PaginationMeta }> {

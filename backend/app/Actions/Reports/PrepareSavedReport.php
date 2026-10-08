@@ -4,12 +4,16 @@ namespace App\Actions\Reports;
 
 use App\Models\Intervention;
 use App\Models\MealPlan;
+use App\Models\MenuCycle;
+use App\Models\PurchaseOrder;
 use App\Models\Report;
 use App\Models\ReportBranding;
 use App\Models\ReportTemplate;
 use App\Models\User;
+use App\Services\Reports\ReportCoveredDate;
 use App\Services\Reports\ReportService;
 use App\Services\StoredObjectStorage;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
 
 class PrepareSavedReport
@@ -27,21 +31,37 @@ class PrepareSavedReport
         ksort($parameters);
         $identity = hash('sha256', $actor->role.'|'.$type.'|'.json_encode($parameters, JSON_THROW_ON_ERROR));
         $template = ReportTemplate::query()->where('type', $type)->first();
-        $title = $this->titleFor($type, $parameters, $template?->name ?? $type);
+        $sourceConfiguration = $this->sourceConfiguration($type, $parameters);
+        $coveredUntil = ReportCoveredDate::forParameters($type, $parameters);
+        $coveredFrom = ReportCoveredDate::startForParameters($type, $parameters);
+        $sourceTemplate = $sourceConfiguration['templates'][$type] ?? null;
+        $title = $this->titleFor($type, $parameters, $sourceTemplate['name'] ?? $template?->name ?? $type);
         $report = $existing ?? Report::query()->where('archive_identity', $identity)->first();
         $created = $report === null;
-        if ($report?->status === 'archived') {
+        if ($report?->status === 'archived' || ($report?->snapshot['was_archived'] ?? false)) {
             return $report->fresh(['user:id,uuid,name,first_name,last_name', 'officialFile']);
         }
-        $snapshot = [
-            'branding' => ReportBranding::singleton()->only([
+        $initialSnapshot = [
+            'branding' => $sourceConfiguration['branding'] ?? ReportBranding::singleton()->only([
                 'hospital_name', 'address', 'accreditation', 'service_name', 'province', 'lgu',
                 'logo_left_path', 'logo_right_path', 'logo_left_stored_object_id', 'logo_right_stored_object_id',
             ]),
-            'signatories' => $this->reports->signatoriesFor(new Report(['type' => $type, 'parameters' => $parameters])),
+            'signatories' => $this->reports->signatoriesFor(new Report([
+                'type' => $type,
+                'parameters' => $parameters,
+                'snapshot' => $sourceTemplate === null ? null : ['template_signatories' => $sourceTemplate['signatories']],
+            ])),
             'params' => $parameters,
         ];
-        $templateVersion = hash('sha256', (string) ($template?->updated_at?->toJSON() ?? 'default'));
+        if ($type === 'procurement_pack' && $sourceConfiguration !== null) {
+            $initialSnapshot['procurement_form_signatories'] = collect([
+                'inspection_report', 'marketing_statement', 'marketing_summary',
+            ])->mapWithKeys(fn (string $form): array => [
+                $form => $sourceConfiguration['templates'][$form]['signatories'] ?? [],
+            ])->all();
+        }
+        $snapshot = $report?->snapshot ?: $initialSnapshot;
+        $templateVersion = hash('sha256', (string) ($sourceTemplate['version'] ?? $template?->updated_at?->toJSON() ?? 'default'));
         if ($report === null) {
             $report = Report::query()->create([
                 'user_id' => $actor->id,
@@ -53,13 +73,16 @@ class PrepareSavedReport
                 'template_version' => $templateVersion,
                 'appearance_version' => 'v1',
                 'snapshot' => $snapshot,
+                'report_covered_until' => $coveredUntil,
+                'report_covered_from' => $coveredFrom,
             ]);
         } else {
             $report->forceFill([
-                'title' => $title,
                 'parameters' => $parameters,
                 'snapshot' => $snapshot,
-                'template_version' => $templateVersion,
+                'template_version' => $report->template_version ?? $templateVersion,
+                'report_covered_until' => $coveredUntil,
+                'report_covered_from' => $coveredFrom,
             ]);
         }
 
@@ -149,8 +172,55 @@ class PrepareSavedReport
         return $report->fresh(['user:id,uuid,name,first_name,last_name', 'officialFile']);
     }
 
+    private function sourceConfiguration(string $type, array $parameters): ?array
+    {
+        $source = match ($type) {
+            'procurement_pack', 'program_project_activity' => $this->findSource(PurchaseOrder::class, $parameters['purchase_order_id'] ?? null),
+            'menu_calendar' => $this->findSource(MenuCycle::class, $parameters['menu_cycle_id'] ?? null),
+            'patient_menu_plan' => $this->patientMenuSource($parameters),
+            default => null,
+        };
+
+        return $source?->report_configuration_snapshot;
+    }
+
+    private function patientMenuSource(array $parameters): ?MealPlan
+    {
+        if (isset($parameters['meal_plan_id'])) {
+            return $this->findSource(MealPlan::class, $parameters['meal_plan_id']);
+        }
+
+        $intervention = $this->findSource(Intervention::class, $parameters['intervention_plan_id'] ?? null);
+
+        return $intervention?->mealPlan;
+    }
+
+    private function findSource(string $class, mixed $identifier): ?Model
+    {
+        if ($identifier === null) {
+            return null;
+        }
+
+        return is_int($identifier) || ctype_digit((string) $identifier)
+            ? $class::query()->find((int) $identifier)
+            : $class::query()->where('uuid', (string) $identifier)->first();
+    }
+
     private function titleFor(string $type, array $parameters, string $fallback): string
     {
+        if (in_array($type, ['procurement_pack', 'program_project_activity'], true)) {
+            $purchaseOrder = PurchaseOrder::query()->find($parameters['purchase_order_id'] ?? null);
+            $date = $purchaseOrder?->completed_at ?? $purchaseOrder?->order_date;
+
+            return $date ? 'PO — '.$date->copy()->timezone(config('nutriscope-reports.timezone'))->format('M j, Y') : $fallback;
+        }
+
+        if ($type === 'menu_calendar') {
+            $menu = MenuCycle::query()->find($parameters['menu_cycle_id'] ?? null);
+
+            return $menu?->week_start_date ? 'Menu — week of '.$menu->week_start_date->format('M j, Y') : $fallback;
+        }
+
         if ($type !== 'patient_menu_plan') {
             return $fallback;
         }

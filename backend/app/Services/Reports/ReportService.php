@@ -161,7 +161,7 @@ class ReportService
     public function signatoriesFor(Report $report): array
     {
         $template = ReportTemplate::where('type', $report->type)->first();
-        $defaults = $template?->signatories ?? [];
+        $defaults = $report->snapshot['template_signatories'] ?? $template?->signatories ?? [];
         $preparedBy = $report->parameters['prepared_by_name'] ?? null;
         $physician = null;
 

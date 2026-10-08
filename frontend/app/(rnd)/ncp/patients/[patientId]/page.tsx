@@ -583,7 +583,6 @@ export default function PatientProfilePage({
                   onClick={() => { setConfirmDeletePatient(true); setPatientDeleteError(null); }}
                   className="flex items-center gap-1.5 text-xs font-bold text-red-500 hover:text-red-700 uppercase tracking-wider transition-colors"
                 >
-                  <Trash2 className="h-3 w-3" />
                   Delete Patient
                 </button>
               ) : (
@@ -601,8 +600,7 @@ export default function PatientProfilePage({
               )}
             </div>
           ) : (
-            <div className="flex items-center gap-2 px-3 py-2 bg-warm-50 border border-warm-200 rounded-lg w-fit">
-              <Lock className="h-3 w-3 text-warm-400 shrink-0" />
+            <div className="px-3 py-2 bg-warm-50 border border-warm-200 rounded-lg w-fit">
               <span className="text-xs font-bold text-warm-500 uppercase tracking-wider">
                 Protected — completed NCP records exist
               </span>

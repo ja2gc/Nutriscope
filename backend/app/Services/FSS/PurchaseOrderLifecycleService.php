@@ -21,6 +21,7 @@ use App\Services\Audit\Revisions\AuditRevisionRegistry;
 use App\Services\Audit\Revisions\AuditRevisionWriter;
 use App\Services\MenuCycleCostService;
 use App\Services\NotificationLifecycleService;
+use App\Services\Reports\ReportConfigurationSnapshot;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -43,6 +44,7 @@ class PurchaseOrderLifecycleService
         private readonly AuditRevisionRegistry $revisionRegistry,
         private readonly AuditRevisionWriter $revisionWriter,
         private readonly NotificationLifecycleService $notificationLifecycle,
+        private readonly ReportConfigurationSnapshot $reportConfiguration,
     ) {}
 
     /**
@@ -288,8 +290,12 @@ class PurchaseOrderLifecycleService
 
             $this->auditLogger->assertAvailable();
             $before = $this->revisionRegistry->capture($po);
+            $reportConfiguration = $this->reportConfiguration->capture([
+                'procurement_pack', 'program_project_activity',
+                'inspection_report', 'marketing_statement', 'marketing_summary',
+            ]);
 
-            $this->auditLogger->withoutModelEvents(function () use ($po, $actualPerHead, $actualTotal): void {
+            $this->auditLogger->withoutModelEvents(function () use ($po, $actualPerHead, $actualTotal, $reportConfiguration): void {
                 $po->forceFill([
                     'lifecycle_status' => 'completed',
                     'completed_at' => now(),
@@ -297,6 +303,7 @@ class PurchaseOrderLifecycleService
                     'actual_budget_per_head_per_day' => $actualPerHead,
                     'total_amount' => $actualTotal,
                     'status' => 'received',
+                    'report_configuration_snapshot' => $reportConfiguration,
                     'received_date' => now()->toDateString(),
                 ])->save();
             });
@@ -338,7 +345,11 @@ class PurchaseOrderLifecycleService
 
         $this->auditLogger->assertAvailable();
         $before = $this->revisionRegistry->capture($po);
-        $this->auditLogger->withoutModelEvents(function () use ($po, $actualTotal): void {
+        $reportConfiguration = $this->reportConfiguration->capture([
+            'procurement_pack', 'program_project_activity',
+            'inspection_report', 'marketing_statement', 'marketing_summary',
+        ]);
+        $this->auditLogger->withoutModelEvents(function () use ($po, $actualTotal, $reportConfiguration): void {
             $po->forceFill([
                 'lifecycle_status' => 'completed',
                 'completed_at' => now(),
@@ -346,6 +357,7 @@ class PurchaseOrderLifecycleService
                 'total_amount' => $actualTotal,
                 'status' => 'received',
                 'received_date' => now()->toDateString(),
+                'report_configuration_snapshot' => $reportConfiguration,
             ])->save();
         });
 

@@ -10,10 +10,14 @@ use App\Models\MealPrepLog;
 use App\Models\MenuCycle;
 use App\Models\MenuCycleDay;
 use App\Models\PurchaseOrder;
+use App\Models\Report;
+use App\Models\ReportBranding;
+use App\Models\ReportTemplate;
 use App\Models\ShoppingList;
 use App\Models\Supplier;
 use App\Models\User;
 use App\Services\FSS\PurchaseOrderLifecycleService;
+use App\Services\Reports\Generators\ProcurementPackGenerator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Tests\TestCase;
@@ -24,6 +28,19 @@ class PurchaseOrderCompletionPatternTest extends TestCase
 
     public function test_food_po_waits_for_every_span_day_served_population_then_calculates_actual_per_head(): void
     {
+        ReportBranding::singleton()->update(['hospital_name' => 'Hospital at PO completion']);
+        $template = ReportTemplate::create([
+            'type' => 'procurement_pack',
+            'name' => 'Procurement Pack',
+            'blade_view' => 'reports.procurement-pack',
+            'signatories' => [['role' => 'approved_by', 'label' => 'Approved by', 'name' => 'Original Director', 'title' => 'Director']],
+        ]);
+        $inspectionTemplate = ReportTemplate::create([
+            'type' => 'inspection_report',
+            'name' => 'Inspection Report',
+            'blade_view' => 'reports.procurement-pack',
+            'signatories' => [['role' => 'inspected_by', 'label' => 'Inspected by', 'name' => 'Original Inspector', 'title' => 'Inspector']],
+        ]);
         $rnd = User::factory()->rnd()->create();
         $fss = User::factory()->fss()->create();
         $supplier = Supplier::factory()->create();
@@ -124,6 +141,17 @@ class PurchaseOrderCompletionPatternTest extends TestCase
         $po->refresh();
         $this->assertSame('completed', $po->lifecycle_status);
         $this->assertSame('1.00', $po->actual_budget_per_head_per_day);
+        $this->assertSame('Hospital at PO completion', $po->report_configuration_snapshot['branding']['hospital_name']);
+        $this->assertSame('Original Director', $po->report_configuration_snapshot['templates']['procurement_pack']['signatories'][0]['name']);
+
+        ReportBranding::singleton()->update(['hospital_name' => 'Hospital after PO completion']);
+        $template->update(['signatories' => [['role' => 'approved_by', 'label' => 'Approved by', 'name' => 'New Director', 'title' => 'Director']]]);
+        $inspectionTemplate->update(['signatories' => [['role' => 'inspected_by', 'label' => 'Inspected by', 'name' => 'New Inspector', 'title' => 'Inspector']]]);
+        $prepared = $this->actingAs($rnd)->postJson("/api/rnd/reports/procurement_pack/prepare?purchase_order_id={$po->id}")->assertOk();
+        $this->assertSame('Hospital at PO completion', $prepared->json('data.snapshot.branding.hospital_name'));
+        $this->assertSame('Original Director', $prepared->json('data.snapshot.signatories.0.name'));
+        $report = Report::query()->where('uuid', $prepared->json('data.id'))->firstOrFail();
+        $this->assertSame('Original Inspector', app(ProcurementPackGenerator::class)->data($report)['air_signatories'][0]['name']);
         $completed = AuditActivity::query()->where('event', 'completed')->sole();
         $this->assertSame(PurchaseOrder::class, $completed->subject_type);
         $this->assertSame('open_execution', $completed->revision->before['lifecycle_status']);

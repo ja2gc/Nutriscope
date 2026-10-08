@@ -119,7 +119,9 @@ class FssReportScopeTest extends TestCase
             foreach (['', '/view', '/download'] as $suffix) {
                 $this->getJson("/api/fss/reports/{$report->uuid}{$suffix}")->assertForbidden();
             }
-            $this->deleteJson("/api/fss/reports/{$report->uuid}")->assertForbidden();
+            $this->postJson("/api/fss/reports/{$report->uuid}/archive")->assertForbidden();
+            $this->postJson("/api/fss/reports/{$report->uuid}/unarchive")->assertForbidden();
+            $this->deleteJson("/api/fss/reports/{$report->uuid}")->assertMethodNotAllowed();
             $this->getJson("/api/rnd/reports/{$report->uuid}/activity")->assertForbidden();
             $this->assertModelExists($report);
         }

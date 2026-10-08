@@ -3,18 +3,16 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { Archive, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { ReportPreview } from "@/components/ReportPreview";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { InfoHint } from "@/components/ui/InfoHint";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import {
   listPatientNcpReports,
-  archiveReport,
   prepareReport,
   reportDownloadUrl,
   reportViewUrl,
@@ -31,7 +29,6 @@ export default function PatientNcpReportsPage() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ id: string; title: string } | null>(null);
 
@@ -68,28 +65,12 @@ export default function PatientNcpReportsPage() {
     }
   }
 
-  async function fileReport(instance: PatientNcpReportInstance) {
-    if (!instance.available) return;
-
-    setBusy(instance.key);
-    setError(null);
-    setNotice(null);
-    try {
-      await archiveReport(instance.type, instance.params, "rnd");
-      setNotice(`Archived ${instance.label}.`);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Failed to archive report.");
-    } finally {
-      setBusy(null);
-    }
-  }
-
   return (
     <div className="space-y-6 font-sans">
       <PageHeader
         crumbs={[["Home", "/dashboard"], ["Reports", "/reports?type=patients_ncp"], [patient?.display_name ?? "Patient NCP"]]}
         title={patient?.display_name ?? "Patient NCP Reports"}
-        subtitle={patient ? [patient.hospital_number, patient.status].filter(Boolean).join(" · ") : undefined}
+        subtitle={patient?.hospital_number ?? undefined}
       />
 
       <div>
@@ -103,7 +84,6 @@ export default function PatientNcpReportsPage() {
       </div>
 
       {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</div>}
-      {notice && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">{notice}</div>}
 
       <Card className="overflow-hidden">
         <div className="px-5 py-4 border-b border-warm-100">
@@ -143,23 +123,10 @@ export default function PatientNcpReportsPage() {
                   <span className="block text-xs text-warm-500 mt-0.5">{instance.type === "ncp_summary" ? "NCP Summary" : "Nutrition Intervention Plan"}</span>
                 </button>
                 <div className="flex items-center gap-2 shrink-0">
-                  <Badge tone="zinc">{instance.status}</Badge>
                   {!instance.available && instance.unavailable_reason && (
                     <InfoHint label="Why this report is unavailable" title="Menu plan required">
                       {instance.unavailable_reason}
                     </InfoHint>
-                  )}
-                  {instance.available && (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      aria-label={`Archive ${instance.label}`}
-                      disabled={busy !== null}
-                      onClick={() => void fileReport(instance)}
-                    >
-                      <Archive className="h-4 w-4" /> Archive
-                    </Button>
                   )}
                   {busy === instance.key && <Loader2 className="h-4 w-4 animate-spin text-emerald-600" />}
                 </div>

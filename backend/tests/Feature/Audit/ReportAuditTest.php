@@ -48,7 +48,7 @@ class ReportAuditTest extends TestCase
             'first_name' => 'Juan Miguel',
             'last_name' => 'De los Santos',
         ]);
-        Report::factory()->count(3)->create([
+        Report::factory()->count(12)->create([
             'user_id' => $rnd->id,
             'type' => 'procurement_pack',
             'status' => 'archived',
@@ -62,7 +62,7 @@ class ReportAuditTest extends TestCase
         $response->assertJsonPath('data.0.created_by.id', $rnd->uuid)
             ->assertJsonPath('data.0.created_by.name', 'Juan Miguel De los Santos')
             ->assertJsonStructure(['data' => [['created_at', 'generated_at', 'updated_at']]]);
-        $this->assertLessThanOrEqual(3, count(DB::getQueryLog()));
+        $this->assertLessThanOrEqual(4, count(DB::getQueryLog()));
     }
 
     public function test_archived_report_is_hidden_without_becoming_immutable(): void
@@ -75,7 +75,7 @@ class ReportAuditTest extends TestCase
         $this->assertSame('Rewritten archive', $report->fresh()->title);
     }
 
-    public function test_report_views_downloads_and_deletes_emit_safe_semantic_events(): void
+    public function test_report_views_downloads_and_unarchive_emit_safe_semantic_events(): void
     {
         Storage::fake('public');
         $rnd = User::factory()->rnd()->create();
@@ -91,10 +91,10 @@ class ReportAuditTest extends TestCase
 
         $this->actingAs($rnd, 'sanctum')->getJson("/api/rnd/reports/{$report->uuid}")->assertOk();
         $this->get("/api/rnd/reports/{$report->uuid}/download")->assertOk();
-        $this->deleteJson("/api/rnd/reports/{$report->uuid}")->assertNoContent();
+        $this->postJson("/api/rnd/reports/{$report->uuid}/unarchive")->assertOk();
 
-        $events = AuditActivity::query()->whereIn('event', ['viewed', 'downloaded', 'archived'])->get();
-        $this->assertEqualsCanonicalizing(['viewed', 'downloaded', 'archived'], $events->pluck('event')->all());
+        $events = AuditActivity::query()->whereIn('event', ['viewed', 'downloaded', 'updated'])->get();
+        $this->assertEqualsCanonicalizing(['viewed', 'downloaded', 'updated'], $events->pluck('event')->all());
         foreach ($events as $event) {
             $encoded = json_encode($event->properties, JSON_THROW_ON_ERROR);
             $this->assertStringNotContainsString('PHI-SENTINEL', $encoded);
@@ -281,7 +281,7 @@ class ReportAuditTest extends TestCase
         $this->postJson('/api/rnd/reports/generate-all', [])->assertMethodNotAllowed();
     }
 
-    public function test_archive_creates_no_record_when_required_audit_is_unavailable(): void
+    public function test_prepare_creates_no_record_when_required_audit_is_unavailable(): void
     {
         $rnd = User::factory()->rnd()->create();
         $auditLogger = $this->createMock(AuditLogger::class);
@@ -301,7 +301,7 @@ class ReportAuditTest extends TestCase
         try {
             $this->withoutExceptionHandling()
                 ->actingAs($rnd, 'sanctum')
-                ->postJson('/api/rnd/reports/procurement_pack/archive');
+                ->postJson('/api/rnd/reports/procurement_pack/prepare');
             $this->fail('Expected required audit failure.');
         } catch (AuditLoggingUnavailable) {
             $this->assertDatabaseCount('reports', 0);
@@ -370,7 +370,7 @@ class ReportAuditTest extends TestCase
         $audit->method('record')->willThrowException(new AuditLoggingUnavailable('offline'));
         $this->app->instance(AuditLogger::class, $audit);
 
-        $this->actingAs($rnd, 'sanctum')->deleteJson("/api/rnd/reports/{$report->uuid}")->assertServerError();
+        $this->actingAs($rnd, 'sanctum')->postJson("/api/rnd/reports/{$report->uuid}/unarchive")->assertServerError();
 
         $this->assertDatabaseHas('reports', ['id' => $report->id]);
         Storage::disk('public')->assertExists('reports/archive.pdf');
@@ -790,7 +790,7 @@ class ReportAuditTest extends TestCase
         Storage::fake('public');
         Storage::disk('public')->put('reports/crash.pdf', '%PDF-safe');
 
-        $this->actingAs($rnd, 'sanctum')->deleteJson("/api/rnd/reports/{$report->uuid}")->assertNoContent();
+        $this->actingAs($rnd, 'sanctum')->postJson("/api/rnd/reports/{$report->uuid}/archive")->assertOk();
         $this->assertDatabaseHas('reports', ['id' => $report->id, 'status' => 'archived']);
         Storage::disk('public')->assertExists('reports/crash.pdf');
         $this->assertDatabaseCount('report_file_operations', 0);

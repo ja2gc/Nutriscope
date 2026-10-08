@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\AuditsChanges;
 use App\Models\Concerns\HasPublicId;
+use App\Services\Reports\ReportConfigurationSnapshot;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -26,7 +27,16 @@ class MealPlan extends Model
         'week_start_date' => 'date',
         'needs_rescaling' => 'boolean',
         'scaled_at' => 'datetime',
+        'report_configuration_snapshot' => 'array',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $mealPlan): void {
+            $mealPlan->report_configuration_snapshot = app(ReportConfigurationSnapshot::class)
+                ->capture(['patient_menu_plan']);
+        });
+    }
 
     protected function auditAttributes(): array
     {

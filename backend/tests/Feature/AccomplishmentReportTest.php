@@ -422,12 +422,13 @@ class AccomplishmentReportTest extends TestCase
         Storage::fake('public');
         $this->seedCount($this->fss1, '2026-06-10');
 
-        $this->actingAs($this->fss1, 'sanctum')
-            ->postJson('/api/fss/reports/accomplishment_report/archive', [
+        $prepared = $this->actingAs($this->fss1, 'sanctum')
+            ->postJson('/api/fss/reports/accomplishment_report/prepare', [
                 'start' => '2026-06-10',
                 'end' => '2026-06-10',
             ])
             ->assertOk();
+        $this->postJson('/api/fss/reports/'.$prepared->json('data.id').'/archive')->assertOk();
 
         $report = Report::query()->where('user_id', $this->fss1->id)->latest('id')->firstOrFail();
         $this->assertSame('Alice Reyes', $report->parameters['prepared_by_name']);

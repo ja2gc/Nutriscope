@@ -210,19 +210,26 @@ return [
             'implementation_state' => 'implemented',
             'reason' => 'Admin template changes emit a safe allow-listed report-configuration event without image or arbitrary payload content.',
         ],
-        'DELETE api/admin/reports/{report}' => [
+        'PUT api/admin/reports/archive-settings' => [
             'classification' => 'explicit_event',
-            'source' => 'App\\Http\\Controllers\\ReportController@destroy',
+            'source' => 'App\\Http\\Controllers\\Admin\\ReportArchiveSettingController@update',
+            'owner_task' => 8,
+            'implementation_state' => 'implemented',
+            'reason' => 'Retention setting changes emit a safe administrative configuration event.',
+        ],
+        'POST api/admin/reports/{report}/archive' => [
+            'classification' => 'explicit_event',
+            'source' => 'App\\Http\\Controllers\\ReportController@archivePrepared',
             'owner_task' => 8,
             'implementation_state' => 'implemented',
             'reason' => 'This report lifecycle command needs an explicit outcome event without report snapshots, filters, or file contents.',
         ],
-        'POST api/admin/reports/{type}/archive' => [
+        'POST api/admin/reports/{report}/unarchive' => [
             'classification' => 'explicit_event',
-            'source' => 'App\\Http\\Controllers\\ReportController@archive',
+            'source' => 'App\\Http\\Controllers\\ReportController@unarchive',
             'owner_task' => 8,
             'implementation_state' => 'implemented',
-            'reason' => 'This report lifecycle command needs an explicit outcome event without report snapshots, filters, or file contents.',
+            'reason' => 'Restoring a filed report emits a safe lifecycle event without report contents.',
         ],
         'POST api/admin/reports/{type}/prepare' => [
             'classification' => 'explicit_event',
@@ -588,19 +595,19 @@ return [
             'implementation_state' => 'implemented',
             'reason' => 'This report-configuration command needs an explicit safe allow-listed change event; images and arbitrary payloads stay excluded.',
         ],
-        'DELETE api/fss/reports/{report}' => [
+        'POST api/fss/reports/{report}/archive' => [
             'classification' => 'explicit_event',
-            'source' => 'App\\Http\\Controllers\\ReportController@destroy',
+            'source' => 'App\\Http\\Controllers\\ReportController@archivePrepared',
             'owner_task' => 8,
             'implementation_state' => 'implemented',
             'reason' => 'This report lifecycle command needs an explicit outcome event without report snapshots, filters, or file contents.',
         ],
-        'POST api/fss/reports/{type}/archive' => [
+        'POST api/fss/reports/{report}/unarchive' => [
             'classification' => 'explicit_event',
-            'source' => 'App\\Http\\Controllers\\ReportController@archive',
+            'source' => 'App\\Http\\Controllers\\ReportController@unarchive',
             'owner_task' => 8,
             'implementation_state' => 'implemented',
-            'reason' => 'This report lifecycle command needs an explicit outcome event without report snapshots, filters, or file contents.',
+            'reason' => 'Restoring a filed report emits a safe lifecycle event without report contents.',
         ],
         'POST api/fss/reports/{type}/prepare' => [
             'classification' => 'explicit_event',
@@ -769,6 +776,20 @@ return [
             'owner_task' => 6,
             'implementation_state' => 'implemented',
             'reason' => 'Reusable template deletion has no patient/NCP root and is deferred to report/configuration audit coverage.',
+        ],
+        'POST api/rnd/meal-plan-templates' => [
+            'classification' => 'intentionally_not_audited',
+            'source' => 'App\\Http\\Controllers\\RND\\MealPlanController@storeLibraryTemplate',
+            'owner_task' => 6,
+            'implementation_state' => 'implemented',
+            'reason' => 'Reusable library templates have no patient or NCP root, matching existing template deletion.',
+        ],
+        'PUT api/rnd/meal-plan-templates/{template}' => [
+            'classification' => 'intentionally_not_audited',
+            'source' => 'App\\Http\\Controllers\\RND\\MealPlanController@updateLibraryTemplate',
+            'owner_task' => 6,
+            'implementation_state' => 'implemented',
+            'reason' => 'Reusable library templates have no patient or NCP root, matching existing template deletion.',
         ],
         'DELETE api/rnd/ncp-records/{ncpRecord}' => [
             'classification' => 'model_event',
@@ -1036,19 +1057,19 @@ return [
             'implementation_state' => 'implemented',
             'reason' => 'This report-configuration command needs an explicit safe allow-listed change event; images and arbitrary payloads stay excluded.',
         ],
-        'DELETE api/rnd/reports/{report}' => [
+        'POST api/rnd/reports/{report}/archive' => [
             'classification' => 'explicit_event',
-            'source' => 'App\\Http\\Controllers\\ReportController@destroy',
+            'source' => 'App\\Http\\Controllers\\ReportController@archivePrepared',
             'owner_task' => 8,
             'implementation_state' => 'implemented',
             'reason' => 'This report lifecycle command needs an explicit outcome event without report snapshots, filters, or file contents.',
         ],
-        'POST api/rnd/reports/{type}/archive' => [
+        'POST api/rnd/reports/{report}/unarchive' => [
             'classification' => 'explicit_event',
-            'source' => 'App\\Http\\Controllers\\ReportController@archive',
+            'source' => 'App\\Http\\Controllers\\ReportController@unarchive',
             'owner_task' => 8,
             'implementation_state' => 'implemented',
-            'reason' => 'This report lifecycle command needs an explicit outcome event without report snapshots, filters, or file contents.',
+            'reason' => 'Restoring a filed report emits a safe lifecycle event without report contents.',
         ],
         'POST api/rnd/reports/{type}/prepare' => [
             'classification' => 'explicit_event',

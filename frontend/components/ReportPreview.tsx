@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import type { PDFDocumentProxy, RenderTask } from "pdfjs-dist";
-import { AlertTriangle, Download, Loader2, X } from "lucide-react";
+import { AlertTriangle, Archive, Download, Loader2, X } from "lucide-react";
 
 const MAX_CACHED_PDF_DOCUMENTS = 3;
 const PDF_DESTROY_DELAY_MS = 500;
@@ -175,11 +175,15 @@ export function ReportPreview({
   src,
   downloadUrl,
   onClose,
+  onArchive,
+  archiveBusy = false,
 }: {
   title: string;
   src: string;
   downloadUrl: string;
   onClose: () => void;
+  onArchive?: () => void;
+  archiveBusy?: boolean;
 }) {
   const [documentProxy, setDocumentProxy] = useState<PDFDocumentProxy | null>(null);
   const [loading, setLoading] = useState(true);
@@ -239,6 +243,16 @@ export function ReportPreview({
             {documentProxy && <p className="text-xs text-warm-400">{documentProxy.numPages} page{documentProxy.numPages === 1 ? "" : "s"}</p>}
           </div>
           <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+            {onArchive && <button
+              type="button"
+              onClick={onArchive}
+              disabled={archiveBusy}
+              aria-label={`Archive ${title}`}
+              className="flex h-11 items-center gap-1.5 rounded-lg border border-warm-200 bg-white px-3 text-sm font-semibold text-warm-700 hover:bg-warm-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 disabled:opacity-50"
+            >
+              {archiveBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />}
+              <span className="hidden sm:inline">Archive</span>
+            </button>}
             <a
               href={downloadUrl}
               download

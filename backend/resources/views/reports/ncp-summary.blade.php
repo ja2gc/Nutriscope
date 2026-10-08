@@ -6,9 +6,14 @@
 @endphp
 
 @section('body')
+    <style>
+        table.grid th, table.grid td { padding: 2px 4px; }
+        table.meta td { padding: 1px 3px; }
+        .sigs { margin-top: 16px; }
+    </style>
     @include('reports.partials.letterhead', [
         'title'    => 'Medical Nutrition Therapy (Nutrition Care Plan)',
-        'subtitle' => trim(($patient['name'] ?? 'Patient') . ($record_status ? ' — ' . ucfirst($record_status) : '')),
+        'subtitle' => $patient['name'] ?? 'Patient',
     ])
 
     {{-- RP-01/02 / AD-02: completion banner. An incomplete initial ADI is watermarked
@@ -136,7 +141,9 @@
     <div class="intervention-guidance">
         <div style="margin-top:4px;"><span class="bold">Diet / Stage:</span> {{ $intervention?->disease_stage }}</div>
         <div><span class="bold">Nutrition Education:</span> {{ $intervention?->education_notes }}</div>
-        <div><span class="bold">Counseling Goals:</span> {{ $intervention?->counseling_goals }}</div>
+        <div><span class="bold">Behavioral Goals:</span> {{ $intervention?->counseling_goals }}</div>
+        <div><span class="bold">Identified Barriers:</span> {{ $intervention?->barriers }}</div>
+        <div><span class="bold">Strategies:</span> {{ $intervention?->strategies }}</div>
         {{-- RP-03: reference the patient's meal plan for this cycle. --}}
         @if(!empty($meal_plan))
             <div><span class="bold">Meal Plan:</span> Week of {{ $meal_plan['week_start_date'] }} (#{{ $meal_plan['id'] }}, {{ ucfirst($meal_plan['status']) }})</div>

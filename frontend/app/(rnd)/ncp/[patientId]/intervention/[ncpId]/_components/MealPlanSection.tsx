@@ -597,8 +597,8 @@ export default function MealPlanSection({
           {t.fluid > 0 && (
             <div className="grid gap-2 rounded-xl border border-sky-100 bg-sky-50 p-3 text-sm text-sky-900 sm:grid-cols-3">
               <p><span className="font-bold">Required fluid:</span> {selectedFluid.requiredFluidMl} mL</p>
-              <p><span className="font-bold">Fluid from planned foods:</span> {selectedFluid.foodFluidMl} mL</p>
-              <p><span className="font-bold">Remaining drinking fluid:</span> {selectedFluid.remainingMl} mL</p>
+              <p><span className="font-bold">Fluid from planned foods, if this menu is followed:</span> {selectedFluid.foodFluidMl} mL</p>
+              <p><span className="font-bold">Remaining drinking fluid, if this menu is followed:</span> {selectedFluid.remainingMl} mL</p>
             </div>
           )}
 

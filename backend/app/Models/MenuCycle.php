@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\AuditsChanges;
 use App\Models\Concerns\HasPublicId;
+use App\Services\Reports\ReportConfigurationSnapshot;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -28,7 +29,16 @@ class MenuCycle extends Model
         'is_active' => 'boolean',
         'cost_snapshot' => 'array',
         'cost_snapshot_at' => 'datetime',
+        'report_configuration_snapshot' => 'array',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $cycle): void {
+            $cycle->report_configuration_snapshot = app(ReportConfigurationSnapshot::class)
+                ->capture(['menu_calendar']);
+        });
+    }
 
     protected function auditAttributes(): array
     {

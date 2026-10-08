@@ -1,6 +1,3 @@
-import { proxy } from "@/lib/laravelProxy";
-
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  return proxy(`/fss/reports/${id}`, { method: "DELETE" });
+export async function DELETE() {
+  return Response.json({ message: "Reports cannot be deleted." }, { status: 405 });
 }

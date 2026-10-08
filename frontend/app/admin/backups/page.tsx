@@ -81,7 +81,7 @@ export default function BackupsPage() {
   const [savingSchedules, setSavingSchedules] = useState(false);
   const [page, setPage] = useState(1);
   const [section, setSection] = useState<BackupView>("available");
-  const [category, setCategory] = useState<BackupCategoryFilter>("daily");
+  const [category, setCategory] = useState<BackupCategoryFilter>("all");
   const latestLoad = useRef(0);
 
   const load = useCallback(async (quiet = false, requestedPage = page) => {

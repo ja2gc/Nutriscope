@@ -35,19 +35,17 @@ import NutritionPrescriptionForm from "./_components/NutritionPrescriptionForm";
 import RecommendAvoidPanel from "./_components/RecommendAvoidPanel";
 import EducationTab from "./_components/EducationTab";
 import CounselingTab from "./_components/CounselingTab";
-import GoalPlanningTab from "./_components/GoalPlanningTab";
 import MealPlanSection from "./_components/MealPlanSection";
 import InterventionPlansTab from "./_components/InterventionPlansTab";
 import InterventionPlanEditor from "./_components/InterventionPlanEditor";
 import NcpPatientHeader from "../../../_components/NcpPatientHeader";
-import { InfoHint } from "@/components/ui/InfoHint";
 import { NcpBreadcrumb } from "@/components/ncp/NcpBreadcrumb";
 import {
   INTERVENTION_GUIDANCE_TOTAL_MAX,
   interventionGuidanceCharacters,
 } from "@/lib/interventionGuidance";
 
-type Tab = "plans" | "nd" | "education" | "counseling" | "goals";
+type Tab = "plans" | "nd" | "education" | "counseling";
 type PageParams = { patientId: string; ncpId: string };
 
 const TABS: { key: Tab; label: string }[] = [
@@ -55,7 +53,6 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "nd",         label: "Food / Nutrient Delivery" },
   { key: "education",  label: "Education" },
   { key: "counseling", label: "Counseling" },
-  { key: "goals",      label: "Goal Planning" },
 ];
 
 function formatMissingField(field: string) {
@@ -673,14 +670,6 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
             )}
 
             {/* [D] Meal Plan */}
-            {prescription.fluid_ml && (
-              <div className="flex items-center gap-1 text-sm text-sky-800">
-                <p><span className="font-bold">Daily fluid guidance:</span> {prescription.fluid_ml} mL</p>
-                <InfoHint label="How fluid guidance relates to the meal plan" title="Fluid guidance and food listings">
-                  Food listings do not guarantee beverage intake or a fluid limit.
-                </InfoHint>
-              </div>
-            )}
             {selectedPlanId && (
               <MealPlanSection
                 ncpId={ncpId}
@@ -734,18 +723,6 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
           />
         )}
 
-        {/* Goal Planning */}
-        {tab === "goals" && (
-          <GoalPlanningTab
-            goals={counselingGoals}
-            energy={prescription.energy_kcal}
-            protein={prescription.protein_g}
-            carbs={prescription.carbs_g}
-            fat={prescription.fat_g}
-            displayedMicros={prescription.displayed_nutrients}
-            micronutrientLimits={prescription.micronutrient_limits}
-          />
-        )}
           </InterventionPlanEditor>
         )}
       </div>

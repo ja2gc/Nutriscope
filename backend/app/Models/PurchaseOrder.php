@@ -32,6 +32,7 @@ class PurchaseOrder extends Model
         'archived_at' => 'datetime',
         'structural_locked_at' => 'datetime',
         'final_locked_at' => 'datetime',
+        'report_configuration_snapshot' => 'array',
     ];
 
     protected function auditAttributes(): array

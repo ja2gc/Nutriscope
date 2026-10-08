@@ -17,8 +17,7 @@
         Energy: {{ number_format($prescription['energy_kcal']) }} kcal ·
         Protein: {{ number_format($prescription['protein_g']) }} g ·
         Carbohydrate: {{ number_format($prescription['carbs_g']) }} g ·
-        Fat: {{ number_format($prescription['fat_g']) }} g ·
-        Fluid guidance: {{ number_format($prescription['fluid_ml']) }} mL
+        Fat: {{ number_format($prescription['fat_g']) }} g
         @foreach($prescription['micronutrient_limits'] as $nutrient => $limit)
             · {{ Illuminate\Support\Str::headline($nutrient) }}:
             @if(isset($limit['min']))min {{ number_format($limit['min']) }}@endif
@@ -26,12 +25,13 @@
             @if(isset($limit['max']))max {{ number_format($limit['max']) }}@endif
             {{ $limit['unit'] ?? '' }}
         @endforeach
+        <div class="muted" style="margin-top:2px;">Daily nutrient targets. These are not the nutrient totals of this menu.</div>
         <div class="muted" style="margin-top:2px;">
             Required fluid: {{ number_format($fluid_balance['required_fluid_ml']) }} mL/day ·
             Fluid from planned foods: {{ number_format($fluid_balance['food_fluid_ml']) }} mL/day average ·
             Remaining drinking fluid: {{ number_format($fluid_balance['remaining_ml']) }} mL/day.
-            Fluid is excluded from automatic food scaling.
         </div>
+        <div class="muted" style="margin-top:2px;">Estimated fluid from this menu if followed. The remaining amount should come from drinks.</div>
         @if($maternal_note)
             <div class="muted" style="margin-top:2px;">{{ $maternal_note }}</div>
         @endif

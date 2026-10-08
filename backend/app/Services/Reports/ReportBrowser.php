@@ -31,8 +31,7 @@ class ReportBrowser
                 fn () => PurchaseOrder::query()->whereIn('lifecycle_status', ['completed', 'archived'])->with('supplier'),
                 'purchase_order_id',
                 fn (PurchaseOrder $po) => trim(($po->po_number ?: "PO #{$po->id}")
-                    .(optional($po->completed_at)?->format('M j, Y') ? ' — '.$po->completed_at->format('M j, Y') : '')
-                    .($po->supplier ? " — {$po->supplier->name}" : '')),
+                    .(optional($po->completed_at)?->format('M j, Y') ? ' — '.$po->completed_at->format('M j, Y') : '')),
                 'completed_at',
             ),
             'program_project_activity' => fn () => new EntityInstanceSource(
@@ -88,7 +87,9 @@ class ReportBrowser
         return new EntityInstanceSource(
             fn () => MenuCycle::query(),
             'menu_cycle_id',
-            fn (MenuCycle $c) => $c->name ?: "Cycle #{$c->id}",
+            fn (MenuCycle $c) => $c->week_start_date
+                ? 'Menu — week of '.$c->week_start_date->format('M j, Y')
+                : 'Menu',
             'week_start_date',
         );
     }

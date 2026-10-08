@@ -3,13 +3,14 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  Database, Plus, Download, Trash2, Pencil,
+  Database, Download, Trash2, Pencil,
   CookingPot, X, Loader2,
   FlaskConical, TriangleAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Pagination } from "@/components/ui/Pagination";
 import SearchInput from "@/components/ui/SearchInput";
+import { MealTemplatesTab } from "./_components/MealTemplatesTab";
 import {
   fetchFoodItems, fetchRecipes, deleteFoodItem, deleteRecipe,
   searchUsda, importUsdaFood,
@@ -33,7 +34,7 @@ const NUTRIENT_UNITS: Record<string, string> = {
   fiber:"g", cholesterol:"mg", omega3:"g",
 };
 
-type Tab = "foods" | "recipes";
+type Tab = "foods" | "recipes" | "templates";
 
 // ─── USDA Import Modal ────────────────────────────────────────────────────────
 
@@ -424,53 +425,45 @@ export default function FoodLibraryPage() {
       {/* Header */}
       <div className="border-b border-warm-200 pb-5 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
-          <h2 className="text-xl font-extrabold text-warm-900 tracking-tight flex items-center gap-2.5">
-            <div className="p-1.5 bg-emerald-100 rounded-lg">
-              <Database className="h-4 w-4 text-emerald-700" />
-            </div>
-            Food Library
-          </h2>
+          <h2 className="text-xl font-extrabold text-warm-900 tracking-tight">Food Library</h2>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {activeTab === "foods" ? (
             <>
               <Button variant="secondary" onClick={() => setShowUsda(true)} className="w-auto px-4 py-2.5 flex items-center gap-2 text-sm">
-                <FlaskConical className="h-3.5 w-3.5" />
                 Import from USDA
               </Button>
               <Link href="/food-library/foods/new">
                 <Button variant="primary" className="w-auto px-4 py-2.5 flex items-center gap-2 text-sm">
-                  <Plus className="h-3.5 w-3.5" />
                   Add Food
                 </Button>
               </Link>
             </>
-          ) : (
+          ) : activeTab === "recipes" ? (
             <Link href="/food-library/recipes/new">
               <Button variant="primary" className="w-auto px-4 py-2.5 flex items-center gap-2 text-sm">
-                <Plus className="h-3.5 w-3.5" />
                 Create Recipe
               </Button>
             </Link>
-          )}
+          ) : null}
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-warm-200">
-        {(["foods", "recipes"] as Tab[]).map((tab) => (
+      <div className="flex overflow-x-auto border-b border-warm-200">
+        {(["foods", "recipes", "templates"] as Tab[]).map((tab) => (
           <button key={tab} onClick={() => setActiveTab(tab)}
             className={`px-5 py-2.5 text-sm font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer -mb-px ${
               activeTab === tab
                 ? "border-emerald-600 text-emerald-700"
                 : "border-transparent text-warm-400 hover:text-warm-700 hover:border-warm-300"
             }`}>
-            {tab === "foods"
-              ? <span className="flex items-center gap-1.5"><Database className="h-3.5 w-3.5" /> Foods</span>
-              : <span className="flex items-center gap-1.5"><CookingPot className="h-3.5 w-3.5" /> Recipes</span>}
+            {tab === "foods" ? "Foods" : tab === "recipes" ? "Recipes" : "Templates"}
           </button>
         ))}
       </div>
+
+      {activeTab === "templates" && <MealTemplatesTab />}
 
       {/* ── Foods Tab ── */}
       {activeTab === "foods" && (
@@ -562,11 +555,11 @@ export default function FoodLibraryPage() {
                         <td className="px-5 py-3.5 text-right">
                           <div className="flex items-center justify-end gap-1">
                             <Link href={`/food-library/foods/${food.id}`}
-                              className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-warm-100 text-warm-400 hover:text-warm-800 transition-all" title="Edit">
+                              className="p-1.5 rounded-lg text-warm-500 hover:bg-warm-100 hover:text-warm-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500" title="Edit" aria-label={`Edit ${food.name}`}>
                               <Pencil className="h-3.5 w-3.5" />
                             </Link>
                             <button onClick={() => setDeleteConfirm({ type: "food", id: food.id, name: food.name })}
-                              className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-50 text-warm-400 hover:text-red-600 transition-all cursor-pointer" title="Delete">
+                              className="p-1.5 rounded-lg text-warm-500 hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 cursor-pointer" title="Delete" aria-label={`Delete ${food.name}`}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           </div>
@@ -659,11 +652,11 @@ export default function FoodLibraryPage() {
                           <td className="px-5 py-3.5 text-right">
                             <div className="flex items-center justify-end gap-1">
                               <Link href={`/food-library/recipes/${recipe.id}`}
-                                className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-warm-100 text-warm-400 hover:text-warm-800 transition-all" title="Edit">
+                                className="p-1.5 rounded-lg text-warm-500 hover:bg-warm-100 hover:text-warm-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500" title="Edit" aria-label={`Edit ${recipe.name}`}>
                                 <Pencil className="h-3.5 w-3.5" />
                               </Link>
                               <button onClick={() => setDeleteConfirm({ type: "recipe", id: recipe.id, name: recipe.name })}
-                                className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-50 text-warm-400 hover:text-red-600 transition-all cursor-pointer" title="Delete">
+                                className="p-1.5 rounded-lg text-warm-500 hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 cursor-pointer" title="Delete" aria-label={`Delete ${recipe.name}`}>
                                 <Trash2 className="h-3.5 w-3.5" />
                               </button>
                             </div>

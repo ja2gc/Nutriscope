@@ -38,10 +38,10 @@ class AuditDuplicateDiscoveryTest extends TestCase
             'test_po_deduction_ledger_creation_writes_system_audit_event',
             ['adjusted'],
         ],
-        'report view download and delete' => [
+        'report view download and unarchive' => [
             'tests/Feature/Audit/ReportAuditTest.php',
-            'test_report_views_downloads_and_deletes_emit_safe_semantic_events',
-            ['viewed', 'downloaded', 'archived'],
+            'test_report_views_downloads_and_unarchive_emit_safe_semantic_events',
+            ['viewed', 'downloaded', 'updated'],
         ],
         'report generation retry' => [
             'tests/Feature/Audit/ReportAuditTest.php',
@@ -136,7 +136,7 @@ class AuditDuplicateDiscoveryTest extends TestCase
             'purchase-order conversion and ordering',
             'purchase-order receiving',
             'budget purchase-order deduction',
-            'report view download and delete',
+            'report view download and unarchive',
             'report generation retry',
             'RND Food Library create',
             'RND Food Library update',

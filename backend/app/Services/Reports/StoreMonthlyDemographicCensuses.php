@@ -3,7 +3,6 @@
 namespace App\Services\Reports;
 
 use App\Models\DemographicCensusPeriod;
-use App\Models\NcpRecord;
 use App\Services\Reports\Generators\DemographicCensusGenerator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -15,7 +14,7 @@ class StoreMonthlyDemographicCensuses
     /** @return array{stored:int,rebuilt:int,skipped:int} */
     public function handle(Carbon $now): array
     {
-        $firstCycle = NcpRecord::query()->min('created_at');
+        $firstCycle = $this->generator->earliestQualifyingCycleAt();
         if ($firstCycle === null) {
             return ['stored' => 0, 'rebuilt' => 0, 'skipped' => 0];
         }

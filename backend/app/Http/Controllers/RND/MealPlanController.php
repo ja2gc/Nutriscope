@@ -31,6 +31,7 @@ use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class MealPlanController extends Controller
 {
@@ -350,6 +351,49 @@ class MealPlanController extends Controller
         ]);
     }
 
+    public function storeLibraryTemplate(Request $request): JsonResponse
+    {
+        [$attributes, $lines] = $this->validatedLibraryTemplate($request);
+        $template = $this->audited(function () use ($request, $attributes, $lines): MealPlanTemplate {
+            $template = MealPlanTemplate::create([
+                ...$attributes,
+                'rnd_user_id' => $request->user()->id,
+            ]);
+            $this->writeLibraryTemplateLines($template, $lines);
+            $this->auditLogger->record(
+                AuditAction::Created,
+                AuditCategory::Clinical,
+                AuditDomain::NutritionLibrary,
+                subject: $template,
+                details: ['fields' => ['meal_plan_template'], 'status' => 201],
+            );
+
+            return $template;
+        });
+
+        return $this->showTemplate($template)->setStatusCode(201);
+    }
+
+    public function updateLibraryTemplate(Request $request, MealPlanTemplate $template): JsonResponse
+    {
+        $this->assertTemplateOwner($template);
+        [$attributes, $lines] = $this->validatedLibraryTemplate($request);
+        $this->audited(function () use ($template, $attributes, $lines): void {
+            $template->update($attributes);
+            $template->days()->delete();
+            $this->writeLibraryTemplateLines($template, $lines);
+            $this->auditLogger->record(
+                AuditAction::Updated,
+                AuditCategory::Clinical,
+                AuditDomain::NutritionLibrary,
+                subject: $template,
+                details: ['fields' => ['meal_plan_template'], 'status' => 200],
+            );
+        });
+
+        return $this->showTemplate($template->fresh());
+    }
+
     /**
      * GET /api/rnd/meal-plan-templates/{template}
      */
@@ -361,6 +405,8 @@ class MealPlanController extends Controller
         $days = $template->days->map(function ($day): array {
             $items = $day->items->map(fn ($item) => [
                 'id' => $item->uuid,
+                'food_item_id' => $item->foodItem?->uuid,
+                'recipe_id' => $item->recipe?->uuid,
                 'quantity' => $item->quantity,
                 'unit' => $item->unit,
                 'food_name' => $item->nutrient_snapshot['name']
@@ -535,6 +581,79 @@ class MealPlanController extends Controller
         return response()->json(['data' => $result]);
     }
 
+    /** @return array{0: array<string, mixed>, 1: list<array<string, mixed>>} */
+    private function validatedLibraryTemplate(Request $request): array
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string', 'max:2000'],
+            'goal_type' => ['nullable', 'string', 'max:255'],
+            'disease_stage' => ['nullable', 'string', 'max:100'],
+            'lines' => ['required', 'array', 'min:1', 'max:350'],
+            'lines.*.day_of_week' => ['required', 'in:Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday'],
+            'lines.*.meal_type' => ['required', 'in:breakfast,am_snack,lunch,pm_snack,dinner'],
+            'lines.*.food_item_id' => ['nullable', 'uuid', 'exists:food_items,uuid'],
+            'lines.*.recipe_id' => ['nullable', 'uuid', 'exists:recipes,uuid'],
+            'lines.*.quantity' => ['required', 'numeric', 'gt:0', 'lte:99999.99'],
+            'lines.*.unit' => ['required', 'string', 'max:40'],
+        ]);
+        $lines = $validated['lines'];
+        $foodIds = FoodItem::query()->whereIn('uuid', collect($lines)->pluck('food_item_id')->filter()->all())->pluck('id', 'uuid');
+        $recipeIds = Recipe::query()->where('rnd_user_id', $request->user()->id)
+            ->whereIn('uuid', collect($lines)->pluck('recipe_id')->filter()->all())->pluck('id', 'uuid');
+
+        foreach ($lines as $index => &$line) {
+            $foodUuid = $line['food_item_id'] ?? null;
+            $recipeUuid = $line['recipe_id'] ?? null;
+            if (($foodUuid === null) === ($recipeUuid === null)) {
+                throw ValidationException::withMessages(["lines.{$index}" => 'Choose exactly one food or recipe.']);
+            }
+            if ($recipeUuid !== null && ! $recipeIds->has($recipeUuid)) {
+                throw ValidationException::withMessages(["lines.{$index}.recipe_id" => 'This recipe is unavailable.']);
+            }
+            $line['food_item_id'] = $foodUuid === null ? null : (int) $foodIds[$foodUuid];
+            $line['recipe_id'] = $recipeUuid === null ? null : (int) $recipeIds[$recipeUuid];
+        }
+        unset($line);
+        unset($validated['lines']);
+
+        return [$validated, $lines];
+    }
+
+    /** @param list<array<string, mixed>> $lines */
+    private function writeLibraryTemplateLines(MealPlanTemplate $template, array $lines): void
+    {
+        $groups = [];
+        foreach ($lines as $line) {
+            $groups[$line['day_of_week'].'|'.$line['meal_type']][] = $line;
+        }
+
+        foreach ($groups as $group) {
+            $first = $group[0];
+            $day = MealPlanTemplateDay::create([
+                'template_id' => $template->id,
+                'day_of_week' => $first['day_of_week'],
+                'meal_type' => $first['meal_type'],
+                'food_item_id' => $first['food_item_id'],
+                'recipe_id' => $first['recipe_id'],
+                'quantity' => $first['quantity'],
+                'unit' => $first['unit'],
+            ]);
+            foreach ($group as $index => $line) {
+                MealPlanTemplateItem::create([
+                    'template_day_id' => $day->id,
+                    'food_item_id' => $line['food_item_id'],
+                    'recipe_id' => $line['recipe_id'],
+                    'quantity' => $line['quantity'],
+                    'unit' => $line['unit'],
+                    'nutrient_snapshot' => $this->snapshotForTemplateItem($line['food_item_id'], $line['recipe_id']),
+                    'ai_suggested' => false,
+                    'line_order' => $index + 1,
+                ]);
+            }
+        }
+    }
+
     private function assertTemplateOwner(MealPlanTemplate $template): void
     {
         abort_unless($template->rnd_user_id === request()->user()?->id, 404);
@@ -587,7 +706,7 @@ class MealPlanController extends Controller
                 'protein' => (float) $recipe->total_protein,
                 'carbs' => (float) $recipe->total_carbs,
                 'fat' => (float) $recipe->total_fat,
-                'water_g' => (float) ($recipe->total_water ?? 0),
+                'water_g' => (float) ($recipe->total_water_g ?? 0),
                 'micronutrients' => $recipe->micronutrients ?? [],
                 'serving_size' => (float) ($recipe->servings ?? 1),
                 'serving_unit' => 'serving',

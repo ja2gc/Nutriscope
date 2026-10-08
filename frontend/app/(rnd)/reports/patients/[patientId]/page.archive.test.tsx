@@ -4,14 +4,16 @@ import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import PatientNcpReportsPage from "./page";
-import { archiveReport, listPatientNcpReports } from "@/services/reportService";
+import { listPatientNcpReports, prepareReport } from "@/services/reportService";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 vi.mock("next/navigation", () => ({ useParams: () => ({ patientId: "patient-1" }) }));
 vi.mock("@/services/reportService", () => ({
   listPatientNcpReports: vi.fn(),
-  archiveReport: vi.fn(),
+  prepareReport: vi.fn(),
+  reportViewUrl: (id: string) => `/reports/${id}/view`,
+  reportDownloadUrl: (id: string) => `/reports/${id}/download`,
 }));
 vi.mock("@/components/ReportPreview", () => ({ ReportPreview: () => null }));
 
@@ -20,8 +22,8 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe("patient report archive", () => {
-  it("files the selected dated Intervention Plan without changing its cycle", async () => {
+describe("patient clinical reports", () => {
+  it("shows cycle status, but no report status or archive action", async () => {
     vi.mocked(listPatientNcpReports).mockResolvedValue({
       patient: { id: "patient-1", display_name: "Fictional Patient", hospital_number: null, status: "Active" },
       data: [{
@@ -36,7 +38,7 @@ describe("patient report archive", () => {
       }],
       meta: { current_page: 1, last_page: 1, per_page: 10, total: 1 },
     });
-    vi.mocked(archiveReport).mockResolvedValue({ id: "filed-1" } as never);
+    vi.mocked(prepareReport).mockResolvedValue({ id: "prepared-1" } as never);
     const container = document.createElement("div");
     document.body.appendChild(container);
     const root = createRoot(container);
@@ -48,15 +50,12 @@ describe("patient report archive", () => {
         .find((button) => button.textContent?.includes("ADIME Cycle"))!.click();
     });
 
-    const archive = Array.from(container.querySelectorAll("button"))
-      .find((button) => button.getAttribute("aria-label") === "Archive Nutrition Intervention Plan — Oct 5, 2026");
-    expect(archive).toBeDefined();
-    await act(async () => { archive!.click(); });
-
-    expect(archiveReport).toHaveBeenCalledWith("patient_menu_plan", {
+    expect(container.textContent).not.toContain("active");
+    expect(container.querySelector('[aria-label="Archive Nutrition Intervention Plan — Oct 5, 2026"]')).toBeNull();
+    await act(async () => { Array.from(container.querySelectorAll("button")).find((button) => button.textContent?.includes("Nutrition Intervention Plan — Oct 5, 2026"))!.click(); });
+    expect(prepareReport).toHaveBeenCalledWith("patient_menu_plan", {
       ncp_record_id: "cycle-1", intervention_plan_id: "plan-1",
     }, "rnd");
-    expect(container.textContent).toContain("Archived Nutrition Intervention Plan — Oct 5, 2026");
     await act(async () => root.unmount());
   });
 });

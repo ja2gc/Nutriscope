@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\BackupController;
 use App\Http\Controllers\Admin\BackupRecoveryController;
 use App\Http\Controllers\Admin\BackupScheduleController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\ReportArchiveSettingController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\PasswordResetController;
@@ -68,11 +69,12 @@ $reportRoutes = function (string $routeName) {
         Route::post('reports/{type}/prepare', [ReportController::class, 'prepare'])->where('type', '[a-z_]+');
         Route::get('reports/{type}/render', [ReportController::class, 'render'])->where('type', '[a-z_]+');
         Route::get('reports/{type}/export', [ReportController::class, 'export'])->where('type', '[a-z_]+');
-        Route::post('reports/{type}/archive', [ReportController::class, 'archive'])->where('type', '[a-z_]+');
+        Route::post('reports/{report}/archive', [ReportController::class, 'archivePrepared']);
+        Route::post('reports/{report}/unarchive', [ReportController::class, 'unarchive']);
     });
     Route::get('reports/{report}/download', [ReportController::class, 'download']);
     Route::get('reports/{report}/view', [ReportController::class, 'view']);
-    Route::apiResource('reports', ReportController::class)->only(['index', 'show', 'destroy'])->names($routeName);
+    Route::apiResource('reports', ReportController::class)->only(['index', 'show'])->names($routeName);
     Route::get('report-branding', [ReportBrandingController::class, 'show']);
     Route::get('report-templates', [ReportTemplateController::class, 'index']);
     Route::middleware('role:RND,Admin')->group(function () {
@@ -112,6 +114,7 @@ Route::prefix('auth')->group(function () {
 // Shared notification routes — accessible to any authenticated role (RND, FSS, Admin).
 // The controller already scopes strictly by Auth::id(), so each user sees only their own rows.
 Route::middleware(['auth:sanctum', 'active'])->group(function () {
+    Route::get('reports/archive-settings', [ReportArchiveSettingController::class, 'show']);
     Route::get('announcements/{announcement}/author-photo', [RndAnnouncementController::class, 'authorPhoto']);
     Route::get('notifications', [NotificationController::class, 'index']);
     Route::get('notifications/unread-count', [NotificationController::class, 'unreadCount']);
@@ -191,7 +194,9 @@ Route::middleware(['auth:sanctum', 'active', 'role:RND'])->prefix('rnd')->group(
     Route::post('ncp-records/{ncpRecord}/meal-plans/from-template', [MealPlanController::class, 'fromTemplate']);
     Route::post('ncp-records/{ncpRecord}/meal-plans/{mealPlan}/save-template', [MealPlanController::class, 'saveTemplate']);
     Route::get('meal-plan-templates', [MealPlanController::class, 'templates']);
+    Route::post('meal-plan-templates', [MealPlanController::class, 'storeLibraryTemplate']);
     Route::get('meal-plan-templates/{template}', [MealPlanController::class, 'showTemplate']);
+    Route::put('meal-plan-templates/{template}', [MealPlanController::class, 'updateLibraryTemplate']);
     Route::delete('meal-plan-templates/{template}', [MealPlanController::class, 'destroyTemplate']);
 
     // Meal Plan Item routes
@@ -391,6 +396,8 @@ Route::middleware(['auth:sanctum', 'active', 'role:Admin'])->prefix('admin')->gr
     Route::post('report-branding', [ReportBrandingController::class, 'update']);
     Route::get('report-templates', [ReportTemplateController::class, 'index']);
     Route::patch('report-templates/{reportTemplate}', [ReportTemplateController::class, 'update']);
+    Route::get('reports/archive-settings', [ReportArchiveSettingController::class, 'show']);
+    Route::put('reports/archive-settings', [ReportArchiveSettingController::class, 'update']);
     Route::get('ai-usage-limits', [AiUsageLimitController::class, 'show']);
     Route::put('ai-usage-limits', [AiUsageLimitController::class, 'update']);
     Route::get('ai-usage', AiUsageAnalyticsController::class);
@@ -410,8 +417,9 @@ Route::middleware(['auth:sanctum', 'active', 'role:Admin'])->prefix('admin')->gr
     Route::post('reports/{type}/prepare', [ReportController::class, 'prepare'])->where('type', '[a-z_]+')->middleware('throttle:reports');
     Route::get('reports/{type}/render', [ReportController::class, 'render'])->where('type', '[a-z_]+');
     Route::get('reports/{type}/export', [ReportController::class, 'export'])->where('type', '[a-z_]+');
-    Route::post('reports/{type}/archive', [ReportController::class, 'archive'])->where('type', '[a-z_]+');
+    Route::post('reports/{report}/archive', [ReportController::class, 'archivePrepared'])->middleware('throttle:reports');
+    Route::post('reports/{report}/unarchive', [ReportController::class, 'unarchive'])->middleware('throttle:reports');
     Route::get('reports/{report}/download', [ReportController::class, 'download']);
     Route::get('reports/{report}/view', [ReportController::class, 'view']);
-    Route::apiResource('reports', ReportController::class)->only(['index', 'show', 'destroy'])->names('admin.reports');
+    Route::apiResource('reports', ReportController::class)->only(['index', 'show'])->names('admin.reports');
 });

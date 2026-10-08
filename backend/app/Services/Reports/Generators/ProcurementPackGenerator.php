@@ -55,9 +55,9 @@ class ProcurementPackGenerator implements ReportGenerator
             'packs' => $packs,
             'period_label' => $this->periodLabel($orders),
             // Each bundled form carries its own signatory block (§2.7).
-            'air_signatories' => $this->sigsFor('inspection_report', $preparedBy),
-            'statement_signatories' => $this->sigsFor('marketing_statement', $preparedBy),
-            'summary_signatories' => $this->sigsFor('marketing_summary', $preparedBy),
+            'air_signatories' => $this->sigsFor('inspection_report', $preparedBy, $report->snapshot['procurement_form_signatories'] ?? null),
+            'statement_signatories' => $this->sigsFor('marketing_statement', $preparedBy, $report->snapshot['procurement_form_signatories'] ?? null),
+            'summary_signatories' => $this->sigsFor('marketing_summary', $preparedBy, $report->snapshot['procurement_form_signatories'] ?? null),
         ];
     }
 
@@ -67,9 +67,11 @@ class ProcurementPackGenerator implements ReportGenerator
      *
      * @return array<int,array<string,string>>
      */
-    private function sigsFor(string $type, ?string $preparedBy): array
+    private function sigsFor(string $type, ?string $preparedBy, ?array $captured): array
     {
-        $sigs = ReportTemplate::where('type', $type)->first()?->signatories ?? [];
+        $sigs = $captured === null
+            ? ReportTemplate::where('type', $type)->first()?->signatories ?? []
+            : ($captured[$type] ?? []);
 
         return array_map(function (array $sig) use ($preparedBy) {
             if ($preparedBy && in_array($sig['role'] ?? '', ['prepared_by', 'buyer', 'conforme', 'certified_correct'], true)) {

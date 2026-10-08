@@ -5,6 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import FoodLibraryPage from "./page";
 import { fetchFoodItems, searchUsda } from "@/services/foodLibraryService";
+import { fetchMealPlanTemplates } from "@/services/mealPlanService";
 
 vi.mock("@/services/foodLibraryService", () => ({
   fetchFoodItems: vi.fn(async () => ({ data: [], meta: null })),
@@ -13,6 +14,13 @@ vi.mock("@/services/foodLibraryService", () => ({
   deleteRecipe: vi.fn(),
   searchUsda: vi.fn(),
   importUsdaFood: vi.fn(),
+}));
+
+vi.mock("@/services/mealPlanService", () => ({
+  fetchMealPlanTemplates: vi.fn(async () => ({ data: [{ id: "template-1", name: "Simple week", description: null, goal_type: null, disease_stage: null, maternal_status: null, created_at: "2026-10-07" }], meta: { current_page: 1, per_page: 10, total: 1, last_page: 1 } })),
+  fetchMealPlanTemplate: vi.fn(),
+  saveLibraryMealPlanTemplate: vi.fn(),
+  deleteMealPlanTemplate: vi.fn(),
 }));
 
 const tomato = {
@@ -79,5 +87,25 @@ describe("Food Library USDA search", () => {
     expect(container.textContent).not.toContain("Tomatoes, raw");
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 550)); });
     expect(container.textContent).not.toContain("Tomatoes, raw");
+  });
+});
+
+describe("Food Library meal templates", () => {
+  it("shows owned templates with visible edit and delete actions plus a new-template form", async () => {
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    await act(async () => { root.render(<FoodLibraryPage />); });
+    const tab = Array.from(container.querySelectorAll("button")).find((button) => button.textContent?.includes("Templates"));
+    expect(tab).toBeDefined();
+    await act(async () => { tab!.click(); });
+    expect(fetchMealPlanTemplates).toHaveBeenCalled();
+    expect(container.textContent).toContain("Simple week");
+    expect(container.querySelector('[aria-label="Edit Simple week"]')).not.toBeNull();
+    expect(container.querySelector('[aria-label="Delete Simple week"]')).not.toBeNull();
+    const create = Array.from(container.querySelectorAll("button")).find((button) => button.textContent?.includes("New Template"));
+    expect(create).toBeDefined();
+    await act(async () => { create!.click(); });
+    expect(container.textContent).toContain("Create meal template");
   });
 });

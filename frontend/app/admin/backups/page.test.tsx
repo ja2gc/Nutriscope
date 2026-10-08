@@ -43,6 +43,23 @@ afterEach(async () => {
 });
 
 describe("backup page loading", () => {
+  it("loads all restore-point types on first visit", async () => {
+    vi.mocked(listBackups).mockImplementation(async (_page, section) => section === "in_progress" ? { ...list, data: [] } as never : list as never);
+    vi.mocked(getBackupSchedules).mockResolvedValue({
+      daily: { enabled: false, next_at: null },
+      weekly: { enabled: false, next_at: null },
+      monthly: { enabled: false, next_at: null }, message: null,
+    });
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => { root.render(<BackupsPage />); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(listBackups).toHaveBeenCalledWith(1, "available", "all");
+  });
+
   it("keeps the saved-point list visible when schedule loading fails", async () => {
     vi.mocked(listBackups).mockImplementation(async (_page, section) => section === "in_progress" ? { ...list, data: [] } as never : list as never);
     vi.mocked(getBackupSchedules).mockRejectedValue(new Error("schedule unavailable"));

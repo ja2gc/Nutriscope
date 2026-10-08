@@ -5,6 +5,7 @@ namespace App\Services\Reports\Generators;
 use App\Models\Assessment;
 use App\Models\NcpRecord;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * ADIME-cycle aggregates for the on-screen Census. Completed-month snapshots
@@ -30,21 +31,12 @@ class DemographicCensusGenerator
     /** @return array<string,mixed> */
     public function currentCensus(Carbon $start, Carbon $end): array
     {
-
-        $cycles = NcpRecord::query()
+        $cycles = $this->qualifyingCyclesQuery()
             ->with(['patient', 'assessment'])
             ->whereBetween('created_at', [
                 $start->copy()->startOfDay(),
                 $end->copy()->endOfDay(),
             ])
-            ->whereHas('assessment')
-            ->where(function ($query): void {
-                $query->where('created_at', '<', self::LEGACY_VISIT_CUTOFF)
-                    ->orWhereHas('appointments', function ($visit): void {
-                        $visit->where('status', 'completed')
-                            ->whereJsonContains('worked_on', 'assessment');
-                    });
-            })
             ->get()
             ->map(function (NcpRecord $cycle): array {
                 $age = $cycle->patient?->dob?->diffInYears($cycle->created_at);
@@ -62,6 +54,25 @@ class DemographicCensusGenerator
             })->all();
 
         return self::aggregate($cycles);
+    }
+
+    public function earliestQualifyingCycleAt(): ?string
+    {
+        return $this->qualifyingCyclesQuery()->min('created_at');
+    }
+
+    /** @return Builder<NcpRecord> */
+    private function qualifyingCyclesQuery(): Builder
+    {
+        return NcpRecord::query()
+            ->whereHas('assessment')
+            ->where(function (Builder $query): void {
+                $query->where('created_at', '<', self::LEGACY_VISIT_CUTOFF)
+                    ->orWhereHas('appointments', function (Builder $visit): void {
+                        $visit->where('status', 'completed')
+                            ->whereJsonContains('worked_on', 'assessment');
+                    });
+            });
     }
 
     /**

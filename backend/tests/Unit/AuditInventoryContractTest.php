@@ -43,7 +43,7 @@ class AuditInventoryContractTest extends TestCase
             'test_legacy_login_rows_are_presented_as_login_succeeded',
         ],
         'tests/Feature/Audit/ReportAuditTest.php' => [
-            'test_report_views_downloads_and_deletes_emit_safe_semantic_events',
+            'test_report_views_downloads_and_unarchive_emit_safe_semantic_events',
             "->assertJsonPath('data.0.actor.id', \$other->uuid)",
         ],
         'tests/Feature/Audit/SharedRndClinicalAccessTest.php' => [
@@ -76,6 +76,7 @@ class AuditInventoryContractTest extends TestCase
         'app/Http/Controllers/Admin/BackupController.php',
         'app/Http/Controllers/Admin/BackupRecoveryController.php',
         'app/Http/Controllers/Admin/BackupScheduleController.php',
+        'app/Http/Controllers/Admin/ReportArchiveSettingController.php',
         'app/Http/Controllers/Admin/UserController.php',
         'app/Http/Controllers/Auth/AuthController.php',
         'app/Http/Controllers/Auth/PasswordResetController.php',

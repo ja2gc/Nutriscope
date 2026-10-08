@@ -439,6 +439,52 @@ class MealPlanControllerTest extends TestCase
             ->assertJsonCount(1, 'data');
     }
 
+    public function test_rnd_can_create_and_edit_an_owned_template_from_food_library(): void
+    {
+        $food = FoodItem::factory()->create(['name' => 'Apple', 'calories' => 95]);
+        $recipe = Recipe::factory()->create(['rnd_user_id' => $this->rnd->id, 'name' => 'Vegetable soup', 'total_water_g' => 180]);
+        $created = $this->actingAs($this->rnd)->postJson('/api/rnd/meal-plan-templates', [
+            'name' => 'Simple week',
+            'lines' => [
+                ['day_of_week' => 'Monday', 'meal_type' => 'breakfast', 'food_item_id' => $food->uuid, 'quantity' => 1, 'unit' => 'piece'],
+                ['day_of_week' => 'Monday', 'meal_type' => 'breakfast', 'recipe_id' => $recipe->uuid, 'quantity' => 1, 'unit' => 'serving'],
+            ],
+        ])->assertCreated();
+        $template = MealPlanTemplate::where('uuid', $created->json('data.id'))->firstOrFail();
+        $this->assertSame($this->rnd->id, $template->rnd_user_id);
+        $this->assertCount(2, $template->days()->firstOrFail()->items);
+        $this->assertSame(['Apple', 'Vegetable soup'], $template->days()->firstOrFail()->items->pluck('nutrient_snapshot.name')->all());
+        $this->assertEquals(180.0, $template->days()->firstOrFail()->items->last()->nutrient_snapshot['water_g']);
+
+        $this->putJson("/api/rnd/meal-plan-templates/{$template->uuid}", [
+            'name' => 'Simple week revised',
+            'lines' => [
+                ['day_of_week' => 'Tuesday', 'meal_type' => 'lunch', 'food_item_id' => $food->uuid, 'quantity' => 2, 'unit' => 'pieces'],
+            ],
+        ])->assertOk()->assertJsonPath('data.name', 'Simple week revised');
+        $this->assertSame(1, $template->days()->count());
+        $this->assertSame('Tuesday', $template->days()->firstOrFail()->day_of_week);
+    }
+
+    public function test_food_library_template_mutation_rejects_other_owner_and_invalid_items(): void
+    {
+        $other = User::factory()->rnd()->create();
+        $template = MealPlanTemplate::forceCreate(['rnd_user_id' => $other->id, 'name' => 'Private template']);
+        $recipe = Recipe::factory()->create(['rnd_user_id' => $other->id]);
+
+        $this->actingAs($this->rnd)->putJson("/api/rnd/meal-plan-templates/{$template->uuid}", [
+            'name' => 'Changed', 'lines' => [],
+        ])->assertNotFound();
+        $this->postJson('/api/rnd/meal-plan-templates', [
+            'name' => 'Cross-owned recipe',
+            'lines' => [['day_of_week' => 'Monday', 'meal_type' => 'lunch', 'recipe_id' => $recipe->uuid, 'quantity' => 1, 'unit' => 'serving']],
+        ])->assertUnprocessable();
+        $this->postJson('/api/rnd/meal-plan-templates', [
+            'name' => 'No items', 'lines' => [],
+        ])->assertUnprocessable();
+        $this->assertDatabaseCount('meal_plan_templates', 1);
+    }
+
     public function test_rnd_can_create_plan_from_template(): void
     {
         [$ncpRecord, $intervention, $patient] = $this->makeInterventionWithNcpRecord();

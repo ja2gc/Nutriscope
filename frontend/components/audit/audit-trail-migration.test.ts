@@ -12,7 +12,6 @@ describe("contextual structured audit trail migration", () => {
     const callers = [
       "app/(rnd)/food-service/procurement/page.tsx",
       "components/budget/BudgetPageShell.tsx",
-      "components/reports/ReportsBrowser.tsx",
     ].map(source);
 
     for (const caller of callers) expect(caller).toContain("AuditTrail");

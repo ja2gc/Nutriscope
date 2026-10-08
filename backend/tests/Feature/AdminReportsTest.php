@@ -107,8 +107,13 @@ class AdminReportsTest extends TestCase
 
     public function test_admin_cannot_archive_ncp_summary(): void
     {
+        $report = Report::factory()->create([
+            'user_id' => $this->admin->id,
+            'type' => 'ncp_summary',
+            'status' => 'completed',
+        ]);
         $this->actingAs($this->admin)
-            ->postJson('/api/admin/reports/ncp_summary/archive')
+            ->postJson("/api/admin/reports/{$report->uuid}/archive")
             ->assertForbidden();
     }
 
@@ -195,7 +200,9 @@ class AdminReportsTest extends TestCase
         foreach (['', '/view', '/download', '/activity'] as $suffix) {
             $this->getJson("/api/admin/reports/{$report->uuid}{$suffix}")->assertForbidden();
         }
-        $this->deleteJson("/api/admin/reports/{$report->uuid}")->assertForbidden();
+        $this->postJson("/api/admin/reports/{$report->uuid}/archive")->assertForbidden();
+        $this->postJson("/api/admin/reports/{$report->uuid}/unarchive")->assertForbidden();
+        $this->deleteJson("/api/admin/reports/{$report->uuid}")->assertMethodNotAllowed();
         $this->assertModelExists($report);
     }
 }

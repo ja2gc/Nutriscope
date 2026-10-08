@@ -79,6 +79,11 @@ return Application::configure(basePath: dirname(__DIR__))
             ->everyFiveMinutes()
             ->withoutOverlapping()
             ->onOneServer();
+        $schedule->command('reports:purge-expired-archives')
+            ->dailyAt('02:45')
+            ->timezone(config('nutriscope-reports.timezone'))
+            ->withoutOverlapping()
+            ->onOneServer();
         $schedule->command('reports:demographic-census-catch-up')
             ->monthlyOn(1, '00:05')
             ->timezone(config('nutriscope-reports.timezone'))

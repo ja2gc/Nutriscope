@@ -3,8 +3,11 @@
 namespace Tests\Feature;
 
 use App\Actions\Reports\PrepareSavedReport;
+use App\Models\MenuCycle;
+use App\Models\PurchaseOrder;
 use App\Models\Report;
 use App\Models\ReportBranding;
+use App\Models\ReportTemplate;
 use App\Models\User;
 use App\Services\Reports\ReportService;
 use App\Services\StoredObjectStorage;
@@ -38,6 +41,25 @@ class PreparedReportTest extends TestCase
 
         $this->assertStringContainsString('src="data:image/png;base64,bGVmdA=="', $html);
         $this->assertStringContainsString('src="data:image/png;base64,cmlnaHQ="', $html);
+    }
+
+    #[Test]
+    public function operational_report_titles_use_source_dates_instead_of_cycle_names(): void
+    {
+        Storage::fake('report_cache');
+        $actor = User::factory()->rnd()->create();
+        $po = PurchaseOrder::factory()->create(['completed_at' => '2026-05-10 08:00:00']);
+        $menu = MenuCycle::factory()->create(['name' => 'Substance Cycle', 'week_start_date' => '2026-05-11']);
+        $service = $this->createMock(ReportService::class);
+        $service->method('signatoriesFor')->willReturn([]);
+        $service->method('buildPdf')->willReturn(['bytes' => "%PDF-1.4\nreport\n%%EOF", 'meta' => []]);
+        $this->app->instance(ReportService::class, $service);
+
+        $poReport = app(PrepareSavedReport::class)->execute($actor, 'procurement_pack', ['purchase_order_id' => $po->id], freeze: false);
+        $menuReport = app(PrepareSavedReport::class)->execute($actor, 'menu_calendar', ['menu_cycle_id' => $menu->id], freeze: false);
+
+        $this->assertSame('PO — May 10, 2026', $poReport->title);
+        $this->assertSame('Menu — week of May 11, 2026', $menuReport->title);
     }
 
     #[Test]
@@ -133,6 +155,38 @@ class PreparedReportTest extends TestCase
         $this->assertSame($archived->uuid, $same->uuid);
         $this->assertSame($original, Storage::disk('private_uploads')->get($same->officialFile->object_key));
         $this->assertDatabaseCount('reports', 1);
+    }
+
+    #[Test]
+    public function repreparing_a_food_service_report_preserves_its_first_template_configuration(): void
+    {
+        Storage::fake('report_cache');
+        $actor = User::factory()->rnd()->create();
+        ReportBranding::singleton()->update(['hospital_name' => 'Original Hospital']);
+        $template = ReportTemplate::create([
+            'type' => 'procurement_pack',
+            'name' => 'Procurement Pack',
+            'blade_view' => 'reports.procurement-pack',
+            'signatories' => [['role' => 'approved_by', 'label' => 'Approved by', 'name' => 'Original Officer', 'title' => 'Director']],
+        ]);
+        $service = $this->createMock(ReportService::class);
+        $service->method('signatoriesFor')->willReturnCallback(
+            fn () => ReportTemplate::where('type', 'procurement_pack')->firstOrFail()->signatories,
+        );
+        $service->method('buildPdf')->willReturn(['bytes' => "%PDF-1.4\nreport\n%%EOF", 'meta' => []]);
+        $this->app->instance(ReportService::class, $service);
+
+        $first = app(PrepareSavedReport::class)->execute($actor, 'procurement_pack', ['purchase_order_id' => 10], freeze: false);
+        $originalSnapshot = $first->snapshot;
+        $originalVersion = $first->template_version;
+        ReportBranding::singleton()->update(['hospital_name' => 'New Hospital']);
+        $template->update(['signatories' => [['role' => 'approved_by', 'label' => 'Approved by', 'name' => 'New Officer', 'title' => 'Director']]]);
+
+        $preparedAgain = app(PrepareSavedReport::class)->execute($actor, 'procurement_pack', ['purchase_order_id' => 10], freeze: false);
+
+        $this->assertSame($first->uuid, $preparedAgain->uuid);
+        $this->assertSame($originalSnapshot, $preparedAgain->snapshot);
+        $this->assertSame($originalVersion, $preparedAgain->template_version);
     }
 
     #[Test]
@@ -288,6 +342,31 @@ class PreparedReportTest extends TestCase
     }
 
     #[Test]
+    public function unarchived_filed_report_never_rebuilds_when_its_frozen_file_is_missing(): void
+    {
+        Storage::fake('report_cache');
+        Storage::fake('private_uploads');
+        $actor = User::factory()->rnd()->create();
+        $report = Report::factory()->create([
+            'user_id' => $actor->id,
+            'type' => 'procurement_pack',
+            'status' => 'completed',
+            'snapshot' => ['was_archived' => true],
+            'cache_path' => 'reports/missing.pdf',
+            'cache_expires_at' => now()->subMinute(),
+            'parameters' => ['purchase_order_id' => 10],
+        ]);
+        $renderer = $this->createMock(ReportService::class);
+        $renderer->expects($this->never())->method('buildPdf');
+        $this->app->instance(ReportService::class, $renderer);
+
+        $this->actingAs($actor, 'sanctum')->get("/api/rnd/reports/{$report->uuid}/view")
+            ->assertConflict();
+        $this->get("/api/rnd/reports/{$report->uuid}/download")
+            ->assertConflict();
+    }
+
+    #[Test]
     public function archived_legacy_report_without_bytes_is_not_rebuilt(): void
     {
         Storage::fake('report_cache');
@@ -307,7 +386,7 @@ class PreparedReportTest extends TestCase
         $this->actingAs($actor, 'sanctum')
             ->get("/api/rnd/reports/{$report->uuid}/download")
             ->assertConflict()
-            ->assertJsonPath('code', 'preparation_required');
+            ->assertJsonPath('code', 'official_file_unavailable');
         $this->assertSame('archived', $report->fresh()->status);
     }
 

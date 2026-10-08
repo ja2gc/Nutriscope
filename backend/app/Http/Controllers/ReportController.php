@@ -16,6 +16,7 @@ use App\Models\MealPlan;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\Report;
+use App\Models\ReportArchiveSetting;
 use App\Policies\AuditPolicy;
 use App\Services\Audit\AuditContextResolver;
 use App\Services\Audit\AuditLogger;
@@ -23,7 +24,10 @@ use App\Services\Reports\Generators\DemographicCensusGenerator;
 use App\Services\Reports\ReportArchiveStorage;
 use App\Services\Reports\ReportAuditReference;
 use App\Services\Reports\ReportBrowser;
+use App\Services\Reports\ReportCoveredDate;
 use App\Services\Reports\ReportService;
+use App\Services\Reports\ReportSourceKey;
+use App\Services\StoredObjectStorage;
 use App\Support\Search\FuzzyText;
 use App\Support\Search\RankedSearch;
 use Illuminate\Database\Eloquent\Model;
@@ -32,6 +36,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -74,7 +79,11 @@ class ReportController extends Controller
             'status' => ['nullable', 'string', 'max:30'],
             'type' => ['nullable', 'string', 'max:60'],
             'year' => ['nullable', 'integer', 'min:2000', 'max:2100'],
+            'covered_month' => ['nullable', 'date_format:Y-m'],
         ]);
+
+        $monthStart = $request->filled('covered_month') ? $request->string('covered_month')->toString().'-01' : null;
+        $monthEnd = $monthStart ? Carbon::parse($monthStart)->endOfMonth()->toDateString() : null;
 
         $query = Report::query()->with('user:id,uuid,name,first_name,last_name');
         $role = Auth::user()?->role;
@@ -97,11 +106,14 @@ class ReportController extends Controller
         $query
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
             ->when($request->filled('type'), fn ($q) => $q->where('type', $request->string('type')))
-            ->when($request->filled('year'), fn ($q) => $q->whereYear('created_at', $request->integer('year')));
+            ->when($request->filled('year'), fn ($q) => $q->whereYear('created_at', $request->integer('year')))
+            ->when($monthStart, fn ($q) => $q->whereDate('report_covered_from', '<=', $monthEnd)
+                ->whereDate('report_covered_until', '>=', $monthStart));
 
         RankedSearch::apply($query, $request->string('search')->toString(), ['title', 'type']);
 
         return ReportResource::collection($query
+            ->when($monthStart || $request->string('status')->toString() === 'archived', fn ($q) => $q->orderByDesc('report_covered_until'))
             ->orderByDesc('id')
             ->paginate($request->perPage())
             ->withQueryString());
@@ -119,10 +131,41 @@ class ReportController extends Controller
         $this->guardAdmin($type);
         $this->guardFss($type);
 
+        $dates = $request->validate([
+            'covered_month' => ['nullable', 'date_format:Y-m'],
+        ]);
+
         $source = $browser->sourceFor($type);
         $filters = $request->only(['year', 'month']);
         $instances = $source->instances($filters);
         $instances = $this->filterReportInstances($instances, $request->string('search')->toString());
+        if (! in_array($type, self::CLINICAL_TYPES, true)) {
+            $archivedKeys = Report::query()->where('type', $type)->where('status', 'archived')
+                ->when(Auth::user()?->role === 'FSS', fn ($query) => $query->where('user_id', Auth::id()))
+                ->get(['parameters'])->map(fn (Report $report) => ReportSourceKey::for($type, $report->parameters ?? []))
+                ->filter()->all();
+            $retiredKeys = DB::table('report_retired_sources')->where('type', $type)->pluck('source_key')->all();
+            $hiddenKeys = array_fill_keys(array_merge($archivedKeys, $retiredKeys), true);
+            $instances = array_values(array_filter($instances, static function (array $instance) use ($type, $hiddenKeys): bool {
+                $parameters = $instance['params'];
+                if (Auth::user()?->role === 'FSS') {
+                    $parameters['fss_user_id'] = Auth::id();
+                }
+                $key = ReportSourceKey::for($type, $parameters);
+
+                return $key === null || ! isset($hiddenKeys[$key]);
+            }));
+            $coveredUntil = ReportCoveredDate::forInstances($type, $instances);
+            if (! empty($dates['covered_month'])) {
+                $monthStart = $dates['covered_month'].'-01';
+                $monthEnd = Carbon::parse($monthStart)->endOfMonth()->toDateString();
+                $coveredFrom = ReportCoveredDate::startsForInstances($type, $instances);
+                $instances = array_values(array_filter($instances, static fn (array $instance): bool => isset($coveredFrom[$instance['key']], $coveredUntil[$instance['key']])
+                    && $coveredFrom[$instance['key']] <= $monthEnd
+                    && $coveredUntil[$instance['key']] >= $monthStart));
+            }
+            usort($instances, static fn (array $a, array $b): int => strcmp($coveredUntil[$b['key']] ?? '', $coveredUntil[$a['key']] ?? '') ?: strcmp($b['key'], $a['key']));
+        }
         $page = max(1, $request->integer('page', 1));
         $perPage = $request->perPage();
         $total = count($instances);
@@ -153,7 +196,7 @@ class ReportController extends Controller
         $today = Carbon::now(config('nutriscope-reports.timezone'));
         $year = (int) ($validated['year'] ?? $today->year);
         $month = isset($validated['month']) ? (int) $validated['month'] : null;
-        $firstCycle = NcpRecord::query()->min('created_at');
+        $firstCycle = $generator->earliestQualifyingCycleAt();
         abort_if($firstCycle === null, 404, 'No census data yet.');
         $firstMonth = Carbon::parse($firstCycle, $today->getTimezone())->startOfMonth();
         $selectedStart = Carbon::parse(sprintf('%04d-%02d-01', $year, $month ?? 1), $today->getTimezone());
@@ -312,6 +355,8 @@ class ReportController extends Controller
         $this->guardAdmin($type);
         $this->guardFss($type);
         $params = $this->renderParams($request, $type);
+        $sourceKey = ReportSourceKey::for($type, $params);
+        abort_if($sourceKey !== null && DB::table('report_retired_sources')->where('source_key', $sourceKey)->exists(), 410, 'This report has completed retention.');
         $this->authorizeClinicalReportContext($type, $params);
         $this->assertPatientMenuPlanRenderable($type, $params);
 
@@ -340,6 +385,8 @@ class ReportController extends Controller
         $this->guardAdmin($type);
         $this->guardFss($type);
         $params = $this->renderParams($request, $type);
+        $sourceKey = ReportSourceKey::for($type, $params);
+        abort_if($sourceKey !== null && DB::table('report_retired_sources')->where('source_key', $sourceKey)->exists(), 410, 'This report has completed retention.');
         $this->authorizeClinicalReportContext($type, $params);
         $this->assertPatientMenuPlanRenderable($type, $params);
         abort_unless($browser->sourceFor($type)->hasData($params), 404, 'No data for this report period.');
@@ -351,26 +398,64 @@ class ReportController extends Controller
         return response()->json(['data' => new ReportResource($report)]);
     }
 
-    /** File prepared bytes and snapshot without changing older archived reports. */
-    public function archive(Request $request, string $type, ReportService $reports, ReportBrowser $browser, PrepareSavedReport $prepare): JsonResponse
+    /** File the exact PDF already prepared for preview. */
+    public function archivePrepared(Report $report, StoredObjectStorage $storedObjects): JsonResponse
     {
-        $this->rejectCensusPdf($type);
-        abort_unless($reports->supports($type) && $browser->supports($type), 404, 'Unknown report type.');
-        $this->guardClinical($type);
-        $this->guardAdmin($type);
-        $this->guardFss($type);
-
-        $params = $this->renderParams($request, $type);
-        $this->authorizeClinicalReportContext($type, $params);
-        $this->assertPatientMenuPlanRenderable($type, $params);
-        abort_unless($browser->sourceFor($type)->hasData($params), 404, 'No data for this report period.');
-
+        $this->authorizeReportAccess($report);
+        $this->guardAdmin($report->type);
+        $this->guardFss($report->type);
+        abort_if(in_array($report->type, self::CLINICAL_TYPES, true), 403, 'Clinical reports are not archived separately.');
+        if ($report->status === 'archived') {
+            return response()->json(['data' => new ReportResource($report->load('user:id,uuid,name,first_name,last_name'))]);
+        }
+        $previouslyArchived = (bool) ($report->snapshot['was_archived'] ?? false);
+        $originalFile = $previouslyArchived ? $report->officialFile : null;
+        if ($originalFile !== null) {
+            abort_unless(Storage::disk($originalFile->storage_disk)->exists($originalFile->object_key), 409, 'The filed report is unavailable.');
+            $bytes = Storage::disk($originalFile->storage_disk)->get($originalFile->object_key);
+        } else {
+            $path = $report->cache_path;
+            abort_unless($path && $report->cache_expires_at?->isFuture() && Storage::disk('report_cache')->exists($path), 409, 'Preview the report again before archiving.');
+            $bytes = Storage::disk('report_cache')->get($path);
+        }
+        abort_unless(hash('sha256', $bytes) === $report->content_hash, 409, 'Prepared report content is unavailable.');
         $this->auditLogger->assertAvailable();
-        $report = $prepare->execute($request->user(), $type, $params, freeze: true);
-        $this->applyReportContext($report, $type, $params);
-        $this->audited(function () use ($report, $type, $params): void {
-            $report->update(['status' => 'archived']);
-            $this->recordReportEvent(AuditAction::Archived, $type, $params, $report, 200);
+        $officialFile = $originalFile ?? $storedObjects->storeBytes($bytes, 'application/pdf', 'pdf', 'report', str($report->title)->slug().'.pdf');
+        try {
+            $this->audited(function () use ($report, $officialFile): void {
+                $snapshot = $report->snapshot ?? [];
+                $snapshot['archived_at'] = now()->toIso8601String();
+                $report->update([
+                    'status' => 'archived',
+                    'snapshot' => $snapshot,
+                    'official_file_stored_object_id' => $officialFile->id,
+                    'archived_at' => now(),
+                    'retention_expires_at' => ReportArchiveSetting::enabled() ? now()->addYears(5) : null,
+                ]);
+                $this->recordReportEvent(AuditAction::Archived, $report->type, $report->parameters ?? [], $report, 200);
+            });
+        } catch (\Throwable $exception) {
+            if ($originalFile === null) {
+                $storedObjects->deleteOrQueue($officialFile);
+            }
+            throw $exception;
+        }
+
+        return response()->json(['data' => new ReportResource($report->fresh()->load('user:id,uuid,name,first_name,last_name'))]);
+    }
+
+    public function unarchive(Report $report): JsonResponse
+    {
+        $this->authorizeReportAccess($report);
+        $this->guardAdmin($report->type);
+        $this->guardFss($report->type);
+        abort_if(in_array($report->type, self::CLINICAL_TYPES, true), 403, 'Clinical reports are not archived separately.');
+        abort_unless($report->status === 'archived', 409, 'Report is not archived.');
+        $this->audited(function () use ($report): void {
+            $snapshot = $report->snapshot ?? [];
+            $snapshot['was_archived'] = true;
+            $report->update(['status' => 'completed', 'snapshot' => $snapshot, 'archived_at' => null, 'retention_expires_at' => null]);
+            $this->recordReportEvent(AuditAction::Updated, $report->type, $report->parameters ?? [], $report, 200);
         });
 
         return response()->json(['data' => new ReportResource($report->fresh()->load('user:id,uuid,name,first_name,last_name'))]);
@@ -421,7 +506,7 @@ class ReportController extends Controller
             && $report->cache_expires_at?->isFuture()
             && Storage::disk($diskName)->exists($path);
 
-        if ($report->status === 'archived' && ! $cacheUsable && ($officialFile = $report->officialFile)) {
+        if (($report->status === 'archived' || ($report->snapshot['was_archived'] ?? false)) && ! $cacheUsable && ($officialFile = $report->officialFile)) {
             if (! Storage::disk($officialFile->storage_disk)->exists($officialFile->object_key)) {
                 return response()->json(['message' => 'The filed report is unavailable.', 'code' => 'official_file_unavailable'], 409);
             }
@@ -434,10 +519,13 @@ class ReportController extends Controller
             );
         }
 
-        if ($report->status === 'archived' && ! $cacheUsable && $report->file_path && Storage::disk('public')->exists($report->file_path)) {
+        if (($report->status === 'archived' || ($report->snapshot['was_archived'] ?? false)) && ! $cacheUsable && $report->file_path && Storage::disk('public')->exists($report->file_path)) {
             [$diskName, $path, $cacheUsable] = ['public', $report->file_path, true];
         }
         if (! $cacheUsable) {
+            if ($report->status === 'archived' || ($report->snapshot['was_archived'] ?? false)) {
+                return response()->json(['message' => 'The filed report is unavailable.', 'code' => 'official_file_unavailable'], 409);
+            }
             $report = $this->rebuildPreparedReport($report);
             if ($report === null) {
                 return response()->json(['message' => 'Prepare the saved report again.', 'code' => 'preparation_required'], 409);
@@ -470,7 +558,7 @@ class ReportController extends Controller
             && $report->cache_expires_at?->isFuture()
             && Storage::disk($diskName)->exists($path);
 
-        if ($report->status === 'archived' && ! $cacheUsable && ($officialFile = $report->officialFile)) {
+        if (($report->status === 'archived' || ($report->snapshot['was_archived'] ?? false)) && ! $cacheUsable && ($officialFile = $report->officialFile)) {
             if (! Storage::disk($officialFile->storage_disk)->exists($officialFile->object_key)) {
                 return response()->json(['message' => 'The filed report is unavailable.', 'code' => 'official_file_unavailable'], 409);
             }
@@ -487,10 +575,13 @@ class ReportController extends Controller
             );
         }
 
-        if ($report->status === 'archived' && ! $cacheUsable && $report->file_path && Storage::disk('public')->exists($report->file_path)) {
+        if (($report->status === 'archived' || ($report->snapshot['was_archived'] ?? false)) && ! $cacheUsable && $report->file_path && Storage::disk('public')->exists($report->file_path)) {
             [$diskName, $path, $cacheUsable] = ['public', $report->file_path, true];
         }
         if (! $cacheUsable) {
+            if ($report->status === 'archived' || ($report->snapshot['was_archived'] ?? false)) {
+                return response()->json(['message' => 'The filed report is unavailable.', 'code' => 'official_file_unavailable'], 409);
+            }
             $report = $this->rebuildPreparedReport($report);
             if ($report === null) {
                 return response()->json(['message' => 'Prepare the saved report again.', 'code' => 'preparation_required'], 409);
@@ -783,7 +874,7 @@ class ReportController extends Controller
     {
         $actor = Auth::user();
         $parameters = $report->parameters;
-        if ($actor === null || ! is_array($parameters) || $report->status === 'archived') {
+        if ($actor === null || ! is_array($parameters) || $report->status === 'archived' || ($report->snapshot['was_archived'] ?? false)) {
             return null;
         }
 
