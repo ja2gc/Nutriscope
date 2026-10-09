@@ -125,9 +125,9 @@ Use this as both the recording checklist and narration script. Record with demo 
 **On-screen actions**
 
 1. Open **Reports** and review the report catalog.
-2. Use **Report month** in Browse to find an allowed Program Project Activity, Menu Calendar, Procurement Pack, or Accomplishment PDF report whose covered period overlaps the selected month. Open aggregate Demographic Census as a year/month screen. Show that a new ADIME cycle counts once in its start month after its first saved Assessment and a finished visit with Assessment work; assessed legacy cycles remain included. Do not expose patient identity. Show every nutritional-status category, including zero totals, and download the selected Census view as PDF.
+2. Use the month and year dropdowns in Browse to find an allowed Program Project Activity, Menu Calendar, Procurement Pack, or Accomplishment PDF report whose covered period overlaps the selected month. Open aggregate Demographic Census as a year/month screen. Show that a new ADIME cycle counts once in its start month after its first saved Assessment and a finished visit with Assessment work; assessed legacy cycles remain included. Do not expose patient identity. Show every nutritional-status category, including zero totals, and download the selected Census view as PDF.
 3. Use Preview and Download on an operational report; both show its prepared copy.
-4. In an operational report preview, use **Archive** beside Download. Open **Archived**, use its type, search, and **Report month** filters, then show **View** and **Unarchive**. If five-year retention is enabled in Archive settings, show the expiry date and its short explanation.
+4. In an operational report preview, use **Archive** beside Download. Open **Archived**, use its type, search, and month and year filters, then show **View** and **Unarchive**. If five-year retention is enabled in Archive settings, show the expiry date and its short explanation.
 5. Open **Template Edit** and show shared branding plus an editable non-clinical signatory. Save only fictional demo changes.
 6. Point out that Nutrition Intervention Plan and NCP Summary are unavailable to Admin.
 
@@ -165,7 +165,7 @@ Use this as both the recording checklist and narration script. Record with demo 
 **On-screen actions**
 
 1. Open **Audit Logs** and select a module.
-2. Filter by action, actor, and date, then move between result pages.
+2. Filter by action, actor, and a selected month and year, then move between result pages. The month filter shows only records from that calendar month in Asia/Manila time.
 3. Open one event to review its safe summary and context.
 4. Open **Historical audit record** when available and compare approved before/after fields.
 5. Export the filtered audit view only if the demo environment permits secure local handling.

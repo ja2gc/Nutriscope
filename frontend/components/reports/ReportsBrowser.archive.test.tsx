@@ -43,12 +43,16 @@ describe("report archive action", () => {
       type: "procurement_pack", name: "Procurement Pack", desc: "Pack", icon: () => null, group: "Food Service",
     }]} apiPrefix="rnd" />); });
 
-    const month = container.querySelector<HTMLInputElement>('input[aria-label="Report month"]');
+    const month = container.querySelector<HTMLSelectElement>('select[aria-label="Report month"]');
     expect(month).not.toBeNull();
-    expect(container.querySelectorAll('input[type="month"]')).toHaveLength(1);
+    expect(container.querySelector<HTMLSelectElement>('select[aria-label="Report year"]')).not.toBeNull();
+    expect(container.querySelectorAll('input[type="month"]')).toHaveLength(0);
     await act(async () => {
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(month, "2026-06");
-      month!.dispatchEvent(new Event("input", { bubbles: true }));
+      const year = container.querySelector<HTMLSelectElement>('select[aria-label="Report year"]')!;
+      year.value = "2026";
+      year.dispatchEvent(new Event("change", { bubbles: true }));
+      month!.value = "6";
+      month!.dispatchEvent(new Event("change", { bubbles: true }));
     });
     expect(listInstances).toHaveBeenCalledWith("procurement_pack", expect.objectContaining({
       covered_month: "2026-06",
@@ -108,11 +112,15 @@ describe("report archive action", () => {
     await act(async () => { await Promise.resolve(); });
 
     expect(listReports).toHaveBeenCalledWith("rnd", 1, expect.objectContaining({ status: "archived", type: "procurement_pack" }));
-    const month = container.querySelector<HTMLInputElement>('input[aria-label="Report month"]');
-    expect(container.querySelectorAll('input[type="month"]')).toHaveLength(1);
+    const month = container.querySelector<HTMLSelectElement>('select[aria-label="Report month"]');
+    expect(container.querySelector<HTMLSelectElement>('select[aria-label="Report year"]')).not.toBeNull();
+    expect(container.querySelectorAll('input[type="month"]')).toHaveLength(0);
     await act(async () => {
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(month, "2026-06");
-      month!.dispatchEvent(new Event("input", { bubbles: true }));
+      const year = container.querySelector<HTMLSelectElement>('select[aria-label="Report year"]')!;
+      year.value = "2026";
+      year.dispatchEvent(new Event("change", { bubbles: true }));
+      month!.value = "6";
+      month!.dispatchEvent(new Event("change", { bubbles: true }));
     });
     expect(listReports).toHaveBeenCalledWith("rnd", 1, expect.objectContaining({
       status: "archived", type: "procurement_pack", covered_month: "2026-06",

@@ -25,6 +25,21 @@ describe("audit log service behavior", () => {
     );
   });
 
+  test("sends the selected month without a day or date range", async () => {
+    apiFetchMock.mockResolvedValue(new Response(JSON.stringify({ data: [], meta: {} }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    }));
+
+    await listAuditLogs({ month: "2026-06" });
+
+    expect(apiFetchMock).toHaveBeenCalledWith(
+      "/api/admin/audit-logs?month=2026-06",
+      expect.any(Object),
+      { redirectOnUnauthorized: false },
+    );
+  });
+
   test("accepts only a successful CSV export body", async () => {
     const csv = new Blob(["event_id\nevt_1\n"], { type: "text/csv" });
     apiFetchMock.mockResolvedValue(new Response(csv, {

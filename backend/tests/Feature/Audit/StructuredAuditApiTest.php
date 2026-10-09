@@ -144,6 +144,36 @@ class StructuredAuditApiTest extends TestCase
         }
     }
 
+    public function test_month_filter_includes_exactly_the_month_shown_in_manila_time(): void
+    {
+        $before = AuditActivity::create([
+            'log_name' => 'audit', 'description' => 'Before June in Manila',
+            'created_at' => '2026-05-31 15:59:59',
+        ]);
+        $first = AuditActivity::create([
+            'log_name' => 'audit', 'description' => 'June begins in Manila',
+            'created_at' => '2026-05-31 16:00:00',
+        ]);
+        $last = AuditActivity::create([
+            'log_name' => 'audit', 'description' => 'June ends in Manila',
+            'created_at' => '2026-06-30 15:59:59',
+        ]);
+        $after = AuditActivity::create([
+            'log_name' => 'audit', 'description' => 'After June in Manila',
+            'created_at' => '2026-06-30 16:00:00',
+        ]);
+
+        $response = $this->actingAs($this->admin, 'sanctum')
+            ->getJson('/api/admin/audit-logs?month=2026-06')
+            ->assertOk()
+            ->assertJsonCount(2, 'data');
+
+        $this->assertSame([$last->public_id, $first->public_id], array_column($response->json('data'), 'id'));
+        $this->assertNotContains($before->public_id, array_column($response->json('data'), 'id'));
+        $this->assertNotContains($after->public_id, array_column($response->json('data'), 'id'));
+        $this->actingAs($this->admin, 'sanctum')->getJson('/api/admin/audit-logs?month=2026-13')->assertUnprocessable();
+    }
+
     public function test_global_list_is_admin_only_audit_channel_only_and_view_logging_is_deduplicated(): void
     {
         AuditActivity::create(['log_name' => 'audit', 'description' => 'Visible']);

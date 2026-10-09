@@ -115,13 +115,16 @@ class UsdaService
      */
     public function search(string $query, int $pageSize = 10): array
     {
-        $cacheKey = 'usda_search_v3_'.hash('sha256', mb_strtolower(trim($query)).'|'.$pageSize);
+        $cacheKey = 'usda_search_v4_'.hash('sha256', mb_strtolower(trim($query)).'|'.$pageSize);
 
         return Cache::remember($cacheKey, now()->addMinutes(10), function () use ($query, $pageSize): array {
-            $response = Http::withoutVerifying()->connectTimeout(3)->timeout(10)->post("{$this->baseUrl}/foods/search?api_key=".urlencode($this->apiKey), [
-                'query' => $query,
+            $shortPrefix = preg_match('/^[\p{L}]{1,3}$/u', trim($query)) === 1;
+            $response = Http::connectTimeout(3)->timeout(10)->post("{$this->baseUrl}/foods/search?api_key=".urlencode($this->apiKey), [
+                'query' => $shortPrefix ? trim($query).'*' : $query,
                 'pageSize' => max($pageSize, 50),
-                'dataType' => ['SR Legacy', 'Foundation', 'Survey (FNDDS)', 'Branded'],
+                'dataType' => $shortPrefix
+                    ? ['SR Legacy', 'Foundation', 'Survey (FNDDS)']
+                    : ['SR Legacy', 'Foundation', 'Survey (FNDDS)', 'Branded'],
             ]);
 
             if (! $response->successful()) {
@@ -169,7 +172,7 @@ class UsdaService
     public function fetch(int $fdcId): array
     {
         return Cache::remember("usda_food_v2_{$fdcId}", now()->addDays(self::CACHE_TTL_DAYS), function () use ($fdcId) {
-            $response = Http::withoutVerifying()->get("{$this->baseUrl}/food/{$fdcId}", [
+            $response = Http::get("{$this->baseUrl}/food/{$fdcId}", [
                 'api_key' => $this->apiKey,
             ]);
 

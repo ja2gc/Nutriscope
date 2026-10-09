@@ -101,12 +101,15 @@ class ProductionDeploymentContractTest extends TestCase
     }
 
     #[Test]
-    public function production_image_builds_use_the_host_network_for_dns_resolution(): void
+    public function production_image_builds_use_the_standard_docker_bridge(): void
     {
         $compose = file_get_contents(base_path('../docker-compose.prod.yml'));
 
         $this->assertIsString($compose);
-        $this->assertSame(2, substr_count($compose, 'network: host'));
+        $this->assertSame(2, substr_count($compose, 'build:'));
+        $this->assertStringContainsString('context: ./backend', $compose);
+        $this->assertStringContainsString('context: ./frontend', $compose);
+        $this->assertStringNotContainsString('network: host', $compose);
     }
 
     #[Test]

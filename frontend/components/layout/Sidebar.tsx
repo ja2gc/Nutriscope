@@ -114,14 +114,14 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
     <>
       {/* Mobile backdrop */}
       <div
-        className={`md:hidden fixed inset-0 z-40 bg-black/50 transition-opacity duration-200 ${
+        className={`md:hidden fixed inset-0 z-[55] bg-black/50 transition-opacity duration-200 ${
           open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
         onClick={onClose}
       />
       <aside
         className={`bg-forest-900 border-r border-forest-line flex flex-col transition-all duration-200 ease-in-out select-none
-          fixed inset-y-0 left-0 z-50 w-64
+          fixed inset-y-0 left-0 z-[60] w-64
           md:relative md:inset-auto md:z-auto md:min-h-screen md:shrink-0
           ${collapsed ? "md:w-16" : "md:w-64"}
           ${open ? "translate-x-0" : "-translate-x-full md:translate-x-0"}

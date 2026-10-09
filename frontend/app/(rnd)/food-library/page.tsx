@@ -111,7 +111,7 @@ function UsdaImportModal({ onClose, onImported }: {
               <p className="text-xs text-warm-400 mt-0.5">Foundation · SR Legacy · Survey (FNDDS) · Branded</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-warm-200 text-warm-400 hover:text-warm-700 cursor-pointer transition-colors mt-0.5">
+          <button onClick={onClose} aria-label="Close USDA import" className="p-1.5 rounded-lg hover:bg-warm-200 text-warm-400 hover:text-warm-700 cursor-pointer transition-colors mt-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -212,7 +212,7 @@ function FoodMicrosPopup({ food, onClose }: { food: FoodItem; onClose: () => voi
               {food.usda_fdc_id && <span className="ml-2 text-emerald-600 font-semibold">· USDA FDC #{food.usda_fdc_id}</span>}
             </p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-warm-200 text-warm-400 cursor-pointer transition-colors">
+          <button onClick={onClose} aria-label="Close food micronutrients" className="p-1.5 rounded-lg hover:bg-warm-200 text-warm-400 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -276,7 +276,7 @@ function RecipeMicrosPopup({ recipe, onClose }: { recipe: Recipe; onClose: () =>
             <h3 className="text-base font-extrabold text-warm-900 truncate max-w-xs">{recipe.name}</h3>
             <p className="text-xs text-warm-400 mt-0.5">Full nutrient profile · per recipe total</p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-warm-200 text-warm-400 cursor-pointer transition-colors">
+          <button onClick={onClose} aria-label="Close recipe micronutrients" className="p-1.5 rounded-lg hover:bg-warm-200 text-warm-400 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -501,7 +501,7 @@ export default function FoodLibraryPage() {
                       <Th>Macros</Th>
                       <Th>Micros</Th>
                       <Th>Allergens</Th>
-                      <Th right>Actions</Th>
+                      <th className="sticky right-0 z-10 min-w-[84px] bg-white px-3 py-3 text-right text-xs font-bold uppercase text-warm-500 shadow-[-6px_0_8px_-8px_#000]">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-50">
@@ -552,7 +552,7 @@ export default function FoodLibraryPage() {
                             : <span className="text-warm-300 text-xs">None</span>
                           }
                         </td>
-                        <td className="px-5 py-3.5 text-right">
+                        <td className="sticky right-0 z-10 min-w-[84px] bg-white px-3 py-3.5 text-right shadow-[-6px_0_8px_-8px_#000]">
                           <div className="flex items-center justify-end gap-1">
                             <Link href={`/food-library/foods/${food.id}`}
                               className="p-1.5 rounded-lg text-warm-500 hover:bg-warm-100 hover:text-warm-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500" title="Edit" aria-label={`Edit ${food.name}`}>
@@ -610,7 +610,7 @@ export default function FoodLibraryPage() {
                       <Th>Category</Th>
                       <Th>Macros</Th>
                       <Th>Micros</Th>
-                      <Th right>Actions</Th>
+                      <th className="sticky right-0 z-10 min-w-[84px] bg-white px-3 py-3 text-right text-xs font-bold uppercase text-warm-500 shadow-[-6px_0_8px_-8px_#000]">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-50">
@@ -649,7 +649,7 @@ export default function FoodLibraryPage() {
                               Micros
                             </Button>
                           </td>
-                          <td className="px-5 py-3.5 text-right">
+                          <td className="sticky right-0 z-10 min-w-[84px] bg-white px-3 py-3.5 text-right shadow-[-6px_0_8px_-8px_#000]">
                             <div className="flex items-center justify-end gap-1">
                               <Link href={`/food-library/recipes/${recipe.id}`}
                                 className="p-1.5 rounded-lg text-warm-500 hover:bg-warm-100 hover:text-warm-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500" title="Edit" aria-label={`Edit ${recipe.name}`}>

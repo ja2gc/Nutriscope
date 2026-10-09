@@ -40,6 +40,7 @@ class ListAuditLogsRequest extends FormRequest
             'causer_id' => ['nullable', 'uuid', 'exists:users,uuid'],
             'subject_id' => ['nullable', 'uuid'],
             'context_id' => ['nullable', 'uuid'],
+            'month' => ['nullable', 'date_format:Y-m'],
             'start' => ['nullable', 'date_format:Y-m-d'],
             'end' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:start'],
             'page' => ['nullable', 'integer', 'min:1'],

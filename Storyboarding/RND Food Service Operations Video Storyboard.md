@@ -241,7 +241,7 @@ Use this as both the recording checklist and narration script. Create every name
 1. Return to RND web and open the completed PO.
 2. Show completed vendor evidence, confirmed actual totals, served population, and **Food purchase cost per served patient-day**.
 3. Open **Food Service → Budget** and show the PO deduction in the fiscal-year budget history and the updated remaining balance.
-4. Open **Reports**, use the **Report month** picker in Browse, and preview the **Procurement Pack** purchase report and **Program Project Activity** report for the new PO. Show the same picker in Archived. Reports appear when any part of their covered period overlaps the selected month; lists show newest first.
+4. Open **Reports**, choose a month and year in Browse, and preview the **Procurement Pack** purchase report and **Program Project Activity** report for the new PO. Show the same month and year dropdowns in Archived. Reports appear when any part of their covered period overlaps the selected month; lists show newest first.
    Confirm their header and signatories reflect the report template configuration captured when the PO completed. A Menu Calendar captures its template configuration when its menu cycle is created; active linked menu data may still change before archiving.
 5. Point out actual quantities/prices, evidence, optional OR shown as **Not provided**, and final status.
 6. If previewing an unfinished manual list/PO, point out the visible draft/incomplete banner.

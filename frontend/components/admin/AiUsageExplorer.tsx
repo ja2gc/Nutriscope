@@ -12,15 +12,12 @@ import {
   YAxis,
 } from "recharts";
 import { calcTokenCostUsd } from "@/lib/aiTokenCost";
+import { MONTH_NAMES as MONTHS, MonthYearSelect } from "@/components/ui/MonthYearSelect";
 import {
   fetchAiUsageAnalytics,
   type AiUsageAnalytics,
   type AiUsagePoint,
 } from "@/services/aiUsageAnalyticsService";
-
-const MONTHS = Array.from({ length: 12 }, (_, index) =>
-  new Intl.DateTimeFormat("en-US", { month: "long" }).format(new Date(2000, index, 1)),
-);
 
 interface AiUsageExplorerProps {
   inputCostPer1mTokensUsd: number;
@@ -150,10 +147,6 @@ export function AiUsageExplorer({
   const [data, setData] = useState<AiUsageAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const years = useMemo(
-    () => Array.from({ length: today.year - 1999 }, (_, index) => today.year + 1 - index),
-    [today.year],
-  );
 
   useEffect(() => {
     let active = true;
@@ -227,33 +220,16 @@ export function AiUsageExplorer({
             </select>
           </label>
 
-          {view === "month" && (
+          {view === "month" ? (
+            <MonthYearSelect month={month} year={year} onMonthChange={(next) => { if (next !== null) setMonth(next); }} onYearChange={setYear} monthAriaLabel="Jump to month" yearAriaLabel="Jump to year" />
+          ) : (
             <label className="grid gap-1 text-xs font-semibold text-warm-600">
-              Month
-              <select
-                aria-label="Jump to month"
-                value={month}
-                onChange={(event) => setMonth(Number(event.target.value))}
-                className="h-11 rounded-xl border border-warm-200 bg-white px-3 text-sm text-warm-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-              >
-                {MONTHS.map((label, index) => (
-                  <option key={label} value={index + 1}>{label}</option>
-                ))}
+              Year
+              <select aria-label="Jump to year" value={year} onChange={(event) => setYear(Number(event.target.value))} className="h-11 rounded-xl border border-warm-200 bg-white px-3 text-sm text-warm-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20">
+                {Array.from({ length: today.year - 1999 }, (_, index) => today.year + 1 - index).map((option) => <option key={option}>{option}</option>)}
               </select>
             </label>
           )}
-
-          <label className="grid gap-1 text-xs font-semibold text-warm-600">
-            Year
-            <select
-              aria-label="Jump to year"
-              value={year}
-              onChange={(event) => setYear(Number(event.target.value))}
-              className="h-11 rounded-xl border border-warm-200 bg-white px-3 text-sm text-warm-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-            >
-              {years.map((option) => <option key={option}>{option}</option>)}
-            </select>
-          </label>
         </div>
       </div>
 

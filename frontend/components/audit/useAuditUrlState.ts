@@ -13,8 +13,7 @@ function parseFilters(searchParams: URLSearchParams): AuditFilterState {
     actor_id: searchParams.get("actor_id") || undefined,
     outcome: (searchParams.get("outcome") || undefined) as AuditOutcome | undefined,
     severity: (searchParams.get("severity") || undefined) as AuditSeverity | undefined,
-    start: searchParams.get("start") || undefined,
-    end: searchParams.get("end") || undefined,
+    month: searchParams.get("month") || undefined,
   };
 }
 

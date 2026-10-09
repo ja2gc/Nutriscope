@@ -13,6 +13,7 @@ import { Tabs } from "@/components/ui/Tabs";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { MonthYearSelect } from "@/components/ui/MonthYearSelect";
 import SearchInput from "@/components/ui/SearchInput";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import {
@@ -213,6 +214,7 @@ function InstancesPanel({
   const [axis, setAxis] = useState<ReportAxis>("entity");
   const [instances, setInstances] = useState<ReportInstance[]>([]);
   const [coveredMonth, setCoveredMonth] = useState("");
+  const [filterYear, setFilterYear] = useState(new Date().getFullYear());
   const [busy, setBusy] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ report: ReportItem; label: string } | null>(null);
   const [page, setPage] = useState(1);
@@ -287,10 +289,11 @@ function InstancesPanel({
       )}
 
       {entry.group === "Food Service" && <div className="border-b border-warm-100 px-5 py-3">
-        <label className="block max-w-xs text-xs font-semibold text-warm-600">Report month
-          <input type="month" aria-label="Report month" value={coveredMonth}
-            onChange={(event) => { setCoveredMonth(event.target.value); setPage(1); }} className={inp} />
-        </label>
+        <div className="grid max-w-sm grid-cols-2 gap-2">
+          <MonthYearSelect month={coveredMonth ? Number(coveredMonth.slice(5, 7)) : null} year={filterYear} allowAllMonths monthAriaLabel="Report month" yearAriaLabel="Report year"
+            onMonthChange={(month) => { setCoveredMonth(month === null ? "" : `${filterYear}-${String(month).padStart(2, "0")}`); setPage(1); }}
+            onYearChange={(year) => { setFilterYear(year); if (coveredMonth) setCoveredMonth(`${year}-${coveredMonth.slice(5, 7)}`); setPage(1); }} />
+        </div>
       </div>}
 
       {loading ? (
@@ -366,6 +369,7 @@ function ArchivedTab({
   const types = catalog.filter((entry) => entry.group === "Food Service");
   const [selectedType, setSelectedType] = useState(types[0]?.type ?? "");
   const [coveredMonth, setCoveredMonth] = useState("");
+  const [filterYear, setFilterYear] = useState(new Date().getFullYear());
   const [retentionEnabled, setRetentionEnabled] = useState(false);
   const [savingRetention, setSavingRetention] = useState(false);
   const [page, setPage] = useState(1);
@@ -447,10 +451,10 @@ function ArchivedTab({
           onChange={(value) => { setSearch(value); setPage(1); }}
           loading={loading && search !== debouncedSearch}
         />
-        <div>
-          <label className="block max-w-xs text-xs font-semibold text-warm-600">Report month
-            <input type="month" aria-label="Report month" value={coveredMonth} onChange={(event) => { setCoveredMonth(event.target.value); setPage(1); }} className={inp} />
-          </label>
+        <div className="grid max-w-sm grid-cols-2 gap-2">
+          <MonthYearSelect month={coveredMonth ? Number(coveredMonth.slice(5, 7)) : null} year={filterYear} allowAllMonths monthAriaLabel="Report month" yearAriaLabel="Report year"
+            onMonthChange={(month) => { setCoveredMonth(month === null ? "" : `${filterYear}-${String(month).padStart(2, "0")}`); setPage(1); }}
+            onYearChange={(year) => { setFilterYear(year); if (coveredMonth) setCoveredMonth(`${year}-${coveredMonth.slice(5, 7)}`); setPage(1); }} />
         </div>
       </div>
 

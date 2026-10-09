@@ -23,7 +23,8 @@ describe("purposeful admin audit views", () => {
     expect(page).toContain("meta.filters.module_counts");
     expect(page).toContain("items={tabs}");
     expect(page).not.toContain("meta.filters.categories");
-    expect(filters).toContain("Date range");
+    expect(filters).toContain("MonthYearSelect");
+    expect(filters).not.toContain("Date range");
     for (const label of ["Context", "Action", "Actor", "Outcome", "Severity"]) {
       expect(filters).toContain(label);
     }

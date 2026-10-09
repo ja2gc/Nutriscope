@@ -145,6 +145,21 @@ class UsdaServiceTest extends TestCase
         $this->assertSame([2, 3, 1], array_column($results, 'fdc_id'));
     }
 
+    public function test_partial_food_name_uses_documented_prefix_search_for_generic_foods(): void
+    {
+        Http::fake([self::SEARCH_URL => Http::response(['foods' => [
+            ['fdcId' => 1, 'description' => "APPLEBEE'S, sirloin", 'dataType' => 'SR Legacy', 'foodNutrients' => []],
+            ['fdcId' => 2, 'description' => 'Apple, raw', 'dataType' => 'Survey (FNDDS)', 'foodNutrients' => []],
+            ['fdcId' => 3, 'description' => 'Apple juice beverage', 'dataType' => 'Survey (FNDDS)', 'foodNutrients' => []],
+        ]], 200)]);
+
+        $results = $this->service->search('app');
+
+        Http::assertSent(fn (Request $request) => $request['query'] === 'app*'
+            && $request['dataType'] === ['SR Legacy', 'Foundation', 'Survey (FNDDS)']);
+        $this->assertSame(2, $results[0]['fdc_id']);
+    }
+
     public function test_search_requests_enough_candidates_and_prefers_raw_generic_to_exact_branded_label(): void
     {
         Http::fake([self::SEARCH_URL => Http::response(['foods' => [

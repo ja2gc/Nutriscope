@@ -3,7 +3,6 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 const dateSurfaces = [
-  "components/audit/AuditFilters.tsx",
   "app/(rnd)/food-service/procurement/page.tsx",
   "app/(rnd)/ncp/patients/page.tsx",
   "app/(rnd)/ncp/[patientId]/assessment/[ncpId]/page.tsx",

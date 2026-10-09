@@ -23,6 +23,7 @@ export interface ListAuditLogsParams {
   actor_id?: string;
   subject_id?: string;
   context_id?: string;
+  month?: string; // YYYY-MM in Asia/Manila
   start?: string; // YYYY-MM-DD
   end?: string;   // YYYY-MM-DD
 }
@@ -52,6 +53,7 @@ function auditQuery(params: ListAuditLogsParams) {
   if (params.actor_id) qs.set("actor_id", params.actor_id);
   if (params.subject_id) qs.set("subject_id", params.subject_id);
   if (params.context_id) qs.set("context_id", params.context_id);
+  if (params.month) qs.set("month", params.month);
   if (params.start) qs.set("start", params.start);
   if (params.end) qs.set("end", params.end);
   return qs;

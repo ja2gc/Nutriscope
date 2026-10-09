@@ -7,6 +7,7 @@ use App\Enums\AuditOutcome;
 use App\Enums\AuditSeverity;
 use App\Models\AuditActivity;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
@@ -50,6 +51,12 @@ class AuditQuery
         $query
             ->when($filters['start'] ?? null, fn (Builder $query, string $value): Builder => $query->fromDate($value))
             ->when($filters['end'] ?? null, fn (Builder $query, string $value): Builder => $query->toDate($value));
+
+        if (isset($filters['month'])) {
+            $start = CarbonImmutable::createFromFormat('!Y-m', $filters['month'], 'Asia/Manila')->startOfMonth();
+            $query->where('created_at', '>=', $start->utc())
+                ->where('created_at', '<', $start->addMonth()->utc());
+        }
 
         if (isset($filters['actor_id'])) {
             $actorId = User::withTrashed()->where('uuid', $filters['actor_id'])->value('id');

@@ -1,10 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { Filter, RotateCcw } from "lucide-react";
 import type { AuditFilterMetadata, AuditModule, AuditOutcome, AuditSeverity } from "@/types/audit";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { DatePicker } from "@/components/ui/DatePicker";
+import { MonthYearSelect } from "@/components/ui/MonthYearSelect";
 import { AuditActorFilter } from "./AuditActorFilter";
 
 export interface AuditFilterState {
@@ -14,8 +15,7 @@ export interface AuditFilterState {
   actor_id?: string;
   outcome?: AuditOutcome;
   severity?: AuditSeverity;
-  start?: string;
-  end?: string;
+  month?: string;
 }
 
 const controlClass =
@@ -56,6 +56,9 @@ export function AuditFilters({
   onChange: (next: AuditFilterState) => void;
   onClear: () => void;
 }) {
+  const [filterYear, setFilterYear] = useState(new Date().getFullYear());
+  const selectedYear = value.month ? Number(value.month.slice(0, 4)) : filterYear;
+  const selectedMonth = value.month ? Number(value.month.slice(5, 7)) : null;
   const compatibleActions = value.module
     ? new Set(metadata.module_actions[value.module] || [])
     : null;
@@ -82,11 +85,14 @@ export function AuditFilters({
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <fieldset className="grid grid-cols-2 gap-2 sm:col-span-2">
-          <legend className="mb-1 text-xs font-bold uppercase tracking-wider text-warm-500">Date range</legend>
-          <DatePicker ariaLabel="Start date" value={value.start || ""} onChange={(next) => update("start", next || undefined)} />
-          <DatePicker ariaLabel="End date" value={value.end || ""} onChange={(next) => update("end", next || undefined)} />
-        </fieldset>
+        <div className="grid grid-cols-2 gap-2 sm:col-span-2">
+          <MonthYearSelect month={selectedMonth} year={selectedYear} allowAllMonths monthAriaLabel="Audit month" yearAriaLabel="Audit year"
+            onMonthChange={(month) => update("month", month === null ? undefined : `${selectedYear}-${String(month).padStart(2, "0")}`)}
+            onYearChange={(year) => {
+              setFilterYear(year);
+              if (selectedMonth !== null) update("month", `${year}-${String(selectedMonth).padStart(2, "0")}`);
+            }} />
+        </div>
 
         {value.module && subfilterOptions.length > 0 && (
           <SelectFilter label="Context" allLabel={`All ${metadata.modules.find((module) => module.value === value.module)?.label || "contexts"}`} value={value.subfilter} options={subfilterOptions} onChange={(next) => update("subfilter", next)} />
