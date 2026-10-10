@@ -682,9 +682,6 @@ export default function NcpDiagnosisPage({
                   </td>
                   <td className="px-4 py-3 text-warm-700 max-w-[240px]">
                     <span className="line-clamp-3 italic text-xs">{d.pes_statement}</span>
-                    {d.extra_notes && (
-                      <span className="block mt-1 text-xs text-warm-400">{d.extra_notes}</span>
-                    )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
