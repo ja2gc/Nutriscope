@@ -73,6 +73,7 @@
 
 ## Behavior changes and verification
 
+- Validate every new input, following existing inputs; ask the user for unspecified character limits or other thresholds.
 - Behavior change/bug fix → write or update focused tests before implementation (TDD), then test the root behavior and consumers.
 - Check server authorization, validation, public UUIDs, API contracts, routes, pagination/empty states, generated outputs, and failure cleanup.
 - Seeder change → run twice, check duplicates, chronology/status validity, connected graph, and generated-vs-seeded boundaries.
