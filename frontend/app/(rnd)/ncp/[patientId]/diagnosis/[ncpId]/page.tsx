@@ -979,7 +979,7 @@ export default function NcpDiagnosisPage({
               value={builder.pesOverride}
               onChange={value => updateBuilder({ pesOverride: value })}
               rows={4}
-              maxLength={250}
+              maxLength={500}
               className="w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium text-warm-900 placeholder:text-warm-400 resize-none"
             />
             <p className="text-xs text-warm-400 mt-1">The statement above is auto-generated from the builder. Edit manually if needed before saving.</p>

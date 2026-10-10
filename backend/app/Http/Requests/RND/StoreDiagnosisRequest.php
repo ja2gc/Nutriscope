@@ -18,7 +18,7 @@ class StoreDiagnosisRequest extends FormRequest
             'problem' => ['required', 'string', 'max:255'],
             'etiology' => ['required', 'string', 'max:400'],
             'signs_symptoms' => ['required', 'string', 'max:400'],
-            'pes_statement' => ['nullable', 'string', 'max:1000'],
+            'pes_statement' => ['nullable', 'string', 'max:500'],
             'extra_notes' => ['nullable', 'string', 'max:400'],
             'ai_generated' => ['nullable', 'boolean'],
         ];
