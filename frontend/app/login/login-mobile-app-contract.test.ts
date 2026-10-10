@@ -35,7 +35,8 @@ describe("login native-app entry contract", () => {
     const login = read("app/login/page.tsx");
     expect(login).toContain("<FssAppAccess compact />");
     const handoff = read("components/mobile-app/FssAppAccess.tsx");
-    expect(handoff).toContain('href="/mobile-app"');
     expect(handoff).toContain("/downloads/nutriscope-fss.apk");
+    expect(handoff).not.toContain("Install instructions");
+    expect(handoff).toContain("Scan to download the NutriScope Android app");
   });
 });

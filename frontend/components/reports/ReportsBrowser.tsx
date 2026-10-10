@@ -470,20 +470,20 @@ function ArchivedTab({
         </div>
       ) : (
         <div className="overflow-x-auto">
-        <table className="w-full min-w-[540px] text-sm">
+        <table className="w-full min-w-[640px] whitespace-nowrap text-sm">
           <thead className="bg-warm-50 border-b border-warm-100">
             <tr>{["Report", "Created by", "Covers through", "Actions"].map((h) => (
-              <th key={h} className="px-4 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
+              <th key={h} className="px-2 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider sm:px-3">{h}</th>
             ))}</tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
             {pagedReports.map((r) => (
               <tr key={r.id} className="hover:bg-warm-50/60">
-                <td className="px-4 py-3 font-semibold text-warm-800">{r.title}
-                  {retentionEnabled && r.retention_expires_at && <span className="block text-xs font-normal text-warm-500">Expires on {reportDate(r.retention_expires_at)}</span>}
+                <td className="px-2 py-3 font-semibold text-warm-800 sm:px-3">{r.title}
+                  {retentionEnabled && r.retention_expires_at && <span className="ml-2 text-xs font-normal text-warm-500">Expires on {reportDate(r.retention_expires_at)}</span>}
                 </td>
-                <td className="px-4 py-3 text-warm-600">{r.created_by?.name ?? "Former user"}</td>
-                <td className="px-4 py-3 text-warm-500 tabular-nums">
+                <td className="px-2 py-3 text-warm-600 sm:px-3">{r.created_by?.name ?? "Former user"}</td>
+                <td className="px-2 py-3 text-warm-500 tabular-nums sm:px-3">
                   {r.report_covered_until ? (
                     <time
                       dateTime={r.report_covered_until}
@@ -492,7 +492,7 @@ function ArchivedTab({
                     </time>
                   ) : "—"}
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-2 py-3 sm:px-3">
                   <div className="flex items-center justify-end gap-1">
                     <button onClick={() => setPreview(r)} className="p-1.5 rounded-lg hover:bg-warm-100 text-warm-500 cursor-pointer" aria-label={`View ${r.title}`} title="View"><Eye className="h-3.5 w-3.5" /></button>
                     <button onClick={() => void onUnarchive(r.id)} className="p-1.5 rounded-lg hover:bg-emerald-50 text-warm-500 hover:text-emerald-700 cursor-pointer" aria-label={`Unarchive ${r.title}`} title="Unarchive"><Archive className="h-3.5 w-3.5" /></button>

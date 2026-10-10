@@ -77,6 +77,10 @@ export default function ForgotPasswordPage() {
             </Button>
           </form>
 
+          <p className="mt-4 text-xs leading-relaxed text-warm-500">
+            If you haven’t set a recovery email or no longer have access to it, contact your admin to change your password.
+          </p>
+
           <div className="mt-5 text-center">
             <Link href="/login" className="text-sm font-semibold text-warm-500 hover:text-warm-800">
               Back to sign in

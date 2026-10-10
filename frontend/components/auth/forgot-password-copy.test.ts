@@ -14,6 +14,7 @@ describe("forgot-password sign-in email contract", () => {
     expect(mobile).toContain("Sign-in Email");
     expect(web).toContain(explanation);
     expect(mobile).toContain(explanation);
+    expect(web).toContain("If you haven’t set a recovery email or no longer have access to it, contact your admin to change your password.");
     expect(web).not.toContain("Enter your verified recovery email");
     expect(mobile).not.toContain("Enter your verified recovery email");
   });
