@@ -21,6 +21,7 @@ import { matchStoredOption, splitStoredComponent } from "@/lib/diagnosisComponen
 import NcpPatientHeader from "../../../_components/NcpPatientHeader";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { InfoHint } from "@/components/ui/InfoHint";
+import { CharacterCountTextarea } from "@/components/ui/CharacterCountTextarea";
 import { candidateBuilderSelections } from "@/lib/pesBuilderSelections";
 import { NcpBreadcrumb } from "@/components/ncp/NcpBreadcrumb";
 import { paginateAiDrafts } from "@/lib/aiDraftPagination";
@@ -834,10 +835,11 @@ export default function NcpDiagnosisPage({
 
       <div>
         <SectionLabel>Extra Notes (optional)</SectionLabel>
-        <textarea
+        <CharacterCountTextarea
           value={builder.extraNotes}
-          onChange={e => updateBuilder({ extraNotes: e.target.value })}
+          onChange={value => updateBuilder({ extraNotes: value })}
           rows={2}
+          maxLength={250}
           className="w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-warm-400 resize-none"
         />
       </div>
@@ -880,10 +882,11 @@ export default function NcpDiagnosisPage({
       </div>
       <div>
         <SectionLabel>Additional Etiology Notes (free text)</SectionLabel>
-        <textarea
+        <CharacterCountTextarea
           value={builder.etiologyNotes}
-          onChange={e => updateBuilder({ etiologyNotes: e.target.value })}
+          onChange={value => updateBuilder({ etiologyNotes: value })}
           rows={3}
+          maxLength={250}
           className="w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-warm-400 resize-none"
         />
       </div>
@@ -923,10 +926,11 @@ export default function NcpDiagnosisPage({
       </div>
       <div>
         <SectionLabel>Additional Signs & Symptoms Notes (free text)</SectionLabel>
-        <textarea
+        <CharacterCountTextarea
           value={builder.signNotes}
-          onChange={e => updateBuilder({ signNotes: e.target.value })}
+          onChange={value => updateBuilder({ signNotes: value })}
           rows={3}
+          maxLength={250}
           className="w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-warm-400 resize-none"
         />
       </div>
@@ -971,10 +975,11 @@ export default function NcpDiagnosisPage({
 
           <div>
             <SectionLabel>PES Statement (Auto-Generated — Editable)</SectionLabel>
-            <textarea
+            <CharacterCountTextarea
               value={builder.pesOverride}
-              onChange={e => updateBuilder({ pesOverride: e.target.value })}
+              onChange={value => updateBuilder({ pesOverride: value })}
               rows={4}
+              maxLength={250}
               className="w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium text-warm-900 placeholder:text-warm-400 resize-none"
             />
             <p className="text-xs text-warm-400 mt-1">The statement above is auto-generated from the builder. Edit manually if needed before saving.</p>

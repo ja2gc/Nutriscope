@@ -5,6 +5,7 @@ import {
   AlertCircle,
   Camera,
   ChevronLeft,
+  ChevronDown,
   ChevronRight,
   Image as ImageIcon,
   Paperclip,
@@ -36,6 +37,7 @@ import { getToken } from '../../lib/auth';
 import { authenticatedImageSource, collectAllPages } from '../../lib/mobileContracts';
 import { PaginatedListFooter } from '../../components/PaginatedListFooter';
 import { MOBILE_PAGE_SIZE, PaginatedResponse, flattenUniquePages, getNextPageParam } from '../../lib/pagination';
+import { validateUploadFiles } from '../../lib/uploadValidation';
 
 type AttachmentType = 'receipt' | 'proof';
 
@@ -60,7 +62,6 @@ interface PurchaseOrderItem {
   actual_unit: string;
   actual_unit_price: number | string;
   actual_total: number | string;
-  actual_values_confirmed: boolean;
 }
 
 interface PurchaseOrderAttachment {
@@ -84,7 +85,7 @@ interface VendorGroup {
   stocked_at: string | null;
   items: PurchaseOrderItem[] | null;
   attachments: PurchaseOrderAttachment[] | null;
-  evidence_requirements?: { receipt_uploaded: boolean; proof_uploaded: boolean; actual_values_reviewed: boolean; can_mark_received: boolean };
+  evidence_requirements?: { receipt_uploaded: boolean; proof_uploaded: boolean; can_mark_received: boolean };
 }
 
 interface PurchaseOrder {
@@ -125,9 +126,18 @@ function money(value: number | string | null | undefined): string {
   return `PHP ${num.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function plain(value: number | string | null | undefined): string {
+function purchaseOrderStatusLabel(status: string): string {
+  if (status === 'completed') return 'Completed';
+  if (status === 'archived') return 'Archived';
+  if (status === 'open_execution') return 'In progress';
+  return 'Status unavailable';
+}
+
+function formatActualInput(value: number | string | null | undefined): string {
   if (value === null || value === undefined) return '';
-  return String(value);
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return String(value);
+  return new Intl.NumberFormat('en-PH', { maximumFractionDigits: 2, useGrouping: false }).format(numeric);
 }
 
 function countReceipts(group: VendorGroup): number {
@@ -205,6 +215,7 @@ function UploadAttachmentModal({ group, visible, type, onChangeType, onClose }: 
           quality: 0.85,
           allowsEditing: false,
           allowsMultipleSelection: true,
+          selectionLimit: 15,
         });
         if (result.canceled || !result.assets?.length) return;
         assets = result.assets;
@@ -223,12 +234,28 @@ function UploadAttachmentModal({ group, visible, type, onChangeType, onClose }: 
         assets = result.assets;
       }
 
-      uploadMutation.mutate(assets.map((asset, index) => {
+      const files = assets.map((asset, index) => {
         const uri = asset.uri;
         const ext = uri.split('.').pop() ?? 'jpg';
         const mimeType = asset.mimeType ?? `image/${ext === 'png' ? 'png' : 'jpeg'}`;
-        return { uri, name: `${type}_${Date.now()}_${index}.${ext}`, type: mimeType };
-      }));
+        return {
+          uri,
+          size: asset.fileSize,
+          name: asset.fileName ?? `${type}_${Date.now()}_${index}.${ext}`,
+          type: mimeType,
+        };
+      });
+      const validation = validateUploadFiles(files, {
+        maxBytes: 5 * 1024 * 1024,
+        allowedTypes: ['image/jpeg', 'image/png', 'image/webp'],
+        maxFiles: 15,
+      });
+      if (!validation.valid) {
+        setError(validation.error);
+        return;
+      }
+
+      uploadMutation.mutate(files.map(({ uri, name, type: mimeType }) => ({ uri, name, type: mimeType })));
     },
     [type, uploadMutation],
   );
@@ -520,15 +547,26 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
   const actualsLocked = locked || group.status === 'received' || Boolean(group.received_at);
   const [orNumber, setOrNumber] = useState(group.or_number ?? '');
   const [error, setError] = useState<string | null>(null);
-  const [actuals, setActuals] = useState<Record<number, { qty: string; price: string }>>(
-    Object.fromEntries((group.items ?? []).map((item) => [item.id, { qty: plain(item.actual_qty), price: plain(item.actual_unit_price) }])),
+  const [actuals, setActuals] = useState<Record<number, { qty: string; price: string; qtyEdited: boolean; priceEdited: boolean }>>(
+    Object.fromEntries((group.items ?? []).map((item) => [item.id, {
+      qty: formatActualInput(item.actual_qty),
+      price: formatActualInput(item.actual_unit_price),
+      qtyEdited: false,
+      priceEdited: false,
+    }])),
   );
   const [vendorScope, setVendorScope] = useState<'all' | number | null>(null);
-  const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set());
+  const [expandedItems, setExpandedItems] = useState<Set<number>>(() => new Set());
 
   useEffect(() => {
     setOrNumber(group.or_number ?? '');
-    setActuals(Object.fromEntries((group.items ?? []).map((item) => [item.id, { qty: plain(item.actual_qty), price: plain(item.actual_unit_price) }])));
+    setActuals(Object.fromEntries((group.items ?? []).map((item) => [item.id, {
+      qty: formatActualInput(item.actual_qty),
+      price: formatActualInput(item.actual_unit_price),
+      qtyEdited: false,
+      priceEdited: false,
+    }])));
+    setExpandedItems(new Set());
     setError(null);
   }, [group]);
 
@@ -536,7 +574,11 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
     mutationFn: async (markReceived: boolean) => {
       const payload = {
         or_number: orNumber.trim() || null,
-        ...(!actualsLocked ? { items: (group.items ?? []).map((item) => ({ id: item.id, actual_qty: Number(actuals[item.id]?.qty), actual_unit_price: Number(actuals[item.id]?.price) })) } : {}),
+        ...(!actualsLocked ? { items: (group.items ?? []).map((item) => ({
+          id: item.id,
+          actual_qty: actuals[item.id]?.qtyEdited ? Number(actuals[item.id].qty) : Number(item.actual_qty),
+          actual_unit_price: actuals[item.id]?.priceEdited ? Number(actuals[item.id].price) : Number(item.actual_unit_price),
+        })) } : {}),
         ...(markReceived ? { status: 'received' } : {}),
       };
       const res = await api.patch(`/api/fss/purchase-order-vendor-groups/${group.id}`, payload);
@@ -623,7 +665,7 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
             {group.supplier?.name ?? 'Unassigned vendor'}
           </Text>
           <View className="flex-row flex-wrap gap-2 mt-2">
-            <Text className="text-xs text-gray-400">Status: {group.status}</Text>
+            <Text className="text-xs text-gray-400">Status: {group.status === 'received' ? 'Received' : 'Pending'}</Text>
             <Text className="text-xs text-gray-300">|</Text>
             <Text className="text-xs text-gray-400">{money(group.total_amount)}</Text>
           </View>
@@ -690,31 +732,38 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
               <Text className="text-sm font-semibold text-gray-900 mb-1" numberOfLines={2}>
                 {item.description}
               </Text>
-              <Text className="text-xs text-gray-500">Planned purchase: {plain(item.purchase_qty ?? item.qty)} {item.actual_unit} at {money(item.purchase_price ?? item.unit_price)}</Text>
-              <Text className="mt-0.5 text-xs text-gray-500">Actual purchased: {actuals[item.id]?.qty ?? plain(item.actual_qty)} {item.actual_unit} at {money(actuals[item.id]?.price ?? item.actual_unit_price)}</Text>
-              <Text className={`mb-2 mt-1 self-start rounded-full px-2 py-1 text-xs font-semibold ${item.actual_values_confirmed ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
-                {item.actual_values_confirmed ? 'Reviewed' : 'Not reviewed'}
-              </Text>
               <View className="flex-row gap-2">
-                <View className="flex-1"><Text className="text-xs text-gray-500 mb-1">Actual qty</Text><TextInput keyboardType="decimal-pad" editable={!actualsLocked} value={actuals[item.id]?.qty ?? ''} onChangeText={(value) => setActuals((current) => ({ ...current, [item.id]: { qty: value, price: current[item.id]?.price ?? plain(item.actual_unit_price) } }))} className="border border-gray-200 rounded-lg px-3 py-2 text-sm" /></View>
-                <View className="flex-1"><Text className="text-xs text-gray-500 mb-1">Actual unit price</Text><TextInput keyboardType="decimal-pad" editable={!actualsLocked} value={actuals[item.id]?.price ?? ''} onChangeText={(value) => setActuals((current) => ({ ...current, [item.id]: { qty: current[item.id]?.qty ?? plain(item.actual_qty), price: value } }))} className="border border-gray-200 rounded-lg px-3 py-2 text-sm" /></View>
+                <View className="flex-1"><Text className="text-xs text-gray-500 mb-1">Actual Quantity</Text><TextInput keyboardType="decimal-pad" editable={!actualsLocked} value={actuals[item.id]?.qty ?? formatActualInput(item.actual_qty)} onChangeText={(value) => setActuals((current) => {
+                  const draft = current[item.id] ?? { qty: formatActualInput(item.actual_qty), price: formatActualInput(item.actual_unit_price), qtyEdited: false, priceEdited: false };
+                  return { ...current, [item.id]: { ...draft, qty: value, qtyEdited: true } };
+                })} className="border border-gray-200 rounded-lg px-3 py-2 text-sm" /></View>
+                <View className="w-16"><Text className="text-xs text-gray-500 mb-1">Unit</Text><View className="min-h-10 justify-center rounded-lg border border-gray-100 bg-gray-50 px-3"><Text className="text-sm text-gray-700">{item.actual_unit}</Text></View></View>
+                <View className="flex-1"><Text className="text-xs text-gray-500 mb-1">Actual Cost/unit</Text><TextInput keyboardType="decimal-pad" editable={!actualsLocked} value={actuals[item.id]?.price ?? formatActualInput(item.actual_unit_price)} onChangeText={(value) => setActuals((current) => {
+                  const draft = current[item.id] ?? { qty: formatActualInput(item.actual_qty), price: formatActualInput(item.actual_unit_price), qtyEdited: false, priceEdited: false };
+                  return { ...current, [item.id]: { ...draft, price: value, priceEdited: true } };
+                })} className="border border-gray-200 rounded-lg px-3 py-2 text-sm" /></View>
+              </View>
+              <View className="mt-3 flex-row items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
+                <Text className="text-xs font-semibold text-gray-500">Actual Total</Text>
+                <Text className="text-sm font-semibold text-emerald-700">{money((actuals[item.id]?.qtyEdited ? Number(actuals[item.id].qty) : Number(item.actual_qty)) * (actuals[item.id]?.priceEdited ? Number(actuals[item.id].price) : Number(item.actual_unit_price)))}</Text>
               </View>
               <TouchableOpacity
-                className="min-h-11 justify-center"
+                className="min-h-11 flex-row items-center justify-between"
                 onPress={() => setExpandedItems((current) => {
                   const next = new Set(current);
                   if (next.has(item.id)) next.delete(item.id); else next.add(item.id);
                   return next;
                 })}
                 accessibilityRole="button"
+                accessibilityLabel={`Calculation details for ${item.description}`}
                 accessibilityState={{ expanded: expandedItems.has(item.id) }}
               >
                 <Text className="text-sm font-semibold text-emerald-700">Calculation details</Text>
+                <ChevronDown color="#047857" size={16} style={{ transform: [{ rotate: expandedItems.has(item.id) ? '180deg' : '0deg' }] }} />
               </TouchableOpacity>
-              {expandedItems.has(item.id) && <View className="rounded-lg bg-gray-50 p-3">
-                <Text className="text-xs text-gray-500">Calculated need: {plain(item.qty)} {item.unit} at {money(item.unit_price)}</Text>
-                <Text className="mt-1 text-xs text-gray-500">Planned purchase: {plain(item.purchase_qty ?? item.qty)} {item.actual_unit} at {money(item.purchase_price ?? item.unit_price)}</Text>
-                <Text className="mt-1 text-xs text-gray-500">Actual purchased: {actuals[item.id]?.qty ?? plain(item.actual_qty)} {item.actual_unit} at {money(actuals[item.id]?.price ?? item.actual_unit_price)}</Text>
+              {expandedItems.has(item.id) && <View className="gap-1 rounded-lg bg-gray-50 p-3">
+                <Text className="text-xs text-gray-500">Planned purchase: {formatActualInput(item.purchase_qty ?? item.qty)} {item.actual_unit} at {money(item.purchase_price ?? item.unit_price)}</Text>
+                <Text className="text-xs text-gray-500">Actual purchased: {actuals[item.id]?.qty ?? formatActualInput(item.actual_qty)} {item.actual_unit} at {money(actuals[item.id]?.price ?? item.actual_unit_price)}</Text>
               </View>}
               <TouchableOpacity
                 className="min-h-11 justify-center self-start"
@@ -737,7 +786,7 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
         {!actualsLocked && <TouchableOpacity className={`mt-4 min-h-12 justify-center rounded-xl py-3 ${group.evidence_requirements?.can_mark_received ? 'bg-emerald-600' : 'bg-gray-300'}`} disabled={updateMutation.isPending || !group.evidence_requirements?.can_mark_received} onPress={() => saveActuals(true)}>
           <Text className="text-center font-semibold text-white">Mark vendor received</Text>
         </TouchableOpacity>}
-        {!actualsLocked && <Text className="mt-2 text-center text-xs text-gray-500">Receipt, proof, and reviewed actual values are required. OR number is optional.</Text>}
+        {!actualsLocked && <Text className="mt-2 text-center text-xs text-gray-500">Receipt, proof, and actual quantity and cost are required. OR number is optional.</Text>}
       </View>
     </ScrollView>
   );
@@ -753,6 +802,7 @@ function PurchaseOrderDetail({
   onOpenGroup: (groupId: string) => void;
 }) {
   const groups = po.vendor_groups ?? [];
+  const [plannedTotalOpen, setPlannedTotalOpen] = useState(false);
 
   return (
     <ScrollView className="flex-1 bg-gray-50" contentContainerStyle={{ paddingBottom: 24 }}>
@@ -762,12 +812,25 @@ function PurchaseOrderDetail({
         <View className="bg-white rounded-xl border border-gray-100 px-4 py-4 mb-4">
           <Text className="text-lg font-bold text-gray-900">{po.po_number}</Text>
           <Text className="text-xs text-gray-400 mt-1">
-            {po.ppa?.target_date_range ?? po.order_date ?? 'No schedule'} | {money(po.total_amount)}
+            {po.ppa?.target_date_range ?? po.order_date ?? 'No schedule'}
           </Text>
-          {po.ppa?.activity && (
-            <Text className="text-sm text-gray-600 mt-2" numberOfLines={2}>
-              {po.ppa.activity}
-            </Text>
+        </View>
+
+        <View className="bg-white rounded-xl border border-gray-100 overflow-hidden mb-4">
+          <TouchableOpacity
+            className="flex-row items-center justify-between min-h-11 px-4 py-3"
+            accessibilityRole="button"
+            accessibilityLabel={plannedTotalOpen ? 'Hide planned total' : 'Show planned total'}
+            accessibilityState={{ expanded: plannedTotalOpen }}
+            onPress={() => setPlannedTotalOpen((open) => !open)}
+          >
+            <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Planned total</Text>
+            <ChevronDown color="#9ca3af" size={18} style={{ transform: [{ rotate: plannedTotalOpen ? '180deg' : '0deg' }] }} />
+          </TouchableOpacity>
+          {plannedTotalOpen && (
+            <View className="border-t border-gray-100 px-4 py-3">
+              <Text className="text-xl font-bold text-gray-900">{money(po.total_amount)}</Text>
+            </View>
           )}
         </View>
 
@@ -838,7 +901,7 @@ function PurchaseOrderRow({ po, onPress }: { po: PurchaseOrder; onPress: () => v
         </View>
         <View className="items-end">
           <Text className="text-sm font-bold text-gray-800">{money(po.total_amount)}</Text>
-          <Text className="text-xs text-gray-400 mt-1">{po.lifecycle_status}</Text>
+          <Text className="text-xs text-gray-400 mt-1">Status: {purchaseOrderStatusLabel(po.lifecycle_status)}</Text>
         </View>
       </View>
     </TouchableOpacity>

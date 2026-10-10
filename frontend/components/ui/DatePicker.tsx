@@ -11,6 +11,7 @@ type DatePickerProps = {
   max?: string;
   disabled?: boolean;
   required?: boolean;
+  compactLabels?: boolean;
   className?: string;
 };
 
@@ -28,6 +29,7 @@ export function DatePicker({
   max,
   disabled = false,
   required = false,
+  compactLabels = false,
   className = "",
 }: DatePickerProps) {
   const [year, setYear] = useState(() => dateParts(value)[0]);
@@ -64,22 +66,25 @@ export function DatePicker({
     onChange(next);
   }
 
-  const controlClass = "min-h-11 w-full rounded-lg border border-warm-200 bg-white px-3 text-base text-warm-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 disabled:bg-warm-50 disabled:text-warm-400";
+  const controlClass = "min-h-11 rounded-lg border border-warm-200 bg-white px-3 text-base text-warm-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30 disabled:bg-warm-50 disabled:text-warm-400";
+  const monthWidth = `calc(${compactLabels ? 3 : 5}ch + 2.5rem)`;
+  const dayWidth = `calc(${compactLabels ? 2 : 3}ch + 2.5rem)`;
+  const yearWidth = "calc(4ch + 2.5rem)";
 
   return (
     <fieldset className={`min-w-0 ${className}`} disabled={disabled}>
       {label && <legend className="mb-1.5 text-sm font-semibold text-warm-600">{label}{required && <span className="ml-0.5 text-red-500">*</span>}</legend>}
-      <div className="grid grid-cols-[1.15fr_0.8fr_1fr] gap-2">
-        <select aria-label={`${ariaLabel} month`} value={month || ""} required={required} onChange={(event) => commit(year, Number(event.target.value), day)} className={controlClass}>
-          <option value="">Month</option>
+      <div className="flex w-fit gap-2">
+        <select aria-label={`${ariaLabel} month`} value={month || ""} required={required} onChange={(event) => commit(year, Number(event.target.value), day)} className={controlClass} style={{ width: monthWidth }}>
+          <option value="">{compactLabels ? "MM" : "Month"}</option>
           {Array.from({ length: 12 }, (_, index) => <option key={index + 1} value={index + 1}>{new Date(2000, index, 1).toLocaleString("en", { month: "short" })}</option>)}
         </select>
-        <select aria-label={`${ariaLabel} day`} value={day || ""} required={required} onChange={(event) => commit(year, month, Number(event.target.value))} className={controlClass}>
-          <option value="">Day</option>
+        <select aria-label={`${ariaLabel} day`} value={day || ""} required={required} onChange={(event) => commit(year, month, Number(event.target.value))} className={controlClass} style={{ width: dayWidth }}>
+          <option value="">{compactLabels ? "DD" : "Day"}</option>
           {Array.from({ length: daysInMonth }, (_, index) => <option key={index + 1} value={index + 1}>{index + 1}</option>)}
         </select>
-        <select aria-label={`${ariaLabel} year`} value={year || ""} required={required} onChange={(event) => commit(Number(event.target.value), month, day)} className={controlClass}>
-          <option value="">Year</option>
+        <select aria-label={`${ariaLabel} year`} value={year || ""} required={required} onChange={(event) => commit(Number(event.target.value), month, day)} className={controlClass} style={{ width: yearWidth }}>
+          <option value="">{compactLabels ? "YYYY" : "Year"}</option>
           {years.map((option) => <option key={option} value={option}>{option}</option>)}
         </select>
       </div>

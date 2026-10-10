@@ -390,7 +390,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Procurement & Budget",
     question: "What happens when a shopping list is converted?",
-    answer: "When the release checklist passes, Create and release PO copies included rows into one vendor-grouped order and freezes quantities, units, and calculations. Before evidence or receiving, Change vendor for all changes a group and row-level Change vendor moves one item. Receiving then confirms actual values plus receipt and proof; OR is optional.",
+    answer: "When the release checklist passes, Create and release PO copies included rows into one vendor-grouped order and freezes quantities, units, and calculations. Before evidence or receiving, Change vendor for all changes a group and row-level Change vendor moves one item. Receiving records actual values plus receipt and proof; OR is optional.",
     keywords: ["PO", "vendor group", "receipt", "change vendor"],
   },
   {
@@ -398,7 +398,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Procurement & Budget",
     question: "When does a food purchase order complete?",
-    answer: "Each vendor needs reviewed actual values, receipt, proof, and explicit received status. A suggested food PO also needs served population for each covered date; manual food and supplies do not.",
+    answer: "Each vendor needs actual quantities and costs, receipt, proof, and explicit received status. A suggested food PO also needs served population for each covered date; manual food and supplies do not.",
     keywords: ["received", "status", "receipt", "served days"],
   },
   {

@@ -265,6 +265,16 @@ class DietListCountTest extends TestCase
         ]);
     }
 
+    public function test_new_numeric_fields_reject_population_above_five_thousand(): void
+    {
+        $this->actingAs($this->fss)->postJson('/api/fss/diet-list-counts', [
+            'service_date' => CarbonImmutable::now('Asia/Manila')->subDay()->toDateString(),
+            'collected_ward_diet_lists' => 5001,
+            'apportioned_distributed_meals' => 1,
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('collected_ward_diet_lists');
+    }
+
     public function test_new_form_does_not_delete_or_replace_legacy_ward_rows(): void
     {
         $date = CarbonImmutable::now('Asia/Manila')->subDay()->toDateString();

@@ -11,6 +11,7 @@ mysql
 .worktrees
 .vscode
 docs
+Storyboarding
 deployment.md
 DEMO_GUIDE.md
 README.md
@@ -21,3 +22,11 @@ compose-run.log
 .mcp.json
 docker-compose.yml
 docker-compose.prod.yml
+.git
+.php-test
+.playwright-cli
+output
+tmp
+.aws
+.env*
+**/.env*

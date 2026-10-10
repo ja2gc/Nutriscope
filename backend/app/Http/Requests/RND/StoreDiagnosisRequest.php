@@ -16,10 +16,10 @@ class StoreDiagnosisRequest extends FormRequest
         return [
             'domain' => ['required', 'string', 'in:NI,NC,NB'],
             'problem' => ['required', 'string', 'max:255'],
-            'etiology' => ['required', 'string'],
-            'signs_symptoms' => ['required', 'string'],
-            'pes_statement' => ['nullable', 'string'],
-            'extra_notes' => ['nullable', 'string'],
+            'etiology' => ['required', 'string', 'max:400'],
+            'signs_symptoms' => ['required', 'string', 'max:400'],
+            'pes_statement' => ['nullable', 'string', 'max:1000'],
+            'extra_notes' => ['nullable', 'string', 'max:400'],
             'ai_generated' => ['nullable', 'boolean'],
         ];
     }

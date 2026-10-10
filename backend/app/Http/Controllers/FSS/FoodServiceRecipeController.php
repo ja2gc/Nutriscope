@@ -171,12 +171,12 @@ class FoodServiceRecipeController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255', 'unique:food_service_recipes,name'],
             'category' => ['nullable', 'string', 'max:100'],
-            'prep_notes' => ['nullable', 'string'],
-            'servings' => ['nullable', 'integer', 'min:1'],
+            'prep_notes' => ['nullable', 'string', 'max:2000'],
+            'servings' => ['nullable', 'integer', 'between:1,10000'],
             'portion_label' => ['nullable', 'string', 'max:100'],
             'ingredients' => ['required', 'array', 'min:1'],
             'ingredients.*.fs_item_id' => ['required', 'string', 'exists:fs_items,uuid'],
-            'ingredients.*.quantity' => ['required', 'numeric', 'min:0.01'],
+            'ingredients.*.quantity' => ['required', 'numeric', 'between:0.01,100000', 'decimal:0,2'],
             'ingredients.*.unit' => ['nullable', 'string'],
         ]);
 
@@ -240,12 +240,12 @@ class FoodServiceRecipeController extends Controller
         $data = $request->validate([
             'name' => ['sometimes', 'string', 'max:255', 'unique:food_service_recipes,name,'.$foodServiceRecipe->id],
             'category' => ['nullable', 'string', 'max:100'],
-            'prep_notes' => ['nullable', 'string'],
-            'servings' => ['nullable', 'integer', 'min:1'],
+            'prep_notes' => ['nullable', 'string', 'max:2000'],
+            'servings' => ['nullable', 'integer', 'between:1,10000'],
             'portion_label' => ['nullable', 'string', 'max:100'],
             'ingredients' => ['sometimes', 'array', 'min:1'],
             'ingredients.*.fs_item_id' => ['required_with:ingredients', 'string', 'exists:fs_items,uuid'],
-            'ingredients.*.quantity' => ['required_with:ingredients', 'numeric', 'min:0.01'],
+            'ingredients.*.quantity' => ['required_with:ingredients', 'numeric', 'between:0.01,100000', 'decimal:0,2'],
             'ingredients.*.unit' => ['nullable', 'string'],
         ]);
 

@@ -67,7 +67,6 @@ class PurchaseOrderResource extends JsonResource
                     * (float) ($i->actual_unit_price ?? $i->purchase_price ?? $i->unit_price),
                     2,
                 ),
-                'actual_values_confirmed' => $i->actual_qty !== null && $i->actual_unit_price !== null,
             ])),
             'vendor_groups' => $this->whenLoaded('vendorGroups', fn () => $this->vendorGroups->map(fn ($g) => [
                 'id' => $g->uuid,
@@ -104,7 +103,6 @@ class PurchaseOrderResource extends JsonResource
                         * (float) ($i->actual_unit_price ?? $i->purchase_price ?? $i->unit_price),
                         2,
                     ),
-                    'actual_values_confirmed' => $i->actual_qty !== null && $i->actual_unit_price !== null,
                 ])->values() : null,
                 'attachments' => $g->relationLoaded('attachments') ? $g->attachments->map(fn ($a) => [
                     'id' => $a->uuid,
@@ -114,9 +112,6 @@ class PurchaseOrderResource extends JsonResource
                 ])->values() : null,
                 'evidence_requirements' => [
                     'supplier_assigned' => $g->supplier_id !== null,
-                    'actual_values_reviewed' => $g->relationLoaded('items')
-                        && $g->items->isNotEmpty()
-                        && $g->items->every(fn ($i) => $i->actual_qty !== null && $i->actual_unit_price !== null),
                     'receipt_uploaded' => $g->relationLoaded('attachments')
                         && $g->attachments->where('type', 'receipt')->isNotEmpty(),
                     'proof_uploaded' => $g->relationLoaded('attachments')
@@ -124,7 +119,6 @@ class PurchaseOrderResource extends JsonResource
                     'can_mark_received' => $g->supplier_id !== null
                         && $g->relationLoaded('items')
                         && $g->items->isNotEmpty()
-                        && $g->items->every(fn ($i) => $i->actual_qty !== null && $i->actual_unit_price !== null)
                         && $g->relationLoaded('attachments')
                         && $g->attachments->where('type', 'receipt')->isNotEmpty()
                         && $g->attachments->where('type', 'proof')->isNotEmpty(),

@@ -470,6 +470,9 @@ export default function RndDashboardPage() {
                 images={draft.images}
                 onImagesChange={(images) => setDraft((prev) => ({ ...prev, images }))}
                 label="Images"
+                maxBytes={5 * 1024 * 1024}
+                allowedTypes={["image/jpeg", "image/png", "image/webp"]}
+                maxFiles={10}
               />
               </div>
 

@@ -481,4 +481,18 @@ class AiUsageLimitTest extends TestCase
             ]],
         ];
     }
+
+    public function test_admin_limits_reject_values_above_supported_bounds(): void
+    {
+        $this->actingAs($this->admin, 'sanctum')
+            ->putJson('/api/admin/ai-usage-limits', [
+                'daily_token_limit' => 100000001,
+                'input_cost_per_1m_tokens_usd' => 1000.0001,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'daily_token_limit',
+                'input_cost_per_1m_tokens_usd',
+            ]);
+    }
 }

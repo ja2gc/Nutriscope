@@ -23,6 +23,7 @@ import {
 import { ProfilePhotoCropDialog } from "@/components/profile/ProfilePhotoCropDialog";
 import { profilePhotoUpdate, type ProfilePhotoIntent } from "@/components/profile/profilePhotoUpdate";
 import { personDisplayName } from "@/lib/personName";
+import { validateUploadFile } from "@/lib/uploadValidation";
 
 type ProfilePageShellProps = {
   crumbs: [string, string?][];
@@ -120,13 +121,12 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
     setProfilePhotoError(null);
     const file = files.at(-1);
     if (!file) return;
-    const allowedTypes = ["image/png", "image/jpeg", "image/webp"];
-    if (!allowedTypes.includes(file.type)) {
-      setProfilePhotoError("Use PNG, JPEG, or WebP only.");
-      return;
-    }
-    if (file.size > 10000000) {
-      setProfilePhotoError("Use an image under 10 MB.");
+    const validation = validateUploadFile(file, {
+      maxBytes: 2 * 1024 * 1024,
+      allowedTypes: ["image/png", "image/jpeg", "image/webp"],
+    });
+    if (!validation.valid) {
+      setProfilePhotoError(validation.error);
       return;
     }
     const [image] = await readImages([file]);
@@ -261,6 +261,9 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
               label="Profile Photo"
               emptyText="Profile photo preview appears here after upload."
               error={profilePhotoError}
+              maxBytes={2 * 1024 * 1024}
+              allowedTypes={["image/png", "image/jpeg", "image/webp"]}
+              maxFiles={1}
               variant="avatar"
               uploadLabel={profileImages.length > 0 ? "Change profile picture" : "Upload profile picture"}
               removeLabel="Delete profile picture"

@@ -14,10 +14,10 @@ class UpdateAiUsageLimitRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'daily_token_limit' => ['nullable', 'integer', 'min:0'],
-            'monthly_token_limit' => ['nullable', 'integer', 'min:0'],
-            'input_cost_per_1m_tokens_usd' => ['sometimes', 'numeric', 'min:0'],
-            'output_cost_per_1m_tokens_usd' => ['sometimes', 'numeric', 'min:0'],
+            'daily_token_limit' => ['nullable', 'integer', 'between:0,100000000'],
+            'monthly_token_limit' => ['nullable', 'integer', 'between:0,100000000'],
+            'input_cost_per_1m_tokens_usd' => ['sometimes', 'numeric', 'between:0,1000', 'decimal:0,4'],
+            'output_cost_per_1m_tokens_usd' => ['sometimes', 'numeric', 'between:0,1000', 'decimal:0,4'],
         ];
     }
 }

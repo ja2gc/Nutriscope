@@ -291,4 +291,56 @@ class NcpAssessmentTest extends TestCase
 
         $response->assertStatus(409);
     }
+
+    public function test_assessment_rejects_out_of_range_values_and_oversized_notes(): void
+    {
+        $rnd = $this->rnd();
+        $ncp = $this->ncpRecord($this->patient(), $rnd);
+        $url = "/api/rnd/ncp-records/{$ncp->uuid}/assessment";
+        $base = [
+            'weight' => 70,
+            'usual_weight' => 70,
+            'height' => 170,
+            'physical_activity_level' => 'sedentary',
+            'primary_diagnosis_category' => 'Diabetes',
+        ];
+
+        foreach ([
+            [['dietary_intake' => str_repeat('x', 401)], 'dietary_intake'],
+            [['rnd_summary' => str_repeat('x', 3001)], 'rnd_summary'],
+            [['weight' => 70.123], 'weight'],
+            [['muac_mm' => 600.01], 'muac_mm'],
+            [['waist_cm' => 250.01], 'waist_cm'],
+            [['ibw_percentage' => 300.01], 'ibw_percentage'],
+            [['weight_change_period_value' => 105, 'weight_change_period_unit' => 'weeks'], 'weight_change_period_value'],
+            [['biochemical_data' => ['glucose' => 2001]], 'biochemical_data.glucose'],
+            [['biochemical_data' => ['albumin' => 10.01]], 'biochemical_data.albumin'],
+        ] as [$override, $field]) {
+            $this->actingAs($rnd, 'sanctum')
+                ->postJson($url, array_merge($base, $override))
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors($field);
+        }
+    }
+
+    public function test_assessment_update_enforces_summary_limits(): void
+    {
+        $rnd = $this->rnd();
+        $ncp = $this->ncpRecord($this->patient(), $rnd);
+        Assessment::forceCreate([
+            'ncp_record_id' => $ncp->id,
+            'weight' => 70,
+            'usual_weight' => 70,
+            'height' => 170,
+            'physical_activity_level' => 'sedentary',
+            'primary_diagnosis_category' => 'Diabetes',
+        ]);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
+                'rnd_summary' => str_repeat('x', 3001),
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('rnd_summary');
+    }
 }

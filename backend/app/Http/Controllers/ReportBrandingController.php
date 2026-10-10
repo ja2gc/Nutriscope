@@ -5,11 +5,11 @@ namespace App\Http\Controllers;
 use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
+use App\Http\Requests\UpdateReportBrandingRequest;
 use App\Models\ReportBranding;
 use App\Services\Audit\AuditLogger;
 use App\Services\StoredObjectStorage;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportBrandingController extends Controller
@@ -50,20 +50,11 @@ class ReportBrandingController extends Controller
         ]);
     }
 
-    public function update(Request $request): JsonResponse
+    public function update(UpdateReportBrandingRequest $request): JsonResponse
     {
         $branding = ReportBranding::singleton();
         $this->auditLogger->assertAvailable();
-        $data = $request->validate([
-            'hospital_name' => ['sometimes', 'string', 'max:255'],
-            'address' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'accreditation' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'service_name' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'province' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'lgu' => ['sometimes', 'nullable', 'string', 'max:255'],
-            'logo_left' => ['sometimes', 'nullable', 'image', 'max:2048'],
-            'logo_right' => ['sometimes', 'nullable', 'image', 'max:2048'],
-        ]);
+        $data = $request->validated();
         $newObjects = [];
         foreach (['logo_left', 'logo_right'] as $field) {
             if ($request->hasFile($field)) {

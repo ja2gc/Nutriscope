@@ -212,6 +212,7 @@ sudo tee /etc/nginx/sites-available/nutriscope >/dev/null <<'EOF'
 server {
     listen 80;
     server_name nutriscope.live www.nutriscope.live;
+    client_max_body_size 80M;
     location / {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
@@ -486,8 +487,10 @@ sudo nano /etc/nginx/sites-available/nutriscope
 ```
 
 Inside the existing `server` block for `listen 443 ssl;` and
-`server_name nutriscope.live www.nutriscope.live;`, paste this before the existing
-`location /` block:
+`server_name nutriscope.live www.nutriscope.live;`, add
+`client_max_body_size 80M;` at the server level so browser uploads proxied through
+the frontend can use the full supported batch size. Keep the mobile API location
+limit at 80M as well. Paste this before the existing `location /` block:
 
 ```nginx
 location = /mobile-api {
@@ -495,7 +498,7 @@ location = /mobile-api {
 }
 
 location /mobile-api/ {
-    client_max_body_size 25M;
+    client_max_body_size 80M;
 
     proxy_pass         http://127.0.0.1:8080/;
     proxy_http_version 1.1;

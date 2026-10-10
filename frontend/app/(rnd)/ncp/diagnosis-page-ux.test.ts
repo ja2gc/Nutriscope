@@ -22,6 +22,11 @@ describe("NCP explicit save and diagnosis UX", () => {
     expect(page).not.toContain("text-emerald-300");
   });
 
+  test("free-text diagnosis fields use the shared compact character counter", () => {
+    expect(page).toContain("CharacterCountTextarea");
+    expect(page.match(/maxLength=\{250\}/g)).toHaveLength(4);
+  });
+
   test("uses bounded assessment-based drafts with evidence, cache, and persisted dismissal", () => {
     expect(page).toContain("AI Suggestions");
     expect(page).toContain("<InfoHint");

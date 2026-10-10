@@ -3,13 +3,15 @@
 return [
     'max_bytes' => [
         'profile' => 300_000,
-        'purchase_order' => 8 * 1024 * 1024,
+        'purchase_order' => 5 * 1024 * 1024,
+        'announcement' => 5 * 1024 * 1024,
         'clinical' => 10 * 1024 * 1024,
         'branding' => 2 * 1024 * 1024,
     ],
     'max_dimension' => [
         'profile' => 1024,
         'purchase_order' => 2560,
+        'announcement' => 2048,
         'clinical' => 4096,
         'branding' => 1024,
     ],

@@ -42,4 +42,40 @@ describe("DatePicker", () => {
     expect(Array.from(day.options).map((option) => option.value)).toContain("29");
     expect(Array.from(day.options).map((option) => option.value)).not.toContain("30");
   });
+
+  test("renders compact hints when requested while retaining full accessible labels", () => {
+    act(() => root.render(<DatePicker label="Start date" ariaLabel="Start date" value="" onChange={() => undefined} compactLabels />));
+
+    const selects = Array.from(container.querySelectorAll<HTMLSelectElement>("select"));
+    expect(selects.map((select) => select.options[0]?.textContent)).toEqual(["MM", "DD", "YYYY"]);
+    expect(selects.map((select) => select.getAttribute("aria-label"))).toEqual([
+      "Start date month",
+      "Start date day",
+      "Start date year",
+    ]);
+  });
+
+  test("sizes every date control to its widest text using a responsive character unit", () => {
+    act(() => root.render(<DatePicker label="Start date" value="2025-09-08" onChange={() => undefined} compactLabels />));
+
+    const selects = Array.from(container.querySelectorAll<HTMLSelectElement>("select"));
+    expect(selects.map((select) => select.style.width)).toEqual([
+      "calc(3ch + 2.5rem)",
+      "calc(2ch + 2.5rem)",
+      "calc(4ch + 2.5rem)",
+    ]);
+    expect(container.querySelector("fieldset > div")?.className).toContain("flex");
+    expect(container.querySelector("fieldset > div")?.className).toContain("w-fit");
+  });
+
+  test("keeps full placeholders sized to their text across every shared picker instance", () => {
+    act(() => root.render(<DatePicker label="Date" value="" onChange={() => undefined} />));
+
+    const selects = Array.from(container.querySelectorAll<HTMLSelectElement>("select"));
+    expect(selects.map((select) => select.style.width)).toEqual([
+      "calc(5ch + 2.5rem)",
+      "calc(3ch + 2.5rem)",
+      "calc(4ch + 2.5rem)",
+    ]);
+  });
 });

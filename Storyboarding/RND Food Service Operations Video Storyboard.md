@@ -83,17 +83,18 @@ Use this as both the recording checklist and narration script. Create every name
 **On-screen actions**
 
 1. Open **Food Service → Menu Cycle** and create a new cycle.
-2. Choose the prepared Monday as the week start and leave the name blank.
+2. Choose the prepared Monday as the week start and enter **Demo Video Weekly Menu** as its name.
 3. Assign **Demo Video Chicken Stew** and, where useful, a second meal line to at least one slot on every date included in the purchase. Fill all required days so the menu can be activated and used to make a shopping list. Do not add rice as a weekly-menu line.
 4. Open one slot before generating a shopping list. Show **Purchase estimate: Not set**, baseline quantities, and preparation notes.
-5. Save the cycle. Point out its automatic date-span name.
-6. Choose **Save as Template** and name it **Demo Video Weekly Template**.
-7. Activate the cycle.
-8. Open the saved template to show its menu, rename or edit it, save, and cancel one edit to return to display mode. Then load it into another future week, change one slot, and show that the saved template itself did not change. Delete only a disposable template if demonstrating Delete.
+5. Choose **Save as Template** and name it **Demo Video Weekly Template**. Show that this saves a template without adding a Menu Cycle record.
+6. Choose **Templates**, view the saved template, and load it into the current Menu Plan draft.
+7. Save the Menu Plan, then activate the cycle.
+8. Return to the Menu Cycle list. Use the pencil beside the cycle name, edit it, and leave the field to show that the saved name updates without a separate Save action.
+9. Create another future Menu Plan, load **Demo Video Weekly Template** through **Templates**, change one slot, and save. Show that the reusable template remains separate and unchanged. Delete only a disposable template if demonstrating Delete.
 
 **Narration**
 
-> A weekly menu can be created manually or copied from a saved template. Templates support open, edit, rename, delete, and load. A slot can contain more than one ordered meal line. If no name is entered, NutriScope displays the week's dates as its name. Loading a template creates a new weekly copy, so changing that week does not change the original template. Weekly menus show meals only; bulk rice is handled later in the shopping-list draft. Before a shopping list is generated, the food profile shows the recipe's standard quantities because no purchase estimate has been entered yet.
+> A weekly menu can be created manually or loaded from a saved template. Templates stay in their own list. Saving a plan as a template does not create a Menu Cycle record. The **Templates** action lets staff view a template and load its menu into the current draft. Saving the plan creates the cycle; activation remains separate. A slot can contain more than one ordered meal line. The pencil beside a cycle name saves the new name when staff leave the field. Weekly menus show meals only; bulk rice is handled later in the shopping-list draft. Before a shopping list is generated, the food profile shows the recipe's standard quantities because no purchase estimate has been entered yet.
 
 **Expected result:** The weekly menu is saved, available as a reusable template, and active for its selected dates.
 
@@ -109,15 +110,17 @@ Use this as both the recording checklist and narration script. Create every name
 2. Choose **Suggest from Menu**.
 3. Select only the fully planned date span.
 4. Enter one estimated serving count, for example **120**, for the whole span.
-5. Generate the list.
-6. Show that the menu slot profile now reflects the 120-serving purchase estimate.
-7. In the shopping list, point to the calculated need for **Demo Video Chicken**.
-8. Confirm that **Demo Video Seasoning Mix** was not auto-added.
-9. Choose **Add food item** with an empty search, point out **Rice** as the first recommendation, and add the required kilograms to the same generated draft.
+5. Enter a shopping-list name before generating it.
+6. Generate the list.
+7. Show that the menu slot profile now reflects the 120-serving purchase estimate.
+8. In the shopping list, point to the calculated need for **Demo Video Chicken**.
+9. Confirm that **Demo Video Seasoning Mix** was not auto-added.
+10. Choose **Add food item** with an empty search, point out **Rice** as the first recommendation, and add the required kilograms to the same generated draft.
+11. Expand the compact **Shopping list** card to review the complete **Item** and **Qty** rows, then use **Copy list**.
 
 **Narration**
 
-> Enter the estimated serving count once for the selected dates. NutriScope adjusts each recipe from its standard serving size. For example, a 50-serving recipe is multiplied by 120 divided by 50. It then combines the required amount of each automatically included ingredient across all selected dates. Purchase-when-needed ingredients are not added automatically. The same generated draft already accepts manual additions, and Rice is recommended first when the item search is empty.
+> Enter the shopping-list name and estimated serving count before generating. NutriScope adjusts each recipe from its standard serving size. For example, a 50-serving recipe is multiplied by 120 divided by 50. It then combines the required amount of each automatically included ingredient across all selected dates. Purchase-when-needed ingredients are not added automatically. The draft accepts manual additions, and Rice is recommended first when item search is empty. The compact copy card includes every item, quantity, and unit.
 
 **Expected result:** The list shows the calculated chicken requirement for 120 servings, bulk rice as a manually added kilogram row, and the seasoning mix excluded until added manually.
 
@@ -129,17 +132,18 @@ Use this as both the recording checklist and narration script. Create every name
 
 **On-screen actions**
 
-1. Open the shopping list by selecting its name. Use the pencil beside the detail title to rename it, cancel once, then save the intended name and confirm it returns to display mode.
-2. Keep the calculated requirement visible.
-3. Edit the chicken purchase quantity using three decimals, select its purchase unit, then edit the current purchase-unit price and vendor.
-4. Use **Add food item** to manually add **Demo Video Seasoning Mix** only for this purchase, showing how to include a one-time pantry item.
-5. Add another low-priority manual ingredient, then delete that manual row.
-6. On a generated row, turn off **Buy** and enter an optional exclusion note such as **Removed for cost review**; turn it back on for the final PO.
-7. Review the included total and **Before PO release** checklist.
+1. Open the shopping list with the row pencil. In the detail view, use the pencil beside the title to rename it.
+2. Review the visible Procurement summary: estimated population, budget per head per day, and total procurement cost.
+3. Keep the calculated requirement visible.
+4. Edit the chicken purchase quantity using three decimals, select its purchase unit, then edit the current purchase-unit price and vendor.
+5. Use **Add food item** to manually add **Demo Video Seasoning Mix** only for this purchase, showing how to include a one-time pantry item.
+6. Add another low-priority manual ingredient, then delete that manual row.
+7. On a generated row, turn off **Buy** and enter an optional exclusion note such as **Removed for cost review**; turn it back on for the final PO.
+8. Review the included total. If release details are incomplete, **Create and release PO** remains disabled; no pre-release checklist is shown.
 
 **Narration**
 
-> The list name opens its detail; rename is available only beside the opened title. Calculated need stays read-only so staff can always see what the menu required. They can still change the amount to buy, choose a buying unit from the shared unit list, and change current price and vendor. Manually added rows cover one-time needs such as pantry replenishment. An automatically calculated row is excluded instead of deleted, so the original requirement remains visible for review.
+> The list name is plain text. The row pencil opens the draft; a pencil beside the detail title edits the name. The procurement summary stays visible for quick reference. Calculated need stays read-only so staff can see what the menu required. They can still change the amount to buy, choose a buying unit from the shared unit list, and change current price and vendor. Manually added rows cover one-time needs such as pantry replenishment. An automatically calculated row is excluded instead of deleted, so the original requirement remains visible for review.
 
 **Expected result:** The list contains realistic buying values, an included manually added seasoning item, and no unresolved release blockers.
 
@@ -151,8 +155,8 @@ Use this as both the recording checklist and narration script. Create every name
 
 **On-screen actions**
 
-1. Return to Food Shopping Lists and create **Demo Video Outreach Event — Food** as a manual food list.
-2. Add ingredients directly without creating a menu cycle.
+1. Return to Food Shopping Lists and select **Manual food list** to create a draft.
+2. Add ingredients directly without creating a menu cycle. Use the pencil beside the draft name to rename it **Demo Video Outreach Event — Food**.
 3. Open **Supplies Lists** and create **Demo Video Outreach Event — Supplies**.
 4. Add **Demo Video Meal Container**.
 5. Point to the shared purpose in both names and the separate food/supplies tracks.
@@ -160,7 +164,7 @@ Use this as both the recording checklist and narration script. Create every name
 
 **Narration**
 
-> A one-time event does not need a weekly menu. Staff can create a manual food list and a separate manual supplies list. Using the same event name makes their shared purpose clear while keeping food and supplies in their correct buying sections.
+> A one-time event does not need a weekly menu. Staff create a manual food draft with one button, then rename it from the draft. Staff create a separate supplies list in its own section. Using the same event name makes their shared purpose clear while keeping food and supplies in their correct buying sections.
 
 **Expected result:** Separate draft food and supplies lists exist for the same demo event.
 
@@ -176,7 +180,7 @@ Use this as both the recording checklist and narration script. Create every name
 2. Intentionally clear one vendor to show the visible blocker, then restore it.
 3. Confirm that the fiscal-year budget and included total permit release.
 4. Select **Create and release PO**.
-5. Open the new PO and point out its PO number, shopping-list purpose/name, vendor groups, and locked planned values.
+5. Open the new PO and point out its PO number, shopping-list purpose/name, vendor groups, and locked planned values. Expand **Planned total** when the snapshot total is needed.
 
 **Narration**
 
@@ -196,20 +200,19 @@ Use this as both the recording checklist and narration script. Create every name
 2. Open the newly created PO and its first vendor.
 3. Before uploading evidence, use the group-level **Change vendor for all** and select **Demo Video Alternate Vendor**; confirm that the group moves to that vendor.
 4. On one item row, open **Change vendor** and move only that item back to **Demo Video Main Vendor**; show the resulting vendor groups.
-5. Open a vendor again. Show the planned purchase and prefilled editable actual values, so correct items need no retyping.
-6. Expand **Calculation details** once to show calculated need, planned purchase, actual purchase, and the difference; collapse it again.
-7. Change the actual chicken quantity to a realistic decimal such as **14.875 kg** and confirm/edit the actual unit price.
-8. For a single-item vendor, optionally enter the receipt total to demonstrate deriving weight from price.
-9. Upload at least one receipt and one proof-of-purchase image.
-10. Leave the official receipt (OR) number blank for one vendor and point out that it is optional.
-11. Select **Mark vendor received**.
-12. Repeat for every vendor. For another vendor, enter an official receipt number to show both valid cases.
+5. Open a vendor again. Show the actual quantity, locked unit, Actual Cost/unit, and actual total. Actual values start with the planned values, so correct items need no retyping.
+6. Change the actual chicken quantity to a realistic decimal such as **14.875 kg** and confirm/edit the actual unit price.
+7. For a single-item vendor, optionally enter the receipt total to demonstrate deriving weight from price.
+8. Upload at least one receipt and one proof-of-purchase image.
+9. Leave the official receipt (OR) number blank for one vendor and point out that it is optional.
+10. Select **Mark vendor received**.
+11. Repeat for every vendor. For another vendor, enter an official receipt number to show both valid cases.
 
 **Narration**
 
-> Receiving begins with the locked buying plan, but staff may correct the vendor when the intended seller cannot supply an item. This correction is allowed only before receipt or proof images are attached. Planned values stay frozen, and actual fields start with the planned values so staff edit only what changed. Confirming receipt updates the inventory reference item's current purchase unit, conversion, and price for future planning without rewriting the PO row. Calculation details remain collapsed until needed. Each vendor requires reviewed actual values, a receipt image, a proof-of-purchase image, and the Mark vendor received action. An official receipt number is optional.
+> Receiving begins with the locked buying plan, but staff may correct the vendor when the intended seller cannot supply an item. This correction is allowed only before receipt or proof images are attached. Actual quantity and price start with planned values, and the unit stays locked to the shopping list. Staff edit only what changed. The screen shows the actual total; optional Calculation details retain planned and actual purchases, without calculated need or quantity/cost differences. Confirming receipt updates the inventory reference item's current purchase unit, conversion, and price for future planning without rewriting the PO row. Each vendor requires actual quantities and costs, a receipt image, a proof-of-purchase image, and the Mark vendor received action. An official receipt number is optional.
 
-**Expected result:** Every vendor group is marked received with reviewed actual values and the required evidence.
+**Expected result:** Every vendor group is marked received with actual values and the required evidence.
 
 ## Scene 9 — Record How Many People Were Served
 

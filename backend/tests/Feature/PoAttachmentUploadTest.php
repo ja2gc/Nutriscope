@@ -64,6 +64,27 @@ class PoAttachmentUploadTest extends TestCase
         $this->assertDatabaseCount('stored_objects', 3);
     }
 
+    public function test_upload_rejects_images_over_five_mib_and_batches_over_fifteen_files(): void
+    {
+        Storage::fake('private_uploads');
+        [$fss, $po] = $this->fssPo();
+
+        $this->actingAs($fss)->post("/api/fss/purchase-orders/{$po->uuid}/attachments", [
+            'type' => 'receipt',
+            'file' => UploadedFile::fake()->image('large.jpg')->size(5121),
+        ])->assertUnprocessable()->assertJsonValidationErrors('file');
+
+        $files = [];
+        for ($index = 0; $index < 16; $index++) {
+            $files[] = UploadedFile::fake()->createWithContent("receipt-{$index}.png", $this->pngBytes());
+        }
+
+        $this->actingAs($fss)->post("/api/fss/purchase-orders/{$po->uuid}/attachments", [
+            'type' => 'proof',
+            'files' => $files,
+        ])->assertUnprocessable()->assertJsonValidationErrors('files');
+    }
+
     public function test_procurement_pack_embeds_private_evidence(): void
     {
         Storage::fake('private_uploads');

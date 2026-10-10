@@ -47,7 +47,7 @@ export interface ShoppingList {
 }
 
 
-export interface POItem { id: number; vendor_group_id?: number | null; fs_item_id: number | null; description: string; qty: string; unit: string; unit_price: string; total_value: string; purchase_qty: string | null; purchase_unit: string | null; purchase_price: string | null; actual_qty: string; actual_unit: string; actual_unit_price: string; actual_total: number; actual_values_confirmed: boolean }
+export interface POItem { id: number; vendor_group_id?: number | null; fs_item_id: number | null; description: string; qty: string; unit: string; unit_price: string; total_value: string; purchase_qty: string | null; purchase_unit: string | null; purchase_price: string | null; actual_qty: string; actual_unit: string; actual_unit_price: string; actual_total: number }
 export interface POAttachment { id: string; vendor_group_id?: number | null; type: "receipt" | "proof"; path: string; url: string; caption: string | null }
 export interface POVendorGroup {
   id: string;
@@ -63,7 +63,7 @@ export interface POVendorGroup {
   stocked_at: string | null;
   items?: POItem[] | null;
   attachments?: POAttachment[] | null;
-  evidence_requirements?: { supplier_assigned: boolean; actual_values_reviewed: boolean; receipt_uploaded: boolean; proof_uploaded: boolean; can_mark_received: boolean };
+  evidence_requirements?: { supplier_assigned: boolean; receipt_uploaded: boolean; proof_uploaded: boolean; can_mark_received: boolean };
 }
 export interface ProgramProjectActivity {
   id: number;

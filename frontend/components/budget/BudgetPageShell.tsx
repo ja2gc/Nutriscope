@@ -8,7 +8,6 @@ import {
   listFiscalYears, getFiscalYearSummary, setupFiscalYear, getLedger, addManualAdjustment,
   type BudgetApiPrefix,
 } from "@/services/budgetService";
-import { AuditTrail } from "@/components/audit/AuditTrail";
 import { AuditTimestamp } from "@/components/audit/AuditTimestamp";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 
@@ -398,12 +397,6 @@ export function BudgetPageShell({ apiPrefix, canMutate, crumbs }: BudgetPageShel
             {/* Ledger log */}
             <LedgerSection entries={entries} loading={ledgerLoading} filter={ledgerFilter} onFilter={setLedgerFilter} meta={ledgerMeta} page={ledgerPage} onPage={setLedgerPage} />
 
-            {selectedBudget && (
-              <AuditTrail
-                path={`/api/${apiPrefix}/budgets/${selectedBudget.id}/activity`}
-                title={`FY ${selectedBudget.fiscal_year} budget activity`}
-              />
-            )}
           </>
         )}
       </div>

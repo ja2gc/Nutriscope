@@ -35,6 +35,12 @@ describe("food-service budget placement", () => {
     expect(source).not.toMatch(/>\s*Span\s*</);
   });
 
+  test("budget page and records do not show budget activity trails", () => {
+    const source = readFileSync(join(root, "components/budget/BudgetPageShell.tsx"), "utf8");
+    expect(source).not.toContain("AuditTrail");
+    expect(source).not.toContain("budget activity");
+  });
+
   test("sidebar exposes inventory but not insights as food-service pages", () => {
     const source = readFileSync(join(root, "components/layout/Sidebar.tsx"), "utf8");
 

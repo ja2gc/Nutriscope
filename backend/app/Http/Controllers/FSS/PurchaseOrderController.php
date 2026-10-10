@@ -8,6 +8,7 @@ use App\Enums\AuditDomain;
 use App\Events\PurchaseOrderConverted;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\FSS\UpdatePurchaseOrderRequest;
+use App\Http\Requests\FSS\UploadPurchaseOrderAttachmentRequest;
 use App\Http\Requests\PaginatedRequest;
 use App\Http\Resources\PurchaseOrderResource;
 use App\Models\AuditActivity;
@@ -452,7 +453,7 @@ class PurchaseOrderController extends Controller
                         abort(422, 'Upload at least one proof of purchase before marking this vendor received.');
                     }
                     if ($vendorGroup->items->contains(fn ($item) => $item->actual_qty === null || $item->actual_unit_price === null)) {
-                        abort(422, 'Review actual quantity and unit price for every item before marking this vendor received.');
+                        abort(422, 'Actual quantity and unit price are required for every item before marking this vendor received.');
                     }
 
                     $vendorGroup->forceFill(['status' => 'received', 'received_at' => now()])->save();
@@ -519,16 +520,8 @@ class PurchaseOrderController extends Controller
         return response()->json(['data' => new PurchaseOrderResource($vendorGroup->purchaseOrder->fresh()->load(self::RELATIONS))]);
     }
 
-    public function uploadAttachment(Request $request, PurchaseOrder $purchaseOrder): JsonResponse
+    public function uploadAttachment(UploadPurchaseOrderAttachmentRequest $request, PurchaseOrder $purchaseOrder): JsonResponse
     {
-        $request->validate([
-            'type' => ['required', 'in:receipt,proof'],
-            'caption' => ['nullable', 'string', 'max:255'],
-            'file' => ['sometimes', 'file', 'image', 'max:8192'],
-            'files' => ['sometimes', 'array', 'max:20'],
-            'files.*' => ['file', 'image', 'max:8192'],
-        ]);
-
         if (in_array($purchaseOrder->lifecycle_status, ['completed', 'archived'], true)) {
             return response()->json(['message' => 'Completed purchase orders are locked.'], 422);
         }
@@ -594,18 +587,10 @@ class PurchaseOrderController extends Controller
     }
 
     public function uploadVendorGroupAttachment(
-        Request $request,
+        UploadPurchaseOrderAttachmentRequest $request,
         PurchaseOrderVendorGroup $vendorGroup,
         PurchaseOrderLifecycleService $lifecycle
     ): JsonResponse {
-        $request->validate([
-            'type' => ['required', 'in:receipt,proof'],
-            'caption' => ['nullable', 'string', 'max:255'],
-            'file' => ['sometimes', 'file', 'image', 'max:8192'],
-            'files' => ['sometimes', 'array', 'max:20'],
-            'files.*' => ['file', 'image', 'max:8192'],
-        ]);
-
         $po = $vendorGroup->purchaseOrder;
         if (in_array($po->lifecycle_status, ['completed', 'archived'], true)) {
             return response()->json(['message' => 'Completed purchase orders are locked.'], 422);

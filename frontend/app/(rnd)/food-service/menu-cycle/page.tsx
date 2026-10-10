@@ -9,12 +9,13 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
+import { formatFoodServiceNumber } from "@/lib/foodServiceFormat";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   DAYS, MEALS, MEAL_LABELS, Day, Meal,
-  CycleListItem, MenuCycle, RecipeOption, FsItemOption, TemplateListItem, MenuSnapshot,
+  CycleListItem, MenuCycle, RecipeOption, FsItemOption, TemplateListItem, TemplateDetail, MenuSnapshot,
   listCycles, getCycle, saveCycle, deleteCycle, activateCycle,
-  saveCycleAsTemplate, listRecipeOptions, listFsItemOptions, listTemplates, getTemplate, saveTemplate, instantiateTemplate, deleteTemplate,
+  listRecipeOptions, listFsItemOptions, listTemplates, getTemplate, saveTemplate, instantiateTemplate, deleteTemplate,
 } from "@/services/menuCycleService";
 import { setServedPopulation, listServiceLogs } from "@/services/consumptionService";
 
@@ -66,6 +67,25 @@ type Grid = Record<string, Cell[]>;
 // Per-day headcount (drives scaling). Keyed by Day.
 type DayPop = Record<string, string>;
 
+function gridFromTemplate(template: TemplateDetail): Grid {
+  const grid: Grid = {};
+  template.days.forEach((day) => {
+    const key = cellKey(day.day_of_week, day.meal_type);
+    const line: Cell | null = day.recipe_id && day.recipe ? {
+      line_order: day.line_order, recipe_id: day.recipe_id, fs_item_id: null,
+      recipe_name: day.recipe.name, servings: 0, servings_override: null,
+      quantity: day.quantity ?? 1, estimate_population: null, po_snapshot: null, hasRecipeOverride: false,
+    } : day.fs_item_id && day.fs_item ? {
+      line_order: day.line_order, recipe_id: null, fs_item_id: day.fs_item_id,
+      recipe_name: day.fs_item.name, servings: 0, servings_override: null,
+      quantity: day.quantity ?? 1, estimate_population: null, po_snapshot: null, hasRecipeOverride: false,
+    } : null;
+    if (line) (grid[key] ??= []).push(line);
+  });
+  Object.values(grid).forEach((lines) => lines.sort((a, b) => a.line_order - b.line_order));
+  return grid;
+}
+
 
 // ─── Breadcrumb + header shell ──────────────────────────────────────────────────
 function Shell({ children }: { children: React.ReactNode }) {
@@ -97,6 +117,10 @@ function CycleList({ readOnly, onOpen, onNew, onOpenTemplate, onNewTemplate }: {
   const [templatePage, setTemplatePage] = useState(1);
   const [cycleMeta, setCycleMeta] = useState<PaginationMeta | null>(null);
   const [templateMeta, setTemplateMeta] = useState<PaginationMeta | null>(null);
+  const [editingNameId, setEditingNameId] = useState<string | null>(null);
+  const [nameDraft, setNameDraft] = useState("");
+  const [savingNameId, setSavingNameId] = useState<string | null>(null);
+  const [nameError, setNameError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true); setErr("");
@@ -108,6 +132,28 @@ function CycleList({ readOnly, onOpen, onNew, onOpenTemplate, onNewTemplate }: {
   useEffect(() => { load(); }, [load]);
 
   async function remove(id: string) { await deleteCycle(id); load(); }
+  async function saveName(cycle: CycleListItem) {
+    if (savingNameId === cycle.id) return;
+    const nextName = nameDraft.trim();
+    if (!nextName) {
+      setNameDraft(cycle.name);
+      setEditingNameId(null);
+      return;
+    }
+    if (nextName === cycle.name) {
+      setEditingNameId(null);
+      return;
+    }
+    setSavingNameId(cycle.id); setNameError("");
+    try {
+      const saved = await saveCycle(cycle.id, { name: nextName });
+      setCycles((current) => current.map((item) => item.id === cycle.id ? { ...item, name: saved.name } : item));
+      setNameDraft(saved.name);
+      setEditingNameId(null);
+    } catch (error) {
+      setNameError(error instanceof Error ? error.message : "Failed to save Menu Cycle name.");
+    } finally { setSavingNameId(null); }
+  }
   async function applyTemplate(t: TemplateListItem) {
     const res = await instantiateTemplate(t.id, {});
     onOpen(res.id);
@@ -144,7 +190,7 @@ function CycleList({ readOnly, onOpen, onNew, onOpenTemplate, onNewTemplate }: {
           ) : (
             <table className="w-full text-sm">
               <thead className="bg-warm-50 border-b border-warm-100">
-                <tr>{["Cycle", "Week", "When", "Status", "Per-day plan", "Actions"].map((h) => (
+                <tr>{["Cycle", "Week", "When", "Status", "Actions"].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
                 ))}</tr>
               </thead>
@@ -154,21 +200,34 @@ function CycleList({ readOnly, onOpen, onNew, onOpenTemplate, onNewTemplate }: {
                   return (
                   <tr key={c.id} className={`hover:bg-warm-50/60 transition-colors ${c.is_active ? "border-l-4 border-l-emerald-500" : "border-l-4 border-l-transparent"}`}>
                     <td className="px-4 py-3">
-                      <span className="font-semibold text-warm-800">{c.name}</span>
+                      <div className="flex items-center gap-1.5">
+                        {editingNameId === c.id && !readOnly ? (
+                          <input
+                            aria-label="Edit Menu Cycle name"
+                            autoFocus
+                            value={nameDraft}
+                            disabled={savingNameId === c.id}
+                            onChange={(event) => setNameDraft(event.target.value)}
+                            onBlur={() => { void saveName(c); }}
+                            onKeyDown={(event) => { if (event.key === "Enter" || event.key === "Escape") event.currentTarget.blur(); }}
+                            className="min-h-10 w-full max-w-xs rounded-lg border border-warm-300 px-2 font-semibold text-warm-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:bg-warm-50"
+                          />
+                        ) : (
+                          <span className="font-semibold text-warm-800">{c.name}</span>
+                        )}
+                        {!readOnly && editingNameId !== c.id && <button
+                          onClick={() => { setNameDraft(c.name); setNameError(""); setEditingNameId(c.id); }}
+                          aria-label={`Rename ${c.name}`}
+                          title="Edit name"
+                          className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-lg text-warm-400 hover:bg-warm-100 hover:text-warm-700"
+                        ><Pencil className="h-3.5 w-3.5" /></button>}
+                      </div>
+                      {nameError && editingNameId === c.id && <p role="alert" className="mt-1 text-xs text-red-600">{nameError}</p>}
                       {c.is_active && <div className="text-xs text-emerald-700 font-semibold mt-0.5">Active cycle</div>}
                     </td>
                     <td className="px-4 py-3 text-warm-500 tabular-nums">{weekRange(c.week_start_date)}</td>
                     <td className="px-4 py-3 text-warm-500">{when.label}</td>
                     <td className="px-4 py-3 text-warm-500">{c.is_active ? "Active" : c.status}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-x-2 gap-y-1 text-xs text-warm-500">
-                        {DAYS.map((day) => (
-                          <span key={day} className={c.plan_days?.[day] ? "text-warm-800 font-semibold" : "text-warm-400"}>
-                            {day.slice(0, 3)} {c.plan_days?.[day] ? "planned" : "empty"}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
                         <button onClick={() => onOpen(c.id)} className="p-1.5 rounded-lg hover:bg-warm-100 text-warm-500 cursor-pointer" title={readOnly ? "View" : "Edit"}>
@@ -255,6 +314,17 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(cycleId !== "new");
+  const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
+  const [templateOptions, setTemplateOptions] = useState<TemplateListItem[]>([]);
+  const [templatePickerPage, setTemplatePickerPage] = useState(1);
+  const [templatePickerMeta, setTemplatePickerMeta] = useState<PaginationMeta | null>(null);
+  const [templatePickerLoading, setTemplatePickerLoading] = useState(false);
+  const [templatePickerError, setTemplatePickerError] = useState("");
+  const [viewingTemplate, setViewingTemplate] = useState<TemplateDetail | null>(null);
+  const [templateNotice, setTemplateNotice] = useState("");
+  const [templateNameDialogOpen, setTemplateNameDialogOpen] = useState(false);
+  const [templateNameDraft, setTemplateNameDraft] = useState("");
+  const [templateSaveError, setTemplateSaveError] = useState("");
 
   // Search only while picker is open. Empty queries do not download whole catalogs.
   useEffect(() => {
@@ -301,21 +371,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
       getTemplate(cycleId).then((template) => {
         setName(template.name);
         setDescription(template.description ?? "");
-        const g: Grid = {};
-        template.days.forEach((day) => {
-          const key = cellKey(day.day_of_week, day.meal_type);
-          const line: Cell | null = day.recipe_id && day.recipe ? {
-            line_order: day.line_order, recipe_id: day.recipe_id, fs_item_id: null,
-            recipe_name: day.recipe.name, servings: 0, servings_override: null,
-            quantity: day.quantity ?? 1, estimate_population: null, po_snapshot: null, hasRecipeOverride: false,
-          } : day.fs_item_id && day.fs_item ? {
-            line_order: day.line_order, recipe_id: null, fs_item_id: day.fs_item_id,
-            recipe_name: day.fs_item.name, servings: 0, servings_override: null,
-            quantity: day.quantity ?? 1, estimate_population: null, po_snapshot: null, hasRecipeOverride: false,
-          } : null;
-          if (line) (g[key] ??= []).push(line);
-        });
-        setGrid(g);
+        setGrid(gridFromTemplate(template));
       }).catch(() => setErr("Failed to load template.")).finally(() => setLoading(false));
       return;
     }
@@ -488,13 +544,63 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
     if (!id) return;
     await activateCycle(id); setIsActive(true);
   }
-  async function handleSaveTemplate() {
+  function openSaveTemplateDialog() {
     if (isTemplate) return;
-    const id = savedId ?? (await handleSave())?.id;
-    if (!id) return;
-    const tName = prompt("Template name?", `${name} template`);
-    if (!tName) return;
-    await saveCycleAsTemplate(id, tName);
+    setTemplateNameDraft(`${name.trim() || "Menu Plan"} template`);
+    setTemplateSaveError("");
+    setTemplateNameDialogOpen(true);
+  }
+
+  async function handleSaveTemplate() {
+    if (isTemplate || !templateNameDraft.trim()) return;
+    setBusy(true); setErr(""); setTemplateNotice(""); setTemplateSaveError("");
+    try {
+      const saved = await saveTemplate(null, {
+        name: templateNameDraft.trim(), description: null, cycle_days: 7,
+        days: daysPayload().map(({ day_of_week, meal_type, line_order, recipe_id, fs_item_id, quantity }) => ({
+          day_of_week, meal_type, line_order, recipe_id, fs_item_id, quantity,
+        })),
+      });
+      setTemplateNotice(`Saved ${saved.name} as a template.`);
+      setTemplateNameDialogOpen(false);
+    } catch (error) {
+      setTemplateSaveError(error instanceof Error ? error.message : "Failed to save template.");
+    } finally { setBusy(false); }
+  }
+
+  async function loadTemplatePage(page: number) {
+    setTemplatePickerLoading(true); setTemplatePickerError(""); setTemplatePickerPage(page);
+    try {
+      const result = await listTemplates(page);
+      setTemplateOptions(result.data); setTemplatePickerMeta(result.meta);
+    } catch (error) {
+      setTemplatePickerError(error instanceof Error ? error.message : "Failed to load templates.");
+    } finally { setTemplatePickerLoading(false); }
+  }
+
+  async function openTemplates() {
+    setViewingTemplate(null); setTemplatePickerOpen(true);
+    await loadTemplatePage(1);
+  }
+
+  async function previewTemplate(id: string) {
+    setTemplatePickerLoading(true); setTemplatePickerError("");
+    try { setViewingTemplate(await getTemplate(id)); }
+    catch (error) { setTemplatePickerError(error instanceof Error ? error.message : "Failed to load template."); }
+    finally { setTemplatePickerLoading(false); }
+  }
+
+  async function loadTemplateIntoDraft(id: string) {
+    if (Object.values(grid).some((lines) => lines.length > 0) && !window.confirm("Load this template and replace the current Menu Plan?")) return;
+    setTemplatePickerLoading(true); setTemplatePickerError(""); setErr("");
+    try {
+      const template = await getTemplate(id);
+      setGrid(gridFromTemplate(template));
+      setTemplateNotice(`Loaded ${template.name} into this Menu Plan.`);
+      setViewingTemplate(null); setTemplatePickerOpen(false);
+    } catch (error) {
+      setTemplatePickerError(error instanceof Error ? error.message : "Failed to load template.");
+    } finally { setTemplatePickerLoading(false); }
   }
 
   async function openSlot(day: Day, meal: Meal, cell: Cell, lineIndex: number) {
@@ -520,7 +626,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
         <div className="flex items-start gap-3">
           <button onClick={onBack} className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 cursor-pointer mt-0.5"><ChevronLeft className="h-4 w-4" /></button>
           <div>
-            <input value={name} onChange={(e) => setName(e.target.value)} readOnly={readOnly}
+            <input aria-label="Menu Cycle name" value={name} onChange={(e) => setName(e.target.value)} readOnly={readOnly}
               className="text-xl font-extrabold text-warm-900 tracking-tight bg-transparent border-b border-dashed border-warm-200 focus:border-emerald-500 focus:outline-none read-only:border-transparent" />
             <div className="flex items-center gap-2 mt-1">
               {!isTemplate && isActive && <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Active</span>}
@@ -532,14 +638,16 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
           <span className="text-xs font-bold uppercase tracking-wider text-warm-400 border border-warm-200 rounded-lg px-3 py-2 shrink-0">View only</span>
         ) : (
           <div className="flex flex-wrap items-center gap-2 shrink-0">
-            {!isTemplate && <button onClick={handleSaveTemplate} className="flex items-center gap-1.5 text-sm font-semibold text-warm-600 border border-warm-200 rounded-lg px-3 py-2 hover:bg-warm-50 cursor-pointer"><BookmarkPlus className="h-3.5 w-3.5" /> Save as Template</button>}
-            {!isTemplate && <button onClick={handleActivate} className="flex items-center gap-1.5 text-sm font-semibold text-emerald-700 border border-emerald-200 rounded-lg px-3 py-2 hover:bg-emerald-50 cursor-pointer"><Zap className="h-3.5 w-3.5" /> Activate</button>}
+            {!isTemplate && <button onClick={openSaveTemplateDialog} disabled={busy} className="flex items-center gap-1.5 text-sm font-semibold text-warm-600 border border-warm-200 rounded-lg px-3 py-2 hover:bg-warm-50 cursor-pointer disabled:opacity-50"><BookmarkPlus className="h-3.5 w-3.5" /> Save as Template</button>}
+            {!isTemplate && <button onClick={openTemplates} className="flex items-center gap-1.5 text-sm font-semibold text-warm-600 border border-warm-200 rounded-lg px-3 py-2 hover:bg-warm-50 cursor-pointer"><LayoutTemplate className="h-3.5 w-3.5" /> Templates</button>}
             <Button variant="primary" onClick={() => handleSave()} loading={busy} className="px-4 py-2 flex items-center gap-2"><Save className="h-4 w-4" /> Save</Button>
+            {!isTemplate && <button onClick={handleActivate} className="flex items-center gap-1.5 text-sm font-semibold text-emerald-700 border border-emerald-200 rounded-lg px-3 py-2 hover:bg-emerald-50 cursor-pointer"><Zap className="h-3.5 w-3.5" /> Activate</button>}
           </div>
         )}
       </div>
 
       {err && <div className="bg-red-50 border border-red-100 p-3 rounded-xl text-sm text-red-700 font-bold flex items-center gap-2"><AlertTriangle className="h-3.5 w-3.5" /> {err}</div>}
+      {templateNotice && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">{templateNotice}</div>}
 
       {/* Settings */}
       <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -723,6 +831,59 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
           </tbody>
         </table>
       </div>
+
+      {templateNameDialogOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setTemplateNameDialogOpen(false); }}>
+        <section role="dialog" aria-modal="true" aria-labelledby="menu-cycle-save-template-title" className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
+          <h2 id="menu-cycle-save-template-title" className="text-base font-extrabold text-warm-900">Save as template</h2>
+          <p className="mt-1 text-sm text-warm-500">Save this Menu Plan for reuse. It stays separate from Menu Cycle records.</p>
+          {templateSaveError && <p role="alert" className="mt-3 text-sm font-semibold text-red-600">{templateSaveError}</p>}
+          <form className="mt-4 space-y-4" onSubmit={(event) => { event.preventDefault(); void handleSaveTemplate(); }}>
+            <label className="block text-xs font-extrabold uppercase tracking-wider text-warm-500" htmlFor="menu-cycle-save-template-name">Template name</label>
+            <input id="menu-cycle-save-template-name" autoFocus required maxLength={255} value={templateNameDraft} onChange={(event) => setTemplateNameDraft(event.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-warm-200 px-3 text-base font-semibold text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setTemplateNameDialogOpen(false)} className="min-h-10 rounded-lg border border-warm-200 px-4 text-sm font-semibold text-warm-600 hover:bg-warm-50">Cancel</button>
+              <Button type="submit" variant="primary" loading={busy} disabled={!templateNameDraft.trim()} className="px-4">Save template</Button>
+            </div>
+          </form>
+        </section>
+      </div>}
+
+      {templatePickerOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setTemplatePickerOpen(false); }}>
+        <section role="dialog" aria-modal="true" aria-labelledby="menu-cycle-template-picker-title" className="flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+          <header className="flex items-center justify-between border-b border-warm-100 px-5 py-4">
+            <div className="flex min-w-0 items-center gap-2">
+              {viewingTemplate && <button type="button" onClick={() => setViewingTemplate(null)} aria-label="Back to templates" className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg text-warm-500 hover:bg-warm-50"><ChevronLeft className="h-4 w-4" /></button>}
+              <h2 id="menu-cycle-template-picker-title" className="truncate text-base font-extrabold text-warm-900">{viewingTemplate?.name ?? "Menu Cycle Templates"}</h2>
+            </div>
+            <button type="button" onClick={() => setTemplatePickerOpen(false)} aria-label="Close templates" className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg text-warm-400 hover:bg-warm-50 hover:text-warm-700"><X className="h-4 w-4" /></button>
+          </header>
+          {templatePickerError && <p role="alert" className="px-5 pt-3 text-sm font-semibold text-red-600">{templatePickerError}</p>}
+          <div className="min-h-0 flex-1 overflow-y-auto p-4">
+            {templatePickerLoading ? <p className="py-8 text-center text-sm text-warm-500">Loading templates…</p> : viewingTemplate ? (
+              <div className="space-y-3">
+                {viewingTemplate.days.length === 0 ? <p className="py-6 text-center text-sm text-warm-500">This template has no planned items.</p> : viewingTemplate.days.map((day) => (
+                  <div key={`${day.day_of_week}-${day.meal_type}-${day.line_order}`} className="flex items-center justify-between gap-4 rounded-lg border border-warm-100 px-3 py-2">
+                    <div><p className="text-xs font-semibold text-warm-500">{day.day_of_week} · {MEAL_LABELS[day.meal_type]}</p><p className="text-sm font-semibold text-warm-800">{day.recipe?.name ?? day.fs_item?.name ?? "Menu item"}</p></div>
+                    <span className="text-xs tabular-nums text-warm-500">Qty {formatFoodServiceNumber(day.quantity)}</span>
+                  </div>
+                ))}
+                <Button type="button" variant="primary" onClick={() => loadTemplateIntoDraft(viewingTemplate.id)} loading={templatePickerLoading} className="w-full">Load this template</Button>
+              </div>
+            ) : templateOptions.length === 0 ? (
+              <p className="py-8 text-center text-sm text-warm-500">No templates saved yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {templateOptions.map((template) => <div key={template.id} className="flex items-center gap-3 rounded-xl border border-warm-200 p-3">
+                  <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-warm-800">{template.name}</p><p className="text-xs text-warm-500">{template.days_count} planned items · {template.cycle_days} days</p></div>
+                  <button type="button" onClick={() => previewTemplate(template.id)} className="min-h-10 rounded-lg border border-warm-200 px-3 text-sm font-semibold text-warm-600 hover:bg-warm-50">View</button>
+                  <button type="button" onClick={() => loadTemplateIntoDraft(template.id)} className="min-h-10 rounded-lg border border-emerald-200 px-3 text-sm font-semibold text-emerald-700 hover:bg-emerald-50">Load</button>
+                </div>)}
+              </div>
+            )}
+          </div>
+          {!viewingTemplate && <div className="border-t border-warm-100 px-4 py-2"><Pagination meta={templatePickerMeta} page={templatePickerPage} onPageChange={(page) => { void loadTemplatePage(page); }} /></div>}
+        </section>
+      </div>}
 
     </Shell>
   );

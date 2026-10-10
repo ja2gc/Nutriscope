@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\PaginatedRequest;
 use App\Http\Requests\RND\StoreAssessmentRequest;
 use App\Http\Requests\RND\UpdateAssessmentRequest;
+use App\Http\Requests\RND\UploadAssessmentAttachmentRequest;
 use App\Http\Resources\AssessmentResource;
 use App\Http\Resources\ScreeningDocumentResource;
 use App\Models\Assessment;
@@ -151,13 +152,10 @@ class AssessmentController extends Controller
      * Plain supporting-document upload linked to this NCP cycle (rnd.md §3.1).
      * No OCR/extraction — file storage only.
      */
-    public function uploadAttachment(Request $request, NcpRecord $ncpRecord): JsonResponse
+    public function uploadAttachment(UploadAssessmentAttachmentRequest $request, NcpRecord $ncpRecord): JsonResponse
     {
         $this->authorizeNcp($request, $ncpRecord);
-        $validated = $request->validate([
-            'file' => 'required|file|mimes:pdf,jpeg,png,jpg|max:10240',
-            'type' => 'nullable|string|max:50',
-        ]);
+        $validated = $request->validated();
 
         $file = $request->file('file');
         // Store the disk-relative path (portable) — readers resolve it to an absolute

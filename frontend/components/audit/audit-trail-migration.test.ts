@@ -7,16 +7,18 @@ function source(path: string) {
 }
 
 describe("contextual structured audit trail migration", () => {
-  test("migrates every contextual caller to the shared trail", () => {
+  test("keeps only the intended contextual trails in the UI", () => {
     const patientProfile = source("app/(rnd)/ncp/patients/[patientId]/page.tsx");
-    const callers = [
-      "app/(rnd)/food-service/procurement/page.tsx",
-      "components/budget/BudgetPageShell.tsx",
-    ].map(source);
+    const procurement = source("app/(rnd)/food-service/procurement/page.tsx");
+    const budget = source("components/budget/BudgetPageShell.tsx");
+    const reports = source("components/reports/ReportsBrowser.tsx");
 
-    for (const caller of callers) expect(caller).toContain("AuditTrail");
+    expect(reports).not.toContain("AuditTrail");
+    expect(budget).not.toContain("AuditTrail");
+    expect(budget).not.toContain("budget activity");
+    expect(procurement).not.toContain("AuditTrail");
     expect(patientProfile).not.toContain("AuditTrail");
-    expect(callers.join("\n")).not.toContain("HistoryPanel");
+    expect(reports).not.toContain("HistoryPanel");
     expect(existsSync(join(process.cwd(), "components/HistoryPanel.tsx"))).toBe(false);
   });
 

@@ -77,6 +77,9 @@ class ImageNormalizer
             if (! $written || ! is_string($normalized) || $normalized === '') {
                 throw new RuntimeException('Image encoding failed.');
             }
+            if (strlen($normalized) > config("uploads.max_bytes.{$purpose}")) {
+                throw new RuntimeException('Normalized image exceeds the allowed size.');
+            }
 
             return $this->result($normalized, $format, $targetWidth, $targetHeight);
         } finally {
@@ -86,7 +89,7 @@ class ImageNormalizer
 
     private function assertPurpose(string $purpose): void
     {
-        if (! in_array($purpose, ['profile', 'purchase_order', 'clinical', 'branding'], true)) {
+        if (! in_array($purpose, ['profile', 'purchase_order', 'announcement', 'clinical', 'branding'], true)) {
             throw new RuntimeException('Image purpose is invalid.');
         }
     }

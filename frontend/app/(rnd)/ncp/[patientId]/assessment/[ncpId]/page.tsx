@@ -1,6 +1,6 @@
 "use client";
 
-import React, { use, useCallback, useEffect, useLayoutEffect, useState, useRef } from "react";
+import React, { use, useCallback, useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import {
   ClipboardCheck, Utensils, Ruler, UserRound, FlaskConical,
@@ -29,9 +29,11 @@ import { fetchIntervention } from "@/services/interventionService";
 import NcpPatientHeader from "../../../_components/NcpPatientHeader";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { DatePicker, DateTimePicker } from "@/components/ui/DatePicker";
+import { CharacterCountTextarea } from "@/components/ui/CharacterCountTextarea";
 import { FittedImageFrame } from "@/components/ui/ImageUploadGallery";
 import { InfoHint } from "@/components/ui/InfoHint";
 import { NcpBreadcrumb } from "@/components/ncp/NcpBreadcrumb";
+import { validateUploadFile } from "@/lib/uploadValidation";
 
 // ─── Constants ───────────────────────────────────────────────────────────
 const COMMON_ALLERGENS = ["milk", "eggs", "fish", "shellfish", "tree nuts", "peanuts", "wheat", "soybeans"];
@@ -290,21 +292,13 @@ function TextInput({ value, onChange, type, disabled, min, max, id, className }:
 function TextArea({ value, onChange, rows }: {
   value: string; onChange: (v: string) => void; rows?: number;
 }) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  useLayoutEffect(() => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    textarea.style.height = "auto";
-    textarea.style.height = `${textarea.scrollHeight}px`;
-  }, [rows, value]);
-
   return (
-    <textarea
-      ref={textareaRef}
+    <CharacterCountTextarea
       value={value}
-      onChange={e => onChange(e.target.value)}
+      onChange={onChange}
       rows={rows ?? 3}
+      maxLength={250}
+      autoGrow
       className="w-full resize-none overflow-hidden rounded-lg border border-warm-200 bg-white px-3 py-2 text-sm text-warm-900 transition-colors placeholder:text-warm-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
     />
   );
@@ -370,11 +364,19 @@ function DropZone({ label, onUpload, uploading }: {
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const handleFile = (file: File) => {
-    if (file && (file.type.startsWith("image/") || file.type === "application/pdf")) {
-      onUpload(file);
+    const validation = validateUploadFile(file, {
+      maxBytes: 10 * 1024 * 1024,
+      allowedTypes: ["application/pdf", "image/jpeg", "image/png"],
+    });
+    if (!validation.valid) {
+      setValidationError(validation.error);
+      return;
     }
+    setValidationError(null);
+    onUpload(file);
   };
 
   return (
@@ -401,6 +403,7 @@ function DropZone({ label, onUpload, uploading }: {
           <p className="text-xs text-warm-400 mt-1">Drag and drop or click to upload — PDF, JPEG, PNG (max 10MB)</p>
         </>
       )}
+      {validationError && <p role="alert" className="mt-2 text-xs font-semibold text-red-700">{validationError}</p>}
     </div>
   );
 }

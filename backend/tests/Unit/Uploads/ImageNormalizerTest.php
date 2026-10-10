@@ -44,6 +44,16 @@ class ImageNormalizerTest extends TestCase
         app(ImageNormalizer::class)->normalizeBytes($this->pngBytes(), 'unknown');
     }
 
+    #[Test]
+    public function it_accepts_announcement_images_with_the_shared_dimension_limit(): void
+    {
+        $result = app(ImageNormalizer::class)->normalizeBytes($this->pngBytes(), 'announcement');
+
+        $this->assertSame('image/png', $result['mime']);
+        $this->assertSame(2048, config('uploads.max_dimension.announcement'));
+        $this->assertSame(5 * 1024 * 1024, config('uploads.max_bytes.announcement'));
+    }
+
     private function pngBytes(): string
     {
         return base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=');

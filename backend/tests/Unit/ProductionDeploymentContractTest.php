@@ -229,6 +229,24 @@ class ProductionDeploymentContractTest extends TestCase
     }
 
     #[Test]
+    public function upload_request_limits_support_the_largest_valid_batch(): void
+    {
+        $php = file_get_contents(base_path('Dockerfile'));
+        $nginx = file_get_contents(base_path('../nginx/default.conf'));
+        $mobileNginx = file_get_contents(base_path('../nginx/mobile-api.locations.conf'));
+        $deployment = file_get_contents(base_path('../deployment.md'));
+
+        $this->assertIsString($php);
+        $this->assertIsString($nginx);
+        $this->assertIsString($mobileNginx);
+        $this->assertIsString($deployment);
+        $this->assertStringContainsString("echo 'post_max_size=80M'", $php);
+        $this->assertStringContainsString('client_max_body_size 80M;', $nginx);
+        $this->assertStringContainsString('client_max_body_size 80M;', $mobileNginx);
+        $this->assertStringContainsString('client_max_body_size 80M;', $deployment);
+    }
+
+    #[Test]
     public function current_operations_guides_do_not_depend_on_the_legacy_deployment_runbook(): void
     {
         $requirements = file_get_contents(base_path('../docs/operations/platform-requirements.md'));

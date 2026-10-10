@@ -2,6 +2,7 @@
 
 import { INTERVENTION_GUIDANCE_FIELD_MAX } from "@/lib/interventionGuidance";
 import GuidanceCharacterCount from "./GuidanceCharacterCount";
+import { CharacterCountTextarea } from "@/components/ui/CharacterCountTextarea";
 
 interface Props {
   value: string;
@@ -16,9 +17,9 @@ interface Props {
 export default function EducationTab({ value, onChange, onSave, saving, readOnly = false, showSave = true, totalCharacters }: Props) {
   return (
     <div className="space-y-4">
-      <textarea
+      <CharacterCountTextarea
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={onChange}
         rows={10}
         maxLength={INTERVENTION_GUIDANCE_FIELD_MAX}
         disabled={readOnly}

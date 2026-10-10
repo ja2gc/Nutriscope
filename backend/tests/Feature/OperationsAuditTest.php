@@ -59,13 +59,14 @@ class OperationsAuditTest extends TestCase
     public function test_explicit_announcement_and_sop_events_exclude_content(): void
     {
         $user = User::factory()->rnd()->create();
+        $attachment = $this->announcementImageDataUrl();
 
         $this->actingAs($user)->postJson('/api/rnd/announcements', [
             'title' => 'Confidential title',
             'body' => 'Confidential announcement body',
             'category' => 'General',
             'visibility' => 'All',
-            'attachments' => ['private/report.pdf'],
+            'attachments' => [$attachment],
         ])->assertCreated();
         $this->actingAs($user)->postJson('/api/sop', [
             'title' => 'Confidential SOP',
@@ -75,7 +76,7 @@ class OperationsAuditTest extends TestCase
         $serialized = AuditActivity::query()->get()->toJson();
         $this->assertSame(2, AuditActivity::query()->count());
         $this->assertStringNotContainsString('Confidential announcement body', $serialized);
-        $this->assertStringNotContainsString('private/report.pdf', $serialized);
+        $this->assertStringNotContainsString($attachment, $serialized);
         $this->assertStringNotContainsString('Confidential SOP body', $serialized);
     }
 
@@ -486,7 +487,7 @@ class OperationsAuditTest extends TestCase
         $template = MenuCycleTemplate::create(['rnd_user_id' => $user->id, 'name' => 'Existing template', 'description' => 'old']);
 
         $sentinels = [
-            'ANNOUNCEMENT-BODY-SENTINEL', 'private/ANNOUNCEMENT-FILE-SENTINEL.pdf',
+            'ANNOUNCEMENT-BODY-SENTINEL', $this->announcementImageDataUrl(),
             'RECIPE-NOTES-SENTINEL', 'SUPPLIER-NOTES-SENTINEL', 'TEMPLATE-DESCRIPTION-SENTINEL',
         ];
         $this->actingAs($user)->patchJson("/api/rnd/announcements/{$announcement->uuid}", [
@@ -505,5 +506,10 @@ class OperationsAuditTest extends TestCase
         foreach ($sentinels as $sentinel) {
             $this->assertStringNotContainsString($sentinel, $activities->toJson());
         }
+    }
+
+    private function announcementImageDataUrl(): string
+    {
+        return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
     }
 }

@@ -15,7 +15,7 @@ class StoreBudgetRequest extends FormRequest
     {
         return [
             'fiscal_year' => ['required', 'integer', 'min:2000', 'max:2100', 'unique:budgets,fiscal_year'],
-            'allocated_amount' => ['required', 'numeric', 'min:0'],
+            'allocated_amount' => ['required', 'numeric', 'between:0,99999999.99', 'decimal:0,2'],
             // per_head_day_limit lives in Food Service Settings, not the budget row.
         ];
     }
