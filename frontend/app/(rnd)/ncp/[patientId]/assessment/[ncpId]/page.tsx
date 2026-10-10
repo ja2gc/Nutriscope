@@ -1,6 +1,6 @@
 "use client";
 
-import React, { use, useCallback, useEffect, useLayoutEffect, useState, useRef } from "react";
+import React, { use, useCallback, useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import {
   ClipboardCheck, Utensils, Ruler, UserRound, FlaskConical,
@@ -29,6 +29,7 @@ import { fetchIntervention } from "@/services/interventionService";
 import NcpPatientHeader from "../../../_components/NcpPatientHeader";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { DatePicker, DateTimePicker } from "@/components/ui/DatePicker";
+import { CharacterCountTextarea } from "@/components/ui/CharacterCountTextarea";
 import { FittedImageFrame } from "@/components/ui/ImageUploadGallery";
 import { InfoHint } from "@/components/ui/InfoHint";
 import { NcpBreadcrumb } from "@/components/ncp/NcpBreadcrumb";
@@ -291,21 +292,13 @@ function TextInput({ value, onChange, type, disabled, min, max, id, className }:
 function TextArea({ value, onChange, rows }: {
   value: string; onChange: (v: string) => void; rows?: number;
 }) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  useLayoutEffect(() => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    textarea.style.height = "auto";
-    textarea.style.height = `${textarea.scrollHeight}px`;
-  }, [rows, value]);
-
   return (
-    <textarea
-      ref={textareaRef}
+    <CharacterCountTextarea
       value={value}
-      onChange={e => onChange(e.target.value)}
+      onChange={onChange}
       rows={rows ?? 3}
+      maxLength={250}
+      autoGrow
       className="w-full resize-none overflow-hidden rounded-lg border border-warm-200 bg-white px-3 py-2 text-sm text-warm-900 transition-colors placeholder:text-warm-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
     />
   );

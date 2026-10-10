@@ -2,6 +2,7 @@
 
 import { INTERVENTION_GUIDANCE_FIELD_MAX } from "@/lib/interventionGuidance";
 import GuidanceCharacterCount from "./GuidanceCharacterCount";
+import { CharacterCountTextarea } from "@/components/ui/CharacterCountTextarea";
 
 interface Props {
   goals: string; barriers: string; strategies: string;
@@ -16,7 +17,7 @@ function Area({ label, value, onChange, readOnly }: { label: string; value: stri
   return (
     <div className="space-y-1.5">
       <label className="block text-xs font-bold text-warm-400 uppercase tracking-widest">{label}</label>
-      <textarea value={value} onChange={(e) => onChange(e.target.value)} rows={4} maxLength={INTERVENTION_GUIDANCE_FIELD_MAX} disabled={readOnly}
+      <CharacterCountTextarea value={value} onChange={onChange} rows={4} maxLength={INTERVENTION_GUIDANCE_FIELD_MAX} disabled={readOnly}
         className="w-full px-3.5 py-3 text-base border border-warm-200 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 disabled:bg-warm-50 disabled:text-warm-700" />
     </div>
   );

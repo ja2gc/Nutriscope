@@ -49,12 +49,15 @@ describe("Assessment page UX", () => {
   });
 
   test("auto-grows long text without nested field scrolling or equal-height stretching", () => {
-    expect(page).toContain("useLayoutEffect");
-    expect(page).toContain("scrollHeight");
+    const counter = readFileSync(join(process.cwd(), "components/ui/CharacterCountTextarea.tsx"), "utf8");
+    expect(counter).toContain("useLayoutEffect");
+    expect(counter).toContain("scrollHeight");
     expect(page).toContain("overflow-hidden");
     expect(page).toContain("resize-none");
     expect(page).toContain("items-start");
     expect(page).not.toContain("resize-y");
+    expect(page).toContain("CharacterCountTextarea");
+    expect(page).toContain("maxLength={250}");
   });
 
   test("puts explicit save above tabs and removes cycle merge copy", () => {
