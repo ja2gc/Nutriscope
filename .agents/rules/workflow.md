@@ -49,6 +49,7 @@
 
 ## Required skills and locations
 
+- Required for every coding task: use the applicable Ponytail skill (`ponytail`, `ponytail-review`, `ponytail-audit`, `ponytail-debt`, `ponytail-gain`, or `ponytail-help`) through the Ponytail entry workflow.
 - Always use the applicable installed skills before action. Caveman is default: current machine skill root is `C:/Users/jared/.agents/skills/caveman/`; new machines may expose a different skill root.
 - Superpowers root: `C:/Users/jared/.agents/skills/superpowers/skills/`. Use `using-superpowers` at session start; then use `brainstorming` for creative/feature work, `systematic-debugging` for bugs, `test-driven-development` for behavior changes, `writing-plans` for multi-step plans, `executing-plans` for approved written plans, and `verification-before-completion` before completion claims.
 - Use `requesting-code-review`/`receiving-code-review` when review is requested or received, and `finishing-a-development-branch` when integration choices are needed. Do not use worktree or subagent skills unless explicitly authorized.
