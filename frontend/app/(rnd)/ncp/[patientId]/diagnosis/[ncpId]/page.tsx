@@ -839,7 +839,7 @@ export default function NcpDiagnosisPage({
           value={builder.extraNotes}
           onChange={value => updateBuilder({ extraNotes: value })}
           rows={2}
-          maxLength={250}
+          maxLength={125}
           className="w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-warm-400 resize-none"
         />
       </div>
@@ -886,7 +886,7 @@ export default function NcpDiagnosisPage({
           value={builder.etiologyNotes}
           onChange={value => updateBuilder({ etiologyNotes: value })}
           rows={3}
-          maxLength={250}
+          maxLength={125}
           className="w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-warm-400 resize-none"
         />
       </div>
@@ -930,7 +930,7 @@ export default function NcpDiagnosisPage({
           value={builder.signNotes}
           onChange={value => updateBuilder({ signNotes: value })}
           rows={3}
-          maxLength={250}
+          maxLength={125}
           className="w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-warm-400 resize-none"
         />
       </div>

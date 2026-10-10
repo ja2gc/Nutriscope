@@ -22,7 +22,7 @@ class UpdateDiagnosisRequest extends FormRequest
             'etiology' => ['sometimes', 'required', 'string', 'max:400'],
             'signs_symptoms' => ['sometimes', 'required', 'string', 'max:400'],
             'pes_statement' => ['nullable', 'string', 'max:500'],
-            'extra_notes' => ['nullable', 'string', 'max:400'],
+            'extra_notes' => ['nullable', 'string', 'max:125'],
             'ai_generated' => ['nullable', 'boolean'],
         ];
     }

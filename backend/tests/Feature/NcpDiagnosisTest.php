@@ -414,8 +414,8 @@ class NcpDiagnosisTest extends TestCase
         foreach ([
             [['etiology' => str_repeat('x', 401)], 'etiology'],
             [['signs_symptoms' => str_repeat('x', 401)], 'signs_symptoms'],
-            [['pes_statement' => str_repeat('x', 1001)], 'pes_statement'],
-            [['extra_notes' => str_repeat('x', 401)], 'extra_notes'],
+            [['pes_statement' => str_repeat('x', 501)], 'pes_statement'],
+            [['extra_notes' => str_repeat('x', 126)], 'extra_notes'],
         ] as [$override, $field]) {
             $this->actingAs($rnd, 'sanctum')
                 ->postJson($url, array_merge($base, $override))
@@ -440,7 +440,7 @@ class NcpDiagnosisTest extends TestCase
 
         $this->actingAs($rnd, 'sanctum')
             ->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/diagnoses/{$diagnosis->uuid}", [
-                'extra_notes' => str_repeat('x', 401),
+                'extra_notes' => str_repeat('x', 126),
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('extra_notes');
