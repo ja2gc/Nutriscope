@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
+import { clearSelectedNcpCycle } from "@/lib/ncpWorkflow";
 import type { Patient } from "@/services/patientService";
 import { personDisplayName } from "@/lib/personName";
 import { NcpVisitBar } from "@/components/ncp/NcpVisitBar";
@@ -14,6 +17,7 @@ type Props = {
   interventionGoal?: string | null;
   medicalDiagnosis?: string | null;
   onChangePatientClick?: () => void;
+  onBeforeUnselectPatient?: () => boolean;
   ncpId?: string;
 };
 
@@ -43,8 +47,16 @@ export default function NcpPatientHeader({
   interventionGoal,
   medicalDiagnosis,
   onChangePatientClick,
+  onBeforeUnselectPatient,
   ncpId,
 }: Props) {
+  const router = useRouter();
+  const { user } = useAuth();
+  const unselectPatient = () => {
+    if (onBeforeUnselectPatient && !onBeforeUnselectPatient()) return;
+    if (user?.id != null) clearSelectedNcpCycle(sessionStorage, user.id);
+    router.push("/ncp/patients");
+  };
   const foodAlerts = Array.from(new Set((foodDetails ?? []).map(clean).filter(Boolean))) as string[];
   const context = [
     { label: "Physician", value: clean(physician) ?? clean(patient?.physician) },
@@ -87,15 +99,20 @@ export default function NcpPatientHeader({
           )}
         </div>
 
-        {onChangePatientClick ? (
-          <button type="button" onClick={onChangePatientClick} className={actionClass}>
-            Change Patient
+        <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+          {onChangePatientClick ? (
+            <button type="button" onClick={onChangePatientClick} className={actionClass}>
+              Change Patient
+            </button>
+          ) : (
+            <Link href="/ncp/patients" className={actionClass}>
+              Change Patient
+            </Link>
+          )}
+          <button type="button" onClick={unselectPatient} className={actionClass}>
+            Unselect Patient
           </button>
-        ) : (
-          <Link href="/ncp/patients" className={actionClass}>
-            Change Patient
-          </Link>
-        )}
+        </div>
       </div>
       {patient?.id && ncpId && <NcpVisitBar patientId={String(patient.id)} ncpId={ncpId} />}
     </section>

@@ -3,6 +3,9 @@ import {
   getCycleStepHref,
   getNcpStepState,
   getPlaceholderStepHref,
+  clearSelectedNcpCycle,
+  readSelectedNcpCycle,
+  rememberSelectedNcpCycle,
   type NcpWorkflowRecord,
 } from "./ncpWorkflow";
 
@@ -13,6 +16,19 @@ const baseRecord: NcpWorkflowRecord = {
 };
 
 describe("NCP workflow gates", () => {
+  it("keeps selected cycle per signed-in user until explicitly unselected", () => {
+    const storage = new Map<string, string>();
+    const session = {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => { storage.set(key, value); },
+      removeItem: (key: string) => { storage.delete(key); },
+    };
+    rememberSelectedNcpCycle(session, 7, "patient-uuid", "ncp-uuid");
+    expect(readSelectedNcpCycle(session, 7)).toEqual({ patientId: "patient-uuid", ncpId: "ncp-uuid" });
+    expect(readSelectedNcpCycle(session, 8)).toBeNull();
+    clearSelectedNcpCycle(session, 7);
+    expect(readSelectedNcpCycle(session, 7)).toBeNull();
+  });
   it("keeps placeholder step pages reachable before selecting a patient", () => {
     expect(getPlaceholderStepHref("assessment")).toBe("/ncp/select-patient/assessment/select-ncp");
     expect(getPlaceholderStepHref("monitoring")).toBe("/ncp/select-patient/monitoring/select-ncp");

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Logo } from "@/components/ui/Logo";
-import { getCycleStepHref, getPlaceholderStepHref, type NcpStep } from "@/lib/ncpWorkflow";
+import { clearSelectedNcpCycle, getCycleStepHref, getPlaceholderStepHref, readSelectedNcpCycle, rememberSelectedNcpCycle, type NcpStep } from "@/lib/ncpWorkflow";
 import {
   Compass,
   CookingPot,
@@ -33,10 +33,15 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
 
   const [ncpExpanded, setNcpExpanded] = useState(false);
   const [foodServiceExpanded, setFoodServiceExpanded] = useState(false);
+  const [rememberedCycle, setRememberedCycle] = useState<{ userId: number | string; patientId: string; ncpId: string } | null>(null);
 
   const ncpMatch = pathname.match(/^\/ncp\/([^\/]+)\/(assessment|diagnosis|intervention|monitoring)\/([^\/]+)/);
-  const activePatientId = ncpMatch ? ncpMatch[1] : null;
-  const activeNcpId = ncpMatch ? ncpMatch[3] : null;
+  const routeCycle = ncpMatch && ncpMatch[1] !== "select-patient" && ncpMatch[3] !== "select-ncp"
+    ? { patientId: ncpMatch[1], ncpId: ncpMatch[3] }
+    : null;
+  const selectedCycle = routeCycle ?? (rememberedCycle?.userId === user?.id ? rememberedCycle : null);
+  const activePatientId = selectedCycle?.patientId ?? null;
+  const activeNcpId = selectedCycle?.ncpId ?? null;
 
   const hasRealNcpCycle = Boolean(
     activePatientId &&
@@ -47,6 +52,19 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
   const stepHref = (step: NcpStep) => hasRealNcpCycle
     ? getCycleStepHref(activePatientId!, step, activeNcpId!)
     : getPlaceholderStepHref(step);
+
+  useEffect(() => {
+    if (user?.role !== "RND") return;
+    const route = pathname.match(/^\/ncp\/([^\/]+)\/(assessment|diagnosis|intervention|monitoring)\/([^\/]+)/);
+    if (route && route[1] !== "select-patient" && route[3] !== "select-ncp") {
+      const [, patientId, , ncpId] = route;
+      rememberSelectedNcpCycle(sessionStorage, user.id, patientId, ncpId);
+      setRememberedCycle({ userId: user.id, patientId, ncpId });
+    } else {
+      const saved = readSelectedNcpCycle(sessionStorage, user.id);
+      setRememberedCycle(saved ? { userId: user.id, ...saved } : null);
+    }
+  }, [pathname, user?.id, user?.role]);
 
   useEffect(() => {
     if (pathname.startsWith("/ncp")) {
@@ -104,6 +122,7 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
 
   const handleLogout = async () => {
     try {
+      if (user?.role === "RND") clearSelectedNcpCycle(sessionStorage, user.id);
       await logout();
     } finally {
       router.replace("/login");

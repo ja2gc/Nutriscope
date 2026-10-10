@@ -144,7 +144,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
   const searchParams = useSearchParams();
   const isPlaceholder = patientId === "select-patient" || ncpId === "select-ncp";
 
-  const [tab, setTab]                           = useState<Tab>("nd");
+  const [tab, setTab]                           = useState<Tab>("plans");
   const [intervention, setIntervention]         = useState<Intervention | null>(null);
   const [plans, setPlans]                       = useState<InterventionPlanSummary[]>([]);
   const [plansMeta, setPlansMeta]               = useState<PaginationMeta | null>(null);
@@ -352,8 +352,9 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
     }
   }, [isPlaceholder, loadPlans, loadMetrics]);
 
+  const canLeavePatient = () => !dirty || window.confirm("You have unsaved changes. Leave without saving?");
   const handleChangePatient = () => {
-    if (dirty && !window.confirm("You have unsaved changes. Leave without saving?")) return;
+    if (!canLeavePatient()) return;
     router.push("/ncp/patients");
   };
 
@@ -540,6 +541,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
           interventionGoal={intervention?.goal_type}
           medicalDiagnosis={patient?.medical_diagnosis}
           onChangePatientClick={handleChangePatient}
+          onBeforeUnselectPatient={canLeavePatient}
         />
         <div className="bg-white border border-warm-200 rounded-2xl p-12 text-center max-w-2xl mx-auto shadow-sm">
           <div className="p-3.5 bg-warm-50 border border-warm-200 rounded-2xl w-fit mx-auto text-warm-400">
@@ -572,6 +574,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
           interventionGoal={intervention?.goal_type}
           medicalDiagnosis={patient?.medical_diagnosis}
           onChangePatientClick={handleChangePatient}
+          onBeforeUnselectPatient={canLeavePatient}
         />
         <div className="border-b border-warm-200 pb-4">
           <h2 className="text-xl font-extrabold text-warm-900 tracking-tight">

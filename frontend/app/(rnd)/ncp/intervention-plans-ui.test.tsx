@@ -227,10 +227,10 @@ describe("intervention plans workspace", () => {
     expect(container.textContent).toContain("Plans");
     expect(container.textContent).toContain("Sep 29, 2026");
     expect(container.textContent).not.toMatch(/current|inactive|revision|version/i);
-    expect(container.querySelector('[data-testid="meal-plan-section"]')).not.toBeNull();
-
-    await clickButton("Plans");
+    expect(container.querySelector('[data-testid="meal-plan-section"]')).toBeNull();
     expect(container.textContent).toContain("Create New Intervention Plan");
+    await clickButton("Food / Nutrient Delivery");
+    expect(container.querySelector('[data-testid="meal-plan-section"]')).not.toBeNull();
   });
 
   it("prefills a new plan without copying its menu and cancel persists nothing", async () => {

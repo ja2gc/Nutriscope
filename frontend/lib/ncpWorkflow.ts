@@ -1,5 +1,41 @@
 export type NcpStep = "assessment" | "diagnosis" | "intervention" | "monitoring";
 
+type SelectionStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+type SelectedNcpCycle = { patientId: string; ncpId: string };
+const selectionKey = (userId: number | string) => `ncp:selected-cycle:${userId}`;
+
+export function readSelectedNcpCycle(storage: SelectionStorage, userId: number | string): SelectedNcpCycle | null {
+  try {
+    const value = storage.getItem(selectionKey(userId));
+    if (!value) return null;
+    const parsed: unknown = JSON.parse(value);
+    if (!parsed || typeof parsed !== "object") return null;
+    const { patientId, ncpId } = parsed as Partial<SelectedNcpCycle>;
+    return typeof patientId === "string" && typeof ncpId === "string"
+      && /^[a-zA-Z0-9-]+$/.test(patientId) && /^[a-zA-Z0-9-]+$/.test(ncpId)
+      ? { patientId, ncpId }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export function rememberSelectedNcpCycle(storage: SelectionStorage, userId: number | string, patientId: string, ncpId: string): void {
+  try {
+    storage.setItem(selectionKey(userId), JSON.stringify({ patientId, ncpId }));
+  } catch {
+    // Navigation still works when browser storage is unavailable.
+  }
+}
+
+export function clearSelectedNcpCycle(storage: SelectionStorage, userId: number | string): void {
+  try {
+    storage.removeItem(selectionKey(userId));
+  } catch {
+    // Navigation still works when browser storage is unavailable.
+  }
+}
+
 export interface NcpWorkflowRecord {
   id: number | string;
   patient_id: number | string;

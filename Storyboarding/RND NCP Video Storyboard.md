@@ -66,11 +66,11 @@ Use this as the recording checklist and narration script for a future **Help →
 1. Open the scheduled patient and enter any NCP step.
 2. Open the patient's **Appointments** tab and select **Start Visit** for a future scheduled appointment. Overdue appointments cannot start; reschedule, cancel, mark no-show, or create a new appointment instead. The shared patient header keeps only **Start Walk-in** and **Schedule Next** when no visit is active.
 3. Navigate to another RND page, then point out the global active-visit banner.
-4. Select **Resume**.
+4. Show that the Nutrition Care step links still open the selected patient and cycle. Select **Resume**. Use **Unselect Patient** in the shared patient header when finished with this patient.
 
 **Narration**
 
-> Starting is an explicit action. While the visit is active, NutriScope remembers the patient and NCP cycle on the server. Leaving the page or reopening the site does not silently finish the visit. The Resume banner returns the RND to the active patient.
+> Starting is an explicit action. While the visit is active, NutriScope remembers the patient and NCP cycle on the server. Leaving the page or reopening the site does not silently finish the visit. The Resume banner returns the RND to the active patient. The step links retain the selected cycle across page changes until the RND unselects the patient; unselecting does not finish the visit.
 
 **Expected result:** The visit is In progress and remains resumable after navigation.
 
@@ -82,7 +82,7 @@ Use this as the recording checklist and narration script for a future **Help →
 
 1. In Assessment, enter one weight-duration quantity plus weeks/months, select the required Nutrition care category, show conditional **Specify category** for Other, and choose a confirmed Pregnancy/Lactation status. Save/reload; show no Stress Factor control and no fixed three-month copy.
 2. Continue to Diagnosis, open **AI Review**, and choose **Generate AI Suggestions**. Show zero to three results paginated two per page with Evidence used, unchanged-data cache, Dismiss, and Assessment-change refresh. Choose **Edit** and show matching Problem/Etiology/Signs as selected options or checked boxes while unmatched detail remains in notes; save through the normal PES flow. Show the manual builder as fallback. Source provenance remains part of the server-side rule contract and is not shown on the draft card.
-3. Continue to Intervention, choose a goal and applicable stage, then expand the calculation panel. Show goal-calculated baseline, maternal modifier, final prescription, and separate fluid guidance before saving.
+3. Continue to Intervention, which opens on **Plans**. Create a new plan, choose a goal and applicable stage, then expand the calculation panel. Show goal-calculated baseline, maternal modifier, final prescription, and separate fluid guidance before saving.
 4. Load a seeded goal template and show its exact items plus goal/stage/maternal compatibility, then choose **Scale to prescription** to adjust quantities without replacing foods. For the fictional maternal scenario, choose the separate NNC/DOH-derived Pregnancy or Lactation example that matches the Assessment, using its snack or no-snack variant as appropriate. Confirm fluid does not influence scaling variance or success, while the selected day separately shows approximate fluid from foods and remaining drink guidance.
 5. Save the first complete dated Intervention Plan, then create its sole menu. Show the compact Auto-Generate options: **Exclude snacks** (and the liver-disease exception) plus **Use rice as carb**. Generate with the selected preference; confirm the carbohydrate is a separate scalable item, the off state excludes rice sides, and a complete rice-based dish receives no duplicate side. Confirm another menu cannot be added to the same plan. Save a menu as a template, then show **Food Library → Templates**, where an RND can also create, edit, or delete their own meal templates outside a patient workflow. For a confirmed pregnant/lactating fictional patient, show that composition and the final prescription both reflect maternal context while the clinical goal remains authoritative.
 6. In Monitoring, confirm the patient code and cycle start, complete the follow-up Assessment, and save one visit with **Update care plan** closed. On a later fictional visit, open it, verify current values are prefilled, enter effective date/reason, revise one target, select **Open Intervention after saving**, and save.
