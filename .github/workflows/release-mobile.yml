@@ -150,3 +150,20 @@ jobs:
             mv -f "$release_dir/.nutriscope-fss.apk.new" "$release_dir/nutriscope-fss.apk"
             install -m 0644 "$upload_dir/nutriscope-fss.json" "$release_dir/.nutriscope-fss.json.new"
             mv -f "$release_dir/.nutriscope-fss.json.new" "$release_dir/nutriscope-fss.json"
+
+      - name: Verify public Android release routes
+        env:
+          VERSION: ${{ github.event_name == 'push' && steps.release.outputs.version || inputs.version }}
+          VERSION_CODE: ${{ github.event_name == 'push' && steps.release.outputs.version_code || inputs.version_code }}
+          SHA256: ${{ github.event_name == 'push' && steps.release.outputs.sha256 || inputs.sha256 }}
+        run: |
+          set -euo pipefail
+          base=https://nutriscope.live/downloads/nutriscope-fss
+          curl --proto '=https' --tlsv1.2 --connect-timeout 30 --max-time 60 -fsSL \
+            -o public-release.json "$base.json"
+          jq -e --arg version "$VERSION" --argjson code "$VERSION_CODE" --arg sha "$SHA256" \
+            '.version == $version and .version_code == $code and .sha256 == $sha and .download_url == "https://nutriscope.live/downloads/nutriscope-fss.apk"' \
+            public-release.json >/dev/null
+          content_type=$(curl --proto '=https' --tlsv1.2 --connect-timeout 30 --max-time 60 -fsSLI \
+            -o /dev/null -w '%{content_type}' "$base.apk")
+          [ "$content_type" = application/vnd.android.package-archive ]

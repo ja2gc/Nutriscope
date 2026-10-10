@@ -11,6 +11,7 @@ guardrails. Read `.agents/rules/workflow.md` for all universal rules first.
 | `rules/seeders-and-demo-data.md` | Seeders, factories, demo users/data, dates, generated-vs-seeded records, or local demo assets |
 | `rules/clinical-and-notifications.md` | Patients, NCP/ADIME, appointments, interventions, meal plans, or notifications |
 | `rules/food-service-and-reports.md` | Menus, recipes, shopping lists, procurement, budgets, FSS, PDFs, or reports |
+| `rules/mobile-testing.md` | Live Android emulator testing for the Expo mobile app |
 | `rules/media-and-storage.md` | Uploads, profile photos, announcements, private files, R2/S3, or image display |
 | `rules/documentation.md` | `/docs`, Help, flowcharts, workflow prose, or repository-root `Storyboarding/` |
 | `rules/deployment-and-release.md` | Docker, production, DigitalOcean, backups, CI, EAS/APK, or deployment |
