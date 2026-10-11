@@ -87,4 +87,19 @@ class FoodServiceRecipeCostTest extends TestCase
         // cost = 500 * 0.30 = 150.00
         $this->assertEquals('150.00', $recipe->fresh()->cost);
     }
+
+    public function test_recalculate_cost_ignores_non_auto_and_incompatible_auto_ingredients(): void
+    {
+        $rnd = $this->rnd();
+        $recipe = $this->makeRecipe($rnd);
+        $nonAuto = $this->makeFsItem('Garnish', 5, 'pc', 'pc');
+        $nonAuto->update(['include_in_generated_lists' => false]);
+        $incompatible = $this->makeFsItem('Seasoning', 50, 'kg', 'kg');
+        FoodServiceRecipeIngredient::create(['food_service_recipe_id' => $recipe->id, 'fs_item_id' => $nonAuto->id, 'quantity' => 2, 'unit' => 'pc']);
+        FoodServiceRecipeIngredient::create(['food_service_recipe_id' => $recipe->id, 'fs_item_id' => $incompatible->id, 'quantity' => 2, 'unit' => 'tbsp']);
+
+        $recipe->recalculateCost();
+
+        $this->assertSame('0.00', $recipe->fresh()->cost);
+    }
 }

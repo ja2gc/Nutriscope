@@ -6,6 +6,7 @@ use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderVendorGroup;
 use App\Models\Report;
 use App\Models\ReportTemplate;
+use App\Models\Supplier;
 use App\Services\Reports\Contracts\ReportGenerator;
 use App\Support\ReportPaper;
 use Carbon\Carbon;
@@ -144,11 +145,17 @@ class ProcurementPackGenerator implements ReportGenerator
             ? $po->shoppingList->period_start->format('m/d/y').'-'.$po->shoppingList->period_end->format('m/d/y')
             : $date;
         $attachments = $group ? $group->attachments : $po->attachments;
+        $supplier = $group?->supplier ?? $po->supplier;
+        $capturedNames = $po->report_configuration_snapshot['vendor_names'] ?? [];
+        if ($po->final_locked_at !== null && $group !== null && array_key_exists($group->id, $capturedNames)) {
+            $supplier = $supplier?->replicate() ?? new Supplier;
+            $supplier->name = $capturedNames[$group->id];
+        }
 
         return [
             'po' => $po,
             'vendor_group' => $group,
-            'supplier' => $group?->supplier ?? $po->supplier,
+            'supplier' => $supplier,
             'or_number' => $group?->or_number ?? $po->or_number ?? 'Not provided',
             'is_final' => $po->final_locked_at !== null,
             'air_items' => $airItems,

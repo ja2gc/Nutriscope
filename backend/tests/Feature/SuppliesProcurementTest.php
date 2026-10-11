@@ -45,6 +45,7 @@ class SuppliesProcurementTest extends TestCase
         $this->actingAs($this->rnd)
             ->postJson('/api/fss/shopping-lists', [
                 'name' => 'Cleaning supplies',
+                'list_date' => '2026-06-10',
                 'procurement_track' => 'supplies',
                 'list_type' => 'manual',
             ])

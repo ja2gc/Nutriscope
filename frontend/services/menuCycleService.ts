@@ -120,11 +120,13 @@ export type MenuSlotProfile = RecipeProfile | FsItemProfile;
 export interface MenuSlotIngredient {
   fs_item_id: string;
   name: string;
-  quantity: number;
+  quantity: number | null;
   unit: string;
+  inventory_unit?: string | null;
   scaled_quantity: number | null;
   scaled_cost: number | null;
   include_in_generated_lists: boolean;
+  adjust_to_taste?: boolean;
 }
 
 export interface MenuSlotRecipe {
@@ -153,7 +155,7 @@ export interface UpdateMenuSlotRecipePayload {
   reference_servings: number;
   planned_servings?: number | null;
   prep_notes: string | null;
-  ingredients: Array<Pick<MenuSlotIngredient, "fs_item_id" | "quantity" | "unit">>;
+  ingredients: Array<Pick<MenuSlotIngredient, "fs_item_id" | "quantity" | "unit" | "adjust_to_taste">>;
 }
 
 export function scaledIngredientQuantity(quantity: number, referenceServings: number, plannedServings: number): number {

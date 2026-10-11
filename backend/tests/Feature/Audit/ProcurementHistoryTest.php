@@ -33,6 +33,7 @@ class ProcurementHistoryTest extends TestCase
     {
         $this->actingAs($this->rnd)->postJson('/api/fss/shopping-lists', [
             'name' => 'July Supplies',
+            'list_date' => '2026-07-01',
             'procurement_track' => 'supplies',
         ])->assertCreated();
 

@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Boxes, Plus, Pencil, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
@@ -10,11 +11,15 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   CatalogItem, FsItemKind, listCatalog, createFsItem, updateFsItem, deleteFsItem, CreateFsItemPayload,
+  RecipeCorrectionsRequiredError, type AffectedRecipe, type RecipeCorrection,
 } from "@/services/fsCatalogService";
 import { listAllSuppliers, Supplier } from "@/services/supplierService";
 import { CATALOG_UNIT_OPTIONS } from "@/lib/units";
+import { InfoHint } from "@/components/ui/InfoHint";
+import { compatibleRecipeUnits } from "@/lib/foodServiceUnits";
+import { clearCorrectionDraft, correctionHref, correctionKey, readCorrectionDraft, writeCorrectionDraft, type InventoryCorrectionDraft } from "@/lib/inventoryCorrectionDraft";
 
-const peso = (n: number | string | null) => `₱${(n ? parseFloat(String(n)) : 0).toFixed(2)}`;
+const peso = (n: number | string | null) => `₱${(n ? parseFloat(String(n)) : 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 6 })}`;
 const inputCls = "w-full px-3 py-2 text-base border border-warm-200 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500";
 
 const TABS: { key: FsItemKind; label: string }[] = [
@@ -37,16 +42,28 @@ interface FormState {
 }
 const emptyForm: FormState = { name: "", category: "", default_supplier_id: "", base_unit: "", purchase_price: "", include_in_generated_lists: true };
 
-function ItemFormModal({ kind, editing, suppliers, onClose, onSaved }: {
+function ItemFormModal({ kind, editing, suppliers, initialDraft, initialToken, onClose, onSaved }: {
   kind: FsItemKind; editing: CatalogItem | null; suppliers: Supplier[];
+  initialDraft?: InventoryCorrectionDraft | null; initialToken?: string;
   onClose: () => void; onSaved: () => void;
 }) {
+  const router = useRouter();
   const isSupply = kind === "supply";
-  const [form, setForm] = useState<FormState>(emptyForm);
+  const [form, setForm] = useState<FormState>(initialDraft?.form ?? emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [affectedRecipes, setAffectedRecipes] = useState<AffectedRecipe[]>(initialDraft?.affected ?? []);
+  const [corrections, setCorrections] = useState<Record<string, { quantity: string; unit: string }>>(initialDraft?.corrections ?? {});
+  const [token, setToken] = useState(initialToken ?? "");
+
+  const resetCorrections = () => {
+    setAffectedRecipes([]); setCorrections({});
+    clearCorrectionDraft(token); setToken("");
+    if (typeof window !== "undefined" && window.location.search.includes("inventoryCorrection")) window.history.replaceState(window.history.state, "", "/food-service/inventory");
+  };
 
   useEffect(() => {
+    if (initialDraft) return;
     if (editing) {
       setForm({
         name: editing.name,
@@ -59,9 +76,12 @@ function ItemFormModal({ kind, editing, suppliers, onClose, onSaved }: {
     } else {
       setForm(emptyForm);
     }
-  }, [editing]);
+  }, [editing, initialDraft]);
 
-  const set = (k: keyof FormState, v: string | boolean) => setForm((f) => ({ ...f, [k]: v }));
+  const set = (k: keyof FormState, v: string | boolean) => {
+    if (k === "base_unit" || k === "include_in_generated_lists") resetCorrections();
+    setForm((f) => ({ ...f, [k]: v }));
+  };
 
   async function save() {
     setError(null);
@@ -83,12 +103,45 @@ function ItemFormModal({ kind, editing, suppliers, onClose, onSaved }: {
         include_in_generated_lists: isSupply ? true : form.include_in_generated_lists,
       };
       if (editing) {
-        await updateFsItem(editing.id, payload);
+        const patch: Partial<CreateFsItemPayload> = { ...payload };
+        if (form.base_unit !== editing.base_unit && price === Number(editing.purchase_price)) {
+          delete patch.purchase_price;
+        }
+        if (affectedRecipes.length) {
+          const entries: RecipeCorrection[] = affectedRecipes.map((recipe) => {
+            const correction = corrections[correctionKey(recipe)];
+            return {
+              ...(recipe.slot_id ? { slot_id: recipe.slot_id } : { recipe_id: recipe.recipe_id }),
+              line_index: recipe.line_index,
+              quantity: Number(correction?.quantity),
+              unit: correction?.unit ?? "",
+            };
+          });
+          if (entries.some((entry) => !Number.isFinite(entry.quantity) || entry.quantity <= 0 ||
+            !compatibleRecipeUnits(form.base_unit, true).includes(entry.unit))) {
+            setError("Open and correct every listed Food and menu item before saving Inventory.");
+            return;
+          }
+          patch.recipe_corrections = entries;
+        }
+        await updateFsItem(editing.id, patch);
       } else {
         await createFsItem(payload);
       }
       onSaved();
     } catch (e) {
+      if (e instanceof RecipeCorrectionsRequiredError) {
+        setAffectedRecipes(e.affectedRecipes);
+        const nextCorrections = Object.fromEntries(e.affectedRecipes.flatMap((recipe) => {
+          const key = correctionKey(recipe);
+          return corrections[key] ? [[key, corrections[key]]] : [];
+        }));
+        setCorrections(nextCorrections);
+        const nextToken = token || crypto.randomUUID();
+        setToken(nextToken);
+        if (editing) writeCorrectionDraft(nextToken, { editing, form, affected: e.affectedRecipes, corrections: nextCorrections });
+        window.history.replaceState(window.history.state, "", `/food-service/inventory?inventoryCorrection=${encodeURIComponent(nextToken)}`);
+      }
       setError(e instanceof Error ? e.message : "Failed to save.");
     } finally {
       setSaving(false);
@@ -97,7 +150,7 @@ function ItemFormModal({ kind, editing, suppliers, onClose, onSaved }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h3 className="text-base font-extrabold text-warm-900 uppercase tracking-wider">
             {editing ? "Edit" : "New"} {TABS.find((t) => t.key === kind)?.label.replace(/s$/, "")}
@@ -134,20 +187,45 @@ function ItemFormModal({ kind, editing, suppliers, onClose, onSaved }: {
           ) : (
             <>
               <div>
-                <Label>Unit</Label>
+                <div className="flex items-center gap-1"><Label>Unit</Label><InfoHint label="About Inventory units">Matching unit changes keep the same price. If a Food or editable menu item cannot use the new unit, update it before saving.</InfoHint></div>
                 <select value={form.base_unit} onChange={(e) => set("base_unit", e.target.value)} className={`${inputCls} bg-white`}>
                   <option value="">Select unit…</option>
-                  {CATALOG_UNIT_OPTIONS.map((u) => <option key={u} value={u}>{u}</option>)}
+                  {form.base_unit && (form.base_unit === "sack" || !CATALOG_UNIT_OPTIONS.includes(form.base_unit as typeof CATALOG_UNIT_OPTIONS[number])) && <option value={form.base_unit}>{form.base_unit}</option>}
+                  {CATALOG_UNIT_OPTIONS.filter((u) => u !== "sack").map((u) => <option key={u} value={u}>{u}</option>)}
                 </select>
               </div>
               <div>
                 <Label>Cost/unit (₱)</Label>
                 <input type="number" min="0" step="any" value={form.purchase_price} onChange={(e) => set("purchase_price", e.target.value)} className={inputCls} />
               </div>
+              <div className="sm:col-span-2 flex flex-wrap items-center gap-x-3 gap-y-0 text-xs text-warm-500">
+                <span>Weight <InfoHint label="About weight conversions">g, kg and oz convert to each other.</InfoHint></span>
+                <span>Liquid <InfoHint label="About liquid conversions">mL, L, cup, tbsp and tsp convert to each other.</InfoHint></span>
+                <span>Pieces/packs <InfoHint label="About piece and pack units">pc, bundle, pack, tray and unit each match only themselves.</InfoHint></span>
+              </div>
             </>
           )}
           {!isSupply && <label className="sm:col-span-2 flex items-start gap-3 rounded-xl border border-warm-200 bg-warm-50 p-3"><input type="checkbox" checked={form.include_in_generated_lists} onChange={(e) => set("include_in_generated_lists", e.target.checked)} className="mt-1 h-4 w-4 accent-emerald-600" /><span><span className="block text-sm font-bold text-warm-800">Include in generated shopping lists</span><span className="block text-xs text-warm-500">Turn off for items purchased only when needed. Recipes still keep the exact measurement.</span></span></label>}
         </div>
+
+        {affectedRecipes.length > 0 && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-3">
+            <p className="text-sm font-bold text-amber-900">Update these recipes and menu items before saving</p>
+            <p className="text-xs text-amber-800">Enter how much each uses in a unit that matches {form.base_unit}. Servings stay the same.</p>
+            {affectedRecipes.map((recipe) => {
+              const key = correctionKey(recipe);
+              const correction = corrections[key];
+              const href = correctionHref(recipe, token);
+              return <div key={key} className="flex items-center justify-between gap-3 rounded-lg bg-white p-2">
+                <div className="text-sm font-semibold text-warm-800">{recipe.recipe_name}<span className="block text-xs font-normal text-warm-500">Current: {recipe.quantity ?? "Not measured"} {recipe.unit}</span></div>
+                {href ? <button type="button" className="shrink-0 text-sm font-bold text-emerald-700" onClick={() => {
+                  if (editing) writeCorrectionDraft(token, { editing, form, affected: affectedRecipes, corrections });
+                  router.push(href);
+                }}>{correction ? "Edit correction" : "Correct"}</button> : <span className="text-xs text-red-600">Reopen Inventory to refresh this item.</span>}
+              </div>;
+            })}
+          </div>
+        )}
 
         {error && <p className="text-sm text-red-600 font-semibold">{error}</p>}
         <div className="flex justify-end gap-3 pt-1">
@@ -167,9 +245,12 @@ export default function InventoryCatalogPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [grocery, setGrocery] = useState<"auto" | "non_auto" | "">("");
   const debouncedSearch = useDebouncedValue(search);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<CatalogItem | null>(null);
+  const [restoredDraft, setRestoredDraft] = useState<InventoryCorrectionDraft | null>(null);
+  const [restoredToken, setRestoredToken] = useState("");
   const [page, setPage] = useState(1);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
 
@@ -177,13 +258,28 @@ export default function InventoryCatalogPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [c, s] = await Promise.all([listCatalog(tab, page, debouncedSearch), listAllSuppliers()]);
+      const [c, s] = await Promise.all([listCatalog(tab, page, debouncedSearch, tab === "ingredient" ? grocery : ""), listAllSuppliers()]);
       setItems(c.data); setMeta(c.meta); setSuppliers(s);
     } finally { setLoading(false); }
-  }, [page, debouncedSearch, tab]);
+  }, [page, debouncedSearch, tab, grocery]);
   useEffect(() => { load(); }, [load]);
 
-  useEffect(() => { setPage(1); }, [search, tab]);
+  useEffect(() => { setPage(1); }, [search, tab, grocery]);
+
+  useEffect(() => {
+    const token = new URLSearchParams(window.location.search).get("inventoryCorrection") ?? "";
+    const draft = readCorrectionDraft(token);
+    if (!draft) return;
+    setRestoredDraft(draft); setRestoredToken(token);
+    setTab(draft.editing.kind); setEditing(draft.editing); setModalOpen(true);
+  }, []);
+
+  function closeModal() {
+    const token = restoredToken || new URLSearchParams(window.location.search).get("inventoryCorrection") || "";
+    clearCorrectionDraft(token);
+    if (token) window.history.replaceState(window.history.state, "", "/food-service/inventory");
+    setRestoredDraft(null); setRestoredToken(""); setModalOpen(false);
+  }
 
   async function remove(item: CatalogItem) {
     if (!confirm(`Delete "${item.name}" from the catalog?`)) return;
@@ -225,7 +321,10 @@ export default function InventoryCatalogPage() {
             </button>
           ))}
         </div>
-        <SearchInput className="w-64" label="Search inventory" value={search} onChange={setSearch} loading={loading && search !== debouncedSearch} />
+        <div className="flex items-center gap-2 flex-wrap">
+          {!isSupply && <><select aria-label="Shopping list behavior filter" value={grocery} onChange={(event) => setGrocery(event.target.value as "auto" | "non_auto" | "")} className={`${inputCls} w-auto bg-white`}><option value="">All grocery behavior</option><option value="auto">Auto Grocery</option><option value="non_auto">Non-Auto Grocery</option></select><InfoHint label="About Auto Grocery">Auto Grocery items need a measured recipe amount in a matching unit. Other items stay in recipes and can be added to a shopping list by hand.</InfoHint></>}
+          <SearchInput className="w-64" label="Search inventory" value={search} onChange={setSearch} loading={loading && search !== debouncedSearch} />
+        </div>
       </div>
 
       <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
@@ -252,7 +351,7 @@ export default function InventoryCatalogPage() {
                     {it.name}
                   </td>
                   <td className="px-4 py-3 text-warm-500">{it.category ?? "—"}</td>
-                  <td className="px-4 py-3 text-warm-500">{it.vendor ?? "—"}{it.vendor_locked && <span className="ml-1 text-xs text-amber-600 font-bold">🔒</span>}</td>
+                  <td className="px-4 py-3 text-warm-500">{it.vendor ?? "—"}</td>
                   {!isSupply && <td className="px-4 py-3 text-warm-500">{it.base_unit}</td>}
                   <td className="px-4 py-3 text-warm-700 font-mono">
                     {peso(it.purchase_price)}
@@ -279,8 +378,10 @@ export default function InventoryCatalogPage() {
           kind={tab}
           editing={editing}
           suppliers={suppliers}
-          onClose={() => setModalOpen(false)}
-          onSaved={() => { setModalOpen(false); load(); }}
+          initialDraft={restoredDraft}
+          initialToken={restoredToken}
+          onClose={closeModal}
+          onSaved={() => { closeModal(); load(); }}
         />
       )}
     </div>

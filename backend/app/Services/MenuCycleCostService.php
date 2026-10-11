@@ -52,9 +52,12 @@ class MenuCycleCostService
                     $from = (string) ($ing['unit'] ?? '');
                     $base = (string) ($ing['base_unit'] ?? '');
 
-                    if ($from !== '' && $base !== ''
-                        && UnitConverter::normalize($from) !== UnitConverter::normalize($base)
-                        && UnitConverter::isKnown($from) && UnitConverter::isKnown($base)) {
+                    if (($ing['include_in_generated_lists'] ?? true) === false
+                        || $qty <= 0 || ! UnitConverter::isCompatible($from, $base)) {
+                        continue;
+                    }
+
+                    if (UnitConverter::normalize($from) !== UnitConverter::normalize($base)) {
                         $qty = UnitConverter::convert($qty, $from, $base);
                     }
 
@@ -121,7 +124,7 @@ class MenuCycleCostService
         $headDays = array_sum($dayPop);
 
         foreach ($usage as &$u) {
-            $u['quantity'] = round($u['quantity'], 2);
+            $u['quantity'] = round($u['quantity'], 6);
             $u['cost'] = round($u['cost'], 2);
         }
         unset($u);
@@ -202,10 +205,12 @@ class MenuCycleCostService
                     return $item ? [
                         'fs_item_id' => $item->id,
                         'name' => $item->name,
-                        'quantity' => (float) $ingredient['quantity'],
+                        'quantity' => isset($ingredient['quantity']) ? (float) $ingredient['quantity'] : null,
                         'unit' => $ingredient['unit'],
                         'base_unit' => $item->base_unit,
                         'unit_cost' => $item->unit_cost,
+                        'include_in_generated_lists' => $item->include_in_generated_lists,
+                        'adjust_to_taste' => (bool) ($ingredient['adjust_to_taste'] ?? false),
                     ] : null;
                 })->filter()->values()->all(),
             ]];
@@ -222,10 +227,12 @@ class MenuCycleCostService
                     ->map(fn ($ing) => [
                         'fs_item_id' => $ing->fs_item_id,
                         'name' => $ing->fsItem->name,
-                        'quantity' => (float) $ing->quantity,
+                        'quantity' => $ing->quantity === null ? null : (float) $ing->quantity,
                         'unit' => $ing->unit,
                         'base_unit' => $ing->fsItem->base_unit,
                         'unit_cost' => $ing->fsItem->unit_cost,
+                        'include_in_generated_lists' => $ing->fsItem->include_in_generated_lists,
+                        'adjust_to_taste' => (bool) $ing->adjust_to_taste,
                     ])->values()->all(),
             ]];
         }
@@ -263,10 +270,12 @@ class MenuCycleCostService
                     ->map(fn ($ing) => [
                         'fs_item_id' => $ing->fs_item_id,
                         'name' => $ing->fsItem->name,
-                        'quantity' => (float) $ing->quantity,
+                        'quantity' => $ing->quantity === null ? null : (float) $ing->quantity,
                         'unit' => $ing->unit,
                         'base_unit' => $ing->fsItem->base_unit,
                         'unit_cost' => $ing->fsItem->unit_cost,
+                        'include_in_generated_lists' => $ing->fsItem->include_in_generated_lists,
+                        'adjust_to_taste' => (bool) $ing->adjust_to_taste,
                     ])->values()->all(),
             ],
         ];
@@ -282,6 +291,7 @@ class MenuCycleCostService
             'population' => $population,
             'total_cost' => $out['total_cost'],
             'cost_per_head' => $out['cost_per_head'],
+            'ingredients' => $entry['recipe']['ingredients'],
             'ingredient_usage' => $out['ingredient_usage'],
         ];
     }
@@ -308,6 +318,7 @@ class MenuCycleCostService
             'population' => $population,
             'total_cost' => $out['total_cost'],
             'cost_per_head' => $out['cost_per_head'],
+            'ingredients' => $recipe['ingredients'],
             'ingredient_usage' => $out['ingredient_usage'],
         ];
     }

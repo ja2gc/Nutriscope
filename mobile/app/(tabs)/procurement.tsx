@@ -571,7 +571,7 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
   }, [group]);
 
   const updateMutation = useMutation({
-    mutationFn: async (markReceived: boolean) => {
+    mutationFn: async () => {
       const payload = {
         or_number: orNumber.trim() || null,
         ...(!actualsLocked ? { items: (group.items ?? []).map((item) => ({
@@ -579,7 +579,6 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
           actual_qty: actuals[item.id]?.qtyEdited ? Number(actuals[item.id].qty) : Number(item.actual_qty),
           actual_unit_price: actuals[item.id]?.priceEdited ? Number(actuals[item.id].price) : Number(item.actual_unit_price),
         })) } : {}),
-        ...(markReceived ? { status: 'received' } : {}),
       };
       const res = await api.patch(`/api/fss/purchase-order-vendor-groups/${group.id}`, payload);
       return res.data;
@@ -595,7 +594,7 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
     },
   });
 
-  const saveActuals = (markReceived: boolean) => {
+  const saveActuals = () => {
     const invalid = !actualsLocked && (group.items ?? []).find((item) => {
       const qty = Number(actuals[item.id]?.qty);
       const price = Number(actuals[item.id]?.price);
@@ -606,7 +605,7 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
       return;
     }
     setError(null);
-    updateMutation.mutate(markReceived);
+    updateMutation.mutate();
   };
 
   const vendorMutation = useMutation({
@@ -710,7 +709,7 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
             <View className="mt-3">
               <TouchableOpacity
                 className="flex-row items-center justify-center gap-2 border border-gray-200 py-3 rounded-xl"
-                onPress={() => saveActuals(false)}
+                onPress={saveActuals}
                 disabled={updateMutation.isPending}
               >
                 {updateMutation.isPending ? <ActivityIndicator size="small" color="#059669" /> : <Save color="#059669" size={16} />}
@@ -783,10 +782,7 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
           <AttachmentList group={group} type="receipt" locked={locked} onUpload={(type) => onUpload(group, type)} />
           <AttachmentList group={group} type="proof" locked={locked} onUpload={(type) => onUpload(group, type)} />
         </View>
-        {!actualsLocked && <TouchableOpacity className={`mt-4 min-h-12 justify-center rounded-xl py-3 ${group.evidence_requirements?.can_mark_received ? 'bg-emerald-600' : 'bg-gray-300'}`} disabled={updateMutation.isPending || !group.evidence_requirements?.can_mark_received} onPress={() => saveActuals(true)}>
-          <Text className="text-center font-semibold text-white">Mark vendor received</Text>
-        </TouchableOpacity>}
-        {!actualsLocked && <Text className="mt-2 text-center text-xs text-gray-500">Receipt, proof, and actual quantity and cost are required. OR number is optional.</Text>}
+        {!actualsLocked && <Text className="mt-2 text-center text-xs text-gray-500">RND marks this vendor received after reviewing actual values, receipt, and proof.</Text>}
       </View>
     </ScrollView>
   );

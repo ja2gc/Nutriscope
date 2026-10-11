@@ -87,11 +87,12 @@ export interface MenuSlotProfile {
   ingredients: {
     fs_item_id: string | null;
     name: string;
-    quantity: number;
+    quantity: number | null;
     unit: string;
     scaled_quantity: number | null;
     scaled_cost: number | null;
     include_in_generated_lists: boolean;
+    adjust_to_taste: boolean;
   }[];
   total_cost: number | null;
   cost_per_head: number | null;

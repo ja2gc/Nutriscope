@@ -22,7 +22,6 @@ final class FsItemAuditValues
             'units_per_purchase' => (float) $item->units_per_purchase,
             'unit_cost' => (float) $item->unit_cost,
             'vendor' => $item->defaultSupplier?->name,
-            'vendor_locked' => $item->vendorLocked(),
             'is_active' => (bool) $item->is_active,
         ];
     }

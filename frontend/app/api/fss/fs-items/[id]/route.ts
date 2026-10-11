@@ -24,7 +24,7 @@ export async function PATCH(
   });
 
   const data = await res.json();
-  if (!res.ok) return NextResponse.json({ message: data.message ?? "Failed.", errors: data.errors }, { status: res.status });
+  if (!res.ok) return NextResponse.json({ ...data, message: data.message ?? "Failed." }, { status: res.status });
   return NextResponse.json(data, { status: 200 });
 }
 

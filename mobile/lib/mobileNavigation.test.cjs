@@ -28,6 +28,13 @@ test('menu cycle sends operational counts to meal prep without redundant helper 
   assert.match(prep, /activeQuery\.isError \|\| cycleQuery\.isError \|\| logsQuery\.isError/);
 });
 
+test('food profile groups measured adjustable ingredients separately', () => {
+  const profile = fs.readFileSync(path.join(root, 'app', 'food-details.tsx'), 'utf8');
+  assert.match(profile, /adjustableIngredients/);
+  assert.match(profile, /Adjust to taste/);
+  assert.match(profile, /item\.scaled_quantity \?\? item\.quantity/);
+});
+
 test('daily log supports past dates and a clear return to today', () => {
   const accomplish = fs.readFileSync(path.join(root, 'app', '(tabs)', 'accomplishments.tsx'), 'utf8');
 

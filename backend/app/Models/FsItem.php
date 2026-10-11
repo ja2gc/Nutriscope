@@ -33,36 +33,23 @@ class FsItem extends Model
     protected $fillable = [
         'name', 'kind', 'include_in_generated_lists', 'category',
         'base_unit', 'purchase_unit', 'purchase_price', 'units_per_purchase',
-        'default_supplier_id', 'default_supplier_locked_at', 'default_supplier_locked_by',
+        'default_supplier_id',
         'is_active', 'notes',
     ];
 
     protected $casts = [
-        'purchase_price' => 'decimal:2',
+        'purchase_price' => 'decimal:6',
         'units_per_purchase' => 'decimal:2',
         'is_active' => 'boolean',
         'include_in_generated_lists' => 'boolean',
-        'default_supplier_locked_at' => 'datetime',
     ];
 
     protected function auditAttributes(): array
     {
         return [
             'name', 'kind', 'include_in_generated_lists', 'category', 'base_unit', 'purchase_unit', 'purchase_price',
-            'units_per_purchase', 'default_supplier_id', 'default_supplier_locked_at',
-            'default_supplier_locked_by', 'is_active',
+            'units_per_purchase', 'default_supplier_id', 'is_active',
         ];
-    }
-
-    /** Vendor suggestion is locked when an explicit lock timestamp is set. */
-    public function vendorLocked(): bool
-    {
-        return $this->default_supplier_locked_at !== null;
-    }
-
-    public function defaultSupplierLockedBy(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'default_supplier_locked_by');
     }
 
     /**
@@ -98,6 +85,15 @@ class FsItem extends Model
         $n = $this->basePerPurchase();
 
         return $n > 0 ? round((float) $this->purchase_price / $n, 6) : 0.0;
+    }
+
+    public function hasIncompatibleRecipeUnit(string $unit): bool
+    {
+        return FoodServiceRecipeIngredient::query()
+            ->where('fs_item_id', $this->id)
+            ->get(['quantity', 'unit'])
+            ->contains(fn (FoodServiceRecipeIngredient $ingredient): bool => (float) $ingredient->quantity <= 0
+                || ! UnitConverter::isCompatible((string) $ingredient->unit, $unit));
     }
 
     public function defaultSupplier(): BelongsTo

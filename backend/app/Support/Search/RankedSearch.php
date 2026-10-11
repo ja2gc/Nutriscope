@@ -70,13 +70,19 @@ final class RankedSearch
 
         $matches = $candidates->map(function (Model $candidate) use ($term, $columns, $key): ?array {
             $best = null;
+            $bestLength = null;
             foreach ($columns as $column) {
-                $score = FuzzyText::score($term, (string) $candidate->getAttribute($column));
-                $best = $score !== null && ($best === null || $score < $best) ? $score : $best;
+                $value = (string) $candidate->getAttribute($column);
+                $score = FuzzyText::score($term, $value);
+                $length = mb_strlen($value);
+                if ($score !== null && ($best === null || $score < $best || ($score === $best && $length < $bestLength))) {
+                    $best = $score;
+                    $bestLength = $length;
+                }
             }
 
-            return $best === null ? null : ['id' => $candidate->getAttribute($key), 'score' => $best];
-        })->filter()->sortBy(['score', 'id'])->values();
+            return $best === null ? null : ['id' => $candidate->getAttribute($key), 'score' => $best, 'length' => $bestLength];
+        })->filter()->sortBy(['score', 'length', 'id'])->values();
 
         if ($matches->isEmpty()) {
             return $query->whereRaw('1 = 0');

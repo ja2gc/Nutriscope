@@ -55,7 +55,7 @@ class FoodShoppingListGenerationTest extends TestCase
         $this->assertSame('manual', $row->source);
         $this->assertFalse($row->included_in_po);
         $this->assertSame('Already available', $row->exclusion_note);
-        $this->assertSame('1.125', $row->qty);
+        $this->assertSame('1.125000', $row->qty);
     }
 
     public function test_missing_dates_block_creation_and_report_per_date_reasons(): void

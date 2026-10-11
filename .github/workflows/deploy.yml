@@ -52,6 +52,26 @@ jobs:
           script: |
             set -eu
             cd Nutriscope
+            # Read-only production preflight before fetching or replacing code/images.
+            printf 'Preflight revision: '
+            git rev-parse HEAD
+            printf 'CPU cores: '
+            nproc
+            uptime
+            free -h
+            df -h .
+            docker system df
+            if command -v ss >/dev/null 2>&1; then ss -s; fi
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
+            for image in nutriscope-backend nutriscope-frontend; do
+              docker image inspect --format '{{.RepoTags}} {{.Id}}' "$image" || true
+            done
+            printf 'Current local health HTTP status: '
+            curl --silent --output /dev/null --write-out '%{http_code}\n' --max-time 10 http://127.0.0.1:8080/up || true
+            for service in backend frontend mysql redis; do
+              count=$(docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --since 10m --no-color "$service" 2>&1 | grep -Eic '(^|[^a-z])(error|fatal|panic|unhealthy)([^a-z]|$)' || true)
+              printf '%s recent error-like log lines: %s\n' "$service" "$count"
+            done
             git fetch origin main
             git merge --ff-only origin/main
             export DOCKER_BUILDKIT=1

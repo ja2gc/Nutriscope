@@ -51,6 +51,8 @@ class ShoppingListResource extends JsonResource
                 // any client. supplier_id, however, is matched against uuid-valued <option>s
                 // in the procurement vendor dropdown, so it must be the public uuid.
                 'fs_item_id' => $item->fs_item_id,
+                'fs_item_uuid' => $item->relationLoaded('fsItem') ? $item->fsItem?->uuid : null,
+                'inventory_unit' => $item->relationLoaded('fsItem') ? $item->fsItem?->base_unit : null,
                 'ingredient_name' => $item->ingredient_name,
                 'source' => $item->source,
                 'included_in_po' => $item->included_in_po,
@@ -65,6 +67,7 @@ class ShoppingListResource extends JsonResource
                 'purchase_qty' => $item->purchase_qty,
                 'purchase_unit' => $item->purchase_unit,
                 'purchase_price' => $item->purchase_price,
+                'quantity_mode' => $item->quantity_mode,
                 'baseline_servings' => $item->baseline_servings,
                 'baseline_quantity' => $item->baseline_quantity,
                 'scaled_quantity' => $item->scaled_quantity,

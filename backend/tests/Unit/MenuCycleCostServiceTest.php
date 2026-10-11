@@ -83,6 +83,36 @@ class MenuCycleCostServiceTest extends TestCase
         $this->assertEqualsWithDelta(5000.0, $out['ingredient_usage'][0]['quantity'], 1e-6);
     }
 
+    public function test_non_auto_and_incompatible_auto_ingredients_are_not_costed_or_procured(): void
+    {
+        $out = MenuCycleCostService::aggregate([[
+            'day_of_week' => 'Monday', 'estimate_population' => 10,
+            'recipe' => ['servings' => 10, 'ingredients' => [
+                ['fs_item_id' => 1, 'name' => 'Rice', 'quantity' => 1, 'unit' => 'kg', 'base_unit' => 'g', 'unit_cost' => 0.1, 'include_in_generated_lists' => true],
+                ['fs_item_id' => 2, 'name' => 'Seasoning', 'quantity' => 2, 'unit' => 'tbsp', 'base_unit' => 'kg', 'unit_cost' => 50, 'include_in_generated_lists' => true],
+                ['fs_item_id' => 3, 'name' => 'Garnish', 'quantity' => 2, 'unit' => 'pc', 'base_unit' => 'pc', 'unit_cost' => 5, 'include_in_generated_lists' => false],
+            ]],
+        ]]);
+
+        $this->assertSame(100.0, $out['total_cost']);
+        $this->assertCount(1, $out['ingredient_usage']);
+        $this->assertSame(1, $out['ingredient_usage'][0]['fs_item_id']);
+        $this->assertSame(1000.0, $out['ingredient_usage'][0]['quantity']);
+    }
+
+    public function test_small_mass_conversion_keeps_fractional_inventory_quantity(): void
+    {
+        $out = MenuCycleCostService::aggregate([[
+            'day_of_week' => 'Monday', 'estimate_population' => 1,
+            'recipe' => ['servings' => 1, 'ingredients' => [
+                ['fs_item_id' => 1, 'name' => 'Spice', 'quantity' => 0.5, 'unit' => 'g', 'base_unit' => 'kg', 'unit_cost' => 1000, 'include_in_generated_lists' => true],
+            ]],
+        ]]);
+
+        $this->assertEqualsWithDelta(0.0005, $out['ingredient_usage'][0]['quantity'], 0.0000001);
+        $this->assertEqualsWithDelta(0.5, $out['total_cost'], 0.001);
+    }
+
     public function test_ready_single_item_costs_one_per_head(): void
     {
         // A ready-to-serve catalog item (e.g. Yakult) in a snack slot — no recipe.

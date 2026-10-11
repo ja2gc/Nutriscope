@@ -50,8 +50,9 @@ class FoodServiceRecipeRevisionSerializer implements AuditRevisionSerializer
                 'key' => $baseKey.'-'.$occurrences[$baseKey],
                 'ingredient' => $item?->name ?? 'Unavailable ingredient',
                 'reference' => is_string($reference) && Str::isUuid($reference) ? strtolower($reference) : null,
-                'quantity' => (float) $ingredient->quantity,
+                'quantity' => $ingredient->quantity === null ? null : (float) $ingredient->quantity,
                 'unit' => (string) $ingredient->unit,
+                'adjust_to_taste' => (bool) $ingredient->adjust_to_taste,
                 'catalog_unit' => $item?->base_unit,
                 'unit_cost' => $item !== null ? (float) $item->unit_cost : null,
             ];
@@ -98,6 +99,7 @@ class FoodServiceRecipeRevisionSerializer implements AuditRevisionSerializer
                         'ingredient' => 'Ingredient',
                         'quantity' => 'Quantity',
                         'unit' => 'Unit',
+                        'adjust_to_taste' => 'Adjust to taste',
                         'catalog_unit' => 'Catalog unit',
                         'unit_cost' => 'Unit cost',
                     ],
@@ -107,6 +109,7 @@ class FoodServiceRecipeRevisionSerializer implements AuditRevisionSerializer
                             'ingredient' => new AuditValueDto('text', $ingredient['ingredient']),
                             'quantity' => new AuditValueDto('number', $ingredient['quantity']),
                             'unit' => new AuditValueDto('text', $ingredient['unit']),
+                            'adjust_to_taste' => new AuditValueDto('boolean', (bool) ($ingredient['adjust_to_taste'] ?? false)),
                             'catalog_unit' => new AuditValueDto('text', $ingredient['catalog_unit']),
                             'unit_cost' => new AuditValueDto('currency', $ingredient['unit_cost'], currency: 'PHP'),
                         ],
@@ -129,12 +132,14 @@ class FoodServiceRecipeRevisionSerializer implements AuditRevisionSerializer
             && (is_int($snapshot['cost']) || is_float($snapshot['cost']))
             && is_array($snapshot['ingredients']) && array_is_list($snapshot['ingredients'])
             && collect($snapshot['ingredients'])->every(fn (mixed $ingredient): bool => is_array($ingredient)
-                && $this->hasExactKeys($ingredient, ['key', 'ingredient', 'reference', 'quantity', 'unit', 'catalog_unit', 'unit_cost'])
+                && ($this->hasExactKeys($ingredient, ['key', 'ingredient', 'reference', 'quantity', 'unit', 'catalog_unit', 'unit_cost'])
+                    || $this->hasExactKeys($ingredient, ['key', 'ingredient', 'reference', 'quantity', 'unit', 'adjust_to_taste', 'catalog_unit', 'unit_cost']))
                 && is_string($ingredient['key']) && trim($ingredient['key']) !== ''
                 && is_string($ingredient['ingredient']) && trim($ingredient['ingredient']) !== ''
                 && ($ingredient['reference'] === null || (is_string($ingredient['reference']) && Str::isUuid($ingredient['reference'])))
-                && (is_int($ingredient['quantity']) || is_float($ingredient['quantity']))
+                && ($ingredient['quantity'] === null || is_int($ingredient['quantity']) || is_float($ingredient['quantity']))
                 && is_string($ingredient['unit']) && trim($ingredient['unit']) !== ''
+                && (! array_key_exists('adjust_to_taste', $ingredient) || is_bool($ingredient['adjust_to_taste']))
                 && ($ingredient['catalog_unit'] === null || (is_string($ingredient['catalog_unit']) && trim($ingredient['catalog_unit']) !== ''))
                 && ($ingredient['unit_cost'] === null || is_int($ingredient['unit_cost']) || is_float($ingredient['unit_cost'])));
 

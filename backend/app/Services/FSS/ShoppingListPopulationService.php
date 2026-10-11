@@ -7,6 +7,7 @@ use App\Models\MenuCycle;
 use App\Models\MenuCycleDay;
 use App\Models\ShoppingList;
 use App\Services\MenuCycleCostService;
+use App\Support\UnitConverter;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -20,7 +21,8 @@ class ShoppingListPopulationService
         $uncovered = [];
         $missingByDate = [];
         $cycleCache = [];
-        $targetPopulation = $population !== null && $population > 0 ? $population : 1;
+        $headDays = 0;
+        $missingPopulation = [];
 
         for ($d = $cursor->copy(); $d->lte($end); $d->addDay()) {
             $date = $d->toDateString();
@@ -48,14 +50,20 @@ class ShoppingListPopulationService
                 continue;
             }
 
-            $entries = collect(MenuCycleCostService::entriesForDays($plannedDays))
-                ->map(function (array $entry) use ($targetPopulation) {
-                    $entry['estimate_population'] = $targetPopulation;
-                    $entry['servings_override'] = null;
+            if ($population === null && $plannedDays->contains(fn ($day) => $day->estimate_population === null)) {
+                $missingPopulation[] = $date;
 
-                    return $entry;
-                })
-                ->all();
+                continue;
+            }
+
+            $entries = MenuCycleCostService::entriesForDays($plannedDays);
+            if ($population !== null) {
+                $entries = array_map(fn (array $entry): array => array_merge($entry, [
+                    'estimate_population' => $population,
+                    'servings_override' => null,
+                ]), $entries);
+            }
+            $headDays += $population ?? (int) $plannedDays->first()->estimate_population;
 
             foreach (MenuCycleCostService::aggregate($entries)['ingredient_usage'] as $usage) {
                 $id = $usage['fs_item_id'];
@@ -71,9 +79,9 @@ class ShoppingListPopulationService
         }
 
         return [
-            'items' => $this->purchaseRows($acc, $targetPopulation),
+            'items' => $this->purchaseRows($acc, $headDays),
             'uncovered_dates' => array_values(array_unique($uncovered)),
-            'missing_population_dates' => [],
+            'missing_population_dates' => $missingPopulation,
             'missing_items_by_date' => $missingByDate,
         ];
     }
@@ -143,7 +151,7 @@ class ShoppingListPopulationService
             return;
         }
 
-        $plan = $this->planRange($list->period_start, $list->period_end, (int) ($list->estimate_population ?? 0));
+        $plan = $this->planRange($list->period_start, $list->period_end);
         $seen = [];
 
         foreach ($plan['items'] as $row) {
@@ -167,6 +175,21 @@ class ShoppingListPopulationService
                 'scaled_quantity' => $row['scaled_quantity'],
                 'scaled_unit' => $row['scaled_unit'],
             ];
+
+            if ($item) {
+                $purchaseUnit = (string) ($item->purchase_unit ?: $item->unit);
+                if (UnitConverter::isCompatible((string) $row['unit'], $purchaseUnit)) {
+                    $purchaseQty = UnitConverter::convert((float) $row['qty'], (string) $row['unit'], $purchaseUnit);
+                    $mode = $item->quantity_mode ?: 'calculated';
+                    $attrs['purchase_qty'] = $mode === 'manual'
+                        ? $item->purchase_qty
+                        : ($mode === 'rounded' ? round($purchaseQty) : round($purchaseQty, 6));
+                    $attrs['purchase_unit'] = $item->purchase_unit;
+                    $attrs['purchase_price'] = $item->purchase_price;
+                    $attrs['total'] = round((float) $attrs['purchase_qty'] * (float) ($item->purchase_price ?? $item->unit_price), 2);
+                }
+                $attrs['supplier_id'] = $item->supplier_id;
+            }
 
             $item
                 ? $item->update($attrs)
@@ -199,9 +222,9 @@ class ShoppingListPopulationService
                 continue;
             }
             $basePerPurchase = $fs ? $fs->basePerPurchase() : 0.0;
-            $baselineQuantity = $targetPopulation > 0 ? round($net / $targetPopulation, 4) : round($net, 4);
+            $baselineQuantity = $targetPopulation > 0 ? round($net / $targetPopulation, 6) : round($net, 6);
 
-            if ($fs && $basePerPurchase > 0) {
+            if ($fs && $basePerPurchase > 0 && $basePerPurchase !== 1.0) {
                 $packs = (int) ceil($net / $basePerPurchase);
                 $baseBought = $packs * $basePerPurchase;
                 $purchasePrice = (float) $fs->purchase_price;
@@ -211,35 +234,35 @@ class ShoppingListPopulationService
                     'qty' => round($baseBought, 2),
                     'unit' => $fs->base_unit ?? $row['unit'],
                     'supplier_id' => $fs->default_supplier_id,
-                    'unit_price' => round($purchasePrice / $basePerPurchase, 4),
+                    'unit_price' => round($purchasePrice / $basePerPurchase, 6),
                     'total' => round($packs * $purchasePrice, 2),
                     'purchase_qty' => $packs,
                     'purchase_unit' => $fs->purchase_unit,
-                    'purchase_price' => round($purchasePrice, 2),
+                    'purchase_price' => round($purchasePrice, 6),
                     'baseline_servings' => 1,
                     'baseline_quantity' => $baselineQuantity,
-                    'scaled_quantity' => round($net, 2),
+                    'scaled_quantity' => round($net, 6),
                     'scaled_unit' => $fs->base_unit ?? $row['unit'],
                 ];
 
                 continue;
             }
 
-            $unitPrice = $row['qty'] > 0 ? round($row['total'] / $row['qty'], 4) : 0;
+            $unitPrice = $row['qty'] > 0 ? round($row['total'] / $row['qty'], 6) : 0;
             $rows[] = [
                 'fs_item_id' => $id,
                 'ingredient_name' => $row['name'],
-                'qty' => round($net, 2),
+                'qty' => round($net, 6),
                 'unit' => $row['unit'],
                 'supplier_id' => $fs?->default_supplier_id,
                 'unit_price' => $unitPrice,
                 'total' => round($net * $unitPrice, 2),
-                'purchase_qty' => null,
-                'purchase_unit' => null,
-                'purchase_price' => null,
+                'purchase_qty' => round($net, 6),
+                'purchase_unit' => $fs?->base_unit ?? $row['unit'],
+                'purchase_price' => $unitPrice,
                 'baseline_servings' => 1,
                 'baseline_quantity' => $baselineQuantity,
-                'scaled_quantity' => round($net, 2),
+                'scaled_quantity' => round($net, 6),
                 'scaled_unit' => $row['unit'],
             ];
         }

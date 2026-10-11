@@ -94,6 +94,9 @@ class MenuCyclePoSnapshotTest extends TestCase
         $item = FsItem::factory()->create([
             'name' => 'Chicken', 'base_unit' => 'kg', 'purchase_unit' => 'kg', 'purchase_price' => 100,
         ]);
+        $salt = FsItem::factory()->create([
+            'name' => 'Salt', 'base_unit' => 'kg', 'include_in_generated_lists' => false,
+        ]);
         $recipe = FoodServiceRecipe::create([
             'rnd_user_id' => $this->rnd->id, 'name' => 'Master', 'servings' => 20,
         ]);
@@ -109,9 +112,10 @@ class MenuCyclePoSnapshotTest extends TestCase
             'recipe_id' => $recipe->id, 'estimate_population' => 20,
             'recipe_override' => [
                 'name' => 'Ward Adobo', 'reference_servings' => 25, 'prep_notes' => 'Slot notes',
-                'ingredients' => [[
-                    'fs_item_id' => $item->id, 'name' => 'Chicken', 'quantity' => 3, 'unit' => 'kg',
-                ]],
+                'ingredients' => [
+                    ['fs_item_id' => $item->id, 'name' => 'Chicken', 'quantity' => 3, 'unit' => 'kg'],
+                    ['fs_item_id' => $salt->id, 'name' => 'Salt', 'quantity' => 2, 'unit' => 'tbsp', 'adjust_to_taste' => true],
+                ],
             ],
         ]);
         $list = ShoppingList::create([
@@ -134,5 +138,15 @@ class MenuCyclePoSnapshotTest extends TestCase
         $this->assertSame(100, $snapshot['population']);
         $this->assertEqualsWithDelta(12, $snapshot['ingredient_usage'][0]['quantity'], 0.01);
         $this->assertEqualsWithDelta(1200, $snapshot['total_cost'], 0.01);
+        $this->assertEquals(2, $snapshot['ingredients'][1]['quantity']);
+        $this->assertSame('tbsp', $snapshot['ingredients'][1]['unit']);
+        $this->assertTrue($snapshot['ingredients'][1]['adjust_to_taste']);
+        $day->forceFill(['po_snapshot_locked' => true])->save();
+        $this->actingAs($this->rnd)
+            ->getJson("/api/fss/menu-cycles/{$cycle->uuid}/slots/Monday/lunch")
+            ->assertOk()
+            ->assertJsonPath('data.ingredients.1.quantity', 2)
+            ->assertJsonPath('data.ingredients.1.scaled_quantity', 8)
+            ->assertJsonPath('data.ingredients.1.adjust_to_taste', true);
     }
 }

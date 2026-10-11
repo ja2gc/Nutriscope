@@ -226,7 +226,7 @@ class PurchaseOrderController extends Controller
                     'shopping_list_guard' => $shoppingList->id,
                     'supplier_id' => null,
                     'po_number' => 'PO-'.strtoupper(Str::random(6)).'-'.time(),
-                    'order_date' => now()->toDateString(),
+                    'order_date' => $shoppingList->period_start ?? $shoppingList->list_date,
                     'total_amount' => $shoppingList->items->sum(fn ($i) => (float) $i->total),
                     'status' => 'draft',
                     'lifecycle_status' => 'open_execution',
@@ -301,7 +301,6 @@ class PurchaseOrderController extends Controller
     public function updateVendorGroup(
         Request $request,
         PurchaseOrderVendorGroup $vendorGroup,
-        ReceivingService $receiving,
         PurchaseOrderLifecycleService $lifecycle
     ): JsonResponse {
         $fssChangedPlannedValues = Auth::user()->isFss()
@@ -330,6 +329,10 @@ class PurchaseOrderController extends Controller
             'items.*.reason' => ['nullable', 'string', 'max:255'],
         ]);
 
+        if (Auth::user()->isFss() && ($data['status'] ?? null) === 'received') {
+            return response()->json(['message' => 'Only RND can mark a vendor received.'], 403);
+        }
+
         $po = $vendorGroup->purchaseOrder;
         if (in_array($po->lifecycle_status, ['completed', 'archived'], true)) {
             return response()->json(['message' => 'Completed purchase orders are locked.'], 422);
@@ -349,8 +352,8 @@ class PurchaseOrderController extends Controller
             return response()->json(['data' => new PurchaseOrderResource($purchaseOrder)]);
         }
 
-        $this->audited(function () use ($vendorGroup, $data, $receiving, $lifecycle): void {
-            DB::transaction(function () use ($vendorGroup, $data, $receiving, $lifecycle) {
+        $this->audited(function () use ($vendorGroup, $data, $lifecycle): void {
+            DB::transaction(function () use ($vendorGroup, $data, $lifecycle) {
                 $purchaseOrder = PurchaseOrder::query()
                     ->whereKey($vendorGroup->purchase_order_id)
                     ->lockForUpdate()
@@ -468,13 +471,6 @@ class PurchaseOrderController extends Controller
                 $vendorGroup->save();
                 if ($correctionCount > 0) {
                     $this->auditLogger->withoutModelEvents(fn () => $vendorGroup->purchaseOrder->recalcTotal());
-                }
-
-                // Only refresh catalog vendor/price from a vendor group that actually has a
-                // receipt — "received" without proof must not push prices into the catalog.
-                if ($receivedTransition && ! $vendorGroup->stocked_at) {
-                    $receiving->receiveVendorGroup($vendorGroup->fresh('items'));
-                    $vendorGroup->forceFill(['stocked_at' => now()])->save();
                 }
 
                 $activities = [];

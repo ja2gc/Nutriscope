@@ -19,6 +19,8 @@ use App\Services\Audit\Revisions\AuditRevisionRegistry;
 use App\Services\Audit\Revisions\AuditRevisionWriter;
 use App\Services\FSS\ShoppingListPopulationService;
 use App\Services\MenuCycleCostService;
+use App\Support\RecipeScaler;
+use App\Support\UnitConverter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -145,6 +147,15 @@ class MenuCycleController extends Controller
 
         $data = $request->validated();
         $items = FsItem::query()->whereIn('id', collect($data['ingredients'])->pluck('fs_item_id'))->get()->keyBy('id');
+        foreach ($data['ingredients'] as $ingredient) {
+            $item = $items->get($ingredient['fs_item_id']);
+            if ($item?->include_in_generated_lists && (
+                ! isset($ingredient['quantity'])
+                || ! UnitConverter::isCompatible((string) $ingredient['unit'], (string) $item->base_unit)
+            )) {
+                abort(422, "Auto Grocery ingredient '{$item->name}' needs a measured quantity in a compatible unit.");
+            }
+        }
         $this->recordSlotChange($menuCycle, function () use ($slot, $data, $items): void {
             $slot->update([
                 'servings_override' => null,
@@ -157,6 +168,7 @@ class MenuCycleController extends Controller
                         'name' => $items->get($ingredient['fs_item_id'])->name,
                         'quantity' => (float) $ingredient['quantity'],
                         'unit' => $ingredient['unit'],
+                        'adjust_to_taste' => (bool) ($ingredient['adjust_to_taste'] ?? false),
                     ])->values()->all(),
                 ],
             ]);
@@ -477,15 +489,19 @@ class MenuCycleController extends Controller
 
         if ($recipe) {
             $items = FsItem::query()->whereIn('id', collect($recipe['ingredients'])->pluck('fs_item_id'))->get()->keyBy('id');
-            $ingredients = collect($recipe['ingredients'])->map(function (array $ingredient) use ($estimateSet, $items, $usage): array {
+            $ingredients = collect($recipe['ingredients'])->map(function (array $ingredient) use ($estimateSet, $items, $reference, $target, $usage): array {
                 $item = $items->get($ingredient['fs_item_id']);
+                $quantity = isset($ingredient['quantity']) ? (float) $ingredient['quantity'] : null;
 
                 return [
                     'fs_item_id' => $item?->uuid,
                     'name' => $item?->name ?? $ingredient['name'],
-                    'quantity' => (float) $ingredient['quantity'],
+                    'quantity' => $quantity,
                     'unit' => $ingredient['unit'],
-                    'scaled_quantity' => $estimateSet ? (float) ($usage->get($ingredient['fs_item_id'])['quantity'] ?? 0) : null,
+                    'adjust_to_taste' => (bool) ($ingredient['adjust_to_taste'] ?? false),
+                    'inventory_unit' => $item?->base_unit,
+                    'scaled_quantity' => $estimateSet && $quantity !== null
+                        ? RecipeScaler::scale($quantity, $reference, $target) : null,
                     'scaled_cost' => $estimateSet ? (float) ($usage->get($ingredient['fs_item_id'])['cost'] ?? 0) : null,
                     'include_in_generated_lists' => (bool) ($item?->include_in_generated_lists ?? true),
                 ];
@@ -498,6 +514,8 @@ class MenuCycleController extends Controller
                 'name' => $item->name,
                 'quantity' => (float) $slot->quantity,
                 'unit' => $item->base_unit,
+                'adjust_to_taste' => false,
+                'inventory_unit' => $item->base_unit,
                 'scaled_quantity' => $estimateSet ? (float) ($line['quantity'] ?? 0) : null,
                 'scaled_cost' => $estimateSet ? (float) ($line['cost'] ?? 0) : null,
                 'include_in_generated_lists' => (bool) $item->include_in_generated_lists,
@@ -532,7 +550,9 @@ class MenuCycleController extends Controller
         $reference = max(1, (int) ($snapshot['servings'] ?? 1));
         $planned = max(1, (int) ($snapshot['population'] ?? $slot->servings_override ?? 1));
         $usage = collect($snapshot['ingredient_usage'] ?? []);
-        $items = FsItem::query()->whereIn('id', $usage->pluck('fs_item_id'))->get()->keyBy('id');
+        $profileIngredients = collect($snapshot['ingredients'] ?? $usage->all());
+        $items = FsItem::query()->whereIn('id', $profileIngredients->pluck('fs_item_id'))->get()->keyBy('id');
+        $usageByItem = $usage->keyBy('fs_item_id');
 
         return [
             'id' => $slot->uuid,
@@ -549,17 +569,22 @@ class MenuCycleController extends Controller
             'purchase_estimate_set' => true,
             'prep_notes' => $snapshot['prep_notes'] ?? null,
             'portion_label' => $snapshot['portion_label'] ?? null,
-            'ingredients' => $usage->map(function (array $ingredient) use ($items, $reference, $planned): array {
+            'ingredients' => $profileIngredients->map(function (array $ingredient) use ($items, $reference, $planned, $usageByItem): array {
                 $item = $items->get((int) $ingredient['fs_item_id']);
-                $scaled = (float) $ingredient['quantity'];
+                $used = $usageByItem->get($ingredient['fs_item_id']);
+                $quantity = array_key_exists('include_in_generated_lists', $ingredient)
+                    ? $ingredient['quantity']
+                    : ((float) $ingredient['quantity'] * $reference / $planned);
 
                 return [
                     'fs_item_id' => $item?->uuid,
                     'name' => $ingredient['name'],
-                    'quantity' => $scaled * $reference / $planned,
+                    'quantity' => $quantity,
                     'unit' => $ingredient['unit'],
-                    'scaled_quantity' => $scaled,
-                    'scaled_cost' => (float) $ingredient['cost'],
+                    'adjust_to_taste' => (bool) ($ingredient['adjust_to_taste'] ?? false),
+                    'inventory_unit' => $item?->base_unit,
+                    'scaled_quantity' => $quantity === null ? null : RecipeScaler::scale((float) $quantity, $reference, $planned),
+                    'scaled_cost' => $used === null ? null : (float) $used['cost'],
                     'include_in_generated_lists' => (bool) ($item?->include_in_generated_lists ?? true),
                 ];
             })->values()->all(),

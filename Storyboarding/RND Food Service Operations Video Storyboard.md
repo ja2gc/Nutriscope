@@ -44,8 +44,9 @@ Use this as both the recording checklist and narration script. Create every name
 2. Open **Food Service → Inventory**.
 3. Create ingredient **Demo Video Chicken** with category **Meat**, selected unit **kg**, **Demo Video Main Vendor**, and a realistic price. Leave **Include in generated shopping lists** enabled.
 4. Create ingredient **Demo Video Seasoning Mix** with category **Condiment**, selected unit **kg**, a vendor, and a price. Turn off **Include in generated shopping lists**.
-5. Create supply **Demo Video Meal Container** with its vendor and price.
-6. Point out the **Auto grocery** and **Purchase when needed** badges.
+5. Point to the Inventory unit tooltips for weight, liquid, and piece/pack conversions. If demonstrating an incompatible unit change, open each affected Food or editable Menu Calendar item from the list, enter its new quantity and compatible unit, return to the list, and save Inventory after all are complete.
+6. Create supply **Demo Video Meal Container** with its vendor and price.
+7. Point out the **Auto grocery** and **Purchase when needed** badges.
 
 **Narration**
 
@@ -65,12 +66,12 @@ Use this as both the recording checklist and narration script. Create every name
 2. Set the recipe baseline to **50 servings**.
 3. Add **Demo Video Chicken** with an exact baseline quantity such as **6.250 kg**.
 4. Add **Demo Video Seasoning Mix** with an exact baseline quantity such as **0.125 kg**.
-5. Add short preparation notes and save.
-6. Open the recipe/profile and point to baseline servings and exact measurements.
+5. Mark **Demo Video Seasoning Mix** as **Adjust to taste**, add short preparation notes, and save.
+6. Open the recipe/profile and point to baseline servings, scaled measurements, and the separate **Adjust to taste** note.
 
 **Narration**
 
-> A recipe stores exact ingredient measurements for a standard number of servings. The seasoning quantity remains part of the recipe even though it is marked purchase when needed. That setting only prevents it from being added automatically to a shopping list.
+> A recipe stores exact ingredient measurements for a standard number of servings. Every measured ingredient scales, including seasonings marked purchase when needed. That purchase setting only prevents automatic shopping-list addition. The separate **Adjust to taste** checkbox groups selected seasonings below a note in the profile; their amounts still scale.
 
 **Expected result:** **Demo Video Chicken Stew** is saved with a 50-serving standard and exact ingredient quantities.
 
@@ -112,15 +113,16 @@ Use this as both the recording checklist and narration script. Create every name
 4. Enter one estimated serving count, for example **120**, for the whole span.
 5. Enter a shopping-list name before generating it.
 6. Generate the list.
-7. Show that the menu slot profile now reflects the 120-serving purchase estimate.
+7. Show that this preview has not yet changed the Menu Calendar estimate.
 8. In the shopping list, point to the calculated need for **Demo Video Chicken**.
 9. Confirm that **Demo Video Seasoning Mix** was not auto-added.
-10. Choose **Add food item** with an empty search, point out **Rice** as the first recommendation, and add the required kilograms to the same generated draft.
+10. Choose **Add food item** with an empty search, point out Non-Auto Grocery suggestions, and add **Rice** in kilograms to the same unsaved draft.
 11. Expand the compact **Shopping list** card to review the complete **Item** and **Qty** rows, then use **Copy list**.
+12. Select **Save Shopping List**, confirm the estimate applies to the selected Menu Calendar days, and show the saved editable list.
 
 **Narration**
 
-> Enter the shopping-list name and estimated serving count before generating. NutriScope adjusts each recipe from its standard serving size. For example, a 50-serving recipe is multiplied by 120 divided by 50. It then combines the required amount of each automatically included ingredient across all selected dates. Purchase-when-needed ingredients are not added automatically. The draft accepts manual additions, and Rice is recommended first when item search is empty. The compact copy card includes every item, quantity, and unit.
+> Enter the shopping-list name and one estimated serving count before previewing. NutriScope adjusts each recipe from its standard serving size. For example, a 50-serving recipe is multiplied by 120 divided by 50. It combines automatically included ingredients across the selected dates. Non-Auto Grocery ingredients are added only when needed; the empty search suggests them first. Save Shopping List applies the estimate to each selected Menu Calendar day and keeps the list editable. The compact copy card includes every item, quantity, and unit.
 
 **Expected result:** The list shows the calculated chicken requirement for 120 servings, bulk rice as a manually added kilogram row, and the seasoning mix excluded until added manually.
 
@@ -139,11 +141,12 @@ Use this as both the recording checklist and narration script. Create every name
 5. Use **Add food item** to manually add **Demo Video Seasoning Mix** only for this purchase, showing how to include a one-time pantry item.
 6. Add another low-priority manual ingredient, then delete that manual row.
 7. On a generated row, turn off **Buy** and enter an optional exclusion note such as **Removed for cost review**; turn it back on for the final PO.
-8. Review the included total. If release details are incomplete, **Create and release PO** remains disabled; no pre-release checklist is shown.
+8. Choose calculated, nearest-whole rounding, or a manual purchase quantity. Show that Estimated servings stays unchanged.
+9. Save the edits. Use Back to show the Save and Discard choices for later unsaved edits.
 
 **Narration**
 
-> The list name is plain text. The row pencil opens the draft; a pencil beside the detail title edits the name. The procurement summary stays visible for quick reference. Calculated need stays read-only so staff can see what the menu required. They can still change the amount to buy, choose a buying unit from the shared unit list, and change current price and vendor. Manually added rows cover one-time needs such as pantry replenishment. An automatically calculated row is excluded instead of deleted, so the original requirement remains visible for review.
+> The row pencil opens the saved list; a pencil beside the detail title edits the name. Calculated need stays visible so staff can see what the menu required. Changing the amount to buy never changes Estimated servings or the Food recipe. Staff can keep the calculated amount, round it to the nearest whole unit, or enter an amount. They can choose a compatible buying unit and change price and vendor. Manually added rows cover one-time needs. An automatically calculated row is excluded instead of deleted, so its original requirement remains visible.
 
 **Expected result:** The list contains realistic buying values, an included manually added seasoning item, and no unresolved release blockers.
 
@@ -155,16 +158,16 @@ Use this as both the recording checklist and narration script. Create every name
 
 **On-screen actions**
 
-1. Return to Food Shopping Lists and select **Manual food list** to create a draft.
+1. Return to Food Shopping Lists, select **Manual food list**, and choose its procurement date.
 2. Add ingredients directly without creating a menu cycle. Use the pencil beside the draft name to rename it **Demo Video Outreach Event — Food**.
-3. Open **Supplies Lists** and create **Demo Video Outreach Event — Supplies**.
+3. Open **Supplies Lists**, choose its procurement date, and create **Demo Video Outreach Event — Supplies**.
 4. Add **Demo Video Meal Container**.
 5. Point to the shared purpose in both names and the separate food/supplies tracks.
 6. Leave these lists in draft or complete them separately if the video needs a second PO example.
 
 **Narration**
 
-> A one-time event does not need a weekly menu. Staff create a manual food draft with one button, then rename it from the draft. Staff create a separate supplies list in its own section. Using the same event name makes their shared purpose clear while keeping food and supplies in their correct buying sections.
+> A one-time event does not need a weekly menu. Staff choose a procurement date for the manual food list, then rename the saved draft. Staff choose a date for a separate supplies list. Using the same event name makes their shared purpose clear while keeping food and supplies in their correct buying sections.
 
 **Expected result:** Separate draft food and supplies lists exist for the same demo event.
 
@@ -179,12 +182,12 @@ Use this as both the recording checklist and narration script. Create every name
 1. Return to the suggested shopping list.
 2. Intentionally clear one vendor to show the visible blocker, then restore it.
 3. Confirm that the fiscal-year budget and included total permit release.
-4. Select **Create and release PO**.
+4. Select **Turn Into PO**.
 5. Open the new PO and point out its PO number, shopping-list purpose/name, vendor groups, and locked planned values. Expand **Planned total** when the snapshot total is needed.
 
 **Narration**
 
-> Releasing the purchase order locks the approved buying plan. NutriScope checks that included items have vendors, the menu dates and serving estimate are complete when required, and the fiscal-year budget is sufficient. It then groups the approved items by vendor and keeps the planned values unchanged for later comparison and reports.
+> Turning the saved list into a purchase order locks the buying plan. NutriScope checks the menu dates, serving estimate, and fiscal-year budget where required. It groups items by vendor, including an Unspecified group that must be assigned before receiving, and keeps planned values unchanged for comparison and reports.
 
 **Expected result:** A released purchase order shows its number, purpose, vendor groups, and locked planned values.
 
@@ -210,7 +213,7 @@ Use this as both the recording checklist and narration script. Create every name
 
 **Narration**
 
-> Receiving begins with the locked buying plan, but staff may correct the vendor when the intended seller cannot supply an item. This correction is allowed only before receipt or proof images are attached. Actual quantity and price start with planned values, and the unit stays locked to the shopping list. Staff edit only what changed. The screen shows the actual total; optional Calculation details retain planned and actual purchases, without calculated need or quantity/cost differences. Confirming receipt updates the inventory reference item's current purchase unit, conversion, and price for future planning without rewriting the PO row. Each vendor requires actual quantities and costs, a receipt image, a proof-of-purchase image, and the Mark vendor received action. An official receipt number is optional.
+> Receiving begins with the locked buying plan, but staff may correct the vendor when the intended seller cannot supply an item. This correction is allowed only before receipt or proof images are attached. Actual quantity and price start with planned values, and the unit stays locked to the shopping list. FSS can save actual values and upload receipt and proof; RND reviews these on web Procurement and marks the vendor received. The screen shows the actual total. Inventory Unit, Cost/unit, and Vendor update from final PO values only when the whole PO completes; the PO row stays frozen. An official receipt number is optional.
 
 **Expected result:** Every vendor group is marked received with actual values and the required evidence.
 

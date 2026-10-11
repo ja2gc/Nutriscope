@@ -36,7 +36,7 @@ const slot = {
   planned_servings: 100,
   purchase_estimate_set: true,
   prep_notes: "Simmer until tender.",
-  ingredients: [{ fs_item_id: "item-1", name: "Chicken", quantity: 3, unit: "kg", scaled_quantity: 12, scaled_cost: 1200, include_in_generated_lists: true }],
+  ingredients: [{ fs_item_id: "item-1", name: "Chicken", quantity: 3, unit: "kg", inventory_unit: "kg", scaled_quantity: 12, scaled_cost: 1200, include_in_generated_lists: true }],
   total_cost: 1200,
   baseline_total_cost: 300,
   cost_per_head: 12,
@@ -82,6 +82,21 @@ describe("MenuSlotRecipePage", () => {
     expect(Array.from(unit?.options ?? []).map((option) => option.value)).toContain("kg");
     expect(Array.from(unit?.options ?? []).map((option) => option.value)).toContain("cup");
     expect(unit?.value).toBe("cup");
+  });
+
+  test("scales a measured Non-Auto ingredient and groups it independently for adjustment", async () => {
+    loadMock.mockResolvedValue({
+      ...slot,
+      ingredients: [{ ...slot.ingredients[0], name: "Salt", include_in_generated_lists: false, quantity: 2, unit: "tbsp", adjust_to_taste: true }],
+    });
+    await act(async () => { root.render(<MenuSlotRecipePage backHref="/food-service/menu-cycle?cycle=cycle-1" />); });
+
+    const unit = container.querySelector<HTMLInputElement>('input[aria-label="Unit for Salt"]');
+    expect(unit?.value).toBe("tbsp");
+    const qty = container.querySelector<HTMLInputElement>('input[aria-label="Recipe quantity for Salt"]');
+    expect(qty?.disabled).toBe(false);
+    expect(container.textContent).toContain("Adjust to taste");
+    expect(container.textContent).toContain("8 tbsp");
   });
 
   test("PO-locked view shows only total menu quantity and a plain unit", async () => {
@@ -148,8 +163,8 @@ describe("MenuSlotRecipePage", () => {
     expect(searchMock).toHaveBeenCalledWith("Rice", "ingredient");
     expect(updateMock).toHaveBeenCalledWith("cycle-1", "Monday", "lunch", expect.objectContaining({
       ingredients: [
-        { fs_item_id: "item-1", quantity: 3, unit: "kg" },
-        { fs_item_id: "inventory-rice-uuid", quantity: 1, unit: "kg" },
+        { fs_item_id: "item-1", quantity: 3, unit: "kg", adjust_to_taste: false },
+        { fs_item_id: "inventory-rice-uuid", quantity: 1, unit: "kg", adjust_to_taste: false },
       ],
     }));
   });

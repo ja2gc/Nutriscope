@@ -12,7 +12,11 @@ class FoodServiceRecipeIngredient extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'food_service_recipe_id', 'fs_item_id', 'quantity', 'unit',
+        'food_service_recipe_id', 'fs_item_id', 'quantity', 'unit', 'adjust_to_taste',
+    ];
+
+    protected $casts = [
+        'adjust_to_taste' => 'boolean',
     ];
 
     /** The food-service catalog item this line uses. */

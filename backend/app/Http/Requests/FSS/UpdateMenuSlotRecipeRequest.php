@@ -22,7 +22,8 @@ class UpdateMenuSlotRecipeRequest extends FormRequest
             'ingredients' => ['required', 'array', 'min:1'],
             'ingredients.*.fs_item_id' => ['required', 'string', 'distinct', 'exists:fs_items,uuid'],
             'ingredients.*.quantity' => ['required', 'numeric', 'gt:0'],
-            'ingredients.*.unit' => ['required', 'string', 'max:30'],
+            'ingredients.*.unit' => ['required', 'string', 'max:30', 'not_regex:/^\s*to\s+taste\s*$/i'],
+            'ingredients.*.adjust_to_taste' => ['sometimes', 'boolean'],
         ];
     }
 

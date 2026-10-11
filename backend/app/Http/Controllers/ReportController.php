@@ -506,7 +506,9 @@ class ReportController extends Controller
             && $report->cache_expires_at?->isFuture()
             && Storage::disk($diskName)->exists($path);
 
-        if (($report->status === 'archived' || ($report->snapshot['was_archived'] ?? false)) && ! $cacheUsable && ($officialFile = $report->officialFile)) {
+        if (((($report->status === 'archived' || ($report->snapshot['was_archived'] ?? false)) && ! $cacheUsable)
+            || $report->hasFinalizedPurchaseOrderFile())
+            && ($officialFile = $report->officialFile)) {
             if (! Storage::disk($officialFile->storage_disk)->exists($officialFile->object_key)) {
                 return response()->json(['message' => 'The filed report is unavailable.', 'code' => 'official_file_unavailable'], 409);
             }
@@ -558,7 +560,9 @@ class ReportController extends Controller
             && $report->cache_expires_at?->isFuture()
             && Storage::disk($diskName)->exists($path);
 
-        if (($report->status === 'archived' || ($report->snapshot['was_archived'] ?? false)) && ! $cacheUsable && ($officialFile = $report->officialFile)) {
+        if (((($report->status === 'archived' || ($report->snapshot['was_archived'] ?? false)) && ! $cacheUsable)
+            || $report->hasFinalizedPurchaseOrderFile())
+            && ($officialFile = $report->officialFile)) {
             if (! Storage::disk($officialFile->storage_disk)->exists($officialFile->object_key)) {
                 return response()->json(['message' => 'The filed report is unavailable.', 'code' => 'official_file_unavailable'], 409);
             }

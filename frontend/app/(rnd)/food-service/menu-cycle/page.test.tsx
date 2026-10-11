@@ -92,6 +92,14 @@ describe("Menu Cycle template and name editing", () => {
     expect(cycleRows[0].textContent).not.toContain("planned");
   });
 
+  test("explains the difference between estimated and served population accessibly", async () => {
+    await renderPage();
+    const hint = container.querySelector<HTMLButtonElement>('button[aria-label="About menu population"]');
+    expect(hint).not.toBeNull();
+    await act(async () => { await userEvent.setup().hover(hint!); });
+    await vi.waitFor(() => expect(document.body.textContent).toContain("Suggested lists use estimated population to scale planned food. Served population records actual attendance."));
+  });
+
   test("saves an unsaved Menu Plan as a template without creating a cycle", async () => {
     const user = userEvent.setup();
     await renderPage();

@@ -51,16 +51,16 @@ class FoodServiceRecipe extends Model
         $cost = 0.0;
         foreach ($this->ingredients()->with('fsItem')->get() as $ing) {
             $item = $ing->fsItem;
-            if (! $item) {
+            if (! $item || ! $item->include_in_generated_lists
+                || ! UnitConverter::isCompatible((string) $ing->unit, (string) $item->base_unit)
+                || (float) $ing->quantity <= 0) {
                 continue;
             }
             $qty = (float) $ing->quantity;
             $from = (string) $ing->unit;
             $base = (string) $item->base_unit;
 
-            if ($from !== '' && $base !== ''
-                && UnitConverter::normalize($from) !== UnitConverter::normalize($base)
-                && UnitConverter::isKnown($from) && UnitConverter::isKnown($base)) {
+            if (UnitConverter::normalize($from) !== UnitConverter::normalize($base)) {
                 $qty = UnitConverter::convert($qty, $from, $base);
             }
 

@@ -62,13 +62,7 @@ class FoodServiceRecipeController extends Controller
      */
     public static function unitCompatible(string $ingredientUnit, string $baseUnit): bool
     {
-        $a = UnitConverter::normalize($ingredientUnit);
-        $b = UnitConverter::normalize($baseUnit);
-        if ($a === '' || $b === '' || $a === $b) {
-            return true;
-        }
-
-        return UnitConverter::isKnown($a) && UnitConverter::isKnown($b);
+        return UnitConverter::isCompatible($ingredientUnit, $baseUnit);
     }
 
     /**
@@ -94,15 +88,16 @@ class FoodServiceRecipeController extends Controller
     private function assertIngredientUnits(array $ingredients): void
     {
         foreach ($ingredients as $ing) {
-            $base = FsItem::whereKey($ing['fs_item_id'])->value('base_unit');
-            if (! $base) {
+            $item = FsItem::find($ing['fs_item_id']);
+            if (! $item || ! $item->include_in_generated_lists) {
                 continue;
             }
-            $unit = $ing['unit'] ?? $base;
-            // Catalog unit is convertible but the recipe unit is not -> reject.
-            if (UnitConverter::isKnown($base) && ! UnitConverter::isKnown($unit)
-                && UnitConverter::normalize($unit) !== UnitConverter::normalize($base)) {
-                abort(422, "Ingredient unit '{$unit}' can't convert to catalog unit '{$base}' for item #{$ing['fs_item_id']}. Use a mass or volume unit.");
+            $unit = $ing['unit'] ?? $item->base_unit;
+            if (! isset($ing['quantity']) || (float) $ing['quantity'] <= 0) {
+                abort(422, "Auto Grocery ingredient '{$item->name}' needs a measured quantity.");
+            }
+            if (! self::unitCompatible($unit, (string) $item->base_unit)) {
+                abort(422, "Ingredient unit '{$unit}' can't convert to inventory unit '{$item->base_unit}'. Choose a compatible unit.");
             }
         }
     }
@@ -119,7 +114,7 @@ class FoodServiceRecipeController extends Controller
         $baseUnit = $item?->base_unit;
         $unit = $unit ?: $baseUnit;
 
-        if (! $item || ! $baseUnit || $unit === null) {
+        if (! $item || ! $baseUnit || $unit === null || ! $item->include_in_generated_lists || $quantity <= 0) {
             return [
                 'is_convertible' => false,
                 'catalog_unit' => $baseUnit,
@@ -141,7 +136,7 @@ class FoodServiceRecipeController extends Controller
             ];
         }
 
-        if (UnitConverter::isKnown($unit) && UnitConverter::isKnown($baseUnit)) {
+        if (UnitConverter::isCompatible($unit, $baseUnit)) {
             // Recipe unit -> catalog unit. unit_cost is priced per catalog base unit,
             // so the rate per recipe unit converts inversely.
             $qtyInBase = UnitConverter::convert($quantity, $unit, $baseUnit);
@@ -162,7 +157,7 @@ class FoodServiceRecipeController extends Controller
             'catalog_unit' => $baseUnit,
             'converted_quantity' => null,
             'converted_unit_cost' => null,
-            'conversion_warning' => "Unit '{$unit}' can't be converted to catalog unit '{$baseUnit}'; cost uses the entered unit as-is.",
+            'conversion_warning' => "Unit '{$unit}' can't be converted to inventory unit '{$baseUnit}'. This ingredient is left out of automatic cost and shopping lists until corrected.",
         ];
     }
 
@@ -177,7 +172,8 @@ class FoodServiceRecipeController extends Controller
             'ingredients' => ['required', 'array', 'min:1'],
             'ingredients.*.fs_item_id' => ['required', 'string', 'exists:fs_items,uuid'],
             'ingredients.*.quantity' => ['required', 'numeric', 'between:0.01,100000', 'decimal:0,2'],
-            'ingredients.*.unit' => ['nullable', 'string'],
+            'ingredients.*.unit' => ['required', 'string', 'max:30', 'not_regex:/^\s*to\s+taste\s*$/i'],
+            'ingredients.*.adjust_to_taste' => ['sometimes', 'boolean'],
         ]);
 
         $data['ingredients'] = $this->resolveIngredientFsItemIds($data['ingredients']);
@@ -246,7 +242,8 @@ class FoodServiceRecipeController extends Controller
             'ingredients' => ['sometimes', 'array', 'min:1'],
             'ingredients.*.fs_item_id' => ['required_with:ingredients', 'string', 'exists:fs_items,uuid'],
             'ingredients.*.quantity' => ['required_with:ingredients', 'numeric', 'between:0.01,100000', 'decimal:0,2'],
-            'ingredients.*.unit' => ['nullable', 'string'],
+            'ingredients.*.unit' => ['required_with:ingredients', 'string', 'max:30', 'not_regex:/^\s*to\s+taste\s*$/i'],
+            'ingredients.*.adjust_to_taste' => ['sometimes', 'boolean'],
         ]);
 
         if (isset($data['ingredients'])) {
@@ -326,7 +323,7 @@ class FoodServiceRecipeController extends Controller
         return response()->json(null, 204);
     }
 
-    /** @param array<int, array{fs_item_id:int, quantity:mixed, unit?:string|null}> $ingredients */
+    /** @param array<int, array{fs_item_id:int, quantity:mixed, unit:string, adjust_to_taste?:bool}> $ingredients */
     private function syncIngredients(FoodServiceRecipe $recipe, array $ingredients): void
     {
         $recipe->ingredients()->delete();
@@ -335,7 +332,8 @@ class FoodServiceRecipeController extends Controller
                 'food_service_recipe_id' => $recipe->id,
                 'fs_item_id' => $ingredient['fs_item_id'],
                 'quantity' => $ingredient['quantity'],
-                'unit' => $ingredient['unit'] ?? 'g',
+                'unit' => $ingredient['unit'],
+                'adjust_to_taste' => (bool) ($ingredient['adjust_to_taste'] ?? false),
             ]);
         }
     }
@@ -363,15 +361,16 @@ class FoodServiceRecipeController extends Controller
             ->all();
     }
 
-    /** @return list<array{fs_item_id:int, quantity:string, unit:string|null}> */
+    /** @return list<array{fs_item_id:int, quantity:string, unit:string, adjust_to_taste:bool}> */
     private function ingredientSignature(FoodServiceRecipe $recipe): array
     {
         return $recipe->ingredients()->orderBy('fs_item_id')->orderBy('id')
-            ->get(['fs_item_id', 'quantity', 'unit'])
+            ->get(['fs_item_id', 'quantity', 'unit', 'adjust_to_taste'])
             ->map(fn (FoodServiceRecipeIngredient $ingredient): array => [
                 'fs_item_id' => (int) $ingredient->fs_item_id,
                 'quantity' => (string) $ingredient->quantity,
                 'unit' => $ingredient->unit,
+                'adjust_to_taste' => (bool) $ingredient->adjust_to_taste,
             ])
             ->values()
             ->all();
@@ -395,8 +394,9 @@ class FoodServiceRecipeController extends Controller
                 return [
                     'id' => $ing->id,
                     'fs_item_id' => $ing->fs_item_id,
-                    'quantity' => round((float) $ing->quantity, 2),
+                    'quantity' => $ing->quantity === null ? null : round((float) $ing->quantity, 2),
                     'unit' => $ing->unit,
+                    'adjust_to_taste' => (bool) $ing->adjust_to_taste,
                     'is_convertible' => $conv['is_convertible'],
                     'catalog_unit' => $conv['catalog_unit'],
                     'converted_quantity' => $conv['converted_quantity'],
@@ -407,6 +407,7 @@ class FoodServiceRecipeController extends Controller
                         'name' => $ing->fsItem->name,
                         'unit_cost' => round($ing->fsItem->unit_cost, 2),
                         'base_unit' => $ing->fsItem->base_unit,
+                        'include_in_generated_lists' => $ing->fsItem->include_in_generated_lists,
                     ] : null,
                 ];
             })->values(),

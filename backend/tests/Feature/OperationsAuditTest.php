@@ -96,7 +96,7 @@ class OperationsAuditTest extends TestCase
         $this->assertSame('operations', $activity->category->value);
         $this->assertSame('food_service', $activity->domain->value);
         $this->assertSame(
-            ['base_unit', 'include_in_generated_lists', 'is_active', 'kind', 'name', 'purchase_price', 'purchase_unit', 'unit_cost', 'units_per_purchase', 'vendor_locked'],
+            ['base_unit', 'include_in_generated_lists', 'is_active', 'kind', 'name', 'purchase_price', 'purchase_unit', 'unit_cost', 'units_per_purchase'],
             $activity->properties['details']['changed_fields'],
         );
     }
@@ -266,10 +266,10 @@ class OperationsAuditTest extends TestCase
             'name' => 'Audit supply', 'kind' => 'supply', 'base_unit' => 'piece', 'purchase_price' => 10,
         ])->assertCreated()->json('data.id');
         $this->patchJson("/api/fss/fs-items/{$itemId}", ['purchase_price' => 11])->assertOk();
-        $this->patchJson("/api/fss/fs-items/{$itemId}/vendor-lock", ['locked' => true])->assertOk();
+        $this->patchJson("/api/fss/fs-items/{$itemId}/vendor-lock", ['locked' => true])->assertNotFound();
 
         $listId = $this->postJson('/api/fss/shopping-lists', [
-            'name' => 'Audit list', 'procurement_track' => 'supplies',
+            'name' => 'Audit list', 'list_date' => '2026-06-10', 'procurement_track' => 'supplies',
         ])->assertCreated()->json('data.id');
         $lineId = $this->postJson("/api/fss/shopping-lists/{$listId}/items", [
             'fs_item_id' => $itemId, 'qty' => 2,
@@ -281,10 +281,10 @@ class OperationsAuditTest extends TestCase
         $this->deleteJson("/api/fss/fs-items/{$itemId}")->assertNoContent();
 
         $this->assertSame(
-            ['created', 'updated', 'deleted', 'created', 'updated', 'updated', 'created', 'updated', 'updated', 'updated', 'updated', 'deleted', 'deleted'],
+            ['created', 'updated', 'deleted', 'created', 'updated', 'created', 'updated', 'updated', 'updated', 'updated', 'deleted', 'deleted'],
             AuditActivity::query()->orderBy('id')->pluck('event')->all(),
         );
-        $this->assertSame(13, AuditActivity::query()->count());
+        $this->assertSame(12, AuditActivity::query()->count());
     }
 
     public function test_announcement_update_delete_and_admin_store_each_emit_one_sanitized_event(): void
@@ -415,7 +415,7 @@ class OperationsAuditTest extends TestCase
         $item = FsItem::factory()->create(['kind' => 'supply']);
         AuditFixture::delete(AuditActivity::query());
         $listId = $this->actingAs($user)->postJson('/api/fss/shopping-lists', [
-            'name' => 'Context list', 'procurement_track' => 'supplies',
+            'name' => 'Context list', 'list_date' => '2026-06-10', 'procurement_track' => 'supplies',
         ])->assertCreated()->json('data.id');
         $lineId = $this->postJson("/api/fss/shopping-lists/{$listId}/items", [
             'fs_item_id' => $item->uuid, 'qty' => 1,

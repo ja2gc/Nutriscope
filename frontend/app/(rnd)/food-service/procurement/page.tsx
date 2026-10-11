@@ -11,11 +11,11 @@ import { Button } from "@/components/ui/Button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import {
-  ShoppingList, PurchaseOrder, POAttachment,
+  ShoppingList, PurchaseOrder, POAttachment, ShoppingListItem, ShoppingListDraftItem,
   listShoppingLists, getShoppingList, generateByDates, deleteShoppingList,
   updateListItem, approveShoppingList, listPurchaseOrders, getPurchaseOrder,
   deletePurchaseOrder, deleteAttachment,
-  createShoppingList, updateShoppingList, addListItem, deleteListItem,
+  createShoppingList, updateShoppingList,
   updateVendorGroup, uploadVendorGroupAttachments,
   MissingMenuDaysError,
 } from "@/services/procurementService";
@@ -24,14 +24,16 @@ import { searchCatalog, type CatalogItem } from "@/services/fsCatalogService";
 import { SuppliersPanel } from "@/components/foodservice/SuppliersPanel";
 import { ImageUploadGallery, type UploadImage } from "@/components/ui/ImageUploadGallery";
 import { DatePicker } from "@/components/ui/DatePicker";
+import { InfoHint } from "@/components/ui/InfoHint";
 import { VendorChangeControls } from "@/components/foodservice/VendorChangeControls";
 import { PurchaseValueComparison } from "@/components/foodservice/PurchaseValueComparison";
 import { ShoppingListCopyCard } from "@/components/foodservice/ShoppingListCopyCard";
-import { CATALOG_UNIT_OPTIONS } from "@/lib/units";
 import { formatFoodServiceNumber } from "@/lib/foodServiceFormat";
+import { compatibleRecipeUnits, foodServiceUnitFactor } from "@/lib/foodServiceUnits";
 
 const peso = (n: number) => `₱${n.toFixed(2)}`;
 const num = (s: string | number | null | undefined) => (s != null ? parseFloat(String(s)) : 0);
+const purchaseNumber = (value: string | number | null | undefined) => String(Number(num(value).toFixed(6)));
 const poStatusLabel = (status: PurchaseOrder["lifecycle_status"]) => ({
   open_execution: "In progress",
   completed: "Completed",
@@ -60,10 +62,15 @@ function Crumbs({ children }: { children?: React.ReactNode }) {
 }
 
 // ═══ Shopping list detail ═════════════════════════════════════════════════════
-function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
-  id: string; suppliers: Supplier[]; onBack: () => void; onPosGenerated: () => void;
+function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerated }: {
+  id: string | null; initialDraft?: ShoppingList | null; suppliers: Supplier[];
+  onBack: () => void; onSaved: (saved: ShoppingList) => void; onPosGenerated: () => void;
 }) {
   const [list, setList] = useState<ShoppingList | null>(null);
+  const [savedSnapshot, setSavedSnapshot] = useState("");
+  const [confirmMode, setConfirmMode] = useState<"back" | "first-save" | null>(null);
+  const [closeAfterSave, setCloseAfterSave] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [busy, setBusy] = useState(false);
   const [itemSearch, setItemSearch] = useState("");
   const [itemResults, setItemResults] = useState<CatalogItem[]>([]);
@@ -80,14 +87,36 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
   const itemSearchRequest = useRef(0);
 
   const load = useCallback(() => {
-    getShoppingList(id).then(setList);
-  }, [id]);
+    if (id) {
+      getShoppingList(id).then((saved) => { setList(saved); setSavedSnapshot(JSON.stringify(saved)); });
+    } else if (initialDraft) {
+      setList(initialDraft);
+      setSavedSnapshot(JSON.stringify(initialDraft));
+    }
+  }, [id, initialDraft]);
   useEffect(() => { load(); }, [load]);
 
-  // Reload the full list after any item change so estimated totals recalculate server-side.
-  async function patchItem(itemId: string, patch: Parameters<typeof updateListItem>[1]) {
-    await updateListItem(itemId, patch);
-    load();
+  function patchItem(itemId: string, patch: Parameters<typeof updateListItem>[1]) {
+    setList((current) => current ? { ...current, items: current.items.map((item) => {
+      if (item.id !== itemId) return item;
+      let next: ShoppingListItem = { ...item, ...patch as Partial<ShoppingListItem> };
+      if (patch.purchase_unit && patch.purchase_unit !== (item.purchase_unit ?? item.unit)) {
+        const factor = foodServiceUnitFactor(item.purchase_unit ?? item.unit, patch.purchase_unit);
+        if (factor !== null) {
+          const quantity = num(item.purchase_qty ?? item.qty) * factor;
+          next = { ...next, purchase_qty: purchaseNumber(quantity),
+            purchase_price: quantity > 0 ? purchaseNumber(num(item.total) / quantity) : "0" };
+        }
+      }
+      if (patch.quantity_mode && patch.quantity_mode !== "manual") {
+        const factor = foodServiceUnitFactor(item.unit, next.purchase_unit ?? item.unit);
+        const calculated = num(item.qty) * (factor ?? 1);
+        next.purchase_qty = purchaseNumber(patch.quantity_mode === "rounded" ? Math.round(calculated) : calculated);
+      }
+      if (patch.purchase_qty !== undefined) next.quantity_mode = "manual";
+      next.total = (num(next.purchase_qty ?? next.qty) * num(next.purchase_price ?? next.unit_price)).toFixed(2);
+      return next;
+    }) } : current);
   }
 
   async function searchItems(q: string) {
@@ -116,11 +145,9 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
     const requestId = ++itemSearchRequest.current;
     setItemError("");
     try {
-      const result = await searchCatalog("Rice", "ingredient");
-      const riceRank = (item: CatalogItem) =>
-        item.name.localeCompare("Rice", undefined, { sensitivity: "base" }) === 0 ? 0 : 1;
+      const result = await searchCatalog("", "ingredient", 5, "non_auto");
       if (requestId === itemSearchRequest.current) {
-        setItemResults([...result].sort((a, b) => riceRank(a) - riceRank(b)).slice(0, 5));
+        setItemResults(result);
       }
     } catch (e) {
       if (requestId === itemSearchRequest.current) {
@@ -150,13 +177,20 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
     setItemError("");
     setAddingItem(true);
     try {
-      const created = await addListItem(list.id, {
-        fs_item_id: selectedItem.id,
-        qty,
-        unit: selectedItem.base_unit || "unit",
-        unit_price: Number.isFinite(unitPrice) ? unitPrice : 0,
-        supplier_id: addSupplier ? addSupplier : null,
-      });
+      const unit = selectedItem.base_unit || "unit";
+      const price = Number.isFinite(unitPrice) ? unitPrice : 0;
+      const created: ShoppingListItem = {
+        id: `draft:${crypto.randomUUID()}`,
+        fs_item_id: null,
+        fs_item_uuid: selectedItem.id,
+        inventory_unit: unit,
+        ingredient_name: selectedItem.name,
+        qty: String(qty), unit, unit_price: String(price),
+        purchase_qty: String(qty), purchase_unit: unit, purchase_price: String(price),
+        total: (qty * price).toFixed(2), supplier_id: addSupplier || null,
+        source: "manual", item_type: isSupplies ? "supply" : "ingredient",
+        included_in_po: true, exclusion_note: null, quantity_mode: "manual",
+      };
       setList({ ...list, items: [...list.items, created] });
       setItemSearch("");
       setSelectedItem(null);
@@ -171,50 +205,85 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
     }
   }
 
-  async function removeItem(itemId: string) {
-    await deleteListItem(itemId);
-    load();
+  function removeItem(itemId: string) {
+    setList((current) => current ? { ...current, items: current.items.filter((item) => item.id !== itemId) } : current);
   }
 
   async function doGeneratePos() {
     setBusy(true);
-    try { await approveShoppingList(id); onPosGenerated(); }
+    try { if (id) { await approveShoppingList(id); onPosGenerated(); } }
     catch (e) { setApproveErr(e instanceof Error ? e.message : "Failed to approve."); }
     finally { setBusy(false); }
   }
 
-  async function saveName() {
+  function saveName() {
     if (!list || !nameDraft.trim()) return;
-    const updated = await updateShoppingList(list.id, { name: nameDraft.trim() });
-    setList(updated);
+    setList({ ...list, name: nameDraft.trim() });
     setEditingName(false);
+  }
+
+  async function saveList(closeAfter = false) {
+    if (!list) return;
+    setBusy(true);
+    setSaveError("");
+    try {
+      const items: ShoppingListDraftItem[] = list.items.map((item) => ({
+        ...(id && !item.id.startsWith("draft:") ? { id: item.id } : {}),
+        fs_item_uuid: item.fs_item_uuid ?? "",
+        source: item.source,
+        purchase_qty: num(item.purchase_qty ?? item.qty),
+        purchase_unit: item.purchase_unit ?? item.unit,
+        purchase_price: num(item.purchase_price ?? item.unit_price),
+        supplier_id: item.supplier_id ? String(item.supplier_id) : null,
+        quantity_mode: item.quantity_mode ?? "calculated",
+        included_in_po: item.included_in_po,
+        exclusion_note: item.exclusion_note,
+      }));
+      const saved = id
+        ? await updateShoppingList(id, { name: list.name, items })
+        : await generateByDates(list.period_start!, list.period_end!, list.estimate_population!, list.name, { items });
+      setConfirmMode(null);
+      setList(saved);
+      setSavedSnapshot(JSON.stringify(saved));
+      onSaved(saved);
+      if (closeAfter) onBack();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Could not save Shopping List.");
+    } finally { setBusy(false); }
+  }
+
+  const dirty = !id || JSON.stringify(list) !== savedSnapshot;
+  function requestBack() {
+    if (dirty) setConfirmMode("back");
+    else onBack();
   }
 
   if (!list) return <div className="py-16 text-center text-sm text-warm-400">Loading…</div>;
 
   const isSupplies = list.procurement_track === "supplies";
-  const estimatedTotal = num(list.estimated_total);
-  const budgetPerHeadPerDay = list.estimated_budget_per_head_per_day;
+  const estimatedTotal = list.items.filter((item) => item.included_in_po).reduce((sum, item) => sum + num(item.total), 0);
+  const budgetPerHeadPerDay = list.estimate_population && list.days_span
+    ? estimatedTotal / (list.estimate_population * list.days_span) : null;
 
   return (
     <div className="space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
-          <button onClick={onBack} className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 cursor-pointer">
+          <button onClick={requestBack} aria-label="Back to Shopping Lists" className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 cursor-pointer">
             <ChevronLeft className="h-4 w-4" />
           </button>
           <div>
             {editingName ? (
               <div className="flex items-center gap-2">
-                <input aria-label="Shopping list name" value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void saveName(); }} className="rounded-lg border border-warm-200 px-2 py-1 text-lg font-extrabold text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-                <button onClick={() => void saveName()} aria-label="Save name" className="rounded-lg p-2 text-emerald-600 hover:bg-emerald-50"><Check className="h-4 w-4" /></button>
+                <input aria-label="Shopping list name" value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") saveName(); }} className="rounded-lg border border-warm-200 px-2 py-1 text-lg font-extrabold text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                <button onClick={saveName} aria-label="Apply name" className="rounded-lg p-2 text-emerald-600 hover:bg-emerald-50"><Check className="h-4 w-4" /></button>
                 <button onClick={() => { setNameDraft(list.name); setEditingName(false); }} aria-label="Cancel rename" className="rounded-lg p-2 text-warm-500 hover:bg-warm-100"><X className="h-4 w-4" /></button>
               </div>
             ) : (
               <div className="flex items-center gap-2">
                 <h3 className="text-lg font-extrabold text-warm-900">{list.name}</h3>
-                <button onClick={() => { setNameDraft(list.name); setEditingName(true); }} aria-label={`Rename ${list.name}`} className="rounded-lg p-1.5 text-warm-400 hover:bg-warm-100 hover:text-warm-700"><Pencil className="h-3.5 w-3.5" /></button>
+                {list.status === "draft" && <button onClick={() => { setNameDraft(list.name); setEditingName(true); }} aria-label={`Rename ${list.name}`} className="rounded-lg p-1.5 text-warm-400 hover:bg-warm-100 hover:text-warm-700"><Pencil className="h-3.5 w-3.5" /></button>}
               </div>
             )}
             <div className="text-xs text-warm-400 flex items-center gap-2">
@@ -228,16 +297,19 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
           </div>
         </div>
         <div className="flex flex-col items-end gap-1">
+          {list.status === "draft" && <Button variant="secondary" onClick={() => id ? void saveList() : setConfirmMode("first-save")} loading={busy} className="px-4 py-2">Save Shopping List</Button>}
           <Button
             variant="primary"
             onClick={doGeneratePos}
             loading={busy}
-            disabled={list.status === "converted" || !list.release_readiness?.ready}
+            disabled={!id || dirty || list.status === "converted" || !list.release_readiness?.ready}
             className="px-4 py-2 flex items-center gap-2"
           >
             <Split className="h-4 w-4" />
-            {list.status === "converted" ? "PO released" : "Create and release PO"}
+            {list.status === "converted" ? "PO released" : "Turn Into PO"}
           </Button>
+          {!id || dirty ? <span className="text-xs text-warm-500">Save the list before Turn Into PO.</span> : null}
+          {saveError && <span role="alert" className="text-xs text-red-600 font-semibold">{saveError}</span>}
           {approveErr && <span className="text-xs text-red-600 font-semibold">{approveErr}</span>}
         </div>
       </div>
@@ -347,6 +419,7 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
 
       {/* Cart table */}
       <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
+        <div className="flex items-center gap-1 px-3 pt-2 text-xs text-warm-500">Quantity options<InfoHint label="About Shopping List quantities" title="Shopping List quantities">Calculated need follows Estimated servings. Round to the nearest whole unit or enter a purchase quantity. Changing either does not change the Food recipe or Estimated servings.</InfoHint></div>
         <table className="w-full text-sm">
           <thead className="bg-warm-50 border-b border-warm-100">
             <tr>
@@ -371,8 +444,8 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
                     disabled={list.status === "converted"} onBlur={(e) => patchItem(it.id, { exclusion_note: e.target.value || null })}
                     className="mt-1 block w-40 rounded border border-warm-200 px-2 py-1 text-xs font-normal" />}
                 </td>
-                <td className="px-3 py-2 font-mono text-warm-700">{formatFoodServiceNumber(num(it.qty))} {it.unit}</td>
-                <td className="px-3 py-2"><input type="number" min="0" step="any" key={`${it.id}:purchase-qty:${formatFoodServiceNumber(it.purchase_qty ?? it.qty)}`} defaultValue={formatFoodServiceNumber(it.purchase_qty ?? it.qty)} disabled={list.status === "converted"}
+                <td className="px-3 py-2 font-mono text-warm-700">{purchaseNumber(it.qty)} {it.unit}</td>
+                <td className="px-3 py-2"><input type="number" min="0" step="any" key={`${it.id}:purchase-qty:${purchaseNumber(it.purchase_qty ?? it.qty)}`} defaultValue={purchaseNumber(it.purchase_qty ?? it.qty)} disabled={list.status === "converted"}
                   onChange={(e) => { e.currentTarget.dataset.userEdited = "true"; }}
                   onBlur={(e) => {
                     const input = e.currentTarget;
@@ -380,14 +453,15 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
                     const value = parseFloat(input.value);
                     if (!Number.isFinite(value)) return;
                     delete input.dataset.userEdited;
-                    void patchItem(it.id, isSupplies ? { qty: value } : { purchase_qty: value });
+                    patchItem(it.id, isSupplies ? { qty: value } : { purchase_qty: value });
                   }}
-                  className="w-24 rounded border border-warm-200 px-2 py-1 disabled:bg-warm-50" /></td>
+                  className="w-24 rounded border border-warm-200 px-2 py-1 disabled:bg-warm-50" />
+                  {!isSupplies && <select aria-label={`Quantity mode for ${it.ingredient_name}`} value={it.quantity_mode ?? "calculated"} disabled={list.status === "converted"} onChange={(e) => patchItem(it.id, { quantity_mode: e.target.value as "calculated" | "rounded" | "manual" })} className="mt-1 w-28 rounded border border-warm-200 bg-white text-xs"><option value="calculated">Calculated</option><option value="rounded">Round nearest</option><option value="manual">Manual</option></select>}</td>
                 <td className="px-3 py-2">
                   <select value={it.purchase_unit ?? it.unit} disabled={list.status === "converted" || isSupplies}
                     onChange={(e) => patchItem(it.id, { purchase_unit: e.target.value })}
                     className="w-24 rounded border border-warm-200 bg-white px-2 py-1 disabled:bg-warm-50">
-                    {[it.purchase_unit ?? it.unit, ...CATALOG_UNIT_OPTIONS]
+                    {[it.purchase_unit ?? it.unit, ...compatibleRecipeUnits(it.inventory_unit ?? it.unit, true)]
                       .filter((unit, index, units) => units.indexOf(unit) === index)
                       .map((unit) => <option key={unit} value={unit}>{unit}</option>)}
                   </select>
@@ -406,8 +480,8 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
                 <td className="px-3 py-2">
                   <input
                     type="number"
-                    key={`${it.id}:unit-price:${formatFoodServiceNumber(it.purchase_price ?? it.unit_price)}`}
-                    defaultValue={formatFoodServiceNumber(it.purchase_price ?? it.unit_price)}
+                    key={`${it.id}:unit-price:${purchaseNumber(it.purchase_price ?? it.unit_price)}`}
+                    defaultValue={purchaseNumber(it.purchase_price ?? it.unit_price)}
                     step="any"
                     disabled={list.status === "converted"}
                     onChange={(e) => { e.currentTarget.dataset.userEdited = "true"; }}
@@ -417,7 +491,7 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
                       const value = parseFloat(input.value);
                       if (!Number.isFinite(value)) return;
                       delete input.dataset.userEdited;
-                      void patchItem(it.id, isSupplies ? { unit_price: value } : { purchase_price: value });
+                      patchItem(it.id, isSupplies ? { unit_price: value } : { purchase_price: value });
                     }}
                     className="w-20 px-2 py-1 border border-warm-200 rounded focus:outline-none focus:ring-1 focus:ring-emerald-400 disabled:bg-warm-50 disabled:text-warm-400"
                   />
@@ -450,9 +524,23 @@ function ListDetail({ id, suppliers, onBack, onPosGenerated }: {
         </table>
       </div>
       <p className="text-xs text-warm-400">
-        Vendor is auto-suggested from the latest procurement and auto-updates unless locked.
+        Inventory suggests the Vendor from the latest completed PO.
         Converting to a PO creates one purchase order grouped by vendor.
       </p>
+      {confirmMode && <div role="dialog" aria-modal="true" aria-label={confirmMode === "back" ? "Unsaved Shopping List" : "Save Shopping List"} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl space-y-4">
+          {confirmMode === "first-save" ? <>
+            <h3 className="text-lg font-bold text-warm-900">Save Shopping List?</h3>
+            <p className="text-sm text-warm-600">This list uses the current estimated servings for the selected Menu Calendar service days. You can keep editing it after saving. Saving does not create a purchase order; Turn Into PO is a separate action.</p>
+            <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => { setConfirmMode(null); setCloseAfterSave(false); }}>Keep Editing</Button><Button variant="primary" onClick={() => void saveList(closeAfterSave)} loading={busy}>Save Shopping List</Button></div>
+          </> : <>
+            <h3 className="text-lg font-bold text-warm-900">Unsaved Shopping List</h3>
+            <p className="text-sm text-warm-600">Save your changes before leaving?</p>
+            <div className="flex justify-end gap-2"><Button variant="secondary" onClick={onBack}>Discard</Button><Button variant="primary" onClick={() => { if (!id) { setCloseAfterSave(true); setConfirmMode("first-save"); } else void saveList(true); }} loading={busy}>Save</Button></div>
+          </>}
+          {saveError && <p role="alert" className="text-sm text-red-600">{saveError}</p>}
+        </div>
+      </div>}
     </div>
   );
 }
@@ -466,42 +554,48 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [deletingImageId, setDeletingImageId] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
-  const [actualDraft, setActualDraft] = useState<Record<number, { qty: string; price: string; qtyEdited: boolean; priceEdited: boolean }>>({});
-  const [receiptTotal, setReceiptTotal] = useState("");
+  const [actualError, setActualError] = useState<string | null>(null);
+  const [actualDraft, setActualDraft] = useState<Record<number, { qty: string; price: string; total: string; totalEdited: boolean }>>({});
   const group = po.vendor_groups?.find((g) => g.id === groupId) ?? null;
   const locked = po.lifecycle_status !== "open_execution";
 
   useEffect(() => { setOrDraft(group?.or_number ?? ""); }, [group?.id, group?.or_number]);
   useEffect(() => {
     setActualDraft(Object.fromEntries((group?.items ?? []).map((item) => [item.id, {
-      qty: formatFoodServiceNumber(item.actual_qty),
-      price: formatFoodServiceNumber(item.actual_unit_price),
-      qtyEdited: false,
-      priceEdited: false,
+      qty: String(num(item.actual_qty)),
+      price: String(num(item.actual_unit_price)),
+      total: String(num(item.actual_total)),
+      totalEdited: false,
     }])));
-    setReceiptTotal("");
   }, [group]);
 
   async function saveGroup(next: Parameters<typeof updateVendorGroup>[1]) {
     if (!group) return;
     setBusy(true);
+    setActualError(null);
     try { await updateVendorGroup(group.id, next); reload(); }
+    catch (error) { setActualError(error instanceof Error ? error.message : "Could not save actual values."); }
     finally { setBusy(false); }
   }
 
   async function saveActuals(markReceived = false) {
     if (!group) return;
-    const singleReceiptTotal = receiptTotal && (group.items ?? []).length === 1 ? parseFloat(receiptTotal) : undefined;
     const items = (group.items ?? []).map((item) => {
       const draft = actualDraft[item.id];
       return {
         id: item.id,
-        ...(singleReceiptTotal === undefined
-          ? { actual_qty: parseFloat(draft?.qtyEdited ? draft.qty : item.actual_qty) }
-          : { receipt_total: singleReceiptTotal }),
-        actual_unit_price: parseFloat(draft?.priceEdited ? draft.price : item.actual_unit_price),
+        ...(draft?.totalEdited
+          ? { receipt_total: parseFloat(draft.total) }
+          : { actual_qty: parseFloat(draft?.qty ?? item.actual_qty) }),
+        actual_unit_price: parseFloat(draft?.price ?? item.actual_unit_price),
       };
     });
+    if (items.some((item) => !Number.isFinite(item.actual_unit_price) || item.actual_unit_price <= 0 ||
+      ("receipt_total" in item ? !Number.isFinite(item.receipt_total) || item.receipt_total < 0 :
+        !Number.isFinite(item.actual_qty) || item.actual_qty < 0))) {
+      setActualError("Enter a valid quantity, unit price, and total for each item.");
+      return;
+    }
     await saveGroup({ items, ...(markReceived ? { status: "received" as const } : {}) });
   }
   async function uploadGroupFiles(type: "receipt" | "proof", files: File[]) {
@@ -538,14 +632,14 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
         <div className="flex items-center gap-2 text-sm font-semibold text-warm-400">
           <button onClick={() => setGroupId(null)} className="hover:text-emerald-700">Procurement</button>
           <span>/</span><span>{po.po_number}</span><span>/</span>
-          <span className="text-warm-700">{group.supplier?.name ?? "Unassigned vendor"}</span>
+          <span className="text-warm-700">{group.supplier?.name ?? "Unspecified"}</span>
         </div>
         <div className="flex items-center gap-3">
           <button onClick={() => setGroupId(null)} className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 cursor-pointer">
             <ChevronLeft className="h-4 w-4" />
           </button>
           <div>
-            <h3 className="text-lg font-extrabold text-warm-900">{group.supplier?.name ?? "Unassigned vendor"}</h3>
+            <h3 className="text-lg font-extrabold text-warm-900">{group.supplier?.name ?? "Unspecified"}</h3>
             <div className="text-xs text-warm-400">Status: {group.status === "received" ? "Received" : "Pending"} · Total {peso(num(group.total_amount))}</div>
           </div>
         </div>
@@ -579,29 +673,40 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
             <tbody className="divide-y divide-zinc-100">
               {(group.items ?? []).map((item) => {
                 const draft = actualDraft[item.id];
-                const actualQty = draft?.qtyEdited ? num(draft.qty) : num(item.actual_qty);
-                const actualPrice = draft?.priceEdited ? num(draft.price) : num(item.actual_unit_price);
+                const actualPrice = num(draft?.price ?? item.actual_unit_price);
+                const actualQty = draft?.totalEdited && actualPrice > 0
+                  ? num(draft.total) / actualPrice
+                  : num(draft?.qty ?? item.actual_qty);
                 return <tr key={item.id}>
                   <td className="px-3 py-3">
                     <div className="font-semibold text-warm-800">{item.description}</div>
-                    <PurchaseValueComparison item={item} actualQty={String(actualQty)} actualPrice={String(actualPrice)} />
                   </td>
-                  <td className="px-3 py-2"><input type="number" min="0" step="any" disabled={locked}
-                    value={draft?.qty ?? formatFoodServiceNumber(item.actual_qty)}
+                  <td className="px-3 py-2"><input type="number" min="0" step="1" disabled={locked}
+                    value={draft?.totalEdited && actualPrice > 0 ? String(Math.round(num(draft.total) / actualPrice * 1000) / 1000) : draft?.qty ?? String(num(item.actual_qty))}
                     onChange={(e) => setActualDraft((current) => {
-                      const currentDraft = current[item.id] ?? { qty: formatFoodServiceNumber(item.actual_qty), price: formatFoodServiceNumber(item.actual_unit_price), qtyEdited: false, priceEdited: false };
-                      return { ...current, [item.id]: { ...currentDraft, qty: e.target.value, qtyEdited: true } };
+                      const currentDraft = current[item.id] ?? { qty: String(num(item.actual_qty)), price: String(num(item.actual_unit_price)), total: String(num(item.actual_total)), totalEdited: false };
+                      return { ...current, [item.id]: { ...currentDraft, qty: e.target.value, totalEdited: false } };
                     })}
                     className="w-24 rounded border border-warm-200 px-2 py-1 disabled:bg-warm-50" /></td>
                   <td className="px-3 py-2 text-warm-600" aria-label={`Unit for ${item.description}`}>{item.purchase_unit ?? item.unit}</td>
+                  <td className="px-3 py-2">
+                    <input type="number" min="0" step="any" disabled={locked}
+                      value={draft?.price ?? String(num(item.actual_unit_price))}
+                      onChange={(e) => setActualDraft((current) => {
+                        const currentDraft = current[item.id] ?? { qty: String(num(item.actual_qty)), price: String(num(item.actual_unit_price)), total: String(num(item.actual_total)), totalEdited: false };
+                        return { ...current, [item.id]: { ...currentDraft, price: e.target.value } };
+                      })}
+                      className="w-24 rounded border border-warm-200 px-2 py-1 disabled:bg-warm-50" />
+                    <PurchaseValueComparison item={item} actualQty={String(actualQty)} actualPrice={String(actualPrice)} />
+                  </td>
                   <td className="px-3 py-2"><input type="number" min="0" step="any" disabled={locked}
-                    value={draft?.price ?? formatFoodServiceNumber(item.actual_unit_price)}
+                    aria-label={`Actual Total for ${item.description}`}
+                    value={draft?.totalEdited ? draft.total : (actualQty * actualPrice).toFixed(2)}
                     onChange={(e) => setActualDraft((current) => {
-                      const currentDraft = current[item.id] ?? { qty: formatFoodServiceNumber(item.actual_qty), price: formatFoodServiceNumber(item.actual_unit_price), qtyEdited: false, priceEdited: false };
-                      return { ...current, [item.id]: { ...currentDraft, price: e.target.value, priceEdited: true } };
+                      const currentDraft = current[item.id] ?? { qty: String(num(item.actual_qty)), price: String(num(item.actual_unit_price)), total: String(num(item.actual_total)), totalEdited: false };
+                      return { ...current, [item.id]: { ...currentDraft, total: e.target.value, totalEdited: true } };
                     })}
                     className="w-24 rounded border border-warm-200 px-2 py-1 disabled:bg-warm-50" /></td>
-                  <td className="px-3 py-2 font-mono text-emerald-700">{peso(actualQty * actualPrice)}</td>
                   <td className="px-3 py-2">
                     <VendorChangeControls
                       group={group}
@@ -614,19 +719,21 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
                 </tr>;
               })}
             </tbody>
+            <tfoot className="bg-warm-50 border-t border-warm-200"><tr><td colSpan={4} className="px-3 py-3 text-right font-bold text-warm-600">Receipt Total</td><td className="px-3 py-3 font-mono font-bold text-emerald-700">{peso((group.items ?? []).reduce((sum, item) => {
+              const draft = actualDraft[item.id];
+              return sum + (draft?.totalEdited ? num(draft.total) : num(draft?.qty ?? item.actual_qty) * num(draft?.price ?? item.actual_unit_price));
+            }, 0))}</td><td /></tr></tfoot>
           </table>
         </div>
 
         {!locked && <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-warm-200 bg-white p-4">
-          <label><span className="mb-1 block text-xs font-bold uppercase text-warm-500">Receipt total (optional)</span>
-            <input type="number" min="0" step="any" value={receiptTotal} onChange={(e) => setReceiptTotal(e.target.value)}
-              className="w-52 rounded border border-warm-200 px-3 py-2" /></label>
           <Button variant="secondary" onClick={() => saveActuals(false)} loading={busy}>Save actual values</Button>
           <Button variant="primary" onClick={() => saveActuals(true)} loading={busy}
             disabled={!group.evidence_requirements?.receipt_uploaded || !group.evidence_requirements?.proof_uploaded}>
             Mark vendor received
           </Button>
           <span className="text-xs text-warm-500">Receipt and proof are required. OR number is not.</span>
+          {actualError && <span role="alert" className="text-xs font-semibold text-red-600">{actualError}</span>}
         </div>}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -770,6 +877,7 @@ export default function ProcurementPage() {
   const targetPoId = searchParams.get("poId") || null;
   const [tab, setTab] = useState<"food-lists" | "supplies-lists" | "pos" | "suppliers">("food-lists");
   const [listDetail, setListDetail] = useState<string | null>(null);
+  const [draftPreview, setDraftPreview] = useState<ShoppingList | null>(null);
   const [poDetail, setPoDetail] = useState<string | null>(null);
 
   const [lists, setLists] = useState<ShoppingList[]>([]);
@@ -784,6 +892,9 @@ export default function ProcurementPage() {
   const [genError, setGenError] = useState("");
   const [genMissing, setGenMissing] = useState<Record<string, string>>({});
   const [newListName, setNewListName] = useState("");
+  const [manualTrack, setManualTrack] = useState<"food" | "supplies" | null>(null);
+  const [manualListDate, setManualListDate] = useState("");
+  const [manualListError, setManualListError] = useState("");
   const [listPage, setListPage] = useState(1);
   const [poPage, setPoPage] = useState(1);
   const [listMeta, setListMeta] = useState<PaginationMeta | null>(null);
@@ -801,6 +912,7 @@ export default function ProcurementPage() {
   useEffect(() => {
     if (!targetPoId || poDetail === targetPoId) return;
     setListDetail(null);
+    setDraftPreview(null);
     setTab("pos");
     setPoDetail(targetPoId);
   }, [targetPoId, poDetail]);
@@ -822,11 +934,10 @@ export default function ProcurementPage() {
     }
     setGenError(""); setGenMissing({});
     try {
-      const list = await generateByDates(genStartDate, genEndDate, estimate, genName.trim());
+      const list = await generateByDates(genStartDate, genEndDate, estimate, genName.trim(), { preview: true });
       setGenOpen(false);
-      setLists((current) => [list, ...current]);
       setTab("food-lists");
-      setListDetail(list.id);
+      setDraftPreview(list);
     } catch (e) {
       if (e instanceof MissingMenuDaysError) {
         setGenError(e.message);
@@ -839,18 +950,27 @@ export default function ProcurementPage() {
 
   async function createManualList(track: "food" | "supplies") {
     const name = track === "food" ? "Manual Food List" : newListName.trim();
-    if (!name) return;
+    if (!name || !manualListDate) return;
     const created = await createShoppingList({
       name,
       list_type: "manual",
       procurement_track: track,
       status: "draft",
-      list_date: new Date().toISOString().slice(0, 10),
+      list_date: manualListDate,
     });
     setLists((current) => [created, ...current]);
     if (track === "supplies") setNewListName("");
+    setManualTrack(null);
+    setManualListDate("");
+    setManualListError("");
     setTab(track === "supplies" ? "supplies-lists" : "food-lists");
     setListDetail(created.id);
+  }
+
+  function openManualList(track: "food" | "supplies") {
+    setManualTrack(track);
+    setManualListDate("");
+    setManualListError("");
   }
 
   async function removeList(id: string) {
@@ -868,14 +988,16 @@ export default function ProcurementPage() {
   const visibleLists = tab === "supplies-lists" ? suppliesLists : foodLists;
   // POs tab shows all converted procurement events.
 
-  if (listDetail) return (
+  if (listDetail || draftPreview) return (
     <div className="space-y-6 font-sans">
       <Crumbs />
       <ListDetail
         id={listDetail}
+        initialDraft={draftPreview}
         suppliers={suppliers}
-        onBack={() => { setListDetail(null); void load(); }}
-        onPosGenerated={() => { setListDetail(null); setTab("pos"); void load(); }}
+        onBack={() => { setListDetail(null); setDraftPreview(null); void load(); }}
+        onSaved={(saved) => { setLists((current) => [saved, ...current.filter((list) => list.id !== saved.id)]); setListDetail(saved.id); setDraftPreview(null); }}
+        onPosGenerated={() => { setListDetail(null); setDraftPreview(null); setTab("pos"); void load(); }}
       />
     </div>
   );
@@ -901,18 +1023,19 @@ export default function ProcurementPage() {
             <div className="flex items-center gap-2">
               <input
                 value={newListName}
+                aria-label="Supplies list name"
                 onChange={(e) => setNewListName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") void createManualList("supplies"); }}
+                onKeyDown={(e) => { if (e.key === "Enter") openManualList("supplies"); }}
                 className="w-44 px-3 py-2 text-sm border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
-              <Button variant="secondary" onClick={() => createManualList("supplies")} className="px-3 py-2 flex items-center gap-1.5">
+                <Button variant="secondary" onClick={() => openManualList("supplies")} className="px-3 py-2 flex items-center gap-1.5">
                 <Plus className="h-3.5 w-3.5" /> New supplies list
               </Button>
             </div>
           )}
           {tab === "food-lists" && (
             <div className="flex items-center gap-2">
-              <Button variant="secondary" onClick={() => createManualList("food")} className="px-3 py-2"><Plus className="h-3.5 w-3.5" /> Manual food list</Button>
+              <Button variant="secondary" onClick={() => openManualList("food")} className="px-3 py-2"><Plus className="h-3.5 w-3.5" /> Manual food list</Button>
               <Button variant="primary" onClick={() => setGenOpen(true)} className="px-4 py-2.5 flex items-center gap-2">
                 Suggest from Menu
               </Button>
@@ -921,10 +1044,35 @@ export default function ProcurementPage() {
         </div>
       </div>
 
+      {manualTrack && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+          <section role="dialog" aria-modal="true" aria-labelledby="manual-list-title" className="w-full max-w-md space-y-4 rounded-2xl bg-white p-6 shadow-xl">
+            <div>
+              <h3 id="manual-list-title" className="text-base font-extrabold text-warm-900">New {manualTrack === "food" ? "manual food" : "supplies"} list</h3>
+              <p className="mt-1 text-sm text-warm-500">Choose the procurement date for this list.</p>
+            </div>
+            <label className="block text-xs font-bold text-warm-600">
+              Procurement date
+              <DatePicker ariaLabel="Procurement date" required value={manualListDate} onChange={setManualListDate} />
+            </label>
+            {manualListError && <p role="alert" className="text-sm font-semibold text-red-600">{manualListError}</p>}
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setManualTrack(null)} className="px-4 py-2">Cancel</Button>
+              <Button aria-label="Create manual shopping list" variant="primary" disabled={!manualListDate || (manualTrack === "supplies" && !newListName.trim())} onClick={() => {
+                void createManualList(manualTrack).catch((error: unknown) => setManualListError(error instanceof Error ? error.message : "Failed to create list."));
+              }} className="px-4 py-2">Create list</Button>
+            </div>
+          </section>
+        </div>
+      )}
+
       {/* Generate food list modal */}
       {genOpen && tab === "food-lists" && (
         <div className="bg-emerald-50/40 border border-emerald-100 rounded-2xl p-5 shadow-sm">
-          <h3 className="text-sm font-extrabold text-emerald-700 uppercase tracking-wider mb-3">Suggested food shopping list</h3>
+          <h3 className="mb-3 flex items-center gap-2 text-sm font-extrabold uppercase tracking-wider text-emerald-700">
+            Suggested food shopping list
+            <InfoHint label="About suggested lists">Review the suggested quantities before saving. Turn Into PO is a separate step and locks the list.</InfoHint>
+          </h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <div>
               <DatePicker label="From date" value={genStartDate} onChange={(next) => {

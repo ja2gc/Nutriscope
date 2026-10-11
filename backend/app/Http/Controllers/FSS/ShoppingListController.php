@@ -17,6 +17,7 @@ use App\Services\Audit\AuditLogger;
 use App\Services\Audit\Revisions\AuditRevisionRegistry;
 use App\Services\Audit\Revisions\AuditRevisionWriter;
 use App\Services\FSS\ShoppingListPopulationService;
+use App\Support\UnitConverter;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,6 +28,23 @@ use Illuminate\Support\Facades\DB;
 class ShoppingListController extends Controller
 {
     private const ITEM_RELATIONS = ['items.fsItem', 'items.supplier'];
+
+    public static function draftItemRules(): array
+    {
+        return [
+            'items' => ['sometimes', 'array'],
+            'items.*.id' => ['nullable', 'string', 'exists:shopping_list_items,uuid'],
+            'items.*.fs_item_uuid' => ['required', 'string', 'exists:fs_items,uuid'],
+            'items.*.source' => ['required', 'in:generated,manual'],
+            'items.*.purchase_unit' => ['required', 'string', 'max:50'],
+            'items.*.purchase_qty' => ['required', 'numeric', 'min:0'],
+            'items.*.purchase_price' => ['required', 'numeric', 'min:0'],
+            'items.*.supplier_id' => ['nullable', 'string', 'exists:suppliers,uuid'],
+            'items.*.quantity_mode' => ['required', 'in:calculated,rounded,manual'],
+            'items.*.included_in_po' => ['required', 'boolean'],
+            'items.*.exclusion_note' => ['nullable', 'string', 'max:255'],
+        ];
+    }
 
     public function __construct(
         private readonly AuditLogger $auditLogger,
@@ -49,7 +67,6 @@ class ShoppingListController extends Controller
         $data['rnd_user_id'] = Auth::id();
         $data['list_type'] = $data['list_type'] ?? 'manual';
         $data['status'] = $data['status'] ?? 'draft';
-        $data['list_date'] = $data['list_date'] ?? now()->toDateString();
         if (array_key_exists('estimate_population', $data)) {
             $data['estimate_population_updated_at'] = now();
         }
@@ -75,13 +92,14 @@ class ShoppingListController extends Controller
     public function update(UpdateShoppingListRequest $request, ShoppingList $shoppingList): JsonResponse
     {
         $data = $request->validated();
-        if (array_key_exists('estimate_population', $data) && $shoppingList->status !== 'draft') {
-            return response()->json(['message' => 'Only draft shopping lists can update estimate_population.'], 422);
+        if ($shoppingList->status !== 'draft') {
+            return response()->json(['message' => 'Shopping Lists are read-only after Turn Into PO.'], 422);
         }
-
         $this->audited(function () use ($shoppingList, &$data): void {
             $before = $this->revisionRegistry->capture($shoppingList->load(self::ITEM_RELATIONS));
             $fields = [];
+            $items = $data['items'] ?? null;
+            unset($data['items']);
             if (array_key_exists('estimate_population', $data)) {
                 $beforePopulation = $shoppingList->estimate_population;
                 $this->auditLogger->withoutModelEvents(
@@ -93,10 +111,13 @@ class ShoppingListController extends Controller
                 }
                 unset($data['estimate_population']);
             }
-
             if ($data !== []) {
                 $this->auditLogger->withoutModelEvents(fn () => $shoppingList->update($data));
                 $fields = [...$fields, ...array_keys($shoppingList->getChanges())];
+            }
+            if ($items !== null) {
+                $this->auditLogger->withoutModelEvents(fn () => $this->applyDraftItems($shoppingList, $items));
+                $fields[] = 'items';
             }
 
             $after = $shoppingList->fresh(self::ITEM_RELATIONS);
@@ -142,6 +163,8 @@ class ShoppingListController extends Controller
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
             'estimate_population' => ['required', 'integer', 'min:1'],
             'name' => ['nullable', 'string', 'max:255'],
+            'preview' => ['sometimes', 'boolean'],
+            ...self::draftItemRules(),
         ]);
 
         $cursor = Carbon::parse($data['start_date'])->startOfDay();
@@ -152,15 +175,75 @@ class ShoppingListController extends Controller
 
         // All-or-nothing: if any date in the span is missing a cycle or menu
         // items, block creation entirely. Estimate population is list-level only.
-        $missingDates = $plan['uncovered_dates'];
+        $missingDates = array_values(array_unique([...$plan['uncovered_dates'], ...$plan['missing_population_dates']]));
         if ($missingDates !== []) {
             sort($missingDates);
 
             return response()->json([
-                'message' => 'Shopping list blocked - every date in the span must have a menu cycle and menu items.',
+                'message' => 'Shopping list blocked. Each service date needs menu items and an estimated population.',
                 'missing_dates' => $missingDates,
+                'missing_population_dates' => $plan['missing_population_dates'],
                 'missing_items_by_date' => $plan['missing_items_by_date'],
             ], 422);
+        }
+
+        $conflicts = ShoppingList::query()
+            ->where('list_type', 'suggested')
+            ->whereDate('period_start', '<=', $data['end_date'])
+            ->whereDate('period_end', '>=', $data['start_date'])
+            ->get(['period_start', 'period_end']);
+        $conflictingDates = [];
+        foreach ($conflicts as $conflict) {
+            $first = Carbon::parse($conflict->period_start)->max($cursor);
+            $last = Carbon::parse($conflict->period_end)->min($end);
+            for ($date = $first->copy(); $date->lte($last); $date->addDay()) {
+                $conflictingDates[$date->toDateString()] = true;
+            }
+        }
+        if ($conflictingDates !== []) {
+            $dates = array_keys($conflictingDates);
+            sort($dates);
+
+            return response()->json([
+                'message' => 'These service dates are already in a saved Suggested Shopping List.',
+                'conflicting_dates' => $dates,
+            ], 422);
+        }
+
+        if ($data['preview'] ?? false) {
+            $itemUuids = FsItem::query()->whereIn('id', array_column($plan['items'], 'fs_item_id'))
+                ->get(['id', 'uuid', 'base_unit'])->keyBy('id');
+            $supplierUuids = Supplier::query()->whereIn('id', array_column($plan['items'], 'supplier_id'))
+                ->get(['id', 'uuid'])->keyBy('id');
+            $estimatedTotal = round(array_sum(array_column($plan['items'], 'total')), 2);
+
+            return response()->json(['data' => [
+                'id' => 'preview',
+                'name' => $data['name'] ?? "Suggested — {$data['start_date']}→{$data['end_date']}",
+                'list_date' => $data['start_date'],
+                'list_type' => 'suggested',
+                'procurement_track' => 'food',
+                'status' => 'draft',
+                'coverage_status' => 'full',
+                'uncovered_dates' => [],
+                'period_start' => $data['start_date'],
+                'period_end' => $data['end_date'],
+                'days_span' => $spanDays,
+                'estimate_population' => $data['estimate_population'],
+                'estimated_total' => $estimatedTotal,
+                'estimated_budget_per_head_per_day' => round($estimatedTotal / ($spanDays * $data['estimate_population']), 2),
+                'items' => array_map(fn (array $item): array => array_merge($item, [
+                    'id' => 'preview:'.$itemUuids->get($item['fs_item_id'])?->uuid,
+                    'fs_item_uuid' => $itemUuids->get($item['fs_item_id'])?->uuid,
+                    'inventory_unit' => $itemUuids->get($item['fs_item_id'])?->base_unit,
+                    'supplier_id' => $supplierUuids->get($item['supplier_id'])?->uuid,
+                    'source' => 'generated',
+                    'included_in_po' => true,
+                    'exclusion_note' => null,
+                    'quantity_mode' => 'calculated',
+                    'item_type' => 'ingredient',
+                ]), $plan['items']),
+            ]]);
         }
 
         $list = $this->audited(function () use ($data, $plan, $spanDays): ShoppingList {
@@ -168,7 +251,7 @@ class ShoppingListController extends Controller
                 $list = ShoppingList::create([
                     'rnd_user_id' => Auth::id(),
                     'name' => $data['name'] ?? "Suggested — {$data['start_date']}→{$data['end_date']}",
-                    'list_date' => now()->toDateString(),
+                    'list_date' => $data['start_date'],
                     'period_start' => $data['start_date'],
                     'period_end' => $data['end_date'],
                     'days_span' => $spanDays,
@@ -185,15 +268,17 @@ class ShoppingListController extends Controller
                     $list->items()->create($row + ['source' => 'generated']);
                 }
 
+                if (isset($data['items'])) {
+                    $this->applyDraftItems($list, $data['items']);
+                }
+
                 app(ShoppingListPopulationService::class)->cascadeMenuDays(
-                    $data['start_date'],
-                    $data['end_date'],
-                    $data['estimate_population'],
+                    $data['start_date'], $data['end_date'], $data['estimate_population'],
                 );
 
                 return $list;
             }));
-            $activity = $this->auditLogger->recordMutation(AuditAction::Generated, AuditDomain::Procurement, $list, array_keys($list->getAttributes()));
+            $activity = $this->auditLogger->recordMutation(AuditAction::Created, AuditDomain::Procurement, $list, array_keys($list->getAttributes()));
             if ($activity !== null) {
                 $this->revisionWriter->write($activity, null, $this->revisionRegistry->capture($list->load(self::ITEM_RELATIONS)));
             }
@@ -202,6 +287,62 @@ class ShoppingListController extends Controller
         });
 
         return response()->json(['data' => new ShoppingListResource($list->load('items.fsItem', 'items.supplier:id,uuid'))], 201);
+    }
+
+    private function applyDraftItems(ShoppingList $list, array $lines): void
+    {
+        $seen = [];
+        foreach ($lines as $line) {
+            $fsItem = FsItem::query()->where('uuid', $line['fs_item_uuid'])->firstOrFail();
+            $unit = (string) $line['purchase_unit'];
+            if (! UnitConverter::isCompatible((string) $fsItem->base_unit, $unit)
+                || ($fsItem->include_in_generated_lists && $fsItem->hasIncompatibleRecipeUnit($unit))) {
+                abort(422, 'Choose a unit that matches the Inventory item and its Auto Grocery recipes.');
+            }
+            if (isset($line['id'])) {
+                $item = $list->items()->where('uuid', $line['id'])->firstOrFail();
+                if ($item->fs_item_id !== $fsItem->id || $item->source !== $line['source']) {
+                    abort(422, 'Shopping List item does not match its saved source.');
+                }
+            } elseif ($line['source'] === 'generated') {
+                $item = $list->items()->where('source', 'generated')->where('fs_item_id', $fsItem->id)->first();
+                if (! $item) {
+                    abort(422, 'Generated item is not part of the selected Menu Calendar days.');
+                }
+            } else {
+                $item = $list->items()->create([
+                    'fs_item_id' => $fsItem->id,
+                    'ingredient_name' => $fsItem->name,
+                    'source' => 'manual',
+                    'qty' => UnitConverter::convert((float) $line['purchase_qty'], $unit, (string) $fsItem->base_unit),
+                    'unit' => $fsItem->base_unit,
+                    'unit_price' => $line['purchase_price'],
+                    'total' => 0,
+                ]);
+            }
+            if (isset($seen[$item->id])) {
+                abort(422, 'Shopping List item was submitted twice.');
+            }
+            $seen[$item->id] = true;
+            $mode = $line['quantity_mode'];
+            $calculatedQty = UnitConverter::convert((float) $item->qty, (string) $item->unit, $unit);
+            $purchaseQty = match ($mode) {
+                'rounded' => round($calculatedQty),
+                'manual' => (float) $line['purchase_qty'],
+                default => round($calculatedQty, 6),
+            };
+            $item->update([
+                'purchase_unit' => $unit,
+                'purchase_qty' => $purchaseQty,
+                'purchase_price' => $line['purchase_price'],
+                'supplier_id' => isset($line['supplier_id']) ? Supplier::idFromUuid($line['supplier_id']) : null,
+                'quantity_mode' => $mode,
+                'included_in_po' => $line['included_in_po'],
+                'exclusion_note' => $line['exclusion_note'] ?? null,
+                'total' => round($purchaseQty * (float) $line['purchase_price'], 2),
+            ]);
+        }
+        $list->items()->where('source', 'manual')->whereNotIn('id', array_keys($seen))->delete();
     }
 
     /**
@@ -214,7 +355,6 @@ class ShoppingListController extends Controller
             return response()->json(['message' => 'Converted shopping list items are read-only.'], 422);
         }
 
-        // Unit is NOT editable — it follows the recipe/item creation unit.
         $data = $request->validate([
             'supplier_id' => ['nullable', 'string', 'exists:suppliers,uuid'],
             'qty' => ['nullable', 'numeric', 'min:0'],
@@ -225,6 +365,7 @@ class ShoppingListController extends Controller
             'included_in_po' => ['nullable', 'boolean'],
             'exclusion_note' => ['nullable', 'string', 'max:255'],
             'vendor_locked' => ['nullable', 'boolean'],
+            'quantity_mode' => ['sometimes', 'in:calculated,rounded,manual'],
         ]);
 
         if (! empty($data['supplier_id'])) {
@@ -237,9 +378,44 @@ class ShoppingListController extends Controller
             return response()->json(['message' => 'Calculated requirements are read-only. Edit planned purchase quantity instead.'], 422);
         }
 
+        $explicitPurchaseQty = array_key_exists('purchase_qty', $data);
+
+        if (isset($data['purchase_unit']) && UnitConverter::normalize($data['purchase_unit']) !== UnitConverter::normalize((string) ($shoppingListItem->purchase_unit ?? $shoppingListItem->unit))) {
+            $from = (string) ($shoppingListItem->purchase_unit ?? $shoppingListItem->unit);
+            $to = (string) $data['purchase_unit'];
+            $fsItem = $shoppingListItem->fsItem;
+            if (! UnitConverter::isCompatible($from, $to)
+                || ($fsItem && ! UnitConverter::isCompatible((string) $fsItem->base_unit, $to))
+                || ($fsItem && $fsItem->include_in_generated_lists
+                    && $fsItem->hasIncompatibleRecipeUnit($to))) {
+                return response()->json(['message' => 'Choose a unit that matches the Inventory item and its Auto Grocery recipes.'], 422);
+            }
+            $oldQty = (float) ($shoppingListItem->purchase_qty ?? $shoppingListItem->qty);
+            $convertedQty = UnitConverter::convert($oldQty, $from, $to);
+            $data['purchase_qty'] ??= round($convertedQty, 6);
+            if (! array_key_exists('purchase_price', $data)) {
+                $data['purchase_price'] = $convertedQty > 0
+                    ? round((float) $shoppingListItem->total / $convertedQty, 6)
+                    : 0;
+            }
+        }
+
+        if ($explicitPurchaseQty && ! array_key_exists('quantity_mode', $data)) {
+            $data['quantity_mode'] = 'manual';
+        }
+        if (isset($data['quantity_mode']) && $data['quantity_mode'] !== 'manual'
+            && ! array_key_exists('purchase_qty', $data)) {
+            $unit = (string) ($data['purchase_unit'] ?? $shoppingListItem->purchase_unit ?? $shoppingListItem->unit);
+            if (! UnitConverter::isCompatible((string) $shoppingListItem->unit, $unit)) {
+                return response()->json(['message' => 'Choose a unit that matches the calculated requirement.'], 422);
+            }
+            $calculated = UnitConverter::convert((float) $shoppingListItem->qty, (string) $shoppingListItem->unit, $unit);
+            $data['purchase_qty'] = $data['quantity_mode'] === 'rounded' ? round($calculated) : round($calculated, 6);
+        }
+
         $shoppingListItem->fill(collect($data)->only([
             'supplier_id', 'qty', 'unit_price', 'purchase_qty', 'purchase_unit',
-            'purchase_price', 'included_in_po', 'exclusion_note',
+            'purchase_price', 'included_in_po', 'exclusion_note', 'quantity_mode',
         ])->all());
         $shoppingListItem->total = $shoppingListItem->purchase_qty !== null && $shoppingListItem->purchase_price !== null
             ? round((float) $shoppingListItem->purchase_qty * (float) $shoppingListItem->purchase_price, 2)
@@ -287,6 +463,7 @@ class ShoppingListController extends Controller
             'purchase_qty' => $shoppingListItem->purchase_qty,
             'purchase_unit' => $shoppingListItem->purchase_unit,
             'purchase_price' => $shoppingListItem->purchase_price,
+            'quantity_mode' => $shoppingListItem->quantity_mode,
             'source' => $shoppingListItem->source,
             'included_in_po' => $shoppingListItem->included_in_po,
             'exclusion_note' => $shoppingListItem->exclusion_note,

@@ -18,5 +18,6 @@ class RecipeIngredientUnitTest extends TestCase
     {
         // "2 eggs" (pc) against a gram base would silently cost 2 as 2 grams.
         $this->assertFalse(FoodServiceRecipeController::unitCompatible('pc', 'g'));
+        $this->assertFalse(FoodServiceRecipeController::unitCompatible('tbsp', 'kg'));
     }
 }

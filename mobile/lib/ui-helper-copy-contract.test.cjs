@@ -37,7 +37,7 @@ test('mobile screens retain actionable safety and state guidance', () => {
   const help = read('app', 'help.tsx');
   const foodDetails = read('app', 'food-details.tsx');
 
-  assert.match(procurement, /Receipt, proof, and actual quantity and cost are required\. OR number is optional\./);
+  assert.match(procurement, /RND marks this vendor received after reviewing actual values, receipt, and proof\./);
   assert.match(help, /Never share passwords, verification codes, or unnecessary patient information\./);
   assert.ok(
     foodDetails.includes('No planned population is set for this slot. Baseline recipe quantities are shown.'),
@@ -48,10 +48,10 @@ test('mobile screens retain actionable safety and state guidance', () => {
 test('Android release metadata matches the current signed build', () => {
   const appConfig = JSON.parse(read('app.json'));
   const release = JSON.parse(read('release.json'));
-  assert.equal(appConfig.expo.version, '1.2.8');
-  assert.equal(appConfig.expo.android.versionCode, 12);
+  assert.equal(appConfig.expo.version, '1.2.9');
+  assert.equal(appConfig.expo.android.versionCode, 13);
   assert.equal(release.version, appConfig.expo.version);
   assert.equal(release.version_code, appConfig.expo.android.versionCode);
-  assert.equal(release.artifact_url, 'https://expo.dev/artifacts/eas/vPZS7TLzPxxvZqhLtGlggR1B_FItd0SXTKVOKOfms6k.apk');
-  assert.equal(release.sha256, '85f6253f09a3a24be7b1b8e375a8dc1fc8b5f7dfa1e1c147778984b15828a4ae');
+  assert.equal(release.artifact_url, 'https://expo.dev/artifacts/eas/w2r5EQ59FnxvE1PcoZVx60T20R_WLYtcRqfHmxui2D4.apk');
+  assert.equal(release.sha256, '0d6e66868c2608b02dbab39ff8a34a1061e928783bd74ea0fa92fa6a56f3009f');
 });

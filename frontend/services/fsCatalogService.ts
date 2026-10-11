@@ -15,7 +15,6 @@ export interface CatalogItem {
   unit_cost: number;
   default_supplier_id: string | null;
   vendor: string | null;
-  vendor_locked: boolean;
   include_in_generated_lists: boolean;
 }
 
@@ -27,6 +26,31 @@ export interface CreateFsItemPayload {
   purchase_price: number;
   default_supplier_id?: string | null;
   include_in_generated_lists?: boolean;
+  recipe_corrections?: RecipeCorrection[];
+}
+
+export interface AffectedRecipe {
+  recipe_id?: string;
+  slot_id?: string;
+  cycle_id?: string;
+  recipe_name: string;
+  line_index: number;
+  quantity: number | string | null;
+  unit: string;
+}
+
+export interface RecipeCorrection {
+  recipe_id?: string;
+  slot_id?: string;
+  line_index: number;
+  quantity: number;
+  unit: string;
+}
+
+export class RecipeCorrectionsRequiredError extends Error {
+  constructor(message: string, public affectedRecipes: AffectedRecipe[]) {
+    super(message);
+  }
 }
 
 async function unwrap<T>(res: Response, fallback: string): Promise<T> {
@@ -36,10 +60,11 @@ async function unwrap<T>(res: Response, fallback: string): Promise<T> {
 }
 
 /** The reference catalog (ingredients + supplies). Optional kind filter. */
-export async function listCatalog(kind?: FsItemKind, page = 1, search = ""): Promise<{ data: CatalogItem[]; meta: PaginationMeta }> {
+export async function listCatalog(kind?: FsItemKind, page = 1, search = "", grocery: "auto" | "non_auto" | "" = ""): Promise<{ data: CatalogItem[]; meta: PaginationMeta }> {
   const qs = new URLSearchParams({ page: String(page), limit: "10" });
   if (kind) qs.set("kind", kind);
   if (search.trim()) qs.set("search", search.trim());
+  if (grocery) qs.set("grocery", grocery);
   const res = await apiFetch(`/api/fss/fs-items/catalog?${qs}`);
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.message ?? "Failed to load catalog.");
@@ -47,8 +72,9 @@ export async function listCatalog(kind?: FsItemKind, page = 1, search = ""): Pro
 }
 
 /** Search active reference-catalog items for recipe and procurement pickers. */
-export async function searchCatalog(search: string, kind: FsItemKind, limit = 5): Promise<CatalogItem[]> {
+export async function searchCatalog(search: string, kind: FsItemKind, limit = 5, grocery?: "auto" | "non_auto"): Promise<CatalogItem[]> {
   const qs = new URLSearchParams({ search, kind, limit: String(limit) });
+  if (grocery) qs.set("grocery", grocery);
   return unwrap(
     await apiFetch(`/api/fss/fs-items/catalog?${qs}`),
     "Failed to search the catalog.",
@@ -62,9 +88,17 @@ export async function createFsItem(payload: CreateFsItemPayload): Promise<Catalo
 }
 
 export async function updateFsItem(id: string, patch: Partial<CreateFsItemPayload>): Promise<CatalogItem> {
-  return unwrap(await apiFetch(`/api/fss/fs-items/${id}`, {
+  const response = await apiFetch(`/api/fss/fs-items/${id}`, {
     method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch),
-  }), "Failed to update item.");
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    if (response.status === 422 && Array.isArray(body.affected_recipes)) {
+      throw new RecipeCorrectionsRequiredError(body.message ?? "Update recipe measurements first.", body.affected_recipes);
+    }
+    throw new Error(body.message ?? "Failed to update item.");
+  }
+  return body.data as CatalogItem;
 }
 
 export async function deleteFsItem(id: string): Promise<void> {

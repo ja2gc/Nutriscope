@@ -38,7 +38,9 @@ class PrepareSavedReport
         $title = $this->titleFor($type, $parameters, $sourceTemplate['name'] ?? $template?->name ?? $type);
         $report = $existing ?? Report::query()->where('archive_identity', $identity)->first();
         $created = $report === null;
-        if ($report?->status === 'archived' || ($report?->snapshot['was_archived'] ?? false)) {
+        if ($report?->status === 'archived'
+            || ($report?->snapshot['was_archived'] ?? false)
+            || $report?->hasFinalizedPurchaseOrderFile()) {
             return $report->fresh(['user:id,uuid,name,first_name,last_name', 'officialFile']);
         }
         $initialSnapshot = [

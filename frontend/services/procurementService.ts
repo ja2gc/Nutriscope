@@ -4,16 +4,19 @@ import type { PaginationMeta } from "@/components/ui/Pagination";
 export interface ShoppingListItem {
   id: string;
   fs_item_id: number | null;
+  fs_item_uuid?: string | null;
+  inventory_unit?: string | null;
   ingredient_name: string;
   qty: string;
   unit: string;
-  supplier_id: number | null;
+  supplier_id: string | null;
   item_type: "ingredient" | "supply";
   unit_price: string | null;
   total: string | null;
   purchase_qty: string | null;
   purchase_unit: string | null;
   purchase_price: string | null;
+  quantity_mode?: "calculated" | "rounded" | "manual";
   vendor_locked?: boolean;
   source: "generated" | "manual";
   included_in_po: boolean;
@@ -44,6 +47,19 @@ export interface ShoppingList {
   estimated_budget_per_head_per_day?: number | null;
   release_readiness?: ReleaseReadiness | null;
   items: ShoppingListItem[];
+}
+
+export interface ShoppingListDraftItem {
+  id?: string;
+  fs_item_uuid: string;
+  source: "generated" | "manual";
+  purchase_qty: number;
+  purchase_unit: string;
+  purchase_price: number;
+  supplier_id: string | null;
+  quantity_mode: "calculated" | "rounded" | "manual";
+  included_in_po: boolean;
+  exclusion_note: string | null;
 }
 
 
@@ -130,7 +146,7 @@ export async function createShoppingList(payload: {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
   }), "Failed to create list.");
 }
-export async function updateShoppingList(id: string, patch: Partial<Pick<ShoppingList, "name" | "list_date" | "status" | "estimate_population">>): Promise<ShoppingList> {
+export async function updateShoppingList(id: string, patch: Partial<Pick<ShoppingList, "name" | "list_date" | "estimate_population">> & { items?: ShoppingListDraftItem[] }): Promise<ShoppingList> {
   return unwrap(await apiFetch(`/api/fss/shopping-lists/${id}`, {
     method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch),
   }), "Failed to update list.");
@@ -152,10 +168,10 @@ export class MissingMenuDaysError extends Error {
   }
 }
 
-export async function generateByDates(start_date: string, end_date: string, estimate_population: number, name?: string): Promise<ShoppingList> {
+export async function generateByDates(start_date: string, end_date: string, estimate_population: number, name?: string, options?: { preview?: boolean; items?: ShoppingListDraftItem[] }): Promise<ShoppingList> {
   const res = await apiFetch("/api/fss/shopping-lists/generate", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ start_date, end_date, estimate_population, name }),
+    body: JSON.stringify({ start_date, end_date, estimate_population, name, ...options }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -169,6 +185,10 @@ export async function generateByDates(start_date: string, end_date: string, esti
         (data as { missing_items_by_date?: Record<string, string> }).missing_items_by_date ?? {},
       );
     }
+    const conflictingDates = (data as { conflicting_dates?: string[] }).conflicting_dates;
+    if (res.status === 422 && Array.isArray(conflictingDates)) {
+      throw new Error(`These service days already have a saved Suggested Shopping List: ${conflictingDates.join(", ")}. Choose another range.`);
+    }
     throw new Error((data as { message?: string }).message ?? "Failed to generate list.");
   }
   return (data as { data: ShoppingList }).data;
@@ -178,7 +198,7 @@ export async function deleteShoppingList(id: string): Promise<void> {
   if (!res.ok && res.status !== 204) throw new Error("Failed to delete list.");
 }
 
-export async function updateListItem(itemId: string, patch: { supplier_id?: string | null; qty?: number; unit_price?: number; purchase_qty?: number | null; purchase_unit?: string | null; purchase_price?: number | null; included_in_po?: boolean; exclusion_note?: string | null }): Promise<ShoppingListItem> {
+export async function updateListItem(itemId: string, patch: { supplier_id?: string | null; qty?: number; unit_price?: number; purchase_qty?: number | null; purchase_unit?: string | null; purchase_price?: number | null; included_in_po?: boolean; exclusion_note?: string | null; quantity_mode?: "calculated" | "rounded" | "manual" }): Promise<ShoppingListItem> {
   return unwrap(await apiFetch(`/api/fss/shopping-list-items/${itemId}`, {
     method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch),
   }), "Failed to update item.");

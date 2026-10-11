@@ -50,6 +50,55 @@ class MenuSlotRecipeTest extends TestCase
         return compact('item', 'recipe', 'cycle', 'day');
     }
 
+    public function test_inventory_auto_switch_requires_editable_slot_correction_and_preserves_locked_snapshot(): void
+    {
+        $rnd = User::factory()->rnd()->create();
+        ['item' => $item, 'recipe' => $recipe, 'cycle' => $cycle, 'day' => $day] = $this->recipeSlot($rnd);
+        $item->update(['include_in_generated_lists' => false]);
+        $recipe->ingredients()->first()->update(['quantity' => 2, 'unit' => 'tbsp']);
+        $override = [
+            'name' => 'Ward Adobo', 'reference_servings' => 20,
+            'ingredients' => [['fs_item_id' => $item->id, 'name' => $item->name, 'quantity' => 2, 'unit' => 'tbsp']],
+        ];
+        $day->update(['recipe_override' => $override]);
+        $locked = MenuCycleDay::factory()->create([
+            'menu_cycle_id' => $cycle->id, 'recipe_id' => $recipe->id,
+            'day_of_week' => 'Tuesday', 'meal_type' => 'lunch',
+            'recipe_override' => $override, 'po_snapshot_locked' => true,
+            'po_snapshot' => ['name' => 'Frozen Adobo', 'ingredients' => $override['ingredients']],
+        ]);
+
+        $url = "/api/fss/fs-items/{$item->uuid}";
+        $affected = $this->actingAs($rnd)->patchJson($url, ['include_in_generated_lists' => true])
+            ->assertStatus(422)->json('affected_recipes');
+        $this->assertCount(2, $affected);
+        $slotCorrection = collect($affected)->firstWhere('slot_id', $day->uuid);
+        $this->assertSame($cycle->uuid, $slotCorrection['cycle_id']);
+        $recipeCorrection = collect($affected)->firstWhere('recipe_id', $recipe->uuid);
+        $this->assertNotNull($slotCorrection);
+        $this->assertNotNull($recipeCorrection);
+        $this->assertSame('tbsp', $day->fresh()->recipe_override['ingredients'][0]['unit']);
+        $this->assertFalse($item->fresh()->include_in_generated_lists);
+
+        $this->actingAs($rnd)->patchJson($url, ['include_in_generated_lists' => true, 'recipe_corrections' => [[
+            'slot_id' => $day->uuid, 'line_index' => 0, 'quantity' => 0.1, 'unit' => 'kg',
+        ]]])->assertStatus(422);
+        $this->assertSame('tbsp', $day->fresh()->recipe_override['ingredients'][0]['unit']);
+        $this->assertFalse($item->fresh()->include_in_generated_lists);
+
+        $this->actingAs($rnd)->patchJson($url, ['include_in_generated_lists' => true, 'recipe_corrections' => [[
+            'recipe_id' => $recipe->uuid, 'line_index' => 0, 'quantity' => 0.1, 'unit' => 'kg',
+        ], [
+            'slot_id' => $day->uuid, 'line_index' => 0, 'quantity' => 0.1, 'unit' => 'kg',
+        ]]])->assertOk();
+        $this->assertTrue($item->fresh()->include_in_generated_lists);
+        $this->assertSame('kg', $recipe->ingredients()->first()->unit);
+        $this->assertSame('kg', $day->fresh()->recipe_override['ingredients'][0]['unit']);
+        $this->assertEquals(0.1, $day->fresh()->recipe_override['ingredients'][0]['quantity']);
+        $this->assertSame('tbsp', $locked->fresh()->recipe_override['ingredients'][0]['unit']);
+        $this->assertSame('tbsp', $locked->fresh()->po_snapshot['ingredients'][0]['unit']);
+    }
+
     public function test_slot_override_is_scaled_instead_of_master_recipe(): void
     {
         $rnd = User::factory()->rnd()->create();
@@ -191,6 +240,70 @@ class MenuSlotRecipeTest extends TestCase
             ->assertJsonPath('data.ingredients.0.quantity', 2);
 
         $this->actingAs($fss)->patchJson($url, [])->assertForbidden();
+    }
+
+    public function test_adjust_to_taste_ingredient_remains_measured_and_scaled_in_menu_profile_and_override(): void
+    {
+        $rnd = User::factory()->rnd()->create();
+        ['recipe' => $recipe, 'cycle' => $cycle] = $this->recipeSlot($rnd);
+        $salt = FsItem::factory()->create([
+            'name' => 'Salt',
+            'base_unit' => 'kg',
+            'include_in_generated_lists' => false,
+        ]);
+        FoodServiceRecipeIngredient::create([
+            'food_service_recipe_id' => $recipe->id,
+            'fs_item_id' => $salt->id,
+            'quantity' => 2,
+            'unit' => 'tbsp',
+            'adjust_to_taste' => true,
+        ]);
+        $url = "/api/fss/menu-cycles/{$cycle->uuid}/slots/Monday/lunch";
+
+        $this->actingAs($rnd)->getJson($url)
+            ->assertOk()
+            ->assertJsonPath('data.ingredients.1.quantity', 2)
+            ->assertJsonPath('data.ingredients.1.scaled_quantity', 10)
+            ->assertJsonPath('data.ingredients.1.adjust_to_taste', true);
+
+        $this->actingAs($rnd)->patchJson($url, [
+            'name' => 'Ward Adobo',
+            'reference_servings' => 20,
+            'ingredients' => [
+                ['fs_item_id' => $recipe->ingredients()->first()->fsItem->uuid, 'quantity' => 2, 'unit' => 'kg'],
+                ['fs_item_id' => $salt->uuid, 'quantity' => 2, 'unit' => 'tbsp', 'adjust_to_taste' => true],
+            ],
+        ])->assertOk()->assertJsonPath('data.ingredients.1.scaled_quantity', 10)
+            ->assertJsonPath('data.ingredients.1.adjust_to_taste', true);
+
+        $this->assertEquals(2, $cycle->days()->first()->recipe_override['ingredients'][1]['quantity']);
+        $this->assertTrue($cycle->days()->first()->recipe_override['ingredients'][1]['adjust_to_taste']);
+    }
+
+    public function test_measured_non_auto_ingredient_scales_in_recipe_unit_without_automatic_cost(): void
+    {
+        $rnd = User::factory()->rnd()->create();
+        ['recipe' => $recipe, 'cycle' => $cycle] = $this->recipeSlot($rnd);
+        $salt = FsItem::factory()->create([
+            'name' => 'Salt',
+            'base_unit' => 'kg',
+            'include_in_generated_lists' => false,
+        ]);
+        FoodServiceRecipeIngredient::create([
+            'food_service_recipe_id' => $recipe->id,
+            'fs_item_id' => $salt->id,
+            'quantity' => 2,
+            'unit' => 'tbsp',
+        ]);
+
+        $this->actingAs($rnd)
+            ->getJson("/api/fss/menu-cycles/{$cycle->uuid}/slots/Monday/lunch")
+            ->assertOk()
+            ->assertJsonPath('data.ingredients.1.quantity', 2)
+            ->assertJsonPath('data.ingredients.1.unit', 'tbsp')
+            ->assertJsonPath('data.ingredients.1.scaled_quantity', 10)
+            ->assertJsonPath('data.ingredients.1.scaled_cost', 0)
+            ->assertJsonPath('data.total_cost', 1000);
     }
 
     public function test_rnd_can_customize_and_restore_one_slot_without_changing_master(): void

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Http\Resources\PurchaseOrderResource;
 use App\Models\AuditActivity;
 use App\Models\Budget;
+use App\Models\BudgetLedger;
 use App\Models\FsItem;
 use App\Models\MealPrepLog;
 use App\Models\MenuCycle;
@@ -20,6 +21,7 @@ use App\Services\FSS\PurchaseOrderLifecycleService;
 use App\Services\Reports\Generators\ProcurementPackGenerator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class PurchaseOrderCompletionPatternTest extends TestCase
@@ -28,6 +30,8 @@ class PurchaseOrderCompletionPatternTest extends TestCase
 
     public function test_food_po_waits_for_every_span_day_served_population_then_calculates_actual_per_head(): void
     {
+        Storage::fake('report_cache');
+        Storage::fake(config('filesystems.private_uploads'));
         ReportBranding::singleton()->update(['hospital_name' => 'Hospital at PO completion']);
         $template = ReportTemplate::create([
             'type' => 'procurement_pack',
@@ -44,7 +48,10 @@ class PurchaseOrderCompletionPatternTest extends TestCase
         $rnd = User::factory()->rnd()->create();
         $fss = User::factory()->fss()->create();
         $supplier = Supplier::factory()->create();
-        $item = FsItem::factory()->create(['default_supplier_id' => $supplier->id]);
+        $previousSupplier = Supplier::factory()->create();
+        $item = FsItem::factory()->create([
+            'default_supplier_id' => $previousSupplier->id,
+        ]);
         Budget::factory()->create(['fiscal_year' => 2026]);
 
         $cycle = MenuCycle::factory()->create([
@@ -122,11 +129,14 @@ class PurchaseOrderCompletionPatternTest extends TestCase
         ]);
 
         $service = app(PurchaseOrderLifecycleService::class);
+        $service->createPpaSnapshot($po, $list);
         $service->refresh($po);
 
         $po->refresh();
         $this->assertSame('open_execution', $po->lifecycle_status);
         $this->assertNull($po->actual_budget_per_head_per_day);
+        $this->assertNull($group->fresh()->stocked_at);
+        $this->assertNotEquals(20, (float) $item->fresh()->purchase_price);
 
         MealPrepLog::factory()->create([
             'menu_cycle_id' => $cycle->id,
@@ -140,9 +150,30 @@ class PurchaseOrderCompletionPatternTest extends TestCase
 
         $po->refresh();
         $this->assertSame('completed', $po->lifecycle_status);
+        $this->assertNotNull($group->fresh()->stocked_at);
+        $this->assertSame(20.0, (float) $item->fresh()->purchase_price);
+        $this->assertSame($supplier->id, $item->fresh()->default_supplier_id);
         $this->assertSame('1.00', $po->actual_budget_per_head_per_day);
+        $deduction = BudgetLedger::query()->where('purchase_order_id', $po->id)->where('type', 'po_deduction')->sole();
+        $this->assertSame(2026, $deduction->fiscal_year);
+        $this->assertEqualsWithDelta(200, (float) $deduction->amount, 0.01);
         $this->assertSame('Hospital at PO completion', $po->report_configuration_snapshot['branding']['hospital_name']);
         $this->assertSame('Original Director', $po->report_configuration_snapshot['templates']['procurement_pack']['signatories'][0]['name']);
+        $this->assertSame(1, Report::query()->where('type', 'procurement_pack')->where('parameters->purchase_order_id', $po->id)->count());
+        $this->assertSame(1, Report::query()->where('type', 'program_project_activity')->where('parameters->purchase_order_id', $po->id)->count());
+        $originalPack = Report::query()->where('type', 'procurement_pack')->where('parameters->purchase_order_id', $po->id)->sole();
+        $this->assertNotNull($originalPack->official_file_stored_object_id);
+        $frozenBytes = Storage::disk($originalPack->officialFile->storage_disk)->get($originalPack->officialFile->object_key);
+        $originalPack->forceFill(['cache_expires_at' => now()->subMinute()])->save();
+        $view = $this->actingAs($rnd)->get("/api/rnd/reports/{$originalPack->uuid}/view")->assertOk();
+        $this->assertSame($frozenBytes, $view->streamedContent());
+        $download = $this->actingAs($rnd)->get("/api/rnd/reports/{$originalPack->uuid}/download")->assertOk();
+        $this->assertSame($frozenBytes, $download->streamedContent());
+        $originalPpa = Report::query()->where('type', 'program_project_activity')->where('parameters->purchase_order_id', $po->id)->sole();
+        $frozenPpaBytes = Storage::disk($originalPpa->officialFile->storage_disk)->get($originalPpa->officialFile->object_key);
+        $originalPpa->forceFill(['cache_expires_at' => now()->subMinute()])->save();
+        $ppaView = $this->actingAs($rnd)->get("/api/rnd/reports/{$originalPpa->uuid}/view")->assertOk();
+        $this->assertSame($frozenPpaBytes, $ppaView->streamedContent());
 
         ReportBranding::singleton()->update(['hospital_name' => 'Hospital after PO completion']);
         $template->update(['signatories' => [['role' => 'approved_by', 'label' => 'Approved by', 'name' => 'New Director', 'title' => 'Director']]]);
@@ -151,8 +182,16 @@ class PurchaseOrderCompletionPatternTest extends TestCase
         $this->assertSame('Hospital at PO completion', $prepared->json('data.snapshot.branding.hospital_name'));
         $this->assertSame('Original Director', $prepared->json('data.snapshot.signatories.0.name'));
         $report = Report::query()->where('uuid', $prepared->json('data.id'))->firstOrFail();
+        $this->assertSame($originalPack->official_file_stored_object_id, $report->official_file_stored_object_id);
         $this->assertSame('Original Inspector', app(ProcurementPackGenerator::class)->data($report)['air_signatories'][0]['name']);
-        $completed = AuditActivity::query()->where('event', 'completed')->sole();
+        $originalVendor = $supplier->name;
+        $supplier->update(['name' => 'Vendor renamed after completion']);
+        $this->assertSame($originalVendor, app(ProcurementPackGenerator::class)->data($report)['packs'][0]['supplier']->name);
+        $completed = AuditActivity::query()
+            ->whereIn('event', ['completed', 'updated'])
+            ->where('subject_type', PurchaseOrder::class)
+            ->where('subject_id', $po->id)
+            ->sole();
         $this->assertSame(PurchaseOrder::class, $completed->subject_type);
         $this->assertSame('open_execution', $completed->revision->before['lifecycle_status']);
         $this->assertSame('completed', $completed->revision->after['lifecycle_status']);

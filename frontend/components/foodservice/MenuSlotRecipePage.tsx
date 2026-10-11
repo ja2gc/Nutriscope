@@ -1,13 +1,13 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { AlertTriangle, ArrowLeft, LockKeyhole, RotateCcw, Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { InfoHint } from "@/components/ui/InfoHint";
 import { formatFoodServiceNumber } from "@/lib/foodServiceFormat";
-import { CATALOG_UNIT_OPTIONS } from "@/lib/units";
+import { compatibleRecipeUnits } from "@/lib/foodServiceUnits";
 import { searchCatalog, type CatalogItem } from "@/services/fsCatalogService";
 import {
   getMenuSlotRecipe,
@@ -24,7 +24,7 @@ import {
   type MenuSlotRecipe,
 } from "@/services/menuCycleService";
 
-type DraftIngredient = Pick<MenuSlotIngredient, "fs_item_id" | "name" | "quantity" | "unit" | "include_in_generated_lists">;
+type DraftIngredient = Pick<MenuSlotIngredient, "fs_item_id" | "name" | "quantity" | "unit" | "inventory_unit" | "include_in_generated_lists" | "adjust_to_taste">;
 type Draft = Pick<MenuSlotRecipe, "name" | "reference_servings" | "prep_notes"> & {
   ingredients: DraftIngredient[];
 };
@@ -34,7 +34,7 @@ function draftFrom(data: MenuSlotRecipe): Draft {
     name: data.name,
     reference_servings: data.reference_servings,
     prep_notes: data.prep_notes,
-    ingredients: data.ingredients.map(({ fs_item_id, name, quantity, unit, include_in_generated_lists }) => ({ fs_item_id, name, quantity, unit, include_in_generated_lists })),
+    ingredients: data.ingredients.map(({ fs_item_id, name, quantity, unit, inventory_unit, include_in_generated_lists, adjust_to_taste }) => ({ fs_item_id, name, quantity, unit, inventory_unit, include_in_generated_lists, adjust_to_taste: adjust_to_taste ?? false })),
   };
 }
 
@@ -95,7 +95,7 @@ export function MenuSlotRecipePage({ backHref, lineId }: { backHref: string; lin
     if (ingredientIds.has(item.id)) return;
     setDraft((current) => current ? {
       ...current,
-      ingredients: [...current.ingredients, { fs_item_id: item.id, name: item.name, quantity: 1, unit: item.base_unit, include_in_generated_lists: item.include_in_generated_lists }],
+      ingredients: [...current.ingredients, { fs_item_id: item.id, name: item.name, quantity: 1, unit: item.base_unit, inventory_unit: item.base_unit, include_in_generated_lists: item.include_in_generated_lists, adjust_to_taste: false }],
     } : current);
     setQuery("");
     setResults([]);
@@ -104,6 +104,10 @@ export function MenuSlotRecipePage({ backHref, lineId }: { backHref: string; lin
   async function save(event: FormEvent) {
     event.preventDefault();
     if (!draft || !canEdit) return;
+    if (draft.ingredients.some((ingredient) => ingredient.quantity == null || ingredient.quantity <= 0 || !ingredient.unit.trim() || ingredient.unit.trim().toLowerCase() === "to taste")) {
+      setError("Enter a baseline quantity and measured unit for every ingredient.");
+      return;
+    }
     setSaving(true);
     setError("");
     setNotice("");
@@ -111,7 +115,7 @@ export function MenuSlotRecipePage({ backHref, lineId }: { backHref: string; lin
       const payload = {
         ...draft,
         prep_notes: draft.prep_notes || null,
-        ingredients: draft.ingredients.map(({ fs_item_id, quantity, unit }) => ({ fs_item_id, quantity, unit })),
+        ingredients: draft.ingredients.map(({ fs_item_id, quantity, unit, adjust_to_taste }) => ({ fs_item_id, quantity, unit, adjust_to_taste })),
       };
       const saved = lineId
         ? await updateMenuLineRecipe(cycleId, lineId, payload)
@@ -146,6 +150,9 @@ export function MenuSlotRecipePage({ backHref, lineId }: { backHref: string; lin
 
   if (loading) return <div className="py-20 text-center text-sm text-warm-500">Loading menu item details…</div>;
   if (!data || !draft) return <div className="space-y-4"><Link href={backHref} className="inline-flex min-h-11 items-center gap-2 text-sm font-bold text-emerald-700"><ArrowLeft className="h-4 w-4" /> Back to menu cycle</Link><div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error || "Menu item not found."}</div></div>;
+
+  const displayedIngredients = draft.ingredients.map((ingredient, index) => ({ ingredient, index }))
+    .sort((left, right) => Number(left.ingredient.adjust_to_taste) - Number(right.ingredient.adjust_to_taste));
 
   return (
     <div className="mx-auto max-w-5xl space-y-5 pb-10">
@@ -187,21 +194,27 @@ export function MenuSlotRecipePage({ backHref, lineId }: { backHref: string; lin
             <div><h2 className="font-extrabold text-warm-900">Ingredients</h2>{canEdit && <p className="text-xs text-warm-500">Quantity needed is scaled to the estimated servings.</p>}</div>
           </div>
           <div className="space-y-3">
-            {draft.ingredients.map((ingredient, index) => {
-              const scaled = data.planned_servings == null ? null : scaledIngredientQuantity(ingredient.quantity, draft.reference_servings, data.planned_servings);
+            {displayedIngredients.map(({ ingredient, index }, displayIndex) => {
+              const scaled = data.planned_servings == null || ingredient.quantity == null ? null : scaledIngredientQuantity(ingredient.quantity, draft.reference_servings, data.planned_servings);
               return (
+                <Fragment key={ingredient.fs_item_id}>
+                {ingredient.adjust_to_taste && (displayIndex === 0 || !displayedIngredients[displayIndex - 1].ingredient.adjust_to_taste) && <div className="border-t border-warm-200 pt-3"><h3 className="text-sm font-bold text-warm-800">Adjust to taste</h3><p className="text-xs text-warm-500">These amounts scale too. Adjust during preparation if needed.</p></div>}
                 <div key={ingredient.fs_item_id} className={`grid grid-cols-1 gap-3 rounded-xl border border-warm-100 bg-warm-50/50 p-3 sm:items-end ${canEdit ? "lg:grid-cols-[minmax(0,1fr)_7rem_8rem_7rem_8rem_auto]" : "md:grid-cols-[minmax(0,1fr)_minmax(8rem,1fr)_6rem_minmax(9rem,1fr)]"}`}>
-                  <div><span className="block text-xs font-bold uppercase tracking-wider text-warm-400">Ingredient</span><span className="mt-2 block min-h-8 text-sm font-bold text-warm-800">{ingredient.name}</span></div>
+                  <div><span className="block text-xs font-bold uppercase tracking-wider text-warm-400">Ingredient</span><span className="mt-2 block min-h-8 text-sm font-bold text-warm-800">{ingredient.name}</span>{canEdit && <label className="mt-2 flex items-center gap-2 text-xs font-semibold text-warm-600"><input type="checkbox" checked={ingredient.adjust_to_taste} onChange={(event) => updateIngredient(index, { adjust_to_taste: event.target.checked })} /> Adjust to taste</label>}</div>
                   <div><span className="block text-xs font-bold uppercase tracking-wider text-warm-400">Shopping list</span><span className="mt-2 block min-h-8 text-sm font-semibold text-warm-600">{ingredient.include_in_generated_lists ? "Auto grocery" : "Purchase when needed"}</span></div>
-                  {canEdit && <label><span className="block text-xs font-bold uppercase tracking-wider text-warm-400">Recipe qty</span><input required type="number" min="0.001" step="any" value={ingredient.quantity} onChange={(event) => updateIngredient(index, { quantity: Number(event.target.value) })} className="mt-1 min-h-11 w-full rounded-lg border border-warm-200 px-2 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500" /></label>}
+                  {canEdit && <label><span className="block text-xs font-bold uppercase tracking-wider text-warm-400">Recipe qty</span><input aria-label={`Recipe quantity for ${ingredient.name}`} required type="number" min="0.001" step="any" value={ingredient.quantity ?? ""} onChange={(event) => updateIngredient(index, { quantity: event.target.value === "" ? null : Number(event.target.value) })} className="mt-1 min-h-11 w-full rounded-lg border border-warm-200 px-2 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500" /></label>}
                   {canEdit ? (
-                    <label><span className="block text-xs font-bold uppercase tracking-wider text-warm-400">Unit</span><select aria-label={`Unit for ${ingredient.name}`} value={ingredient.unit} onChange={(event) => updateIngredient(index, { unit: event.target.value })} className="mt-1 min-h-11 w-full rounded-lg border border-warm-200 bg-white px-2 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500">{[ingredient.unit, ...CATALOG_UNIT_OPTIONS].filter((unit, optionIndex, units) => units.indexOf(unit) === optionIndex).map((unit) => <option key={unit} value={unit}>{unit}</option>)}</select></label>
+                    <label><span className="block text-xs font-bold uppercase tracking-wider text-warm-400">Unit</span>{ingredient.include_in_generated_lists
+                      ? <select aria-label={`Unit for ${ingredient.name}`} value={ingredient.unit} onChange={(event) => updateIngredient(index, { unit: event.target.value })} className="mt-1 min-h-11 w-full rounded-lg border border-warm-200 bg-white px-2 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500">{[ingredient.unit, ...compatibleRecipeUnits(ingredient.inventory_unit ?? ingredient.unit, true)].filter((unit, index, units) => units.indexOf(unit) === index).map((unit) => <option key={unit} value={unit}>{unit}</option>)}</select>
+                      : <><input aria-label={`Unit for ${ingredient.name}`} list={`slot-units-${index}`} value={ingredient.unit} onChange={(event) => updateIngredient(index, { unit: event.target.value })} className="mt-1 min-h-11 w-full rounded-lg border border-warm-200 bg-white px-2 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500" /><datalist id={`slot-units-${index}`}>{compatibleRecipeUnits(ingredient.unit, false).map((unit) => <option key={unit} value={unit} />)}</datalist></>}
+                    </label>
                   ) : (
                     <div><span className="block text-xs font-bold uppercase tracking-wider text-warm-400">Unit</span><span className="mt-2 block min-h-8 text-sm font-semibold text-warm-700">{ingredient.unit}</span></div>
                   )}
-                  <div><span className="block text-xs font-bold uppercase tracking-wider text-warm-400">Qty needed</span><span className="mt-1 flex min-h-11 items-center font-mono text-sm font-bold text-emerald-700">{scaled == null ? "Not set" : `${formatFoodServiceNumber(scaled)} ${ingredient.unit}`}</span></div>
+                  <div><span className="block text-xs font-bold uppercase tracking-wider text-warm-400">Qty needed</span><span className="mt-1 flex min-h-11 items-center font-mono text-sm font-bold text-emerald-700">{ingredient.quantity == null ? "Not measured" : scaled == null ? "Not set" : `${formatFoodServiceNumber(scaled)} ${ingredient.unit}`}</span></div>
                   {canEdit && <button type="button" aria-label={`Remove ${ingredient.name}`} onClick={() => setDraft({ ...draft, ingredients: draft.ingredients.filter((_, itemIndex) => itemIndex !== index) })} disabled={draft.ingredients.length === 1} className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-warm-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-30"><Trash2 className="h-4 w-4" /></button>}
                 </div>
+                </Fragment>
               );
             })}
           </div>

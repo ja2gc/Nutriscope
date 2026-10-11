@@ -17,10 +17,10 @@ class StoreShoppingListRequest extends FormRequest
 
         return [
             'name' => ['required', 'string', 'max:255'],
-            'list_date' => ['nullable', 'date'],
-            'list_type' => ['nullable', 'string', 'in:manual,suggested'],
+            'list_date' => ['required', 'date'],
+            'list_type' => ['nullable', 'string', 'in:manual'],
             'procurement_track' => ['nullable', 'string', 'in:food,supplies'],
-            'status' => ['nullable', 'string', 'in:draft,converted'],
+            'status' => ['nullable', 'string', 'in:draft'],
             // Supplies lists are fully manual — no date span, no menu cycle, no population.
             'period_start' => [$isSupplies ? 'prohibited' : 'nullable', 'date'],
             'period_end' => [$isSupplies ? 'prohibited' : 'nullable', 'date', 'after_or_equal:period_start'],

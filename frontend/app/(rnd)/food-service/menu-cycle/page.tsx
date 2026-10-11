@@ -8,6 +8,7 @@ import {
   LayoutTemplate, ChevronLeft, AlertTriangle, Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { InfoHint } from "@/components/ui/InfoHint";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { formatFoodServiceNumber } from "@/lib/foodServiceFormat";
 import { useAuth } from "@/contexts/AuthContext";
@@ -166,6 +167,7 @@ function CycleList({ readOnly, onOpen, onNew, onOpenTemplate, onNewTemplate }: {
         <div>
           <h2 className="text-xl font-extrabold text-warm-900 tracking-tight flex items-center gap-2.5">
             <CalendarDays className="h-5 w-5 text-emerald-600" /> Menu Cycles
+            <InfoHint label="About menu population">Suggested lists use estimated population to scale planned food. Served population records actual attendance.</InfoHint>
           </h2>
         </div>
         <div className="flex items-center gap-3 shrink-0">

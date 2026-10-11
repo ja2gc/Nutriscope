@@ -31,6 +31,9 @@ test('mobile receiving keeps vendor scope and shows compact actual PO item field
   assert.match(source, /Could not load vendors/);
   assert.match(source, /consumedTargetPo/);
   assert.doesNotMatch(source, /Calculated:/);
+  assert.doesNotMatch(source, /Mark vendor received/);
+  assert.doesNotMatch(source, /status: 'received'/);
+  assert.match(source, /Save actuals and optional OR/);
 });
 
 test('mobile actual PO fields show two decimals and keep full precision until edited', () => {

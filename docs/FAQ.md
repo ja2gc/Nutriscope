@@ -212,6 +212,10 @@ Open **Food Library → Foods → Import from USDA**, search, import, then revie
 
 No. Current FSS mobile navigation has no Inventory tab or stock add/deduct workflow. The web Inventory page is an RND reference catalog.
 
+### How do Inventory units affect Foods and Shopping Lists?
+
+Auto Grocery items use a measured recipe unit that converts to the Inventory unit: g/kg/oz for weight, or mL/L/cup/tbsp/tsp for liquids. Pieces and packs match only the same unit. Changing Inventory to a compatible unit converts Cost/unit to keep the same price. For an incompatible change, open each affected Food or editable Menu Calendar item from the Inventory list, enter its new quantity and matching unit, then return and save Inventory. Nothing changes until every listed correction is complete. Completed PO snapshots stay as recorded. Every ingredient has a baseline amount that scales with servings. Non-Auto Grocery may use a different recipe unit, such as tbsp, tsp, or pinch, but adds no automatic cost or Shopping List quantity. Add it manually using the Inventory unit when needed. Use the separate **Adjust to taste** checkbox to group seasonings below a note in the Food profile; their measured amounts still scale.
+
 ### How do I build a food-service menu cycle?
 
 Prepare Inventory and Foods first. Open **Food Service → Menu Cycle**, create a Monday-anchored week or load a template, add one or more meal recipes or single items to each slot, save, then activate. A blank name is generated from the date span. Weekly menus and templates contain the meals only; bulk rice is not a menu line. Baseline profiles remain visible; one purchase estimate is entered later when generating a suggested list.
@@ -226,27 +230,35 @@ It makes that cycle the active operational week shown to FSS. FSS can view it bu
 
 ### How is a suggested food shopping list created?
 
-Open **Procurement → Food Shopping Lists → Suggest from Menu**, select a date range, enter one estimated serving count for the span, and generate. Every date must have assigned menu items; otherwise creation is blocked with the exact missing dates. Ingredients marked **Purchase when needed** remain in recipes but are not auto-added. Review the generated draft and use its existing add-item control for bulk rice when needed; an empty item search recommends **Rice** first, in kilograms.
+Open **Procurement → Food Shopping Lists → Suggest from Menu**, select a date range, enter one Estimated servings count, and preview the list. Saving applies that count to every selected Menu Calendar day. Each Food scales from its own recipe serving size. Non-Auto Grocery ingredients stay in recipes but are not added automatically. Add them to the draft when needed; an empty item search suggests Non-Auto Grocery items first. Select **Save Shopping List** to keep the editable list. **Turn Into PO** is a separate step.
+
+### What happens if I change a Shopping List quantity?
+
+It changes only the amount to buy. It does not change Estimated servings or the Food recipe. Each item can use its calculated amount, round to the nearest whole unit (0.5 rounds up), or keep a manually entered amount. Changing Estimated servings recalculates generated needs; manual amounts stay as entered. Back lets you save or discard unsaved edits.
 
 ### Can I make a food or event list without a menu cycle?
 
-Yes. Create a named manual food list and add ingredients directly, just as you would write a shopping list. Related food and supplies lists can use the same event name while remaining separate procurement tracks.
+Yes. Choose a procurement date, create a named manual food list, and add ingredients directly. Related food and supplies lists can use the same event name while remaining separate procurement tracks.
 
 ### How are supplies purchased?
 
-Use **Procurement → Supplies Lists**, create a named manual list, add catalog items, quantities, costs, and vendors, then convert it separately from food procurement.
+Use **Procurement → Supplies Lists**, choose a procurement date, create a named manual list, add catalog items, quantities, costs, and vendors, then convert it separately from food procurement.
 
 ### What happens when a shopping list is converted?
 
-First, review the release checklist. Calculated need stays read-only, but purchase quantity/unit/price/vendor may be changed, manual rows added, and generated rows excluded with a note. When checks pass, **Create and release PO** creates one order grouped by vendor and freezes included rows. If the actual vendor changes before evidence is uploaded, use **Change vendor for all** on the group or row-level **Change vendor** for one item.
+Review the saved list and select **Turn Into PO**. It creates one order grouped by vendor and locks the Shopping List and planned PO values. You can leave a vendor unspecified on the list, then assign one before receiving. If the final vendor changes before evidence is uploaded, use **Change vendor for all** on the group or row-level **Change vendor** for one item.
 
 ### Who records OR numbers and receipts?
 
-FSS or RND confirms actual quantity and unit price, uploads receipt and proof, then explicitly marks each vendor received. OR number may be recorded when the vendor provides one, but it is optional.
+FSS can enter actual quantity and unit price and upload receipt and proof. RND reviews those details on web Procurement and marks each vendor received. OR number may be recorded when the vendor provides one, but it is optional.
 
 ### When does a food purchase order complete?
 
 When every vendor has reviewed actual values, receipt, proof, and explicit received status, and every covered service date has actual served population. Manual food and supplies POs require vendor completion but not served population.
+
+### When do Inventory, Budget, and procurement reports update?
+
+When the whole PO completes, Inventory takes the final Unit, Cost/unit, and Vendor; the latest completed PO sets the Inventory default Vendor. Budget records the completed purchase. Procurement Pack and, for a menu-based food PO, Program Project Activity are finalized from the completed PO. Their dates follow the selected procurement date or span, and later edits do not change those completed reports.
 
 ### Why is a PO still open after all receipts were uploaded?
 
@@ -264,7 +276,7 @@ RND can set up budgets and create manual ledger adjustments. Admin's Budget page
 
 ### What is the difference between live preview and archived report?
 
-Preparing an active report refreshes its current source and template. **Archive** freezes exact as-filed PDF bytes and snapshot so later data, plans, templates, or branding changes do not alter it. Demographic Census uses a year/month screen instead of report preparation or archiving. **Download PDF** saves only the selected Census summary directly; it creates no filed report.
+Preparing an active report refreshes its current source and template, except completed-PO procurement reports, which are finalized at PO completion. **Archive** freezes exact as-filed PDF bytes and snapshot so later data, plans, templates, or branding changes do not alter it. Demographic Census uses a year/month screen instead of report preparation or archiving. **Download PDF** saves only the selected Census summary directly; it creates no filed report.
 
 ### Which reports can RND access?
 
@@ -320,11 +332,11 @@ It is the explicit daily record for a non-working day and counts toward Monday-S
 
 ### What can I change on a purchase order?
 
-FSS can review planned values and expand calculation details, confirm or correct actual decimal quantity and unit price, upload/delete receipt and proof, optionally save an OR number, and explicitly mark a vendor received. Before evidence or receiving, **Change vendor for all** changes the group and row-level **Change vendor** moves one item. Planned quantities, units, and calculated need remain locked.
+FSS can review planned values and expand calculation details, confirm or correct actual decimal quantity and unit price, upload/delete receipt and proof, and optionally save an OR number. RND marks a vendor received on web Procurement after reviewing those details. Before evidence or receiving, **Change vendor for all** changes the group and row-level **Change vendor** moves one item. Planned quantities, units, and calculated need remain locked.
 
 ### Why did uploading a receipt not change the vendor status?
 
-Uploading evidence does not silently receive a vendor. Upload both receipt and proof, review actual values, then use **Mark vendor received**. OR number is optional.
+Uploading evidence does not silently receive a vendor. FSS uploads receipt and proof and saves actual values; RND then uses **Mark vendor received** on web Procurement. OR number is optional.
 
 ### Why can I no longer edit a completed PO?
 

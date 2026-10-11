@@ -9,15 +9,17 @@ use App\Http\Requests\PaginatedRequest;
 use App\Models\FoodServiceRecipe;
 use App\Models\FoodServiceRecipeIngredient;
 use App\Models\FsItem;
+use App\Models\MenuCycleDay;
 use App\Models\PurchaseOrder;
 use App\Models\Supplier;
 use App\Services\Audit\AuditLogger;
 use App\Services\Audit\FsItemAuditValues;
-use App\Services\FSS\LatestProcurementVendorService;
+use App\Services\Audit\Revisions\AuditRevisionRegistry;
+use App\Services\Audit\Revisions\AuditRevisionWriter;
 use App\Support\Search\RankedSearch;
+use App\Support\UnitConverter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -26,6 +28,8 @@ class FsItemController extends Controller
     public function __construct(
         private readonly AuditLogger $auditLogger,
         private readonly FsItemAuditValues $auditValues,
+        private readonly AuditRevisionRegistry $revisionRegistry,
+        private readonly AuditRevisionWriter $revisionWriter,
     ) {}
 
     /**
@@ -78,14 +82,16 @@ class FsItemController extends Controller
     {
         $data = $request->validate([
             'kind' => ['nullable', 'in:ingredient,supply'],
+            'grocery' => ['nullable', 'in:auto,non_auto'],
             'search' => ['nullable', 'string', 'max:100'],
             'limit' => ['nullable', 'integer', 'min:1', 'max:10'],
             'page' => ['nullable', 'integer', 'min:1'],
         ]);
         $query = FsItem::query()
-            ->with('defaultSupplier:id,name')
+            ->with('defaultSupplier:id,uuid,name')
             ->where('is_active', true)
-            ->when($data['kind'] ?? null, fn ($q, $kind) => $q->where('kind', $kind));
+            ->when($data['kind'] ?? null, fn ($q, $kind) => $q->where('kind', $kind))
+            ->when($data['grocery'] ?? null, fn ($q, $grocery) => $q->where('include_in_generated_lists', $grocery === 'auto'));
 
         RankedSearch::apply($query, $data['search'] ?? null, ['name']);
         $query->orderBy('name')->orderBy('id');
@@ -118,12 +124,11 @@ class FsItemController extends Controller
             'purchase_unit' => $i->purchase_unit,
             'purchase_price' => $i->purchase_price,
             'units_per_purchase' => $i->units_per_purchase,
-            'unit_cost' => round($i->unit_cost, 4),
+            'unit_cost' => round($i->unit_cost, 6),
             // Public uuid — the inventory edit form matches this against uuid-valued
             // supplier <option>s (store/update already accept a uuid here).
             'default_supplier_id' => $i->defaultSupplier?->uuid,
             'vendor' => $i->defaultSupplier?->name,
-            'vendor_locked' => $i->vendorLocked(),
             'include_in_generated_lists' => $i->include_in_generated_lists,
         ];
     }
@@ -144,6 +149,11 @@ class FsItemController extends Controller
             'default_supplier_id' => ['nullable', 'string', 'exists:suppliers,uuid'],
             'include_in_generated_lists' => ['sometimes', 'boolean'],
         ]);
+
+        if (($data['include_in_generated_lists'] ?? true)
+            && UnitConverter::normalize($data['base_unit']) === 'sack') {
+            return response()->json(['message' => 'Choose a measured unit for Auto Grocery. Sack has no defined conversion.'], 422);
+        }
 
         if (! empty($data['default_supplier_id'])) {
             $data['default_supplier_id'] = Supplier::idFromUuid($data['default_supplier_id']);
@@ -185,15 +195,109 @@ class FsItemController extends Controller
             'base_unit' => ['sometimes', 'string', 'max:20'],
             'default_supplier_id' => ['sometimes', 'nullable', 'string', 'exists:suppliers,uuid'],
             'include_in_generated_lists' => ['sometimes', 'boolean'],
+            'recipe_corrections' => ['sometimes', 'array'],
+            'recipe_corrections.*.recipe_id' => ['sometimes', 'string', 'exists:food_service_recipes,uuid'],
+            'recipe_corrections.*.slot_id' => ['sometimes', 'string', 'exists:menu_cycle_days,uuid'],
+            'recipe_corrections.*.line_index' => ['required', 'integer', 'min:0'],
+            'recipe_corrections.*.quantity' => ['required', 'numeric', 'between:0.01,100000', 'decimal:0,2'],
+            'recipe_corrections.*.unit' => ['required', 'string', 'max:50'],
         ]);
 
         if (! empty($data['default_supplier_id'])) {
             $data['default_supplier_id'] = Supplier::idFromUuid($data['default_supplier_id']);
         }
 
+        $targetUnit = (string) ($data['base_unit'] ?? $fsItem->base_unit);
+        $willBeAuto = (bool) ($data['include_in_generated_lists'] ?? $fsItem->include_in_generated_lists);
+        if ($willBeAuto && UnitConverter::normalize($targetUnit) === 'sack') {
+            return response()->json(['message' => 'Choose a measured unit for Auto Grocery. Sack has no defined conversion.'], 422);
+        }
+        $becomingAuto = $willBeAuto && ! $fsItem->include_in_generated_lists;
+        $unitChanged = UnitConverter::normalize($targetUnit) !== UnitConverter::normalize((string) $fsItem->base_unit);
+        $affected = [];
+        $affectedLines = [];
+        $affectedSlots = [];
+        if ($willBeAuto && ($becomingAuto || $unitChanged)) {
+            $ingredients = FoodServiceRecipeIngredient::query()
+                ->with('recipe:id,uuid,name')
+                ->where('fs_item_id', $fsItem->id)
+                ->orderBy('food_service_recipe_id')->orderBy('id')->get();
+            $lineIndices = [];
+            foreach ($ingredients as $ingredient) {
+                $index = $lineIndices[$ingredient->food_service_recipe_id] ?? 0;
+                $lineIndices[$ingredient->food_service_recipe_id] = $index + 1;
+                if ((float) $ingredient->quantity > 0
+                    && UnitConverter::isCompatible((string) $ingredient->unit, $targetUnit)) {
+                    continue;
+                }
+                $key = $ingredient->recipe->uuid.':'.$index;
+                $affectedLines[$key] = $ingredient;
+                $affected[] = [
+                    'recipe_id' => $ingredient->recipe->uuid,
+                    'recipe_name' => $ingredient->recipe->name,
+                    'line_index' => $index,
+                    'quantity' => $ingredient->quantity,
+                    'unit' => $ingredient->unit,
+                ];
+            }
+            $slots = MenuCycleDay::query()
+                ->with('menuCycle:id,uuid,name')
+                ->whereNotNull('recipe_override')
+                ->where('po_snapshot_locked', false)
+                ->get();
+            foreach ($slots as $slot) {
+                foreach (($slot->recipe_override['ingredients'] ?? []) as $index => $ingredient) {
+                    if ((int) ($ingredient['fs_item_id'] ?? 0) !== $fsItem->id
+                        || (isset($ingredient['quantity']) && (float) $ingredient['quantity'] > 0
+                            && UnitConverter::isCompatible((string) $ingredient['unit'], $targetUnit))) {
+                        continue;
+                    }
+                    $key = 'slot:'.$slot->uuid.':'.$index;
+                    $affectedSlots[$key] = $slot;
+                    $affected[] = [
+                        'slot_id' => $slot->uuid,
+                        'cycle_id' => $slot->menuCycle->uuid,
+                        'recipe_name' => ($slot->recipe_override['name'] ?? $slot->recipe?->name ?? 'Menu recipe')
+                            .' — '.$slot->menuCycle->name.' / '.$slot->day_of_week.' '.$slot->meal_type,
+                        'line_index' => $index,
+                        'quantity' => $ingredient['quantity'] ?? null,
+                        'unit' => $ingredient['unit'],
+                    ];
+                }
+            }
+        }
+        $corrections = [];
+        foreach ($data['recipe_corrections'] ?? [] as $correction) {
+            $key = isset($correction['slot_id'])
+                ? 'slot:'.$correction['slot_id'].':'.$correction['line_index']
+                : ($correction['recipe_id'] ?? '').':'.$correction['line_index'];
+            if (isset($corrections[$key]) || (! isset($affectedLines[$key]) && ! isset($affectedSlots[$key]))
+                || ! UnitConverter::isCompatible($correction['unit'], $targetUnit)) {
+                return response()->json([
+                    'message' => 'Enter a measured quantity and compatible unit for every listed Food or menu item.',
+                    'affected_recipes' => $affected,
+                ], 422);
+            }
+            $corrections[$key] = $correction;
+        }
+        if (count($corrections) !== count($affectedLines) + count($affectedSlots)) {
+            return response()->json([
+                'message' => 'Enter a measured quantity and compatible unit for every listed Food or menu item.',
+                'affected_recipes' => $affected,
+            ], 422);
+        }
+        unset($data['recipe_corrections']);
+
         // Single unit + cost per unit: keep purchase unit aligned to the base unit so
         // unit_cost stays equal to the entered cost.
         if (array_key_exists('base_unit', $data)) {
+            if (! array_key_exists('purchase_price', $data)
+                && UnitConverter::isCompatible((string) $fsItem->base_unit, (string) $data['base_unit'])) {
+                $data['purchase_price'] = round(
+                    UnitConverter::convert((float) $fsItem->unit_cost, (string) $data['base_unit'], (string) $fsItem->base_unit),
+                    6,
+                );
+            }
             $data['purchase_unit'] = $data['base_unit'];
             $data['units_per_purchase'] = 1;
         }
@@ -201,14 +305,56 @@ class FsItemController extends Controller
         // A price/unit change shifts derived unit_cost → refresh dependent recipe costs.
         $priceTouched = array_intersect(array_keys($data), ['purchase_price', 'base_unit']) !== [];
 
-        $this->audited(function () use ($fsItem, $data, $priceTouched): void {
+        $this->audited(function () use ($fsItem, $data, $priceTouched, $affectedLines, $affectedSlots, $corrections): void {
+            foreach ($affectedSlots as $slot) {
+                if (MenuCycleDay::query()->whereKey($slot->id)->lockForUpdate()->firstOrFail()->po_snapshot_locked) {
+                    abort(409, 'A menu item was locked to a purchase order. Reopen Inventory to review this change.');
+                }
+            }
             $before = $this->auditValues->values($fsItem);
-            $this->auditLogger->withoutModelEvents(function () use ($fsItem, $data, $priceTouched): void {
+            $recipes = collect($affectedLines)->map(fn (FoodServiceRecipeIngredient $line) => $line->recipe)->unique('id');
+            $recipeBefore = $recipes->mapWithKeys(fn (FoodServiceRecipe $recipe): array => [
+                $recipe->id => $this->revisionRegistry->capture($recipe->fresh('ingredients.fsItem')),
+            ]);
+            $cycles = collect($affectedSlots)->map(fn (MenuCycleDay $slot) => $slot->menuCycle)->unique('id');
+            $cycleBefore = $cycles->mapWithKeys(fn ($cycle): array => [
+                $cycle->id => $this->revisionRegistry->capture($cycle->fresh('days.recipe.ingredients.fsItem', 'days.fsItem')),
+            ]);
+            $this->auditLogger->withoutModelEvents(function () use ($fsItem, $data, $priceTouched, $affectedLines, $affectedSlots, $corrections): void {
+                foreach ($corrections as $key => $correction) {
+                    if (isset($affectedLines[$key])) {
+                        $affectedLines[$key]->update(['quantity' => $correction['quantity'], 'unit' => $correction['unit']]);
+                    } else {
+                        $slot = $affectedSlots[$key];
+                        $override = $slot->recipe_override;
+                        $override['ingredients'][$correction['line_index']]['quantity'] = $correction['quantity'];
+                        $override['ingredients'][$correction['line_index']]['unit'] = $correction['unit'];
+                        $slot->update(['recipe_override' => $override]);
+                    }
+                }
                 $fsItem->update($data);
-                if ($priceTouched) {
+                if ($priceTouched || $affectedLines !== []) {
                     FoodServiceRecipe::recalculateForItems([$fsItem->id]);
                 }
             });
+            foreach ($recipes as $recipe) {
+                $afterRecipe = $recipe->fresh('ingredients.fsItem');
+                $activity = $this->auditLogger->recordMutation(
+                    AuditAction::Updated, AuditDomain::FoodService, $afterRecipe, ['ingredients'],
+                );
+                if ($activity !== null) {
+                    $this->revisionWriter->write($activity, $recipeBefore[$recipe->id], $this->revisionRegistry->capture($afterRecipe));
+                }
+            }
+            foreach ($cycles as $cycle) {
+                $afterCycle = $cycle->fresh('days.recipe.ingredients.fsItem', 'days.fsItem');
+                $activity = $this->auditLogger->recordMutation(
+                    AuditAction::Updated, AuditDomain::FoodService, $afterCycle, ['days'],
+                );
+                if ($activity !== null) {
+                    $this->revisionWriter->write($activity, $cycleBefore[$cycle->id], $this->revisionRegistry->capture($afterCycle));
+                }
+            }
             $fsItem->unsetRelation('defaultSupplier');
             $after = $this->auditValues->values($fsItem);
             $fields = $this->auditValues->changedFields($before, $after);
@@ -255,53 +401,6 @@ class FsItemController extends Controller
         Cache::flush();
 
         return response()->json(null, 204);
-    }
-
-    /**
-     * Lock or unlock the catalog item's suggested vendor. While locked, the vendor
-     * stops auto-updating from the latest procurement until explicitly unlocked.
-     */
-    public function toggleDefaultSupplierLock(Request $request, FsItem $fsItem, LatestProcurementVendorService $vendorSync): JsonResponse
-    {
-        $data = $request->validate([
-            'locked' => ['required', 'boolean'],
-        ]);
-        $wasLocked = $fsItem->vendorLocked();
-
-        $this->audited(function () use ($data, $vendorSync, $fsItem, $wasLocked): void {
-            $before = $this->auditValues->values($fsItem);
-            $this->auditLogger->withoutModelEvents(function () use ($data, $vendorSync, $fsItem): void {
-                if ($data['locked']) {
-                    $vendorSync->lock($fsItem, Auth::id());
-                } else {
-                    $vendorSync->unlock($fsItem);
-                }
-            });
-            $fsItem->refresh();
-            $fsItem->unsetRelation('defaultSupplier');
-            $after = $this->auditValues->values($fsItem);
-            $fields = $this->auditValues->changedFields($before, $after);
-            $fieldMap = array_flip($fields);
-            $this->auditLogger->recordMutation(
-                AuditAction::Updated,
-                AuditDomain::FoodService,
-                $fsItem,
-                $wasLocked !== $fsItem->vendorLocked() ? $fields : [],
-                ['entity_name' => $fsItem->name],
-                oldValues: array_intersect_key($before, $fieldMap),
-                newValues: array_intersect_key($after, $fieldMap),
-            );
-        });
-
-        $fsItem->refresh();
-
-        return response()->json(['data' => [
-            'id' => $fsItem->uuid,
-            'default_supplier_id' => $fsItem->defaultSupplier?->uuid,
-            'vendor_locked' => $fsItem->vendorLocked(),
-            'locked_at' => $fsItem->default_supplier_locked_at?->toDateTimeString(),
-            'locked_by' => $fsItem->defaultSupplierLockedBy?->display_name,
-        ]]);
     }
 
     /**

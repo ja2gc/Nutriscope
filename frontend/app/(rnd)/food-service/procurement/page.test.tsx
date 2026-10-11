@@ -3,10 +3,11 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
 import {
-  addListItem, createShoppingList, generateByDates, getPurchaseOrder, getShoppingList,
+  createShoppingList, generateByDates, getPurchaseOrder, getShoppingList,
   listPurchaseOrders, listShoppingLists, updateShoppingList, updateVendorGroup,
-  type PurchaseOrder, type ShoppingList, type ShoppingListItem,
+  type PurchaseOrder, type ShoppingList,
 } from "@/services/procurementService";
 import { searchCatalog, type CatalogItem } from "@/services/fsCatalogService";
 import { ShoppingListCopyCard } from "@/components/foodservice/ShoppingListCopyCard";
@@ -17,7 +18,6 @@ vi.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ user: { role: "RND"
 vi.mock("@/hooks/useDebouncedValue", () => ({ useDebouncedValue: (value: string) => value }));
 vi.mock("@/services/procurementService", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/services/procurementService")>(),
-  addListItem: vi.fn(),
   createShoppingList: vi.fn(),
   generateByDates: vi.fn(),
   getShoppingList: vi.fn(),
@@ -33,7 +33,6 @@ vi.mock("@/services/fsCatalogService", async (importOriginal) => ({
 }));
 vi.mock("@/services/supplierService", () => ({ listAllSuppliers: vi.fn().mockResolvedValue([]) }));
 
-const mockAddListItem = vi.mocked(addListItem);
 const mockCreateShoppingList = vi.mocked(createShoppingList);
 const mockGenerateByDates = vi.mocked(generateByDates);
 const mockGetPurchaseOrder = vi.mocked(getPurchaseOrder);
@@ -74,19 +73,19 @@ function makeList(overrides: Partial<ShoppingList> = {}): ShoppingList {
 const rice: CatalogItem = {
   id: "rice-public-uuid", name: "Rice", kind: "ingredient", category: "Dry Goods", base_unit: "kg",
   purchase_unit: "sack", purchase_price: "2500", units_per_purchase: "50", unit_cost: 50,
-  default_supplier_id: null, vendor: null, vendor_locked: false, include_in_generated_lists: true,
+  default_supplier_id: null, vendor: null, include_in_generated_lists: true,
 };
-const addedRice: ShoppingListItem = {
-  id: "item-1", fs_item_id: 42, ingredient_name: "Rice", qty: "1", unit: "kg", supplier_id: null,
-  item_type: "ingredient", unit_price: "50", total: "50", purchase_qty: null, purchase_unit: null,
-  purchase_price: null, source: "manual", included_in_po: true, exclusion_note: null,
-};
-
 function setInputValue(input: HTMLInputElement, value: string) {
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
   setter?.call(input, value);
   input.dispatchEvent(new Event("input", { bubbles: true }));
   input.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function setSelectValue(select: HTMLSelectElement, value: string) {
+  const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set;
+  setter?.call(select, value);
+  select.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
 describe("Food Service procurement display", () => {
@@ -106,7 +105,6 @@ describe("Food Service procurement display", () => {
     mockGetShoppingList.mockResolvedValue(makeList());
     mockCreateShoppingList.mockResolvedValue(makeList());
     mockGenerateByDates.mockResolvedValue(makeList({ id: "generated-list", name: "Weekly menu", list_type: "suggested" }));
-    mockAddListItem.mockResolvedValue(addedRice);
     mockSearchCatalog.mockResolvedValue([rice]);
     mockUpdateShoppingList.mockResolvedValue(makeList({ name: "Renamed list" }));
     mockUpdateVendorGroup.mockResolvedValue(makePo());
@@ -154,19 +152,53 @@ describe("Food Service procurement display", () => {
     expect(Array.from(container.querySelectorAll("button"), (button) => button.textContent?.trim()).filter((text) => text === "Open")).toHaveLength(0);
   });
 
-  test("Manual Food List creates and opens a draft", async () => {
+  test("Manual Food List waits for a selected procurement date", async () => {
     const manual = makeList({ name: "Manual Food List" });
     mockCreateShoppingList.mockResolvedValue(manual);
     mockGetShoppingList.mockResolvedValue(manual);
     await renderPage();
     const action = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
       .find((candidate) => candidate.textContent?.trim().toLowerCase() === "manual food list");
-    await act(async () => { action?.click(); await Promise.resolve(); await Promise.resolve(); });
+    await act(async () => { action?.click(); });
+    expect(mockCreateShoppingList).not.toHaveBeenCalled();
+
+    await act(async () => {
+      setSelectValue(container.querySelector<HTMLSelectElement>('select[aria-label="Procurement date month"]')!, "10");
+      setSelectValue(container.querySelector<HTMLSelectElement>('select[aria-label="Procurement date day"]')!, "4");
+      setSelectValue(container.querySelector<HTMLSelectElement>('select[aria-label="Procurement date year"]')!, "2026");
+    });
+    const create = container.querySelector<HTMLButtonElement>('button[aria-label="Create manual shopping list"]');
+    await act(async () => { create?.click(); await Promise.resolve(); await Promise.resolve(); });
 
     expect(mockCreateShoppingList).toHaveBeenCalledWith(expect.objectContaining({
-      name: "Manual Food List", list_type: "manual", procurement_track: "food", status: "draft",
+      name: "Manual Food List", list_date: "2026-10-04", list_type: "manual", procurement_track: "food", status: "draft",
     }));
     expect(container.querySelector("h3")?.textContent).toBe("Manual Food List");
+  });
+
+  test("Supplies list requires a user-selected procurement date", async () => {
+    const supplies = makeList({ name: "Cleaning supplies", procurement_track: "supplies" });
+    mockCreateShoppingList.mockResolvedValue(supplies);
+    mockGetShoppingList.mockResolvedValue(supplies);
+    await renderPage();
+    const tab = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
+      .find((candidate) => candidate.textContent?.trim() === "Supplies Lists");
+    await act(async () => { tab?.click(); });
+    const name = container.querySelector<HTMLInputElement>('input[aria-label="Supplies list name"]');
+    await act(async () => { if (name) setInputValue(name, "Cleaning supplies"); });
+    const open = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
+      .find((candidate) => candidate.textContent?.includes("New supplies list"));
+    await act(async () => { open?.click(); });
+    expect(mockCreateShoppingList).not.toHaveBeenCalled();
+    await act(async () => {
+      setSelectValue(container.querySelector<HTMLSelectElement>('select[aria-label="Procurement date month"]')!, "10");
+      setSelectValue(container.querySelector<HTMLSelectElement>('select[aria-label="Procurement date day"]')!, "4");
+      setSelectValue(container.querySelector<HTMLSelectElement>('select[aria-label="Procurement date year"]')!, "2026");
+    });
+    await act(async () => { container.querySelector<HTMLButtonElement>('button[aria-label="Create manual shopping list"]')?.click(); await Promise.resolve(); });
+    expect(mockCreateShoppingList).toHaveBeenCalledWith(expect.objectContaining({
+      name: "Cleaning supplies", list_date: "2026-10-04", procurement_track: "supplies",
+    }));
   });
 
   test("requires a name before generating a suggested shopping list", async () => {
@@ -180,6 +212,17 @@ describe("Food Service procurement display", () => {
       .find((candidate) => candidate.textContent?.trim() === "Generate");
     expect(generate?.disabled).toBe(true);
     expect(mockGenerateByDates).not.toHaveBeenCalled();
+  });
+
+  test("explains suggested-list draft and purchase-order steps accessibly", async () => {
+    await renderPage();
+    const suggest = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
+      .find((candidate) => candidate.textContent?.trim() === "Suggest from Menu");
+    await act(async () => { suggest?.click(); });
+    const hint = container.querySelector<HTMLButtonElement>('button[aria-label="About suggested lists"]');
+    expect(hint).not.toBeNull();
+    await act(async () => { await userEvent.setup().hover(hint!); });
+    await vi.waitFor(() => expect(document.body.textContent).toContain("Review the suggested quantities before saving. Turn Into PO is a separate step and locks the list."));
   });
 
   test("saves the suggested-list name and offers in-detail rename afterward", async () => {
@@ -200,9 +243,16 @@ describe("Food Service procurement display", () => {
       .find((candidate) => candidate.textContent?.trim() === "Generate");
     await act(async () => { generate?.click(); await Promise.resolve(); await Promise.resolve(); });
 
-    expect(mockGenerateByDates).toHaveBeenCalledWith(expect.any(String), expect.any(String), 100, "Weekly menu");
+    expect(mockGenerateByDates).toHaveBeenCalledWith(expect.any(String), expect.any(String), 100, "Weekly menu", { preview: true });
     expect(container.querySelector("h3")?.textContent).toBe("Weekly menu");
     expect(container.querySelector('button[aria-label="Rename Weekly menu"]')).not.toBeNull();
+    expect(mockGenerateByDates).toHaveBeenCalledTimes(1);
+    const saveList = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent?.trim() === "Save Shopping List");
+    await act(async () => { saveList?.click(); });
+    expect(container.querySelector('[role="dialog"]')?.textContent).toContain("Saving does not create a purchase order");
+    const confirmSave = Array.from(container.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')).find((button) => button.textContent?.trim() === "Save Shopping List");
+    await act(async () => { confirmSave?.click(); await Promise.resolve(); });
+    expect(mockGenerateByDates).toHaveBeenCalledTimes(2);
   });
 
   test("renames a saved list from the detail-title pencil", async () => {
@@ -211,11 +261,27 @@ describe("Food Service procurement display", () => {
     await act(async () => { rename?.click(); });
     const input = container.querySelector<HTMLInputElement>('input[aria-label="Shopping list name"]');
     await act(async () => { if (input) setInputValue(input, "Renamed list"); });
-    const save = container.querySelector<HTMLButtonElement>('button[aria-label="Save name"]');
-    await act(async () => { save?.click(); await Promise.resolve(); });
+    const apply = container.querySelector<HTMLButtonElement>('button[aria-label="Apply name"]');
+    await act(async () => { apply?.click(); await Promise.resolve(); });
 
-    expect(mockUpdateShoppingList).toHaveBeenCalledWith("list-1", { name: "Renamed list" });
+    expect(mockUpdateShoppingList).not.toHaveBeenCalled();
     expect(container.querySelector("h3")?.textContent).toBe("Renamed list");
+    const save = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent?.trim() === "Save Shopping List");
+    await act(async () => { save?.click(); await Promise.resolve(); });
+    expect(mockUpdateShoppingList).toHaveBeenCalledWith("list-1", { name: "Renamed list", items: [] });
+  });
+
+  test("Back discards only unsaved edits to an existing Shopping List", async () => {
+    await openList();
+    await act(async () => { container.querySelector<HTMLButtonElement>('button[aria-label="Rename Draft list"]')?.click(); });
+    const input = container.querySelector<HTMLInputElement>('input[aria-label="Shopping list name"]');
+    await act(async () => { if (input) setInputValue(input, "Temporary name"); });
+    await act(async () => { container.querySelector<HTMLButtonElement>('button[aria-label="Apply name"]')?.click(); });
+    await act(async () => { container.querySelector<HTMLButtonElement>('button[aria-label="Back to Shopping Lists"]')?.click(); });
+    expect(container.querySelector('[role="dialog"]')?.textContent).toContain("Unsaved Shopping List");
+    await act(async () => { Array.from(container.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')).find((button) => button.textContent?.trim() === "Discard")?.click(); });
+    expect(mockUpdateShoppingList).not.toHaveBeenCalled();
+    expect(container.textContent).toContain("Draft list");
   });
 
   test("adds a selected Inventory item through the existing public-id flow", async () => {
@@ -229,14 +295,62 @@ describe("Food Service procurement display", () => {
       .find((candidate) => candidate.textContent?.trim() === "Add");
     await act(async () => { add?.click(); await Promise.resolve(); await Promise.resolve(); });
 
-    expect(mockAddListItem).toHaveBeenCalledWith("list-1", {
-      fs_item_id: "rice-public-uuid", qty: 1, unit: "kg", unit_price: 50, supplier_id: null,
-    });
+    expect(container.textContent).toContain("Rice");
+    expect(mockUpdateShoppingList).not.toHaveBeenCalled();
+    const save = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent?.trim() === "Save Shopping List");
+    await act(async () => { save?.click(); await Promise.resolve(); });
+    expect(mockUpdateShoppingList).toHaveBeenCalledWith("list-1", expect.objectContaining({ items: [expect.objectContaining({ fs_item_uuid: "rice-public-uuid", source: "manual" })] }));
     expect(container.querySelector('[role="alert"]')).toBeNull();
   });
 
+  test("empty Shopping List search suggests Non-Auto Grocery items first", async () => {
+    await openList();
+    const search = container.querySelector<HTMLInputElement>('#shopping-list-item-search');
+    await act(async () => { search?.focus(); await Promise.resolve(); });
+    expect(mockSearchCatalog).toHaveBeenCalledWith("", "ingredient", 5, "non_auto");
+  });
+
+  test("adds an Inventory item to a Suggested draft before its first Save", async () => {
+    const draft = makeList({
+      id: "preview", name: "Weekly menu", list_type: "suggested",
+      period_start: "2026-10-04", period_end: "2026-10-04", estimate_population: 100,
+    });
+    mockGenerateByDates.mockResolvedValueOnce(draft).mockResolvedValueOnce(makeList({ ...draft, id: "saved-list" }));
+    await renderPage();
+    const suggest = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
+      .find((button) => button.textContent?.trim() === "Suggest from Menu");
+    await act(async () => { suggest?.click(); });
+    const estimate = container.querySelector<HTMLInputElement>('input[type="number"]');
+    const name = container.querySelector<HTMLInputElement>('input[aria-label="Shopping list name"]');
+    await act(async () => {
+      if (estimate) setInputValue(estimate, "100");
+      if (name) setInputValue(name, "Weekly menu");
+    });
+    const generate = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
+      .find((button) => button.textContent?.trim() === "Generate");
+    await act(async () => { generate?.click(); await Promise.resolve(); });
+    const search = container.querySelector<HTMLInputElement>('#shopping-list-item-search');
+    await act(async () => { if (search) setInputValue(search, "Rice"); await Promise.resolve(); });
+    const option = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
+      .find((button) => button.textContent?.includes("Rice"));
+    await act(async () => { option?.click(); });
+    const add = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
+      .find((button) => button.textContent?.trim() === "Add");
+    await act(async () => { add?.click(); });
+    expect(mockGenerateByDates).toHaveBeenCalledTimes(1);
+    const save = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
+      .find((button) => button.textContent?.trim() === "Save Shopping List");
+    await act(async () => { save?.click(); });
+    const confirm = Array.from(container.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'))
+      .find((button) => button.textContent?.trim() === "Save Shopping List");
+    await act(async () => { confirm?.click(); await Promise.resolve(); });
+    expect(mockGenerateByDates).toHaveBeenLastCalledWith("2026-10-04", "2026-10-04", 100, "Weekly menu", {
+      items: [expect.objectContaining({ fs_item_uuid: "rice-public-uuid", source: "manual" })],
+    });
+  });
+
   test("shows a recoverable error when the Inventory item cannot be added", async () => {
-    mockAddListItem.mockRejectedValue(new Error("Inventory item could not be added."));
+    mockUpdateShoppingList.mockRejectedValue(new Error("Inventory item could not be added."));
     await openList();
     const search = container.querySelector<HTMLInputElement>('#shopping-list-item-search');
     await act(async () => { if (search) setInputValue(search, "Rice"); await Promise.resolve(); });
@@ -246,7 +360,8 @@ describe("Food Service procurement display", () => {
     const add = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
       .find((candidate) => candidate.textContent?.trim() === "Add");
     await act(async () => { add?.click(); await Promise.resolve(); await Promise.resolve(); });
-
+    const save = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent?.trim() === "Save Shopping List");
+    await act(async () => { save?.click(); await Promise.resolve(); });
     expect(container.querySelector('[role="alert"]')?.textContent).toContain("Inventory item could not be added.");
   });
 
@@ -295,13 +410,29 @@ describe("Food Service procurement display", () => {
 
     const row = container.querySelector("tbody tr");
     const inputs = row?.querySelectorAll<HTMLInputElement>('input[type="number"]');
-    expect(inputs?.[0]?.value).toBe("12.35");
-    expect(inputs?.[1]?.value).toBe("52.35");
+    expect(inputs?.[0]?.value).toBe("12.3456");
+    expect(inputs?.[1]?.value).toBe("52.3456");
     const save = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
       .find((candidate) => candidate.textContent?.trim() === "Save actual values");
     await act(async () => { save?.click(); await Promise.resolve(); await Promise.resolve(); });
     expect(mockUpdateVendorGroup).toHaveBeenCalledWith("vendor-group-1", {
       items: [{ id: 1, actual_qty: 12.3456, actual_unit_price: 52.3456 }],
+    });
+  });
+
+  test("editing one item Actual Total derives quantity through the PO update", async () => {
+    await renderPage();
+    await openPurchaseOrder();
+    const openGroup = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
+      .find((candidate) => candidate.textContent?.trim() === "Open");
+    await act(async () => { openGroup?.click(); });
+    const total = container.querySelector<HTMLInputElement>('input[aria-label="Actual Total for Rice"]');
+    await act(async () => { if (total) setInputValue(total, "550"); });
+    const save = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
+      .find((candidate) => candidate.textContent?.trim() === "Save actual values");
+    await act(async () => { save?.click(); await Promise.resolve(); });
+    expect(mockUpdateVendorGroup).toHaveBeenCalledWith("vendor-group-1", {
+      items: [{ id: 1, receipt_total: 550, actual_unit_price: 52.3456 }],
     });
   });
 
@@ -318,7 +449,7 @@ describe("Food Service procurement display", () => {
     expect(plannedTotalContent?.textContent).toContain("₱642.50");
   });
 
-  test("uses Inventory cost/unit wording for actual PO cost and keeps the Shopping List unit locked", async () => {
+  test("shows editable actual values and keeps the Shopping List unit locked", async () => {
     await renderPage();
     await openPurchaseOrder();
     const openGroup = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
@@ -330,14 +461,10 @@ describe("Food Service procurement display", () => {
     expect(container.textContent).toContain("Actual Total");
     expect(container.textContent).not.toContain("Reviewed");
     expect(container.textContent).not.toContain("Not reviewed");
-    const calculationDetails = container.querySelector<HTMLDetailsElement>("tbody tr details");
-    expect(calculationDetails?.open).toBe(false);
-    expect(calculationDetails?.querySelector("summary")?.textContent).toBe("Calculation details");
-    expect(calculationDetails?.textContent).toContain("Planned purchase:");
-    expect(calculationDetails?.textContent).toContain("Actual purchased:");
-    for (const removedField of ["Calculated need:", "Quantity difference:", "Cost difference:"]) {
-      expect(calculationDetails?.textContent).not.toContain(removedField);
-    }
+    expect(container.querySelector<HTMLDetailsElement>("tbody tr details")?.open).toBe(false);
+    expect(container.querySelector("tbody tr details summary")?.textContent).toBe("Calculation details");
+    expect(container.querySelector<HTMLInputElement>('input[aria-label="Actual Total for Rice"]')).not.toBeNull();
+    expect(container.textContent).toContain("Receipt Total");
     const unit = Array.from(container.querySelectorAll<HTMLTableCellElement>("tbody td"))
       .find((cell) => cell.textContent?.trim() === "kg");
     expect(unit?.querySelector("input, select")).toBeNull();
@@ -351,7 +478,7 @@ describe("Food Service procurement display", () => {
     expect(container.textContent).not.toContain("Before PO release");
     expect(container.textContent).not.toContain("Include at least one shopping-list item.");
     const release = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
-      .find((candidate) => candidate.textContent?.includes("Create and release PO"));
+      .find((candidate) => candidate.textContent?.includes("Turn Into PO"));
     expect(release?.disabled).toBe(true);
   });
 });

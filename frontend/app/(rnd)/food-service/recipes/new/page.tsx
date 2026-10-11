@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CookingPot, ArrowLeft, Search, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { CATALOG_UNIT_OPTIONS } from "@/lib/units";
+import { InfoHint } from "@/components/ui/InfoHint";
+import { compatibleRecipeUnits, foodServiceIngredientCost, foodServiceUnitFactor } from "@/lib/foodServiceUnits";
 import { searchCatalog, type CatalogItem } from "@/services/fsCatalogService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -18,6 +19,7 @@ interface IngredientRow {
   showDropdown: boolean;
   quantity: string;
   unit: string;
+  adjust_to_taste: boolean;
 }
 
 // ─── API helpers ──────────────────────────────────────────────────────────────
@@ -36,51 +38,19 @@ function Required() {
   return <span className="text-red-500 ml-0.5">*</span>;
 }
 
-// ─── Client-side unit conversion (mirrors backend UnitConverter) ───────────────
-const MASS_TO_G: Record<string, number> = {
-  mg: 0.001, g: 1, gram: 1, grams: 1, kg: 1000, oz: 28.349523125, lb: 453.59237,
-};
-const VOLUME_TO_ML: Record<string, number> = {
-  ml: 1, milliliter: 1, millilitre: 1, cc: 1, l: 1000, liter: 1000, litre: 1000,
-  tsp: 4.92892, teaspoon: 4.92892, tbsp: 14.7868, tablespoon: 14.7868, cup: 236.588,
-};
-const norm = (u: string) => u.trim().toLowerCase();
-const isMass = (u: string) => norm(u) in MASS_TO_G;
-const isVolume = (u: string) => norm(u) in VOLUME_TO_ML;
-const isKnownUnit = (u: string) => isMass(u) || isVolume(u);
-
-/** Base units contained in one `from` unit, when both share a dimension. null if not convertible. */
-function basePerUnit(from: string, to: string): number | null {
-  const f = norm(from), t = norm(to);
-  if (f === t) return 1;
-  if (isMass(f) && isMass(t)) return MASS_TO_G[f] / MASS_TO_G[t];
-  if (isVolume(f) && isVolume(t)) return VOLUME_TO_ML[f] / VOLUME_TO_ML[t];
-  return null;
-}
-
 /** Convertibility of a recipe row against its catalog base unit. */
 function rowConversion(row: IngredientRow): { convertible: boolean; warning: string | null; blocked: boolean } {
   if (!row.catalogItem) return { convertible: true, warning: null, blocked: false };
+  if (!row.catalogItem.include_in_generated_lists) return { convertible: true, warning: null, blocked: false };
   const base = row.catalogItem.base_unit;
-  if (norm(row.unit) === norm(base)) return { convertible: true, warning: null, blocked: false };
-  const factor = basePerUnit(row.unit, base);
+  const factor = foodServiceUnitFactor(row.unit, base);
   if (factor !== null) return { convertible: true, warning: null, blocked: false };
-  // Catalog unit is convertible but the chosen unit is not -> hard block.
-  if (isKnownUnit(base) && !isKnownUnit(row.unit)) {
-    return { convertible: false, blocked: true, warning: `Unit "${row.unit}" can't convert to catalog unit "${base}".` };
-  }
-  // Outlier catalog unit is allowed with a warning.
-  return { convertible: false, blocked: false, warning: `Unit "${row.unit}" can't be converted to catalog unit "${base}"; cost uses entered unit as-is.` };
+  return { convertible: false, blocked: true, warning: `Choose a unit that matches ${base} for this Auto Grocery ingredient.` };
 }
 
 function costPerIngredient(row: IngredientRow): number {
   if (!row.catalogItem || !row.quantity) return 0;
-  const qty = parseFloat(row.quantity);
-  if (isNaN(qty) || qty <= 0) return 0;
-  // Convert qty from the recipe unit into the item's base_unit, then × ₱/base_unit.
-  const factor = basePerUnit(row.unit, row.catalogItem.base_unit);
-  const qtyInBase = factor !== null ? qty * factor : qty;
-  return qtyInBase * row.catalogItem.unit_cost;
+  return foodServiceIngredientCost(row.catalogItem, parseFloat(row.quantity), row.unit);
 }
 
 let rowKey = 5000;
@@ -98,7 +68,7 @@ export default function NewFSSRecipePage() {
   const [prepNotes, setPrepNotes] = useState("");
   const [previewServings, setPreviewServings] = useState(""); // blank = baseline; read-only scale preview
   const [ingredients, setIngredients] = useState<IngredientRow[]>([
-    { key: rowKey++, catalogItem: null, search: "", results: [], showDropdown: false, quantity: "", unit: "g" },
+    { key: rowKey++, catalogItem: null, search: "", results: [], showDropdown: false, quantity: "", unit: "g", adjust_to_taste: false },
   ]);
   const [saving, setSaving]   = useState(false);
   const [error, setError]     = useState<string | null>(null);
@@ -126,10 +96,12 @@ export default function NewFSSRecipePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) { setError("Recipe name is required."); return; }
+    if (ingredients.some((r) => r.catalogItem && (!r.unit.trim() || r.unit.trim().toLowerCase() === "to taste"))) { setError("Enter a measured unit for every ingredient."); return; }
+    if (ingredients.some((r) => r.catalogItem && (!r.quantity || Number(r.quantity) <= 0))) { setError("Enter a baseline quantity for every ingredient."); return; }
 
     const valid = ingredients
       .filter((r) => r.catalogItem && r.quantity && parseFloat(r.quantity) > 0)
-      .map((r) => ({ fs_item_id: r.catalogItem!.id, quantity: parseFloat(r.quantity), unit: r.unit }));
+      .map((r) => ({ fs_item_id: r.catalogItem!.id, quantity: parseFloat(r.quantity), unit: r.unit, adjust_to_taste: r.adjust_to_taste }));
 
     if (valid.length === 0) { setError("Add at least one ingredient."); return; }
     if (singleItemMode && valid.length !== 1) { setError("Single item foods must have exactly one ingredient."); return; }
@@ -274,10 +246,13 @@ export default function NewFSSRecipePage() {
         {/* Ingredients */}
         <div className="bg-white border border-warm-200 rounded-2xl p-6 space-y-4 shadow-sm">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Ingredients</h3>
+            <h3 className="flex items-center gap-2 text-sm font-extrabold uppercase tracking-wider text-warm-700">
+              Ingredients
+              <InfoHint label="About recipe ingredients">Every ingredient has a baseline amount and scales with servings. Non-Auto stays out of automatic shopping lists. Mark seasonings to adjust to taste.</InfoHint>
+            </h3>
             {!singleItemMode && (
               <button type="button"
-                onClick={() => setIngredients((prev) => [...prev, { key: rowKey++, catalogItem: null, search: "", results: [], showDropdown: false, quantity: "", unit: "g" }])}
+                onClick={() => setIngredients((prev) => [...prev, { key: rowKey++, catalogItem: null, search: "", results: [], showDropdown: false, quantity: "", unit: "g", adjust_to_taste: false }])}
                 className="flex items-center gap-1.5 px-3 py-1.5 border border-warm-300 rounded-lg text-warm-600 hover:bg-warm-50 cursor-pointer transition-colors text-xs font-bold uppercase tracking-wider">
                 <Plus className="h-3 w-3" /> Add Row
               </button>
@@ -287,7 +262,7 @@ export default function NewFSSRecipePage() {
           {/* Column headers */}
           <div className="grid grid-cols-[1fr_80px_72px_80px_28px] gap-2 text-xs font-extrabold text-warm-400 uppercase tracking-wider px-1">
             <span>Catalog ingredient</span>
-            <span>Qty (g)</span>
+            <span>Qty</span>
             <span>Unit</span>
             <span className="text-right">₱ Cost</span>
             <span />
@@ -328,16 +303,23 @@ export default function NewFSSRecipePage() {
                 </div>
 
                 {/* Quantity */}
-                <input type="number" value={row.quantity}
+                <input type="number" value={row.quantity} required={Boolean(row.catalogItem)}
                   onChange={(e) => updateRow(idx, { quantity: e.target.value })}
                   min="0" step="0.1"
                   className="w-full px-3 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" />
 
-                {/* Catalog units first, then common recipe units. */}
-                <select value={row.unit} onChange={(e) => updateRow(idx, { unit: e.target.value })}
+                {/* Non-Auto Grocery units can be entered as used in the recipe. */}
+                {row.catalogItem?.include_in_generated_lists === false ? <>
+                  <input aria-label="Recipe unit" list={`recipe-units-${row.key}`} value={row.unit}
+                    onChange={(e) => updateRow(idx, { unit: e.target.value })}
+                    className="w-full px-2 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:border-emerald-600" />
+                  <datalist id={`recipe-units-${row.key}`}>
+                    {compatibleRecipeUnits(row.catalogItem.base_unit, false).map((u) => <option key={u} value={u} />)}
+                  </datalist>
+                </> : <select value={row.unit} onChange={(e) => updateRow(idx, { unit: e.target.value })}
                   className="w-full px-2 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none cursor-pointer">
-                  {[...CATALOG_UNIT_OPTIONS, "cup", "oz", "tbsp", "tsp"].map((u) => <option key={u} value={u}>{u}</option>)}
-                </select>
+                  {compatibleRecipeUnits(row.catalogItem?.base_unit ?? row.unit, true).map((u) => <option key={u} value={u}>{u}</option>)}
+                </select>}
 
                 {/* Cost contribution */}
                 <div className="py-2 text-right text-sm font-bold text-emerald-700">
@@ -353,6 +335,7 @@ export default function NewFSSRecipePage() {
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
+              {row.catalogItem && <label className="flex items-center gap-2 px-1 text-xs font-semibold text-warm-600"><input type="checkbox" checked={row.adjust_to_taste} onChange={(e) => updateRow(idx, { adjust_to_taste: e.target.checked })} /> Adjust to taste</label>}
               {row.catalogItem && conv.warning && (
                 <div className={`text-xs font-semibold px-1 ${conv.blocked ? "text-red-600" : "text-amber-600"}`}>
                   {conv.blocked ? "⛔ " : "⚠ "}{conv.warning}

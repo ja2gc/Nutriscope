@@ -21,6 +21,7 @@ use App\Models\Report;
 use App\Models\ShoppingList;
 use App\Models\Supplier;
 use App\Models\User;
+use App\Services\FSS\ShoppingListPopulationService;
 use App\Services\Reports\Generators\ProcurementPackGenerator;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -171,6 +172,33 @@ class FoodServiceOpsTest extends TestCase
             ->assertJsonPath('meta.current_page', 1)
             ->assertJsonPath('meta.per_page', 10)
             ->assertJsonPath('meta.total', 12);
+    }
+
+    public function test_catalog_can_filter_auto_and_non_auto_grocery(): void
+    {
+        $auto = $this->makeFsItem(['name' => 'Auto banana', 'include_in_generated_lists' => true]);
+        $manual = $this->makeFsItem(['name' => 'Manual salt', 'include_in_generated_lists' => false]);
+
+        $this->actingAs($this->rnd)->getJson('/api/fss/fs-items/catalog?kind=ingredient&grocery=auto')
+            ->assertOk()->assertJsonFragment(['id' => $auto->uuid])->assertDontSee($manual->uuid);
+        $this->actingAs($this->rnd)->getJson('/api/fss/fs-items/catalog?kind=ingredient&grocery=non_auto')
+            ->assertOk()->assertJsonFragment(['id' => $manual->uuid])->assertDontSee($auto->uuid);
+    }
+
+    public function test_catalog_returns_the_public_default_vendor_id_for_inventory_edits(): void
+    {
+        $supplier = Supplier::factory()->create(['name' => 'Fictional Produce Vendor']);
+        $item = $this->makeFsItem([
+            'name' => 'Vendor-linked carrot',
+            'default_supplier_id' => $supplier->id,
+        ]);
+
+        $this->actingAs($this->rnd)
+            ->getJson('/api/fss/fs-items/catalog?kind=ingredient&search=Vendor-linked carrot')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $item->uuid)
+            ->assertJsonPath('data.0.default_supplier_id', $supplier->uuid)
+            ->assertJsonPath('data.0.vendor', 'Fictional Produce Vendor');
     }
 
     // ===== SUPPLIERS (shared read scope; RND-only authoring) =====
@@ -327,8 +355,14 @@ class FoodServiceOpsTest extends TestCase
             ])
             ->assertForbidden();
 
-        // Receiving remains blocked until actuals and both evidence types exist.
+        // FSS can submit execution details, but only RND can confirm receipt.
         $this->actingAs($this->fss)
+            ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
+                'status' => 'received',
+            ])
+            ->assertForbidden();
+        // RND still cannot confirm receipt before actuals and both evidence types exist.
+        $this->actingAs($this->rnd)
             ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
                 'status' => 'received',
             ])
@@ -431,6 +465,10 @@ class FoodServiceOpsTest extends TestCase
         $this->actingAs($this->fss)
             ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
                 'items' => [['id' => $line->id, 'actual_qty' => 5, 'actual_unit_price' => 20]],
+            ])
+            ->assertOk();
+        $this->actingAs($this->rnd)
+            ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
                 'status' => 'received',
             ])
             ->assertOk();
@@ -698,6 +736,86 @@ class FoodServiceOpsTest extends TestCase
         $this->assertEqualsWithDelta(30, (float) $scaledItem['qty'], 0.01, 'After estimate_population=10, qty scales to 30');
     }
 
+    public function test_suggested_requirements_use_each_service_days_estimate(): void
+    {
+        $item = $this->makeFsItem(['name' => 'Banana estimate', 'base_unit' => 'pc', 'purchase_unit' => 'pc', 'purchase_price' => 5]);
+        $cycle = MenuCycle::factory()->create(['rnd_user_id' => $this->rnd->id, 'week_start_date' => '2026-06-15']);
+        MenuCycleDay::create(['menu_cycle_id' => $cycle->id, 'day_of_week' => 'Monday', 'meal_type' => 'lunch', 'fs_item_id' => $item->id, 'quantity' => 1, 'estimate_population' => 10]);
+        MenuCycleDay::create(['menu_cycle_id' => $cycle->id, 'day_of_week' => 'Tuesday', 'meal_type' => 'lunch', 'fs_item_id' => $item->id, 'quantity' => 1, 'estimate_population' => 25]);
+
+        $plan = app(ShoppingListPopulationService::class)->planRange('2026-06-15', '2026-06-16');
+
+        $this->assertSame([], $plan['uncovered_dates']);
+        $this->assertEqualsWithDelta(35, $plan['items'][0]['qty'], 0.01);
+        $this->assertEqualsWithDelta(175, $plan['items'][0]['total'], 0.01);
+    }
+
+    public function test_suggested_preview_uses_one_entered_estimate_without_saving_list_or_menu_changes(): void
+    {
+        $item = $this->makeFsItem(['name' => 'Preview banana', 'base_unit' => 'pc', 'purchase_unit' => 'pc', 'purchase_price' => 5]);
+        $cycle = MenuCycle::factory()->create(['rnd_user_id' => $this->rnd->id, 'week_start_date' => '2026-06-15']);
+        MenuCycleDay::create(['menu_cycle_id' => $cycle->id, 'day_of_week' => 'Monday', 'meal_type' => 'lunch', 'fs_item_id' => $item->id, 'quantity' => 1, 'estimate_population' => 10]);
+
+        $response = $this->actingAs($this->rnd)->postJson('/api/fss/shopping-lists/generate', [
+            'start_date' => '2026-06-15', 'end_date' => '2026-06-15', 'estimate_population' => 25,
+            'name' => 'Preview', 'preview' => true,
+        ]);
+
+        $response->assertOk()->assertJsonPath('data.items.0.qty', 25)
+            ->assertJsonPath('data.items.0.fs_item_uuid', $item->uuid);
+        $this->assertDatabaseMissing('shopping_lists', ['name' => 'Preview']);
+        $this->assertDatabaseHas('menu_cycle_days', ['menu_cycle_id' => $cycle->id, 'estimate_population' => 10]);
+    }
+
+    public function test_suggested_list_cannot_save_over_an_existing_saved_suggested_service_day(): void
+    {
+        $item = $this->makeFsItem(['base_unit' => 'pc', 'purchase_unit' => 'pc']);
+        $cycle = MenuCycle::factory()->create(['rnd_user_id' => $this->rnd->id, 'week_start_date' => '2026-06-15']);
+        foreach (['Monday', 'Tuesday', 'Wednesday'] as $day) {
+            MenuCycleDay::create(['menu_cycle_id' => $cycle->id, 'day_of_week' => $day, 'meal_type' => 'lunch', 'fs_item_id' => $item->id, 'estimate_population' => 10]);
+        }
+        ShoppingList::factory()->create(['rnd_user_id' => $this->rnd->id, 'list_type' => 'suggested', 'period_start' => '2026-06-15', 'period_end' => '2026-06-16', 'status' => 'draft']);
+
+        $this->actingAs($this->rnd)->postJson('/api/fss/shopping-lists/generate', [
+            'start_date' => '2026-06-16', 'end_date' => '2026-06-17', 'estimate_population' => 10, 'name' => 'Overlap',
+        ])->assertStatus(422)->assertJsonPath('conflicting_dates', ['2026-06-16']);
+        $this->assertDatabaseMissing('shopping_lists', ['name' => 'Overlap']);
+    }
+
+    public function test_manual_and_supplies_lists_require_a_selected_procurement_date(): void
+    {
+        foreach (['food', 'supplies'] as $track) {
+            $this->actingAs($this->rnd)->postJson('/api/fss/shopping-lists', [
+                'name' => 'Undated '.$track, 'list_type' => 'manual', 'procurement_track' => $track,
+            ])->assertStatus(422)->assertJsonValidationErrors(['list_date']);
+        }
+        $this->assertDatabaseMissing('shopping_lists', ['name' => 'Undated food']);
+        $this->assertDatabaseMissing('shopping_lists', ['name' => 'Undated supplies']);
+    }
+
+    public function test_shopping_list_unit_change_converts_purchase_quantity_and_cost_without_changing_total(): void
+    {
+        $item = $this->makeFsItem(['name' => 'Beef list', 'base_unit' => 'kg', 'purchase_unit' => 'kg', 'purchase_price' => 362]);
+        $list = ShoppingList::factory()->create(['rnd_user_id' => $this->rnd->id, 'list_type' => 'manual', 'status' => 'draft']);
+        $line = $list->items()->create(['fs_item_id' => $item->id, 'ingredient_name' => $item->name, 'source' => 'manual', 'qty' => 2, 'unit' => 'kg', 'unit_price' => 362, 'purchase_qty' => 2, 'purchase_unit' => 'kg', 'purchase_price' => 362, 'total' => 724]);
+
+        $this->actingAs($this->rnd)->patchJson("/api/fss/shopping-list-items/{$line->uuid}", ['purchase_unit' => 'g'])->assertOk();
+
+        $line->refresh();
+        $this->assertSame('g', $line->purchase_unit);
+        $this->assertEqualsWithDelta(2000, (float) $line->purchase_qty, 0.001);
+        $this->assertEqualsWithDelta(0.362, (float) $line->purchase_price, 0.000001);
+        $this->assertEqualsWithDelta(724, (float) $line->total, 0.01);
+        $this->actingAs($this->rnd)->patchJson("/api/fss/shopping-list-items/{$line->uuid}", ['purchase_unit' => 'L'])->assertStatus(422);
+    }
+
+    public function test_converted_shopping_list_cannot_change_estimated_servings(): void
+    {
+        $list = ShoppingList::factory()->create(['rnd_user_id' => $this->rnd->id, 'list_type' => 'suggested', 'status' => 'converted']);
+        $this->actingAs($this->rnd)->patchJson("/api/fss/shopping-lists/{$list->uuid}", ['estimate_population' => 50])
+            ->assertStatus(422);
+    }
+
     public function test_generate_shopping_list_rejects_end_date_before_start_date(): void
     {
         $response = $this->actingAs($this->rnd)->postJson('/api/fss/shopping-lists/generate', [
@@ -745,7 +863,7 @@ class FoodServiceOpsTest extends TestCase
             ->assertJsonPath('missing_dates', ['2030-01-01', '2030-01-02', '2030-01-03']);
     }
 
-    public function test_generate_succeeds_when_planned_days_have_null_estimate_population(): void
+    public function test_generate_sets_estimate_on_planned_days_that_had_none(): void
     {
         // estimate_population is at shopping-list level only. Per-day null population is
         // no longer a blocking condition — generation uses population=1 as default scaling.
@@ -773,6 +891,11 @@ class FoodServiceOpsTest extends TestCase
         $this->assertDatabaseHas('shopping_lists', [
             'period_start' => '2026-06-15',
             'period_end' => '2026-06-15',
+        ]);
+        $this->assertDatabaseHas('menu_cycle_days', [
+            'menu_cycle_id' => $cycle->id,
+            'day_of_week' => 'Monday',
+            'estimate_population' => 10,
         ]);
     }
 
@@ -825,6 +948,229 @@ class FoodServiceOpsTest extends TestCase
             'qty' => 25,
             'total' => 125,
         ]);
+    }
+
+    public function test_population_refresh_keeps_procurement_edits_and_manual_lines(): void
+    {
+        $cycle = MenuCycle::factory()->create([
+            'rnd_user_id' => $this->rnd->id,
+            'week_start_date' => '2026-06-15',
+        ]);
+        $item = $this->makeFsItem([
+            'name' => 'Flour', 'base_unit' => 'kg', 'purchase_unit' => 'kg',
+            'purchase_price' => 100, 'units_per_purchase' => 1,
+        ]);
+        MenuCycleDay::create([
+            'menu_cycle_id' => $cycle->id, 'day_of_week' => 'Monday',
+            'meal_type' => 'lunch', 'fs_item_id' => $item->id,
+            'quantity' => 1, 'estimate_population' => 10,
+        ]);
+        $list = $this->actingAs($this->rnd)->postJson('/api/fss/shopping-lists/generate', [
+            'start_date' => '2026-06-15', 'end_date' => '2026-06-15',
+            'estimate_population' => 10,
+        ])->assertCreated()->json('data');
+        $line = $list['items'][0];
+        $this->actingAs($this->rnd)->patchJson("/api/fss/shopping-list-items/{$line['id']}", [
+            'purchase_unit' => 'g',
+        ])->assertOk();
+        $this->actingAs($this->rnd)->patchJson("/api/fss/shopping-list-items/{$line['id']}", [
+            'purchase_price' => 0.12,
+        ])->assertOk();
+        $this->actingAs($this->rnd)->postJson("/api/fss/shopping-lists/{$list['id']}/items", [
+            'fs_item_id' => $item->uuid, 'qty' => 2, 'unit' => 'kg', 'unit_price' => 100,
+        ])->assertCreated();
+
+        $refreshed = $this->actingAs($this->rnd)->patchJson("/api/fss/shopping-lists/{$list['id']}", [
+            'estimate_population' => 20,
+        ])->assertOk()->json('data');
+        $generated = collect($refreshed['items'])->firstWhere('source', 'generated');
+        $this->assertEquals(20, (float) $generated['qty']);
+        $this->assertSame('g', $generated['purchase_unit']);
+        $this->assertEquals(20000, (float) $generated['purchase_qty']);
+        $this->assertEquals(0.12, (float) $generated['purchase_price']);
+        $this->assertCount(1, collect($refreshed['items'])->where('source', 'manual'));
+    }
+
+    public function test_shopping_list_rounding_and_manual_quantity_do_not_change_estimated_servings(): void
+    {
+        $cycle = MenuCycle::factory()->create(['rnd_user_id' => $this->rnd->id, 'week_start_date' => '2026-06-15']);
+        $item = $this->makeFsItem(['name' => 'Flour', 'base_unit' => 'kg', 'purchase_unit' => 'kg', 'purchase_price' => 100, 'units_per_purchase' => 1]);
+        MenuCycleDay::create([
+            'menu_cycle_id' => $cycle->id, 'day_of_week' => 'Monday', 'meal_type' => 'lunch',
+            'fs_item_id' => $item->id, 'quantity' => 1.23, 'estimate_population' => 10,
+        ]);
+        $list = $this->actingAs($this->rnd)->postJson('/api/fss/shopping-lists/generate', [
+            'start_date' => '2026-06-15', 'end_date' => '2026-06-15', 'estimate_population' => 10,
+        ])->assertCreated()->json('data');
+        $line = $list['items'][0];
+        $this->assertEquals(12.3, (float) $line['qty']);
+        $this->assertEquals(12.3, (float) $line['purchase_qty']);
+
+        $this->actingAs($this->rnd)->patchJson("/api/fss/shopping-list-items/{$line['id']}", [
+            'quantity_mode' => 'rounded',
+        ])->assertOk()->assertJsonPath('data.quantity_mode', 'rounded');
+        $rounded = $this->actingAs($this->rnd)->patchJson("/api/fss/shopping-lists/{$list['id']}", [
+            'estimate_population' => 20,
+        ])->assertOk()->json('data.items.0');
+        $this->assertEquals(24.6, (float) $rounded['qty']);
+        $this->assertEquals(25, (float) $rounded['purchase_qty']);
+
+        $this->actingAs($this->rnd)->patchJson("/api/fss/shopping-list-items/{$line['id']}", [
+            'purchase_qty' => 30,
+        ])->assertOk();
+        $manual = $this->actingAs($this->rnd)->patchJson("/api/fss/shopping-lists/{$list['id']}", [
+            'estimate_population' => 30,
+        ])->assertOk()->json('data.items.0');
+        $this->assertEquals(36.9, (float) $manual['qty']);
+        $this->assertEquals(30, (float) $manual['purchase_qty']);
+        $this->assertSame('manual', $manual['quantity_mode']);
+        $this->assertDatabaseHas('menu_cycle_days', ['menu_cycle_id' => $cycle->id, 'estimate_population' => 30]);
+    }
+
+    public function test_suggested_list_save_applies_preview_edits_atomically(): void
+    {
+        $cycle = MenuCycle::factory()->create(['rnd_user_id' => $this->rnd->id, 'week_start_date' => '2026-06-15']);
+        $item = $this->makeFsItem(['name' => 'Flour', 'base_unit' => 'kg', 'purchase_unit' => 'kg', 'purchase_price' => 100, 'units_per_purchase' => 1]);
+        MenuCycleDay::create([
+            'menu_cycle_id' => $cycle->id, 'day_of_week' => 'Monday', 'meal_type' => 'lunch',
+            'fs_item_id' => $item->id, 'quantity' => 1, 'estimate_population' => 5,
+        ]);
+        $base = ['start_date' => '2026-06-15', 'end_date' => '2026-06-15', 'estimate_population' => 10, 'name' => 'Monday food'];
+        $preview = $this->actingAs($this->rnd)->postJson('/api/fss/shopping-lists/generate', $base + ['preview' => true])->assertOk()->json('data');
+        $this->assertDatabaseCount('shopping_lists', 0);
+        $this->assertDatabaseHas('menu_cycle_days', ['menu_cycle_id' => $cycle->id, 'estimate_population' => 5]);
+        $line = [
+            'source' => 'generated', 'fs_item_uuid' => $preview['items'][0]['fs_item_uuid'],
+            'purchase_unit' => 'g', 'purchase_qty' => 10000,
+            'purchase_price' => 0.12, 'quantity_mode' => 'manual',
+            'included_in_po' => true,
+        ];
+        $this->actingAs($this->rnd)->postJson('/api/fss/shopping-lists/generate', $base + [
+            'items' => [array_merge($line, ['purchase_unit' => 'L'])],
+        ])->assertStatus(422);
+        $this->assertDatabaseCount('shopping_lists', 0);
+        $this->assertDatabaseHas('menu_cycle_days', ['menu_cycle_id' => $cycle->id, 'estimate_population' => 5]);
+
+        $saved = $this->actingAs($this->rnd)->postJson('/api/fss/shopping-lists/generate', $base + [
+            'items' => [$line, [
+                'source' => 'manual', 'fs_item_uuid' => $item->uuid,
+                'purchase_unit' => 'g', 'purchase_qty' => 2000,
+                'purchase_price' => 0.12, 'quantity_mode' => 'manual',
+                'included_in_po' => true,
+            ]],
+        ])->assertCreated()->json('data');
+        $this->assertSame('g', $saved['items'][0]['purchase_unit']);
+        $this->assertEquals(10000, (float) $saved['items'][0]['purchase_qty']);
+        $this->assertEquals(0.12, (float) $saved['items'][0]['purchase_price']);
+        $this->assertEquals(1440, (float) $saved['estimated_total']);
+        $this->assertEquals(2, (float) $saved['items'][1]['qty']);
+        $this->assertSame('kg', $saved['items'][1]['unit']);
+        $this->assertDatabaseHas('menu_cycle_days', ['menu_cycle_id' => $cycle->id, 'estimate_population' => 10]);
+    }
+
+    public function test_saved_suggested_list_batch_edit_preserves_identity_and_rolls_back_invalid_items(): void
+    {
+        $cycle = MenuCycle::factory()->create(['rnd_user_id' => $this->rnd->id, 'week_start_date' => '2026-06-15']);
+        $item = $this->makeFsItem(['name' => 'Flour', 'base_unit' => 'kg', 'purchase_unit' => 'kg', 'purchase_price' => 100, 'units_per_purchase' => 1]);
+        MenuCycleDay::create(['menu_cycle_id' => $cycle->id, 'day_of_week' => 'Monday', 'meal_type' => 'lunch', 'fs_item_id' => $item->id, 'quantity' => 1, 'estimate_population' => 10]);
+        $saved = $this->actingAs($this->rnd)->postJson('/api/fss/shopping-lists/generate', [
+            'start_date' => '2026-06-15', 'end_date' => '2026-06-15', 'estimate_population' => 10,
+        ])->assertCreated()->json('data');
+        $line = [
+            'id' => $saved['items'][0]['id'], 'fs_item_uuid' => $item->uuid, 'source' => 'generated',
+            'purchase_unit' => 'g', 'purchase_qty' => 10000, 'purchase_price' => 0.12,
+            'supplier_id' => null, 'quantity_mode' => 'manual', 'included_in_po' => true, 'exclusion_note' => null,
+        ];
+        $url = "/api/fss/shopping-lists/{$saved['id']}";
+        $this->actingAs($this->rnd)->patchJson($url, ['name' => 'Updated', 'items' => [array_merge($line, ['purchase_unit' => 'L'])]])->assertStatus(422);
+        $this->assertDatabaseHas('shopping_lists', ['uuid' => $saved['id'], 'name' => $saved['name']]);
+        $updated = $this->actingAs($this->rnd)->patchJson($url, ['name' => 'Updated', 'items' => [$line]])->assertOk()->json('data');
+        $this->assertSame($saved['id'], $updated['id']);
+        $this->assertSame('Updated', $updated['name']);
+        $this->assertSame('g', $updated['items'][0]['purchase_unit']);
+        $this->assertEquals(1200, (float) $updated['items'][0]['total']);
+        $this->actingAs($this->rnd)->postJson("{$url}/approve")->assertCreated();
+        $this->actingAs($this->rnd)->patchJson($url, ['name' => 'Too late'])->assertStatus(422);
+    }
+
+    public function test_non_auto_inventory_item_can_be_added_edited_and_removed_from_suggested_list(): void
+    {
+        $cycle = MenuCycle::factory()->create(['rnd_user_id' => $this->rnd->id, 'week_start_date' => '2026-06-15']);
+        $planned = $this->makeFsItem(['name' => 'Rice planned', 'base_unit' => 'kg', 'purchase_unit' => 'kg', 'purchase_price' => 50]);
+        $manual = $this->makeFsItem([
+            'name' => 'Seasoning', 'base_unit' => 'box', 'purchase_unit' => 'box',
+            'purchase_price' => 30, 'include_in_generated_lists' => false,
+        ]);
+        MenuCycleDay::create([
+            'menu_cycle_id' => $cycle->id, 'day_of_week' => 'Monday', 'meal_type' => 'lunch',
+            'fs_item_id' => $planned->id, 'quantity' => 1, 'estimate_population' => 10,
+        ]);
+        $saved = $this->actingAs($this->rnd)->postJson('/api/fss/shopping-lists/generate', [
+            'start_date' => '2026-06-15', 'end_date' => '2026-06-15', 'estimate_population' => 10,
+        ])->assertCreated()->json('data');
+        $plannedLine = [
+            'id' => $saved['items'][0]['id'], 'source' => 'generated', 'fs_item_uuid' => $planned->uuid,
+            'purchase_unit' => 'kg', 'purchase_qty' => 10, 'purchase_price' => 50,
+            'quantity_mode' => 'calculated', 'included_in_po' => true,
+        ];
+        $manualLine = [
+            'source' => 'manual', 'fs_item_uuid' => $manual->uuid,
+            'purchase_unit' => 'box', 'purchase_qty' => 2, 'purchase_price' => 30,
+            'quantity_mode' => 'manual', 'included_in_po' => true,
+        ];
+        $url = "/api/fss/shopping-lists/{$saved['id']}";
+        $added = $this->actingAs($this->rnd)->patchJson($url, ['items' => [$plannedLine, $manualLine]])
+            ->assertOk()->json('data');
+        $this->assertCount(2, $added['items']);
+        $this->assertSame($manual->uuid, $added['items'][1]['fs_item_uuid']);
+        $this->assertSame('manual', $added['items'][1]['source']);
+        $reloaded = $this->actingAs($this->rnd)->getJson($url)->assertOk()->json('data');
+        $this->assertSame($added['items'][1]['id'], $reloaded['items'][1]['id']);
+        $manualLine['id'] = $reloaded['items'][1]['id'];
+        $manualLine['purchase_qty'] = 3;
+        $this->actingAs($this->rnd)->patchJson($url, ['items' => [$plannedLine, $manualLine]])
+            ->assertOk()->assertJsonPath('data.items.1.purchase_qty', '3.000000');
+        $this->actingAs($this->rnd)->patchJson($url, ['items' => [$plannedLine]])->assertOk();
+        $this->assertDatabaseMissing('shopping_list_items', ['uuid' => $manualLine['id']]);
+    }
+
+    public function test_shopping_catalog_search_ranks_exact_prefix_and_fuzzy_item_names(): void
+    {
+        $this->makeFsItem(['name' => 'Brown Rice', 'include_in_generated_lists' => false]);
+        $this->makeFsItem(['name' => 'Rice Noodles', 'include_in_generated_lists' => false]);
+        $this->makeFsItem(['name' => 'Rice', 'include_in_generated_lists' => false]);
+
+        $this->actingAs($this->rnd)->getJson('/api/fss/fs-items/catalog?kind=ingredient&grocery=non_auto&limit=5')
+            ->assertOk()->assertJsonCount(3, 'data');
+        $matches = $this->getJson('/api/fss/fs-items/catalog?kind=ingredient&search=Rice&limit=5')
+            ->assertOk()->json('data');
+        $this->assertSame(['Rice', 'Rice Noodles', 'Brown Rice'], array_column($matches, 'name'));
+        $typo = $this->getJson('/api/fss/fs-items/catalog?kind=ingredient&search=Rcie&limit=5')
+            ->assertOk()->json('data');
+        $this->assertSame('Rice', $typo[0]['name']);
+    }
+
+    public function test_manual_food_list_item_addition_persists_and_reloads(): void
+    {
+        $item = $this->makeFsItem([
+            'name' => 'Rice for event', 'base_unit' => 'kg', 'purchase_unit' => 'kg',
+            'purchase_price' => 60, 'include_in_generated_lists' => false,
+        ]);
+        $list = $this->actingAs($this->rnd)->postJson('/api/fss/shopping-lists', [
+            'name' => 'Event food', 'list_type' => 'manual', 'procurement_track' => 'food',
+            'list_date' => '2026-06-20',
+        ])->assertCreated()->json('data');
+        $itemPayload = [
+            'source' => 'manual', 'fs_item_uuid' => $item->uuid,
+            'purchase_unit' => 'kg', 'purchase_qty' => 4, 'purchase_price' => 60,
+            'quantity_mode' => 'manual', 'included_in_po' => true,
+        ];
+        $url = "/api/fss/shopping-lists/{$list['id']}";
+        $this->actingAs($this->rnd)->patchJson($url, ['items' => [$itemPayload]])->assertOk();
+        $reloaded = $this->actingAs($this->rnd)->getJson($url)->assertOk()->json('data');
+        $this->assertSame($item->uuid, $reloaded['items'][0]['fs_item_uuid']);
+        $this->assertEquals(4, (float) $reloaded['items'][0]['purchase_qty']);
+        $this->assertSame('2026-06-20', $reloaded['list_date']);
     }
 
     public function test_list_level_population_scales_all_items_across_span(): void
@@ -1335,6 +1681,11 @@ class FoodServiceOpsTest extends TestCase
         $response = $this->actingAs($this->rnd)->postJson("/api/fss/shopping-lists/{$list->uuid}/approve");
         $response->assertCreated();
 
+        $this->assertDatabaseHas('purchase_orders', [
+            'uuid' => $response->json('data.purchase_order_id'),
+            'order_date' => '2026-06-08',
+        ]);
+
         $this->assertDatabaseHas('purchase_order_items', [
             'description' => 'Rice', 'purchase_qty' => 2, 'purchase_unit' => 'kg', 'purchase_price' => 50,
         ]);
@@ -1550,7 +1901,7 @@ class FoodServiceOpsTest extends TestCase
             ->assertStatus(422);
     }
 
-    public function test_receiving_preserves_purchase_quantity_history_and_updates_catalog_price(): void
+    public function test_received_status_preserves_purchase_history_without_updating_inventory_before_completion(): void
     {
         $fs = FsItem::factory()->create([
             'name' => 'Rice', 'base_unit' => 'g', 'purchase_unit' => 'kg', 'purchase_price' => 50,
@@ -1570,7 +1921,7 @@ class FoodServiceOpsTest extends TestCase
 
         // 2 kg × 1000 g/kg = 2000 g added to stock.
         $this->assertDatabaseMissing('inventory', ['fs_item_id' => $fs->id]);
-        $this->assertSame(52.0, (float) $fs->fresh()->purchase_price);
+        $this->assertSame(50.0, (float) $fs->fresh()->purchase_price);
         $this->assertDatabaseHas('purchase_order_items', [
             'purchase_order_id' => $po->id,
             'fs_item_id' => $fs->id,
@@ -1580,7 +1931,7 @@ class FoodServiceOpsTest extends TestCase
         ]);
     }
 
-    public function test_receiving_updates_catalog_purchase_unit_from_frozen_po_line(): void
+    public function test_received_status_keeps_catalog_unit_until_po_completion(): void
     {
         $fs = FsItem::factory()->create([
             'name' => 'Rice',
@@ -1607,10 +1958,9 @@ class FoodServiceOpsTest extends TestCase
             ->assertOk();
 
         $fs->refresh();
-        $this->assertSame('kg', $fs->purchase_unit);
-        $this->assertSame(1_000.0, (float) $fs->units_per_purchase);
-        $this->assertSame(50.0, (float) $fs->purchase_price);
-        $this->assertSame(0.05, $fs->unit_cost);
+        $this->assertSame('sack', $fs->purchase_unit);
+        $this->assertSame(5_000.0, (float) $fs->units_per_purchase);
+        $this->assertSame(999.0, (float) $fs->purchase_price);
         $this->assertDatabaseHas('purchase_order_items', [
             'purchase_order_id' => $po->id,
             'purchase_unit' => 'kg',
@@ -1618,7 +1968,7 @@ class FoodServiceOpsTest extends TestCase
         ]);
     }
 
-    public function test_receiving_with_null_purchase_price_uses_frozen_base_price_for_recipe_costing(): void
+    public function test_received_status_does_not_change_recipe_cost_before_completion(): void
     {
         $fs = FsItem::factory()->create([
             'base_unit' => 'g',
@@ -1654,9 +2004,9 @@ class FoodServiceOpsTest extends TestCase
             ->patchJson("/api/fss/purchase-orders/{$po->uuid}", ['status' => 'received'])
             ->assertOk();
 
-        $this->assertSame(80.0, (float) $fs->fresh()->purchase_price);
+        $this->assertSame(100.0, (float) $fs->fresh()->purchase_price);
         $this->assertSame('kg', $fs->fresh()->purchase_unit);
-        $this->assertSame(8.0, (float) $recipe->fresh()->cost);
+        $this->assertSame(10.0, (float) $recipe->fresh()->cost);
         $this->assertDatabaseHas('purchase_order_items', [
             'purchase_order_id' => $po->id,
             'purchase_qty' => 3,
@@ -1665,7 +2015,7 @@ class FoodServiceOpsTest extends TestCase
         ]);
     }
 
-    public function test_receiving_uses_frozen_line_economics_after_catalog_units_change(): void
+    public function test_received_status_keeps_later_catalog_edits_until_completion(): void
     {
         $fs = FsItem::factory()->create([
             'base_unit' => 'g',
@@ -1706,17 +2056,16 @@ class FoodServiceOpsTest extends TestCase
             ->patchJson("/api/fss/purchase-orders/{$po->uuid}", ['status' => 'received'])
             ->assertOk();
 
-        $this->assertSame('kg', $fs->fresh()->purchase_unit);
-        $this->assertSame(50.0, (float) $fs->fresh()->purchase_price);
-        $this->assertSame(0.05, $fs->fresh()->unit_cost);
-        $this->assertSame(5.0, (float) $recipe->fresh()->cost);
+        $this->assertSame('sack', $fs->fresh()->purchase_unit);
+        $this->assertSame(999.0, (float) $fs->fresh()->purchase_price);
+        $this->assertSame(10.0, (float) $recipe->fresh()->cost);
         $this->actingAs($this->rnd)
             ->patchJson("/api/fss/purchase-orders/{$po->uuid}", ['status' => 'received'])
             ->assertOk();
-        $this->assertSame(50.0, (float) $fs->fresh()->purchase_price);
+        $this->assertSame(999.0, (float) $fs->fresh()->purchase_price);
     }
 
-    public function test_receiving_locks_catalog_row_before_price_update(): void
+    public function test_received_status_does_not_lock_inventory_before_completion(): void
     {
         $fs = FsItem::factory()->create(['base_unit' => 'g', 'purchase_unit' => 'kg']);
         $po = PurchaseOrder::factory()->create(['rnd_user_id' => $this->rnd->id, 'status' => 'draft']);
@@ -1737,7 +2086,7 @@ class FoodServiceOpsTest extends TestCase
             ->patchJson("/api/fss/purchase-orders/{$po->uuid}", ['status' => 'received'])
             ->assertOk();
 
-        $this->assertTrue(collect($queries)->contains(
+        $this->assertFalse(collect($queries)->contains(
             fn (string $sql): bool => str_contains($sql, 'from `fs_items`')
                 && str_contains($sql, 'for update'),
         ));
@@ -1761,6 +2110,116 @@ class FoodServiceOpsTest extends TestCase
         $this->actingAs($this->rnd)
             ->patchJson("/api/fss/fs-items/{$fsItem->uuid}", ['purchase_price' => 20.00])
             ->assertOk();
+    }
+
+    public function test_compatible_inventory_unit_change_preserves_price_and_recipe_quantity(): void
+    {
+        $item = $this->makeFsItem(['name' => 'Beef', 'base_unit' => 'kg', 'purchase_unit' => 'kg', 'purchase_price' => 362]);
+        $recipe = FoodServiceRecipe::create(['rnd_user_id' => $this->rnd->id, 'name' => 'Beef stew', 'servings' => 50]);
+        $ingredient = FoodServiceRecipeIngredient::create(['food_service_recipe_id' => $recipe->id, 'fs_item_id' => $item->id, 'quantity' => 3500, 'unit' => 'g']);
+
+        $this->actingAs($this->rnd)->patchJson("/api/fss/fs-items/{$item->uuid}", ['base_unit' => 'g'])->assertOk();
+
+        $this->assertSame('g', $item->fresh()->base_unit);
+        $this->assertEqualsWithDelta(0.362, $item->fresh()->unit_cost, 0.000001);
+        $this->assertSame('g', $ingredient->fresh()->unit);
+        $this->assertEqualsWithDelta(3500, (float) $ingredient->fresh()->quantity, 0.001);
+        $this->assertEqualsWithDelta(1267, (float) $recipe->fresh()->cost, 0.01);
+    }
+
+    public function test_incompatible_inventory_unit_change_requires_recipe_corrections_without_mutating_either_record(): void
+    {
+        $item = $this->makeFsItem(['name' => 'Salt', 'base_unit' => 'kg', 'purchase_unit' => 'kg', 'purchase_price' => 50]);
+        $recipe = FoodServiceRecipe::create(['rnd_user_id' => $this->rnd->id, 'name' => 'Soup', 'servings' => 10]);
+        $ingredient = FoodServiceRecipeIngredient::create(['food_service_recipe_id' => $recipe->id, 'fs_item_id' => $item->id, 'quantity' => 2, 'unit' => 'tbsp']);
+
+        $this->actingAs($this->rnd)->patchJson("/api/fss/fs-items/{$item->uuid}", ['base_unit' => 'g'])
+            ->assertStatus(422)->assertJsonPath('affected_recipes.0.recipe_id', $recipe->uuid);
+        $this->assertSame('kg', $item->fresh()->base_unit);
+        $this->assertSame('tbsp', $ingredient->fresh()->unit);
+    }
+
+    public function test_unrelated_inventory_edit_does_not_block_legacy_incompatible_auto_recipe(): void
+    {
+        $item = $this->makeFsItem(['name' => 'Salt', 'base_unit' => 'kg', 'include_in_generated_lists' => true]);
+        $recipe = FoodServiceRecipe::create(['rnd_user_id' => $this->rnd->id, 'name' => 'Soup', 'servings' => 10]);
+        FoodServiceRecipeIngredient::create(['food_service_recipe_id' => $recipe->id, 'fs_item_id' => $item->id, 'quantity' => 2, 'unit' => 'tbsp']);
+
+        $this->actingAs($this->rnd)->patchJson("/api/fss/fs-items/{$item->uuid}", [
+            'name' => 'Sea salt', 'include_in_generated_lists' => true, 'base_unit' => 'kg',
+        ])->assertOk();
+        $this->assertSame('Sea salt', $item->fresh()->name);
+    }
+
+    public function test_inventory_auto_switch_saves_all_recipe_corrections_together(): void
+    {
+        $item = $this->makeFsItem(['name' => 'Salt', 'base_unit' => 'kg', 'include_in_generated_lists' => false]);
+        $recipes = collect(['Soup', 'Stew'])->map(function (string $name) use ($item) {
+            $recipe = FoodServiceRecipe::create(['rnd_user_id' => $this->rnd->id, 'name' => $name, 'servings' => 10]);
+            FoodServiceRecipeIngredient::create(['food_service_recipe_id' => $recipe->id, 'fs_item_id' => $item->id, 'quantity' => 2, 'unit' => 'tbsp']);
+
+            return $recipe;
+        });
+        $url = "/api/fss/fs-items/{$item->uuid}";
+        $affected = $this->actingAs($this->rnd)->patchJson($url, [
+            'include_in_generated_lists' => true,
+        ])->assertStatus(422)->json('affected_recipes');
+        $this->assertCount(2, $affected);
+        $oneCorrection = [[
+            'recipe_id' => $affected[0]['recipe_id'], 'line_index' => $affected[0]['line_index'],
+            'quantity' => 0.1, 'unit' => 'kg',
+        ]];
+        $this->actingAs($this->rnd)->patchJson($url, [
+            'include_in_generated_lists' => true, 'recipe_corrections' => $oneCorrection,
+        ])->assertStatus(422);
+        $this->assertFalse($item->fresh()->include_in_generated_lists);
+        $this->assertSame('tbsp', $recipes[0]->ingredients()->first()->unit);
+
+        $corrections = collect($affected)->map(fn (array $line): array => [
+            'recipe_id' => $line['recipe_id'], 'line_index' => $line['line_index'],
+            'quantity' => 0.1, 'unit' => 'kg',
+        ])->all();
+        $this->actingAs($this->rnd)->patchJson($url, [
+            'include_in_generated_lists' => true, 'recipe_corrections' => $corrections,
+        ])->assertOk();
+        $this->assertTrue($item->fresh()->include_in_generated_lists);
+        foreach ($recipes as $recipe) {
+            $this->assertSame('kg', $recipe->ingredients()->first()->unit);
+            $this->assertEquals(0.1, (float) $recipe->ingredients()->first()->quantity);
+            $this->assertSame(10, $recipe->fresh()->servings);
+        }
+    }
+
+    public function test_every_recipe_ingredient_needs_a_quantity_and_adjust_to_taste_is_separate(): void
+    {
+        $salt = $this->makeFsItem(['name' => 'Salt', 'base_unit' => 'kg', 'include_in_generated_lists' => false]);
+        $this->actingAs($this->rnd)->postJson('/api/fss/food-service-recipes', [
+            'name' => 'Unmeasured soup', 'servings' => 10,
+            'ingredients' => [['fs_item_id' => $salt->uuid, 'quantity' => null, 'unit' => 'to taste']],
+        ])->assertStatus(422);
+
+        $food = $this->actingAs($this->rnd)->postJson('/api/fss/food-service-recipes', [
+            'name' => 'Soup', 'servings' => 10,
+            'ingredients' => [['fs_item_id' => $salt->uuid, 'quantity' => 2, 'unit' => 'tbsp', 'adjust_to_taste' => true]],
+        ])->assertCreated()->json('data');
+        $this->assertEquals(2, $food['ingredients'][0]['quantity']);
+        $this->assertSame('tbsp', $food['ingredients'][0]['unit']);
+        $this->assertTrue($food['ingredients'][0]['adjust_to_taste']);
+        $this->assertEquals(0, $food['cost']);
+
+        $rice = $this->makeFsItem(['name' => 'Rice', 'base_unit' => 'kg', 'include_in_generated_lists' => true]);
+        $this->actingAs($this->rnd)->postJson('/api/fss/food-service-recipes', [
+            'name' => 'Rice soup', 'servings' => 10,
+            'ingredients' => [['fs_item_id' => $rice->uuid, 'quantity' => null, 'unit' => 'to taste']],
+        ])->assertStatus(422);
+    }
+
+    public function test_new_auto_inventory_item_cannot_use_sack(): void
+    {
+        $this->actingAs($this->rnd)->postJson('/api/fss/fs-items', [
+            'name' => 'Rice sack', 'kind' => 'ingredient', 'base_unit' => 'sack',
+            'purchase_price' => 2000, 'include_in_generated_lists' => true,
+        ])->assertStatus(422);
     }
 
     public function test_fss_can_view_single_fs_item_profile_for_menu_detail(): void

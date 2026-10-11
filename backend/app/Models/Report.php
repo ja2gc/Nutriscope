@@ -51,4 +51,14 @@ class Report extends Model
     {
         return $this->belongsTo(StoredObject::class, 'official_file_stored_object_id');
     }
+
+    public function hasFinalizedPurchaseOrderFile(): bool
+    {
+        $poId = $this->parameters['purchase_order_id'] ?? null;
+
+        return $this->official_file_stored_object_id !== null
+            && in_array($this->type, ['procurement_pack', 'program_project_activity'], true)
+            && $poId !== null
+            && PurchaseOrder::query()->whereKey($poId)->whereIn('lifecycle_status', ['completed', 'archived'])->exists();
+    }
 }

@@ -37,6 +37,7 @@ class FoodServiceRecipeRevisionSerializerTest extends TestCase
             'fs_item_id' => $item->id,
             'quantity' => 2000,
             'unit' => 'g',
+            'adjust_to_taste' => true,
         ]);
 
         $serializer = new FoodServiceRecipeRevisionSerializer;
@@ -51,11 +52,16 @@ class FoodServiceRecipeRevisionSerializerTest extends TestCase
         $this->assertSame('Brown Rice', $presented['tables'][0]['rows'][0]['values']['ingredient']['value']);
         $this->assertSame(2000.0, $presented['tables'][0]['rows'][0]['values']['quantity']['value']);
         $this->assertSame('g', $presented['tables'][0]['rows'][0]['values']['catalog_unit']['value']);
+        $this->assertTrue($presented['tables'][0]['rows'][0]['values']['adjust_to_taste']['value']);
         $this->assertSame($item->unit_cost, $presented['tables'][0]['rows'][0]['values']['unit_cost']['value']);
         $this->assertStringNotContainsString('rnd_user_id', $encoded);
         $this->assertStringNotContainsString('food_service_recipe_id', $encoded);
         $this->assertStringNotContainsString('fs_item_id', $encoded);
         $this->assertStringNotContainsString('default_supplier_id', $encoded);
+
+        $legacy = $snapshot->payload;
+        unset($legacy['ingredients'][0]['adjust_to_taste']);
+        $this->assertFalse($serializer->present($legacy)->toArray()['tables'][0]['rows'][0]['values']['adjust_to_taste']['value']);
     }
 
     public function test_serializer_rejects_the_wrong_model_and_malformed_stored_payload(): void

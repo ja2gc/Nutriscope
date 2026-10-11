@@ -16,20 +16,21 @@ class ShoppingListItem extends Model
         'included_in_po', 'exclusion_note',
         'qty', 'unit', 'supplier_id', 'unit_price', 'total',
         'purchase_qty', 'purchase_unit', 'purchase_price',
+        'quantity_mode',
         'vendor_locked_at', 'vendor_locked_by',
         'baseline_servings', 'baseline_quantity', 'scaled_quantity', 'scaled_unit',
     ];
 
     protected $casts = [
-        'qty' => 'decimal:3',
-        'unit_price' => 'decimal:2',
+        'qty' => 'decimal:6',
+        'unit_price' => 'decimal:6',
         'total' => 'decimal:2',
-        'purchase_qty' => 'decimal:3',
-        'purchase_price' => 'decimal:2',
+        'purchase_qty' => 'decimal:6',
+        'purchase_price' => 'decimal:6',
         'vendor_locked_at' => 'datetime',
         'baseline_servings' => 'integer',
-        'baseline_quantity' => 'decimal:3',
-        'scaled_quantity' => 'decimal:3',
+        'baseline_quantity' => 'decimal:6',
+        'scaled_quantity' => 'decimal:6',
         'included_in_po' => 'boolean',
     ];
 

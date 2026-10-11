@@ -420,13 +420,6 @@ return [
             'implementation_state' => 'implemented',
             'reason' => 'Successful DELETE api/fss/fs-items/{fsItem} emits one sanitized explicit event; rejected commands emit none.',
         ],
-        'PATCH api/fss/fs-items/{fsItem}/vendor-lock' => [
-            'classification' => 'explicit_event',
-            'source' => 'App\\Http\\Controllers\\FSS\\FsItemController@toggleDefaultSupplierLock',
-            'owner_task' => 4,
-            'implementation_state' => 'implemented',
-            'reason' => 'Successful PATCH api/fss/fs-items/{fsItem}/vendor-lock emits one sanitized explicit event; rejected commands emit none.',
-        ],
         'POST api/fss/meal-prep-logs/{mealPrepLog}/reverse' => [
             'classification' => 'explicit_event',
             'source' => 'App\\Http\\Controllers\\FSS\\MealPrepLogController@reverse',

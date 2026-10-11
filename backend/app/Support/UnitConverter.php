@@ -50,6 +50,18 @@ class UnitConverter
         return self::isMass($unit) || self::isVolume($unit);
     }
 
+    public static function isCompatible(string $from, string $to): bool
+    {
+        $from = self::normalize($from);
+        $to = self::normalize($to);
+
+        return $from !== '' && $to !== '' && (
+            $from === $to
+            || (self::isMass($from) && self::isMass($to))
+            || (self::isVolume($from) && self::isVolume($to))
+        );
+    }
+
     /**
      * Convert `qty` of `from` unit into the equivalent amount expressed in `to` unit.
      *

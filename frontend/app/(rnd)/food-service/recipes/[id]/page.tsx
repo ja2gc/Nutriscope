@@ -5,12 +5,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CookingPot, ArrowLeft, Search, Plus, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { CATALOG_UNIT_OPTIONS } from "@/lib/units";
+import { InfoHint } from "@/components/ui/InfoHint";
+import { InventoryCorrectionEditor } from "@/components/foodservice/InventoryCorrectionEditor";
+import { compatibleRecipeUnits, foodServiceIngredientCost } from "@/lib/foodServiceUnits";
 import { searchCatalog, type CatalogItem } from "@/services/fsCatalogService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type RecipeCatalogItem = Pick<CatalogItem, "id" | "name" | "unit_cost" | "base_unit">;
+type RecipeCatalogItem = Pick<CatalogItem, "id" | "name" | "unit_cost" | "base_unit" | "include_in_generated_lists">;
 
 interface IngredientRow {
   key: number;
@@ -20,10 +22,11 @@ interface IngredientRow {
   showDropdown: boolean;
   quantity: string;
   unit: string;
+  adjust_to_taste: boolean;
 }
 
 interface FSSRecipe {
-  id: number;
+  id: string;
   name: string;
   category: string | null;
   prep_notes: string | null;
@@ -32,8 +35,9 @@ interface FSSRecipe {
   ingredients: Array<{
     id: number;
     fs_item_id: string;
-    quantity: number;
+    quantity: number | null;
     unit: string;
+    adjust_to_taste: boolean;
     fs_item: RecipeCatalogItem | null;
   }>;
 }
@@ -63,27 +67,26 @@ function Required() {
 // ─── Cost calculation ─────────────────────────────────────────────────────────
 
 function calcCost(rows: IngredientRow[]): number {
-  return rows.reduce((sum, row) => {
-    if (!row.catalogItem || !row.quantity) return sum;
-    const qty = parseFloat(row.quantity);
-    if (isNaN(qty) || qty <= 0) return sum;
-    return sum + qty * row.catalogItem.unit_cost;
-  }, 0);
+  return rows.reduce((sum, row) => sum + costPerIngredient(row), 0);
 }
 
 function costPerIngredient(row: IngredientRow): number {
   if (!row.catalogItem || !row.quantity) return 0;
-  const qty = parseFloat(row.quantity);
-  if (isNaN(qty) || qty <= 0) return 0;
-  return qty * row.catalogItem.unit_cost;
+  return foodServiceIngredientCost(row.catalogItem, parseFloat(row.quantity), row.unit);
 }
 
 let rowKey = 3000;
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function EditFSSRecipePage({ params }: { params: Promise<{ id: string }> }) {
+export default function EditFSSRecipePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ inventoryCorrection?: string }> }) {
   const { id } = use(params);
+  const { inventoryCorrection } = use(searchParams);
+  if (inventoryCorrection) return <InventoryCorrectionEditor kind="recipe" id={id} token={inventoryCorrection} />;
+  return <StandardEditFSSRecipePage id={id} />;
+}
+
+function StandardEditFSSRecipePage({ id }: { id: string }) {
   const router = useRouter();
 
   const [recipe, setRecipe]       = useState<FSSRecipe | null>(null);
@@ -111,15 +114,16 @@ export default function EditFSSRecipePage({ params }: { params: Promise<{ id: st
             ? r.ingredients.map((ing) => ({
                 key: rowKey++,
                 catalogItem: ing.fs_item
-                  ? { id: ing.fs_item.id, name: ing.fs_item.name, unit_cost: ing.fs_item.unit_cost, base_unit: ing.fs_item.base_unit }
+                  ? { id: ing.fs_item.id, name: ing.fs_item.name, unit_cost: ing.fs_item.unit_cost, base_unit: ing.fs_item.base_unit, include_in_generated_lists: ing.fs_item.include_in_generated_lists }
                   : null,
                 search: ing.fs_item?.name ?? "",
                 results: [],
                 showDropdown: false,
-                quantity: String(ing.quantity),
+                quantity: ing.quantity === null ? "" : String(ing.quantity),
                 unit: ing.unit,
+                adjust_to_taste: ing.adjust_to_taste ?? false,
               }))
-            : [{ key: rowKey++, catalogItem: null, search: "", results: [], showDropdown: false, quantity: "", unit: "g" }]
+            : [{ key: rowKey++, catalogItem: null, search: "", results: [], showDropdown: false, quantity: "", unit: "g", adjust_to_taste: false }]
         );
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load."))
@@ -149,10 +153,12 @@ export default function EditFSSRecipePage({ params }: { params: Promise<{ id: st
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) { setError("Recipe name is required."); return; }
+    if (ingredients.some((r) => r.catalogItem && (!r.unit.trim() || r.unit.trim().toLowerCase() === "to taste"))) { setError("Enter a measured unit for every ingredient."); return; }
+    if (ingredients.some((r) => r.catalogItem && (!r.quantity || Number(r.quantity) <= 0))) { setError("Enter a baseline quantity for every ingredient."); return; }
 
     const valid = ingredients
       .filter((r) => r.catalogItem && r.quantity && parseFloat(r.quantity) > 0)
-      .map((r) => ({ fs_item_id: r.catalogItem!.id, quantity: parseFloat(r.quantity), unit: r.unit }));
+      .map((r) => ({ fs_item_id: r.catalogItem!.id, quantity: parseFloat(r.quantity), unit: r.unit, adjust_to_taste: r.adjust_to_taste }));
 
     if (valid.length === 0) { setError("Add at least one ingredient."); return; }
 
@@ -303,9 +309,12 @@ export default function EditFSSRecipePage({ params }: { params: Promise<{ id: st
         {/* Ingredients */}
         <div className="bg-white border border-warm-200 rounded-2xl p-6 space-y-4 shadow-sm">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Ingredients</h3>
+            <h3 className="flex items-center gap-2 text-sm font-extrabold uppercase tracking-wider text-warm-700">
+              Ingredients
+              <InfoHint label="About recipe ingredients">Every ingredient has a baseline amount and scales with servings. Non-Auto stays out of automatic shopping lists. Mark seasonings to adjust to taste.</InfoHint>
+            </h3>
             <button type="button"
-              onClick={() => setIngredients((prev) => [...prev, { key: rowKey++, catalogItem: null, search: "", results: [], showDropdown: false, quantity: "", unit: "g" }])}
+              onClick={() => setIngredients((prev) => [...prev, { key: rowKey++, catalogItem: null, search: "", results: [], showDropdown: false, quantity: "", unit: "g", adjust_to_taste: false }])}
               className="flex items-center gap-1.5 px-3 py-1.5 border border-warm-300 rounded-lg text-warm-600 hover:bg-warm-50 cursor-pointer transition-colors text-xs font-bold uppercase tracking-wider">
               <Plus className="h-3 w-3" /> Add Row
             </button>
@@ -314,7 +323,7 @@ export default function EditFSSRecipePage({ params }: { params: Promise<{ id: st
           {/* Column headers */}
           <div className="grid grid-cols-[1fr_80px_72px_80px_28px] gap-2 text-xs font-extrabold text-warm-400 uppercase tracking-wider px-1">
             <span>Catalog ingredient</span>
-            <span>Qty (g)</span>
+            <span>Qty</span>
             <span>Unit</span>
             <span className="text-right">₱ Cost</span>
             <span />
@@ -349,19 +358,27 @@ export default function EditFSSRecipePage({ params }: { params: Promise<{ id: st
                       ))}
                     </div>
                   )}
+                  {row.catalogItem && <label className="mt-2 flex items-center gap-2 text-xs font-semibold text-warm-600"><input type="checkbox" checked={row.adjust_to_taste} onChange={(e) => updateRow(idx, { adjust_to_taste: e.target.checked })} /> Adjust to taste</label>}
                 </div>
 
                 {/* Quantity */}
-                <input type="number" value={row.quantity}
+                <input type="number" value={row.quantity} required={Boolean(row.catalogItem)}
                   onChange={(e) => updateRow(idx, { quantity: e.target.value })}
                   min="0" step="0.1"
                   className="w-full px-3 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" />
 
-                {/* Unit */}
-                <select value={row.unit} onChange={(e) => updateRow(idx, { unit: e.target.value })}
+                {/* Non-Auto Grocery units can be entered as used in the recipe. */}
+                {row.catalogItem?.include_in_generated_lists === false ? <>
+                  <input aria-label="Recipe unit" list={`recipe-units-${row.key}`} value={row.unit}
+                    onChange={(e) => updateRow(idx, { unit: e.target.value })}
+                    className="w-full px-2 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:border-emerald-600" />
+                  <datalist id={`recipe-units-${row.key}`}>
+                    {compatibleRecipeUnits(row.catalogItem.base_unit, false).map((u) => <option key={u} value={u} />)}
+                  </datalist>
+                </> : <select value={row.unit} onChange={(e) => updateRow(idx, { unit: e.target.value })}
                   className="w-full px-2 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none cursor-pointer">
-                  {[...CATALOG_UNIT_OPTIONS, "cup", "oz", "tbsp", "tsp"].map((u) => <option key={u} value={u}>{u}</option>)}
-                </select>
+                  {compatibleRecipeUnits(row.catalogItem?.base_unit ?? row.unit, true).map((u) => <option key={u} value={u}>{u}</option>)}
+                </select>}
 
                 {/* Cost contribution */}
                 <div className="py-2 text-right text-sm font-bold text-emerald-700">

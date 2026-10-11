@@ -49,20 +49,7 @@ class ReceivingService
     {
         $this->auditLogger->assertAvailable();
 
-        return DB::transaction(function () use ($purchaseOrder, $changedFields): AuditActivity {
-            $touched = [];
-
-            $this->auditLogger->withoutModelEvents(function () use ($purchaseOrder, &$touched): void {
-                foreach ($purchaseOrder->items as $item) {
-                    $supplierId = $item->vendorGroup?->supplier_id;
-                    $this->receiveLine($item, $touched, $purchaseOrder->id, $supplierId);
-                }
-
-                $this->recalculateTouchedRecipes($touched);
-            });
-
-            return $this->recordReceipt($purchaseOrder, $purchaseOrder, $purchaseOrder->items->count(), $changedFields);
-        });
+        return $this->recordReceipt($purchaseOrder, $purchaseOrder, $purchaseOrder->items->count(), $changedFields);
     }
 
     public function receiveVendorGroup(PurchaseOrderVendorGroup $vendorGroup): void
@@ -99,59 +86,21 @@ class ReceivingService
             return;
         }
 
-        if ($item->actual_unit_price !== null) {
-            $lineQty = (float) ($item->actual_qty ?? $item->purchase_qty ?? $item->qty);
-            $receivedUnit = (string) ($item->purchase_unit ?? $item->unit);
-            $receivedUnitPrice = (float) $item->actual_unit_price;
-        } elseif ($item->purchase_price !== null) {
-            $lineQty = (float) ($item->purchase_qty ?? $item->qty);
-            $receivedUnit = (string) ($item->purchase_unit ?? $item->unit);
-            $receivedUnitPrice = (float) $item->purchase_price;
-        } elseif ($item->purchase_unit !== null && (float) $item->purchase_qty > 0) {
-            $lineQty = (float) $item->purchase_qty;
-            $receivedUnit = (string) $item->purchase_unit;
-            $receivedUnitPrice = (float) $item->total_value / $lineQty;
-        } else {
-            $lineQty = (float) $item->qty;
-            $receivedUnit = (string) $item->unit;
-            $receivedUnitPrice = (float) $item->unit_price;
+        $receivedUnit = (string) ($item->purchase_unit ?: $item->unit);
+        $receivedUnitPrice = (float) ($item->actual_unit_price ?? $item->purchase_price ?? $item->unit_price);
+        if ($fs->include_in_generated_lists && $fs->hasIncompatibleRecipeUnit($receivedUnit)) {
+            abort(422, "The completed PO unit for '{$fs->name}' does not match a linked recipe.");
         }
-        [, $perBaseCost] = self::normalizeLine(
-            $lineQty,
-            $receivedUnit,
-            $receivedUnitPrice,
-            (string) $fs->base_unit,
-        );
-
-        $basePerReceived = $this->baseUnitsPerReceivedUnit($item, $receivedUnit, (string) $fs->base_unit);
-        if ($basePerReceived > 0 && $perBaseCost > 0) {
-            $fs->purchase_unit = $receivedUnit;
-            $fs->units_per_purchase = $basePerReceived;
-            $fs->purchase_price = round($perBaseCost * $basePerReceived, 2);
-            $fs->save();
-        }
+        $fs->base_unit = $receivedUnit;
+        $fs->purchase_unit = $receivedUnit;
+        $fs->units_per_purchase = 1;
+        $fs->purchase_price = round($receivedUnitPrice, 6);
+        $fs->save();
 
         // Vendor auto-updates from the latest procurement unless manually locked.
         $this->vendorSync->syncFromReceipt($fs, $supplierId);
 
         $touched[$fs->id] = true;
-    }
-
-    private function baseUnitsPerReceivedUnit(PurchaseOrderItem $item, string $receivedUnit, string $baseUnit): float
-    {
-        $from = UnitConverter::normalize($receivedUnit);
-        $to = UnitConverter::normalize($baseUnit);
-        if ($from === $to) {
-            return 1.0;
-        }
-        if (UnitConverter::isKnown($from) && UnitConverter::isKnown($to)) {
-            return UnitConverter::convert(1, $from, $to);
-        }
-
-        $purchaseQty = (float) ($item->purchase_qty ?? 0);
-        $baseQty = (float) $item->qty;
-
-        return $purchaseQty > 0 && $baseQty > 0 ? $baseQty / $purchaseQty : 0.0;
     }
 
     private function recalculateTouchedRecipes(array $touched): void

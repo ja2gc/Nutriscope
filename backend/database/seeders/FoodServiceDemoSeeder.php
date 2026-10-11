@@ -15,6 +15,7 @@ use App\Models\MenuCycleDay;
 use App\Models\Notification;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderAttachment;
+use App\Models\Report;
 use App\Models\ReportBranding;
 use App\Models\ShoppingList;
 use App\Models\StoredObject;
@@ -26,11 +27,13 @@ use App\Services\FSS\PurchaseOrderLifecycleService;
 use App\Services\FSS\ReceivingService;
 use App\Services\FSS\ShoppingListPopulationService;
 use App\Services\MenuCycleCostService;
+use App\Services\StoredObjectStorage;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Seeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Throwable;
 
 /**
@@ -60,6 +63,10 @@ class FoodServiceDemoSeeder extends Seeder
     private ?StoredObject $demoReceipt = null;
 
     private array $demoPurchaseOrderIds = [];
+
+    private array $oldReportFiles = [];
+
+    private array $oldReportCachePaths = [];
 
     /**
      * Three genuinely different weekly menus keyed by week index.
@@ -149,7 +156,7 @@ class FoodServiceDemoSeeder extends Seeder
 
                 $this->seedSuppliers();
                 $this->seedRecipes($rnd);
-                // Pin each catalog item's default vendor so the suggested list resolves a vendor
+                // Set each catalog item's initial vendor so the suggested list resolves a vendor
                 // per ingredient and the PO conversion can group lines by supplier.
                 $this->seedItemVendors();
 
@@ -208,6 +215,10 @@ class FoodServiceDemoSeeder extends Seeder
         }
 
         app(PurchaseOrderAttachmentStorage::class)->deleteUploads($previousReceipts->all());
+        foreach ($this->oldReportFiles as $file) {
+            app(StoredObjectStorage::class)->deleteOrQueue($file);
+        }
+        Storage::disk('report_cache')->delete($this->oldReportCachePaths);
 
         $this->command->info('FoodServiceDemoSeeder: one completed week, one active week, and one upcoming draft seeded.');
     }
@@ -229,6 +240,16 @@ class FoodServiceDemoSeeder extends Seeder
         $purchaseOrderIds = PurchaseOrder::query()
             ->whereIn('shopping_list_id', $listIds)
             ->pluck('id');
+
+        $reports = Report::query()
+            ->whereIn('type', ['procurement_pack', 'program_project_activity'])
+            ->whereIn('parameters->purchase_order_id', $purchaseOrderIds->map(fn ($id) => (string) $id)->all())
+            ->get();
+        $this->oldReportFiles = StoredObject::query()
+            ->whereIn('id', $reports->pluck('official_file_stored_object_id')->filter())
+            ->get()->all();
+        $this->oldReportCachePaths = $reports->pluck('cache_path')->filter()->all();
+        Report::query()->whereIn('id', $reports->pluck('id'))->delete();
 
         Notification::query()
             ->where('source_module', 'food_service')

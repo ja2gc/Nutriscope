@@ -199,9 +199,9 @@ class PurchaseOrderExecutionLockTest extends TestCase
 
         $line->refresh();
         $this->assertSame($destination->id, $line->vendor_group_id);
-        $this->assertSame('5.25', $line->purchase_qty);
+        $this->assertSame('5.250000', $line->purchase_qty);
         $this->assertSame('5.125', $line->actual_qty);
-        $this->assertSame('22.00', $line->actual_unit_price);
+        $this->assertSame('22.000000', $line->actual_unit_price);
         $this->assertDatabaseMissing('purchase_order_vendor_groups', ['id' => $source->id]);
     }
 
@@ -301,12 +301,12 @@ class PurchaseOrderExecutionLockTest extends TestCase
         ]);
         $line->refresh();
 
-        $this->assertSame('5.00', $line->qty);
+        $this->assertSame('5.000000', $line->qty);
         $this->assertSame('4.375', $line->actual_qty);
-        $this->assertSame('21.50', $line->actual_unit_price);
+        $this->assertSame('21.500000', $line->actual_unit_price);
     }
 
-    public function test_receiving_can_start_once_required_evidence_is_present_without_a_review_step(): void
+    public function test_fss_submits_actuals_and_evidence_but_only_rnd_marks_vendor_received(): void
     {
         Storage::fake('private_uploads');
         [, $group] = $this->convertedPo();
@@ -329,7 +329,7 @@ class PurchaseOrderExecutionLockTest extends TestCase
                 'actual_qty' => 4.375,
                 'actual_unit_price' => 21.50,
             ]],
-        ])->assertUnprocessable();
+        ])->assertForbidden();
 
         $this->actingAs($fss)
             ->post("/api/fss/purchase-order-vendor-groups/{$group->uuid}/attachments", [
@@ -338,6 +338,11 @@ class PurchaseOrderExecutionLockTest extends TestCase
             ])->assertCreated();
 
         $this->assertSame('pending', $group->fresh()->status);
+
+        $this->actingAs($fss)
+            ->getJson("/api/fss/purchase-orders/{$group->purchaseOrder->uuid}")
+            ->assertOk()
+            ->assertJsonPath('data.vendor_groups.0.evidence_requirements.can_mark_received', false);
 
         $this->actingAs($this->rnd)
             ->getJson("/api/fss/purchase-orders/{$group->purchaseOrder->uuid}")
@@ -353,6 +358,19 @@ class PurchaseOrderExecutionLockTest extends TestCase
                 'actual_qty' => 4.375,
                 'actual_unit_price' => 21.50,
             ]],
+        ])->assertForbidden();
+        $this->assertSame('pending', $group->fresh()->status);
+
+        $this->actingAs($fss)->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
+            'items' => [[
+                'id' => $line->id,
+                'actual_qty' => 4.375,
+                'actual_unit_price' => 21.50,
+            ]],
+        ])->assertOk()->assertJsonPath('data.vendor_groups.0.status', 'pending');
+
+        $this->actingAs($this->rnd)->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
+            'status' => 'received',
         ])->assertOk()
             ->assertJsonPath('data.vendor_groups.0.status', 'received')
             ->assertJsonPath('data.vendor_groups.0.or_number', null)

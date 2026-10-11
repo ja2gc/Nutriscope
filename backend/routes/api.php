@@ -248,7 +248,7 @@ Route::middleware(['auth:sanctum', 'active', 'role:FSS,RND'])->prefix('fss')->gr
     Route::get('inventory/rows', [InventoryController::class, 'rows']);
     Route::apiResource('inventory', InventoryController::class)->only(['index', 'show']);
 
-    // Purchase Orders — FSS reads + attachments; writes are RND-only (see below)
+    // Purchase Orders — FSS reads, saves actual values and evidence; RND receives vendors and manages orders.
     Route::get('purchase-orders/{purchase_order}/activity', [ActivityController::class, 'purchaseOrder']);
     Route::post('purchase-orders/{purchase_order}/attachments', [PurchaseOrderController::class, 'uploadAttachment'])->middleware('throttle:uploads');
     Route::patch('purchase-order-vendor-groups/{vendorGroup}', [PurchaseOrderController::class, 'updateVendorGroup']);
@@ -322,7 +322,6 @@ Route::middleware(['auth:sanctum', 'active', 'role:FSS,RND'])->prefix('fss')->gr
         // FS Item catalog edits
         Route::post('fs-items', [FsItemController::class, 'store']);
         Route::patch('fs-items/{fsItem}', [FsItemController::class, 'update']);
-        Route::patch('fs-items/{fsItem}/vendor-lock', [FsItemController::class, 'toggleDefaultSupplierLock']);
         Route::delete('fs-items/{fsItem}', [FsItemController::class, 'destroy']);
 
         // Menu Cycles

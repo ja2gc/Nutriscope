@@ -54,14 +54,13 @@ class PurchaseOrderReadinessTest extends TestCase
         $this->actingAs($rnd)->getJson("/api/fss/shopping-lists/{$list->uuid}")
             ->assertOk()
             ->assertJsonPath('data.release_readiness.ready', false)
-            ->assertJsonPath('data.release_readiness.blockers.0.code', 'supplier_missing')
+            ->assertJsonPath('data.release_readiness.blockers.0.code', 'budget_missing')
             ->assertJsonPath('data.estimated_total', 500);
 
         $this->actingAs($rnd)->postJson("/api/fss/shopping-lists/{$list->uuid}/approve")
             ->assertUnprocessable()
             ->assertJsonPath('readiness.ready', false);
 
-        $list->items()->where('fs_item_id', $included->id)->update(['supplier_id' => $supplier->id]);
         Budget::factory()->create(['fiscal_year' => 2026, 'allocated_amount' => 400]);
 
         $this->actingAs($rnd)->postJson("/api/fss/shopping-lists/{$list->uuid}/approve")
@@ -78,6 +77,7 @@ class PurchaseOrderReadinessTest extends TestCase
         $this->assertDatabaseHas('purchase_order_items', ['purchase_order_id' => $po->id, 'description' => 'Chicken']);
         $this->assertDatabaseMissing('purchase_order_items', ['purchase_order_id' => $po->id, 'description' => 'Cooking oil']);
         $this->assertEqualsWithDelta(500, (float) $po->total_amount, 0.01);
+        $this->assertNull($po->vendorGroups()->sole()->supplier_id);
     }
 
     public function test_open_purchase_orders_reduce_available_release_budget(): void

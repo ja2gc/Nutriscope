@@ -116,7 +116,8 @@ class PurchaseOrderResource extends JsonResource
                         && $g->attachments->where('type', 'receipt')->isNotEmpty(),
                     'proof_uploaded' => $g->relationLoaded('attachments')
                         && $g->attachments->where('type', 'proof')->isNotEmpty(),
-                    'can_mark_received' => $g->supplier_id !== null
+                    'can_mark_received' => $request->user()?->isRnd() === true
+                        && $g->supplier_id !== null
                         && $g->relationLoaded('items')
                         && $g->items->isNotEmpty()
                         && $g->relationLoaded('attachments')

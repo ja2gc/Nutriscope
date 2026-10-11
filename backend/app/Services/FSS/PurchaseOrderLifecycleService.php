@@ -2,6 +2,7 @@
 
 namespace App\Services\FSS;
 
+use App\Actions\Reports\PrepareSavedReport;
 use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
@@ -16,6 +17,7 @@ use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderVendorGroup;
 use App\Models\ShoppingList;
 use App\Models\Supplier;
+use App\Models\User;
 use App\Services\Audit\AuditLogger;
 use App\Services\Audit\Revisions\AuditRevisionRegistry;
 use App\Services\Audit\Revisions\AuditRevisionWriter;
@@ -45,6 +47,8 @@ class PurchaseOrderLifecycleService
         private readonly AuditRevisionWriter $revisionWriter,
         private readonly NotificationLifecycleService $notificationLifecycle,
         private readonly ReportConfigurationSnapshot $reportConfiguration,
+        private readonly ReceivingService $receiving,
+        private readonly PrepareSavedReport $prepareSavedReport,
     ) {}
 
     /**
@@ -60,10 +64,6 @@ class PurchaseOrderLifecycleService
         if ($included->isEmpty()) {
             $blockers[] = ['code' => 'items_missing', 'message' => 'Include at least one shopping-list item.'];
         }
-        if ($included->contains(fn ($item) => $item->supplier_id === null)) {
-            $blockers[] = ['code' => 'supplier_missing', 'message' => 'Assign a supplier to every included item.'];
-        }
-
         $suggestedFood = ! $shoppingList->isSupplies() && $shoppingList->list_type === 'suggested';
         if ($suggestedFood && (int) $shoppingList->estimate_population < 1) {
             $blockers[] = ['code' => 'estimate_missing', 'message' => 'Set one estimated serving count for the selected span.'];
@@ -294,6 +294,9 @@ class PurchaseOrderLifecycleService
                 'procurement_pack', 'program_project_activity',
                 'inspection_report', 'marketing_statement', 'marketing_summary',
             ]);
+            $reportConfiguration['vendor_names'] = $po->vendorGroups
+                ->mapWithKeys(fn (PurchaseOrderVendorGroup $group): array => [$group->id => $group->supplier?->name])
+                ->all();
 
             $this->auditLogger->withoutModelEvents(function () use ($po, $actualPerHead, $actualTotal, $reportConfiguration): void {
                 $po->forceFill([
@@ -326,6 +329,9 @@ class PurchaseOrderLifecycleService
                 ]);
             }
 
+            $this->syncCompletedInventory($po);
+            $this->prepareCompletedReports($po);
+
             event(new PurchaseOrderCompleted($po->fresh(['vendorGroups', 'shoppingList', 'programProjectActivity'])));
             $activity = $this->recordLifecycle(AuditAction::Completed, $po);
             $after = $po->fresh(self::REVISION_RELATIONS);
@@ -349,6 +355,9 @@ class PurchaseOrderLifecycleService
             'procurement_pack', 'program_project_activity',
             'inspection_report', 'marketing_statement', 'marketing_summary',
         ]);
+        $reportConfiguration['vendor_names'] = $po->vendorGroups
+            ->mapWithKeys(fn (PurchaseOrderVendorGroup $group): array => [$group->id => $group->supplier?->name])
+            ->all();
         $this->auditLogger->withoutModelEvents(function () use ($po, $actualTotal, $reportConfiguration): void {
             $po->forceFill([
                 'lifecycle_status' => 'completed',
@@ -361,12 +370,41 @@ class PurchaseOrderLifecycleService
             ])->save();
         });
 
+        $this->syncCompletedInventory($po);
+        $this->prepareCompletedReports($po);
+
         event(new PurchaseOrderCompleted($po->fresh(['vendorGroups', 'shoppingList', 'programProjectActivity'])));
         $activity = $this->recordLifecycle(AuditAction::Completed, $po);
         $after = $po->fresh(self::REVISION_RELATIONS);
         $this->revisionWriter->write($activity, $before, $this->revisionRegistry->capture($after));
 
         return $after;
+    }
+
+    private function syncCompletedInventory(PurchaseOrder $po): void
+    {
+        foreach ($po->vendorGroups as $group) {
+            if ($group->stocked_at !== null) {
+                continue;
+            }
+            $this->receiving->receiveVendorGroup($group->fresh('items'));
+            $group->forceFill(['stocked_at' => now()])->save();
+        }
+    }
+
+    private function prepareCompletedReports(PurchaseOrder $po): void
+    {
+        $actor = User::query()->find($po->rnd_user_id);
+        if ($actor === null) {
+            throw new \RuntimeException('Purchase order owner is unavailable for report preparation.');
+        }
+        $params = ['purchase_order_id' => (string) $po->id, 'prepared_by_name' => $actor->display_name];
+        $this->prepareSavedReport->execute($actor, 'procurement_pack', $params);
+        if ($po->isFoodTrack()
+            && $po->programProjectActivity?->period_start !== null
+            && $po->programProjectActivity?->period_end !== null) {
+            $this->prepareSavedReport->execute($actor, 'program_project_activity', $params);
+        }
     }
 
     public function archive(PurchaseOrder $purchaseOrder): PurchaseOrder
