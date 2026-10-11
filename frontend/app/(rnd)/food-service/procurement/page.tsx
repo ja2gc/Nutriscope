@@ -224,6 +224,10 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
 
   async function saveList(closeAfter = false) {
     if (!list) return;
+    if (list.list_type === "suggested" && (!Number.isInteger(list.estimate_population) || (list.estimate_population ?? 0) < 1)) {
+      setSaveError("Enter a whole Estimated servings number above zero.");
+      return;
+    }
     setBusy(true);
     setSaveError("");
     try {
@@ -240,7 +244,11 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
         exclusion_note: item.exclusion_note,
       }));
       const saved = id
-        ? await updateShoppingList(id, { name: list.name, items })
+        ? await updateShoppingList(id, {
+            name: list.name,
+            ...(list.list_type === "suggested" ? { estimate_population: list.estimate_population } : {}),
+            items,
+          })
         : await generateByDates(list.period_start!, list.period_end!, list.estimate_population!, list.name, { items });
       setConfirmMode(null);
       setList(saved);
@@ -316,15 +324,31 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
 
       <ShoppingListCopyCard items={list.items} />
 
-      {/* One estimate is captured when the suggested list is generated. */}
+      {/* One estimate applies to every covered service day. */}
       {!isSupplies && list.period_start && list.period_end && (
         <div className="overflow-hidden rounded-2xl border border-warm-200 bg-white p-3 shadow-sm">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-5">
             <div className="min-w-0 flex flex-col gap-1">
-              <span className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">
-                Estimated population
-              </span>
-              <div className="break-words text-2xl font-extrabold text-warm-800">{list.estimate_population ?? "—"}</div>
+              <div className="flex items-center gap-1">
+                <label htmlFor="shopping-list-estimated-servings" className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">
+                  Estimated servings
+                </label>
+                <InfoHint label="About Estimated servings" title="Estimated servings">One count applies to every selected day. Saving a change updates those days and recalculates menu items. It locks after Turn Into PO.</InfoHint>
+              </div>
+              {id && list.list_type === "suggested" && list.status === "draft" ? (
+                <input
+                  id="shopping-list-estimated-servings"
+                  aria-label="Estimated servings"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={list.estimate_population ?? ""}
+                  onChange={(event) => setList({ ...list, estimate_population: event.target.value === "" ? null : Number(event.target.value) })}
+                  className="w-full rounded-lg border border-warm-200 px-3 py-1 text-2xl font-extrabold text-warm-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              ) : (
+                <div className="break-words text-2xl font-extrabold text-warm-800">{list.estimate_population ?? "—"}</div>
+              )}
             </div>
 
             <div className="min-w-0 flex flex-col gap-1">

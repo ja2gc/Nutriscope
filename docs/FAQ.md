@@ -230,7 +230,7 @@ It makes that cycle the active operational week shown to FSS. FSS can view it bu
 
 ### How is a suggested food shopping list created?
 
-Open **Procurement → Food Shopping Lists → Suggest from Menu**, select a date range, enter one Estimated servings count, and preview the list. Saving applies that count to every selected Menu Calendar day. Each Food scales from its own recipe serving size. Non-Auto Grocery ingredients stay in recipes but are not added automatically. Add them to the draft when needed; an empty item search suggests Non-Auto Grocery items first. Select **Save Shopping List** to keep the editable list. **Turn Into PO** is a separate step.
+Open **Procurement → Food Shopping Lists → Suggest from Menu**, select a date range, enter one Estimated servings count, and preview the list. Saving applies that count to every selected Menu Calendar day. You can edit the count on the saved list until **Turn Into PO**; Save then updates those days and recalculates generated needs. Each Food scales from its own recipe serving size. Non-Auto Grocery ingredients stay in recipes but are not added automatically. Add them to the draft when needed; an empty item search suggests Non-Auto Grocery items first. Select **Save Shopping List** to keep the editable list. **Turn Into PO** is a separate step.
 
 ### What happens if I change a Shopping List quantity?
 

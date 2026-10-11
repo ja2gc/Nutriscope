@@ -71,12 +71,12 @@ flowchart TD
 | Operation | RND | FSS |
 |---|---:|---:|
 | Catalogs, recipes, cycles, templates | Create/edit | View approved menu |
-| Estimated servings | Enter once at suggested-list generation | View |
+| Estimated servings | Enter at generation; edit saved Suggested list until PO release | View |
 | Shopping lists and PO release | Create/review/release | No |
 | Correct open vendor assignment before evidence | Yes | Yes |
 | Actual receiving values | Yes while open | Yes while open |
 | Receipt/proof and optional OR | Yes | Yes |
-| Explicit vendor received action | Yes | Yes |
+| Explicit vendor received action | Yes | No |
 | Actual population served | Yes | Yes |
 | Budget and operational reports | Full operational access | Own allowed reports |
 

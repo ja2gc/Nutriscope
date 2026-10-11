@@ -28,6 +28,7 @@
 - [ ] First-save confirmation appears from direct Save and Back > Save. Approved copy explains day estimates, editable working status, and separate Turn Into PO. Direct Save offers **Save Shopping List** / **Keep Editing**; Back with unsaved work offers **Save** / **Discard**.
 - [ ] Edits to saved lists remain unsaved until Save. Back > Discard drops only those edits; for a new list it drops the draft. Saved active lists permit Unit, Cost/unit, Vendor, and other existing procurement edits.
 - [ ] Active saved Suggested lists recalculate their generated requirements when covered Menu Calendar `estimate_population` changes. Preserve deliberate manual additions and procurement edits. Stop recalculation at Turn Into PO, when the Shopping List becomes read-only under the user’s later decision.
+- [x] The single Estimated servings value remains editable on a saved Suggested list until Turn Into PO. Save applies it to every covered Menu Calendar day and recalculates generated quantities; Back > Discard leaves the saved count unchanged. PO conversion locks the input. This is the user's 2026-10-12 clarification.
 - [ ] Shopping List unit choices and server validation allow only units compatible with the Inventory unit and linked Auto Grocery recipes. Changing unit converts the displayed requirement and cost per unit, preserving total value until a user changes the procurement estimate.
 - [ ] Per-item Shopping List quantity can be left as calculated, rounded to the nearest whole unit (.5 up), or manually changed. These choices affect the purchase line only, never Estimated servings or Food scaling. Rounding reapplies to recalculated requirements.
 - [ ] Block Suggested list generation/save when any applicable service day already belongs to an existing saved Suggested list. Identify conflicting dates. Deleting the existing list releases coverage. Manual and Supplies lists neither consume nor block this coverage.
@@ -60,6 +61,13 @@
 - [ ] Exercise the deployed user workflow in a live browser with fictional data and record URL, revision, scenarios, and pass/fail evidence. Use an Android emulator if affected mobile behavior requires it.
 - [ ] Update existing Food Service docs and the canonical `Storyboarding/` file only where the implemented workflow makes them stale; check links and cross-references.
 - [ ] Audit every checkbox against current code, test output, runtime state, and rendered artifacts. Separate changed, locally verified, pushed, deployed, and live-accepted status in the final report. Add later scope to this same checklist.
+
+## 2026-10-12 continuation evidence
+
+- User authorized release of the isolated Food Service branch now, regardless of the separate unfinished audit task, and authorized using the provided fictional RND/Admin accounts for deployed browser review. No account credentials belong in this checklist.
+- Saved Suggested estimate UI test failed first because the input was missing, then passed after adding the editable input and Save payload. A second focused test failed first because the estimate tooltip was missing, then passed with the existing `InfoHint` component. A pre-existing preview test used an invalid null estimate fixture; the fixture now includes its valid entered estimate and selected range.
+- Backend integration test passed (1 test, 6 assertions): PATCH with both revised estimate and item rows recalculated a two-day generated line and updated each Menu Calendar day. The broader suite and release verification remain in progress.
+- Full frontend suite passed 173 files/559 tests; frontend TypeScript, scoped ESLint, and production build passed. Pint passed on the changed PHP test. Full backend suite passed 1,596/1,598 tests with 12,313 assertions. The two failures are outside Food Service: an audit assertion owned by the separate audit task and a random Meal Plan factory collision on a unique day key. The Meal Plan test passed alone (1 test, 2 assertions), confirming the collision is intermittent. Neither unrelated area was changed in this release.
 
 ## Evidence log
 

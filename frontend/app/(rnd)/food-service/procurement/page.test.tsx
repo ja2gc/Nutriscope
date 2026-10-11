@@ -226,7 +226,7 @@ describe("Food Service procurement display", () => {
   });
 
   test("saves the suggested-list name and offers in-detail rename afterward", async () => {
-    const generated = makeList({ id: "generated-list", name: "Weekly menu", list_type: "suggested" });
+    const generated = makeList({ id: "generated-list", name: "Weekly menu", list_type: "suggested", estimate_population: 100, period_start: "2026-10-04", period_end: "2026-10-05", days_span: 2 });
     mockGenerateByDates.mockResolvedValue(generated);
     mockGetShoppingList.mockResolvedValue(generated);
     await renderPage();
@@ -269,6 +269,38 @@ describe("Food Service procurement display", () => {
     const save = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent?.trim() === "Save Shopping List");
     await act(async () => { save?.click(); await Promise.resolve(); });
     expect(mockUpdateShoppingList).toHaveBeenCalledWith("list-1", { name: "Renamed list", items: [] });
+  });
+
+  test("saves one edited Estimated servings value on an active Suggested list", async () => {
+    const suggested = makeList({
+      list_type: "suggested", period_start: "2026-10-04", period_end: "2026-10-05",
+      days_span: 2, estimate_population: 100,
+    });
+    mockUpdateShoppingList.mockResolvedValue(makeList({ ...suggested, estimate_population: 120 }));
+    await openList(suggested);
+
+    const estimate = container.querySelector<HTMLInputElement>('input[aria-label="Estimated servings"]');
+    expect(estimate?.value).toBe("100");
+    expect(container.querySelector('button[aria-label="About Estimated servings"]')).not.toBeNull();
+    await act(async () => { if (estimate) setInputValue(estimate, "120"); });
+    expect(mockUpdateShoppingList).not.toHaveBeenCalled();
+
+    const save = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
+      .find((button) => button.textContent?.trim() === "Save Shopping List");
+    await act(async () => { save?.click(); await Promise.resolve(); });
+    expect(mockUpdateShoppingList).toHaveBeenCalledWith("list-1", {
+      name: "Draft list", estimate_population: 120, items: [],
+    });
+    expect(container.querySelector<HTMLInputElement>('input[aria-label="Estimated servings"]')?.value).toBe("120");
+  });
+
+  test("does not offer Estimated servings edits after Turn Into PO", async () => {
+    await openList(makeList({
+      list_type: "suggested", period_start: "2026-10-04", period_end: "2026-10-05",
+      days_span: 2, estimate_population: 100, status: "converted",
+    }));
+    expect(container.querySelector<HTMLInputElement>('input[aria-label="Estimated servings"]')).toBeNull();
+    expect(container.textContent).toContain("100");
   });
 
   test("Back discards only unsaved edits to an existing Shopping List", async () => {

@@ -135,7 +135,7 @@ Use this as both the recording checklist and narration script. Create every name
 **On-screen actions**
 
 1. Open the shopping list with the row pencil. In the detail view, use the pencil beside the title to rename it.
-2. Review the visible Procurement summary: estimated population, budget per head per day, and total procurement cost.
+2. Review the visible Procurement summary: Estimated servings, budget per head per day, and total procurement cost. Change Estimated servings and save to update each covered Menu Calendar day and recalculate generated needs.
 3. Keep the calculated requirement visible.
 4. Edit the chicken purchase quantity using three decimals, select its purchase unit, then edit the current purchase-unit price and vendor.
 5. Use **Add food item** to manually add **Demo Video Seasoning Mix** only for this purchase, showing how to include a one-time pantry item.
@@ -146,7 +146,7 @@ Use this as both the recording checklist and narration script. Create every name
 
 **Narration**
 
-> The row pencil opens the saved list; a pencil beside the detail title edits the name. Calculated need stays visible so staff can see what the menu required. Changing the amount to buy never changes Estimated servings or the Food recipe. Staff can keep the calculated amount, round it to the nearest whole unit, or enter an amount. They can choose a compatible buying unit and change price and vendor. Manually added rows cover one-time needs. An automatically calculated row is excluded instead of deleted, so its original requirement remains visible.
+> The row pencil opens the saved list; a pencil beside the detail title edits the name. Estimated servings can change until Turn Into PO. Saving a new count updates the covered Menu Calendar days and recalculates generated needs. Changing the amount to buy never changes Estimated servings or the Food recipe. Staff can keep the calculated amount, round it to the nearest whole unit, or enter an amount. They can choose a compatible buying unit and change price and vendor. Manually added rows cover one-time needs. An automatically calculated row is excluded instead of deleted, so its original requirement remains visible.
 
 **Expected result:** The list contains realistic buying values, an included manually added seasoning item, and no unresolved release blockers.
 

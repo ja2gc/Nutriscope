@@ -382,7 +382,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Procurement & Budget",
     question: "How is a suggested food shopping list created?",
-    answer: "Choose the menu dates, enter one Estimated servings count, and preview. Save Shopping List applies that count to each selected Menu Calendar day and keeps the list editable. Non-Auto Grocery items are not added automatically; empty item search suggests them first. Turn Into PO is a separate step.",
+    answer: "Choose the menu dates, enter one Estimated servings count, and preview. Save Shopping List applies that count to each selected Menu Calendar day. You can change the count on the saved list until Turn Into PO; saving recalculates generated needs. Non-Auto Grocery items are not added automatically; empty item search suggests them first. Turn Into PO is a separate step.",
     keywords: ["procurement", "menu", "generate", "purchase"],
   },
   {

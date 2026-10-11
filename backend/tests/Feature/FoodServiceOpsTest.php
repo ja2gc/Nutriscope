@@ -1206,18 +1206,36 @@ class FoodServiceOpsTest extends TestCase
             'estimate_population' => 20,
         ])->assertCreated()->json('data');
 
-        // Set list-level estimate_population=20 → syncItems scales 2 days × qty=1 × pop=20 = 40.
+        // The editor saves its item rows alongside a revised span estimate.
         Carbon::setTestNow('2026-06-25 10:00:00');
         $updated = $this->actingAs($this->rnd)->patchJson("/api/fss/shopping-lists/{$list['id']}", [
-            'estimate_population' => 20,
+            'estimate_population' => 30,
+            'items' => [[
+                'id' => $list['items'][0]['id'],
+                'source' => 'generated',
+                'fs_item_uuid' => $fsItem->uuid,
+                'purchase_unit' => 'piece',
+                'purchase_qty' => 40,
+                'purchase_price' => 5,
+                'quantity_mode' => 'calculated',
+                'included_in_po' => true,
+            ]],
         ])->assertOk()->json('data');
 
+        $this->assertEquals(60, (float) $updated['items'][0]['purchase_qty']);
         $this->assertDatabaseHas('shopping_list_items', [
             'shopping_list_id' => ShoppingList::where('uuid', $list['id'])->value('id'),
             'fs_item_id' => $fsItem->id,
-            'qty' => 40,
-            'total' => 200,
+            'qty' => 60,
+            'total' => 300,
         ]);
+        foreach (['Monday', 'Tuesday'] as $day) {
+            $this->assertDatabaseHas('menu_cycle_days', [
+                'menu_cycle_id' => $cycle->id,
+                'day_of_week' => $day,
+                'estimate_population' => 30,
+            ]);
+        }
     }
 
     public function test_fss_can_list_shopping_lists(): void
