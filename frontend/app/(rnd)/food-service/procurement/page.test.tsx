@@ -5,7 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import {
-  createShoppingList, generateByDates, getPurchaseOrder, getShoppingList,
+  approveShoppingList, createShoppingList, generateByDates, getPurchaseOrder, getShoppingList,
   listPurchaseOrders, listShoppingLists, updateShoppingList, updateVendorGroup,
   type PurchaseOrder, type ShoppingList,
 } from "@/services/procurementService";
@@ -19,6 +19,7 @@ vi.mock("@/hooks/useDebouncedValue", () => ({ useDebouncedValue: (value: string)
 vi.mock("@/services/procurementService", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/services/procurementService")>(),
   createShoppingList: vi.fn(),
+  approveShoppingList: vi.fn(),
   generateByDates: vi.fn(),
   getShoppingList: vi.fn(),
   listShoppingLists: vi.fn(),
@@ -34,6 +35,7 @@ vi.mock("@/services/fsCatalogService", async (importOriginal) => ({
 vi.mock("@/services/supplierService", () => ({ listAllSuppliers: vi.fn().mockResolvedValue([]) }));
 
 const mockCreateShoppingList = vi.mocked(createShoppingList);
+const mockApproveShoppingList = vi.mocked(approveShoppingList);
 const mockGenerateByDates = vi.mocked(generateByDates);
 const mockGetPurchaseOrder = vi.mocked(getPurchaseOrder);
 const mockGetShoppingList = vi.mocked(getShoppingList);
@@ -223,6 +225,37 @@ describe("Food Service procurement display", () => {
     expect(hint).not.toBeNull();
     await act(async () => { await userEvent.setup().hover(hint!); });
     await vi.waitFor(() => expect(document.body.textContent).toContain("Review the suggested quantities before saving. Turn Into PO is a separate step and locks the list."));
+  });
+
+  test("warns that Turn Into PO locks the Shopping List and waits for confirmation", async () => {
+    const readyList = makeList({
+      release_readiness: { ready: true, blockers: [] },
+    });
+    mockApproveShoppingList.mockResolvedValue({ purchase_order_id: "po-1", purchase_order_ids: ["po-1"] });
+    await openList(readyList);
+
+    const release = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
+      .find((button) => button.textContent?.trim() === "Turn Into PO");
+    expect(release?.disabled).toBe(false);
+    await act(async () => { release?.click(); });
+
+    const warning = container.querySelector<HTMLElement>('[role="dialog"][aria-label="Turn Into PO warning"]');
+    expect(warning?.textContent).toContain("This will lock the Shopping List");
+    expect(warning?.textContent).toContain("The Shopping List will become read-only.");
+    expect(warning?.textContent).toContain("Are you sure you want to turn it into a PO and lock the list?");
+    expect(mockApproveShoppingList).not.toHaveBeenCalled();
+
+    const cancel = Array.from(warning?.querySelectorAll<HTMLButtonElement>("button") ?? [])
+      .find((button) => button.textContent?.trim() === "Cancel");
+    await act(async () => { cancel?.click(); });
+    expect(container.querySelector('[role="dialog"][aria-label="Turn Into PO warning"]')).toBeNull();
+    expect(mockApproveShoppingList).not.toHaveBeenCalled();
+
+    await act(async () => { release?.click(); });
+    const confirm = Array.from(container.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'))
+      .find((button) => button.textContent?.trim() === "Turn Into PO and lock list");
+    await act(async () => { confirm?.click(); await Promise.resolve(); });
+    expect(mockApproveShoppingList).toHaveBeenCalledExactlyOnceWith("list-1");
   });
 
   test("saves the suggested-list name and offers in-detail rename afterward", async () => {

@@ -180,14 +180,15 @@ Use this as both the recording checklist and narration script. Create every name
 **On-screen actions**
 
 1. Return to the suggested shopping list.
-2. Intentionally clear one vendor to show the visible blocker, then restore it.
+2. Leave one vendor unspecified to show it can be assigned in the PO before receiving.
 3. Confirm that the fiscal-year budget and included total permit release.
 4. Select **Turn Into PO**.
-5. Open the new PO and point out its PO number, shopping-list purpose/name, vendor groups, and locked planned values. Expand **Planned total** when the snapshot total is needed.
+5. Read the warning that the Shopping List will become read-only, then select **Turn Into PO and lock list**.
+6. Open the new PO and point out its PO number, shopping-list purpose/name, vendor groups, and locked planned values. Expand **Planned total** when the snapshot total is needed.
 
 **Narration**
 
-> Turning the saved list into a purchase order locks the buying plan. NutriScope checks the menu dates, serving estimate, and fiscal-year budget where required. It groups items by vendor, including an Unspecified group that must be assigned before receiving, and keeps planned values unchanged for comparison and reports.
+> The confirmation warns that turning the saved list into a purchase order makes it read-only. NutriScope checks the menu dates, serving estimate, and fiscal-year budget where required. It groups items by vendor, including an Unspecified group that must be assigned before receiving, and keeps planned values unchanged for comparison and reports.
 
 **Expected result:** A released purchase order shows its number, purpose, vendor groups, and locked planned values.
 

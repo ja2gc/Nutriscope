@@ -246,7 +246,7 @@ Use **Procurement → Supplies Lists**, choose a procurement date, create a name
 
 ### What happens when a shopping list is converted?
 
-Review the saved list and select **Turn Into PO**. It creates one order grouped by vendor and locks the Shopping List and planned PO values. You can leave a vendor unspecified on the list, then assign one before receiving. If the final vendor changes before evidence is uploaded, use **Change vendor for all** on the group or row-level **Change vendor** for one item.
+Review the saved list and select **Turn Into PO**. A warning asks you to confirm that the Shopping List will become read-only. Select **Cancel** to keep editing, or **Turn Into PO and lock list** to create one order grouped by vendor. You can leave a vendor unspecified on the list, then assign one before receiving. If the final vendor changes before evidence is uploaded, use **Change vendor for all** on the group or row-level **Change vendor** for one item.
 
 ### Who records OR numbers and receipts?
 

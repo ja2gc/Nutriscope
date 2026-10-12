@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   ShoppingBag, Plus, Trash2, ChevronLeft, ChevronDown, Split,
-  FileText, Pencil, Check, Search, X,
+  FileText, Pencil, Check, Search, X, AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -68,7 +68,7 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
 }) {
   const [list, setList] = useState<ShoppingList | null>(null);
   const [savedSnapshot, setSavedSnapshot] = useState("");
-  const [confirmMode, setConfirmMode] = useState<"back" | "first-save" | null>(null);
+  const [confirmMode, setConfirmMode] = useState<"back" | "first-save" | "release" | null>(null);
   const [closeAfterSave, setCloseAfterSave] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -308,7 +308,7 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
           {list.status === "draft" && <Button variant="secondary" onClick={() => id ? void saveList() : setConfirmMode("first-save")} loading={busy} className="px-4 py-2">Save Shopping List</Button>}
           <Button
             variant="primary"
-            onClick={doGeneratePos}
+            onClick={() => setConfirmMode("release")}
             loading={busy}
             disabled={!id || dirty || list.status === "converted" || !list.release_readiness?.ready}
             className="px-4 py-2 flex items-center gap-2"
@@ -551,12 +551,18 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
         Inventory suggests the Vendor from the latest completed PO.
         Converting to a PO creates one purchase order grouped by vendor.
       </p>
-      {confirmMode && <div role="dialog" aria-modal="true" aria-label={confirmMode === "back" ? "Unsaved Shopping List" : "Save Shopping List"} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      {confirmMode && <div role="dialog" aria-modal="true" aria-label={confirmMode === "back" ? "Unsaved Shopping List" : confirmMode === "release" ? "Turn Into PO warning" : "Save Shopping List"} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
         <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl space-y-4">
           {confirmMode === "first-save" ? <>
             <h3 className="text-lg font-bold text-warm-900">Save Shopping List?</h3>
             <p className="text-sm text-warm-600">This list uses the current estimated servings for the selected Menu Calendar service days. You can keep editing it after saving. Saving does not create a purchase order; Turn Into PO is a separate action.</p>
             <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => { setConfirmMode(null); setCloseAfterSave(false); }}>Keep Editing</Button><Button variant="primary" onClick={() => void saveList(closeAfterSave)} loading={busy}>Save Shopping List</Button></div>
+          </> : confirmMode === "release" ? <>
+            <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950">
+              <h3 className="flex items-center gap-2 text-lg font-bold"><AlertTriangle className="h-5 w-5 shrink-0" aria-hidden="true" />This will lock the Shopping List</h3>
+              <p className="mt-2 text-sm">The Shopping List will become read-only. Are you sure you want to turn it into a PO and lock the list?</p>
+            </div>
+            <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setConfirmMode(null)}>Cancel</Button><Button variant="primary" onClick={() => { setConfirmMode(null); void doGeneratePos(); }} loading={busy}>Turn Into PO and lock list</Button></div>
           </> : <>
             <h3 className="text-lg font-bold text-warm-900">Unsaved Shopping List</h3>
             <p className="text-sm text-warm-600">Save your changes before leaving?</p>

@@ -39,6 +39,7 @@
 ## Purchase Orders and completion
 
 - [x] **Turn Into PO** is a separate explicit action available for a saved list. It creates one PO with multiple vendor groups, including a functional Unspecified group, and locks the source Shopping List.
+- [ ] Before **Turn Into PO** converts a saved list, show a short warning that the Shopping List will become read-only. **Cancel** keeps the list editable; **Turn Into PO and lock list** confirms conversion. Verify the warning and Cancel on the deployed page.
 - [x] PO captures Shopping List values at conversion. Its Unit is locked; later Inventory, Food, Menu Calendar, and Shopping List changes cannot silently alter it. Lock covered Menu Cycle content as required by the existing lifecycle.
 - [x] PO keeps planned quantity separate from actual purchased quantity. Actual Quantity, Actual Unit Price, and Actual Total are editable with the specified two-way calculation. Whole-number steppers; no redundant calculation fields.
 - [x] Each vendor group shows Receipt Total as the sum of its item Actual Totals. Served Days and Total Served Population belong to the PO as a whole, using actual `served_population` and counting each service date once. Vendor groups do not need a day-to-item assignment or vendor-level population totals.

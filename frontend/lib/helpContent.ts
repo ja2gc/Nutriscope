@@ -406,7 +406,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Procurement & Budget",
     question: "What happens when a shopping list is converted?",
-    answer: "Turn Into PO copies the saved list into one vendor-grouped order and locks the list and planned values. Assign any unspecified vendor before receiving. Before evidence is uploaded, Change vendor for all changes a group and row-level Change vendor moves one item. FSS can save actual values, receipt, and proof; RND then marks the vendor received. OR is optional.",
+    answer: "Turn Into PO first warns that the Shopping List will become read-only. Cancel keeps it editable; Turn Into PO and lock list creates one vendor-grouped order. Assign any unspecified vendor before receiving. Before evidence is uploaded, Change vendor for all changes a group and row-level Change vendor moves one item. FSS can save actual values, receipt, and proof; RND then marks the vendor received. OR is optional.",
     keywords: ["PO", "vendor group", "receipt", "change vendor"],
   },
   {
