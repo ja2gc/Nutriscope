@@ -6,9 +6,9 @@ This catalog describes the current Admin Audit Logs interface and its write poli
 
 Admin has four tabs: **All Activity**, **Security & Administration**, **Nutrition Care**, and **Food Service Operations**. The selected module tab scopes results. Context identifies the related record; it is not a filter.
 
-The only action filters are **Created**, **Updated**, **Deleted**, and **Approved**. Workflow-specific labels such as ordered, received, adjusted, corrected, archived, and completed normalize to these actions. Purchase-order conversion is Created; receiving, corrections, and other edits are Updated. Approval remains distinct because it is a review decision.
+Canonical actions are **Created**, **Updated**, **Deleted**, **Viewed**, **Downloaded**, **Archived**, **Failed**, **Suspended**, **Unsuspended**, and **Discontinued**. **Viewed**, **Downloaded**, and **Archived** apply to report records; other specific edits and transitions use the concise action with the subject describing what changed. Purchase-order conversion is Created; receiving and corrections are Updated.
 
-Outcome and severity are not filters or action names. New audit entries must represent successful events. Read access, report activity, authentication failures, access denials, rate limits, routine profile/settings changes, and audit-page access do not create audit events. Failed business mutations roll back with their transaction; they do not create audit rows.
+Outcome and severity are not filters or action names. Audit entries cover reviewable business changes, report views/downloads/archives in their owning module, and failed authentication or rate-limit events. Generic access denials, routine profile/settings changes, and audit-page access do not create audit events. Failed business mutations roll back with their transaction; they do not create audit rows.
 
 ## Audited records
 
@@ -18,11 +18,11 @@ Outcome and severity are not filters or action names. New audit entries must rep
 | Nutrition Care | Patient/NCP records, assessments, diagnoses, interventions, monitoring, meal plans, screening documents, the RND Food Library, USDA imports, and RND recipes. Clinical details show changed field names only. |
 | Food Service Operations | Food catalog and recipes, suppliers, menus, shopping lists, purchase orders, receiving, budgets, and ledger changes. Details use safe fields and registered event-time revisions. |
 
-Automated budget deductions remain tied to the completed purchase order because they change fiscal balances. Routine background work, pruning, report generation, preview, and download do not create audit entries.
+Automated purchase-order deductions remain in the budget ledger; they do not create a separate system audit event or revision. Routine background work, pruning, report generation, and preview do not create audit entries.
 
 ## Removed report and access trails
 
-Reports remain available through their normal report pages. Report generation, view, download, archive, deletion, branding, and template edits have no audit trail or audit-log tab. Admin edits shared report branding and signatories under **Reports → Template Edit**.
+Reports remain available through their normal report pages. A report view, download, or archive is recorded in the owning module tab with its report type. Report generation, deletion, branding, and template edits have no audit trail or audit-log tab. Admin edits shared report branding and signatories under **Reports → Template Edit**.
 
 Opening Audit Logs or a contextual history page does not write an access event. Patient/NCP and authorized purchase-order/budget histories remain available under their existing role policies.
 
@@ -30,4 +30,4 @@ Opening Audit Logs or a contextual history page does not write an access event. 
 
 Clinical events expose approved patient references, actor, record type, timestamp, and changed field names only. They never expose clinical before/after values, credentials, file contents, AI prompts/outputs, or report contents. Operational revisions use registered serializers and preserve event-time values; revisions remain immutable and share retention with their parent event.
 
-Audit rows are immutable at runtime. The forward-only `simplify_audit_history` migration removes report, passive-access, rejected-request, and noncanonical rows; it normalizes historical action names. Its cleanup is intentionally irreversible, so keep the migration in source control for new installations and environments.
+Audit rows are immutable at runtime. The one-time `simplify_audit_history` cleanup was applied to production to remove retired report/access trails and normalize retained history. After confirming it had run, its migration and migration-only test were removed from source control. New audit events use the canonical taxonomy directly.

@@ -17,7 +17,7 @@ This override supersedes earlier audit-interface and event-taxonomy decisions be
 - User-facing actions are Created, Updated, Deleted, Viewed, Downloaded, Archived, Failed, Suspended, Unsuspended, and Discontinued. Viewed, Downloaded, and Archived apply to reports; other workflow-specific edits and transitions normalize to the concise action set.
 - The Reports tab is removed. Report viewed, downloaded, and archived events remain visible in the owning Nutrition Care or Food Service Operations tab, with report type as their subject and filter. Report generation, preparation, template edits, and configuration changes are not audited.
 - Audit-page access, generic role denials, routine profile/settings changes, and routine background activity do not create audit events. Failed login attempts, protected-route authentication failures, and login rate limits use the `Failed` action with a clear subject.
-- Historical report access events are reclassified into their owning module and retain report type. Removed report-configuration and other removed-feature rows are deleted. Retained events and revision records are normalized by the forward-only `simplify_audit_history` migration.
+- Historical report access events are reclassified into their owning module and retain report type. Removed report-configuration and other removed-feature rows are deleted. Retained events and revision records were normalized by the one-time production migration, applied before its source file and migration-only test were removed.
 
 Privacy, immutability, retention, route authorization, clinical redaction, and event-time operational history remain in force unless changed by this override.
 
