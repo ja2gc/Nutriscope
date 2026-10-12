@@ -153,6 +153,9 @@ export async function saveAssessment(
   const payload: Record<string, unknown> = { ...data };
   delete payload.weight_loss_period;
   delete payload.stress_factor;
+  if (typeof payload.ibw_percentage === "number") {
+    payload.ibw_percentage = Number(payload.ibw_percentage.toFixed(2));
+  }
   const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/assessment`, {
     method,
     headers: {
