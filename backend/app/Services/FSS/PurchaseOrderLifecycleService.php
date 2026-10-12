@@ -333,7 +333,7 @@ class PurchaseOrderLifecycleService
             $this->prepareCompletedReports($po);
 
             event(new PurchaseOrderCompleted($po->fresh(['vendorGroups', 'shoppingList', 'programProjectActivity'])));
-            $activity = $this->recordLifecycle(AuditAction::Completed, $po);
+            $activity = $this->recordLifecycle(AuditAction::Updated, $po);
             $after = $po->fresh(self::REVISION_RELATIONS);
             if ($activity !== null) {
                 $this->revisionWriter->write($activity, $before, $this->revisionRegistry->capture($after));
@@ -376,7 +376,7 @@ class PurchaseOrderLifecycleService
         $this->prepareCompletedReports($po);
 
         event(new PurchaseOrderCompleted($po->fresh(['vendorGroups', 'shoppingList', 'programProjectActivity'])));
-        $activity = $this->recordLifecycle(AuditAction::Completed, $po);
+        $activity = $this->recordLifecycle(AuditAction::Updated, $po);
         $after = $po->fresh(self::REVISION_RELATIONS);
         if ($activity !== null) {
             $this->revisionWriter->write($activity, $before, $this->revisionRegistry->capture($after));
@@ -458,7 +458,11 @@ class PurchaseOrderLifecycleService
             AuditDomain::Procurement,
             subject: $purchaseOrder,
             context: $purchaseOrder,
-            details: ['status' => $purchaseOrder->status, 'lifecycle_status' => $purchaseOrder->lifecycle_status],
+            details: [
+                'subject_label' => $action === AuditAction::Archived ? 'Purchase order archived' : 'Purchase order completed',
+                'status' => $purchaseOrder->status,
+                'lifecycle_status' => $purchaseOrder->lifecycle_status,
+            ],
             actor: $actor,
         );
     }

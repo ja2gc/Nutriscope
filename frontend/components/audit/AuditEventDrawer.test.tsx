@@ -130,6 +130,8 @@ describe("structured audit event components", () => {
     for (const section of ["Event summary", "Actor", "Record", "Recorded values", "Field changes"]) {
       expect(html).toContain(section);
     }
+    expect(html).toContain("Related record");
+    expect(html).toContain("Nutrition care plan");
     expect(html).toContain("NS-7K4M-92QX");
     expect(html).toContain("NCP-EXAMPLE");
     expect(html).toContain("Patient");

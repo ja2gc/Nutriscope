@@ -80,7 +80,8 @@ class MealPrepLogController extends Controller
             $before = $before === [] ? array_fill_keys(array_keys($after), null) : $before;
             $fieldMap = array_flip($fields);
             $this->recordServiceEvent(
-                AuditAction::Completed,
+                $before === [] ? AuditAction::Created : AuditAction::Updated,
+                'Meal prep log completed',
                 $log,
                 $data['service_date'],
                 $fields,
@@ -106,7 +107,8 @@ class MealPrepLogController extends Controller
             $fields = $this->changedValueKeys($before, $after);
             $fieldMap = array_flip($fields);
             $this->recordServiceEvent(
-                AuditAction::Reversed,
+                AuditAction::Updated,
+                'Meal prep log reversed',
                 $log,
                 $log->service_date->toDateString(),
                 $fields,
@@ -209,7 +211,8 @@ class MealPrepLogController extends Controller
             $before = $before === [] ? array_fill_keys(array_keys($after), null) : $before;
             $fieldMap = array_flip($fields);
             $this->recordServiceEvent(
-                AuditAction::Adjusted,
+                $before === [] ? AuditAction::Created : AuditAction::Updated,
+                'Meal prep log adjusted',
                 $log,
                 $data['service_date'],
                 $fields,
@@ -231,6 +234,7 @@ class MealPrepLogController extends Controller
      */
     private function recordServiceEvent(
         AuditAction $action,
+        string $subjectLabel,
         MealPrepLog $log,
         string $serviceDate,
         array $changedFields,
@@ -244,7 +248,7 @@ class MealPrepLogController extends Controller
                 AuditCategory::Operations,
                 AuditDomain::FoodService,
                 subject: $log,
-                details: ['changed_fields' => $changedFields, 'service_date' => $serviceDate],
+                details: ['subject_label' => $subjectLabel, 'changed_fields' => $changedFields, 'service_date' => $serviceDate],
                 oldValues: $oldValues,
                 newValues: $newValues,
             );
@@ -258,7 +262,7 @@ class MealPrepLogController extends Controller
             AuditDomain::FoodService,
             subject: $log,
             context: $purchaseOrder,
-            details: ['changed_fields' => $changedFields, 'service_date' => $serviceDate],
+            details: ['subject_label' => $subjectLabel, 'changed_fields' => $changedFields, 'service_date' => $serviceDate],
             oldValues: $oldValues,
             newValues: $newValues,
         );

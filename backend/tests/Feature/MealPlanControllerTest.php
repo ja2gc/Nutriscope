@@ -19,6 +19,7 @@ use Database\Seeders\InterventionMealPlanTemplateSeeder;
 use Database\Seeders\RecipeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Spatie\Activitylog\Models\Activity;
 use Tests\TestCase;
 
 class MealPlanControllerTest extends TestCase
@@ -241,7 +242,9 @@ class MealPlanControllerTest extends TestCase
         $mealPlan = MealPlan::where('intervention_id', $intervention->id)->first();
         $this->assertNotNull($mealPlan);
         $this->assertNull($mealPlan->intervention_revision_id);
-        $this->assertDatabaseHas('activity_log', ['event' => 'generated']);
+        $this->assertSame(1, Activity::where('event', 'created')
+            ->whereJsonContains('properties->details->subject_label', 'Meal plan generated')
+            ->count());
     }
 
     public function test_generate_meal_plan_requires_week_start_date(): void
@@ -288,7 +291,9 @@ class MealPlanControllerTest extends TestCase
 
         $response->assertUnprocessable()
             ->assertJsonValidationErrors('intervention_plan_id');
-        $this->assertDatabaseMissing('activity_log', ['event' => 'generated']);
+        $this->assertSame(0, Activity::where('event', 'created')
+            ->whereJsonContains('properties->details->subject_label', 'Meal plan generated')
+            ->count());
     }
 
     public function test_cannot_generate_meal_plan_without_complete_prescription(): void

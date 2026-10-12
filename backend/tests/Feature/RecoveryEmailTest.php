@@ -84,7 +84,9 @@ class RecoveryEmailTest extends TestCase
             return $notifiable->routes['mail'] === 'jaredabriol2@gmail.com'
                 && $notification->code !== '';
         });
-        $this->assertSame(1, Activity::where('event', 'recovery_email_changed')->count());
+        $activity = Activity::where('event', 'updated')->sole();
+        $this->assertSame('Recovery email', $activity->properties['details']['subject_label']);
+        $this->assertSame('127.0.0.1', $activity->properties['ip']);
     }
 
     public function test_user_can_verify_recovery_email_code(): void
@@ -126,8 +128,12 @@ class RecoveryEmailTest extends TestCase
         $this->assertNotNull($user->recovery_email_verified_at);
         $this->assertNull($user->recovery_email_verification_code);
         $this->assertNull($user->recovery_email_verification_expires_at);
-        $this->assertSame(1, Activity::where('event', 'recovery_email_verified')->count());
-        $this->assertSame($user->uuid, Activity::where('event', 'recovery_email_verified')->sole()->properties['details']['subject_public_id']);
+        $activities = Activity::where('event', 'updated')->get();
+        $this->assertCount(2, $activities);
+        foreach ($activities as $activity) {
+            $this->assertSame($user->uuid, $activity->properties['details']['subject_public_id']);
+            $this->assertSame('127.0.0.1', $activity->properties['ip']);
+        }
         $this->assertStringNotContainsString((string) $code, Activity::query()->get()->toJson());
         $this->assertStringNotContainsString('jaredabriol2@gmail.com', Activity::query()->get()->toJson());
     }
@@ -276,6 +282,6 @@ class RecoveryEmailTest extends TestCase
         $this->assertNull($user->recovery_email);
         $this->assertNull($user->recovery_email_verification_code);
         $this->assertNull($user->recovery_email_verification_expires_at);
-        $this->assertSame(0, Activity::where('event', 'recovery_email_changed')->count());
+        $this->assertSame(0, Activity::where('event', 'updated')->count());
     }
 }

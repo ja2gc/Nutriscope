@@ -26,8 +26,8 @@ class AuditDuplicateDiscoveryTest extends TestCase
         ],
         'purchase-order conversion and ordering' => [
             'tests/Feature/Audit/PurchaseOrderTrailTest.php',
-            'test_draft_to_ordered_is_categorized_as_created',
-            ['created'],
+            'test_draft_to_ordered_is_categorized_as_updated',
+            ['updated'],
         ],
         'purchase-order receiving' => [
             'tests/Feature/Audit/PurchaseOrderTrailTest.php',
@@ -81,7 +81,7 @@ class AuditDuplicateDiscoveryTest extends TestCase
         ],
         'authentication and security rejections' => [
             'tests/Feature/Audit/SecurityAuditTest.php',
-            'test_authentication_failure_is_audited_but_role_denial_is_not',
+            'test_protected_route_authentication_failures_are_audited_without_logging_role_denials',
             [],
         ],
     ];

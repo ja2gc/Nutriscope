@@ -46,7 +46,7 @@ class ProfileTest extends TestCase
         $this->assertDatabaseHas('users', [
             'id' => $user->id, 'name' => 'New Name', 'email' => 'old@example.com',
         ]);
-        $this->assertSame(1, Activity::where('event', 'profile_changed')->count());
+        $this->assertSame(0, Activity::where('log_name', 'audit')->count());
     }
 
     public function test_user_can_update_extended_profile_fields_but_not_role(): void

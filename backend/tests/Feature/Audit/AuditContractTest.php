@@ -33,38 +33,11 @@ class AuditContractTest extends TestCase
             'deleted' => 'Deleted',
             'viewed' => 'Viewed',
             'downloaded' => 'Downloaded',
-            'exported' => 'Exported',
-            'approved' => 'Approved',
-            'ordered' => 'Ordered',
-            'received' => 'Received',
-            'reversed' => 'Reversed',
             'archived' => 'Archived',
-            'adjusted' => 'Adjusted',
-            'uploaded' => 'Uploaded',
-            'imported' => 'Imported',
-            'generated' => 'Generated',
-            'completed' => 'Completed',
-            'price_corrected' => 'Price corrected',
-            'profile_changed' => 'Profile changed',
-            'settings_changed' => 'Settings changed',
-            'login_succeeded' => 'Login succeeded',
-            'login_failed' => 'Login failed',
-            'authentication_failed' => 'Authentication failed',
-            'logout' => 'Logout',
-            'password_changed' => 'Password changed',
-            'password_reset' => 'Password reset',
-            'recovery_email_changed' => 'Recovery email changed',
-            'recovery_email_verified' => 'Recovery email verified',
-            'audit_log_viewed' => 'Audit log viewed',
-            'appointment_scheduled' => 'Appointment scheduled',
-            'visit_started' => 'Visit started',
-            'visit_completed' => 'Visit completed',
-            'visit_ended_early' => 'Visit ended early',
-            'appointment_cancelled' => 'Appointment cancelled',
-            'appointment_no_show' => 'Appointment marked no-show',
-            'appointment_rescheduled' => 'Appointment rescheduled',
-            'cycle_completed' => 'NCP cycle completed and protected',
-            'cycle_discontinued' => 'NCP cycle discontinued',
+            'failed' => 'Failed',
+            'suspended' => 'Suspended',
+            'unsuspended' => 'Unsuspended',
+            'discontinued' => 'Discontinued',
         ];
 
         $this->assertSame(array_keys($actions), array_column(AuditAction::cases(), 'value'));
@@ -214,12 +187,12 @@ class AuditContractTest extends TestCase
 
         $payload = app(AuditEventPresenter::class)->present($activity)->toArray();
 
-        $this->assertSame('legacy_event', $payload['action']);
+        $this->assertSame('updated', $payload['action']);
         $this->assertSame('legacy_unclassified', $payload['category']);
         $this->assertSame('legacy_unclassified', $payload['domain']);
         $this->assertArrayNotHasKey('severity', $payload);
         $this->assertArrayNotHasKey('outcome', $payload);
-        $this->assertSame('Unknown actor recorded Legacy event for system operation.', $payload['summary']);
+        $this->assertSame('Unknown actor updated record.', $payload['summary']);
 
         $activity->refresh();
         $this->assertNull($activity->category);

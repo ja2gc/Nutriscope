@@ -141,7 +141,7 @@ class ProcurementHistoryTest extends TestCase
             ->patchJson("/api/fss/purchase-orders/{$po->uuid}", ['status' => 'ordered'])
             ->assertOk();
         $ordered = AuditActivity::query()->where('subject_type', PurchaseOrder::class)->sole();
-        $this->assertSame('created', $ordered->event);
+        $this->assertSame('updated', $ordered->event);
         $this->assertSame('draft', $ordered->revision->before['status']);
         $this->assertSame('ordered', $ordered->revision->after['status']);
 

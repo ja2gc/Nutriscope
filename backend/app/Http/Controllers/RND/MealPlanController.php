@@ -209,12 +209,12 @@ class MealPlanController extends Controller
 
                 if ($result instanceof MealPlan) {
                     $this->auditLogger->record(
-                        AuditAction::Generated,
+                        AuditAction::Created,
                         AuditCategory::Clinical,
                         AuditDomain::Ncp,
                         subject: $result,
                         context: $ncpRecord,
-                        details: ['status' => 201],
+                        details: ['subject_label' => 'Meal plan generated', 'status' => 201],
                     );
                 }
 

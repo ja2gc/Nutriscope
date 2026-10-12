@@ -11,6 +11,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Spatie\Activitylog\Models\Activity;
 use Tests\TestCase;
 
 class AiServiceTest extends TestCase
@@ -127,7 +128,9 @@ class AiServiceTest extends TestCase
             'label' => 'Unintended Weight Loss',
             'ai_generated' => true,
         ]);
-        $this->assertDatabaseHas('activity_log', ['event' => 'approved']);
+        $this->assertSame(1, Activity::where('event', 'created')
+            ->whereJsonContains('properties->details->subject_label', 'AI diagnosis')
+            ->count());
     }
 
     public function test_ai_approve_requires_assessment_and_valid_problem_shape(): void

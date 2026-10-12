@@ -131,16 +131,12 @@ return Application::configure(basePath: dirname(__DIR__))
             fn (Request $request, Throwable $exception): bool => $request->is('api/*')
                 || $request->expectsJson(),
         );
-
         $exceptions->respond(function (Response $response): Response {
             $request = request();
-            $status = $response->getStatusCode();
             $isProtectedRoute = collect($request->route()?->gatherMiddleware() ?? [])->contains(
                 fn (string $name): bool => str_starts_with($name, 'auth:') || str_starts_with($name, 'role:'),
             );
-            $isLoginRateLimit = $status === 429 && $request->is('api/auth/login');
-
-            if (($status !== 401 || ! $isProtectedRoute) && ! $isLoginRateLimit) {
+            if ($response->getStatusCode() !== 401 || ! $isProtectedRoute) {
                 return $response;
             }
 
@@ -150,8 +146,8 @@ return Application::configure(basePath: dirname(__DIR__))
                     AuditCategory::Security,
                     AuditDomain::Accounts,
                     details: [
-                        'subject_label' => $isLoginRateLimit ? 'Rate limit exceeded' : 'Authentication',
-                        'reason' => $isLoginRateLimit ? 'Login rate limit reached' : 'Authentication failed',
+                        'subject_label' => 'Authentication attempt',
+                        'reason' => 'Protected route authentication failed',
                     ],
                 );
             } catch (Throwable $exception) {
@@ -163,4 +159,5 @@ return Application::configure(basePath: dirname(__DIR__))
 
             return $response;
         });
+
     })->create();

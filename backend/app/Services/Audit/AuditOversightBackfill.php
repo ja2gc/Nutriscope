@@ -2,9 +2,11 @@
 
 namespace App\Services\Audit;
 
+use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
 use App\Enums\AuditModule;
+use App\Enums\AuditOutcome;
 use App\Models\AiUsageLimit;
 use App\Models\Announcement;
 use App\Models\Assessment;
@@ -33,6 +35,8 @@ use App\Models\PurchaseOrderItemCorrection;
 use App\Models\PurchaseOrderVendorGroup;
 use App\Models\Recipe;
 use App\Models\Report;
+use App\Models\ReportBranding;
+use App\Models\ReportTemplate;
 use App\Models\ScreeningDocument;
 use App\Models\ShoppingList;
 use App\Models\ShoppingListItem;
@@ -89,33 +93,111 @@ class AuditOversightBackfill
         User::class,
     ];
 
-    /** @return array{scanned: int, updated: int, modules: int, domains: int, patient_snapshots: int} */
+    /** @return array{scanned: int, updated: int, modules: int, domains: int, patient_snapshots: int, actions: int, deleted: int} */
     public function run(Connection $connection, int $chunkSize = 500): array
     {
-        $stats = ['scanned' => 0, 'updated' => 0, 'modules' => 0, 'domains' => 0, 'patient_snapshots' => 0];
+        $stats = ['scanned' => 0, 'updated' => 0, 'modules' => 0, 'domains' => 0, 'patient_snapshots' => 0, 'actions' => 0, 'deleted' => 0];
         $schema = $connection->getSchemaBuilder();
+        $hasRevisions = $schema->hasTable('audit_revisions');
 
         $connection->table(config('activitylog.table_name'))
             ->where('log_name', config('audit.log_name'))
             ->select([
-                'id', 'module', 'patient_code_snapshot', 'category', 'domain', 'properties',
+                'id', 'event', 'module', 'outcome', 'patient_code_snapshot', 'category', 'domain', 'properties',
                 'subject_type', 'subject_id', 'context_type', 'context_id',
                 'root_patient_id', 'ncp_record_id',
             ])
             ->orderBy('id')
-            ->chunkById(max(1, min($chunkSize, 5000)), function (Collection $rows) use ($connection, $schema, &$stats): void {
+            ->chunkById(max(1, min($chunkSize, 5000)), function (Collection $rows) use ($connection, $schema, $hasRevisions, &$stats): void {
                 $stats['scanned'] += $rows->count();
                 $patientIds = $this->patientIdsByActivity($connection, $schema, $rows);
                 $patientCodes = $this->patientCodes($connection, $schema, array_values(array_unique($patientIds)));
                 $updates = [];
+                $deletedIds = [];
+                $revisionActions = [];
 
                 foreach ($rows as $row) {
                     $update = [];
+                    $properties = is_array($row->properties)
+                        ? $row->properties
+                        : (json_decode((string) $row->properties, true) ?: []);
+                    $details = is_array($properties['details'] ?? null) ? $properties['details'] : [];
+                    $legacyEvent = AuditLegacyEventNormalizer::normalize((string) $row->event, $row->subject_type);
+                    if ($legacyEvent === null
+                        && $row->event === AuditAction::Created->value
+                        && $this->isTypeIn($row->subject_type, [PurchaseOrder::class])
+                        && ! isset($details['subject_label'])
+                        && is_array($details['changed_fields'] ?? null)
+                        && in_array('status', $details['changed_fields'], true)) {
+                        $legacyEvent = [
+                            'action' => AuditAction::Updated,
+                            'subject_label' => 'Purchase order ordered',
+                            'remove' => false,
+                        ];
+                    }
+                    $canonicalEvent = $legacyEvent['action']->value ?? strtolower((string) $row->event);
+                    $isProfileEdit = $this->isTypeIn($row->subject_type, [User::class])
+                        && $canonicalEvent === AuditAction::Updated->value
+                        && ($details['subject_label'] ?? null) === 'Profile';
+                    $isRetiredConfiguration = $this->isTypeIn($row->subject_type, [
+                        AiUsageLimit::class,
+                        AuditSetting::class,
+                        FoodServiceSetting::class,
+                        ReportBranding::class,
+                        ReportTemplate::class,
+                    ]);
+                    $isReport = $this->isTypeIn($row->subject_type, self::REPORT_TYPES);
+                    $isRetiredReportEvent = $row->domain === AuditDomain::Reports->value
+                        && (! $isReport || ! in_array($canonicalEvent, AuditLegacyEventNormalizer::reportAccessActions(), true));
+                    if (($legacyEvent !== null && $legacyEvent['remove'])
+                        || $isProfileEdit
+                        || $isRetiredConfiguration
+                        || $isRetiredReportEvent) {
+                        $deletedIds[] = (int) $row->id;
+
+                        continue;
+                    }
+                    if ($canonicalEvent === 'viewed'
+                        && ! $this->isTypeIn($row->subject_type, self::REPORT_TYPES)) {
+                        $deletedIds[] = (int) $row->id;
+
+                        continue;
+                    }
+                    if ($this->isTypeIn($row->subject_type, self::REPORT_TYPES)
+                        && ! in_array($canonicalEvent, AuditLegacyEventNormalizer::reportAccessActions(), true)) {
+                        $deletedIds[] = (int) $row->id;
+
+                        continue;
+                    }
+                    if ($row->outcome === 'blocked') {
+                        $update['outcome'] = $canonicalEvent === AuditAction::Failed->value
+                            ? AuditOutcome::Failure->value
+                            : AuditOutcome::Success->value;
+                    }
+                    if ($hasRevisions && AuditAction::tryFrom($canonicalEvent) !== null) {
+                        $revisionActions[(int) $row->id] = $canonicalEvent;
+                    }
+                    if ($legacyEvent !== null) {
+                        $update['event'] = $legacyEvent['action']->value;
+                        if (($details['subject_label'] ?? null) !== $legacyEvent['subject_label']) {
+                            $details['subject_label'] = $legacyEvent['subject_label'];
+                            $properties['details'] = $details;
+                            $update['properties'] = json_encode($properties, JSON_THROW_ON_ERROR);
+                        }
+                        $stats['actions']++;
+                    }
+                    if ($isReport && $row->domain !== AuditDomain::Reports->value) {
+                        $update['domain'] = AuditDomain::Reports->value;
+                        $stats['domains']++;
+                    }
                     $nutritionLibraryType = $this->isNutritionLibraryType($row->subject_type);
-                    $needsModule = $row->module === null
+                    $needsModule = $isReport
+                        || $row->module === null
                         || $row->module === AuditModule::Reports->value
                         || ($nutritionLibraryType && $row->module === AuditModule::FoodServiceOperations->value);
-                    if ($needsModule && ($module = $this->moduleFor($row, $connection)) !== null) {
+                    if ($needsModule
+                        && ($module = $this->moduleFor($row, $connection)) !== null
+                        && $row->module !== $module->value) {
                         $update['module'] = $module->value;
                         $stats['modules']++;
                     }
@@ -139,6 +221,12 @@ class AuditOversightBackfill
 
                 $stats['updated'] += count($updates);
                 $this->bulkUpdate($connection, $updates);
+                $this->bulkUpdateRevisionActions($connection, $revisionActions);
+                if ($deletedIds !== []) {
+                    $stats['deleted'] += $connection->table(config('activitylog.table_name'))
+                        ->whereIn('id', $deletedIds)
+                        ->delete();
+                }
             });
 
         return $stats;
@@ -148,6 +236,9 @@ class AuditOversightBackfill
     {
         if ($this->isNutritionLibraryType($row->subject_type)) {
             return AuditModule::NutritionCare;
+        }
+        if ($this->isTypeIn($row->subject_type, [ReportBranding::class, ReportTemplate::class])) {
+            return AuditModule::SecurityAdministration;
         }
         if ($this->isTypeIn($row->subject_type, self::REPORT_TYPES)
             || $row->domain === AuditDomain::Reports->value) {
@@ -408,7 +499,7 @@ class AuditOversightBackfill
             ->all();
     }
 
-    /** @param list<array{id: int, module?: string, domain?: string, patient_code_snapshot?: string}> $updates */
+    /** @param list<array{id: int, event?: string, module?: string, domain?: string, outcome?: string, patient_code_snapshot?: string, properties?: string}> $updates */
     private function bulkUpdate(Connection $connection, array $updates): void
     {
         if ($updates === []) {
@@ -419,7 +510,7 @@ class AuditOversightBackfill
         $assignments = [];
         $bindings = [];
 
-        foreach (['module', 'domain', 'patient_code_snapshot'] as $column) {
+        foreach (['event', 'module', 'domain', 'outcome', 'patient_code_snapshot', 'properties'] as $column) {
             $cases = [];
             $wrapped = $grammar->wrap($column);
             foreach ($updates as $update) {
@@ -443,6 +534,32 @@ class AuditOversightBackfill
         $bindings = [...$bindings, ...$ids];
         $connection->update(
             "UPDATE {$table} SET ".implode(', ', $assignments).' WHERE `id` IN ('.implode(', ', array_fill(0, count($ids), '?')).')',
+            $bindings,
+        );
+    }
+
+    /** @param array<int, string> $updates */
+    private function bulkUpdateRevisionActions(Connection $connection, array $updates): void
+    {
+        if ($updates === []) {
+            return;
+        }
+
+        $grammar = $connection->getQueryGrammar();
+        $table = $grammar->wrapTable('audit_revisions');
+        $activityId = $grammar->wrap('activity_id');
+        $action = $grammar->wrap('action');
+        $cases = [];
+        $bindings = [];
+        foreach ($updates as $id => $value) {
+            $cases[] = 'WHEN ? THEN ?';
+            $bindings[] = $id;
+            $bindings[] = $value;
+        }
+        $ids = array_keys($updates);
+        $bindings = [...$bindings, ...$ids];
+        $connection->update(
+            "UPDATE {$table} SET {$action} = CASE {$activityId} ".implode(' ', $cases)." END WHERE {$activityId} IN (".implode(', ', array_fill(0, count($ids), '?')).')',
             $bindings,
         );
     }

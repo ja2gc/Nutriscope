@@ -44,12 +44,13 @@ class NcpAppointmentWorkflow
                 'completeness_at_start' => $ncp ? $this->completenessSnapshot($ncp) : null,
             ]));
             $this->auditLogger->recordMutation(
-                $data['source'] === 'walk_in' ? AuditAction::VisitStarted : AuditAction::AppointmentScheduled,
+                AuditAction::Created,
                 AuditDomain::Ncp,
                 $appointment,
                 $data['source'] === 'walk_in'
                     ? ['source', 'status', 'patient_id', 'ncp_record_id', 'started_at']
                     : ['source', 'status', 'patient_id', 'scheduled_at'],
+                details: ['subject_label' => $data['source'] === 'walk_in' ? 'Visit started' : 'Appointment scheduled'],
             );
 
             return $appointment;
@@ -64,10 +65,10 @@ class NcpAppointmentWorkflow
 
             return match ($data['action']) {
                 'start' => $this->start($rnd, $appointment, $data['ncp_record_id'] ?? null),
-                'finish' => $this->finish($appointment, 'completed', AuditAction::VisitCompleted),
-                'end_early' => $this->finish($appointment, 'ended_early', AuditAction::VisitEndedEarly, $data['reason_code']),
-                'cancel' => $this->resolveScheduled($appointment, 'cancelled', AuditAction::AppointmentCancelled, $data['reason_code']),
-                'no_show' => $this->resolveScheduled($appointment, 'no_show', AuditAction::AppointmentNoShow),
+                'finish' => $this->finish($appointment, 'completed', 'Visit completed'),
+                'end_early' => $this->finish($appointment, 'ended_early', 'Visit ended early', $data['reason_code']),
+                'cancel' => $this->resolveScheduled($appointment, 'cancelled', 'Appointment cancelled', $data['reason_code']),
+                'no_show' => $this->resolveScheduled($appointment, 'no_show', 'Appointment marked no-show'),
                 'reschedule' => $this->reschedule($appointment, $data),
                 'discard' => $this->discard($appointment),
             };
@@ -117,14 +118,14 @@ class NcpAppointmentWorkflow
             'completeness_at_start' => $this->completenessSnapshot($ncp),
             'newly_completed' => [],
         ]));
-        $this->auditLogger->recordMutation(AuditAction::VisitStarted, AuditDomain::Ncp, $appointment, [
+        $this->auditLogger->recordMutation(AuditAction::Created, AuditDomain::Ncp, $appointment, [
             'status', 'ncp_record_id', 'started_at',
-        ]);
+        ], details: ['subject_label' => 'Visit started']);
 
         return $appointment->refresh();
     }
 
-    private function finish(NcpAppointment $appointment, string $status, AuditAction $action, ?string $reasonCode = null): NcpAppointment
+    private function finish(NcpAppointment $appointment, string $status, string $subjectLabel, ?string $reasonCode = null): NcpAppointment
     {
         $this->requireStatus($appointment, ['in_progress']);
         $ncp = $appointment->ncpRecord()->firstOrFail();
@@ -138,19 +139,25 @@ class NcpAppointmentWorkflow
             'reason_code' => $reasonCode,
             'newly_completed' => $newlyCompleted,
         ]));
-        $this->auditLogger->recordMutation($action, AuditDomain::Ncp, $appointment, [
+        $this->auditLogger->recordMutation(AuditAction::Updated, AuditDomain::Ncp, $appointment, [
             'status', 'finished_at', ...($reasonCode !== null ? ['reason_code'] : []), 'newly_completed',
-        ]);
+        ], details: ['subject_label' => $subjectLabel]);
         $this->notifications->resolveAppointment($appointment);
 
         return $appointment->refresh();
     }
 
-    private function resolveScheduled(NcpAppointment $appointment, string $status, AuditAction $action, ?string $reasonCode = null): NcpAppointment
+    private function resolveScheduled(NcpAppointment $appointment, string $status, string $subjectLabel, ?string $reasonCode = null): NcpAppointment
     {
         $this->requireStatus($appointment, ['scheduled']);
         $this->auditLogger->withoutModelEvents(fn () => $appointment->update(['status' => $status, 'finished_at' => now(), 'reason_code' => $reasonCode]));
-        $this->auditLogger->recordMutation($action, AuditDomain::Ncp, $appointment, ['status', 'finished_at', ...($reasonCode !== null ? ['reason_code'] : [])]);
+        $this->auditLogger->recordMutation(
+            AuditAction::Updated,
+            AuditDomain::Ncp,
+            $appointment,
+            ['status', 'finished_at', ...($reasonCode !== null ? ['reason_code'] : [])],
+            details: ['subject_label' => $subjectLabel],
+        );
         $this->notifications->resolveAppointment($appointment);
 
         return $appointment->refresh();
@@ -170,7 +177,13 @@ class NcpAppointmentWorkflow
             'purpose' => trim($data['purpose']),
             'scheduled_at' => $data['scheduled_at'],
         ]));
-        $this->auditLogger->recordMutation(AuditAction::AppointmentRescheduled, AuditDomain::Ncp, $appointment, ['status', 'finished_at', 'scheduled_at']);
+        $this->auditLogger->recordMutation(
+            AuditAction::Updated,
+            AuditDomain::Ncp,
+            $appointment,
+            ['status', 'finished_at', 'scheduled_at'],
+            details: ['subject_label' => 'Appointment rescheduled'],
+        );
         $this->notifications->resolveAppointment($appointment);
 
         return ['original' => $appointment->refresh(), 'replacement' => $replacement];
@@ -184,6 +197,13 @@ class NcpAppointmentWorkflow
         }
 
         if ($appointment->source === 'walk_in') {
+            $this->auditLogger->recordMutation(
+                AuditAction::Deleted,
+                AuditDomain::Ncp,
+                $appointment,
+                ['status'],
+                details: ['subject_label' => 'Visit discarded'],
+            );
             $this->auditLogger->withoutModelEvents(fn () => $appointment->delete());
 
             return null;
@@ -193,6 +213,13 @@ class NcpAppointmentWorkflow
             'status' => 'scheduled', 'started_at' => null, 'ncp_record_id' => null,
             'completeness_at_start' => null, 'newly_completed' => null,
         ]));
+        $this->auditLogger->recordMutation(
+            AuditAction::Updated,
+            AuditDomain::Ncp,
+            $appointment,
+            ['status', 'started_at', 'ncp_record_id'],
+            details: ['subject_label' => 'Visit discarded'],
+        );
         $this->notifications->reopenAppointment($appointment);
 
         return $appointment->refresh();

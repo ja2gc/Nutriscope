@@ -165,10 +165,14 @@ class ForgotPasswordTest extends TestCase
         $this->assertSame(0, $user->tokens()->count());
         $this->assertFalse(Password::broker()->tokenExists($user->fresh(), $token));
         $this->assertDatabaseMissing('password_reset_tokens', ['email' => 'rnd@nutriscope.local']);
-        $activity = Activity::where('event', 'password_reset')->where('causer_id', $user->id)->first();
+        $activity = Activity::where('event', 'updated')->first();
         $this->assertNotNull($activity);
         $this->assertSame($user->uuid, $activity->properties['details']['subject_public_id']);
-        $this->assertSame(1, Activity::where('event', 'password_reset')->count());
+        $this->assertSame('Password', $activity->properties['details']['subject_label']);
+        $this->assertNull($activity->causer_id);
+        $this->assertSame('anonymous', $activity->properties['actor']['kind']);
+        $this->assertSame('127.0.0.1', $activity->properties['ip']);
+        $this->assertSame(1, Activity::where('event', 'updated')->count());
         $this->assertArrayNotHasKey('request', $activity->properties->all());
         $this->assertArrayNotHasKey('user_agent', $activity->properties->all());
         $this->assertStringNotContainsString($token, $activity->toJson());

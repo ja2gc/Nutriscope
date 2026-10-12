@@ -57,18 +57,38 @@ class ReceivingService
         $this->auditLogger->assertAvailable();
         DB::transaction(function () use ($vendorGroup): void {
             $touched = [];
+            $catalogChanges = [];
 
-            $this->auditLogger->withoutModelEvents(function () use ($vendorGroup, &$touched): void {
+            $this->auditLogger->withoutModelEvents(function () use ($vendorGroup, &$touched, &$catalogChanges): void {
                 foreach ($vendorGroup->items as $item) {
-                    $this->receiveLine($item, $touched, $vendorGroup->purchase_order_id, $vendorGroup->supplier_id);
+                    $catalogChange = $this->receiveLine($item, $touched, $vendorGroup->purchase_order_id, $vendorGroup->supplier_id);
+                    if ($catalogChange !== null) {
+                        $catalogChanges[] = $catalogChange;
+                    }
                 }
 
                 $this->recalculateTouchedRecipes($touched);
             });
+
+            foreach ($catalogChanges as $change) {
+                $this->auditLogger->recordMutation(
+                    AuditAction::Updated,
+                    AuditDomain::FoodService,
+                    $change['subject'],
+                    $change['changed_fields'],
+                    context: $vendorGroup->purchaseOrder,
+                    oldValues: $change['old_values'],
+                    newValues: $change['new_values'],
+                );
+            }
         });
     }
 
-    private function receiveLine(PurchaseOrderItem $item, array &$touched, int $purchaseOrderId, ?int $supplierId = null): void
+    /**
+     * @param  array<int, true>  $touched
+     * @return array{subject: FsItem, changed_fields: list<string>, old_values: array<string, mixed>, new_values: array<string, mixed>}|null
+     */
+    private function receiveLine(PurchaseOrderItem $item, array &$touched, int $purchaseOrderId, ?int $supplierId = null): ?array
     {
         if (! $item->fs_item_id) {
             Log::info('ReceivingService: skipped free-text PO line', [
@@ -76,16 +96,18 @@ class ReceivingService
                 'description' => $item->description,
             ]);
 
-            return;
+            return null;
         }
 
         $fs = FsItem::query()->whereKey($item->fs_item_id)->lockForUpdate()->first();
         if (! $fs) {
             Log::warning('ReceivingService: fs_item missing', ['fs_item_id' => $item->fs_item_id]);
 
-            return;
+            return null;
         }
 
+        $trackedFields = ['base_unit', 'purchase_unit', 'units_per_purchase', 'purchase_price', 'default_supplier_id'];
+        $before = $fs->only($trackedFields);
         $receivedUnit = (string) ($item->purchase_unit ?: $item->unit);
         $receivedUnitPrice = (float) ($item->actual_unit_price ?? $item->purchase_price ?? $item->unit_price);
         if ($fs->include_in_generated_lists && $fs->hasIncompatibleRecipeUnit($receivedUnit)) {
@@ -101,6 +123,24 @@ class ReceivingService
         $this->vendorSync->syncFromReceipt($fs, $supplierId);
 
         $touched[$fs->id] = true;
+
+        $after = $fs->fresh();
+        $afterValues = $after->only($trackedFields);
+        $changedFields = array_values(array_filter(
+            $trackedFields,
+            fn (string $field): bool => $before[$field] !== $afterValues[$field],
+        ));
+
+        if ($changedFields === []) {
+            return null;
+        }
+
+        return [
+            'subject' => $after,
+            'changed_fields' => $changedFields,
+            'old_values' => array_intersect_key($before, array_flip($changedFields)),
+            'new_values' => array_intersect_key($afterValues, array_flip($changedFields)),
+        ];
     }
 
     private function recalculateTouchedRecipes(array $touched): void
@@ -119,12 +159,13 @@ class ReceivingService
         }
 
         return $this->auditLogger->record(
-            AuditAction::Received,
+            AuditAction::Updated,
             AuditCategory::Operations,
             AuditDomain::Procurement,
             subject: $subject,
             context: $purchaseOrder,
             details: [
+                'subject_label' => 'Goods received',
                 'item_count' => $itemCount,
                 'status' => 'received',
                 'changed_fields' => collect($changedFields)

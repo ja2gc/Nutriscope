@@ -45,7 +45,7 @@ class AuditEventPresenterTest extends TestCase
         ])))->resolve(Request::create('/api/admin/audit-logs'));
     }
 
-    public function test_unknown_legacy_action_and_unclassified_module_are_preserved_safely(): void
+    public function test_unknown_legacy_action_is_presented_as_an_update(): void
     {
         $activity = AuditActivity::create([
             'log_name' => 'audit',
@@ -60,15 +60,15 @@ class AuditEventPresenterTest extends TestCase
         $event = app(AuditEventPresenter::class)->present($activity)->toArray();
 
         $this->assertSame('legacy_unclassified', $event['module']);
-        $this->assertSame('legacy_custom_action', $event['action']);
-        $this->assertSame('Legacy custom action', $event['action_label']);
+        $this->assertSame('updated', $event['action']);
+        $this->assertSame('Updated', $event['action_label']);
         $this->assertSame('system_operation', $event['record_type']);
         $this->assertSame([], $event['details']);
         $this->assertNull($event['patient']);
         $this->assertNull($event['history']);
         $this->assertNull($event['current_record_url']);
         $this->assertStringNotContainsString('RAW-JSON-SENTINEL', json_encode($event, JSON_THROW_ON_ERROR));
-        $this->assertNotSame('Updated record', $event['summary']);
+        $this->assertSame('Legacy worker updated record.', $event['summary']);
     }
 
     public function test_every_known_action_keeps_its_identity_and_has_a_factual_summary(): void
@@ -310,20 +310,20 @@ class AuditEventPresenterTest extends TestCase
         $activity = AuditActivity::create([
             'log_name' => 'audit',
             'description' => 'Login failed',
-            'event' => AuditAction::LoginFailed->value,
+            'event' => AuditAction::Failed->value,
             'category' => AuditCategory::Security,
             'domain' => AuditDomain::Accounts,
             'module' => AuditModule::SecurityAdministration,
             'properties' => [
                 'actor' => ['kind' => 'anonymous', 'name' => 'Anonymous'],
-                'details' => ['route_name' => 'auth.login'],
+                'details' => ['route_name' => 'auth.login', 'subject_label' => 'Login attempt'],
             ],
         ]);
 
         $event = app(AuditEventPresenter::class)->present($activity)->toArray();
 
-        $this->assertSame('admin_web_login', $event['subject']['type']);
-        $this->assertSame('Admin web login', $event['subject']['label']);
-        $this->assertSame('Anonymous login failed through Admin web login.', $event['summary']);
+        $this->assertSame('system_operation', $event['subject']['type']);
+        $this->assertSame('Login attempt', $event['subject']['label']);
+        $this->assertSame('Anonymous failed login attempt.', $event['summary']);
     }
 }

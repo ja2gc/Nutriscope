@@ -94,11 +94,11 @@ class RecoveryEmailController extends Controller
             }
 
             $this->auditLogger->record(
-                AuditAction::RecoveryEmailVerified,
+                AuditAction::Updated,
                 AuditCategory::Security,
                 AuditDomain::Accounts,
                 subject: $user,
-                details: ['subject_public_id' => $user->uuid],
+                details: ['subject_public_id' => $user->uuid, 'subject_label' => 'Recovery email'],
                 actor: $user,
                 includeRequestMetadata: false,
             );
@@ -144,11 +144,12 @@ class RecoveryEmailController extends Controller
     private function recordRecoveryEmailChange(User $user): void
     {
         $this->auditLogger->record(
-            AuditAction::RecoveryEmailChanged,
+            AuditAction::Updated,
             AuditCategory::Security,
             AuditDomain::Accounts,
             subject: $user,
             details: [
+                'subject_label' => 'Recovery email',
                 'changed_fields' => ['recovery_email'],
                 'subject_public_id' => $user->uuid,
             ],

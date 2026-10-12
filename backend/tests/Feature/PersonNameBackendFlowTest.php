@@ -15,7 +15,6 @@ use App\Models\Patient;
 use App\Models\Report;
 use App\Models\Sop;
 use App\Models\User;
-use App\Services\Audit\AuditEventPresenter;
 use App\Services\Audit\AuditLogger;
 use Database\Seeders\PatientSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -137,24 +136,11 @@ class PersonNameBackendFlowTest extends TestCase
             ->assertJsonPath('data.last_name', 'Santos')
             ->assertJsonPath('data.name', 'Maria Luisa Santos');
 
-        $activity = AuditActivity::query()
+        $profileEdits = AuditActivity::query()
             ->where('subject_type', User::class)
             ->where('subject_id', $user->id)
-            ->where('event', AuditAction::Updated->value)
-            ->sole();
-        $this->assertSame('Maria', $activity->properties['old']['first_name']);
-        $this->assertSame('Maria Luisa', $activity->properties['attributes']['first_name']);
-        $change = collect(app(AuditEventPresenter::class)->present($activity)->toArray()['changes'])
-            ->firstWhere('field', 'first_name');
-        $this->assertSame([
-            'field' => 'first_name',
-            'label' => 'First Name',
-            'old_value' => 'Maria',
-            'new_value' => 'Maria Luisa',
-            'redacted' => false,
-        ], array_intersect_key($change, array_flip(['field', 'label', 'old_value', 'new_value', 'redacted'])));
-        $this->assertSame(['type' => 'text', 'value' => 'Maria'], $change['before']);
-        $this->assertSame(['type' => 'text', 'value' => 'Maria Luisa'], $change['after']);
+            ->count();
+        $this->assertSame(0, $profileEdits);
 
         $legacy = User::factory()->rnd()->create([
             'name' => 'Legacy Mononym',
@@ -169,6 +155,10 @@ class PersonNameBackendFlowTest extends TestCase
         $this->patchJson("/api/admin/users/{$legacy->uuid}", ['role' => 'FSS'])
             ->assertOk()
             ->assertJsonPath('data.name', 'Legacy Mononym');
+        $this->assertSame(AuditAction::Updated->value, AuditActivity::query()
+            ->where('subject_type', User::class)
+            ->where('subject_id', $legacy->id)
+            ->sole()->event);
     }
 
     public function test_profile_name_change_and_unrelated_legacy_edit_follow_the_pair_contract(): void
@@ -187,13 +177,11 @@ class PersonNameBackendFlowTest extends TestCase
             ->assertJsonPath('display_name', 'Juan Miguel Santos')
             ->assertJsonPath('name', 'Juan Miguel Santos');
 
-        $activity = AuditActivity::query()
+        $profileEdits = AuditActivity::query()
             ->where('subject_type', User::class)
             ->where('subject_id', $user->id)
-            ->where('event', AuditAction::ProfileChanged->value)
-            ->sole();
-        $this->assertSame('Juan', $activity->properties['old']['first_name']);
-        $this->assertSame('Juan Miguel', $activity->properties['attributes']['first_name']);
+            ->count();
+        $this->assertSame(0, $profileEdits);
 
         $legacy = User::factory()->rnd()->create([
             'name' => 'Legacy Profile',

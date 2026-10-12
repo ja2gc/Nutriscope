@@ -11,6 +11,7 @@ use App\Exceptions\AuditLoggingUnavailable;
 use App\Models\AuditActivity;
 use App\Models\NcpRecord;
 use App\Models\Patient;
+use App\Models\Report;
 use Closure;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
@@ -113,13 +114,13 @@ class AuditLogger
             throw new LogicException('Only successful oversight events are audit records.');
         }
 
-        $originalAction = $action;
-        $action = $this->canonicalAction($action, $domain);
-        $details['subject_label'] ??= $this->subjectLabel(
-            $originalAction,
-            is_array($details['changed_fields'] ?? null) ? $details['changed_fields'] : [],
-            $domain,
-        );
+        if ($action === AuditAction::Viewed && $domain !== AuditDomain::Reports) {
+            throw new LogicException('View actions can only be recorded for reports.');
+        }
+
+        if ($domain === AuditDomain::Reports && ! $subject instanceof Report) {
+            throw new LogicException('Report audit events require a report subject.');
+        }
 
         return $this->recordEvent(
             $action->value,
@@ -137,67 +138,6 @@ class AuditLogger
             $oldValues,
             $newValues,
         );
-    }
-
-    private function canonicalAction(AuditAction $action, AuditDomain $domain): AuditAction
-    {
-        if ($action === AuditAction::Viewed && $domain !== AuditDomain::Reports) {
-            throw new LogicException('View actions can only be recorded for reports.');
-        }
-
-        return match ($action) {
-            AuditAction::Created,
-            AuditAction::Updated,
-            AuditAction::Deleted,
-            AuditAction::Viewed,
-            AuditAction::Downloaded,
-            AuditAction::Archived,
-            AuditAction::Failed,
-            AuditAction::Suspended,
-            AuditAction::Unsuspended,
-            AuditAction::Discontinued => $action,
-            AuditAction::Approved, AuditAction::Ordered, AuditAction::Uploaded, AuditAction::Imported => AuditAction::Created,
-            AuditAction::LoginSucceeded, AuditAction::AppointmentScheduled, AuditAction::VisitStarted, AuditAction::Generated => AuditAction::Created,
-            AuditAction::LoginFailed, AuditAction::AuthenticationFailed => AuditAction::Failed,
-            AuditAction::Logout => AuditAction::Deleted,
-            AuditAction::CycleDiscontinued => AuditAction::Discontinued,
-            default => AuditAction::Updated,
-        };
-    }
-
-    /** @param list<string> $changedFields */
-    private function subjectLabel(AuditAction $action, array $changedFields, AuditDomain $domain): ?string
-    {
-        $label = match ($action) {
-            AuditAction::AppointmentScheduled => 'Appointment scheduled',
-            AuditAction::AppointmentCancelled => 'Appointment cancelled',
-            AuditAction::AppointmentNoShow => 'Appointment marked no-show',
-            AuditAction::AppointmentRescheduled => 'Appointment rescheduled',
-            AuditAction::Received => 'Goods received',
-            AuditAction::Reversed => 'Reversal',
-            AuditAction::VisitStarted => 'Visit started',
-            AuditAction::VisitCompleted => 'Visit completed',
-            AuditAction::VisitEndedEarly => 'Visit ended early',
-            AuditAction::CycleDiscontinued => 'NCP cycle discontinued',
-            AuditAction::CycleCompleted => 'NCP cycle completed',
-            AuditAction::PasswordChanged,
-            AuditAction::PasswordReset => 'Password',
-            AuditAction::LoginSucceeded,
-            AuditAction::Logout => 'Session',
-            AuditAction::LoginFailed,
-            AuditAction::AuthenticationFailed => 'Login attempt',
-            default => null,
-        };
-
-        if ($label !== null) {
-            return $label;
-        }
-
-        if ($domain === AuditDomain::Accounts && count($changedFields) === 1) {
-            return ucfirst(str_replace(['_', '-'], ' ', $changedFields[0]));
-        }
-
-        return null;
     }
 
     private function recordEvent(
@@ -306,9 +246,9 @@ class AuditLogger
             ...array_diff_key($safeDetails, array_flip(['actor', 'details', 'request'])),
             ...($includeRequestMetadata ? [
                 'request' => $requestProperties,
-                'ip' => $requestProperties['ip'],
                 'user_agent' => $requestProperties['user_agent'],
             ] : []),
+            'ip' => $includeRequestMetadata ? $requestProperties['ip'] : $this->sanitizer->requestIp($this->request),
         ];
 
         $logger = activity(config('audit.log_name'))

@@ -71,7 +71,10 @@ class AccountOnboardingTest extends TestCase
             ->assertJsonPath('must_set_recovery_email', true)
             ->assertJsonPath('recovery_email_verified', false);
 
-        $this->assertSame(1, Activity::where('event', 'password_changed')->where('causer_id', $user->id)->count());
+        $this->assertSame(1, Activity::where('event', 'updated')
+            ->where('causer_id', $user->id)
+            ->whereJsonContains('properties->details->subject_label', 'Password')
+            ->count());
         $this->assertSame(0, Activity::where('event', 'recovery_email_changed')->where('causer_id', $user->id)->count());
         $this->assertStringNotContainsString('private-password', Activity::where('causer_id', $user->id)->get()->toJson());
     }
@@ -142,7 +145,7 @@ class AccountOnboardingTest extends TestCase
         $this->actingAs($user, 'sanctum')->postJson('/api/auth/onboarding/skip')
             ->assertOk()->assertJsonPath('user.onboarding_skipped', true);
 
-        $this->assertSame(1, Activity::where('event', 'settings_changed')->where('causer_id', $user->id)->count());
+        $this->assertSame(0, Activity::where('event', 'settings_changed')->where('causer_id', $user->id)->count());
 
         $this->actingAs($user->fresh(), 'sanctum')->postJson('/api/auth/password', [
             'current_password' => 'temporary-password',

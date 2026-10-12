@@ -11,7 +11,7 @@ class BackfillAuditOversight extends Command
 {
     protected $signature = 'audit:backfill-oversight {--chunk=500 : Rows processed per batch (1-5000)}';
 
-    protected $description = 'Backfill deterministic audit modules and encrypted patient-name snapshots.';
+    protected $description = 'Normalize legacy audit actions and backfill audit oversight classifications.';
 
     public function handle(AuditOversightBackfill $backfill, AuditRetentionService $retention): int
     {
@@ -31,12 +31,14 @@ class BackfillAuditOversight extends Command
         );
 
         $this->components->info(sprintf(
-            'Audit oversight backfill complete: %d scanned, %d rows updated (%d modules, %d domains, %d patient snapshots).',
+            'Audit oversight backfill complete: %d scanned, %d rows updated (%d actions, %d modules, %d domains, %d patient snapshots), %d retired events removed.',
             $stats['scanned'],
             $stats['updated'],
+            $stats['actions'],
             $stats['modules'],
             $stats['domains'],
             $stats['patient_snapshots'],
+            $stats['deleted'],
         ));
 
         return self::SUCCESS;

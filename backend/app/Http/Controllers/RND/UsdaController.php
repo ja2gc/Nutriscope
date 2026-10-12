@@ -55,7 +55,7 @@ class UsdaController extends Controller
                 $values = $this->auditValues->values($food);
                 $fields = array_keys(array_filter($values, fn (mixed $value): bool => $value !== null));
                 $this->auditLogger->recordMutation(
-                    AuditAction::Imported,
+                    AuditAction::Created,
                     AuditDomain::NutritionLibrary,
                     $food,
                     $fields,

@@ -177,12 +177,12 @@ class AssessmentController extends Controller
                     'original_name' => $file->getClientOriginalName(),
                 ]));
                 $this->auditLogger->record(
-                    AuditAction::Uploaded,
+                    AuditAction::Created,
                     AuditCategory::Clinical,
                     AuditDomain::Ncp,
                     subject: $document,
                     context: $ncpRecord,
-                    details: ['status' => 201],
+                    details: ['subject_label' => 'Assessment document', 'status' => 201],
                 );
 
                 return (new ScreeningDocumentResource($document))->response()->setStatusCode(201);

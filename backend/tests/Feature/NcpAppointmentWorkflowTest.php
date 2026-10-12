@@ -117,6 +117,15 @@ class NcpAppointmentWorkflowTest extends TestCase
         )->assertOk()
             ->assertJsonPath('data.status', 'in_progress')
             ->assertJsonPath('data.ncp_record_id', $ncp->uuid);
+
+        $appointment = NcpAppointment::where('uuid', $created->json('data.id'))->firstOrFail();
+        $startEvent = AuditActivity::query()
+            ->where('subject_type', NcpAppointment::class)
+            ->where('subject_id', $appointment->id)
+            ->orderByDesc('id')
+            ->firstOrFail();
+        $this->assertSame('created', $startEvent->event);
+        $this->assertSame('Visit started', $startEvent->properties['details']['subject_label']);
     }
 
     public function test_overdue_scheduled_visit_must_be_rescheduled_before_starting(): void
@@ -224,6 +233,7 @@ class NcpAppointmentWorkflowTest extends TestCase
             "/api/rnd/patients/{$patient->uuid}/appointments",
             ['source' => 'walk_in', 'purpose' => 'Mistaken start', 'ncp_record_id' => $ncp->uuid],
         )->json('data.id');
+        $appointment = NcpAppointment::where('uuid', $walkIn)->firstOrFail();
 
         $this->actingAs($rnd, 'sanctum')->patchJson(
             "/api/rnd/ncp-appointments/{$walkIn}",
@@ -231,6 +241,13 @@ class NcpAppointmentWorkflowTest extends TestCase
         )->assertNoContent();
 
         $this->assertDatabaseMissing('ncp_appointments', ['uuid' => $walkIn]);
+        $events = AuditActivity::query()
+            ->where('subject_type', NcpAppointment::class)
+            ->where('subject_id', $appointment->id)
+            ->orderBy('id')
+            ->get();
+        $this->assertSame(['created', 'deleted'], $events->pluck('event')->all());
+        $this->assertSame('Visit discarded', $events->last()->properties['details']['subject_label']);
     }
 
     public function test_empty_scheduled_start_returns_to_scheduled_but_saved_work_blocks_discard(): void
@@ -244,6 +261,14 @@ class NcpAppointmentWorkflowTest extends TestCase
         $this->actingAs($rnd, 'sanctum')->patchJson(
             "/api/rnd/ncp-appointments/{$scheduled}", ['action' => 'discard'],
         )->assertOk()->assertJsonPath('data.status', 'scheduled');
+        $appointment = NcpAppointment::where('uuid', $scheduled)->firstOrFail();
+        $discardEvent = AuditActivity::query()
+            ->where('subject_type', NcpAppointment::class)
+            ->where('subject_id', $appointment->id)
+            ->where('event', 'updated')
+            ->orderByDesc('id')
+            ->firstOrFail();
+        $this->assertSame('Visit discarded', $discardEvent->properties['details']['subject_label']);
 
         $this->actingAs($rnd, 'sanctum')->patchJson(
             "/api/rnd/ncp-appointments/{$scheduled}", ['action' => 'start'],
@@ -414,7 +439,7 @@ class NcpAppointmentWorkflowTest extends TestCase
         )->assertCreated();
 
         $event = AuditActivity::query()->sole();
-        $this->assertSame('appointment_scheduled', $event->event);
+        $this->assertSame('created', $event->event);
         $this->assertSame($rnd->id, $event->causer_id);
         $this->assertStringNotContainsString('Private purpose sentinel', $event->properties->toJson());
     }

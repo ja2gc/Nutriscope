@@ -11,7 +11,10 @@ use Illuminate\Support\Facades\Gate;
 
 class AuditFilterMetadata
 {
-    public function __construct(private readonly AuditRetentionState $retentionState) {}
+    public function __construct(
+        private readonly AuditRetentionState $retentionState,
+        private readonly AuditQuery $auditQuery,
+    ) {}
 
     /** @return array{filters: array<string, mixed>, capabilities: array<string, bool>|object, retention: array<string, mixed>} */
     public function for(User $user): array
@@ -40,10 +43,6 @@ class AuditFilterMetadata
                     'nutrition_care' => $this->reportContextOptions([
                         'demographic_census' => 'Demographic Census',
                         'ncp_summary' => 'NCP Summary',
-                        'adime_individual' => 'Nutrition Intervention Plan',
-                        'adime_aggregate' => 'ADIME Aggregate',
-                        'ncp_census' => 'NCP Census',
-                        'patient_menu_plan' => 'Patient Menu Plan',
                     ]),
                     'food_service_operations' => $this->reportContextOptions([
                         'accomplishment_report' => 'Accomplishment Report',
@@ -88,11 +87,12 @@ class AuditFilterMetadata
     /** @return array{all: int, security_administration: int, nutrition_care: int, food_service_operations: int} */
     private function moduleCounts(): array
     {
-        $row = AuditActivity::query()
+        $query = AuditActivity::query()
             ->auditOnly()
             ->where(fn (Builder $query): Builder => $query
-                ->whereNull('causer_type')->orWhere('causer_type', (new User)->getMorphClass()))
-            ->selectRaw("COUNT(*) AS all_count,
+                ->whereNull('causer_type')->orWhere('causer_type', (new User)->getMorphClass()));
+        $this->auditQuery->applyOversightVisibility($query);
+        $row = $query->selectRaw("COUNT(*) AS all_count,
                 SUM(module = 'security_administration') AS security_administration_count,
                 SUM(module = 'nutrition_care') AS nutrition_care_count,
                 SUM(module = 'food_service_operations') AS food_service_operations_count")

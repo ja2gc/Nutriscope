@@ -5,6 +5,9 @@ namespace App\Providers;
 use App\Contracts\BackupArchiveRunner;
 use App\Contracts\DatabaseRestoreManager;
 use App\Contracts\EnvironmentSwitcher;
+use App\Enums\AuditAction;
+use App\Enums\AuditCategory;
+use App\Enums\AuditDomain;
 use App\Events\PurchaseOrderCompleted;
 use App\Listeners\BudgetLedgerListener;
 use App\Mail\Transport\ResendApiTransport;
@@ -12,6 +15,7 @@ use App\Models\AuditActivity;
 use App\Policies\AuditPolicy;
 use App\Services\Audit\AuditContextResolver;
 use App\Services\Audit\AuditHealthMonitor;
+use App\Services\Audit\AuditLogger;
 use App\Services\Audit\AuditRetentionService;
 use App\Services\Audit\Revisions\AuditRevisionRegistry;
 use App\Services\Audit\Revisions\Serializers\BudgetRevisionSerializer;
@@ -36,6 +40,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
+use Throwable;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -194,6 +199,23 @@ class AppServiceProvider extends ServiceProvider
     private function loginRateLimitResponse(Limit $limit): Limit
     {
         return $limit->response(function (Request $request, array $headers) {
+            try {
+                app(AuditLogger::class)->record(
+                    AuditAction::Failed,
+                    AuditCategory::Security,
+                    AuditDomain::Accounts,
+                    details: [
+                        'subject_label' => 'Rate limit exceeded',
+                        'reason' => 'Login rate limit reached',
+                    ],
+                );
+            } catch (Throwable $exception) {
+                try {
+                    app(AuditHealthMonitor::class)->writerFailure($exception);
+                } catch (Throwable) {
+                }
+            }
+
             return response()->json(['message' => 'Too Many Attempts.'], 429, $headers);
         });
     }

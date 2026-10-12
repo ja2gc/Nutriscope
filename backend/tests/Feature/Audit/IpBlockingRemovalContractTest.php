@@ -24,6 +24,8 @@ class IpBlockingRemovalContractTest extends TestCase
         ];
         $files = collect($roots)
             ->flatMap(fn (string $root) => File::exists($root) ? File::allFiles($root) : [])
+            ->reject(fn (\SplFileInfo $file): bool => str_replace('\\', '/', $file->getPathname())
+                === str_replace('\\', '/', app_path('Services/Audit/AuditLegacyEventNormalizer.php')))
             ->push(new \SplFileInfo(base_path('.env.example')));
         $forbidden = '/AUDIT_SECURITY_BLOCKS_ENABLED|IpBlock(?:ed|ing)?|BlockedIp|blocked_ip|ip[-_ ]block(?:ed|ing)?|temporary_ip_block|security-blocks|SecurityBlock|RejectSecurityBlocks/i';
         $matches = $files

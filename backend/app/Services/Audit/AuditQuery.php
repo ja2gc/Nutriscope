@@ -3,7 +3,13 @@
 namespace App\Services\Audit;
 
 use App\Enums\AuditModule;
+use App\Models\AiUsageLimit;
 use App\Models\AuditActivity;
+use App\Models\AuditSetting;
+use App\Models\FoodServiceSetting;
+use App\Models\Report;
+use App\Models\ReportBranding;
+use App\Models\ReportTemplate;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -25,11 +31,6 @@ class AuditQuery
             ->where(function (Builder $query): void {
                 $query->whereNull('causer_type')->orWhere('causer_type', (new User)->getMorphClass());
             })
-            ->where(function (Builder $query): void {
-                $query->whereNull('domain')
-                    ->orWhere('domain', '!=', 'reports')
-                    ->orWhereIn('event', ['viewed', 'downloaded', 'archived']);
-            })
             ->with(['causer' => function (MorphTo $relation): void {
                 $relation->constrain([
                     User::class => fn (Builder $query): Builder => $query
@@ -37,6 +38,7 @@ class AuditQuery
                         ->select('id', 'uuid', 'name', 'first_name', 'last_name', 'role'),
                 ]);
             }, 'revision:id,activity_id,public_id,action']);
+        $this->applyOversightVisibility($query);
 
         $this->wherePresentedAction($query, $filters['action'] ?? null);
 
@@ -64,6 +66,44 @@ class AuditQuery
         }
 
         return $query->orderByDesc('created_at')->orderByDesc('id');
+    }
+
+    public function applyOversightVisibility(Builder $query): Builder
+    {
+        $reportType = (new Report)->getMorphClass();
+        $excludedSubjectTypes = array_map(
+            fn (string $model): string => (new $model)->getMorphClass(),
+            [AiUsageLimit::class, AuditSetting::class, FoodServiceSetting::class, ReportBranding::class, ReportTemplate::class],
+        );
+
+        return $query
+            ->where(fn (Builder $query): Builder => $query
+                ->whereNull('event')
+                ->orWhereNotIn('event', AuditLegacyEventNormalizer::removedEvents()))
+            ->where(fn (Builder $query): Builder => $query
+                ->whereNull('event')
+                ->orWhere('event', '!=', 'viewed')
+                ->orWhere('subject_type', $reportType))
+            ->where(fn (Builder $query): Builder => $query
+                ->whereNull('subject_type')
+                ->orWhere('subject_type', '!=', (new User)->getMorphClass())
+                ->orWhereNull('event')
+                ->orWhere('event', '!=', 'updated')
+                ->orWhereNull('properties->details->subject_label')
+                ->orWhere('properties->details->subject_label', '!=', 'Profile'))
+            ->where(function (Builder $query) use ($reportType, $excludedSubjectTypes): void {
+                $query
+                    ->where(fn (Builder $query): Builder => $query
+                        ->where('subject_type', $reportType)
+                        ->whereIn('event', AuditLegacyEventNormalizer::reportAccessActions()))
+                    ->orWhere(fn (Builder $query): Builder => $query
+                        ->where(fn (Builder $query): Builder => $query
+                            ->whereNull('subject_type')
+                            ->orWhereNotIn('subject_type', [$reportType, ...$excludedSubjectTypes]))
+                        ->where(fn (Builder $query): Builder => $query
+                            ->whereNull('domain')
+                            ->orWhere('domain', '!=', 'reports')));
+            });
     }
 
     private function wherePresentedAction(Builder $query, mixed $value): void

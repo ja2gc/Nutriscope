@@ -11,6 +11,7 @@ use App\Models\AuditSetting;
 use App\Models\FsItem;
 use App\Models\MenuCycle;
 use App\Models\Patient;
+use App\Models\Report;
 use App\Models\User;
 use App\Services\Audit\AuditFilterMetadata;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -297,18 +298,17 @@ class AdminAuditLogTest extends TestCase
         AuditFixture::delete(AuditActivity::query());
 
         $events = [
-            ['food-library', AuditModule::NutritionCare, AuditDomain::NutritionLibrary, AuditAction::Imported, null, []],
+            ['food-library', AuditModule::NutritionCare, AuditDomain::NutritionLibrary, AuditAction::Created, null, []],
             ['patient-ncp', AuditModule::NutritionCare, AuditDomain::Patients, AuditAction::Updated, Patient::class, []],
             ['catalog', AuditModule::FoodServiceOperations, AuditDomain::FoodService, AuditAction::Updated, FsItem::class, []],
             ['menus', AuditModule::FoodServiceOperations, AuditDomain::FoodService, AuditAction::Updated, MenuCycle::class, []],
-            ['procurement', AuditModule::FoodServiceOperations, AuditDomain::Procurement, AuditAction::Ordered, null, []],
-            ['budget', AuditModule::FoodServiceOperations, AuditDomain::Budget, AuditAction::Adjusted, null, []],
-            ['authentication', AuditModule::SecurityAdministration, AuditDomain::Accounts, AuditAction::LoginSucceeded, null, []],
+            ['procurement', AuditModule::FoodServiceOperations, AuditDomain::Procurement, AuditAction::Updated, null, []],
+            ['budget', AuditModule::FoodServiceOperations, AuditDomain::Budget, AuditAction::Updated, null, []],
+            ['authentication', AuditModule::SecurityAdministration, AuditDomain::Accounts, AuditAction::Created, null, []],
             ['accounts', AuditModule::SecurityAdministration, AuditDomain::Accounts, AuditAction::Updated, User::class, []],
-            ['oversight', AuditModule::SecurityAdministration, AuditDomain::System, AuditAction::AuditLogViewed, null, []],
-            ['settings', AuditModule::SecurityAdministration, AuditDomain::System, AuditAction::SettingsChanged, null, []],
-            ['report', AuditModule::FoodServiceOperations, AuditDomain::Reports, AuditAction::Viewed, null, ['report_type' => 'menu_calendar']],
-            ['report preparation', AuditModule::FoodServiceOperations, AuditDomain::Reports, AuditAction::Created, null, ['report_type' => 'menu_calendar']],
+            ['settings', AuditModule::SecurityAdministration, AuditDomain::System, AuditAction::Updated, null, []],
+            ['report', AuditModule::FoodServiceOperations, AuditDomain::Reports, AuditAction::Viewed, Report::class, ['report_type' => 'menu_calendar']],
+            ['report preparation', AuditModule::FoodServiceOperations, AuditDomain::Reports, AuditAction::Created, Report::class, ['report_type' => 'menu_calendar']],
         ];
 
         foreach ($events as [$description, $module, $domain, $action, $subjectType, $properties]) {
@@ -360,6 +360,24 @@ class AdminAuditLogTest extends TestCase
                 'module' => $module,
             ]);
         }
+        AuditActivity::query()->create([
+            'log_name' => 'audit',
+            'description' => 'System-generated report',
+            'event' => AuditAction::Created,
+            'category' => AuditCategory::Operations,
+            'domain' => AuditDomain::Reports,
+            'module' => AuditModule::NutritionCare,
+            'subject_type' => Report::class,
+        ]);
+        AuditActivity::query()->create([
+            'log_name' => 'audit',
+            'description' => 'Viewed report',
+            'event' => AuditAction::Viewed,
+            'category' => AuditCategory::Operations,
+            'domain' => AuditDomain::Reports,
+            'module' => AuditModule::FoodServiceOperations,
+            'subject_type' => Report::class,
+        ]);
 
         DB::flushQueryLog();
         DB::enableQueryLog();
@@ -373,10 +391,10 @@ class AdminAuditLogTest extends TestCase
         $this->assertArrayNotHasKey('module_subfilters', $metadata['filters']);
         $this->assertSame(['created', 'updated', 'deleted', 'viewed', 'downloaded', 'archived', 'failed', 'suspended', 'unsuspended', 'discontinued'], collect($metadata['filters']['actions'])->pluck('value')->all());
         $this->assertSame([
-            'all' => 3,
+            'all' => 4,
             'security_administration' => 1,
             'nutrition_care' => 1,
-            'food_service_operations' => 1,
+            'food_service_operations' => 2,
         ], $metadata['filters']['module_counts']);
 
         $countQueries = $queries->filter(fn (array $query): bool => str_contains(strtolower($query['query']), 'from `activity_log`')

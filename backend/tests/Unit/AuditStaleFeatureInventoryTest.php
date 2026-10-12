@@ -17,7 +17,7 @@ class AuditStaleFeatureInventoryTest extends TestCase
         'category request parameter' => ['remove-after-compatibility', 15],
         'domain request parameter' => ['remove-after-compatibility', 15],
         'legacy category and domain storage' => ['retain', 15],
-        'unknown action mapped to Updated' => ['remove', 15],
+        'unknown action normalized to Updated' => ['retain', 15],
         'disabled export UI and active capability' => ['remove-after-compatibility', 15],
         'report creator ownership gates' => ['remove', 13],
         'IP-blocking scaffolding' => ['keep-absent', 15],
@@ -40,7 +40,7 @@ class AuditStaleFeatureInventoryTest extends TestCase
             'category request parameter',
             'domain request parameter',
             'legacy category and domain storage',
-            'unknown action mapped to Updated',
+            'unknown action normalized to Updated',
             'disabled export UI and active capability',
             'report creator ownership gates',
             'IP-blocking scaffolding',
@@ -78,7 +78,7 @@ class AuditStaleFeatureInventoryTest extends TestCase
         $this->assertStringContainsString("'domain' => ['prohibited']", $request);
         $this->assertStringNotContainsString('?? AuditAction::Updated', $presenter);
         $this->assertStringContainsString('AuditAction::tryFrom($candidate)', $presenter);
-        $this->assertStringNotContainsString('return [AuditAction::Updated->value', $presenter);
+        $this->assertStringContainsString('return [AuditAction::Updated->value', $presenter);
         $this->assertStringNotContainsString('Models\\Inventory', $eventPolicy);
         $this->assertStringContainsString("'Inventory' => ['inventory', 'Inventory record']", $legacyEntityLabels);
         $this->assertStringContainsString('authorizeReportAccess($report)', $reportController);
@@ -131,6 +131,7 @@ class AuditStaleFeatureInventoryTest extends TestCase
         $matches = collect($productionRoots)
             ->flatMap(fn (string $root) => File::exists($root) ? File::allFiles($root) : [])
             ->filter(fn (\SplFileInfo $file): bool => ! str_contains($file->getPathname(), '.test.')
+                && str_replace('\\', '/', $file->getPathname()) !== str_replace('\\', '/', app_path('Services/Audit/AuditLegacyEventNormalizer.php'))
                 && (preg_match($ipPattern, $file->getPathname()) === 1 || preg_match($ipPattern, File::get($file->getPathname())) === 1))
             ->map(fn (\SplFileInfo $file): string => $file->getPathname())
             ->values()

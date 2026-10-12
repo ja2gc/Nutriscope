@@ -66,7 +66,9 @@ class AuthAuditEventTest extends TestCase
             'name' => 'browser',
         ]);
         $this->assertSame(1, AuditActivity::query()->where('event', 'deleted')->count());
+        $this->assertSame('Session', data_get(AuditActivity::query()->sole()->properties, 'details.subject_label'));
 
+        AuditFixture::delete(Activity::query());
         $user->createToken('browser');
         $user->createToken('mobile');
 

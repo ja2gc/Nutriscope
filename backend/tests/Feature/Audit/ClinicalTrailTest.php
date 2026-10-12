@@ -420,7 +420,7 @@ class ClinicalTrailTest extends TestCase
         $response = $this->actingAs($rnd, 'sanctum')
             ->getJson("/api/rnd/patients/{$patient->uuid}/activity")
             ->assertOk()
-            ->assertJsonPath('data.0.action', 'poison-event-sentinel')
+            ->assertJsonPath('data.0.action', 'updated')
             ->assertJsonPath('data.0.actor', null)
             ->assertJsonPath('data.0.changes.0.field', 'medical_diagnosis')
             ->assertJsonPath('data.0.changes.0.redacted', true);
@@ -442,7 +442,7 @@ class ClinicalTrailTest extends TestCase
         $this->getJson("/api/rnd/patients/{$patient->uuid}/activity")->assertOk();
         $this->getJson("/api/rnd/patients/{$patient->uuid}/activity")->assertOk();
 
-        $this->assertSame(0, AuditActivity::query()->where('event', AuditAction::AuditLogViewed->value)->count());
+        $this->assertSame(0, AuditActivity::query()->auditOnly()->count());
     }
 
     public function test_trail_query_has_root_cursor_indexes_and_bounded_queries_without_id_pluck(): void

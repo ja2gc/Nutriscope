@@ -55,7 +55,7 @@ class AuditEventPolicy
      *   privacy: 'clinical'|'safe_operational',
      *   canonical_writer: 'automatic'|'explicit',
      *   detail_mode: 'field_names'|'changes'|'history',
-     *   reason_rule: 'none'|'destructive'|'corrective'|'reversal',
+     *   reason_rule: 'none'|'destructive',
      *   revision_serializer: 'budget'|'food_service_recipe'|'menu_cycle'|'menu_cycle_template'|'purchase_order'|'rnd_recipe'|'shopping_list'|null
      * }
      */
@@ -65,7 +65,9 @@ class AuditEventPolicy
         AuditCategory $fallbackCategory,
         AuditDomain $fallbackDomain,
     ): array {
-        $securityAction = $this->isSecurityAction($action);
+        $securityAction = $subject instanceof User
+            || $fallbackDomain === AuditDomain::Accounts
+            || in_array($action, [AuditAction::Failed, AuditAction::Suspended, AuditAction::Unsuspended], true);
         $category = $securityAction
             ? AuditCategory::Security
             : $this->category($subject, $fallbackCategory);
@@ -90,8 +92,6 @@ class AuditEventPolicy
                 : ($revisionSerializer === null ? 'changes' : 'history'),
             'reason_rule' => match ($action) {
                 AuditAction::Deleted => 'destructive',
-                AuditAction::PriceCorrected => 'corrective',
-                AuditAction::Reversed => 'reversal',
                 default => 'none',
             },
             'revision_serializer' => $revisionSerializer,
@@ -231,23 +231,5 @@ class AuditEventPolicy
             $subject instanceof ShoppingList => 'shopping_list',
             default => null,
         };
-    }
-
-    private function isSecurityAction(AuditAction $action): bool
-    {
-        return in_array($action, [
-            AuditAction::ProfileChanged,
-            AuditAction::LoginSucceeded,
-            AuditAction::LoginFailed,
-            AuditAction::AuthenticationFailed,
-            AuditAction::Logout,
-            AuditAction::PasswordChanged,
-            AuditAction::PasswordReset,
-            AuditAction::RecoveryEmailChanged,
-            AuditAction::RecoveryEmailVerified,
-            AuditAction::Failed,
-            AuditAction::Suspended,
-            AuditAction::Unsuspended,
-        ], true);
     }
 }

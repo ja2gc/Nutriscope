@@ -35,20 +35,23 @@ class SecurityAuditTest extends TestCase
         $this->assertSame('127.0.0.1', data_get($events->last()->properties, 'ip'));
     }
 
-    public function test_authentication_failure_is_audited_but_role_denial_is_not(): void
+    public function test_protected_route_authentication_failures_are_audited_without_logging_role_denials(): void
     {
         $this->withToken('SECRET-BEARER-SENTINEL')
             ->getJson('/api/auth/me')
             ->assertUnauthorized();
+
+        $authenticationFailure = AuditActivity::query()->sole();
+        $this->assertSame('failed', $authenticationFailure->event);
+        $this->assertSame('Authentication attempt', data_get($authenticationFailure->properties, 'details.subject_label'));
+        $this->assertSame('127.0.0.1', data_get($authenticationFailure->properties, 'ip'));
 
         $rnd = User::factory()->create(['role' => 'RND']);
         $this->actingAs($rnd, 'sanctum')
             ->getJson('/api/admin/users')
             ->assertForbidden();
 
-        $events = AuditActivity::query()->where('event', 'failed')->get();
-        $this->assertCount(1, $events);
-        $this->assertSame('Authentication', data_get($events->first()->properties, 'details.subject_label'));
+        $this->assertSame(1, AuditActivity::query()->where('event', 'failed')->count());
         $this->assertSame(0, AuditActivity::query()->where('event', 'authorization_denied')->count());
     }
 

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\AuditModule;
 use App\Models\AuditActivity;
 use App\Models\DietListCount;
 use App\Models\Intervention;
@@ -211,8 +212,12 @@ class ReportControllerTest extends TestCase
             ->assertOk();
         $this->get("/api/rnd/reports/{$report->uuid}/download")->assertOk();
 
-        $this->assertSame(0, AuditActivity::query()->where('domain', 'reports')->count());
-        $this->assertSame(0, AuditActivity::query()->where('event', 'downloaded')->count());
+        $this->assertSame(2, AuditActivity::query()
+            ->where('event', 'downloaded')
+            ->where('domain', 'reports')
+            ->where('module', AuditModule::NutritionCare->value)
+            ->where('subject_type', Report::class)
+            ->count());
     }
 
     public function test_rnd_can_list_all_rnd_reports_with_creator_attribution(): void

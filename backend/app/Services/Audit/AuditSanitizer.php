@@ -62,13 +62,18 @@ class AuditSanitizer
 
     public function request(Request $request): array
     {
-        $ip = $this->sanitizeString((string) $request->ip());
-
         return [
-            'ip' => filter_var($ip, FILTER_VALIDATE_IP) === false ? null : $ip,
+            'ip' => $this->requestIp($request),
             'url' => $this->sanitizeUrl($request->fullUrl()),
             'user_agent' => mb_substr($this->sanitizeString((string) $request->userAgent()), 0, 512),
         ];
+    }
+
+    public function requestIp(Request $request): ?string
+    {
+        $ip = $this->sanitizeString((string) $request->ip());
+
+        return filter_var($ip, FILTER_VALIDATE_IP) === false ? null : $ip;
     }
 
     public function text(?string $value, int $maxLength = 255): ?string

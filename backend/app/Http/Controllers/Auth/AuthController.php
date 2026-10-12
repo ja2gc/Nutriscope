@@ -110,7 +110,7 @@ class AuthController extends Controller
                 'must_change_password' => false,
             ])->save();
 
-            $this->auditAuth($request, AuditAction::PasswordChanged, $user);
+            $this->auditAuth($request, $user);
 
             return $user;
         });
@@ -143,7 +143,7 @@ class AuthController extends Controller
         if ($user instanceof User) {
             try {
                 $this->auditLogger->recordMutation(
-                    AuditAction::Logout,
+                    AuditAction::Deleted,
                     AuditDomain::Accounts,
                     $user,
                     ['session'],
@@ -237,13 +237,13 @@ class AuthController extends Controller
                 $user->completeOnboardingRequirement('must_change_password');
             }
             $user->tokens()->delete();
-            $this->auditAuth($request, AuditAction::PasswordChanged, $user);
+            $this->auditAuth($request, $user);
         });
 
         return response()->json(['message' => 'Password updated.']);
     }
 
-    private function auditAuth(Request $request, AuditAction $action, ?User $user = null): AuditActivity
+    private function auditAuth(Request $request, ?User $user = null): AuditActivity
     {
         $subject = $user ?? $request->user();
         if (! $subject instanceof User) {
@@ -255,7 +255,7 @@ class AuthController extends Controller
             AuditDomain::Accounts,
             $subject,
             ['password'],
-            ['change_type' => $action->value],
+            ['subject_label' => 'Password'],
             oldValues: [],
             newValues: [],
         );

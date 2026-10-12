@@ -119,10 +119,11 @@ class PurchaseOrderController extends Controller
                 $lifecycle->refresh($purchaseOrder);
             } elseif (($validated['status'] ?? null) === 'ordered' && $previousStatus !== 'ordered') {
                 $activity = $this->auditLogger->recordMutation(
-                    AuditAction::Ordered,
+                    AuditAction::Updated,
                     AuditDomain::Procurement,
                     $purchaseOrder,
                     $changedFields,
+                    details: ['subject_label' => 'Purchase order ordered'],
                     context: $purchaseOrder,
                 );
                 if ($activity !== null) {
@@ -274,12 +275,13 @@ class PurchaseOrderController extends Controller
                 return $po->fresh(self::RELATIONS);
             }));
             $activity = $this->auditLogger->record(
-                AuditAction::Approved,
+                AuditAction::Created,
                 AuditCategory::Operations,
                 AuditDomain::Procurement,
                 subject: $po,
                 context: $po,
                 details: [
+                    'subject_label' => 'Purchase order created',
                     'procurement_track' => $po->procurement_track,
                     'item_count' => $po->items->count(),
                     'vendor_group_count' => $po->vendorGroups->count(),
@@ -479,12 +481,13 @@ class PurchaseOrderController extends Controller
                 }
                 if ($correctionCount > 0) {
                     $activities[] = $this->auditLogger->record(
-                        AuditAction::PriceCorrected,
+                        AuditAction::Updated,
                         AuditCategory::Operations,
                         AuditDomain::Procurement,
                         subject: $purchaseOrder,
                         context: $purchaseOrder,
                         details: [
+                            'subject_label' => 'Purchase order prices corrected',
                             'changed_fields' => collect([...$vendorChangedFields, 'items'])->unique()->sort()->values()->all(),
                             'item_count' => $correctionCount,
                         ],
@@ -553,12 +556,13 @@ class PurchaseOrderController extends Controller
                     ]);
                 });
                 $activity = $this->auditLogger->record(
-                    AuditAction::Uploaded,
+                    AuditAction::Created,
                     AuditCategory::Operations,
                     AuditDomain::Procurement,
                     subject: $purchaseOrder,
                     context: $purchaseOrder,
                     details: [
+                        'subject_label' => 'Purchase order attachment',
                         'attachment_type' => $request->input('type'),
                         'attachment_count' => $attachments->count(),
                     ],
@@ -632,12 +636,13 @@ class PurchaseOrderController extends Controller
                     $after = $lockedPo->fresh(self::RELATIONS);
                     $afterRevision = $this->revisionRegistry->capture($after);
                     $uploadedActivity = $this->auditLogger->record(
-                        AuditAction::Uploaded,
+                        AuditAction::Created,
                         AuditCategory::Operations,
                         AuditDomain::Procurement,
                         subject: $after,
                         context: $after,
                         details: [
+                            'subject_label' => 'Purchase order attachment',
                             'attachment_type' => $request->input('type'),
                             'attachment_count' => $attachments->count(),
                         ],
@@ -768,12 +773,13 @@ class PurchaseOrderController extends Controller
     private function recordVendorReceived(PurchaseOrderVendorGroup $vendorGroup, array $ordinaryFields = []): AuditActivity
     {
         return $this->auditLogger->record(
-            AuditAction::Received,
+            AuditAction::Updated,
             AuditCategory::Operations,
             AuditDomain::Procurement,
             subject: $vendorGroup->purchaseOrder,
             context: $vendorGroup->purchaseOrder,
             details: [
+                'subject_label' => 'Goods received',
                 'status' => 'received',
                 'changed_fields' => collect([...$ordinaryFields, 'status', 'received_at'])->unique()->sort()->values()->all(),
             ],

@@ -40,16 +40,21 @@ class AuditEventPresenter
         $module = $activity->module instanceof AuditModule
             ? $activity->module->value
             : 'legacy_unclassified';
-        [$action, $actionLabel] = $this->action((string) $activity->event);
+        [$action, $actionLabel] = $this->action((string) $activity->event, $activity->subject_type);
         $properties = $activity->properties?->all() ?? [];
         $storedDetails = is_array($properties['details'] ?? null) ? $properties['details'] : [];
+        $legacyEvent = AuditLegacyEventNormalizer::normalize((string) $activity->event, $activity->subject_type);
+        if ($legacyEvent !== null
+            && ! $legacyEvent['remove']
+            && (! is_string($storedDetails['subject_label'] ?? null) || trim($storedDetails['subject_label']) === '')) {
+            $storedDetails['subject_label'] = $legacyEvent['subject_label'];
+        }
         $clinical = $category === AuditCategory::Clinical->value;
         $actor = $this->actor($activity, $properties);
         $subject = $this->entities->present(
             $activity->subject_type,
             $this->publicId($activity, 'subject'),
             $clinical,
-            $action,
         );
         $subject = $this->namedOperationalSubject($subject, $storedDetails, $clinical);
         if (is_string($storedDetails['subject_label'] ?? null) && trim($storedDetails['subject_label']) !== '') {
@@ -62,7 +67,6 @@ class AuditEventPresenter
                 $activity->context_type,
                 $this->publicId($activity, 'context'),
                 $clinical,
-                $action,
             );
         $details = $this->values->details($storedDetails, $category, $domain);
         $changes = $this->values->changes($storedDetails, $properties, $category, $domain);
@@ -110,17 +114,26 @@ class AuditEventPresenter
     }
 
     /** @return array{0: string, 1: string} */
-    private function action(string $storedEvent): array
+    private function action(string $storedEvent, ?string $subjectType = null): array
     {
         if (trim($storedEvent) === '') {
-            return ['legacy_event', 'Legacy event'];
+            return [AuditAction::Updated->value, AuditAction::Updated->label()];
         }
 
-        $canonical = config('audit.legacy.action_aliases.'.$storedEvent, $storedEvent);
-        $candidate = is_string($canonical) ? $canonical : $storedEvent;
-        $candidate = strtolower(trim($candidate));
+        $candidate = strtolower(trim($storedEvent));
         if (preg_match('/^[a-z0-9_.:-]{1,64}$/D', $candidate) !== 1) {
             $candidate = 'legacy_event';
+        }
+
+        $legacyEvent = AuditLegacyEventNormalizer::normalize($candidate, $subjectType);
+        if ($legacyEvent !== null) {
+            if ($legacyEvent['remove']) {
+                return ['legacy_event', 'Legacy event'];
+            }
+
+            $action = $legacyEvent['action'];
+
+            return [$action->value, $action->label()];
         }
 
         $known = AuditAction::tryFrom($candidate);

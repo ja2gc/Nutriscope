@@ -75,8 +75,6 @@ class ClinicalAttributionService
             ->whereNotIn('event', [
                 AuditAction::Viewed->value,
                 AuditAction::Downloaded->value,
-                AuditAction::Exported->value,
-                AuditAction::AuditLogViewed->value,
             ])
             ->whereIn($groupColumn, $keys)
             ->selectRaw("MAX(id) AS id, {$groupColumn}")

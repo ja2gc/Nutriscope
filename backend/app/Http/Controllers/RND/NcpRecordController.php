@@ -38,10 +38,11 @@ class NcpRecordController extends Controller
         DB::transaction(function () use ($ncpRecord, $data, $request): void {
             $this->auditLogger->withoutModelEvents(fn () => $ncpRecord->update($data));
             $this->auditLogger->recordMutation(
-                $request->validated('action') === 'complete' ? AuditAction::CycleCompleted : AuditAction::CycleDiscontinued,
+                $request->validated('action') === 'complete' ? AuditAction::Updated : AuditAction::Discontinued,
                 AuditDomain::Ncp,
                 $ncpRecord,
                 array_keys($data),
+                details: ['subject_label' => $request->validated('action') === 'complete' ? 'NCP cycle completed' : 'NCP cycle discontinued'],
             );
         });
 

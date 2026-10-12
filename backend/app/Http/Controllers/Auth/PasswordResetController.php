@@ -84,12 +84,11 @@ class PasswordResetController extends Controller
             $user->tokens()->delete();
 
             $this->auditLogger->record(
-                AuditAction::PasswordReset,
+                AuditAction::Updated,
                 AuditCategory::Security,
                 AuditDomain::Accounts,
                 subject: $user,
-                details: ['subject_public_id' => $user->uuid],
-                actor: $user,
+                details: ['subject_public_id' => $user->uuid, 'subject_label' => 'Password'],
                 includeRequestMetadata: false,
             );
 

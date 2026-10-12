@@ -146,7 +146,7 @@ class UserController extends Controller
                 'password' => Hash::make($request->validated('password')),
             ]);
             $user->tokens()->delete();
-            $this->auditUser(AuditAction::PasswordReset, $user);
+            $this->auditUser(AuditAction::Updated, $user, ['password']);
         });
 
         return response()->json(['message' => 'Password reset.']);

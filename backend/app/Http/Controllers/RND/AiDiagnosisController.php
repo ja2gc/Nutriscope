@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers\RND;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditCategory;
+use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\RND\AiApproveDiagnosisRequest;
 use App\Http\Requests\RND\AiSuggestDiagnosisRequest;
@@ -74,12 +77,12 @@ class AiDiagnosisController extends Controller
                 'ai_generated' => true,
             ]));
             $this->auditLogger->record(
-                AuditAction::Approved,
+                AuditAction::Created,
                 AuditCategory::Clinical,
                 AuditDomain::Ncp,
                 subject: $diagnosis,
                 context: $ncpRecord,
-                details: ['status' => 201, 'fields' => ['domain', 'label', 'etiology', 'signs_symptoms']],
+                details: ['subject_label' => 'AI diagnosis', 'status' => 201, 'fields' => ['domain', 'label', 'etiology', 'signs_symptoms']],
             );
 
             return response()->json(['data' => new DiagnosisResource($diagnosis)], 201);

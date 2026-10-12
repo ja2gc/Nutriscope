@@ -34,8 +34,7 @@ class ListAuditLogsRequest extends FormRequest
             'context_id' => ['prohibited'],
             'context' => ['nullable', Rule::in([
                 'accomplishment_report', 'program_project_activity', 'procurement_pack', 'menu_calendar',
-                'demographic_census', 'ncp_summary', 'adime_individual', 'adime_aggregate',
-                'ncp_census', 'patient_menu_plan',
+                'demographic_census', 'ncp_summary',
             ])],
             'action' => ['nullable', Rule::in($this->visibleActions())],
             'severity' => ['prohibited'],

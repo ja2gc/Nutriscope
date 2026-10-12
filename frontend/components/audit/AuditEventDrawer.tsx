@@ -131,7 +131,7 @@ export function AuditEventDrawer({ event, onClose }: { event: AuditEventDto; onC
             )}
           </Section>
 
-          {(event.patient || event.subject) && <Section title="Record">
+          {(event.patient || event.subject || event.context) && <Section title="Record">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {event.patient && (
                 <div className="rounded-xl border border-warm-200 p-3">
@@ -159,6 +159,10 @@ export function AuditEventDrawer({ event, onClose }: { event: AuditEventDto; onC
                 <p className="mb-2 text-xs font-bold uppercase tracking-wider text-warm-500">Subject</p>
                 <Entity entity={event.subject} fallback="No subject recorded" />
               </div>
+              {event.context && <div className="rounded-xl border border-warm-200 p-3">
+                <p className="mb-2 text-xs font-bold uppercase tracking-wider text-warm-500">Related record</p>
+                <Entity entity={event.context} fallback="No related record" />
+              </div>}
             </div>
           </Section>}
 

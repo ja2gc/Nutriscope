@@ -705,11 +705,13 @@ class AuditRetentionTest extends TestCase
         }
     }
 
-    public function test_unauthorized_requests_do_not_create_security_audit_events(): void
+    public function test_protected_route_authentication_failure_creates_one_security_audit_event(): void
     {
         $this->getJson('/api/admin/audit-logs')->assertUnauthorized();
 
-        $this->assertSame(0, AuditActivity::query()->count());
+        $event = AuditActivity::query()->sole();
+        $this->assertSame(AuditAction::Failed->value, $event->event);
+        $this->assertSame('Authentication attempt', data_get($event->properties, 'details.subject_label'));
     }
 
     public function test_one_hundred_thousand_event_queries_use_indexes_and_meet_the_staging_p95_budget(): void

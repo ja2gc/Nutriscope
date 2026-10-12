@@ -157,7 +157,7 @@ class NcpCycleLifecycleTest extends TestCase
         ])->assertOk();
 
         $event = AuditActivity::query()->sole();
-        $this->assertSame('cycle_discontinued', $event->event);
+        $this->assertSame('discontinued', $event->event);
         $this->assertSame($rnd->id, $event->causer_id);
         $this->assertSame(['discontinuation_reason_code', 'status'], $event->properties['details']['changed_fields']);
         $this->assertStringNotContainsString('lost_to_follow_up', $event->properties->toJson());

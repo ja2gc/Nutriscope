@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Data\AuditEventDto;
+use App\Enums\AuditCategory;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ListAuditLogsRequest;
 use App\Models\AuditActivity;
@@ -41,10 +42,10 @@ class AuditLogExportController extends Controller
             }
 
             fputcsv($stream, [
-                'event_reference', 'category', 'domain', 'action', 'action_label', 'summary', 'severity', 'outcome',
-                'actor_id', 'actor_kind', 'actor_name', 'actor_role',
+                'event_reference', 'category', 'domain', 'action', 'action_label', 'summary',
+                'actor_id', 'actor_kind', 'actor_name', 'actor_role', 'actor_ip',
                 'subject_type', 'subject_id', 'subject_label',
-                'context_type', 'context_id', 'context_label', 'occurred_at', 'details', 'changes',
+                'related_record_type', 'related_record_id', 'related_record_label', 'occurred_at', 'details', 'changes',
             ], escape: '');
 
             $rows = 0;
@@ -69,9 +70,9 @@ class AuditLogExportController extends Controller
     {
         return array_map(fn (mixed $value): mixed => $this->csvCell($value), [
             $event->id, $event->category, $event->domain, $event->action, $event->actionLabel,
-            $event->summary, $event->severity, $event->outcome,
+            $event->summary,
             $event->actor['id'] ?? null, $event->actor['kind'] ?? null,
-            $event->actor['name'] ?? null, $event->actor['role'] ?? null,
+            $event->actor['name'] ?? null, $event->actor['role'] ?? null, $event->actor['ip'] ?? null,
             $event->subject['type'] ?? null, $event->subject['id'] ?? null, $event->subject['label'] ?? null,
             $event->context['type'] ?? null, $event->context['id'] ?? null, $event->context['label'] ?? null,
             $event->occurredAt,

@@ -128,25 +128,19 @@ class AuditPrivacyTest extends TestCase
 
     public function test_report_subject_cannot_be_audited_under_another_domain(): void
     {
-        $this->expectException(\LogicException::class);
-
-        app(AuditLogger::class)->record(
+        $activity = app(AuditLogger::class)->record(
             AuditAction::Updated,
             AuditCategory::Operations,
             AuditDomain::System,
             subject: new Report,
         );
+
+        $this->assertSame(AuditDomain::Reports, $activity->domain);
     }
 
-    public function test_generated_system_events_cannot_be_written_to_the_audit_trail(): void
+    public function test_generated_is_not_an_audit_action(): void
     {
-        $this->expectException(\LogicException::class);
-
-        app(AuditLogger::class)->record(
-            AuditAction::Generated,
-            AuditCategory::Operations,
-            AuditDomain::System,
-        );
+        $this->assertNull(AuditAction::tryFrom('generated'));
     }
 
     public function test_nested_forbidden_keys_and_format_variants_are_removed(): void
@@ -400,7 +394,7 @@ class AuditPrivacyTest extends TestCase
 
         $resource = app(AuditEventPresenter::class)->present($activity)->toArray();
         $this->assertArrayNotHasKey('properties', $resource);
-        $this->assertStringNotContainsString('203.0.113.9', json_encode($resource, JSON_THROW_ON_ERROR));
+        $this->assertSame('203.0.113.9', $resource['actor']['ip']);
     }
 
     public function test_clinical_detail_values_are_removed_but_field_names_remain(): void
@@ -534,7 +528,7 @@ class AuditPrivacyTest extends TestCase
         $this->assertSame(1, $activityWrites->filter(fn (array $query): bool => str_starts_with(strtolower(trim($query['query'])), 'insert'))->count());
         $this->assertSame(0, $activityWrites->filter(fn (array $query): bool => str_starts_with(strtolower(trim($query['query'])), 'update'))->count());
         $this->assertSame(1, AuditActivity::query()->where('event', 'login')->count());
-        $this->assertSame(0, AuditActivity::query()->where('event', AuditAction::LoginSucceeded->value)->count());
+        $this->assertSame(0, AuditActivity::query()->where('event', 'login_succeeded')->count());
     }
 
     public function test_context_resolver_maps_clinical_child_to_ncp_without_loading_phi(): void

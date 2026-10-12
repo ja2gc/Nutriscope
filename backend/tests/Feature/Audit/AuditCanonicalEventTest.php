@@ -56,7 +56,7 @@ class AuditCanonicalEventTest extends TestCase
             'reason_rule' => 'none',
             'revision_serializer' => null,
         ], $policy->forEvent(
-            AuditAction::Imported,
+            AuditAction::Created,
             new FoodItem,
             AuditCategory::Operations,
             AuditDomain::FoodService,
@@ -97,7 +97,7 @@ class AuditCanonicalEventTest extends TestCase
             AuditDomain::Procurement,
         )['revision_serializer']);
         $this->assertSame(AuditModule::NutritionCare, $policy->forEvent(
-            AuditAction::Generated,
+            AuditAction::Created,
             new Report(['type' => 'ncp_summary', 'audit_patient_id' => 123]),
             AuditCategory::Clinical,
             AuditDomain::Reports,
@@ -146,7 +146,7 @@ class AuditCanonicalEventTest extends TestCase
         )['module']);
     }
 
-    public function test_explicit_logger_applies_canonical_taxonomy_and_actual_actor(): void
+    public function test_explicit_logger_records_canonical_taxonomy_and_actual_actor(): void
     {
         $actor = User::factory()->rnd()->create();
         $food = FoodItem::factory()->create(['usda_fdc_id' => 987654]);
@@ -154,7 +154,7 @@ class AuditCanonicalEventTest extends TestCase
         $this->actingAs($actor, 'sanctum');
 
         $event = app(AuditLogger::class)->recordMutation(
-            AuditAction::Imported,
+            AuditAction::Created,
             AuditDomain::FoodService,
             $food,
             ['usda_fdc_id'],

@@ -119,7 +119,10 @@ class AdminSystemTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('data.name', 'Updated Name');
-        $this->assertSame(0, Activity::where('subject_id', $user->id)->count());
+        $activity = Activity::where('subject_id', $user->id)->sole();
+        $this->assertSame('updated', $activity->event);
+        $this->assertSame('Profile', $activity->properties['details']['subject_label']);
+        $this->assertEqualsCanonicalizing(['first_name', 'last_name', 'name'], $activity->properties['details']['changed_fields']);
     }
 
     public function test_admin_role_and_status_change_is_one_safe_account_event(): void
@@ -133,13 +136,14 @@ class AdminSystemTest extends TestCase
                 'is_active' => false,
             ])->assertOk();
 
-        $activity = Activity::where('event', 'account_blocked')->where('subject_id', $user->id)->sole();
+        $activity = Activity::where('event', 'suspended')->where('subject_id', $user->id)->sole();
+        $this->assertSame('User account', $activity->properties['details']['subject_label']);
         $this->assertSame(['is_active', 'role'], $activity->properties['details']['changed_fields']);
         $this->assertStringNotContainsString($user->email, $activity->toJson());
         $this->assertSame(0, $user->tokens()->count());
     }
 
-    public function test_admin_password_update_is_one_password_reset_event_without_credentials(): void
+    public function test_admin_password_update_is_one_updated_password_event_without_credentials(): void
     {
         $user = User::factory()->create(['password' => Hash::make('old-password')]);
         $secret = 'PATCH-PASSWORD-SENTINEL';
@@ -151,7 +155,8 @@ class AdminSystemTest extends TestCase
             ])->assertOk();
 
         $activity = Activity::where('subject_id', $user->id)->sole();
-        $this->assertSame('password_reset', $activity->event);
+        $this->assertSame('updated', $activity->event);
+        $this->assertSame('Password', $activity->properties['details']['subject_label']);
         $this->assertStringNotContainsString($secret, $activity->toJson());
     }
 
@@ -169,7 +174,7 @@ class AdminSystemTest extends TestCase
         $this->assertTrue(Hash::check('old-password', $user->fresh()->password));
     }
 
-    public function test_admin_mixed_password_and_profile_update_has_one_safe_complete_event(): void
+    public function test_admin_mixed_password_and_profile_update_has_separate_safe_events(): void
     {
         $user = User::factory()->create(['name' => 'Before', 'password' => Hash::make('old-password')]);
         $secret = 'MIXED-PASSWORD-SENTINEL';
@@ -182,10 +187,16 @@ class AdminSystemTest extends TestCase
                 'password_confirmation' => $secret,
             ])->assertOk();
 
-        $activity = Activity::where('subject_id', $user->id)->sole();
-        $this->assertSame('updated', $activity->event);
-        $this->assertSame(['password'], $activity->properties['details']['changed_fields']);
-        $this->assertStringNotContainsString($secret, $activity->toJson());
+        $activities = Activity::where('subject_id', $user->id)->orderBy('id')->get();
+        $this->assertCount(2, $activities);
+        $this->assertSame(['updated', 'updated'], $activities->pluck('event')->all());
+        $this->assertSame(['Password', 'Profile'], $activities->map(fn (Activity $activity): string => $activity->properties['details']['subject_label'])->all());
+        $this->assertSame(['password'], $activities[0]->properties['details']['changed_fields']);
+        $this->assertEqualsCanonicalizing(['first_name', 'last_name', 'name'], $activities[1]->properties['details']['changed_fields']);
+        foreach ($activities as $activity) {
+            $this->assertSame('127.0.0.1', $activity->properties['ip']);
+            $this->assertStringNotContainsString($secret, $activity->toJson());
+        }
     }
 
     public function test_admin_can_deactivate_user(): void
@@ -242,7 +253,10 @@ class AdminSystemTest extends TestCase
             ->assertJsonPath('message', 'Password reset.');
 
         $this->assertTrue(Hash::check('NewPass2026!', $user->fresh()->password));
-        $this->assertSame(1, Activity::where('event', 'password_reset')->where('subject_id', $user->id)->count());
+        $this->assertSame(1, Activity::where('event', 'updated')
+            ->where('subject_id', $user->id)
+            ->whereJsonContains('properties->details->subject_label', 'Password')
+            ->count());
     }
 
     public function test_admin_password_reset_requires_valid_confirmation(): void

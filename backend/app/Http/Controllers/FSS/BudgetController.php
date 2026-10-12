@@ -205,12 +205,13 @@ class BudgetController extends Controller
             ]);
             $after = $this->revisionRegistry->capture($budget->fresh(['ledgerEntries.purchaseOrder', 'ledgerEntries.creator']));
             $activity = $this->auditLogger->record(
-                AuditAction::Adjusted,
+                AuditAction::Updated,
                 AuditCategory::Operations,
                 AuditDomain::Budget,
                 subject: $budget,
                 context: $budget,
                 details: [
+                    'subject_label' => 'Budget',
                     'fiscal_year' => $entry->fiscal_year,
                     'type' => $entry->type,
                     'source' => $entry->source,

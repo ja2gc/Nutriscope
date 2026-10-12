@@ -2,7 +2,6 @@
 
 namespace App\Services\Audit;
 
-use App\Enums\AuditAction;
 use App\Models\Budget;
 use App\Models\FoodItem;
 use App\Models\FoodServiceRecipe;
@@ -68,10 +67,9 @@ class AuditEntityPresenter
         ?string $class,
         ?string $publicId,
         bool $clinical,
-        string $action,
     ): array {
         if ($class === null || $class === '') {
-            return $this->semantic($action);
+            return $this->semantic();
         }
 
         $entity = str_starts_with($class, 'App\\Models\\')
@@ -86,24 +84,9 @@ class AuditEntityPresenter
     }
 
     /** @return array{type: string, id: null, label: string} */
-    private function semantic(string $action): array
+    private function semantic(): array
     {
-        [$type, $label] = match ($action) {
-            AuditAction::LoginSucceeded->value,
-            AuditAction::LoginFailed->value,
-            AuditAction::AuthenticationFailed->value,
-            AuditAction::Logout->value,
-            AuditAction::PasswordChanged->value,
-            AuditAction::PasswordReset->value,
-            AuditAction::RecoveryEmailChanged->value,
-            AuditAction::RecoveryEmailVerified->value => ['admin_web_login', 'Admin web login'],
-            AuditAction::AuditLogViewed->value,
-            AuditAction::Exported->value => ['audit_oversight', 'Audit oversight'],
-            AuditAction::SettingsChanged->value => ['retention_setting', 'Retention setting'],
-            default => ['system_operation', 'System operation'],
-        };
-
-        return ['type' => $type, 'id' => null, 'label' => $label];
+        return ['type' => 'system_operation', 'id' => null, 'label' => 'System operation'];
     }
 
     public function currentRecordUrl(?Model $record, ?User $viewer): ?string
