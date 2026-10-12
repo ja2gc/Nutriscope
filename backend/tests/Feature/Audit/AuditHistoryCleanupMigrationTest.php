@@ -32,6 +32,18 @@ class AuditHistoryCleanupMigrationTest extends TestCase
         $failed = $this->activity('authentication_failed', 'security_administration', 'accounts', 'failure');
         $created = $this->activity('created', 'nutrition_care', 'patients');
         $password = $this->activity('password_changed', 'security_administration', 'accounts');
+        $systemActor = $this->activity(
+            'updated',
+            'food_service_operations',
+            'system',
+            properties: ['actor' => ['kind' => 'system']],
+        );
+        $userActor = $this->activity(
+            'updated',
+            'food_service_operations',
+            'food_service',
+            properties: ['actor' => ['kind' => 'user']],
+        );
         $generated = $this->activity(
             'generated',
             'nutrition_care',
@@ -41,7 +53,7 @@ class AuditHistoryCleanupMigrationTest extends TestCase
         $unknown = $this->activity('unrecognized_action', 'security_administration', 'accounts');
         $nonAudit = $this->activity('viewed', 'nutrition_care', 'patients', 'success', 'default');
 
-        foreach ([$report, $reportViewed, $reportConfiguration, $blocked, $denied, $blockedOutcome, $viewed, $downloaded, $adjusted, $failed, $created, $password, $generated, $unknown, $nonAudit] as $activity) {
+        foreach ([$report, $reportViewed, $reportConfiguration, $blocked, $denied, $blockedOutcome, $viewed, $downloaded, $adjusted, $failed, $created, $password, $systemActor, $userActor, $generated, $unknown, $nonAudit] as $activity) {
             DB::table('audit_revisions')->insert([
                 'public_id' => (string) Str::uuid(),
                 'activity_id' => $activity->id,
@@ -79,6 +91,10 @@ class AuditHistoryCleanupMigrationTest extends TestCase
             $this->assertDatabaseMissing('activity_log', ['id' => $removed->id]);
             $this->assertDatabaseMissing('audit_revisions', ['activity_id' => $removed->id]);
         }
+        $this->assertDatabaseMissing('activity_log', ['id' => $systemActor->id]);
+        $this->assertDatabaseMissing('audit_revisions', ['activity_id' => $systemActor->id]);
+        $this->assertDatabaseHas('activity_log', ['id' => $userActor->id, 'event' => 'updated']);
+        $this->assertDatabaseHas('audit_revisions', ['activity_id' => $userActor->id, 'action' => 'updated']);
         $this->assertDatabaseHas('activity_log', ['id' => $failed->id, 'event' => 'failed', 'outcome' => 'success']);
         $this->assertDatabaseHas('activity_log', ['id' => $downloaded->id, 'event' => 'downloaded']);
         $this->assertDatabaseHas('activity_log', ['id' => $generated->id, 'event' => 'created', 'description' => 'Created']);

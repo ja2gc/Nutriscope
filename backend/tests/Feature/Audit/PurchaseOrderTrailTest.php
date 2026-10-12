@@ -118,12 +118,12 @@ class PurchaseOrderTrailTest extends TestCase
 
         $this->postJson("/api/fss/shopping-lists/{$list->uuid}/approve")->assertUnprocessable();
         $this->assertSame(1, PurchaseOrder::query()->where('shopping_list_id', $list->id)->count());
-        $this->assertSame(1, AuditActivity::query()->where('context_type', $po->getMorphClass())
+        $this->assertSame(2, AuditActivity::query()->where('context_type', $po->getMorphClass())
             ->where('context_id', $po->id)->where('subject_type', $po->getMorphClass())
             ->where('event', AuditAction::Created->value)->count());
     }
 
-    public function test_receiving_completion_and_budget_deduction_appear_in_the_po_trail(): void
+    public function test_receiving_completion_is_audited_and_budget_deduction_remains_in_the_ledger(): void
     {
         Storage::fake('public');
         $rnd = User::factory()->rnd()->create();
@@ -152,18 +152,17 @@ class PurchaseOrderTrailTest extends TestCase
             ->where('subject_type', $budget->getMorphClass())
             ->where('subject_id', $budget->id)
             ->where('event', AuditAction::Updated->value)
-            ->sole();
-        $this->assertSame($po->getMorphClass(), $deductionEvent->context_type);
-        $this->assertSame($po->id, $deductionEvent->context_id);
+            ->first();
+        $this->assertNull($deductionEvent);
         $this->assertSame(0, AuditActivity::query()->where('subject_type', (new Inventory)->getMorphClass())->count());
         $actions = array_column($this->getJson("/api/fss/purchase-orders/{$po->uuid}/activity")
             ->assertOk()->json('data'), 'action');
         $this->assertContains(AuditAction::Updated->value, $actions);
         app(PurchaseOrderLifecycleService::class)->refresh($po);
         app(PurchaseOrderLifecycleService::class)->refresh($po);
-        $this->assertSame(3, AuditActivity::query()->where('context_type', $po->getMorphClass())
+        $this->assertSame(2, AuditActivity::query()->where('context_type', $po->getMorphClass())
             ->where('context_id', $po->id)->where('event', AuditAction::Updated->value)->count());
-        $this->assertSame(1, AuditActivity::query()->where('subject_type', $budget->getMorphClass())
+        $this->assertSame(0, AuditActivity::query()->where('subject_type', $budget->getMorphClass())
             ->where('subject_id', $budget->id)->where('event', AuditAction::Updated->value)->count());
         $this->assertTrue(Schema::hasIndex('budget_ledger', ['po_deduction_guard'], 'unique'));
     }
@@ -189,7 +188,7 @@ class PurchaseOrderTrailTest extends TestCase
         ]);
         AuditFixture::delete(AuditActivity::query());
         $this->patchJson("/api/fss/purchase-orders/{$completed->uuid}", ['lifecycle_status' => 'archived'])->assertOk();
-        $this->assertSame([AuditAction::Updated->value], AuditActivity::query()->pluck('event')->all());
+        $this->assertSame([AuditAction::Archived->value], AuditActivity::query()->pluck('event')->all());
     }
 
     public function test_draft_to_ordered_is_categorized_as_created(): void
@@ -328,7 +327,7 @@ class PurchaseOrderTrailTest extends TestCase
 
         $rootEvents = AuditActivity::query()->where('context_type', $po->getMorphClass())
             ->where('context_id', $po->id)->get();
-        $this->assertSame(3, $rootEvents->where('event', AuditAction::Updated->value)->count());
+        $this->assertSame(2, $rootEvents->where('event', AuditAction::Updated->value)->count());
         $this->assertSame(0, $rootEvents->where('event', AuditAction::Received->value)->count());
         $this->assertSame(
             ['or_number', 'received_at', 'status'],
@@ -338,7 +337,7 @@ class PurchaseOrderTrailTest extends TestCase
         $this->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", ['status' => 'received'])
             ->assertStatus(422);
         $this->assertSame($catalogPriceAfterFirstReceipt, (float) $group->items()->firstOrFail()->fsItem->fresh()->purchase_price);
-        $this->assertSame(3, AuditActivity::query()->where('context_type', $po->getMorphClass())
+        $this->assertSame(2, AuditActivity::query()->where('context_type', $po->getMorphClass())
             ->where('context_id', $po->id)->where('event', AuditAction::Updated->value)->count());
     }
 

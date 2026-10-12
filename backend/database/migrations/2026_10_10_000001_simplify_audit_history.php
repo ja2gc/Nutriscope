@@ -53,6 +53,11 @@ return new class extends Migration
 
         $connection->table($table)
             ->where('log_name', config('audit.log_name'))
+            ->where('properties->actor->kind', 'system')
+            ->delete();
+
+        $connection->table($table)
+            ->where('log_name', config('audit.log_name'))
             ->whereIn('event', self::REMOVED_EVENTS)
             ->delete();
 

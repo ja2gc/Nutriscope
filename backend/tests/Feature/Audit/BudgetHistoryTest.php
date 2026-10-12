@@ -53,7 +53,7 @@ class BudgetHistoryTest extends TestCase
             ->assertJsonPath('data.after.tables.0.rows.0.values.reason.value', 'Correction with supporting memo');
     }
 
-    public function test_po_deduction_uses_budget_root_po_context_and_one_idempotent_revision(): void
+    public function test_po_deduction_is_idempotent_without_system_audit_revision(): void
     {
         $budget = Budget::factory()->create(['fiscal_year' => 2026, 'allocated_amount' => 200000]);
         $list = ShoppingList::factory()->create(['period_start' => '2026-06-01']);
@@ -68,13 +68,8 @@ class BudgetHistoryTest extends TestCase
         $listener->handle(new PurchaseOrderCompleted($po));
         $listener->handle(new PurchaseOrderCompleted($po));
 
-        $activity = AuditActivity::query()->where('subject_type', Budget::class)->sole();
-        $this->assertSame($budget->id, $activity->subject_id);
-        $this->assertSame(PurchaseOrder::class, $activity->context_type);
-        $this->assertSame($po->id, $activity->context_id);
-        $this->assertCount(0, $activity->revision->before['ledger']);
-        $this->assertSame($po->uuid, $activity->revision->after['ledger'][0]['purchase_order_reference']);
-        $this->assertSame(155000, $activity->revision->after['totals']['remaining_balance']);
-        $this->assertDatabaseCount('audit_revisions', 1);
+        $this->assertDatabaseCount('budget_ledger', 1);
+        $this->assertDatabaseCount('activity_log', 0);
+        $this->assertDatabaseCount('audit_revisions', 0);
     }
 }

@@ -36,8 +36,8 @@ class AuditDuplicateDiscoveryTest extends TestCase
         ],
         'budget purchase-order deduction' => [
             'tests/Feature/BudgetAuditTest.php',
-            'test_po_deduction_ledger_creation_writes_system_audit_event',
-            ['updated'],
+            'test_po_deduction_ledger_creation_does_not_write_a_system_audit_event',
+            [],
         ],
         'RND Food Library create' => [
             'tests/Feature/OperationsAuditTest.php',
@@ -103,7 +103,7 @@ class AuditDuplicateDiscoveryTest extends TestCase
         $this->assertSame($actor->id, $event->causer_id);
     }
 
-    public function test_duplicate_budget_listener_delivery_keeps_one_ledger_and_one_event(): void
+    public function test_duplicate_budget_listener_delivery_keeps_one_ledger_and_no_system_event(): void
     {
         $shoppingList = ShoppingList::factory()->create(['period_start' => '2026-06-01']);
         $purchaseOrder = PurchaseOrder::factory()->create([
@@ -117,7 +117,7 @@ class AuditDuplicateDiscoveryTest extends TestCase
         $listener->handle(new PurchaseOrderCompleted($purchaseOrder));
 
         $this->assertSame(1, BudgetLedger::query()->where('purchase_order_id', $purchaseOrder->id)->count());
-        $this->assertSame(1, AuditActivity::query()->where('event', 'updated')->count());
+        $this->assertSame(0, AuditActivity::query()->where('properties->actor->kind', 'system')->count());
     }
 
     public function test_every_required_duplicate_family_is_bound_to_a_behavioral_contract(): void

@@ -335,7 +335,9 @@ class PurchaseOrderLifecycleService
             event(new PurchaseOrderCompleted($po->fresh(['vendorGroups', 'shoppingList', 'programProjectActivity'])));
             $activity = $this->recordLifecycle(AuditAction::Completed, $po);
             $after = $po->fresh(self::REVISION_RELATIONS);
-            $this->revisionWriter->write($activity, $before, $this->revisionRegistry->capture($after));
+            if ($activity !== null) {
+                $this->revisionWriter->write($activity, $before, $this->revisionRegistry->capture($after));
+            }
 
             return $after;
         });
@@ -376,7 +378,9 @@ class PurchaseOrderLifecycleService
         event(new PurchaseOrderCompleted($po->fresh(['vendorGroups', 'shoppingList', 'programProjectActivity'])));
         $activity = $this->recordLifecycle(AuditAction::Completed, $po);
         $after = $po->fresh(self::REVISION_RELATIONS);
-        $this->revisionWriter->write($activity, $before, $this->revisionRegistry->capture($after));
+        if ($activity !== null) {
+            $this->revisionWriter->write($activity, $before, $this->revisionRegistry->capture($after));
+        }
 
         return $after;
     }
@@ -433,14 +437,21 @@ class PurchaseOrderLifecycleService
             });
             $activity = $this->recordLifecycle(AuditAction::Archived, $po);
             $after = $po->fresh(self::REVISION_RELATIONS);
-            $this->revisionWriter->write($activity, $before, $this->revisionRegistry->capture($after));
+            if ($activity !== null) {
+                $this->revisionWriter->write($activity, $before, $this->revisionRegistry->capture($after));
+            }
 
             return $after;
         });
     }
 
-    private function recordLifecycle(AuditAction $action, PurchaseOrder $purchaseOrder): AuditActivity
+    private function recordLifecycle(AuditAction $action, PurchaseOrder $purchaseOrder): ?AuditActivity
     {
+        $actor = auth()->user();
+        if ($actor === null) {
+            return null;
+        }
+
         return $this->auditLogger->record(
             $action,
             AuditCategory::Operations,
@@ -448,7 +459,7 @@ class PurchaseOrderLifecycleService
             subject: $purchaseOrder,
             context: $purchaseOrder,
             details: ['status' => $purchaseOrder->status, 'lifecycle_status' => $purchaseOrder->lifecycle_status],
-            systemActor: auth()->user() === null ? 'purchase-order-lifecycle' : null,
+            actor: $actor,
         );
     }
 

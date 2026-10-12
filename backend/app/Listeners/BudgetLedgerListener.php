@@ -2,31 +2,18 @@
 
 namespace App\Listeners;
 
-use App\Enums\AuditAction;
-use App\Enums\AuditCategory;
-use App\Enums\AuditDomain;
 use App\Events\PurchaseOrderCompleted;
 use App\Models\Budget;
 use App\Models\BudgetLedger;
 use App\Models\PurchaseOrder;
-use App\Services\Audit\AuditLogger;
-use App\Services\Audit\Revisions\AuditRevisionRegistry;
-use App\Services\Audit\Revisions\AuditRevisionWriter;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class BudgetLedgerListener
 {
-    public function __construct(
-        private readonly AuditLogger $auditLogger,
-        private readonly AuditRevisionRegistry $revisionRegistry,
-        private readonly AuditRevisionWriter $revisionWriter,
-    ) {}
-
     public function handle(PurchaseOrderCompleted $event): void
     {
-        $this->auditLogger->assertAvailable();
         DB::transaction(function () use ($event): void {
             $po = PurchaseOrder::query()
                 ->whereKey($event->purchaseOrder->getKey())
@@ -57,9 +44,7 @@ class BudgetLedgerListener
             if (BudgetLedger::where('purchase_order_id', $po->id)->where('type', 'po_deduction')->exists()) {
                 return;
             }
-            $before = $this->revisionRegistry->capture($budget);
-
-            $entry = BudgetLedger::create([
+            BudgetLedger::create([
                 'fiscal_year' => $year,
                 'type' => 'po_deduction',
                 'source' => 'system',
@@ -70,34 +55,6 @@ class BudgetLedgerListener
                 'po_deduction_guard' => $po->id,
                 'created_by' => null,
             ]);
-            $after = $this->revisionRegistry->capture($budget->fresh(['ledgerEntries.purchaseOrder', 'ledgerEntries.creator']));
-
-            $activity = $this->auditLogger->record(
-                AuditAction::Adjusted,
-                AuditCategory::Operations,
-                AuditDomain::Budget,
-                subject: $budget,
-                context: $po,
-                details: [
-                    'fiscal_year' => $year,
-                    'type' => 'po_deduction',
-                    'source' => 'system',
-                    'amount' => (float) $po->total_amount,
-                    'signed_amount' => $entry->signedAmount(),
-                    'reason' => $entry->reason,
-                    'reference' => $entry->reference,
-                    'balance_before' => $before->payload['totals']['remaining_balance'],
-                    'balance_after' => $after->payload['totals']['remaining_balance'],
-                    'purchase_order_id' => $po->id,
-                    'purchase_order_public_id' => $po->uuid,
-                ],
-                systemActor: 'budget-ledger-listener',
-            );
-            $this->revisionWriter->write(
-                $activity,
-                $before,
-                $after,
-            );
         });
     }
 }

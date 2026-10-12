@@ -79,7 +79,7 @@ class BudgetAuditTest extends TestCase
         $this->assertEqualsWithDelta(105000, $adjustedDetails['balance_after']['value'], 0.01);
     }
 
-    public function test_po_deduction_ledger_creation_writes_system_audit_event(): void
+    public function test_po_deduction_ledger_creation_does_not_write_a_system_audit_event(): void
     {
         $sl = ShoppingList::factory()->create(['period_start' => '2026-06-01']);
         $po = PurchaseOrder::factory()->create([
@@ -96,25 +96,9 @@ class BudgetAuditTest extends TestCase
             ->where('event', 'adjusted')
             ->first();
 
-        $this->assertNotNull($activity);
-        $this->assertSame('system', $activity->properties['source']);
-        $this->assertSame($po->id, $activity->properties['purchase_order_id']);
-        $this->assertNotNull($activity->revision);
-
-        $admin = User::factory()->create(['role' => 'Admin']);
-        $event = app(AuditEventPresenter::class)
-            ->present($activity->load(['causer', 'revision']), $admin)
-            ->toArray();
-        $details = collect($event['details'])->keyBy('key');
-        $this->assertSame('system', $event['actor']['kind']);
-        $this->assertSame('Purchase order deduction', $event['reason']);
-        $this->assertEqualsWithDelta(45000, $details['amount']['value'], 0.01);
-        $this->assertEqualsWithDelta(-45000, $details['signed_amount']['value'], 0.01);
-        $this->assertEqualsWithDelta(200000, $details['balance_before']['value'], 0.01);
-        $this->assertEqualsWithDelta(155000, $details['balance_after']['value'], 0.01);
-        $this->assertSame('reference', $details['purchase_order_public_id']['kind']);
-        $this->assertSame($po->uuid, $details['purchase_order_public_id']['value']);
-        $this->assertSame($po->po_number, $details['reference']['value']);
+        $this->assertSame(1, BudgetLedger::where('purchase_order_id', $po->id)->count());
+        $this->assertNull($activity);
+        $this->assertSame(0, AuditActivity::where('properties->actor->kind', 'system')->count());
     }
 
     public function test_budget_rejects_allocation_above_ninety_nine_million(): void

@@ -45,7 +45,7 @@ class ReceivingService
     ) {}
 
     /** @param array<int, string> $changedFields */
-    public function receive(PurchaseOrder $purchaseOrder, array $changedFields = []): AuditActivity
+    public function receive(PurchaseOrder $purchaseOrder, array $changedFields = []): ?AuditActivity
     {
         $this->auditLogger->assertAvailable();
 
@@ -111,8 +111,13 @@ class ReceivingService
     }
 
     /** @param array<int, string> $changedFields */
-    private function recordReceipt(PurchaseOrder|PurchaseOrderVendorGroup $subject, PurchaseOrder $purchaseOrder, int $itemCount, array $changedFields = []): AuditActivity
+    private function recordReceipt(PurchaseOrder|PurchaseOrderVendorGroup $subject, PurchaseOrder $purchaseOrder, int $itemCount, array $changedFields = []): ?AuditActivity
     {
+        $actor = auth()->user();
+        if ($actor === null) {
+            return null;
+        }
+
         return $this->auditLogger->record(
             AuditAction::Received,
             AuditCategory::Operations,
@@ -126,7 +131,7 @@ class ReceivingService
                     ->reject(fn (string $field): bool => in_array($field, ['id', 'uuid', 'created_at', 'updated_at'], true))
                     ->unique()->sort()->values()->all(),
             ],
-            systemActor: auth()->user() === null ? 'purchase-order-receiving' : null,
+            actor: $actor,
         );
     }
 }
