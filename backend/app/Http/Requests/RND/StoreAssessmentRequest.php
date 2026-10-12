@@ -50,14 +50,17 @@ class StoreAssessmentRequest extends FormRequest
             'weight_change_period_unit' => ['nullable', 'required_with:weight_change_period_value', Rule::in(['weeks', 'months'])],
             'primary_diagnosis_category' => ['required', 'string', Rule::in(PrimaryDiagnosisCategory::values())],
             'primary_diagnosis_other' => ['nullable', 'required_if:primary_diagnosis_category,'.PrimaryDiagnosisCategory::OTHER, 'string', 'max:160'],
-            'functional_assessment' => ['nullable', 'string', 'in:Bed ridden,Needs assistance,Ambulatory'],
+            'functional_assessment' => ['nullable', 'string', Rule::in($this->functionalAssessmentOptions())],
             'energy_intake_status' => ['nullable', 'string', 'in:No change,Mostly liquids,Sub-optimal,Starvation,Poor intake prior to admission'],
             'ibw_percentage' => ['nullable', 'numeric', 'between:0,300', 'decimal:0,2'],
             'present_diet' => ['nullable', 'string', 'max:400'],
             'physical_assessment' => ['nullable', 'string', 'max:400'],
-            'chewing_swallowing_difficulties' => ['nullable', 'string', 'max:400'],
-            'constipation' => ['nullable', 'string', 'max:400'],
-            'diarrhea_notes' => ['nullable', 'string', 'max:400'],
+            'chewing_swallowing_difficulties' => ['nullable', Rule::in($this->symptomOptions('chewing_swallowing_difficulties'))],
+            'chewing_swallowing_details' => ['nullable', 'string', 'max:125'],
+            'constipation' => ['nullable', Rule::in($this->symptomOptions('constipation'))],
+            'constipation_details' => ['nullable', 'string', 'max:125'],
+            'diarrhea_notes' => ['nullable', Rule::in($this->symptomOptions('diarrhea_notes'))],
+            'diarrhea_details' => ['nullable', 'string', 'max:125'],
             'food_intolerance' => ['nullable', 'string', 'max:400'],
             'nutrient_drug_interaction' => ['nullable', 'string', 'max:400'],
             'dietary_intake_method' => ['nullable', 'string', 'in:24_hour_recall,food_frequency,3_day_record,other'],
@@ -151,5 +154,25 @@ class StoreAssessmentRequest extends FormRequest
         if ($this->input('primary_diagnosis_category') !== PrimaryDiagnosisCategory::OTHER) {
             $this->merge(['primary_diagnosis_other' => null]);
         }
+    }
+
+    private function functionalAssessmentOptions(): array
+    {
+        $options = ['Independent', 'Needs assistance', 'Bedridden'];
+        $existing = $this->route('ncpRecord')?->assessment?->functional_assessment;
+
+        return $existing && ! in_array($existing, $options, true)
+            ? [...$options, $existing]
+            : $options;
+    }
+
+    private function symptomOptions(string $field): array
+    {
+        $options = ['Yes', 'No'];
+        $existing = $this->route('ncpRecord')?->assessment?->{$field};
+
+        return $existing && ! in_array($existing, $options, true)
+            ? [...$options, $existing]
+            : $options;
     }
 }

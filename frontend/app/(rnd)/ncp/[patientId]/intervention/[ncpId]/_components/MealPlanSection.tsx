@@ -12,7 +12,7 @@ import {
   fetchMealPlans, createMealPlan, fetchAllMealPlanItems, addMealPlanItem,
   removeMealPlanItem, updateMealPlanItem, deleteMealPlan, generateMealPlan,
   fetchMealPlanTemplates, fetchMealPlanTemplate, deleteMealPlanTemplate,
-  saveMealPlanAsTemplate, createPlanFromTemplate, scaleMealPlanToPrescription,
+  saveMealPlanAsTemplate, createPlanFromTemplate, scaleMealPlanToPrescription, plannedRecipeIngredients,
   MealPlan, MealPlanItem, MealPlanTemplate, MealPlanTemplateDetail, NutrientSnapshot,
 } from "@/services/mealPlanService";
 import {
@@ -315,7 +315,7 @@ export default function MealPlanSection({
 
   // ── Edit modal ─────────────────────────────────────────────────────────────
 
-  const openEdit = async (item: MealPlanItem, dayId: string, key: string) => {
+  const openEdit = (item: MealPlanItem, dayId: string, key: string) => {
     setEditTarget({ item, dayId, slotKey: key });
     setEditServings(item.quantity ?? '1');
     setEditTab('scale');
@@ -323,39 +323,41 @@ export default function MealPlanSection({
     setEditIngredients([]);
     if (item.recipe_id) {
       setEditLoadingRecipe(true);
-      try {
-        const recipe = await fetchRecipeById(item.recipe_id);
+      fetchRecipeById(item.recipe_id).then((recipe) => {
         setEditRecipe(recipe);
-        setEditIngredients(recipe.ingredients.map((ing) => ({ id: ing.id, qty: String(ing.quantity), ing })));
-      } finally { setEditLoadingRecipe(false); }
+        setEditIngredients(recipe.ingredients.map((ingredient) => ({
+          id: ingredient.id, qty: String(ingredient.quantity), ing: ingredient,
+        })));
+      }).finally(() => setEditLoadingRecipe(false));
     }
   };
 
   const recalcFromIngredients = (): Partial<NutrientSnapshot> => {
     if (!editRecipe) return {};
     const servings = editRecipe.servings ?? 1;
-    let cal=0, prot=0, carb=0, fat=0;
+    let cal = 0, prot = 0, carb = 0, fat = 0;
     const micros: Record<string, number> = {};
     for (const { qty, ing } of editIngredients) {
-      const food = ing.food_item; if (!food) continue;
+      const food = ing.food_item;
+      if (!food) continue;
       const factor = parseFloat(qty || '0') / (parseFloat(food.serving_size ?? '100') || 100);
-      cal  += parseFloat(food.calories || '0') * factor;
-      prot += parseFloat(food.protein  ?? '0') * factor;
-      carb += parseFloat(food.carbs    ?? '0') * factor;
-      fat  += parseFloat(food.fat      ?? '0') * factor;
-      for (const [k, v] of Object.entries(food.micronutrients ?? {})) {
-        micros[k] = (micros[k] ?? 0) + v * factor;
+      cal += parseFloat(food.calories || '0') * factor;
+      prot += parseFloat(food.protein ?? '0') * factor;
+      carb += parseFloat(food.carbs ?? '0') * factor;
+      fat += parseFloat(food.fat ?? '0') * factor;
+      for (const [key, value] of Object.entries(food.micronutrients ?? {})) {
+        micros[key] = (micros[key] ?? 0) + value * factor;
       }
     }
     return {
-      name:           editTarget?.item.nutrient_snapshot?.name ?? editRecipe.name,
-      calories:       Math.round((cal  / servings) * 10) / 10,
-      protein:        Math.round((prot / servings) * 10) / 10,
-      carbs:          Math.round((carb / servings) * 10) / 10,
-      fat:            Math.round((fat  / servings) * 10) / 10,
-      serving_size:   1,
-      serving_unit:   'serving',
-      micronutrients: Object.fromEntries(Object.entries(micros).map(([k, v]) => [k, Math.round(v / servings * 10) / 10])),
+      name: editTarget?.item.nutrient_snapshot?.name ?? editRecipe.name,
+      calories: Math.round(cal / servings * 10) / 10,
+      protein: Math.round(prot / servings * 10) / 10,
+      carbs: Math.round(carb / servings * 10) / 10,
+      fat: Math.round(fat / servings * 10) / 10,
+      serving_size: 1,
+      serving_unit: 'serving',
+      micronutrients: Object.fromEntries(Object.entries(micros).map(([key, value]) => [key, Math.round(value / servings * 10) / 10])),
     };
   };
 
@@ -365,13 +367,9 @@ export default function MealPlanSection({
     try {
       const payload: { quantity?: number; ingredient_overrides?: { id: number; quantity: number }[] } = {};
       if (editTab === 'scale') {
-        payload.quantity = parseFloat(editServings) || 1;
+        payload.quantity = Number(editServings);
       } else {
-        // Send ingredient quantity overrides; the server recomputes the snapshot
-        // from trusted food data (DI-03 — no client-supplied nutrient totals).
-        payload.ingredient_overrides = editIngredients.map(({ id, qty }) => ({
-          id, quantity: parseFloat(qty || '0') || 0,
-        }));
+        payload.ingredient_overrides = editIngredients.map(({ id, qty }) => ({ id, quantity: Number(qty || 0) }));
         payload.quantity = 1;
       }
       const updated = await updateMealPlanItem(ncpId, activePlan.id, editTarget.dayId, editTarget.item.id, payload);
@@ -419,8 +417,8 @@ export default function MealPlanSection({
     try {
       appendItem(await addMealPlanItem(ncpId, activePlan.id, pickerTarget.dayId, {
         recipe_id: recipe.id,
-        quantity: Number(recipe.prepared_portion_amount ?? 1),
-        unit: recipe.prepared_portion_unit ?? 'serving',
+        quantity: 1,
+        unit: 'serving',
       }), activePlan, pickerTarget.dayId);
     } catch (err) {
       setPickerError(err instanceof Error ? err.message : 'Failed to add recipe. Please try again.');
@@ -482,13 +480,17 @@ export default function MealPlanSection({
     { label: 'Fat',     current: selectedTotals.fat,   target: t.fat,           unit: 'g'    },
   ];
 
-  // Preview scaled nutrition in edit modal
   const editScaledSnap = (() => {
-    const s = editTarget?.item.nutrient_snapshot;
-    if (!s) return null;
-    const q = parseFloat(editServings) || 1;
-    const scale = s.serving_size > 0 ? q / s.serving_size : q;
-    return { cal: Math.round(s.calories * scale), prot: Math.round(s.protein * scale), carb: Math.round(s.carbs * scale), fat: Math.round(s.fat * scale) };
+    const snapshot = editTarget?.item.nutrient_snapshot;
+    if (!snapshot) return null;
+    const amount = Number(editServings) || 1;
+    const scale = snapshot.serving_size > 0 ? amount / snapshot.serving_size : amount;
+    return {
+      cal: Math.round(snapshot.calories * scale),
+      prot: Math.round(snapshot.protein * scale),
+      carb: Math.round(snapshot.carbs * scale),
+      fat: Math.round(snapshot.fat * scale),
+    };
   })();
 
   return (
@@ -667,6 +669,13 @@ export default function MealPlanSection({
                   {items.map((item) => {
                     const s = item.nutrient_snapshot;
                     const scale = s && s.serving_size > 0 ? parseFloat(item.quantity) / s.serving_size : 1;
+                    const plannedIngredients = item.recipe_id
+                      ? plannedRecipeIngredients(
+                        item.recipe_portion?.ingredients ?? [],
+                        item.recipe_portion?.yield ?? null,
+                        s && s.serving_size > 0 ? scale : Number.NaN,
+                      )
+                      : null;
                     const isDisliked = foodDislikes.some((d) => s?.name?.toLowerCase().includes(d));
                     return (
                       <div key={item.id}>
@@ -682,6 +691,13 @@ export default function MealPlanSection({
                               )}
                             </div>
                             {s && <p className="text-xs text-warm-400">{item.quantity}{item.unit} · {Math.round(s.calories*scale)}kcal · P{Math.round(s.protein*scale)}g · C{Math.round(s.carbs*scale)}g · F{Math.round(s.fat*scale)}g</p>}
+                            {item.recipe_id && <p className="text-xs text-warm-500">
+                              {plannedIngredients
+                                ? "Per person: " + plannedIngredients.map((ingredient) =>
+                                  ingredient.name + " " + Number(ingredient.quantity.toFixed(2)) + " " + ingredient.unit,
+                                ).join(" · ")
+                                : "Per-person quantities unavailable. Check recipe yield and ingredient units."}
+                            </p>}
                           </div>
                           {!readOnly && <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Button variant="icon" onClick={() => openEdit(item, day.id, key)} title="Edit"
@@ -729,7 +745,7 @@ export default function MealPlanSection({
               {(['scale', 'ingredients'] as const).map((tab) => (
                 <button key={tab} onClick={() => setEditTab(tab)}
                   className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors cursor-pointer ${editTab === tab ? 'border-sky-600 text-sky-700' : 'border-transparent text-warm-400 hover:text-warm-600'}`}>
-                  {tab === 'scale' ? 'Master Scale' : 'Ingredients'}
+                  {tab === 'scale' ? 'Portion' : 'Ingredients'}
                 </button>
               ))}
             </div>
@@ -738,23 +754,15 @@ export default function MealPlanSection({
               {/* Master scale tab */}
               {editTab === 'scale' && (
                 <div className="space-y-4">
-                  <p className="text-xs text-warm-400">Adjust serving size. All nutrients scale proportionally.</p>
+                  <p className="text-xs text-warm-400">Adjust the planned portion. Nutrients and recipe ingredients scale proportionally.</p>
                   <div className="space-y-2">
-                    <label className="block text-xs font-bold text-warm-400 uppercase tracking-widest">Serving Amount</label>
+                    <label className="block text-xs font-bold text-warm-400 uppercase tracking-widest">Planned Portion</label>
                     <div className="flex items-center gap-3">
-                      <input type="number" min="0.1" max="10" step="0.1"
+                      <input type="number" min="0.01" step="any"
                         value={editServings}
                         onChange={(e) => setEditServings(e.target.value)}
                         className="w-28 px-3 py-2 text-base font-mono border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500" />
-                      <span className="text-sm text-warm-400">serving(s)</span>
-                    </div>
-                    {/* Range slider */}
-                    <input type="range" min="0.5" max="3" step="0.1"
-                      value={editServings}
-                      onChange={(e) => setEditServings(e.target.value)}
-                      className="w-full accent-sky-600" />
-                    <div className="flex justify-between text-xs text-warm-400">
-                      <span>0.5×</span><span>1×</span><span>2×</span><span>3×</span>
+                      <span className="text-sm text-warm-400">{editTarget.item.unit}</span>
                     </div>
                   </div>
                   {editScaledSnap && (

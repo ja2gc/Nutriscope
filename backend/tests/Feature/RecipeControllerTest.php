@@ -84,6 +84,14 @@ class RecipeControllerTest extends TestCase
             ->assertJsonCount(2, 'data.after.tables.0.rows');
     }
 
+    public function test_new_recipe_requires_an_explicit_yield(): void
+    {
+        $this->actingAs($this->rnd)
+            ->postJson('/api/rnd/recipes', ['name' => 'Unspecified yield'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('servings');
+    }
+
     public function test_recipe_totals_auto_calculated_on_create(): void
     {
         $food = FoodItem::factory()->create([

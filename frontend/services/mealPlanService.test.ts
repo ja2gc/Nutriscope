@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { createPlanFromTemplate, generateMealPlan, scaleMealPlanToPrescription } from "./mealPlanService";
+import { createPlanFromTemplate, generateMealPlan, plannedRecipeIngredients, scaleMealPlanToPrescription } from "./mealPlanService";
 
 describe("generateMealPlan", () => {
   afterEach(() => {
@@ -88,6 +88,23 @@ describe("createPlanFromTemplate", () => {
 
     expect(result.plan.id).toBe("plan-uuid");
     expect(result.compatibility.warning).toBe("Review and scale this template.");
+  });
+});
+
+describe("plannedRecipeIngredients", () => {
+  test("divides the recipe batch by yield and scales each ingredient by planned portions", () => {
+    expect(plannedRecipeIngredients([
+      { name: "Rice", quantity: 400, unit: "g" },
+      { name: "Chicken", quantity: 200, unit: "g" },
+    ], 4, 1.5)).toEqual([
+      { name: "Rice", quantity: 150, unit: "g" },
+      { name: "Chicken", quantity: 75, unit: "g" },
+    ]);
+  });
+
+  test("returns unavailable when yield or ingredient unit is invalid", () => {
+    expect(plannedRecipeIngredients([{ name: "Rice", quantity: 400, unit: "" }], 4, 1)).toBeNull();
+    expect(plannedRecipeIngredients([{ name: "Rice", quantity: 400, unit: "g" }], 0, 1)).toBeNull();
   });
 });
 

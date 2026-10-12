@@ -72,6 +72,12 @@ class MealPlanService
         'dinner' => 0.25,
     ];
 
+    private const NO_SNACK_SLOT_DISTRIBUTION = [
+        'breakfast' => 0.3125,
+        'lunch' => 0.375,
+        'dinner' => 0.3125,
+    ];
+
     // Tolerance threshold for post-generation validation (10%)
     private const TOLERANCE = 0.10;
 
@@ -244,6 +250,12 @@ class MealPlanService
 
             return true;
         })->values();
+        $invalidPortionRecipes = $recipeModels->filter(
+            fn (Recipe $recipe): bool => ! $recipe->hasValidPortionData(),
+        )->count();
+        $recipeModels = $recipeModels->filter(
+            fn (Recipe $recipe): bool => $recipe->hasValidPortionData(),
+        )->values();
 
         if ($recipeModels->count() < 5) {
             // Product decision (2026-06-15): no AI fallback for meal generation. When too
@@ -252,7 +264,9 @@ class MealPlanService
             return [
                 'insufficient_recipes' => true,
                 'count' => $recipeModels->count(),
-                'message' => "Only {$recipeModels->count()} matching recipe(s) found (need at least 5). Add more recipes for this condition/allergen profile, then regenerate.",
+                'message' => $invalidPortionRecipes > 0
+                    ? "{$invalidPortionRecipes} recipe(s) were skipped because yield or ingredient units are missing or invalid. Fix those recipes; {$recipeModels->count()} matching recipe(s) are ready (need at least 5)."
+                    : "Only {$recipeModels->count()} matching recipe(s) found (need at least 5). Add more recipes for this condition/allergen profile, then regenerate.",
             ];
         }
 
@@ -393,9 +407,7 @@ class MealPlanService
                 if ($excludeSnacks && $this->isSnackSlot($mealType)) {
                     continue;
                 }
-                $distribution = $excludeSnacks
-                    ? ['breakfast' => 0.3125, 'lunch' => 0.375, 'dinner' => 0.3125]
-                    : self::SLOT_DISTRIBUTION;
+                $distribution = $this->slotDistribution($excludeSnacks);
                 $slotPct = $distribution[$mealType] ?? 0.20;
                 $targetKcal = $dailyKcal * $slotPct;
 
@@ -792,7 +804,8 @@ class MealPlanService
         array $microLimits,
         float $targetProteinRatio,
         float $targetCarbsRatio,
-        float $targetFatRatio
+        float $targetFatRatio,
+        bool $excludeSnacks = false,
     ): void {
         $variance = $this->computeDayVariance($slots, $targets, $microLimits);
         $flagged = $this->isFlagged($variance);
@@ -807,7 +820,8 @@ class MealPlanService
                 $targetProteinRatio,
                 $targetCarbsRatio,
                 $targetFatRatio,
-                $variance
+                $variance,
+                $excludeSnacks,
             );
             $flagged = $this->isFlagged($variance);
         }
@@ -992,9 +1006,11 @@ class MealPlanService
         float $targetProteinRatio,
         float $targetCarbsRatio,
         float $targetFatRatio,
-        array $currentVariance
+        array $currentVariance,
+        bool $excludeSnacks = false,
     ): array {
         $targets = $this->foodMatchingTargets($targets);
+        $distribution = $this->slotDistribution($excludeSnacks);
         $variance = $currentVariance;
         unset($variance['water'], $variance['fluid'], $variance['fluid_ml']);
 
@@ -1020,7 +1036,7 @@ class MealPlanService
                             'fat' => (float) ($snap['fat'] ?? 0) * $qty,
                             default => 0.0,
                         };
-                        $slotTarget = $target * (self::SLOT_DISTRIBUTION[$slot->meal_type] ?? 0.20);
+                        $slotTarget = $target * ($distribution[$slot->meal_type] ?? 0.20);
                         $score += $slotTarget > 0 ? abs($val - $slotTarget) / $slotTarget : 0;
                     }
                 }
@@ -1035,7 +1051,7 @@ class MealPlanService
             }
 
             // Compute residual targets for this slot
-            $slotPct = self::SLOT_DISTRIBUTION[$worstSlot->meal_type] ?? 0.20;
+            $slotPct = $distribution[$worstSlot->meal_type] ?? 0.20;
             $residuals = [];
             foreach ($targets as $key => $target) {
                 $residuals[$key] = $target * $slotPct;
@@ -1098,6 +1114,12 @@ class MealPlanService
         return array_intersect_key($targets, array_flip(self::FOOD_MATCHING_TARGET_KEYS));
     }
 
+    /** @return array<string, float> */
+    private function slotDistribution(bool $excludeSnacks): array
+    {
+        return $excludeSnacks ? self::NO_SNACK_SLOT_DISTRIBUTION : self::SLOT_DISTRIBUTION;
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private function buildItemRow(int $dayId, object $candidate, float $quantity, Carbon $now): array
@@ -1134,7 +1156,7 @@ class MealPlanService
      */
     private function recipeToCandidate(Recipe $recipe): object
     {
-        $servings = max((float) ($recipe->servings ?? 1), 1);
+        $servings = (float) $recipe->servings;
 
         return (object) [
             'uid' => 'recipe:'.$recipe->id,
@@ -1148,8 +1170,8 @@ class MealPlanService
             'total_water' => (float) ($recipe->total_water ?? 0) / $servings,
             'micronutrients' => collect(is_array($recipe->micronutrients) ? $recipe->micronutrients : [])
                 ->map(fn ($value): float => (float) $value / $servings)->all(),
-            'reference_amount' => (float) ($recipe->prepared_portion_amount ?: 1),
-            'serving_unit' => $recipe->prepared_portion_unit ?: 'serving',
+            'reference_amount' => 1.0,
+            'serving_unit' => 'serving',
             'meal_types' => $recipe->meal_types,
             'component_type' => $recipe->component_type,
             'contains_vegetable' => $recipe->ingredients->contains(

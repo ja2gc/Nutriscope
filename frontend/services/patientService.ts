@@ -30,7 +30,6 @@ export interface Patient {
   status: "Active" | "Discharged" | "Transferred";
   screening_type?: "adult" | "pediatric";
   hospital_number?: string;
-  age_group_category?: string;
   created_at: string;
   updated_at: string;
   can_delete?: boolean | null;
@@ -109,7 +108,6 @@ interface PatientStoreFields {
   status?: "Active" | "Discharged" | "Transferred";
   screening_type?: "adult" | "pediatric";
   hospital_number?: string;
-  age_group_category?: string;
 }
 
 export type PatientStoreData = (ModernPatientNameInput | LegacyPatientNameInput) & PatientStoreFields;

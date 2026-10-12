@@ -221,8 +221,12 @@ class MealPlanServiceTest extends TestCase
             'name' => 'RND', 'email' => 'rnd@test.com',
             'password' => Hash::make('pw'), 'role' => 'RND', 'is_active' => true,
         ]);
+        $food = FoodItem::forceCreate([
+            'name' => 'Recipe ingredient', 'calories' => 100, 'protein' => 5,
+            'carbs' => 10, 'fat' => 2, 'serving_size' => 100, 'serving_unit' => 'g',
+        ]);
         foreach ([200, 350, 500, 900, 1400, 1800] as $i => $kcal) {
-            Recipe::forceCreate([
+            $recipe = Recipe::forceCreate([
                 'rnd_user_id' => $rnd->id,
                 'name' => "Vary Recipe {$i}",
                 'category' => 'Test',
@@ -232,6 +236,10 @@ class MealPlanServiceTest extends TestCase
                 'total_carbs' => 30 + $i,
                 'total_fat' => 5 + $i,
                 'meal_types' => ['any'],
+            ]);
+            RecipeIngredient::forceCreate([
+                'recipe_id' => $recipe->id, 'food_item_id' => $food->id,
+                'quantity' => 100, 'unit' => 'g',
             ]);
         }
         $ncp = $this->makeNcpWithIntervention();
@@ -271,6 +279,17 @@ class MealPlanServiceTest extends TestCase
         $this->assertCount(14, $snackIds);
         $this->assertSame(0, MealPlanItem::query()->whereIn('meal_plan_day_id', $snackIds)->count());
         $this->assertSame(21, MealPlanItem::query()->whereIn('meal_plan_day_id', $mainIds)->count());
+    }
+
+    public function test_no_snack_distribution_is_used_by_generation_and_reconciliation(): void
+    {
+        $distribution = new \ReflectionMethod(MealPlanService::class, 'slotDistribution');
+
+        $this->assertSame([
+            'breakfast' => 0.3125,
+            'lunch' => 0.375,
+            'dinner' => 0.3125,
+        ], $distribution->invoke(new MealPlanService, true));
     }
 
     public function test_liver_generation_does_not_offer_unsafe_snack_exclusion(): void
@@ -313,8 +332,12 @@ class MealPlanServiceTest extends TestCase
             'name' => 'RND', 'email' => 'rnd@test.com',
             'password' => Hash::make('pw'), 'role' => 'RND', 'is_active' => true,
         ]);
+        $mainIngredient = FoodItem::forceCreate([
+            'name' => 'Lean protein', 'calories' => 100, 'protein' => 10,
+            'carbs' => 10, 'fat' => 2, 'serving_size' => 100, 'serving_unit' => 'g',
+        ]);
         foreach (range(1, 5) as $index) {
-            Recipe::forceCreate([
+            $recipe = Recipe::forceCreate([
                 'rnd_user_id' => $rnd->id,
                 'name' => "Lean dish {$index}",
                 'category' => 'Main',
@@ -323,10 +346,14 @@ class MealPlanServiceTest extends TestCase
                 'servings' => 1,
                 'prepared_portion_amount' => 100,
                 'prepared_portion_unit' => 'g',
-                'total_calories' => 300,
-                'total_protein' => 35,
-                'total_carbs' => 5,
-                'total_fat' => 15,
+                'total_calories' => 100,
+                'total_protein' => 10,
+                'total_carbs' => 10,
+                'total_fat' => 2,
+            ]);
+            RecipeIngredient::forceCreate([
+                'recipe_id' => $recipe->id, 'food_item_id' => $mainIngredient->id,
+                'quantity' => 100, 'unit' => 'g',
             ]);
         }
         $rice = FoodItem::forceCreate([
@@ -370,13 +397,20 @@ class MealPlanServiceTest extends TestCase
             $mainSlots->every(fn ($slot): bool => in_array($slot->items->count(), [1, 2], true)),
             'Rice mode item counts: '.$mainSlots->map(fn ($slot) => $slot->items->count())->implode(','),
         );
-        $this->assertTrue($mainSlots->flatMap->items->contains('food_item_id', $rice->id));
+        $this->assertTrue(
+            $mainSlots->flatMap->items->contains('food_item_id', $rice->id),
+            'Expected a selected rice addition; planned items: '.$mainSlots->flatMap->items
+                ->map(fn ($item) => ($item->nutrient_snapshot['name'] ?? 'unknown').' ('.$item->quantity.$item->unit.')')
+                ->implode(', '),
+        );
         $this->assertFalse($mainSlots->flatMap->items->contains('food_item_id', $alternative->id));
         $this->assertTrue($mainSlots->filter(fn ($slot): bool => $slot->items->contains('food_item_id', $rice->id))->every(fn ($slot): bool => $slot->items
             ->where('food_item_id', $rice->id)
             ->every(fn ($item): bool => $item->recipe_id === null)));
         $this->assertTrue($mainSlots->flatMap->items->every(
-            fn ($item): bool => in_array($item->unit, ['g', 'cup'], true)
+            fn ($item): bool => $item->recipe_id
+                ? $item->unit === 'serving'
+                : in_array($item->unit, ['g', 'cup'], true)
         ));
 
         $this->createIntervention($ncp);

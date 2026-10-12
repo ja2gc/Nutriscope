@@ -92,7 +92,7 @@ class NcpSummaryGenerator implements ReportGenerator
                     ?: Diagnosis::buildPes((string) $d->problem, (string) $d->etiology, (string) $d->signs_symptoms),
             ])->all(),
             'intervention' => $ncp->intervention,
-            'monitorings' => $ncp->monitorings->sortBy('created_at')->values(),
+            'monitorings' => $ncp->monitorings->sortBy(fn ($monitoring) => $monitoring->observed_at ?? $monitoring->created_at)->values(),
             // Attachments are cycle-scoped (AS-02) — load by ncp_record_id, not assessment.
             'attachments' => $attachments = ScreeningDocument::where('ncp_record_id', $ncp->id)
                 ->orderByDesc('created_at')->get(),

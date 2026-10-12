@@ -43,7 +43,7 @@ export default function NewRecipePage() {
 
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
-  const [servings, setServings] = useState("1");
+  const [servings, setServings] = useState("");
   const [prepNotes, setPrepNotes] = useState("");
   const [ingredients, setIngredients] = useState<IngredientRow[]>([newRow()]);
 
@@ -126,8 +126,9 @@ export default function NewRecipePage() {
               </select>
             </div>
             <div>
-              <Label>Servings</Label>
-              <input type="number" value={servings} onChange={(e) => setServings(e.target.value)} min="1" className={inputCls} />
+              <Label>Recipe yield (servings) <Required /></Label>
+              <input type="number" value={servings} onChange={(e) => setServings(e.target.value)} min="1" required className={inputCls} />
+              <p className="mt-1 text-xs text-warm-500">Ingredient quantities below are for the full batch.</p>
             </div>
             <div className="sm:col-span-2">
               <Label>Prep Notes</Label>

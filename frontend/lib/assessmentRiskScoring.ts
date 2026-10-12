@@ -73,6 +73,10 @@ function hasText(value: string | null | undefined): boolean {
   return !!value && value.trim().length > 0;
 }
 
+function symptomPresent(value: string | null | undefined): boolean {
+  return typeof value === "string" && value.trim() !== "" && value.trim().toLowerCase() !== "no";
+}
+
 export function deriveRiskScore(inputs: AssessmentRiskInputs): RiskScoreResult {
   const checkedFactors: string[] = [];
   let score = 0;
@@ -95,9 +99,9 @@ export function deriveRiskScore(inputs: AssessmentRiskInputs): RiskScoreResult {
   }
 
   if (
-    hasText(inputs.chewingSwallowingDifficulties) ||
-    hasText(inputs.constipation) ||
-    hasText(inputs.diarrheaNotes) ||
+    symptomPresent(inputs.chewingSwallowingDifficulties) ||
+    symptomPresent(inputs.constipation) ||
+    symptomPresent(inputs.diarrheaNotes) ||
     hasText(inputs.foodIntolerance)
   ) {
     score += 1;

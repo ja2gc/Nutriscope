@@ -92,6 +92,49 @@ class AssessmentSaveTest extends TestCase
         $this->assertFalse($ncp->assessment()->exists());
     }
 
+    public function test_symptom_answers_accept_only_yes_or_no_and_limit_details(): void
+    {
+        [$rnd, $ncp] = $this->setupNcpWithoutAssessment();
+        $url = "/api/rnd/ncp-records/{$ncp->uuid}/assessment";
+
+        $this->actingAs($rnd, 'sanctum')
+            ->postJson($url, $this->validStorePayload(['chewing_swallowing_difficulties' => 'Sometimes']))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('chewing_swallowing_difficulties');
+
+        $this->actingAs($rnd, 'sanctum')
+            ->postJson($url, $this->validStorePayload([
+                'chewing_swallowing_difficulties' => 'Yes',
+                'chewing_swallowing_details' => str_repeat('a', 126),
+            ]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('chewing_swallowing_details');
+
+        $this->actingAs($rnd, 'sanctum')
+            ->postJson($url, $this->validStorePayload([
+                'chewing_swallowing_difficulties' => 'No',
+                'constipation' => 'No',
+                'diarrhea_notes' => 'No',
+            ]))
+            ->assertCreated();
+    }
+
+    public function test_functional_assessment_accepts_only_final_choices_for_new_values(): void
+    {
+        [$rnd, $ncp] = $this->setupNcpWithoutAssessment();
+        $url = "/api/rnd/ncp-records/{$ncp->uuid}/assessment";
+
+        $this->actingAs($rnd, 'sanctum')
+            ->postJson($url, $this->validStorePayload(['functional_assessment' => 'Ambulatory']))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('functional_assessment');
+
+        $this->actingAs($rnd, 'sanctum')
+            ->postJson($url, $this->validStorePayload(['functional_assessment' => 'Independent']))
+            ->assertCreated()
+            ->assertJsonPath('data.functional_assessment', 'Independent');
+    }
+
     public function test_other_category_requires_details_and_persists_one_census_bucket(): void
     {
         [$rnd, $ncp] = $this->setupNcpWithoutAssessment();

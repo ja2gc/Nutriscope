@@ -58,7 +58,7 @@ class MealPlanItemController extends Controller
         // Eager-load day/recipe/food-item so the resource can expose their public uuids
         // (used for the day lookup and the recipe-detail fetch) without an N+1.
         $items = MealPlanItem::whereIn('meal_plan_day_id', $dayIds)
-            ->with('mealPlanDay:id,uuid', 'recipe:id,uuid', 'foodItem:id,uuid')
+            ->with('mealPlanDay:id,uuid', 'recipe:id,uuid,servings', 'recipe.ingredients:id,recipe_id,food_item_id,quantity,unit', 'recipe.ingredients.foodItem:id,name', 'foodItem:id,uuid')
             ->get();
 
         return response()->json(['data' => MealPlanItemResource::collection($items)]);
@@ -68,7 +68,7 @@ class MealPlanItemController extends Controller
     {
         $this->assertScope($ncpRecord, $mealPlan, $day);
         $items = MealPlanItem::where('meal_plan_day_id', $day->id)
-            ->with('mealPlanDay:id,uuid', 'recipe:id,uuid', 'foodItem:id,uuid')
+            ->with('mealPlanDay:id,uuid', 'recipe:id,uuid,servings', 'recipe.ingredients:id,recipe_id,food_item_id,quantity,unit', 'recipe.ingredients.foodItem:id,name', 'foodItem:id,uuid')
             ->get();
 
         return response()->json(['data' => MealPlanItemResource::collection($items)]);
@@ -77,6 +77,11 @@ class MealPlanItemController extends Controller
     public function store(StoreMealPlanItemRequest $request, NcpRecord $ncpRecord, MealPlan $mealPlan, MealPlanDay $day): JsonResponse
     {
         $this->assertScope($ncpRecord, $mealPlan, $day);
+        if ($request->filled('recipe_id') && ! Recipe::with('ingredients')->findOrFail($request->recipe_id)->hasValidPortionData()) {
+            return response()->json([
+                'message' => 'Check the recipe yield and ingredient units before adding it to a meal plan.',
+            ], 422);
+        }
         // MP-03 / AD-04: hard-block allergen conflicts; warn on dislikes/restrictions.
         [$itemName, $itemAllergens] = $this->describeItem($request);
         $assessment = $ncpRecord->assessment;
@@ -107,6 +112,7 @@ class MealPlanItemController extends Controller
 
             return $item;
         });
+        $item->load('recipe.ingredients.foodItem');
 
         $warnings = $this->softWarnings($itemName, $assessment);
 
@@ -220,15 +226,11 @@ class MealPlanItemController extends Controller
             $this->recordMutation(AuditAction::Updated, $mealPlan, $ncpRecord, array_keys($validated));
         });
 
-        return response()->json(['data' => new MealPlanItemResource($item)]);
+        return response()->json(['data' => new MealPlanItemResource($item->load('recipe.ingredients.foodItem'))]);
     }
 
     /**
-     * Recompute a recipe item's per-serving snapshot from its ingredients, applying
-     * the supplied per-ingredient quantity overrides but pulling all nutrient values
-     * from the trusted FoodItem records (never from the client). Returns null when
-     * the item is not recipe-backed. Mirrors the client preview math so the RND sees
-     * the same numbers, but the persisted values are server-authoritative.
+     * Recompute a plan item's nutrient snapshot from trusted recipe ingredient data.
      *
      * @param  array<int,array{id:int,quantity:float|int}>  $overrides
      */
@@ -238,46 +240,49 @@ class MealPlanItemController extends Controller
             return null;
         }
         $recipe = Recipe::with('ingredients.foodItem')->find($item->recipe_id);
-        if (! $recipe) {
+        if (! $recipe || ! $recipe->hasValidPortionData()) {
             return null;
         }
 
-        $servings = max((float) ($recipe->servings ?? 1), 1);
+        $servings = (float) $recipe->servings;
         $overrideQty = collect($overrides)->keyBy('id');
-
         $cal = $prot = $carb = $fat = 0.0;
         $micros = [];
+        $planIngredients = [];
 
-        foreach ($recipe->ingredients as $ing) {
-            $food = $ing->foodItem;
+        foreach ($recipe->ingredients as $ingredient) {
+            $food = $ingredient->foodItem;
             if (! $food) {
                 continue;
             }
 
-            $qty = (float) ($overrideQty[$ing->id]['quantity'] ?? $ing->quantity);
-            $factor = $qty / (max((float) ($food->serving_size ?? 100), 1));
-
+            $quantity = (float) ($overrideQty[$ingredient->id]['quantity'] ?? $ingredient->quantity);
+            $planIngredients[] = [
+                'name' => $food->name,
+                'quantity' => $quantity,
+                'unit' => $ingredient->unit,
+            ];
+            $factor = $quantity / max((float) ($food->serving_size ?? 100), 1);
             $cal += (float) $food->calories * $factor;
             $prot += (float) $food->protein * $factor;
             $carb += (float) $food->carbs * $factor;
             $fat += (float) $food->fat * $factor;
-            foreach ((is_array($food->micronutrients) ? $food->micronutrients : []) as $k => $v) {
-                $micros[$k] = ($micros[$k] ?? 0) + (float) $v * $factor;
+            foreach ((is_array($food->micronutrients) ? $food->micronutrients : []) as $key => $value) {
+                $micros[$key] = ($micros[$key] ?? 0) + (float) $value * $factor;
             }
         }
 
-        $r1 = fn (float $n) => round($n / $servings, 1);
-
         return [
             'name' => $item->nutrient_snapshot['name'] ?? $recipe->name,
-            'calories' => $r1($cal),
-            'protein' => $r1($prot),
-            'carbs' => $r1($carb),
-            'fat' => $r1($fat),
+            'calories' => round($cal / $servings, 1),
+            'protein' => round($prot / $servings, 1),
+            'carbs' => round($carb / $servings, 1),
+            'fat' => round($fat / $servings, 1),
             'water_g' => $item->nutrient_snapshot['water_g'] ?? null,
-            'serving_size' => (float) ($item->nutrient_snapshot['serving_size'] ?? ($recipe->prepared_portion_amount ?: 1)),
-            'serving_unit' => $item->nutrient_snapshot['serving_unit'] ?? ($recipe->prepared_portion_unit ?: 'serving'),
-            'micronutrients' => array_map(fn ($v) => round($v / $servings, 1), $micros),
+            'serving_size' => 1,
+            'serving_unit' => 'serving',
+            'micronutrients' => array_map(fn ($value) => round($value / $servings, 1), $micros),
+            'recipe_ingredients' => $planIngredients,
         ];
     }
 
@@ -321,7 +326,7 @@ class MealPlanItemController extends Controller
 
         if ($request->filled('recipe_id')) {
             $recipe = Recipe::findOrFail($request->input('recipe_id'));
-            $servings = max((float) ($recipe->servings ?? 1), 1);
+            $servings = (float) $recipe->servings;
 
             return [
                 'name' => $recipe->name,
@@ -333,8 +338,8 @@ class MealPlanItemController extends Controller
                 'micronutrients' => collect($recipe->micronutrients ?? [])->map(
                     fn ($value): float => round((float) $value / $servings, 3)
                 )->all(),
-                'serving_size' => (float) ($recipe->prepared_portion_amount ?: 1),
-                'serving_unit' => $recipe->prepared_portion_unit ?: 'serving',
+                'serving_size' => 1,
+                'serving_unit' => 'serving',
             ];
         }
 

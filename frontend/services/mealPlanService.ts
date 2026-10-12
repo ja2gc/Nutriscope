@@ -27,6 +27,31 @@ export interface MealPlanItem {
   nutrient_snapshot: NutrientSnapshot | null;
   ai_suggested: boolean;
   source: "library" | "usda" | "recipe";
+  recipe_portion?: {
+    yield: number | null;
+    ingredients: { name: string; quantity: number; unit: string | null }[];
+  } | null;
+}
+
+export function plannedRecipeIngredients(
+  ingredients: { name: string; quantity: number; unit: string | null }[],
+  yieldAmount: number | null,
+  portionScale: number,
+): { name: string; quantity: number; unit: string }[] | null {
+  if (!Number.isFinite(yieldAmount) || yieldAmount === null || yieldAmount <= 0
+    || !Number.isFinite(portionScale) || portionScale <= 0 || ingredients.length === 0) {
+    return null;
+  }
+  if (ingredients.some(({ name, quantity, unit }) =>
+    !name.trim() || !Number.isFinite(quantity) || quantity <= 0 || !unit?.trim())) {
+    return null;
+  }
+
+  return ingredients.map(({ name, quantity, unit }) => ({
+    name,
+    quantity: quantity / yieldAmount * portionScale,
+    unit: unit!.trim(),
+  }));
 }
 
 export interface MealPlanDay {

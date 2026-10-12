@@ -3,6 +3,7 @@
 namespace App\Services\Diagnosis;
 
 use App\Models\NcpRecord;
+use App\Services\Reports\Generators\DemographicCensusGenerator;
 use Illuminate\Support\Str;
 
 class PesEvidenceBuilder
@@ -27,13 +28,17 @@ class PesEvidenceBuilder
             ];
         }
 
+        $chewingSwallowing = $this->symptomEvidence(
+            $assessment->chewing_swallowing_difficulties,
+            $assessment->chewing_swallowing_details,
+        );
         $giSymptoms = array_filter([
-            'constipation' => $this->bounded($assessment->constipation),
-            'diarrhea' => $this->bounded($assessment->diarrhea_notes),
+            'constipation' => $this->symptomEvidence($assessment->constipation, $assessment->constipation_details),
+            'diarrhea' => $this->symptomEvidence($assessment->diarrhea_notes, $assessment->diarrhea_details),
         ]);
 
         return array_filter([
-            'age_group' => $ncpRecord->patient?->age_group_category,
+            'age_group' => $this->ageGroup($ncpRecord),
             'weight_kg' => $assessment->weight !== null ? (float) $assessment->weight : null,
             'height_cm' => $assessment->height !== null ? (float) $assessment->height : null,
             'bmi' => $assessment->bmi !== null ? (float) $assessment->bmi : null,
@@ -44,7 +49,7 @@ class PesEvidenceBuilder
             'appetite' => $assessment->appetite_changes,
             'present_diet' => $this->bounded($assessment->present_diet),
             'energy_intake_status' => $assessment->energy_intake_status,
-            'chewing_swallowing_difficulties' => $this->bounded($assessment->chewing_swallowing_difficulties),
+            'chewing_swallowing_difficulties' => $chewingSwallowing,
             'gi_symptoms' => $giSymptoms === [] ? null : $giSymptoms,
             'food_intolerance' => $this->bounded($assessment->food_intolerance),
             'nutrient_drug_interaction' => $this->bounded($assessment->nutrient_drug_interaction),
@@ -76,5 +81,33 @@ class PesEvidenceBuilder
         $normalized = trim((string) preg_replace('/[\p{C}\s]+/u', ' ', $value));
 
         return $normalized === '' ? null : Str::limit($normalized, $length, '');
+    }
+
+    private function symptomEvidence(?string $answer, ?string $details): ?string
+    {
+        return match ($answer) {
+            'No' => null,
+            'Yes' => $this->bounded($details),
+            default => $this->bounded($answer),
+        };
+    }
+
+    private function ageGroup(NcpRecord $ncpRecord): ?string
+    {
+        $patient = $ncpRecord->patient;
+        if (! $patient?->dob || ! $ncpRecord->created_at) {
+            return null;
+        }
+
+        $group = DemographicCensusGenerator::ageGroup(
+            (int) $patient->dob->diffInYears($ncpRecord->created_at),
+        );
+
+        return match ($group) {
+            '0-4', '5-9', '10-14', '15-18' => 'pediatric',
+            '19-29', '30-39', '40-59' => 'adult',
+            '60+' => 'elderly',
+            default => null,
+        };
     }
 }

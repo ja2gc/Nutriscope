@@ -105,7 +105,7 @@ class ReportController extends Controller
         $query
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
             ->when($request->filled('type'), fn ($q) => $q->where('type', $request->string('type')))
-            ->when($request->filled('year'), fn ($q) => $q->whereYear('created_at', $request->integer('year')))
+            ->when($request->filled('year'), fn ($q) => $q->whereYear('report_covered_from', $request->integer('year')))
             ->when($monthStart, fn ($q) => $q->whereDate('report_covered_from', '<=', $monthEnd)
                 ->whereDate('report_covered_until', '>=', $monthStart));
 

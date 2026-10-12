@@ -51,9 +51,9 @@ class RiskScoreCalculator
         }
 
         // 4. Mechanical / digestive problem = 1 point
-        $hasMechanicalProblem = ! empty($assessment->chewing_swallowing_difficulties) ||
-                                ! empty($assessment->constipation) ||
-                                ! empty($assessment->diarrhea_notes) ||
+        $hasMechanicalProblem = $this->symptomPresent($assessment->chewing_swallowing_difficulties) ||
+                                $this->symptomPresent($assessment->constipation) ||
+                                $this->symptomPresent($assessment->diarrhea_notes) ||
                                 ! empty($assessment->food_intolerance);
         if ($hasMechanicalProblem) {
             $score += 1.0;
@@ -107,6 +107,13 @@ class RiskScoreCalculator
             'nutritional_status' => $nutritionalStatus,
             'checked_factors' => $checkedFactors,
         ];
+    }
+
+    private function symptomPresent(?string $value): bool
+    {
+        $normalized = mb_strtolower(trim((string) $value));
+
+        return $normalized !== '' && $normalized !== 'no';
     }
 
     /**

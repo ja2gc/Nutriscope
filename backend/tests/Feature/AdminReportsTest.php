@@ -197,9 +197,10 @@ class AdminReportsTest extends TestCase
         ]);
 
         $this->actingAs($this->admin, 'sanctum');
-        foreach (['', '/view', '/download', '/activity'] as $suffix) {
+        foreach (['', '/view', '/download'] as $suffix) {
             $this->getJson("/api/admin/reports/{$report->uuid}{$suffix}")->assertForbidden();
         }
+        $this->getJson("/api/admin/reports/{$report->uuid}/activity")->assertNotFound();
         $this->postJson("/api/admin/reports/{$report->uuid}/archive")->assertForbidden();
         $this->postJson("/api/admin/reports/{$report->uuid}/unarchive")->assertForbidden();
         $this->deleteJson("/api/admin/reports/{$report->uuid}")->assertMethodNotAllowed();

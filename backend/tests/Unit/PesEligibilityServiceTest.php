@@ -103,6 +103,12 @@ class PesEligibilityServiceTest extends TestCase
             'nutrient_drug_interaction' => 'None',
             'medication_count' => 2,
         ]));
+        $this->assertSame([], $service->eligible([
+            'chewing_swallowing_difficulties' => 'No',
+        ]));
+        $this->assertSame([], $service->eligible([
+            'gi_symptoms' => ['constipation' => 'No'],
+        ]));
     }
 
     public function test_results_exclude_existing_and_dismissed_problems_and_stop_at_three(): void

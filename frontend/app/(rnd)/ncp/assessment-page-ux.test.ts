@@ -33,6 +33,15 @@ describe("Assessment page UX", () => {
     expect(page).toContain("<InfoHint");
   });
 
+  test("keeps agreed symptom, function, and referral choices concise", () => {
+    expect(page).toContain('const FUNCTIONAL_OPTIONS = ["Independent", "Needs assistance", "Bedridden"]');
+    expect(page).toContain('options={[{ value: "Yes", label: "Yes" }, { value: "No", label: "No" }]}');
+    expect(page).toContain('maxLength={125}');
+    expect(page).not.toContain('label="Age Group Category"');
+    expect(page).not.toContain('label="Ward / Bed"');
+    expect(page).not.toContain('label="Hospital Number"');
+  });
+
   test("keeps verbose lab guidance and documents progressively disclosed", () => {
     expect(page).toContain("Reference guidance");
     expect(page).toContain("Supporting documents");
@@ -93,8 +102,8 @@ describe("Assessment page UX", () => {
     expect(page).not.toContain('label="Over Period"');
   });
 
-  test("keeps physician diagnosis separate from required census category", () => {
-    expect(page).toContain('<Field label="Medical Diagnosis"');
+  test("keeps referral diagnosis separate from required census category", () => {
+    expect(page).toContain('<Field label="Referral Diagnosis"');
     expect(page).toContain('<Field label="Nutrition care category" required>');
     expect(page).not.toContain('label="Primary Diagnosis Category"');
     expect(page).toContain('primary_diagnosis_category');

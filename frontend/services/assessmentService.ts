@@ -50,14 +50,17 @@ export interface Assessment {
   weight_change_period?: string | null;
   primary_diagnosis_category: PrimaryDiagnosisCategory | null;
   primary_diagnosis_other: string | null;
-  functional_assessment: "Bed ridden" | "Needs assistance" | "Ambulatory" | null;
+  functional_assessment: "Independent" | "Needs assistance" | "Bedridden" | string | null;
   energy_intake_status: "No change" | "Mostly liquids" | "Sub-optimal" | "Starvation" | "Poor intake prior to admission" | null;
   ibw_percentage: number | string | null;
   present_diet: string | null;
   physical_assessment: string | null;
   chewing_swallowing_difficulties: string | null;
+  chewing_swallowing_details: string | null;
   constipation: string | null;
+  constipation_details: string | null;
   diarrhea_notes: string | null;
+  diarrhea_details: string | null;
   food_intolerance: string | null;
   nutrient_drug_interaction: string | null;
   dietary_intake_method: "24_hour_recall" | "food_frequency" | "3_day_record" | "other" | null;

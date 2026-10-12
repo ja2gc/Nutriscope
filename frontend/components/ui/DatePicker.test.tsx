@@ -3,7 +3,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { DatePicker } from "./DatePicker";
+import { DatePicker, DateTimePicker } from "./DatePicker";
 
 describe("DatePicker", () => {
   let container: HTMLDivElement;
@@ -77,5 +77,12 @@ describe("DatePicker", () => {
       "calc(3ch + 2.5rem)",
       "calc(4ch + 2.5rem)",
     ]);
+  });
+
+  test("aligns referral time input with date controls", () => {
+    act(() => root.render(<DateTimePicker label="Referral date and time" value="2026-10-10T12:30" onChange={() => undefined} />));
+
+    expect(container.querySelector("div.grid")?.className).toContain("items-end");
+    expect(container.querySelector('input[type="time"]')).not.toBeNull();
   });
 });

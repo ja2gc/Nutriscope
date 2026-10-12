@@ -59,13 +59,18 @@ class MealPlanControllerTest extends TestCase
 
     private function seedRecipes(int $count = 10): void
     {
-        Recipe::factory($count)->create(['rnd_user_id' => $this->rnd->id]);
-        FoodItem::factory(5)->create([
+        $foods = FoodItem::factory(5)->create([
             'category' => 'fruit',
             'ready_to_eat' => true,
             'serving_size' => 100,
             'serving_unit' => 'g',
         ]);
+        Recipe::factory($count)->create(['rnd_user_id' => $this->rnd->id])
+            ->each(fn (Recipe $recipe) => $recipe->ingredients()->create([
+                'food_item_id' => $foods->first()->id,
+                'quantity' => 100,
+                'unit' => 'g',
+            ]));
     }
 
     // --- MealPlan CRUD ---

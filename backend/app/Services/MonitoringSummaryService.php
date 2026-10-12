@@ -75,7 +75,7 @@ class MonitoringSummaryService
     public function summarize(NcpRecord $ncpRecord): array
     {
         $visits = $ncpRecord->monitorings()
-            ->orderBy('created_at', 'desc')
+            ->orderByRaw('COALESCE(observed_at, created_at) DESC')
             ->orderBy('id', 'desc')
             ->take(2)
             ->get();
@@ -123,7 +123,7 @@ class MonitoringSummaryService
         $labs = is_array($monitoring->lab_values) ? $monitoring->lab_values : [];
 
         $metrics = [
-            'date' => $monitoring->created_at?->toDateString(),
+            'date' => $monitoring->observed_at?->toDateString() ?? $monitoring->created_at?->toDateString(),
             'weight' => $monitoring->weight !== null ? (float) $monitoring->weight : null,
             'bmi' => $monitoring->bmi !== null ? (float) $monitoring->bmi : null,
             'goal_achievement' => $monitoring->goal_achievement ?? null,

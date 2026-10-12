@@ -106,7 +106,7 @@ class PesEligibilityService
         }
 
         $normalized = mb_strtolower(trim($value));
-        if (in_array($normalized, ['none', 'n/a', 'na', 'not applicable', 'normal', 'resolved'], true)) {
+        if (in_array($normalized, ['no', 'none', 'n/a', 'na', 'not applicable', 'normal', 'resolved'], true)) {
             return false;
         }
 

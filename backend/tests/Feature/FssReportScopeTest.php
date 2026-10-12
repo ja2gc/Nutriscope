@@ -122,7 +122,7 @@ class FssReportScopeTest extends TestCase
             $this->postJson("/api/fss/reports/{$report->uuid}/archive")->assertForbidden();
             $this->postJson("/api/fss/reports/{$report->uuid}/unarchive")->assertForbidden();
             $this->deleteJson("/api/fss/reports/{$report->uuid}")->assertMethodNotAllowed();
-            $this->getJson("/api/rnd/reports/{$report->uuid}/activity")->assertForbidden();
+            $this->getJson("/api/rnd/reports/{$report->uuid}/activity")->assertNotFound();
             $this->assertModelExists($report);
         }
     }

@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Services\MonitoringSummaryService;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 /**
@@ -105,6 +106,22 @@ class MonitoringSummaryServiceTest extends TestCase
         $this->assertSame(12.0, $female['hemoglobin']['min']);
         $this->assertSame(1.3, $male['creatinine']['max']);
         $this->assertSame(1.1, $female['creatinine']['max']);
+    }
+
+    public function test_metric_date_uses_observed_date_when_available(): void
+    {
+        $monitoring = (object) [
+            'observed_at' => Carbon::parse('2026-10-01'),
+            'created_at' => Carbon::parse('2026-10-08'),
+            'weight' => null,
+            'bmi' => null,
+            'goal_achievement' => null,
+            'symptoms' => null,
+            'clinical_summary' => null,
+            'lab_values' => [],
+        ];
+
+        $this->assertSame('2026-10-01', $this->svc->extractMetrics($monitoring)['date']);
     }
 
     public function test_summarize_pair_uses_supplied_ranges_for_status(): void

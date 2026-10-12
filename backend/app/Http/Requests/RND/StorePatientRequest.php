@@ -30,7 +30,6 @@ class StorePatientRequest extends FormRequest
             'status' => ['nullable', 'string', 'in:Active,Discharged,Transferred'],
             'screening_type' => ['nullable', 'string', 'in:adult,pediatric'],
             'hospital_number' => ['nullable', 'string', 'max:255'],
-            'age_group_category' => ['nullable', 'string', 'max:255'],
         ];
     }
 }

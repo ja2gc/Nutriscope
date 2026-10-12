@@ -16,6 +16,56 @@ use Tests\TestCase;
 
 class MonthlyDemographicCensusTest extends TestCase
 {
+    public function test_census_age_group_boundaries_match_declared_buckets(): void
+    {
+        $expected = [
+            0 => '0-4', 4 => '0-4', 5 => '5-9', 9 => '5-9',
+            10 => '10-14', 14 => '10-14', 15 => '15-18', 18 => '15-18',
+            19 => '19-29', 29 => '19-29', 30 => '30-39', 39 => '30-39',
+            40 => '40-59', 59 => '40-59', 60 => '60+',
+        ];
+
+        foreach ($expected as $age => $group) {
+            $this->assertSame($group, DemographicCensusGenerator::ageGroup($age), "Age {$age}");
+        }
+        $this->assertSame('Unspecified', DemographicCensusGenerator::ageGroup(null));
+    }
+
+    public function test_census_derives_age_from_dob_and_keeps_under_19_out_of_adult_bmi_status(): void
+    {
+        $this->travelTo(Carbon::parse('2026-05-01 12:00:00'));
+
+        foreach ([
+            ['dob' => '2008-01-01', 'sex' => 'Male', 'group' => '15-18'],
+            ['dob' => '2007-01-01', 'sex' => 'Female', 'group' => '19-29'],
+        ] as $case) {
+            $patient = Patient::factory()->create([
+                'dob' => $case['dob'],
+                'sex' => $case['sex'],
+            ]);
+            $cycle = NcpRecord::factory()->create([
+                'patient_id' => $patient->id,
+                'created_at' => '2026-05-01 12:00:00',
+                'updated_at' => '2026-05-01 12:00:00',
+            ]);
+            Assessment::factory()->create([
+                'ncp_record_id' => $cycle->id,
+                'bmi' => 30,
+                'ibw_percentage' => 100,
+            ]);
+        }
+
+        $census = app(DemographicCensusGenerator::class)->currentCensus(
+            Carbon::parse('2026-05-01'),
+            Carbon::parse('2026-05-31'),
+        );
+
+        $this->assertSame(1, $census['age_sex']['15-18']['M']);
+        $this->assertSame(1, $census['age_sex']['19-29']['F']);
+        $this->assertSame(1, $census['by_status']['Unspecified']);
+        $this->assertSame(1, $census['by_status']['Obese Class II']);
+    }
+
     use RefreshDatabase;
 
     protected function tearDown(): void

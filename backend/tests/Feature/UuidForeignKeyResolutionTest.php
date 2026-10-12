@@ -56,6 +56,7 @@ class UuidForeignKeyResolutionTest extends TestCase
 
         $this->actingAs($rnd)->postJson('/api/rnd/recipes', [
             'name' => 'Soup',
+            'servings' => 2,
             'ingredients' => [
                 ['food_item_id' => $foodItem->uuid, 'quantity' => 100, 'unit' => 'g'],
             ],

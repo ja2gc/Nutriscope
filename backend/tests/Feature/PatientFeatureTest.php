@@ -118,13 +118,13 @@ class PatientFeatureTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonPath('screening_type', 'pediatric')
             ->assertJsonPath('hospital_number', 'HOSP-2026-0001')
-            ->assertJsonPath('age_group_category', 'Adolescent');
+            ->assertJsonMissingPath('age_group_category');
 
         $this->assertDatabaseHas('patients', [
             'id' => $patient->id,
             'screening_type' => 'pediatric',
             'hospital_number' => 'HOSP-2026-0001',
-            'age_group_category' => 'Adolescent',
+            'age_group_category' => null,
         ]);
     }
 

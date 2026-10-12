@@ -43,4 +43,16 @@ describe("deriveRiskScore", () => {
       "others",
     ])).toBe(4);
   });
+
+  test("does not score explicit no answers as symptoms", () => {
+    const result = deriveRiskScore({
+      screeningType: "adult",
+      chewingSwallowingDifficulties: "No",
+      constipation: "No",
+      diarrheaNotes: "No",
+    });
+
+    expect(result.checkedFactors).toEqual(["screening_criteria"]);
+    expect(result.score).toBe(1);
+  });
 });

@@ -53,10 +53,11 @@
             <td style="border:0; width:54%; padding-right:8px;">
                 <div><span class="bold">Present Diet:</span> {{ $assessment?->present_diet }}</div>
                 <div><span class="bold">Energy / Nutrient Intake:</span> {{ $assessment?->energy_intake_status }}{{ $assessment?->dietary_intake ? ' — ' . $assessment->dietary_intake : '' }}</div>
-                <div><span class="bold">Physical Assessment:</span> {{ $assessment?->physical_assessment }}</div>
+                <div><span class="bold">Physical Activity Level (PAL):</span> {{ $assessment?->physical_activity_level }}</div>
                 <div><span class="bold">Functional Assessment:</span> {{ $assessment?->functional_assessment }}</div>
-                <div><span class="bold">Chewing / Swallowing:</span> {{ $assessment?->chewing_swallowing_difficulties }}</div>
-                <div><span class="bold">Constipation / Diarrhea:</span> {{ $assessment?->constipation }}{{ $assessment?->diarrhea_notes ? ' / ' . $assessment->diarrhea_notes : '' }}</div>
+                <div><span class="bold">Chewing / Swallowing:</span> {{ $assessment?->chewing_swallowing_difficulties }}{{ $assessment?->chewing_swallowing_details ? ' — ' . $assessment->chewing_swallowing_details : '' }}</div>
+                <div><span class="bold">Constipation:</span> {{ $assessment?->constipation }}{{ $assessment?->constipation_details ? ' — ' . $assessment->constipation_details : '' }}</div>
+                <div><span class="bold">Diarrhea:</span> {{ $assessment?->diarrhea_notes }}{{ $assessment?->diarrhea_details ? ' — ' . $assessment->diarrhea_details : '' }}</div>
                 <div><span class="bold">Allergies:</span> {{ $join($assessment?->allergies) }}</div>
                 <div><span class="bold">Food Intolerance:</span> {{ $assessment?->food_intolerance }}</div>
                 <div><span class="bold">Nutrient–Drug Interaction:</span> {{ $assessment?->nutrient_drug_interaction }}</div>
@@ -166,10 +167,24 @@
         <tbody>
             @forelse($monitorings as $m)
                 <tr>
-                    <td>{{ optional($m->created_at)->format('M j, Y') }}</td>
+                    <td>{{ optional($m->observed_at ?? $m->created_at)->format('M j, Y') }}</td>
                     <td class="center">{{ $m->weight }}</td>
                     <td class="center">{{ $m->bmi }}</td>
-                    <td>{{ $m->intake_notes }}</td>
+                    <td>
+                        @php($intake = is_array($m->lab_values) ? $m->lab_values : [])
+                        @if(isset($intake['energy_kcal']))
+                            Energy: {{ $intake['energy_kcal'] }} / {{ $intervention?->energy_kcal ?? '—' }} kcal<br>
+                        @endif
+                        @if(isset($intake['protein_g']))
+                            Protein: {{ $intake['protein_g'] }} / {{ $intervention?->protein_g ?? '—' }} g<br>
+                        @endif
+                        @if($m->intake_notes){{ $m->intake_notes }}@endif
+                        @if(is_array($m->goal_achievement))
+                            @foreach(['compliance' => 'Diet compliance', 'gi_tolerance' => 'GI tolerance', 'continuation_decision' => 'Goal decision'] as $key => $label)
+                                @if(!empty($m->goal_achievement[$key]))<br>{{ $label }}: {{ $m->goal_achievement[$key] }}@endif
+                            @endforeach
+                        @endif
+                    </td>
                     <td>{{ $m->symptoms }}</td>
                     <td>{{ $m->clinical_summary }}</td>
                 </tr>

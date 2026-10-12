@@ -95,7 +95,7 @@ export function DatePicker({
 export function DateTimePicker(props: DatePickerProps) {
   const [date = "", time = ""] = props.value.split("T");
   return (
-    <div className={`grid gap-2 sm:grid-cols-[minmax(0,1fr)_8rem] ${props.className ?? ""}`}>
+    <div className={`grid items-end gap-2 sm:grid-cols-[minmax(0,1fr)_8rem] ${props.className ?? ""}`}>
       <DatePicker {...props} className="" value={date} onChange={(nextDate) => props.onChange(nextDate ? `${nextDate}T${time || "00:00"}` : "")} />
       <label className="block">
         <span className="mb-1.5 block text-sm font-semibold text-warm-600">Time</span>

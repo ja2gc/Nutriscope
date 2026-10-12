@@ -42,6 +42,19 @@ class Recipe extends Model
         return $this->hasMany(RecipeIngredient::class);
     }
 
+    public function hasValidPortionData(): bool
+    {
+        if (! is_numeric($this->servings) || (float) $this->servings <= 0 || $this->ingredients->isEmpty()) {
+            return false;
+        }
+
+        return $this->ingredients->every(
+            fn (RecipeIngredient $ingredient): bool => is_numeric($ingredient->quantity)
+                && (float) $ingredient->quantity > 0
+                && filled($ingredient->unit),
+        );
+    }
+
     /**
      * Unit-correct scaling factor for one ingredient against its food's serving.
      * A missing ingredient unit defaults to the food's serving unit (legacy data).

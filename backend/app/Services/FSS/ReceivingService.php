@@ -70,16 +70,18 @@ class ReceivingService
                 $this->recalculateTouchedRecipes($touched);
             });
 
-            foreach ($catalogChanges as $change) {
-                $this->auditLogger->recordMutation(
-                    AuditAction::Updated,
-                    AuditDomain::FoodService,
-                    $change['subject'],
-                    $change['changed_fields'],
-                    context: $vendorGroup->purchaseOrder,
-                    oldValues: $change['old_values'],
-                    newValues: $change['new_values'],
-                );
+            if (! config('audit.seeding.suppress_model_events', false)) {
+                foreach ($catalogChanges as $change) {
+                    $this->auditLogger->recordMutation(
+                        AuditAction::Updated,
+                        AuditDomain::FoodService,
+                        $change['subject'],
+                        $change['changed_fields'],
+                        context: $vendorGroup->purchaseOrder,
+                        oldValues: $change['old_values'],
+                        newValues: $change['new_values'],
+                    );
+                }
             }
         });
     }

@@ -235,7 +235,7 @@ class AuditTrailTest extends TestCase
     {
         $this->assertSame([
             'id', 'module', 'category', 'domain', 'record_type', 'action', 'action_label',
-            'summary', 'severity', 'outcome', 'actor', 'subject', 'context', 'patient',
+            'summary', 'actor', 'subject', 'context', 'patient',
             'ncp_reference', 'detail_mode', 'reason', 'history', 'current_record_url',
             'occurred_at', 'details', 'changes',
         ], array_keys($event));

@@ -50,7 +50,7 @@ class RecipeController extends Controller
                 'category' => $data['category'] ?? null,
                 'meal_types' => $data['meal_types'] ?? null,
                 'prep_notes' => $data['prep_notes'] ?? null,
-                'servings' => $data['servings'] ?? 1,
+                'servings' => $data['servings'],
             ]);
 
             $this->syncIngredients($recipe, $data['ingredients'] ?? []);

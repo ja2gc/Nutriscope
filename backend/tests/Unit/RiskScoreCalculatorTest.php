@@ -85,6 +85,21 @@ class RiskScoreCalculatorTest extends TestCase
         $this->assertEquals('Moderate Malnutrition', $result['nutritional_status']);
     }
 
+    public function test_no_symptom_answers_do_not_add_mechanical_risk(): void
+    {
+        $assessment = $this->createAssessment([
+            'ibw_percentage' => 100.0,
+            'weight_loss_percentage' => 0.0,
+            'chewing_swallowing_difficulties' => 'No',
+            'constipation' => 'No',
+            'diarrhea_notes' => 'No',
+        ]);
+
+        $result = app(RiskScoreCalculator::class)->calculate($assessment);
+
+        $this->assertSame(1.0, $result['score']);
+    }
+
     public function test_calculate_risk_score_severe_malnutrition(): void
     {
         $assessment = $this->createAssessment([

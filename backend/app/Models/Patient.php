@@ -20,7 +20,7 @@ class Patient extends Model
     protected $fillable = [
         'name', 'first_name', 'last_name', 'dob', 'sex', 'religion', 'address', 'contact',
         'physician', 'admission_date', 'medical_diagnosis', 'ward', 'status',
-        'screening_type', 'hospital_number', 'age_group_category',
+        'screening_type', 'hospital_number',
     ];
 
     protected $casts = [
@@ -40,7 +40,7 @@ class Patient extends Model
         return [
             'name', 'first_name', 'last_name', 'dob', 'sex', 'religion', 'address', 'contact',
             'physician', 'admission_date', 'medical_diagnosis', 'ward', 'status',
-            'screening_type', 'hospital_number', 'age_group_category',
+            'screening_type', 'hospital_number',
         ];
     }
 

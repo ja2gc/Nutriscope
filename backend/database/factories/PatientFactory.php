@@ -34,7 +34,6 @@ class PatientFactory extends Factory
             'status' => 'Active',
             'hospital_number' => strtoupper(fake()->bothify('HN-####??')),
             'screening_type' => fake()->randomElement(['adult', 'pediatric']),
-            'age_group_category' => fake()->randomElement(['adult', 'pediatric', 'elderly']),
         ];
     }
 

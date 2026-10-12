@@ -63,7 +63,7 @@ class BudgetAuditTest extends TestCase
 
         $adjusted = AuditActivity::where('subject_type', Budget::class)
             ->where('subject_id', $budget->id)
-            ->where('event', 'adjusted')
+            ->where('event', 'updated')
             ->where('causer_id', $rnd->id)
             ->firstOrFail();
         $adjustedEvent = app(AuditEventPresenter::class)

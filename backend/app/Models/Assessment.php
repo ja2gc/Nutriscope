@@ -29,6 +29,7 @@ class Assessment extends Model
         'primary_diagnosis_category', 'primary_diagnosis_other',
         'functional_assessment', 'energy_intake_status', 'ibw_percentage', 'present_diet',
         'physical_assessment', 'chewing_swallowing_difficulties', 'constipation', 'diarrhea_notes',
+        'chewing_swallowing_details', 'constipation_details', 'diarrhea_details',
         'food_intolerance', 'nutrient_drug_interaction', 'dietary_intake_method', 'dietary_record_file',
         // Clinical measurement fields (activity level + body measurements)
         'physical_activity_level', 'muac_mm', 'waist_cm', 'hip_cm',
@@ -64,6 +65,7 @@ class Assessment extends Model
             'functional_assessment',
             'energy_intake_status', 'ibw_percentage', 'present_diet', 'physical_assessment',
             'chewing_swallowing_difficulties', 'constipation', 'diarrhea_notes',
+            'chewing_swallowing_details', 'constipation_details', 'diarrhea_details',
             'food_intolerance', 'nutrient_drug_interaction', 'dietary_intake_method',
             'dietary_record_file', 'physical_activity_level', 'muac_mm', 'waist_cm', 'hip_cm',
             'stress_factor', 'edema_present', 'dry_weight_kg', 'pregnancy_lactation_status',

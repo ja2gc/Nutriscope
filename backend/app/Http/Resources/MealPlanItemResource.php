@@ -22,6 +22,15 @@ class MealPlanItemResource extends JsonResource
             'quantity' => $this->quantity,
             'unit' => $this->unit,
             'nutrient_snapshot' => $this->nutrient_snapshot,
+            'recipe_portion' => $this->whenLoaded('recipe', fn () => $this->recipe ? [
+                'yield' => $this->recipe->servings,
+                'ingredients' => $this->nutrient_snapshot['recipe_ingredients']
+                    ?? $this->recipe->ingredients->map(fn ($ingredient) => [
+                        'name' => $ingredient->foodItem?->name,
+                        'quantity' => (float) $ingredient->quantity,
+                        'unit' => $ingredient->unit,
+                    ])->all(),
+            ] : null),
             'ai_suggested' => $this->ai_suggested,
             'source' => $this->fdc_id ? 'usda' : ($this->food_item_id ? 'library' : 'recipe'),
         ];

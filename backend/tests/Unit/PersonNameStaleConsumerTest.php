@@ -9,7 +9,7 @@ use Tests\TestCase;
 
 class PersonNameStaleConsumerTest extends TestCase
 {
-    public function test_direct_person_name_reads_are_limited_to_explicit_legacy_audit_compatibility(): void
+    public function test_direct_person_name_reads_are_limited_to_legacy_display_fallbacks(): void
     {
         $actual = $this->matchingProductionLines(
             '/(?:\$(?:[A-Za-z_][A-Za-z0-9_]*(?:user|patient|actor|causer|rnd|admin|fss|preparer|creator|clinician|author|owner|createdBy|updatedBy)|user|patient|actor|causer|rnd|admin|fss|preparer|creator|clinician|author|owner|createdBy|updatedBy)|->(?:[A-Za-z_][A-Za-z0-9_]*(?:user|patient|actor|causer|rnd|admin|fss|preparer|creator|clinician|author|owner|createdBy|updatedBy)|user|patient|actor|causer|rnd|admin|fss|preparer|creator|clinician|author|owner|createdBy|updatedBy))(?:\?->|->)name\b/i',
@@ -17,7 +17,6 @@ class PersonNameStaleConsumerTest extends TestCase
 
         $expected = [
             "app/Http/Controllers/Admin/UserController.php:'name' => \$user->name,",
-            "app/Http/Controllers/Auth/AuthController.php:'name' => \$user->name,",
         ];
 
         sort($expected);

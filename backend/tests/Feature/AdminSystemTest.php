@@ -119,10 +119,7 @@ class AdminSystemTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('data.name', 'Updated Name');
-        $activity = Activity::where('subject_id', $user->id)->sole();
-        $this->assertSame('updated', $activity->event);
-        $this->assertSame('Profile', $activity->properties['details']['subject_label']);
-        $this->assertEqualsCanonicalizing(['first_name', 'last_name', 'name'], $activity->properties['details']['changed_fields']);
+        $this->assertSame(0, Activity::where('subject_id', $user->id)->count());
     }
 
     public function test_admin_role_and_status_change_is_one_safe_account_event(): void
@@ -174,7 +171,7 @@ class AdminSystemTest extends TestCase
         $this->assertTrue(Hash::check('old-password', $user->fresh()->password));
     }
 
-    public function test_admin_mixed_password_and_profile_update_has_separate_safe_events(): void
+    public function test_admin_mixed_password_and_profile_update_audits_only_password(): void
     {
         $user = User::factory()->create(['name' => 'Before', 'password' => Hash::make('old-password')]);
         $secret = 'MIXED-PASSWORD-SENTINEL';
@@ -188,11 +185,10 @@ class AdminSystemTest extends TestCase
             ])->assertOk();
 
         $activities = Activity::where('subject_id', $user->id)->orderBy('id')->get();
-        $this->assertCount(2, $activities);
-        $this->assertSame(['updated', 'updated'], $activities->pluck('event')->all());
-        $this->assertSame(['Password', 'Profile'], $activities->map(fn (Activity $activity): string => $activity->properties['details']['subject_label'])->all());
+        $this->assertCount(1, $activities);
+        $this->assertSame(['updated'], $activities->pluck('event')->all());
+        $this->assertSame('Password', $activities[0]->properties['details']['subject_label']);
         $this->assertSame(['password'], $activities[0]->properties['details']['changed_fields']);
-        $this->assertEqualsCanonicalizing(['first_name', 'last_name', 'name'], $activities[1]->properties['details']['changed_fields']);
         foreach ($activities as $activity) {
             $this->assertSame('127.0.0.1', $activity->properties['ip']);
             $this->assertStringNotContainsString($secret, $activity->toJson());

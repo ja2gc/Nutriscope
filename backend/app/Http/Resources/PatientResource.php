@@ -32,7 +32,6 @@ class PatientResource extends JsonResource
             'status' => $this->status,
             'screening_type' => $this->screening_type,
             'hospital_number' => $this->hospital_number,
-            'age_group_category' => $this->age_group_category,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             'can_delete' => $this->resource->getAttribute('can_delete'),

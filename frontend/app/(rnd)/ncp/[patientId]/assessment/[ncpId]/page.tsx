@@ -68,9 +68,6 @@ export type ScreeningDraft = {
   referralType: string;
   referredBy: string;
   referralDatetime: string;
-  ward: string;
-  hospitalNumber: string;
-  ageGroupCategory: string;
   screeningType: "adult" | "pediatric";
 };
 
@@ -204,7 +201,7 @@ const DIETARY_METHOD_OPTIONS = [
   { value: "3_day_record", label: "3-Day Record" },
   { value: "other", label: "Other" },
 ];
-const FUNCTIONAL_OPTIONS = ["Bed ridden", "Needs assistance", "Ambulatory"];
+const FUNCTIONAL_OPTIONS = ["Independent", "Needs assistance", "Bedridden"];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 function riskBadge(score: number) {
@@ -271,9 +268,9 @@ function AssessmentSection({ legend, children, className = "" }: {
   );
 }
 
-function TextInput({ value, onChange, type, disabled, min, max, id, className }: {
+function TextInput({ value, onChange, type, disabled, min, max, id, className, ariaLabel, maxLength }: {
   value: string; onChange: (v: string) => void; type?: string; disabled?: boolean;
-  min?: number; max?: number; id?: string; className?: string;
+  min?: number; max?: number; id?: string; className?: string; ariaLabel?: string; maxLength?: number;
 }) {
   return (
     <input
@@ -284,7 +281,9 @@ function TextInput({ value, onChange, type, disabled, min, max, id, className }:
       disabled={disabled}
       min={min}
       max={max}
-      className={`min-h-11 w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-warm-400 disabled:bg-warm-50 disabled:cursor-not-allowed ${className ?? ""}`}
+      aria-label={ariaLabel}
+      maxLength={maxLength}
+      className={`min-h-11 w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all disabled:bg-warm-50 disabled:cursor-not-allowed ${className ?? ""}`}
     />
   );
 }
@@ -670,7 +669,9 @@ function defaultAssessment(): Assessment {
     primary_diagnosis_category: null, primary_diagnosis_other: null,
     functional_assessment: null, energy_intake_status: null, ibw_percentage: null,
     present_diet: null, physical_assessment: null,
-    chewing_swallowing_difficulties: null, constipation: null, diarrhea_notes: null,
+    chewing_swallowing_difficulties: null, chewing_swallowing_details: null,
+    constipation: null, constipation_details: null,
+    diarrhea_notes: null, diarrhea_details: null,
     food_intolerance: null, nutrient_drug_interaction: null,
     dietary_intake_method: null, dietary_record_file: null,
     physical_activity_level: null, muac_mm: null, waist_cm: null, hip_cm: null,
@@ -726,9 +727,6 @@ export default function NcpAssessmentPage({
       referralType: "",
       referredBy: basePatient.physician ?? "",
       referralDatetime: "",
-      ward: basePatient.ward ?? "",
-      hospitalNumber: basePatient.hospital_number ?? "",
-      ageGroupCategory: basePatient.age_group_category ?? "",
       screeningType: basePatient.screening_type === "pediatric" ? "pediatric" : "adult",
     };
   }, []);
@@ -1053,11 +1051,8 @@ export default function NcpAssessmentPage({
           dob: screeningDraft.dob,
           sex: screeningDraft.sex as "Male" | "Female",
           address: screeningDraft.address,
-          ward: screeningDraft.ward,
           physician: screeningDraft.referredBy,
           medical_diagnosis: screeningDraft.diagnosis,
-          hospital_number: screeningDraft.hospitalNumber,
-          age_group_category: screeningDraft.ageGroupCategory,
           screening_type: screeningDraft.screeningType,
           ...(nameFields ?? {}),
         };
@@ -1169,13 +1164,52 @@ export default function NcpAssessmentPage({
       <AssessmentSection legend="GI / tolerance">
         <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-3">
           <Field label="Chewing / Swallowing Difficulties">
-            <TextArea value={s("chewing_swallowing_difficulties")} onChange={v => updateField("chewing_swallowing_difficulties", v)} rows={2} />
+            <SelectInput
+              value={["Yes", "No"].includes(s("chewing_swallowing_difficulties")) ? s("chewing_swallowing_difficulties") : ""}
+              onChange={v => {
+                const previous = s("chewing_swallowing_difficulties");
+                updateField("chewing_swallowing_difficulties", v || null);
+                updateField("chewing_swallowing_details", v === "Yes"
+                  ? s("chewing_swallowing_details") || (!["Yes", "No"].includes(previous) ? previous : null)
+                  : null);
+              }}
+              options={[{ value: "Yes", label: "Yes" }, { value: "No", label: "No" }]}
+            />
+            {(s("chewing_swallowing_difficulties") === "Yes" || (!s("chewing_swallowing_details") && !!s("chewing_swallowing_difficulties") && !["Yes", "No"].includes(s("chewing_swallowing_difficulties")))) && (
+              <TextInput ariaLabel="Chewing or swallowing details (optional)" maxLength={125} value={s("chewing_swallowing_details") || (!["Yes", "No"].includes(s("chewing_swallowing_difficulties")) ? s("chewing_swallowing_difficulties") : "")} onChange={v => updateField("chewing_swallowing_details", v)} />
+            )}
           </Field>
           <Field label="Constipation">
-            <TextArea value={s("constipation")} onChange={v => updateField("constipation", v)} rows={2} />
+            <SelectInput
+              value={["Yes", "No"].includes(s("constipation")) ? s("constipation") : ""}
+              onChange={v => {
+                const previous = s("constipation");
+                updateField("constipation", v || null);
+                updateField("constipation_details", v === "Yes"
+                  ? s("constipation_details") || (!["Yes", "No"].includes(previous) ? previous : null)
+                  : null);
+              }}
+              options={[{ value: "Yes", label: "Yes" }, { value: "No", label: "No" }]}
+            />
+            {(s("constipation") === "Yes" || (!s("constipation_details") && !!s("constipation") && !["Yes", "No"].includes(s("constipation")))) && (
+              <TextInput ariaLabel="Constipation details (optional)" maxLength={125} value={s("constipation_details") || (!["Yes", "No"].includes(s("constipation")) ? s("constipation") : "")} onChange={v => updateField("constipation_details", v)} />
+            )}
           </Field>
-          <Field label="Diarrhea Notes">
-            <TextArea value={s("diarrhea_notes")} onChange={v => updateField("diarrhea_notes", v)} rows={2} />
+          <Field label="Diarrhea">
+            <SelectInput
+              value={["Yes", "No"].includes(s("diarrhea_notes")) ? s("diarrhea_notes") : ""}
+              onChange={v => {
+                const previous = s("diarrhea_notes");
+                updateField("diarrhea_notes", v || null);
+                updateField("diarrhea_details", v === "Yes"
+                  ? s("diarrhea_details") || (!["Yes", "No"].includes(previous) ? previous : null)
+                  : null);
+              }}
+              options={[{ value: "Yes", label: "Yes" }, { value: "No", label: "No" }]}
+            />
+            {(s("diarrhea_notes") === "Yes" || (!s("diarrhea_details") && !!s("diarrhea_notes") && !["Yes", "No"].includes(s("diarrhea_notes")))) && (
+              <TextInput ariaLabel="Diarrhea details (optional)" maxLength={125} value={s("diarrhea_details") || (!["Yes", "No"].includes(s("diarrhea_notes")) ? s("diarrhea_notes") : "")} onChange={v => updateField("diarrhea_details", v)} />
+            )}
           </Field>
         </div>
       </AssessmentSection>
@@ -1322,6 +1356,24 @@ export default function NcpAssessmentPage({
     <div className="space-y-4">
       <AssessmentSection legend="Clinical and social context">
         <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-3">
+      <Field label="Nutrition care category" required>
+        <SelectInput
+          value={assessment.primary_diagnosis_category ?? ""}
+          onChange={v => {
+            updateField("primary_diagnosis_category", v || null);
+            if (v !== "Other") updateField("primary_diagnosis_other", null);
+          }}
+          options={PRIMARY_DIAGNOSIS_CATEGORIES.map(category => ({ value: category, label: category }))}
+        />
+      </Field>
+      {assessment.primary_diagnosis_category === "Other" && (
+        <Field label="Specify category" required>
+          <TextInput
+            value={assessment.primary_diagnosis_other ?? ""}
+            onChange={v => updateField("primary_diagnosis_other", v || null)}
+          />
+        </Field>
+      )}
       <Field label="Medical History" className="md:col-span-2">
         <TextArea value={s("medical_history")} onChange={v => updateField("medical_history", v)} rows={3} />
       </Field>
@@ -1594,55 +1646,37 @@ export default function NcpAssessmentPage({
               <Field label="Address">
                 <TextInput value={draft?.address ?? ""} onChange={v => updateScreeningDraftField("address", v)} />
               </Field>
-              <Field label="Ward / Bed No">
-                <TextInput value={draft?.ward ?? ""} onChange={v => updateScreeningDraftField("ward", v)} />
-              </Field>
-              <Field label="Attending Physician">
+              <Field label="Referred by">
                 <TextInput value={draft?.referredBy ?? ""} onChange={v => updateScreeningDraftField("referredBy", v)} />
               </Field>
-              <Field label="Medical Diagnosis" className="md:col-span-2 xl:col-span-2">
+              <Field label="Referral Diagnosis" className="md:col-span-2 xl:col-span-2">
                 <TextArea
                   value={draft?.diagnosis ?? ""}
                   onChange={v => updateScreeningDraftField("diagnosis", v)}
                   rows={2}
                 />
               </Field>
-              <Field label="Nutrition care category" required>
-                <SelectInput
-                  value={assessment.primary_diagnosis_category ?? ""}
-                  onChange={v => {
-                    updateField("primary_diagnosis_category", v || null);
-                    if (v !== "Other") updateField("primary_diagnosis_other", null);
-                  }}
-                  options={PRIMARY_DIAGNOSIS_CATEGORIES.map(category => ({ value: category, label: category }))}
-                />
-              </Field>
-              {assessment.primary_diagnosis_category === "Other" && (
-                <Field label="Specify category" required>
-                  <TextInput
-                    value={assessment.primary_diagnosis_other ?? ""}
-                    onChange={v => updateField("primary_diagnosis_other", v || null)}
-                  />
-                </Field>
-              )}
-              <Field label="Hospital Number">
-                <TextInput value={draft?.hospitalNumber ?? ""} onChange={v => updateScreeningDraftField("hospitalNumber", v)} />
-              </Field>
-              <Field label="Age Group Category">
-                <TextInput
-                  value={draft?.ageGroupCategory ?? ""}
-                  onChange={v => updateScreeningDraftField("ageGroupCategory", v)}
-                />
-              </Field>
               <Field label="Diet Prescription">
                 <TextInput value={draft?.dietPrescription ?? ""} onChange={v => updateScreeningDraftField("dietPrescription", v)} />
               </Field>
-              <Field label="Referral Type">
-                <SelectInput
-                  value={draft?.referralType ?? ""}
-                  onChange={v => updateScreeningDraftField("referralType", v)}
-                  options={REFERRAL_TYPE_OPTIONS}
-                />
+              <Field label="Nutrition support">
+                <div className="space-y-2">
+                  {REFERRAL_TYPE_OPTIONS.map(option => (
+                    <label key={option.value} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={(draft?.referralType ?? "").split("| ").includes(option.value)}
+                        onChange={event => {
+                          const selected = new Set((draft?.referralType ?? "").split("| ").filter(Boolean));
+                          if (event.target.checked) selected.add(option.value);
+                          else selected.delete(option.value);
+                          updateScreeningDraftField("referralType", [...selected].join("| "));
+                        }}
+                      />
+                      {option.label}
+                    </label>
+                  ))}
+                </div>
               </Field>
               <Field label="Referral Date & Time" className="md:col-span-2 xl:col-span-2">
                 <DateTimePicker ariaLabel="Referral date and time" value={draft?.referralDatetime ?? ""} onChange={v => updateScreeningDraftField("referralDatetime", v)} />

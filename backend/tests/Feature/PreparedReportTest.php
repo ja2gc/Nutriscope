@@ -48,7 +48,7 @@ class PreparedReportTest extends TestCase
     {
         Storage::fake('report_cache');
         $actor = User::factory()->rnd()->create();
-        $po = PurchaseOrder::factory()->create(['completed_at' => '2026-05-10 08:00:00']);
+        $po = PurchaseOrder::factory()->create(['completed_at' => '2026-05-10 08:00:00', 'order_date' => '2026-05-10']);
         $menu = MenuCycle::factory()->create(['name' => 'Substance Cycle', 'week_start_date' => '2026-05-11']);
         $service = $this->createMock(ReportService::class);
         $service->method('signatoriesFor')->willReturn([]);

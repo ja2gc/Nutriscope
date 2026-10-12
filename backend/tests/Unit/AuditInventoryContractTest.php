@@ -21,7 +21,7 @@ class AuditInventoryContractTest extends TestCase
         'tests/Feature/Audit/StructuredAuditApiTest.php' => [
             'test_admin_list_returns_only_the_structured_public_contract',
             'test_common_audit_queries_have_explainable_indexed_plans',
-            'test_legacy_unclassified_rows_remain_readable_without_action_aliases',
+            'test_legacy_unclassified_rows_use_canonical_actions',
         ],
         'tests/Feature/Audit/AuditRouteCoverageTest.php' => [
             'test_every_unsafe_route_has_an_audit_classification_and_reason',
@@ -40,11 +40,11 @@ class AuditInventoryContractTest extends TestCase
         ],
         'tests/Feature/Audit/SecurityAuditTest.php' => [
             'test_login_rate_limit_is_audited_as_failed_with_actor_ip',
-            'test_authentication_failure_is_audited_but_role_denial_is_not',
+            'test_protected_route_authentication_failures_are_audited_without_logging_role_denials',
         ],
         'tests/Feature/Audit/ReportAuditTest.php' => [
-            'test_report_views_downloads_and_unarchive_do_not_create_audit_events',
-            'test_patient_linked_report_view_is_not_audited_or_listed',
+            'test_report_view_and_download_are_audited_in_the_report_domain',
+            'test_patient_linked_report_view_is_listed_in_nutrition_care',
         ],
         'tests/Feature/Audit/SharedRndClinicalAccessTest.php' => [
             'test_an_rnd_can_access_shared_clinical_records_while_new_plans_keep_owner_protection',
@@ -57,7 +57,7 @@ class AuditInventoryContractTest extends TestCase
         ],
         'tests/Feature/BudgetAuditTest.php' => [
             'test_budget_setup_and_manual_adjustment_write_audit_events',
-            'test_po_deduction_ledger_creation_writes_system_audit_event',
+            'test_po_deduction_ledger_creation_does_not_write_a_system_audit_event',
         ],
         'tests/Feature/Audit/AuditLegacyCompatibilityTest.php' => [
             'test_retired_category_and_domain_list_parameters_are_rejected',
@@ -96,9 +96,10 @@ class AuditInventoryContractTest extends TestCase
         'app/Http/Controllers/RND/RecipeController.php',
         'app/Http/Controllers/RND/ScreeningDocumentController.php',
         'app/Http/Controllers/RND/UsdaController.php',
+        'app/Http/Controllers/ReportController.php',
         'app/Http/Controllers/SopController.php',
         'app/Jobs/PrepareSystemRecovery.php',
-        'app/Listeners/BudgetLedgerListener.php',
+        'app/Providers/AppServiceProvider.php',
         'app/Services/Audit/AuditLogger.php',
         'app/Services/FSS/PurchaseOrderLifecycleService.php',
         'app/Services/FSS/ReceivingService.php',

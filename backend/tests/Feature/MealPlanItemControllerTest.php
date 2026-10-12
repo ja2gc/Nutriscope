@@ -140,12 +140,19 @@ class MealPlanItemControllerTest extends TestCase
             'prepared_portion_amount' => 125,
             'prepared_portion_unit' => 'g',
         ]);
+        $food = FoodItem::factory()->create();
+        RecipeIngredient::create([
+            'recipe_id' => $recipe->id,
+            'food_item_id' => $food->id,
+            'quantity' => 200,
+            'unit' => 'g',
+        ]);
 
         $response = $this->actingAs($ctx['rnd'])
             ->postJson($this->url($ctx), [
                 'recipe_id' => $recipe->uuid,
-                'quantity' => 125,
-                'unit' => 'g',
+                'quantity' => 1,
+                'unit' => 'serving',
             ]);
 
         $response->assertCreated();
@@ -154,8 +161,8 @@ class MealPlanItemControllerTest extends TestCase
         $this->assertNull($item->food_item_id);
         $this->assertNull($item->fdc_id);
         $this->assertEquals(105, $item->nutrient_snapshot['calories']);
-        $this->assertEquals(125, $item->nutrient_snapshot['serving_size']);
-        $this->assertEquals('g', $item->nutrient_snapshot['serving_unit']);
+        $this->assertEquals(1, $item->nutrient_snapshot['serving_size']);
+        $this->assertEquals('serving', $item->nutrient_snapshot['serving_unit']);
     }
 
     public function test_store_rejects_multiple_sources(): void
@@ -215,7 +222,7 @@ class MealPlanItemControllerTest extends TestCase
         $this->assertEquals(2, (float) $item->quantity);
     }
 
-    public function test_update_recomputes_recipe_snapshot_from_trusted_food_data(): void
+    public function test_update_recomputes_plan_snapshot_without_changing_source_recipe(): void
     {
         $ctx = $this->setupPlan();
         $food = FoodItem::factory()->create([
@@ -233,15 +240,40 @@ class MealPlanItemControllerTest extends TestCase
         ]);
 
         // Double the ingredient quantity → all nutrients double (servings = 1).
-        $this->actingAs($ctx['rnd'])
+        $response = $this->actingAs($ctx['rnd'])
             ->patchJson($this->url($ctx, $item->uuid), [
                 'ingredient_overrides' => [['id' => $ingredient->id, 'quantity' => 200]],
             ])
             ->assertOk();
 
+        $response->assertJsonPath('data.recipe_portion.ingredients.0.quantity', 200);
+
         $item->refresh();
         $this->assertEquals(200, $item->nutrient_snapshot['calories']);
-        $this->assertEquals(100, $item->nutrient_snapshot['micronutrients']['sodium']);
+        $this->assertEquals(200, $item->nutrient_snapshot['recipe_ingredients'][0]['quantity']);
+        $this->assertEquals(100, (float) $ingredient->fresh()->quantity);
+    }
+
+    public function test_recipe_item_response_includes_batch_yield_and_ingredient_units(): void
+    {
+        $ctx = $this->setupPlan();
+        $food = FoodItem::factory()->create(['name' => 'Rice']);
+        $recipe = Recipe::factory()->create(['servings' => 4]);
+        RecipeIngredient::create([
+            'recipe_id' => $recipe->id, 'food_item_id' => $food->id, 'quantity' => 400, 'unit' => 'g',
+        ]);
+        MealPlanItem::factory()->create([
+            'meal_plan_day_id' => $ctx['day']->id,
+            'recipe_id' => $recipe->id,
+        ]);
+
+        $this->actingAs($ctx['rnd'])
+            ->getJson($this->url($ctx))
+            ->assertOk()
+            ->assertJsonPath('data.0.recipe_portion.yield', 4)
+            ->assertJsonPath('data.0.recipe_portion.ingredients.0.name', 'Rice')
+            ->assertJsonPath('data.0.recipe_portion.ingredients.0.quantity', 400)
+            ->assertJsonPath('data.0.recipe_portion.ingredients.0.unit', 'g');
     }
 
     public function test_destroy_removes_item(): void
@@ -338,7 +370,7 @@ class MealPlanItemControllerTest extends TestCase
         $this->assertEquals(65.5, MealPlanItem::first()->nutrient_snapshot['water_g']);
     }
 
-    public function test_recipe_snapshot_uses_per_portion_water_and_prepared_measure(): void
+    public function test_recipe_snapshot_uses_per_person_water_and_yield(): void
     {
         $ctx = $this->setupPlan();
         $recipe = Recipe::factory()->create([
@@ -348,15 +380,22 @@ class MealPlanItemControllerTest extends TestCase
             'prepared_portion_amount' => 1.5,
             'prepared_portion_unit' => 'cup',
         ]);
+        $food = FoodItem::factory()->create();
+        RecipeIngredient::create([
+            'recipe_id' => $recipe->id,
+            'food_item_id' => $food->id,
+            'quantity' => 100,
+            'unit' => 'g',
+        ]);
 
         $this->actingAs($ctx['rnd'])
-            ->postJson($this->url($ctx), ['recipe_id' => $recipe->uuid, 'quantity' => 1.5, 'unit' => 'cup'])
+            ->postJson($this->url($ctx), ['recipe_id' => $recipe->uuid, 'quantity' => 1, 'unit' => 'serving'])
             ->assertCreated();
 
         $snap = MealPlanItem::first()->nutrient_snapshot;
         $this->assertEquals(50, $snap['water_g']);
-        $this->assertEquals(1.5, $snap['serving_size']);
-        $this->assertEquals('cup', $snap['serving_unit']);
+        $this->assertEquals(1, $snap['serving_size']);
+        $this->assertEquals('serving', $snap['serving_unit']);
     }
 
     public function test_backfill_command_patches_snapshot_water_g(): void

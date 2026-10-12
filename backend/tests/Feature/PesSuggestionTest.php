@@ -242,7 +242,7 @@ class PesSuggestionTest extends TestCase
 
     private function makeRecord(array $assessment): NcpRecord
     {
-        $patient = Patient::factory()->create(['age_group_category' => 'adult']);
+        $patient = Patient::factory()->create(['dob' => '1990-01-01']);
         $ncpRecord = NcpRecord::factory()->create([
             'patient_id' => $patient->id,
             'rnd_user_id' => $this->rnd->id,

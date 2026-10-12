@@ -206,6 +206,59 @@ class NcpSummaryReportTest extends TestCase
         $this->assertSame('ref.pdf', $data['attachments']->first()->original_name);
     }
 
+    public function test_summary_maps_pal_assessment_and_recorded_goal_linked_monitoring_values(): void
+    {
+        $ncp = $this->makeRecord();
+        $ncp->assessment->forceFill([
+            'present_diet' => 'Soft diet',
+            'energy_intake_status' => 'Sub-optimal',
+            'physical_activity_level' => 'moderate',
+            'functional_assessment' => 'Independent',
+            'chewing_swallowing_difficulties' => 'Yes',
+            'chewing_swallowing_details' => 'Coughs with thin liquids',
+            'constipation' => 'No',
+            'diarrhea_notes' => 'No',
+            'allergies' => ['fish'],
+            'food_intolerance' => 'Lactose',
+            'nutrient_drug_interaction' => 'Warfarin and vitamin K',
+        ])->save();
+        $monitoring = $ncp->monitorings()->first();
+        $monitoring->forceFill([
+            'observed_at' => '2026-10-04',
+            'lab_values' => ['energy_kcal' => 1500, 'protein_g' => 60],
+            'goal_achievement' => [
+                'compliance' => 'partial',
+                'gi_tolerance' => 'tolerating',
+                'continuation_decision' => 'continue',
+            ],
+        ])->save();
+        $older = Monitoring::create([
+            'ncp_record_id' => $ncp->id,
+            'observed_at' => '2026-10-02',
+            'weight' => 59,
+            'bmi' => 21,
+        ]);
+
+        $report = new Report(['type' => 'ncp_summary', 'parameters' => ['ncp_record_id' => $ncp->id]]);
+        $generator = app(NcpSummaryGenerator::class);
+        $data = $generator->data($report);
+        $html = view($generator->view(), [
+            ...$data,
+            'branding' => ReportBranding::singleton(),
+            'signatories' => [],
+            'generated_at' => now(),
+            'report' => $report,
+        ])->render();
+
+        $this->assertSame($older->id, $data['monitorings']->first()->id);
+        $this->assertStringContainsString('Physical Activity Level (PAL):', $html);
+        $this->assertStringNotContainsString('Physical Assessment:', $html);
+        $this->assertStringContainsString('Energy: 1500 / 1800.00 kcal', $html);
+        $this->assertStringContainsString('Protein: 60 / 70.00 g', $html);
+        $this->assertStringContainsString('Diet compliance: partial', $html);
+        $this->assertStringContainsString('Goal decision: continue', $html);
+    }
+
     public function test_data_uses_current_patient_display_name(): void
     {
         $ncp = $this->makeRecord();

@@ -128,6 +128,7 @@ class PurchaseOrderCompletionPatternTest extends TestCase
             'completed_by' => $fss->id,
         ]);
 
+        $this->actingAs($rnd);
         $service = app(PurchaseOrderLifecycleService::class);
         $service->createPpaSnapshot($po, $list);
         $service->refresh($po);
