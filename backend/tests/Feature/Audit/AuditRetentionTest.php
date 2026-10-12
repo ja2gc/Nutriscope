@@ -19,7 +19,6 @@ use App\Services\Audit\AuditHealthMonitor;
 use App\Services\Audit\AuditLogger;
 use App\Services\Audit\AuditRetentionService;
 use App\Services\Audit\AuditRetentionState;
-use App\Services\Audit\SecurityAuditDeduplicator;
 use Closure;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Debug\ExceptionHandler;
@@ -164,6 +163,7 @@ class AuditRetentionTest extends TestCase
         $heldClinical = $this->activity('clinical', now()->subDays(61));
         $legacy = $this->activity(null, now()->subDays(11));
         $recent = $this->activity('security', now()->subDay());
+        $lastAuditId = AuditActivity::max('id');
 
         $this->artisan('audit:prune --force')
             ->expectsOutputToContain('Prune complete: 6 eligible, 6 deleted, 1 held category.')
@@ -174,18 +174,7 @@ class AuditRetentionTest extends TestCase
         $this->assertModelExists($heldClinical);
         $this->assertModelExists($recent);
 
-        $completion = AuditActivity::query()
-            ->where('event', AuditAction::Completed->value)
-            ->where('domain', AuditDomain::System->value)
-            ->where('outcome', AuditOutcome::Success->value)
-            ->sole();
-        $details = $completion->properties->get('details');
-        $this->assertSame([
-            'deleted_count' => 6,
-            'eligible_count' => 6,
-            'held_category_count' => 1,
-        ], $details);
-        $this->assertStringNotContainsString('clinical', json_encode($completion->properties, JSON_THROW_ON_ERROR));
+        $this->assertSame(0, AuditActivity::query()->where('id', '>', $lastAuditId)->count());
     }
 
     public function test_audit_rows_refuse_application_updates_and_deletes(): void
@@ -313,8 +302,9 @@ class AuditRetentionTest extends TestCase
         $this->assertModelExists($activity);
     }
 
-    public function test_prune_failure_emits_a_safe_failure_event_and_returns_failure(): void
+    public function test_prune_failure_is_logged_safely_and_returns_failure(): void
     {
+        Log::spy();
         $this->app->instance(AuditRetentionService::class, new class(app(AuditHealthMonitor::class)) extends AuditRetentionService
         {
             public function prune(bool $force): array
@@ -325,25 +315,15 @@ class AuditRetentionTest extends TestCase
 
         $this->artisan('audit:prune --force')->assertFailed();
 
-        $failure = AuditActivity::query()
-            ->where('event', AuditAction::Completed->value)
-            ->where('domain', AuditDomain::System->value)
-            ->where('outcome', AuditOutcome::Failure->value)
-            ->where('severity', AuditSeverity::Critical->value)
-            ->sole();
-        $this->assertSame([
-            'deleted_count' => 0,
-            'eligible_count' => 0,
-            'held_category_count' => 0,
-        ], $failure->properties->get('details'));
-        $this->assertStringNotContainsString(
-            'DATABASE-PASSWORD-SENTINEL',
-            json_encode($failure->properties, JSON_THROW_ON_ERROR),
-        );
+        Log::shouldHaveReceived('critical')->withArgs(fn (string $message, array $context): bool => $message === 'Audit retention failure detected.'
+            && $context === ['exception_class' => RuntimeException::class]
+        )->once();
+        $this->assertSame(0, AuditActivity::query()->where('domain', AuditDomain::System->value)->count());
     }
 
-    public function test_later_prune_chunk_failure_preserves_actual_progress_in_event_and_metrics(): void
+    public function test_later_prune_chunk_failure_preserves_actual_progress_in_metrics(): void
     {
+        Log::spy();
         $this->travelTo('2026-07-31 23:00:00');
         config([
             'audit.pruning.chunk_size' => 2,
@@ -355,6 +335,7 @@ class AuditRetentionTest extends TestCase
         $expired = collect(range(1, 3))->map(
             fn (): AuditActivity => $this->activity('security', now()->subDays(2)),
         );
+        $lastAuditId = AuditActivity::max('id');
         $table = (new AuditActivity)->getTable();
         $deleteAttempt = 0;
         DB::connection(config('activitylog.database_connection'))
@@ -372,16 +353,10 @@ class AuditRetentionTest extends TestCase
         $this->assertModelMissing($expired[0]);
         $this->assertModelMissing($expired[1]);
         $this->assertModelExists($expired[2]);
-        $failure = AuditActivity::query()
-            ->where('event', AuditAction::Completed->value)
-            ->where('outcome', AuditOutcome::Failure->value)
-            ->sole();
-        $this->assertSame([
-            'deleted_count' => 2,
-            'eligible_count' => 3,
-            'held_category_count' => 3,
-        ], $failure->properties->get('details'));
-        $this->assertStringNotContainsString('DATABASE-PASSWORD-SENTINEL', $failure->properties->toJson());
+        Log::shouldHaveReceived('critical')->withArgs(fn (string $message, array $context): bool => $message === 'Audit retention failure detected.'
+            && $context === ['exception_class' => AuditPruneFailed::class]
+        )->once();
+        $this->assertSame(0, AuditActivity::query()->where('id', '>', $lastAuditId)->count());
 
         Log::spy();
         $this->travelTo('2026-08-01 00:30:00');
@@ -730,18 +705,11 @@ class AuditRetentionTest extends TestCase
         }
     }
 
-    public function test_noncritical_security_telemetry_failure_preserves_the_http_response(): void
+    public function test_unauthorized_requests_do_not_create_security_audit_events(): void
     {
-        Log::spy();
-        $deduplicator = $this->createMock(SecurityAuditDeduplicator::class);
-        $deduplicator->method('record')->willThrowException(new AuditLoggingUnavailable('TOKEN-SENTINEL'));
-        $this->app->instance(SecurityAuditDeduplicator::class, $deduplicator);
-
         $this->getJson('/api/admin/audit-logs')->assertUnauthorized();
 
-        Log::shouldHaveReceived('critical')->withArgs(fn (string $message, array $context): bool => $message === 'Audit writer failure detected.'
-            && $context === ['exception_class' => AuditLoggingUnavailable::class]
-        )->once();
+        $this->assertSame(0, AuditActivity::query()->count());
     }
 
     public function test_one_hundred_thousand_event_queries_use_indexes_and_meet_the_staging_p95_budget(): void

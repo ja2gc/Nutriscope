@@ -10,6 +10,20 @@ use Tests\TestCase;
 
 class AuditRouteCoverageTest extends TestCase
 {
+    public function test_report_mutations_are_classified_as_not_audited(): void
+    {
+        $reportRoutes = collect(config('audit.route_coverage'))
+            ->filter(fn (array $policy, string $route): bool => str_contains($route, '/reports/')
+                || str_contains($route, '/report-'));
+
+        $this->assertNotEmpty($reportRoutes);
+        $reportRoutes->each(fn (array $policy, string $route) => $this->assertSame(
+            'intentionally_not_audited',
+            $policy['classification'],
+            $route,
+        ));
+    }
+
     public function test_every_unsafe_route_has_an_audit_classification_and_reason(): void
     {
         $routeList = new Process(

@@ -2,15 +2,8 @@
 
 namespace App\Jobs;
 
-use App\Enums\AuditAction;
-use App\Enums\AuditCategory;
-use App\Enums\AuditDomain;
-use App\Enums\AuditOutcome;
-use App\Enums\AuditSeverity;
 use App\Models\Report;
-use App\Services\Audit\AuditLogger;
 use App\Services\Reports\ReportArchiveStorage;
-use App\Services\Reports\ReportAuditReference;
 use App\Services\Reports\ReportService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -28,7 +21,7 @@ class GenerateReport implements ShouldQueue
 
     public function __construct(public Report $report) {}
 
-    public function handle(ReportService $reports, AuditLogger $auditLogger, ReportArchiveStorage $archiveStorage, ReportAuditReference $auditReference): void
+    public function handle(ReportService $reports, ReportArchiveStorage $archiveStorage): void
     {
         $shouldGenerate = DB::transaction(function (): bool {
             $report = Report::query()->lockForUpdate()->findOrFail($this->report->getKey());
@@ -49,7 +42,7 @@ class GenerateReport implements ShouldQueue
         try {
             $path = $reports->generate($this->report);
 
-            DB::transaction(function () use ($auditLogger, $auditReference, $path): void {
+            DB::transaction(function () use ($path): void {
                 $this->report = Report::query()->lockForUpdate()->findOrFail($this->report->getKey());
                 if ($this->report->status !== 'generating') {
                     return;
@@ -60,7 +53,6 @@ class GenerateReport implements ShouldQueue
                     'generated_at' => now(),
                     'expires_at' => now()->addDays(7),
                 ]);
-                $this->recordLifecycle($auditLogger, $auditReference, AuditOutcome::Success);
             });
         } catch (\Throwable $e) {
             try {
@@ -73,38 +65,14 @@ class GenerateReport implements ShouldQueue
                 'type' => $this->report->type,
                 'exception' => $e::class,
             ]);
-            DB::transaction(function () use ($auditLogger, $auditReference): void {
+            DB::transaction(function (): void {
                 $this->report = Report::query()->lockForUpdate()->findOrFail($this->report->getKey());
                 if ($this->report->status === 'failed') {
                     return;
                 }
                 $this->report->update(['status' => 'failed']);
-                $this->recordLifecycle($auditLogger, $auditReference, AuditOutcome::Failure);
             });
             throw $e;
         }
-    }
-
-    private function recordLifecycle(AuditLogger $auditLogger, ReportAuditReference $auditReference, AuditOutcome $outcome): void
-    {
-        $auditLogger->record(
-            AuditAction::Generated,
-            AuditCategory::Operations,
-            AuditDomain::Reports,
-            subject: $this->report,
-            outcome: $outcome,
-            severity: $outcome === AuditOutcome::Failure ? AuditSeverity::Warning : AuditSeverity::Info,
-            details: [
-                ...$auditReference->details(
-                    $this->report->type,
-                    $this->report->parameters ?? [],
-                    $this->report,
-                    $outcome === AuditOutcome::Success ? 200 : 500,
-                ),
-                'generation_status' => $outcome === AuditOutcome::Success ? 'completed' : 'failed',
-            ],
-            systemActor: 'report_generation',
-            includeRequestMetadata: false,
-        );
     }
 }

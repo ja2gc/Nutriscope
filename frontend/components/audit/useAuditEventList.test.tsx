@@ -20,10 +20,9 @@ function auditMeta(total: number): AuditLogListMeta {
   total,
   last_page: 1,
   filters: {
-    modules: [], actions: [], outcomes: [], severities: [],
-    module_subfilters: { security_administration: [], nutrition_care: [], food_service_operations: [], reports: [] },
-    module_actions: { security_administration: [], nutrition_care: [], food_service_operations: [], reports: [] },
-    module_counts: { all: 0, security_administration: 0, nutrition_care: 0, food_service_operations: 0, reports: 0 },
+    modules: [], actions: [],
+    module_counts: { all: 0, security_administration: 0, nutrition_care: 0, food_service_operations: 0 },
+    report_contexts: {},
   },
   capabilities: {},
   retention: { enabled: false, source: "config", periods: { security: 365, clinical: 2190, operations: 1095, legacy: 90 } },
@@ -40,15 +39,13 @@ function deferred<T>() {
 function auditEvent(summary: string): AuditEventDto {
   return {
     id: summary,
-    module: "reports",
-    category: "operations",
-    domain: "reports",
+    module: "nutrition_care",
+    category: "clinical",
+    domain: "patients",
     record_type: "Report",
-    action: "viewed",
-    action_label: "Viewed",
+    action: "updated",
+    action_label: "Updated",
     summary,
-    severity: "info",
-    outcome: "success",
     actor: null,
     subject: null,
     context: null,
@@ -64,7 +61,7 @@ function auditEvent(summary: string): AuditEventDto {
   };
 }
 
-function Harness({ module }: { module: "security_administration" | "reports" }) {
+function Harness({ module }: { module: "security_administration" | "nutrition_care" }) {
   const state = useAuditEventList({ module });
   return (
     <div data-loading={state.loading} data-total={state.meta.total}>
@@ -97,7 +94,7 @@ describe("useAuditEventList", () => {
 
     act(() => root.render(<Harness module="security_administration" />));
     const firstSignal = listMock.mock.calls[0][1]?.signal;
-    act(() => root.render(<Harness module="reports" />));
+    act(() => root.render(<Harness module="nutrition_care" />));
 
     expect(firstSignal?.aborted).toBe(true);
     await act(async () => newer.resolve({ data: [auditEvent("newest")], meta: auditMeta(2) }));
@@ -116,7 +113,7 @@ describe("useAuditEventList", () => {
     listMock.mockReturnValueOnce(older.promise).mockReturnValueOnce(newer.promise);
 
     act(() => root.render(<Harness module="security_administration" />));
-    act(() => root.render(<Harness module="reports" />));
+    act(() => root.render(<Harness module="nutrition_care" />));
     await act(async () => newer.resolve({ data: [auditEvent("current")], meta: auditMeta(1) }));
     await act(async () => older.reject(new Error("stale failure")));
 

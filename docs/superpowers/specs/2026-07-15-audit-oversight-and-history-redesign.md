@@ -8,7 +8,20 @@ This specification revises the audit-log and audit-trail implementation delivere
 
 The coordinated first-name/last-name migration is specified separately. It must be implemented first so future audit actor snapshots use the final `display_name` contract without rewriting historical snapshots.
 
-## Confirmed owner decisions
+## Current owner override (2026-10-10)
+
+This override supersedes earlier audit-interface and event-taxonomy decisions below wherever they conflict:
+
+- Admin Audit Logs has All Activity plus Security & Administration, Nutrition Care, and Food Service Operations tabs. It has no Reports tab.
+- Filters are module, report type within the selected module, action, actor, and month. Outcome and severity are not filters.
+- User-facing actions are Created, Updated, Deleted, Viewed, Downloaded, Archived, Failed, Suspended, Unsuspended, and Discontinued. Viewed, Downloaded, and Archived apply to reports; other workflow-specific edits and transitions normalize to the concise action set.
+- The Reports tab is removed. Report viewed, downloaded, and archived events remain visible in the owning Nutrition Care or Food Service Operations tab, with report type as their subject and filter. Report generation, preparation, template edits, and configuration changes are not audited.
+- Audit-page access, generic role denials, routine profile/settings changes, and routine background activity do not create audit events. Failed login attempts, protected-route authentication failures, and login rate limits use the `Failed` action with a clear subject.
+- Historical report access events are reclassified into their owning module and retain report type. Removed report-configuration and other removed-feature rows are deleted. Retained events and revision records are normalized by the forward-only `simplify_audit_history` migration.
+
+Privacy, immutability, retention, route authorization, clinical redaction, and event-time operational history remain in force unless changed by this override.
+
+## Earlier confirmed owner decisions
 
 - Admin remains the only global audit-log viewer.
 - Admin sees the patient's `display_name` as the sole patient identity field on patient-linked audit events. Admin never sees other patient identity/demographic fields, clinical values, clinical file contents, patient-specific report contents, AI prompts, or AI outputs.

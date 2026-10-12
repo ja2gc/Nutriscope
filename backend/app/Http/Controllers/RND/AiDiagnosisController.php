@@ -2,9 +2,6 @@
 
 namespace App\Http\Controllers\RND;
 
-use App\Enums\AuditAction;
-use App\Enums\AuditCategory;
-use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\RND\AiApproveDiagnosisRequest;
 use App\Http\Requests\RND\AiSuggestDiagnosisRequest;
@@ -42,18 +39,6 @@ class AiDiagnosisController extends Controller
         } catch (\RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 502);
         }
-
-        $this->auditLogger->record(
-            AuditAction::Generated,
-            AuditCategory::Clinical,
-            AuditDomain::Ncp,
-            subject: $ncpRecord,
-            details: [
-                'status' => 200,
-                'cached' => $result['meta']['cached'],
-                'draft_count' => count($result['data']),
-            ],
-        );
 
         return response()->json($result);
     }

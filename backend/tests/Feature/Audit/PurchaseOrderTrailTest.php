@@ -3,7 +3,6 @@
 namespace Tests\Feature\Audit;
 
 use App\Enums\AuditAction;
-use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
 use App\Exceptions\AuditLoggingUnavailable;
 use App\Models\AuditActivity;
@@ -95,12 +94,12 @@ class PurchaseOrderTrailTest extends TestCase
 
         $events = AuditActivity::query()->auditOnly()->where('context_type', $po->getMorphClass())
             ->where('context_id', $po->id)->get();
-        $this->assertContains(AuditAction::Approved->value, $events->pluck('event'));
-        $this->assertContains(AuditAction::Uploaded->value, $events->pluck('event'));
-        $this->assertContains(AuditAction::PriceCorrected->value, $events->pluck('event'));
-        $this->assertSame(1, $events->where('event', AuditAction::Approved->value)->count());
-        $uploaded = $events->firstWhere('event', AuditAction::Uploaded->value);
-        $corrected = $events->firstWhere('event', AuditAction::PriceCorrected->value);
+        $this->assertContains(AuditAction::Created->value, $events->pluck('event'));
+        $this->assertContains(AuditAction::Updated->value, $events->pluck('event'));
+        $uploaded = $events->first(fn ($event) => $event->event === AuditAction::Created->value
+            && count(data_get($event->revision?->after, 'attachments', [])) === 1);
+        $this->assertNotNull($uploaded);
+        $corrected = $events->firstWhere('event', AuditAction::Updated->value);
         $this->assertSame($po->getMorphClass(), $uploaded->subject_type);
         $this->assertCount(0, $uploaded->revision->before['attachments']);
         $this->assertCount(1, $uploaded->revision->after['attachments']);
@@ -114,14 +113,14 @@ class PurchaseOrderTrailTest extends TestCase
 
         $actions = array_column($this->getJson("/api/fss/purchase-orders/{$po->uuid}/activity")
             ->assertOk()->json('data'), 'action');
-        $this->assertContains(AuditAction::Approved->value, $actions);
-        $this->assertContains(AuditAction::Uploaded->value, $actions);
-        $this->assertContains(AuditAction::PriceCorrected->value, $actions);
+        $this->assertContains(AuditAction::Created->value, $actions);
+        $this->assertContains(AuditAction::Updated->value, $actions);
 
         $this->postJson("/api/fss/shopping-lists/{$list->uuid}/approve")->assertUnprocessable();
         $this->assertSame(1, PurchaseOrder::query()->where('shopping_list_id', $list->id)->count());
         $this->assertSame(1, AuditActivity::query()->where('context_type', $po->getMorphClass())
-            ->where('context_id', $po->id)->where('event', AuditAction::Approved->value)->count());
+            ->where('context_id', $po->id)->where('subject_type', $po->getMorphClass())
+            ->where('event', AuditAction::Created->value)->count());
     }
 
     public function test_receiving_completion_and_budget_deduction_appear_in_the_po_trail(): void
@@ -152,22 +151,20 @@ class PurchaseOrderTrailTest extends TestCase
         $deductionEvent = AuditActivity::query()
             ->where('subject_type', $budget->getMorphClass())
             ->where('subject_id', $budget->id)
-            ->where('event', AuditAction::Adjusted->value)
+            ->where('event', AuditAction::Updated->value)
             ->sole();
         $this->assertSame($po->getMorphClass(), $deductionEvent->context_type);
         $this->assertSame($po->id, $deductionEvent->context_id);
         $this->assertSame(0, AuditActivity::query()->where('subject_type', (new Inventory)->getMorphClass())->count());
         $actions = array_column($this->getJson("/api/fss/purchase-orders/{$po->uuid}/activity")
             ->assertOk()->json('data'), 'action');
-        $this->assertContains(AuditAction::Received->value, $actions);
-        $this->assertContains(AuditAction::Completed->value, $actions);
-        $this->assertContains(AuditAction::Adjusted->value, $actions);
+        $this->assertContains(AuditAction::Updated->value, $actions);
         app(PurchaseOrderLifecycleService::class)->refresh($po);
         app(PurchaseOrderLifecycleService::class)->refresh($po);
-        $this->assertSame(1, AuditActivity::query()->where('context_type', $po->getMorphClass())
-            ->where('context_id', $po->id)->where('event', AuditAction::Completed->value)->count());
+        $this->assertSame(3, AuditActivity::query()->where('context_type', $po->getMorphClass())
+            ->where('context_id', $po->id)->where('event', AuditAction::Updated->value)->count());
         $this->assertSame(1, AuditActivity::query()->where('subject_type', $budget->getMorphClass())
-            ->where('subject_id', $budget->id)->where('event', AuditAction::Adjusted->value)->count());
+            ->where('subject_id', $budget->id)->where('event', AuditAction::Updated->value)->count());
         $this->assertTrue(Schema::hasIndex('budget_ledger', ['po_deduction_guard'], 'unique'));
     }
 
@@ -192,10 +189,10 @@ class PurchaseOrderTrailTest extends TestCase
         ]);
         AuditFixture::delete(AuditActivity::query());
         $this->patchJson("/api/fss/purchase-orders/{$completed->uuid}", ['lifecycle_status' => 'archived'])->assertOk();
-        $this->assertSame([AuditAction::Archived->value], AuditActivity::query()->pluck('event')->all());
+        $this->assertSame([AuditAction::Updated->value], AuditActivity::query()->pluck('event')->all());
     }
 
-    public function test_draft_to_ordered_uses_ordered_not_generic_updated(): void
+    public function test_draft_to_ordered_is_categorized_as_created(): void
     {
         $rnd = User::factory()->rnd()->create();
         $po = PurchaseOrder::factory()->create(['rnd_user_id' => $rnd->id, 'status' => 'draft']);
@@ -206,7 +203,7 @@ class PurchaseOrderTrailTest extends TestCase
             'or_number' => 'OR-MIXED',
         ])->assertOk();
 
-        $this->assertSame(['ordered'], AuditActivity::query()->pluck('event')->all());
+        $this->assertSame(['created'], AuditActivity::query()->pluck('event')->all());
         $this->assertSame(
             ['or_number', 'status'],
             AuditActivity::query()->sole()->properties['details']['changed_fields'],
@@ -301,7 +298,7 @@ class PurchaseOrderTrailTest extends TestCase
         Storage::disk('public')->assertExists('po-attachments/good.jpg');
     }
 
-    public function test_vendor_receipt_transition_emits_exactly_one_received_and_no_generic_lifecycle_update(): void
+    public function test_vendor_receipt_transition_uses_updated_actions(): void
     {
         Storage::fake('public');
         $rnd = User::factory()->rnd()->create();
@@ -331,18 +328,18 @@ class PurchaseOrderTrailTest extends TestCase
 
         $rootEvents = AuditActivity::query()->where('context_type', $po->getMorphClass())
             ->where('context_id', $po->id)->get();
-        $this->assertSame(1, $rootEvents->where('event', AuditAction::Received->value)->count());
-        $this->assertSame(0, $rootEvents->where('event', AuditAction::Updated->value)->count());
+        $this->assertSame(3, $rootEvents->where('event', AuditAction::Updated->value)->count());
+        $this->assertSame(0, $rootEvents->where('event', AuditAction::Received->value)->count());
         $this->assertSame(
             ['or_number', 'received_at', 'status'],
-            $rootEvents->firstWhere('event', AuditAction::Received->value)->properties['details']['changed_fields'],
+            $rootEvents->firstWhere('event', AuditAction::Updated->value)->properties['details']['changed_fields'],
         );
         $catalogPriceAfterFirstReceipt = (float) $group->items()->firstOrFail()->fsItem->fresh()->purchase_price;
         $this->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", ['status' => 'received'])
             ->assertStatus(422);
         $this->assertSame($catalogPriceAfterFirstReceipt, (float) $group->items()->firstOrFail()->fsItem->fresh()->purchase_price);
-        $this->assertSame(1, AuditActivity::query()->where('context_type', $po->getMorphClass())
-            ->where('context_id', $po->id)->where('event', AuditAction::Received->value)->count());
+        $this->assertSame(3, AuditActivity::query()->where('context_type', $po->getMorphClass())
+            ->where('context_id', $po->id)->where('event', AuditAction::Updated->value)->count());
     }
 
     public function test_completion_ledger_and_audit_roll_back_together_when_audit_is_unavailable(): void
@@ -411,7 +408,7 @@ class PurchaseOrderTrailTest extends TestCase
                 ->assertOk()->assertJsonCount(1, 'data')->json('data.0');
             $this->assertSame([
                 'id', 'module', 'category', 'domain', 'record_type', 'action', 'action_label',
-                'summary', 'severity', 'outcome', 'actor', 'subject', 'context', 'patient',
+                'summary', 'actor', 'subject', 'context', 'patient',
                 'ncp_reference', 'detail_mode', 'reason', 'history', 'current_record_url',
                 'occurred_at', 'details', 'changes',
             ], array_keys($event));
@@ -435,7 +432,7 @@ class PurchaseOrderTrailTest extends TestCase
         $this->assertSame(['kind' => 'system', 'id' => null, 'name' => 'Budget ledger'], $rows['system']['actor']);
     }
 
-    public function test_setting_update_audits_only_a_real_change_with_old_and_new_limit(): void
+    public function test_setting_updates_are_not_audited(): void
     {
         $admin = User::factory()->admin()->create();
         FoodServiceSetting::query()->create(['per_head_day_limit' => 100]);
@@ -445,27 +442,10 @@ class PurchaseOrderTrailTest extends TestCase
         $this->assertDatabaseCount('activity_log', 0);
 
         $this->putJson('/api/admin/food-service-settings', ['per_head_day_limit' => 125])->assertOk();
-        $activity = AuditActivity::query()->auditOnly()->sole();
-        $this->assertSame(AuditAction::SettingsChanged->value, $activity->event);
-        $this->assertSame(AuditCategory::Operations, $activity->category);
-        $this->assertSame(AuditDomain::FoodService, $activity->domain);
-        $this->assertSame(100.0, (float) $activity->properties['details']['old_limit']);
-        $this->assertSame(125.0, (float) $activity->properties['details']['new_limit']);
-        $this->assertTrue($activity->causer->is($admin));
-
-        $event = app(AuditEventPresenter::class)
-            ->present($activity->load('causer'), $admin)
-            ->toArray();
-        $this->assertSame('food_service_operations', $event['module']);
-        $this->assertSame('changes', $event['detail_mode']);
-        $this->assertCount(1, $event['changes']);
-        $this->assertSame('per_head_day_limit', $event['changes'][0]['field']);
-        $this->assertSame('currency', $event['changes'][0]['before']['type']);
-        $this->assertEqualsWithDelta(100, $event['changes'][0]['before']['value'], 0.01);
-        $this->assertEqualsWithDelta(125, $event['changes'][0]['after']['value'], 0.01);
+        $this->assertDatabaseCount('activity_log', 0);
 
         $this->putJson('/api/admin/food-service-settings', ['per_head_day_limit' => 125])->assertOk();
-        $this->assertDatabaseCount('activity_log', 1);
+        $this->assertDatabaseCount('activity_log', 0);
     }
 
     public function test_meal_service_completion_served_adjustment_and_reversal_use_semantic_po_rooted_events(): void
@@ -536,21 +516,19 @@ class PurchaseOrderTrailTest extends TestCase
 
         $events = AuditActivity::query()->auditOnly()
             ->where('context_type', $po->getMorphClass())->where('context_id', $po->id)->get();
-        $this->assertContains(AuditAction::Completed->value, $events->pluck('event'));
-        $this->assertContains(AuditAction::Adjusted->value, $events->pluck('event'));
-        $this->assertContains(AuditAction::Reversed->value, $events->pluck('event'));
-        $this->assertSame(1, $events->where('event', AuditAction::Reversed->value)->count());
-        $this->assertSame(0, $events->whereIn('event', ['created', 'updated'])->count());
-        $completedEvent = $events->firstWhere('event', AuditAction::Completed->value);
+        $this->assertContains(AuditAction::Updated->value, $events->pluck('event'));
+        $this->assertSame(3, $events->where('event', AuditAction::Updated->value)->count());
+        $this->assertSame(0, $events->whereIn('event', ['reversed', 'completed', 'adjusted'])->count());
+        $completedEvent = $events->first(fn (AuditActivity $event): bool => isset($event->properties['attributes']['estimated_population']));
         $this->assertSame(20, $completedEvent->properties['attributes']['estimated_population']);
         $this->assertSame(18, $completedEvent->properties['attributes']['served_population']);
         $this->assertSame(2, $completedEvent->properties['attributes']['population_variance']);
-        $adjustedEvent = $events->firstWhere('event', AuditAction::Adjusted->value);
+        $adjustedEvent = $events->first(fn (AuditActivity $event): bool => isset($event->properties['old']['served_population']));
         $this->assertSame(18, $adjustedEvent->properties['old']['served_population']);
         $this->assertSame(19, $adjustedEvent->properties['attributes']['served_population']);
         $this->assertSame(2, $adjustedEvent->properties['old']['population_variance']);
         $this->assertSame(1, $adjustedEvent->properties['attributes']['population_variance']);
-        $reversedEvent = $events->firstWhere('event', AuditAction::Reversed->value);
+        $reversedEvent = $events->first(fn (AuditActivity $event): bool => ($event->properties['attributes']['status'] ?? null) === 'reversed');
         $this->assertSame('completed', $reversedEvent->properties['old']['status']);
         $this->assertSame('reversed', $reversedEvent->properties['attributes']['status']);
         $presented = app(AuditEventPresenter::class)

@@ -3,14 +3,10 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Data\AuditEventDto;
-use App\Enums\AuditAction;
-use App\Enums\AuditCategory;
-use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ListAuditLogsRequest;
 use App\Models\AuditActivity;
 use App\Services\Audit\AuditEventPresenter;
-use App\Services\Audit\AuditLogger;
 use App\Services\Audit\AuditQuery;
 use Illuminate\Support\Facades\Gate;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -22,7 +18,6 @@ class AuditLogExportController extends Controller
     public function __construct(
         private readonly AuditQuery $auditQuery,
         private readonly AuditEventPresenter $presenter,
-        private readonly AuditLogger $auditLogger,
     ) {}
 
     public function __invoke(ListAuditLogsRequest $request): StreamedResponse
@@ -38,14 +33,6 @@ class AuditLogExportController extends Controller
 
         $query = $this->auditQuery->build($request->filters());
         $lastExportedId = (int) ((clone $query)->reorder()->max('id') ?? 0);
-
-        $this->auditLogger->record(
-            AuditAction::Exported,
-            AuditCategory::Security,
-            AuditDomain::System,
-            details: ['format' => 'csv'],
-            actor: $request->user(),
-        );
 
         return response()->streamDownload(function () use ($query, $lastExportedId): void {
             $stream = fopen('php://output', 'wb');

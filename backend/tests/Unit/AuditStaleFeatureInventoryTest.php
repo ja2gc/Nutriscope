@@ -21,7 +21,7 @@ class AuditStaleFeatureInventoryTest extends TestCase
         'disabled export UI and active capability' => ['remove-after-compatibility', 15],
         'report creator ownership gates' => ['remove', 13],
         'IP-blocking scaffolding' => ['keep-absent', 15],
-        'account block and unblock actions' => ['retain', 15],
+        'legacy account blocking action names' => ['remove', 15],
         'raw JSON audit rendering' => ['keep-absent', 15],
         'quantity_in_stock live surface' => ['already-retired', 15],
         'read-only derived inventory routes' => ['retain', 15],
@@ -44,7 +44,7 @@ class AuditStaleFeatureInventoryTest extends TestCase
             'disabled export UI and active capability',
             'report creator ownership gates',
             'IP-blocking scaffolding',
-            'account block and unblock actions',
+            'legacy account blocking action names',
             'raw JSON audit rendering',
             'quantity_in_stock live surface',
             'read-only derived inventory routes',
@@ -137,8 +137,8 @@ class AuditStaleFeatureInventoryTest extends TestCase
             ->all();
 
         $this->assertSame([], $matches);
-        $this->assertContains(AuditAction::AccountBlocked, AuditAction::cases());
-        $this->assertContains(AuditAction::AccountUnblocked, AuditAction::cases());
+        $this->assertNull(AuditAction::tryFrom('account_blocked'));
+        $this->assertNull(AuditAction::tryFrom('account_unblocked'));
 
         $auditUi = collect(File::allFiles(base_path('../frontend/components/audit')))
             ->reject(fn (\SplFileInfo $file): bool => str_contains($file->getFilename(), '.test.'))

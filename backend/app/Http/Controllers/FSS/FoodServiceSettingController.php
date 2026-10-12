@@ -2,20 +2,14 @@
 
 namespace App\Http\Controllers\FSS;
 
-use App\Enums\AuditAction;
-use App\Enums\AuditCategory;
-use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
 use App\Models\FoodServiceSetting;
-use App\Services\Audit\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class FoodServiceSettingController extends Controller
 {
-    public function __construct(private readonly AuditLogger $auditLogger) {}
-
     /** Shared Food Service settings (per-head/day budget limit). */
     public function show(): JsonResponse
     {
@@ -42,26 +36,7 @@ class FoodServiceSettingController extends Controller
             : $oldLimit;
 
         if ($oldLimit !== $newLimit) {
-            $this->audited(function () use ($setting, $oldLimit, $newLimit): void {
-                $setting->update([
-                    'per_head_day_limit' => $newLimit,
-                    'updated_by' => Auth::id(),
-                ]);
-                $this->auditLogger->record(
-                    AuditAction::SettingsChanged,
-                    AuditCategory::Operations,
-                    AuditDomain::FoodService,
-                    subject: $setting,
-                    details: [
-                        'changed_fields' => ['per_head_day_limit'],
-                        'old_limit' => $oldLimit,
-                        'new_limit' => $newLimit,
-                    ],
-                    actor: Auth::user(),
-                    oldValues: ['per_head_day_limit' => $oldLimit],
-                    newValues: ['per_head_day_limit' => $newLimit],
-                );
-            });
+            $setting->update(['per_head_day_limit' => $newLimit, 'updated_by' => Auth::id()]);
         }
 
         return response()->json(['data' => [

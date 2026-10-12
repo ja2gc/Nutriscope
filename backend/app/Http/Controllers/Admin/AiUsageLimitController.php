@@ -2,19 +2,14 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Enums\AuditAction;
-use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\UpdateAiUsageLimitRequest;
 use App\Models\AiUsageLimit;
 use App\Models\AiUsageLog;
-use App\Services\Audit\AuditLogger;
 use Illuminate\Http\JsonResponse;
 
 class AiUsageLimitController extends Controller
 {
-    public function __construct(private readonly AuditLogger $auditLogger) {}
-
     public function show(): JsonResponse
     {
         $limits = AiUsageLimit::current();
@@ -26,12 +21,7 @@ class AiUsageLimitController extends Controller
     {
         $limits = AiUsageLimit::current();
         $data = $request->validated();
-        $this->audited(function () use ($limits, $data): void {
-            $limits->update($data);
-            if ($limits->getChanges() !== []) {
-                $this->auditLogger->recordMutation(AuditAction::SettingsChanged, AuditDomain::System, $limits, array_keys($limits->getChanges()));
-            }
-        });
+        $limits->update($data);
 
         return response()->json(['data' => $this->payload($limits->fresh())]);
     }

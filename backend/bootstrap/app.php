@@ -1,16 +1,17 @@
 <?php
 
 use App\Enums\AuditAction;
+use App\Enums\AuditCategory;
+use App\Enums\AuditDomain;
 use App\Http\Middleware\EnsureActiveUser;
-use App\Http\Middleware\RecordSecurityRejections;
 use App\Http\Middleware\RoleMiddleware;
 use App\Jobs\RunBackupRecoveryTest;
 use App\Models\BackupRun;
 use App\Models\Notification;
 use App\Models\RecoveryTest;
 use App\Services\Audit\AuditHealthMonitor;
+use App\Services\Audit\AuditLogger;
 use App\Services\Audit\AuditRetentionState;
-use App\Services\Audit\SecurityAuditDeduplicator;
 use App\Services\Backup\BackupRetentionService;
 use App\Services\Backup\DispatchDueBackups;
 use Illuminate\Console\Scheduling\Schedule;
@@ -107,7 +108,6 @@ return Application::configure(basePath: dirname(__DIR__))
             ->onOneServer();
     })
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->append(RecordSecurityRejections::class);
         $middleware->alias([
             'role' => RoleMiddleware::class,
             'active' => EnsureActiveUser::class,
@@ -134,44 +134,30 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $exceptions->respond(function (Response $response): Response {
             $request = request();
-            $middleware = $request->route()?->gatherMiddleware() ?? [];
-            $isAuthenticatedRoute = collect($middleware)->contains(
-                fn (string $name): bool => str_starts_with($name, 'auth:'),
+            $status = $response->getStatusCode();
+            $isProtectedRoute = collect($request->route()?->gatherMiddleware() ?? [])->contains(
+                fn (string $name): bool => str_starts_with($name, 'auth:') || str_starts_with($name, 'role:'),
             );
-            $isRoleProtectedRoute = collect($middleware)->contains(
-                fn (string $name): bool => str_starts_with($name, 'role:'),
-            );
+            $isLoginRateLimit = $status === 429 && $request->is('api/auth/login');
 
-            if ($response->getStatusCode() === 401 && ($isAuthenticatedRoute || $isRoleProtectedRoute)) {
-                try {
-                    app(SecurityAuditDeduplicator::class)->record(
-                        AuditAction::AuthenticationFailed,
-                        'authentication',
-                        $request,
-                        status: 401,
-                    );
-                } catch (Throwable $exception) {
-                    try {
-                        app(AuditHealthMonitor::class)->writerFailure($exception);
-                    } catch (Throwable) {
-                    }
-                }
+            if (($status !== 401 || ! $isProtectedRoute) && ! $isLoginRateLimit) {
+                return $response;
             }
 
-            if ($response->getStatusCode() === 403 && ($isAuthenticatedRoute || $isRoleProtectedRoute)) {
+            try {
+                app(AuditLogger::class)->record(
+                    AuditAction::Failed,
+                    AuditCategory::Security,
+                    AuditDomain::Accounts,
+                    details: [
+                        'subject_label' => $isLoginRateLimit ? 'Rate limit exceeded' : 'Authentication',
+                        'reason' => $isLoginRateLimit ? 'Login rate limit reached' : 'Authentication failed',
+                    ],
+                );
+            } catch (Throwable $exception) {
                 try {
-                    app(SecurityAuditDeduplicator::class)->record(
-                        AuditAction::AuthorizationDenied,
-                        'authorization',
-                        $request,
-                        status: 403,
-                        actor: $request->user(),
-                    );
-                } catch (Throwable $exception) {
-                    try {
-                        app(AuditHealthMonitor::class)->writerFailure($exception);
-                    } catch (Throwable) {
-                    }
+                    app(AuditHealthMonitor::class)->writerFailure($exception);
+                } catch (Throwable) {
                 }
             }
 

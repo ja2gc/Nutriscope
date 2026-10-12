@@ -46,7 +46,7 @@ class AuditSanitizer
     private const CLINICAL_SCALAR_KEYS = [
         'route', 'route_name', 'method', 'status', 'status_code', 'document_type',
         'attachment_type', 'format', 'count', 'source', 'generation_type',
-        'identifier', 'public_id', 'reason_code', 'record_id', 'ncp_reference',
+        'identifier', 'public_id', 'reason_code', 'record_id', 'ncp_reference', 'subject_label',
         'report_type', 'report_public_id', 'period_reference',
         'instance_reference', 'visit_reference',
     ];

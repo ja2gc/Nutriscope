@@ -18,9 +18,7 @@ const event: AuditEventDto = {
   action: "updated",
   action_label: "Updated",
   summary: "Changed authorized clinical record fields.",
-  severity: "notice",
-  outcome: "success",
-  actor: { id: "user-public-id", kind: "user", name: longActor, role: "Admin" },
+  actor: { id: "user-public-id", kind: "user", name: longActor, role: "Admin", ip: null },
   subject: { type: "patient", id: null, label: longSubject },
   context: { type: "ncp", id: null, label: "Nutrition care plan" },
   patient: { code: "NS-7K4M-92QX" },
@@ -47,7 +45,7 @@ const operationalEvent: AuditEventDto = {
   action: "updated",
   action_label: "Updated",
   summary: "Maria Santos updated Brown Rice.",
-  actor: { id: "actor-public-id", kind: "user", name: "Maria Santos", role: "RND" },
+  actor: { id: "actor-public-id", kind: "user", name: "Maria Santos", role: "RND", ip: null },
   subject: { type: "fs_item", id: "item-public-id", label: "Brown Rice" },
   context: null,
   patient: null,
@@ -94,12 +92,13 @@ const deletedEvent: AuditEventDto = {
 
 describe("structured audit event components", () => {
   test("wraps longest labels in desktop table and mobile cards", () => {
-    const html = renderToStaticMarkup(<AuditEventTable events={[event]} onSelect={vi.fn()} />);
+    const html = renderToStaticMarkup(<AuditEventTable events={[{ ...event, patient: null, ncp_reference: null }]} onSelect={vi.fn()} />);
     expect(html).toContain(longActor);
     expect(html).toContain(longSubject);
     expect(html).toContain("hidden md:block");
     expect(html).toContain("md:hidden");
     expect(html).toContain("break-words");
+    expect(html).toContain("Subject");
   });
 
   test("shows a patient code without exposing a patient name", () => {
@@ -108,6 +107,9 @@ describe("structured audit event components", () => {
 
     expect(tableHtml).toContain("NS-7K4M-92QX");
     expect(drawerHtml).toContain("NS-7K4M-92QX");
+    expect(drawerHtml).toContain("How to find this patient code");
+    expect(drawerHtml).toContain("How to use this NCP reference");
+    expect(drawerHtml).toContain("IP address: Not recorded");
     expect(tableHtml).not.toContain("Patient Example");
     expect(drawerHtml).not.toContain("Patient Example");
   });
@@ -125,7 +127,7 @@ describe("structured audit event components", () => {
 
   test("renders all drawer sections without raw clinical values", () => {
     const html = renderToStaticMarkup(<AuditEventDrawer event={event} onClose={vi.fn()} />);
-    for (const section of ["Event summary", "Actor", "Record context", "Result", "Recorded values", "Field changes"]) {
+    for (const section of ["Event summary", "Actor", "Record", "Recorded values", "Field changes"]) {
       expect(html).toContain(section);
     }
     expect(html).toContain("NS-7K4M-92QX");
@@ -190,23 +192,26 @@ describe("structured audit event components", () => {
     expect(html).not.toMatch(/[•●]{2,}/u);
   });
 
-  test("limits actions to the selected backend module-action map", () => {
+  test("renders only actions provided by the backend", () => {
     const metadata: AuditFilterMetadata = {
       modules: [{ value: "nutrition_care", label: "Nutrition Care" }],
-      actions: [
-        { value: "updated", label: "Updated" },
-        { value: "login_failed", label: "Login failed" },
-      ],
-      outcomes: [],
-      severities: [],
-      module_subfilters: { security_administration: [], nutrition_care: [], food_service_operations: [], reports: [] },
-      module_actions: { security_administration: [], nutrition_care: ["updated"], food_service_operations: [], reports: [] },
-      module_counts: { all: 0, security_administration: 0, nutrition_care: 0, food_service_operations: 0, reports: 0 },
+      actions: [{ value: "updated", label: "Updated" }],
+      module_counts: { all: 0, security_administration: 0, nutrition_care: 0, food_service_operations: 0 },
+      report_contexts: {
+        nutrition_care: [
+          { value: "demographic_census", label: "Demographic Census" },
+          { value: "ncp_summary", label: "NCP Summary" },
+        ],
+        food_service_operations: [{ value: "program_project_activity", label: "PPA" }],
+      },
     };
     const html = renderToStaticMarkup(
       <AuditFilters metadata={metadata} value={{ module: "nutrition_care" }} onChange={vi.fn()} onClear={vi.fn()} />,
     );
     expect(html).toContain("Updated");
     expect(html).not.toContain("Login failed");
+    expect(html).toContain("Demographic Census");
+    expect(html).toContain("NCP Summary");
+    expect(html).not.toContain("PPA");
   });
 });

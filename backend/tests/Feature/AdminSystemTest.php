@@ -119,8 +119,7 @@ class AdminSystemTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('data.name', 'Updated Name');
-        $activity = Activity::where('event', 'updated')->where('subject_id', $user->id)->firstOrFail();
-        $this->assertSame(['first_name', 'last_name', 'name'], $activity->properties['details']['changed_fields']);
+        $this->assertSame(0, Activity::where('subject_id', $user->id)->count());
     }
 
     public function test_admin_role_and_status_change_is_one_safe_account_event(): void
@@ -185,7 +184,7 @@ class AdminSystemTest extends TestCase
 
         $activity = Activity::where('subject_id', $user->id)->sole();
         $this->assertSame('updated', $activity->event);
-        $this->assertSame(['first_name', 'last_name', 'name', 'password'], $activity->properties['details']['changed_fields']);
+        $this->assertSame(['password'], $activity->properties['details']['changed_fields']);
         $this->assertStringNotContainsString($secret, $activity->toJson());
     }
 

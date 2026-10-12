@@ -165,10 +165,9 @@ class AuditEventPolicy
     private function module(?Model $subject, AuditDomain $domain): AuditModule
     {
         return match (true) {
-            $subject instanceof Report,
+            $subject instanceof Report => $this->reportModule((string) $subject->getAttribute('type')),
             $subject instanceof ReportBranding,
-            $subject instanceof ReportTemplate,
-            $domain === AuditDomain::Reports => AuditModule::Reports,
+            $subject instanceof ReportTemplate => AuditModule::SecurityAdministration,
             $subject instanceof Patient,
             $subject instanceof NcpRecord,
             $subject instanceof NcpAppointment,
@@ -184,6 +183,20 @@ class AuditEventPolicy
             in_array($domain, [AuditDomain::Budget, AuditDomain::Procurement, AuditDomain::FoodService], true) => AuditModule::FoodServiceOperations,
             default => AuditModule::SecurityAdministration,
         };
+    }
+
+    private function reportModule(string $type): AuditModule
+    {
+        return in_array($type, [
+            'demographic_census',
+            'ncp_summary',
+            'adime_individual',
+            'adime_aggregate',
+            'ncp_census',
+            'patient_menu_plan',
+        ], true)
+            ? AuditModule::NutritionCare
+            : AuditModule::FoodServiceOperations;
     }
 
     private function canonicalWriter(AuditAction $action, ?Model $subject): string
@@ -232,10 +245,9 @@ class AuditEventPolicy
             AuditAction::PasswordReset,
             AuditAction::RecoveryEmailChanged,
             AuditAction::RecoveryEmailVerified,
-            AuditAction::RateLimitExceeded,
-            AuditAction::AuthorizationDenied,
-            AuditAction::AccountBlocked,
-            AuditAction::AccountUnblocked,
+            AuditAction::Failed,
+            AuditAction::Suspended,
+            AuditAction::Unsuspended,
         ], true);
     }
 }

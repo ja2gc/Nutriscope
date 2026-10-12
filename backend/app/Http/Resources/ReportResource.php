@@ -31,6 +31,7 @@ class ReportResource extends JsonResource
             'generated_at' => $this->generated_at?->toIso8601String(),
             'expires_at' => $this->expires_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),
+            'report_covered_from' => $this->report_covered_from?->toDateString(),
             'report_covered_until' => $this->report_covered_until?->toDateString(),
             'updated_at' => $this->updated_at?->toIso8601String(),
             'retention_expires_at' => $this->status === 'archived' && $this->retentionEnabled($request)

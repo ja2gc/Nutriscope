@@ -25,7 +25,6 @@ const MODULE_TABS: TabItem<"all" | AuditModule>[] = [
   { key: "security_administration", label: "Security & Administration" },
   { key: "nutrition_care", label: "Nutrition Care" },
   { key: "food_service_operations", label: "Food Service Operations" },
-  { key: "reports", label: "Reports" },
 ];
 
 function StatusPanel({
@@ -64,9 +63,6 @@ function AuditLogsContent() {
   })), [meta.filters.module_counts]);
 
   function updateFilters(next: AuditFilterState) {
-    if (next.module && next.action && !(meta.filters.module_actions[next.module] || []).includes(next.action)) {
-      next = { ...next, action: undefined };
-    }
     replaceFilters(next);
   }
 
@@ -107,9 +103,9 @@ function AuditLogsContent() {
               onChange={(module) => updateFilters({
                 ...filters,
                 module: module === "all" ? undefined : module,
-                subfilter: undefined,
+                context: undefined,
               })}
-              className="overflow-x-auto px-1"
+              className="flex-nowrap overflow-x-auto overflow-y-hidden px-1 [&>button]:shrink-0 [&>button]:whitespace-nowrap"
             />
           </Card>
 

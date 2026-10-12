@@ -33,12 +33,10 @@ const proxyFiles = [
   "app/api/admin/audit-logs/route.ts",
   "app/api/admin/audit-retention/route.ts",
   "app/api/admin/budgets/[id]/activity/route.ts",
-  "app/api/admin/reports/[id]/activity/route.ts",
   "app/api/fss/budgets/[id]/activity/route.ts",
   "app/api/fss/purchase-orders/[id]/activity/route.ts",
   "app/api/rnd/ncp-records/[ncpRecordId]/activity/route.ts",
   "app/api/rnd/patients/[id]/activity/route.ts",
-  "app/api/rnd/reports/[id]/activity/route.ts",
 ];
 
 function source(path: string): string {
@@ -89,14 +87,16 @@ describe("audit consumer inventory", () => {
     expect(page).toContain('value={filters.module || "all"}');
     expect(filters).not.toContain('label="Domain"');
     expect(urlState).toContain('searchParams.get("module")');
-    expect(urlState).toContain('searchParams.get("subfilter")');
+    expect(urlState).not.toContain('searchParams.get("subfilter")');
+    expect(filters).toContain('label="Report type"');
+    expect(filters).not.toMatch(/Outcome|Severity/);
     expect(urlState).not.toContain('searchParams.get("category")');
     expect(urlState).not.toContain('searchParams.get("domain")');
     expect(service).not.toContain('if (params.category) qs.set("category"');
     expect(service).not.toContain('if (params.domain) qs.set("domain"');
   });
 
-  test("five-tab module contract and Task 8 history framework are explicit", () => {
+  test("four-tab module contract and history framework are explicit", () => {
     const page = source("app/admin/audit-logs/page.tsx");
     const filters = source("components/audit/AuditFilters.tsx");
     const types = source("types/audit.ts");
@@ -106,8 +106,8 @@ describe("audit consumer inventory", () => {
       "Security & Administration",
       "Nutrition Care",
       "Food Service Operations",
-      "Reports",
     ]) expect(page).toContain(label);
+    expect(page).not.toContain('label: "Reports"');
     expect(filters).not.toContain('label="Domain"');
     expect(types).toContain("AuditModule");
     expect(filesUnder("app/api")).toContain("app/api/admin/audit-logs/[id]/history/route.ts");

@@ -221,9 +221,6 @@ Route::middleware(['auth:sanctum', 'active', 'role:RND'])->prefix('rnd')->group(
     // Calendar Events routes
     Route::post('calendar-events', [CalendarEventController::class, 'store']);
     Route::get('calendar-events', [CalendarEventController::class, 'index']);
-
-    // Specific route precedes the report binding routes below.
-    Route::get('reports/{report}/activity', [ActivityController::class, 'report']);
     Route::get('reports/patients/{patient}/instances', [ReportController::class, 'patientInstances']);
 
     // Reports routes (shared with FSS — see $reportRoutes above)
@@ -404,9 +401,6 @@ Route::middleware(['auth:sanctum', 'active', 'role:Admin'])->prefix('admin')->gr
     // Food Service settings — budget per head per day (Admin reads + writes)
     Route::get('food-service-settings', [FoodServiceSettingController::class, 'show']);
     Route::put('food-service-settings', [FoodServiceSettingController::class, 'update']);
-
-    // Specific route precedes the type/report binding routes below.
-    Route::get('reports/{report}/activity', [ActivityController::class, 'report']);
 
     // Reports browse: Admin-scoped subset with RND parity except patient-specific reports.
     // ReportController::guardAdmin() enforces the allowlist; 403 for any other type.

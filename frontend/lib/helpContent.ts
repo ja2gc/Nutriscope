@@ -527,6 +527,14 @@ export const HELP_ITEMS: HelpItem[] = [
     popular: true,
   },
   {
+    id: "admin-audit-patient-reference",
+    role: "Admin",
+    category: "Audit Logs",
+    question: "How do I use the patient code and NCP reference in an audit event?",
+    answer: "The patient code lets Admin correlate events for the same patient without showing the patient’s name or opening the clinical record. An authorized RND can open Nutrition Care > Patients (NCP Patients), search the code, and select the matching patient. The NCP reference distinguishes a specific Nutrition Care Process record; it is not a direct search code. After finding the patient, an authorized RND can review that patient’s NCP records to match the reference.",
+    keywords: ["patient code", "patient ID", "NCP reference", "audit event", "find patient"],
+  },
+  {
     id: "admin-no-ncp",
     role: "Admin",
     category: "Privacy & Boundaries",

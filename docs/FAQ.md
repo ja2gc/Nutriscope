@@ -378,7 +378,11 @@ Admin can set daily and monthly token limits; blank means unlimited. Admin also 
 
 ### What can Admin do in Audit Logs?
 
-Filter structured events by module/action/actor and other available filters, inspect safe event details and correlated history, export permitted audit data, and update retention settings. Audit views must not be treated as raw clinical-record access.
+Filter structured events by module, report type, action, actor, and month; inspect safe event details and correlated history; and update retention settings. Audit views must not be treated as raw clinical-record access.
+
+### How do I use the patient code and NCP reference in an audit event?
+
+The patient code lets Admin correlate events for the same patient without showing the patient’s name or opening the clinical record. An authorized RND can open **Nutrition Care → Patients (NCP Patients)**, search the code, and select the matching patient. The NCP reference distinguishes a specific Nutrition Care Process record; it is not a direct search code. After finding the patient, an authorized RND can review that patient’s NCP records to match the reference.
 
 ### Can Admin open patient NCP details?
 

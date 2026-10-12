@@ -6,8 +6,6 @@ use App\Actions\Identity\SynchronizePersonName;
 use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
-use App\Enums\AuditOutcome;
-use App\Enums\AuditSeverity;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\CompleteOnboardingRequest;
 use App\Http\Requests\Auth\LoginRequest;
@@ -23,7 +21,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Log;
+use LogicException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
@@ -43,7 +41,7 @@ class AuthController extends Controller
         $credentials = $request->only('email', 'password');
 
         if (! Auth::attempt($credentials)) {
-            $this->auditLogin($request, AuditAction::LoginFailed);
+            $this->auditFailedLogin();
 
             return response()->json(['message' => 'Invalid credentials.'], 401);
         }
@@ -51,7 +49,7 @@ class AuthController extends Controller
         $user = $request->user() ?? User::where('email', $request->email)->first();
 
         if (! $user->is_active) {
-            $this->auditLogin($request, AuditAction::LoginFailed, $user);
+            $this->auditFailedLogin('Account inactive');
             Auth::logout();
 
             return response()->json(['message' => 'Account is deactivated.'], 403);
@@ -62,14 +60,14 @@ class AuthController extends Controller
         $isApp = $request->validated('platform') === 'app';
 
         if ($isApp && ! $user->isFss()) {
-            $this->auditLogin($request, AuditAction::LoginFailed, $user, ['platform' => 'app']);
+            $this->auditFailedLogin('Wrong sign-in platform');
             Auth::logout();
 
             return response()->json(['message' => 'This app is for Food Service staff only.'], 403);
         }
 
         if (! $isApp && $user->isFss()) {
-            $this->auditLogin($request, AuditAction::LoginFailed, $user, ['platform' => 'web']);
+            $this->auditFailedLogin('Wrong sign-in platform');
             Auth::logout();
 
             return response()->json(['message' => 'Food Service staff must sign in through the mobile app.'], 403);
@@ -79,10 +77,18 @@ class AuthController extends Controller
         $tokenName = $request->validated()['device_name'] ?? 'nutriscope-token';
         $user->tokens()->where('name', $tokenName)->delete();
         $token = $user->createToken($tokenName, [$user->role])->plainTextToken;
-
-        $this->auditLogin($request, AuditAction::LoginSucceeded, $user, [
-            'platform' => $request->validated('platform') ?? 'web',
-        ]);
+        try {
+            $this->auditLogger->record(
+                AuditAction::Created,
+                AuditCategory::Security,
+                AuditDomain::Accounts,
+                subject: $user,
+                actor: $user,
+                details: ['subject_label' => 'Session'],
+            );
+        } catch (Throwable) {
+            // Authentication must remain available if audit storage is unavailable.
+        }
 
         return response()->json([
             'token' => $token,
@@ -120,19 +126,7 @@ class AuthController extends Controller
         $user = $request->user();
         abort_unless($user->requiresOnboarding(), 403);
 
-        $this->auditLogger->assertAvailable();
-        DB::transaction(function () use ($user): void {
-            $user->forceFill(['onboarding_skipped_at' => now()])->save();
-            $this->auditLogger->record(
-                AuditAction::SettingsChanged,
-                AuditCategory::Security,
-                AuditDomain::Accounts,
-                subject: $user,
-                details: ['changed_fields' => ['onboarding_skipped_at']],
-                actor: $user,
-                includeRequestMetadata: false,
-            );
-        });
+        $user->forceFill(['onboarding_skipped_at' => now()])->save();
 
         return response()->json([
             'message' => 'You can finish account setup later in Settings.',
@@ -146,11 +140,20 @@ class AuthController extends Controller
     public function logout(Request $request): JsonResponse
     {
         $user = $request->user();
-        $this->auditLogger->assertAvailable();
-        DB::transaction(function () use ($request, $user): void {
-            $request->user()->currentAccessToken()->delete();
-            $this->auditAuth($request, AuditAction::Logout, $user);
-        });
+        if ($user instanceof User) {
+            try {
+                $this->auditLogger->recordMutation(
+                    AuditAction::Logout,
+                    AuditDomain::Accounts,
+                    $user,
+                    ['session'],
+                    ['subject_label' => 'Session'],
+                );
+            } catch (Throwable) {
+                // Logout must remain available if audit storage is unavailable.
+            }
+        }
+        $request->user()->currentAccessToken()->delete();
 
         return response()->json(['message' => 'Logged out.']);
     }
@@ -185,27 +188,9 @@ class AuthController extends Controller
             $data['profile_photo'] = null;
             $data['profile_photo_stored_object_id'] = $newPhoto?->id;
         }
-        $oldNameValues = $this->accountNameAuditValues($user);
-        $this->auditLogger->assertAvailable();
         try {
-            DB::transaction(function () use ($user, $data, $oldNameValues, $oldPhoto, $newPhoto, $photoChanged): void {
+            DB::transaction(function () use ($user, $data, $oldPhoto, $newPhoto, $photoChanged): void {
                 $user->update($data);
-                $newNameValues = $this->accountNameAuditValues($user);
-                $changedNameFields = collect(array_keys($oldNameValues))
-                    ->filter(fn (string $field): bool => $oldNameValues[$field] !== $newNameValues[$field])
-                    ->values()
-                    ->all();
-                $this->auditLogger->record(
-                    AuditAction::ProfileChanged,
-                    AuditCategory::Security,
-                    AuditDomain::Accounts,
-                    subject: $user,
-                    details: ['changed_fields' => array_keys($data)],
-                    actor: $user,
-                    includeRequestMetadata: false,
-                    oldValues: array_intersect_key($oldNameValues, array_flip($changedNameFields)),
-                    newValues: array_intersect_key($newNameValues, array_flip($changedNameFields)),
-                );
                 if ($photoChanged && $oldPhoto !== null && ! $oldPhoto->is($newPhoto)) {
                     DB::afterCommit(fn () => $this->storedObjects->deleteOrQueue($oldPhoto));
                 }
@@ -258,52 +243,38 @@ class AuthController extends Controller
         return response()->json(['message' => 'Password updated.']);
     }
 
-    private function auditAuth(
-        Request $request,
-        AuditAction $action,
-        ?User $user = null,
-        array $properties = [],
-    ): AuditActivity {
-        $details = $properties;
+    private function auditAuth(Request $request, AuditAction $action, ?User $user = null): AuditActivity
+    {
+        $subject = $user ?? $request->user();
+        if (! $subject instanceof User) {
+            throw new LogicException('Password changes require an authenticated user.');
+        }
 
-        return $this->auditLogger->record(
-            $action,
-            AuditCategory::Security,
+        return $this->auditLogger->recordMutation(
+            AuditAction::Updated,
             AuditDomain::Accounts,
-            outcome: $action === AuditAction::LoginFailed ? AuditOutcome::Failure : AuditOutcome::Success,
-            severity: $action === AuditAction::LoginFailed ? AuditSeverity::Warning : AuditSeverity::Info,
-            details: $details,
-            actor: $user,
-            includeRequestMetadata: false,
+            $subject,
+            ['password'],
+            ['change_type' => $action->value],
+            oldValues: [],
+            newValues: [],
         );
     }
 
-    private function auditLogin(
-        Request $request,
-        AuditAction $action,
-        ?User $user = null,
-        array $properties = [],
-    ): void {
-        try {
-            $this->auditAuth($request, $action, $user, $properties);
-        } catch (Throwable $exception) {
-            try {
-                Log::warning('Login audit telemetry failed.', [
-                    'exception_class' => $exception::class,
-                    'audit_action' => $action->value,
-                ]);
-            } catch (Throwable) {
-            }
-        }
-    }
-
-    /** @return array{name: string, first_name: ?string, last_name: ?string} */
-    private function accountNameAuditValues(User $user): array
+    private function auditFailedLogin(string $reason = 'Invalid credentials'): void
     {
-        return [
-            'name' => $user->name,
-            'first_name' => $user->first_name,
-            'last_name' => $user->last_name,
-        ];
+        try {
+            $this->auditLogger->record(
+                AuditAction::Failed,
+                AuditCategory::Security,
+                AuditDomain::Accounts,
+                details: [
+                    'subject_label' => 'Login attempt',
+                    'reason' => $reason,
+                ],
+            );
+        } catch (Throwable) {
+            // Authentication responses must survive an audit-store outage.
+        }
     }
 }

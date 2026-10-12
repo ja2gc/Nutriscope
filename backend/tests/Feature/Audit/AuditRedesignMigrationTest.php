@@ -129,6 +129,7 @@ class AuditRedesignMigrationTest extends TestCase
             'domain' => 'reports',
             'subject_type' => Report::class,
             'subject_id' => 789,
+            'properties' => ['report_type' => 'menu_calendar'],
         ]);
         $accountEvent = $this->legacyActivity([
             'category' => 'security',
@@ -173,14 +174,14 @@ class AuditRedesignMigrationTest extends TestCase
         $this->assertSame(AuditDomain::NutritionLibrary, $foodEvent->fresh()->domain);
         $this->assertSame(AuditModule::NutritionCare, $recipeEvent->fresh()->module);
         $this->assertSame(AuditDomain::NutritionLibrary, $recipeEvent->fresh()->domain);
-        $this->assertSame(AuditModule::Reports, $reportEvent->fresh()->module);
+        $this->assertSame(AuditModule::FoodServiceOperations, $reportEvent->fresh()->module);
         $this->assertSame(AuditModule::SecurityAdministration, $accountEvent->fresh()->module);
         $this->assertSame(AuditModule::FoodServiceOperations, $operationsEvent->fresh()->module);
         $this->assertNull($ambiguousEvent->fresh()->module);
         $this->assertSame(AuditModule::NutritionCare, $unresolvedPatientEvent->fresh()->module);
         $this->assertNull($unresolvedPatientEvent->fresh()->patient_display_name_snapshot);
         $this->assertSame('NCP-PSEUDONYM', $unresolvedPatientEvent->fresh()->properties['details']['ncp_public_id']);
-        $this->assertSame(AuditModule::Reports, $preservedEvent->fresh()->module);
+        $this->assertSame(AuditModule::NutritionCare, $preservedEvent->fresh()->module);
         $this->assertSame('Original Snapshot', $preservedEvent->fresh()->patient_display_name_snapshot);
 
         $rawSnapshot = DB::table('activity_log')->where('id', $patientEvent->id)

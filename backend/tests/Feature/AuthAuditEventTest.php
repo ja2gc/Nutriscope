@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditActivity;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -10,13 +11,14 @@ use Monolog\Handler\AbstractProcessingHandler;
 use Monolog\LogRecord;
 use RuntimeException;
 use Spatie\Activitylog\Models\Activity;
+use Tests\Support\AuditFixture;
 use Tests\TestCase;
 
 class AuthAuditEventTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_login_success_and_failure_write_audit_events_without_passwords(): void
+    public function test_login_success_and_failure_are_audited_with_request_ip(): void
     {
         $user = User::factory()->create([
             'email' => 'rnd@example.com',
@@ -30,6 +32,9 @@ class AuthAuditEventTest extends TestCase
             'platform' => 'web',
         ])->assertUnauthorized();
 
+        $failed = AuditActivity::query()->where('event', 'failed')->firstOrFail();
+        $this->assertSame('127.0.0.1', data_get($failed->properties, 'ip'));
+
         $this->postJson('/api/auth/login', [
             'email' => 'rnd@example.com',
             'password' => 'correct-password',
@@ -37,29 +42,19 @@ class AuthAuditEventTest extends TestCase
             'device_name' => 'DEVICE-NAME-SECRET-SENTINEL',
         ])->assertOk();
 
-        $failed = Activity::where('event', 'login_failed')->latest()->first();
-        $login = Activity::where('event', 'login_succeeded')->latest()->first();
-
-        $this->assertNotNull($failed);
-        $this->assertNotNull($login);
-        $this->assertSame($user->id, $login->causer_id);
-        $this->assertArrayNotHasKey('request', $failed->properties->all());
-        $this->assertArrayNotHasKey('user_agent', $failed->properties->all());
-        $this->assertArrayNotHasKey('request', $login->properties->all());
-        $this->assertArrayNotHasKey('user_agent', $login->properties->all());
-
-        $payload = json_encode(Activity::all()->pluck('properties'), JSON_THROW_ON_ERROR);
-        $this->assertStringNotContainsString('wrong-password', $payload);
-        $this->assertStringNotContainsString('correct-password', $payload);
-        $this->assertStringNotContainsString('DEVICE-NAME-SECRET-SENTINEL', $payload);
+        $this->assertSame(1, AuditActivity::query()->where('event', 'failed')->count());
+        $this->assertSame(1, AuditActivity::query()->where('event', 'created')->count());
+        $this->assertSame('Session', data_get(AuditActivity::query()->where('event', 'created')->firstOrFail()->properties, 'details.subject_label'));
+        $this->assertStringNotContainsString('DEVICE-NAME-SECRET-SENTINEL', json_encode(AuditActivity::query()->get()->toArray()));
     }
 
-    public function test_logout_and_password_change_write_audit_events_and_revoke_tokens(): void
+    public function test_logout_and_password_change_use_concise_audit_actions(): void
     {
         $user = User::factory()->create([
             'role' => 'RND',
             'password' => Hash::make('old-password'),
         ]);
+        AuditFixture::delete(Activity::query());
         $token = $user->createToken('browser')->plainTextToken;
 
         $this->withHeader('Authorization', "Bearer {$token}")
@@ -70,7 +65,7 @@ class AuthAuditEventTest extends TestCase
             'tokenable_id' => $user->id,
             'name' => 'browser',
         ]);
-        $this->assertNotNull(Activity::where('event', 'logout')->where('causer_id', $user->id)->first());
+        $this->assertSame(1, AuditActivity::query()->where('event', 'deleted')->count());
 
         $user->createToken('browser');
         $user->createToken('mobile');
@@ -84,7 +79,7 @@ class AuthAuditEventTest extends TestCase
             ->assertOk();
 
         $this->assertSame(0, $user->tokens()->count());
-        $this->assertNotNull(Activity::where('event', 'password_changed')->where('causer_id', $user->id)->first());
+        $this->assertSame(1, AuditActivity::query()->where('event', 'updated')->count());
     }
 
     public function test_login_responses_survive_noncritical_audit_storage_failure(): void

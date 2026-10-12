@@ -85,7 +85,6 @@ class UserController extends Controller
             unset($data['password']);
         }
 
-        $this->auditLogger->assertAvailable();
         DB::transaction(function () use ($data, $passwordChanged, $user): void {
             $oldValues = $this->accountAuditValues($user);
             $user->fill($data);
@@ -100,23 +99,18 @@ class UserController extends Controller
                 $user->tokens()->delete();
             }
 
-            if ($changedFields !== []) {
-                $action = match (true) {
-                    $changedFields === ['password'] => AuditAction::PasswordReset,
-                    in_array('is_active', $changedFields, true)
-                        && $oldValues['is_active'] === true
-                        && $user->is_active === false => AuditAction::AccountBlocked,
-                    in_array('is_active', $changedFields, true)
-                        && $oldValues['is_active'] === false
-                        && $user->is_active === true => AuditAction::AccountUnblocked,
-                    default => AuditAction::Updated,
-                };
+            $oversightFields = array_values(array_intersect($changedFields, ['password', 'role', 'is_active']));
+            if ($oversightFields !== []) {
+                $this->auditLogger->assertAvailable();
+                $action = in_array('is_active', $oversightFields, true)
+                    ? ((bool) $user->is_active ? AuditAction::Unsuspended : AuditAction::Suspended)
+                    : AuditAction::Updated;
                 $this->auditUser(
                     $action,
                     $user,
-                    $changedFields,
-                    array_intersect_key($oldValues, array_flip($changedFields)),
-                    array_intersect_key($this->accountAuditValues($user), array_flip($changedFields)),
+                    $oversightFields,
+                    array_intersect_key($oldValues, array_flip($oversightFields)),
+                    array_intersect_key($this->accountAuditValues($user), array_flip($oversightFields)),
                 );
             }
         });
@@ -175,6 +169,7 @@ class UserController extends Controller
                 'role' => $user->role,
                 'is_active' => $user->is_active,
                 'changed_fields' => $changedFields,
+                'subject_label' => $this->userSubjectLabel($action, $changedFields),
             ],
             actor: auth()->user(),
             includeRequestMetadata: false,
@@ -193,5 +188,27 @@ class UserController extends Controller
             'role' => $user->role,
             'is_active' => (bool) $user->is_active,
         ];
+    }
+
+    /** @param list<string> $changedFields */
+    private function userSubjectLabel(AuditAction $action, array $changedFields): string
+    {
+        if ($action === AuditAction::Created || $action === AuditAction::Deleted) {
+            return 'User account';
+        }
+
+        if (in_array($action, [AuditAction::Suspended, AuditAction::Unsuspended], true)) {
+            return 'User account';
+        }
+
+        if (in_array('password', $changedFields, true)) {
+            return 'Password';
+        }
+
+        if (array_intersect($changedFields, ['first_name', 'last_name', 'name']) !== []) {
+            return 'Profile';
+        }
+
+        return 'User account';
     }
 }

@@ -9,11 +9,11 @@ import type { AuditEventDto } from "@/types/audit";
 import { AuditChangeList } from "./AuditChangeList";
 import { AuditTimestamp } from "./AuditTimestamp";
 
-function actionTone(event: AuditEventDto): BadgeTone {
-  if (event.outcome === "failure" || event.action === "deleted") return "red";
-  if (event.outcome === "blocked" || event.severity === "warning") return "amber";
-  if (event.action === "created" || event.action === "completed" || event.action === "archived") return "emerald";
-  return "sky";
+function actionTone(action: AuditEventDto["action"]): BadgeTone {
+  if (action === "deleted") return "red";
+  if (action === "approved") return "emerald";
+  if (action === "created") return "sky";
+  return "zinc";
 }
 
 export function AuditTrail({
@@ -131,16 +131,16 @@ export function AuditTrail({
                     <article className="rounded-xl border border-warm-100 bg-warm-50/60 p-3.5">
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div className="flex flex-wrap items-center gap-2">
-                          <Badge tone={actionTone(event)}>{event.action_label}</Badge>
+                          <Badge tone={actionTone(event.action)}>{event.action_label}</Badge>
                           <span className="text-sm font-semibold text-warm-800">{event.actor?.name || "System"}</span>
                           {event.actor?.role && <span className="text-xs text-warm-500">{event.actor.role}</span>}
                         </div>
                         <span className="text-xs tabular-nums text-warm-500"><AuditTimestamp value={event.occurred_at} /></span>
                       </div>
                       <p className="mt-2 text-sm leading-relaxed text-warm-700 break-words">{event.summary}</p>
-                      {(event.subject?.label || event.context?.label) && (
+                      {event.subject?.label && (
                         <p className="mt-1 text-xs text-warm-500 break-words">
-                          {[event.subject?.label, event.context?.label].filter(Boolean).join(" · ")}
+                          {event.subject.label}
                         </p>
                       )}
                       {event.changes.length > 0 && (

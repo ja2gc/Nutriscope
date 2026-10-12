@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Filter, RotateCcw } from "lucide-react";
-import type { AuditFilterMetadata, AuditModule, AuditOutcome, AuditSeverity } from "@/types/audit";
+import type { AuditFilterMetadata, AuditModule } from "@/types/audit";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { MonthYearSelect } from "@/components/ui/MonthYearSelect";
@@ -10,11 +10,9 @@ import { AuditActorFilter } from "./AuditActorFilter";
 
 export interface AuditFilterState {
   module?: AuditModule;
-  subfilter?: string;
   action?: string;
+  context?: string;
   actor_id?: string;
-  outcome?: AuditOutcome;
-  severity?: AuditSeverity;
   month?: string;
 }
 
@@ -59,14 +57,9 @@ export function AuditFilters({
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
   const selectedYear = value.month ? Number(value.month.slice(0, 4)) : filterYear;
   const selectedMonth = value.month ? Number(value.month.slice(5, 7)) : null;
-  const compatibleActions = value.module
-    ? new Set(metadata.module_actions[value.module] || [])
-    : null;
-  const actionOptions = compatibleActions
-    ? metadata.actions.filter((option) => compatibleActions.has(option.value))
-    : metadata.actions;
-  const subfilterOptions = value.module ? metadata.module_subfilters[value.module] || [] : [];
-
+  const reportTypes = value.module
+    ? metadata.report_contexts?.[value.module] ?? []
+    : Object.values(metadata.report_contexts ?? {}).flat();
   function update(key: keyof AuditFilterState, nextValue: string | undefined) {
     onChange({ ...value, [key]: nextValue });
   }
@@ -84,7 +77,7 @@ export function AuditFilters({
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="grid grid-cols-2 gap-2 sm:col-span-2">
           <MonthYearSelect month={selectedMonth} year={selectedYear} allowAllMonths monthAriaLabel="Audit month" yearAriaLabel="Audit year"
             onMonthChange={(month) => update("month", month === null ? undefined : `${selectedYear}-${String(month).padStart(2, "0")}`)}
@@ -94,13 +87,9 @@ export function AuditFilters({
             }} />
         </div>
 
-        {value.module && subfilterOptions.length > 0 && (
-          <SelectFilter label="Context" allLabel={`All ${metadata.modules.find((module) => module.value === value.module)?.label || "contexts"}`} value={value.subfilter} options={subfilterOptions} onChange={(next) => update("subfilter", next)} />
-        )}
-        <SelectFilter label="Action" allLabel="All actions" value={value.action} options={actionOptions} onChange={(next) => update("action", next)} />
+        <SelectFilter label="Action" allLabel="All actions" value={value.action} options={metadata.actions} onChange={(next) => update("action", next)} />
+        {reportTypes.length > 0 && <SelectFilter label="Report type" allLabel="All report types" value={value.context} options={reportTypes} onChange={(next) => update("context", next)} />}
         <AuditActorFilter value={value.actor_id} onChange={(next) => update("actor_id", next)} />
-        <SelectFilter label="Outcome" allLabel="All outcomes" value={value.outcome} options={metadata.outcomes} onChange={(next) => update("outcome", next)} />
-        <SelectFilter label="Severity" allLabel="All severities" value={value.severity} options={metadata.severities} onChange={(next) => update("severity", next)} />
       </div>
     </Card>
   );

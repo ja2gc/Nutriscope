@@ -5,9 +5,7 @@ import type {
   AuditEventDto,
   AuditFilterMetadata,
   AuditModule,
-  AuditOutcome,
   AuditRetentionState,
-  AuditSeverity,
 } from "@/types/audit";
 
 export type AuditLog = AuditEventDto;
@@ -16,13 +14,9 @@ export interface ListAuditLogsParams {
   page?: number;
   per_page?: number;
   module?: AuditModule;
-  subfilter?: string;
   action?: string;
-  severity?: AuditSeverity;
-  outcome?: AuditOutcome;
+  context?: string;
   actor_id?: string;
-  subject_id?: string;
-  context_id?: string;
   month?: string; // YYYY-MM in Asia/Manila
   start?: string; // YYYY-MM-DD
   end?: string;   // YYYY-MM-DD
@@ -46,13 +40,9 @@ function auditQuery(params: ListAuditLogsParams) {
   if (params.page) qs.set("page", String(params.page));
   if (params.per_page) qs.set("per_page", String(params.per_page));
   if (params.module) qs.set("module", params.module);
-  if (params.subfilter) qs.set("subfilter", params.subfilter);
   if (params.action) qs.set("action", params.action);
-  if (params.severity) qs.set("severity", params.severity);
-  if (params.outcome) qs.set("outcome", params.outcome);
+  if (params.context) qs.set("context", params.context);
   if (params.actor_id) qs.set("actor_id", params.actor_id);
-  if (params.subject_id) qs.set("subject_id", params.subject_id);
-  if (params.context_id) qs.set("context_id", params.context_id);
   if (params.month) qs.set("month", params.month);
   if (params.start) qs.set("start", params.start);
   if (params.end) qs.set("end", params.end);
@@ -92,11 +82,8 @@ export async function listAuditLogs(
       filters: {
         modules: [],
         actions: [],
-        outcomes: [],
-        severities: [],
-        module_subfilters: {} as Record<AuditModule, []>,
-        module_actions: {} as Record<AuditModule, string[]>,
-        module_counts: { all: 0, security_administration: 0, nutrition_care: 0, food_service_operations: 0, reports: 0 },
+        module_counts: { all: 0, security_administration: 0, nutrition_care: 0, food_service_operations: 0 },
+        report_contexts: {},
       },
       capabilities: {},
       retention: {

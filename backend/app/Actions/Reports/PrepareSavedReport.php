@@ -43,6 +43,16 @@ class PrepareSavedReport
             || $report?->hasFinalizedPurchaseOrderFile()) {
             return $report->fresh(['user:id,uuid,name,first_name,last_name', 'officialFile']);
         }
+        if ($report !== null
+            && in_array($type, ['procurement_pack', 'program_project_activity'], true)
+            && $report->official_file_stored_object_id !== null
+            && in_array(
+                $this->findSource(PurchaseOrder::class, $parameters['purchase_order_id'] ?? null)?->lifecycle_status,
+                ['completed', 'archived'],
+                true,
+            )) {
+            return $report->fresh(['user:id,uuid,name,first_name,last_name', 'officialFile']);
+        }
         $initialSnapshot = [
             'branding' => $sourceConfiguration['branding'] ?? ReportBranding::singleton()->only([
                 'hospital_name', 'address', 'accreditation', 'service_name', 'province', 'lgu',
@@ -212,7 +222,7 @@ class PrepareSavedReport
     {
         if (in_array($type, ['procurement_pack', 'program_project_activity'], true)) {
             $purchaseOrder = PurchaseOrder::query()->find($parameters['purchase_order_id'] ?? null);
-            $date = $purchaseOrder?->completed_at ?? $purchaseOrder?->order_date;
+            $date = $purchaseOrder?->order_date;
 
             return $date ? 'PO — '.$date->copy()->timezone(config('nutriscope-reports.timezone'))->format('M j, Y') : $fallback;
         }

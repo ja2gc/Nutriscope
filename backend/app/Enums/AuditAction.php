@@ -31,11 +31,7 @@ enum AuditAction: string
     case PasswordReset = 'password_reset';
     case RecoveryEmailChanged = 'recovery_email_changed';
     case RecoveryEmailVerified = 'recovery_email_verified';
-    case RateLimitExceeded = 'rate_limit_exceeded';
-    case AuthorizationDenied = 'authorization_denied';
     case AuditLogViewed = 'audit_log_viewed';
-    case AccountBlocked = 'account_blocked';
-    case AccountUnblocked = 'account_unblocked';
     case AppointmentScheduled = 'appointment_scheduled';
     case VisitStarted = 'visit_started';
     case VisitCompleted = 'visit_completed';
@@ -45,6 +41,10 @@ enum AuditAction: string
     case AppointmentRescheduled = 'appointment_rescheduled';
     case CycleCompleted = 'cycle_completed';
     case CycleDiscontinued = 'cycle_discontinued';
+    case Failed = 'failed';
+    case Suspended = 'suspended';
+    case Unsuspended = 'unsuspended';
+    case Discontinued = 'discontinued';
 
     public function label(): string
     {
@@ -59,11 +59,6 @@ enum AuditAction: string
             self::PasswordReset => 'Password reset',
             self::RecoveryEmailChanged => 'Recovery email changed',
             self::RecoveryEmailVerified => 'Recovery email verified',
-            self::RateLimitExceeded => 'Rate limit exceeded',
-            self::AuthorizationDenied => 'Authorization denied',
-            self::AuditLogViewed => 'Audit log viewed',
-            self::AccountBlocked => 'Account blocked',
-            self::AccountUnblocked => 'Account unblocked',
             self::AppointmentScheduled => 'Appointment scheduled',
             self::VisitStarted => 'Visit started',
             self::VisitCompleted => 'Visit completed',
@@ -73,6 +68,10 @@ enum AuditAction: string
             self::AppointmentRescheduled => 'Appointment rescheduled',
             self::CycleCompleted => 'NCP cycle completed and protected',
             self::CycleDiscontinued => 'NCP cycle discontinued',
+            self::Failed => 'Failed',
+            self::Suspended => 'Suspended',
+            self::Unsuspended => 'Unsuspended',
+            self::Discontinued => 'Discontinued',
             default => ucfirst($this->value),
         };
     }

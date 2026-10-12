@@ -1,6 +1,8 @@
 # Audit Oversight and Historical Records Implementation Report
 
-**Authoritative design:** `docs/superpowers/specs/2026-07-15-audit-oversight-and-history-redesign.md`
+**Historical snapshot:** July 15-16, 2026. Its original five-module Reports audit design and event catalog are superseded by [`docs/architecture/audit-event-catalog.md`](architecture/audit-event-catalog.md) and the current owner override in the design spec. This report records the earlier implementation state; it is not the current contract.
+
+**Original design:** `docs/superpowers/specs/2026-07-15-audit-oversight-and-history-redesign.md`
 
 **Executable plan:** `docs/superpowers/plan/2026-07-15-audit-oversight-and-history-redesign-implementation-plan.md`
 
@@ -84,7 +86,7 @@ Audit/report export and scheduled retention deletion remain disabled by default.
 - Retained stored category/domain because privacy, retention, legacy data, and internal classification require them.
 - Retained bounded `event` and `causer_id` aliases for `action` and `actor_id` during compatibility.
 - Hid disabled audit export capability/action from normal metadata and UI while keeping the guarded backend/proxy endpoint for a future separately approved project.
-- Removed stale IP-blocking concepts without changing `AccountBlocked`, `AccountUnblocked`, or Admin account deactivation.
+- Removed IP-blocking concepts. Legacy `AccountBlocked` and `AccountUnblocked` enum values canonicalize to `Updated`; Admin account deactivation remains available without a separate audit action.
 - Isolated old Inventory labels as legacy presentation only; no current Inventory audit module or route was restored.
 - Added an unscheduled, chunked, idempotent `audit:backfill-oversight` command for legacy module/domain/patient snapshot correction.
 

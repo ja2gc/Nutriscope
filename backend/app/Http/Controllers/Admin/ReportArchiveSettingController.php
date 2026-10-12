@@ -2,13 +2,9 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Enums\AuditAction;
-use App\Enums\AuditCategory;
-use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
 use App\Models\Report;
 use App\Models\ReportArchiveSetting;
-use App\Services\Audit\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,13 +16,11 @@ class ReportArchiveSettingController extends Controller
         return response()->json(['enabled' => ReportArchiveSetting::enabled(), 'years' => 5]);
     }
 
-    public function update(Request $request, AuditLogger $auditLogger): JsonResponse
+    public function update(Request $request): JsonResponse
     {
         $enabled = $request->validate(['enabled' => ['required', 'boolean']])['enabled'];
-        $auditLogger->assertAvailable();
-        DB::transaction(function () use ($enabled, $request, $auditLogger): void {
+        DB::transaction(function () use ($enabled): void {
             $setting = ReportArchiveSetting::query()->where('key', ReportArchiveSetting::RETENTION)->lockForUpdate()->first();
-            $old = $setting?->enabled ?? false;
             if ($setting === null) {
                 ReportArchiveSetting::query()->create(['key' => ReportArchiveSetting::RETENTION, 'enabled' => $enabled]);
             } else {
@@ -45,15 +39,6 @@ class ReportArchiveSettingController extends Controller
                             $report->update(['retention_expires_at' => $report->archived_at->copy()->addYears(5)]);
                         }
                     });
-            }
-            if ($old !== $enabled) {
-                $auditLogger->record(
-                    AuditAction::SettingsChanged,
-                    AuditCategory::Operations,
-                    AuditDomain::Reports,
-                    details: ['changed_fields' => ['report_archive_retention_enabled'], 'old' => ['enabled' => $old], 'attributes' => ['enabled' => $enabled]],
-                    actor: $request->user(),
-                );
             }
         });
 

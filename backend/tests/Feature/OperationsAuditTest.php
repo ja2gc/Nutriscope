@@ -175,7 +175,7 @@ class OperationsAuditTest extends TestCase
         $this->assertNull($deleted->properties['attributes']['name']);
     }
 
-    public function test_ai_usage_limit_event_contains_only_safe_changed_field_labels(): void
+    public function test_ai_usage_limit_setting_change_is_not_audited(): void
     {
         $user = User::factory()->admin()->create();
 
@@ -186,18 +186,10 @@ class OperationsAuditTest extends TestCase
             'output_cost_per_1m_tokens_usd' => 5.75,
         ])->assertOk();
 
-        $activity = AuditActivity::query()->sole();
-        $this->assertSame('settings_changed', $activity->event);
-        $this->assertSame('system', $activity->domain->value);
-        $this->assertSame([
-            'daily_token_limit',
-            'input_cost_per_1m_tokens_usd',
-            'monthly_token_limit',
-            'output_cost_per_1m_tokens_usd',
-        ], $activity->properties['details']['changed_fields']);
+        $this->assertSame(0, AuditActivity::query()->count());
     }
 
-    public function test_menu_cycle_and_template_events_keep_days_as_a_structural_label_only(): void
+    public function test_menu_cycle_and_template_events_do_not_leak_values(): void
     {
         $user = User::factory()->rnd()->create();
         $item = FsItem::factory()->create();
@@ -244,9 +236,6 @@ class OperationsAuditTest extends TestCase
 
         $activities = AuditActivity::query()->orderBy('id')->get();
         $this->assertCount(9, $activities);
-        foreach ($activities->where('event', 'created') as $activity) {
-            $this->assertContains('days', $activity->properties['details']['changed_fields']);
-        }
         $serialized = $activities->toJson();
         $this->assertStringNotContainsString('123.45', $serialized);
         $this->assertStringNotContainsString($item->uuid, $serialized);
@@ -316,7 +305,7 @@ class OperationsAuditTest extends TestCase
         $this->postJson('/api/rnd/usda/import/124')->assertStatus(502);
 
         $activity = AuditActivity::query()->sole();
-        $this->assertSame('imported', $activity->event);
+        $this->assertSame('created', $activity->event);
         $this->assertSame([
             'calories',
             'carbs',
@@ -440,7 +429,7 @@ class OperationsAuditTest extends TestCase
         $this->assertNull(app(AuditContextResolver::class)->resolve($ghost));
     }
 
-    public function test_rejected_task4_controller_commands_emit_only_security_denials(): void
+    public function test_rejected_controller_commands_do_not_create_audit_noise(): void
     {
         $rnd = User::factory()->rnd()->create();
         $other = User::factory()->rnd()->create();
@@ -455,24 +444,21 @@ class OperationsAuditTest extends TestCase
         ]);
 
         $cases = [
-            'supplier authorization' => [fn () => $this->actingAs($fss)->postJson('/api/fss/suppliers', [])->assertForbidden(), 1],
+            'supplier authorization' => [fn () => $this->actingAs($fss)->postJson('/api/fss/suppliers', [])->assertForbidden(), 0],
             'recipe validation' => [fn () => $this->actingAs($rnd)->postJson('/api/rnd/recipes', [])->assertUnprocessable(), 0],
-            'announcement ownership' => [fn () => $this->actingAs($rnd)->patchJson("/api/rnd/announcements/{$announcement->uuid}", ['title' => 'blocked'])->assertForbidden(), 1],
+            'announcement ownership' => [fn () => $this->actingAs($rnd)->patchJson("/api/rnd/announcements/{$announcement->uuid}", ['title' => 'denied'])->assertForbidden(), 0],
             'fs item validation' => [fn () => $this->actingAs($rnd)->postJson('/api/fss/fs-items', [])->assertUnprocessable(), 0],
             'shopping list validation' => [fn () => $this->actingAs($rnd)->postJson('/api/fss/shopping-lists', [])->assertUnprocessable(), 0],
             'menu cycle validation' => [fn () => $this->actingAs($rnd)->postJson('/api/fss/menu-cycles', ['cycle_days' => 0])->assertUnprocessable(), 0],
             'template validation' => [fn () => $this->actingAs($rnd)->postJson('/api/fss/menu-cycle-templates', [])->assertUnprocessable(), 0],
-            'AI setting authorization' => [fn () => $this->actingAs($rnd)->putJson('/api/admin/ai-usage-limits', [])->assertForbidden(), 1],
-            'SOP authorization' => [fn () => $this->actingAs($fss)->postJson('/api/sop', ['title' => 'x', 'body' => 'y'])->assertForbidden(), 1],
+            'AI setting authorization' => [fn () => $this->actingAs($rnd)->putJson('/api/admin/ai-usage-limits', [])->assertForbidden(), 0],
+            'SOP authorization' => [fn () => $this->actingAs($fss)->postJson('/api/sop', ['title' => 'x', 'body' => 'y'])->assertForbidden(), 0],
         ];
 
         foreach ($cases as $label => [$command, $expectedEvents]) {
             AuditFixture::delete(AuditActivity::query());
             $command();
             $this->assertSame($expectedEvents, AuditActivity::query()->count(), $label);
-            if ($expectedEvents === 1) {
-                $this->assertSame('authorization_denied', AuditActivity::query()->sole()->event, $label);
-            }
         }
     }
 

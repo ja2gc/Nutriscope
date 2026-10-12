@@ -2,14 +2,8 @@
 
 namespace App\Console\Commands;
 
-use App\Enums\AuditAction;
-use App\Enums\AuditCategory;
-use App\Enums\AuditDomain;
-use App\Enums\AuditOutcome;
-use App\Enums\AuditSeverity;
 use App\Exceptions\AuditPruneFailed;
 use App\Services\Audit\AuditHealthMonitor;
-use App\Services\Audit\AuditLogger;
 use App\Services\Audit\AuditRetentionService;
 use Illuminate\Console\Command;
 use Throwable;
@@ -22,7 +16,6 @@ class PruneAuditEvents extends Command
 
     public function handle(
         AuditRetentionService $retention,
-        AuditLogger $audit,
         AuditHealthMonitor $monitor,
     ): int {
         $force = (bool) $this->option('force');
@@ -36,7 +29,6 @@ class PruneAuditEvents extends Command
             ];
             $monitor->recordPruneMetrics($progress, false);
             $monitor->pruneFailure($exception);
-            $this->recordFailure($audit, $monitor, $progress);
             $this->error('Audit pruning failed. Review the protected application logs.');
 
             return self::FAILURE;
@@ -61,45 +53,8 @@ class PruneAuditEvents extends Command
 
         if ($force) {
             $monitor->recordPruneMetrics($report, true);
-            $audit->record(
-                AuditAction::Completed,
-                AuditCategory::Operations,
-                AuditDomain::System,
-                outcome: AuditOutcome::Success,
-                severity: AuditSeverity::Info,
-                details: [
-                    'deleted_count' => $report['deleted_count'],
-                    'eligible_count' => $report['eligible_count'],
-                    'held_category_count' => $report['held_category_count'],
-                ],
-                systemActor: 'Audit retention',
-                includeRequestMetadata: false,
-            );
         }
 
         return self::SUCCESS;
-    }
-
-    /** @param array{eligible_count: int, deleted_count: int, held_category_count: int} $progress */
-    private function recordFailure(AuditLogger $audit, AuditHealthMonitor $monitor, array $progress): void
-    {
-        try {
-            $audit->record(
-                AuditAction::Completed,
-                AuditCategory::Operations,
-                AuditDomain::System,
-                outcome: AuditOutcome::Failure,
-                severity: AuditSeverity::Critical,
-                details: [
-                    'deleted_count' => $progress['deleted_count'],
-                    'eligible_count' => $progress['eligible_count'],
-                    'held_category_count' => $progress['held_category_count'],
-                ],
-                systemActor: 'Audit retention',
-                includeRequestMetadata: false,
-            );
-        } catch (Throwable $exception) {
-            $monitor->writerFailure($exception);
-        }
     }
 }

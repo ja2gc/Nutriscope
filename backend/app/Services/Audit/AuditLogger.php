@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use InvalidArgumentException;
+use LogicException;
 use Spatie\Activitylog\ActivityLogger;
 
 class AuditLogger
@@ -108,6 +109,18 @@ class AuditLogger
         array $oldValues = [],
         array $newValues = [],
     ): AuditActivity {
+        if ($outcome !== AuditOutcome::Success) {
+            throw new LogicException('Only successful oversight events are audit records.');
+        }
+
+        $originalAction = $action;
+        $action = $this->canonicalAction($action, $domain);
+        $details['subject_label'] ??= $this->subjectLabel(
+            $originalAction,
+            is_array($details['changed_fields'] ?? null) ? $details['changed_fields'] : [],
+            $domain,
+        );
+
         return $this->recordEvent(
             $action->value,
             $action,
@@ -124,6 +137,67 @@ class AuditLogger
             $oldValues,
             $newValues,
         );
+    }
+
+    private function canonicalAction(AuditAction $action, AuditDomain $domain): AuditAction
+    {
+        if ($action === AuditAction::Viewed && $domain !== AuditDomain::Reports) {
+            throw new LogicException('View actions can only be recorded for reports.');
+        }
+
+        return match ($action) {
+            AuditAction::Created,
+            AuditAction::Updated,
+            AuditAction::Deleted,
+            AuditAction::Viewed,
+            AuditAction::Downloaded,
+            AuditAction::Archived,
+            AuditAction::Failed,
+            AuditAction::Suspended,
+            AuditAction::Unsuspended,
+            AuditAction::Discontinued => $action,
+            AuditAction::Approved, AuditAction::Ordered, AuditAction::Uploaded, AuditAction::Imported => AuditAction::Created,
+            AuditAction::LoginSucceeded, AuditAction::AppointmentScheduled, AuditAction::VisitStarted, AuditAction::Generated => AuditAction::Created,
+            AuditAction::LoginFailed, AuditAction::AuthenticationFailed => AuditAction::Failed,
+            AuditAction::Logout => AuditAction::Deleted,
+            AuditAction::CycleDiscontinued => AuditAction::Discontinued,
+            default => AuditAction::Updated,
+        };
+    }
+
+    /** @param list<string> $changedFields */
+    private function subjectLabel(AuditAction $action, array $changedFields, AuditDomain $domain): ?string
+    {
+        $label = match ($action) {
+            AuditAction::AppointmentScheduled => 'Appointment scheduled',
+            AuditAction::AppointmentCancelled => 'Appointment cancelled',
+            AuditAction::AppointmentNoShow => 'Appointment marked no-show',
+            AuditAction::AppointmentRescheduled => 'Appointment rescheduled',
+            AuditAction::Received => 'Goods received',
+            AuditAction::Reversed => 'Reversal',
+            AuditAction::VisitStarted => 'Visit started',
+            AuditAction::VisitCompleted => 'Visit completed',
+            AuditAction::VisitEndedEarly => 'Visit ended early',
+            AuditAction::CycleDiscontinued => 'NCP cycle discontinued',
+            AuditAction::CycleCompleted => 'NCP cycle completed',
+            AuditAction::PasswordChanged,
+            AuditAction::PasswordReset => 'Password',
+            AuditAction::LoginSucceeded,
+            AuditAction::Logout => 'Session',
+            AuditAction::LoginFailed,
+            AuditAction::AuthenticationFailed => 'Login attempt',
+            default => null,
+        };
+
+        if ($label !== null) {
+            return $label;
+        }
+
+        if ($domain === AuditDomain::Accounts && count($changedFields) === 1) {
+            return ucfirst(str_replace(['_', '-'], ' ', $changedFields[0]));
+        }
+
+        return null;
     }
 
     private function recordEvent(

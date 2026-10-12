@@ -8,14 +8,11 @@ use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
 use App\Enums\AuditModule;
-use App\Enums\AuditOutcome;
-use App\Enums\AuditSeverity;
 use App\Models\AuditActivity;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\User;
 use App\Services\Audit\Revisions\AuditRevisionRegistry;
-use BackedEnum;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Ramsey\Uuid\Uuid;
@@ -43,8 +40,6 @@ class AuditEventPresenter
         $module = $activity->module instanceof AuditModule
             ? $activity->module->value
             : 'legacy_unclassified';
-        $severity = $this->enumValue($activity->severity, AuditSeverity::Info);
-        $outcome = $this->enumValue($activity->outcome, AuditOutcome::Success);
         [$action, $actionLabel] = $this->action((string) $activity->event);
         $properties = $activity->properties?->all() ?? [];
         $storedDetails = is_array($properties['details'] ?? null) ? $properties['details'] : [];
@@ -57,6 +52,10 @@ class AuditEventPresenter
             $action,
         );
         $subject = $this->namedOperationalSubject($subject, $storedDetails, $clinical);
+        if (is_string($storedDetails['subject_label'] ?? null) && trim($storedDetails['subject_label']) !== '') {
+            $subject ??= ['type' => 'event_subject', 'id' => null, 'label' => ''];
+            $subject['label'] = $this->safeText($storedDetails['subject_label']) ?? 'Audit subject';
+        }
         $context = $activity->context_type === null
             ? null
             : $this->entities->present(
@@ -92,8 +91,6 @@ class AuditEventPresenter
             action: $action,
             actionLabel: $actionLabel,
             summary: $summary,
-            severity: $severity,
-            outcome: $outcome,
             actor: $actor,
             subject: $subject,
             context: $context,
@@ -131,12 +128,7 @@ class AuditEventPresenter
         return [$candidate, $known?->label() ?? ucfirst(str_replace(['_', '.', ':', '-'], ' ', $candidate))];
     }
 
-    private function enumValue(mixed $value, BackedEnum $fallback): string
-    {
-        return $value instanceof BackedEnum ? (string) $value->value : ($value ?: (string) $fallback->value);
-    }
-
-    /** @return array{id: ?string, kind: string, name: string, role: ?string}|null */
+    /** @return array{id: ?string, kind: string, name: string, role: ?string, ip: ?string}|null */
     private function actor(AuditActivity $activity, array $properties): ?array
     {
         $snapshot = is_array($properties['actor'] ?? null) ? $properties['actor'] : [];
@@ -148,7 +140,7 @@ class AuditEventPresenter
         $name = $this->safeText($snapshot['name'] ?? null);
 
         if ($kind === 'user' && $publicId !== null && $name !== null) {
-            return ['id' => $publicId, 'kind' => 'user', 'name' => $name, 'role' => $role];
+            return ['id' => $publicId, 'kind' => 'user', 'name' => $name, 'role' => $role, 'ip' => $this->ip($properties)];
         }
         if ($activity->relationLoaded('causer') && $activity->causer instanceof User) {
             return [
@@ -158,13 +150,21 @@ class AuditEventPresenter
                 'role' => in_array($activity->causer->role, ['Admin', 'RND', 'FSS'], true)
                     ? $activity->causer->role
                     : null,
+                'ip' => $this->ip($properties),
             ];
         }
         if (in_array($kind, ['system', 'anonymous'], true)) {
-            return ['id' => null, 'kind' => $kind, 'name' => $name ?? ucfirst($kind), 'role' => null];
+            return ['id' => null, 'kind' => $kind, 'name' => $name ?? ucfirst($kind), 'role' => null, 'ip' => $this->ip($properties)];
         }
 
         return null;
+    }
+
+    private function ip(array $properties): ?string
+    {
+        $ip = $properties['ip'] ?? data_get($properties, 'request.ip');
+
+        return is_string($ip) && filter_var($ip, FILTER_VALIDATE_IP) !== false ? $ip : null;
     }
 
     /** @return array{code: string}|null */

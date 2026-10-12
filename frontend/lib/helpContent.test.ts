@@ -43,6 +43,15 @@ describe("role-specific Help content", () => {
     expect(items.some((item) => item.role === "RND")).toBe(false);
   });
 
+  test("Admin Help explains how patient codes and NCP references identify records", () => {
+    const answer = HELP_ITEMS.find((item) => item.id === "admin-audit-patient-reference")?.answer;
+
+    expect(answer).toContain("Nutrition Care > Patients (NCP Patients)");
+    expect(answer).toContain("search the code");
+    expect(answer).toContain("not a direct search code");
+    expect(getVisibleHelpItems("RND").some((item) => item.id === "admin-audit-patient-reference")).toBe(false);
+  });
+
   test("Admin Help explains token counting and estimated cost without exposing it to RND", () => {
     const adminQuestions = getVisibleHelpItems("Admin").map((item) => item.question);
     const rndQuestions = getVisibleHelpItems("RND").map((item) => item.question);

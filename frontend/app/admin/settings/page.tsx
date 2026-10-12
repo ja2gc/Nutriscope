@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Bell,
-  Building2,
   Palette,
   Settings,
   Wallet,
@@ -11,8 +10,6 @@ import {
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { ImageFilePicker } from "@/components/ui/ImageFilePicker";
 import { getFoodServiceSetting, setFoodServiceSetting } from "@/services/budgetService";
 
 // Budget per head per day — shared Food Service setting (backend-backed).
@@ -78,12 +75,6 @@ import {
   setDensity as persistDensity,
   setFollowUpNotifications,
 } from "@/lib/preferences";
-import {
-  Branding,
-  getAdminBranding,
-  saveAdminBranding,
-} from "@/services/reportService";
-
 export default function AdminSettingsPage() {
   // ── Appearance ──────────────────────────────────────────────────
   const [density, setDensityState] = useState<Density>("comfortable");
@@ -113,101 +104,6 @@ export default function AdminSettingsPage() {
     setFollowUpNotifications(next);
   }
 
-  // ── Notifications ────────────────────────────────────────────────
-  // ── Branding ─────────────────────────────────────────────────────
-  const [branding, setBranding] = useState<Branding | null>(null);
-  const [editingBranding, setEditingBranding] = useState(false);
-  const [brandingLoading, setBrandingLoading] = useState(true);
-  const [brandingError, setBrandingError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [savedOk, setSavedOk] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [validationErrors, setValidationErrors] = useState<
-    Record<string, string>
-  >({});
-
-  // Controlled text fields
-  const [hospitalName, setHospitalName] = useState("");
-  const [address, setAddress] = useState("");
-  const [accreditation, setAccreditation] = useState("");
-  const [serviceName, setServiceName] = useState("");
-  const [province, setProvince] = useState("");
-  const [lgu, setLgu] = useState("");
-
-  // File refs (uncontrolled — browser file input)
-  const logoLeftRef = useRef<HTMLInputElement>(null);
-  const logoRightRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    setBrandingLoading(true);
-    getAdminBranding()
-      .then((b) => {
-        setBranding(b);
-        setHospitalName(b.hospital_name ?? "");
-        setAddress(b.address ?? "");
-        setAccreditation(b.accreditation ?? "");
-        setServiceName(b.service_name ?? "");
-        setProvince(b.province ?? "");
-        setLgu(b.lgu ?? "");
-      })
-      .catch((err) =>
-        setBrandingError(
-          err instanceof Error ? err.message : "Failed to load branding.",
-        ),
-      )
-      .finally(() => setBrandingLoading(false));
-  }, []);
-
-  async function handleBrandingSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    setSavedOk(false);
-    setSaveError(null);
-    setValidationErrors({});
-
-    const form = new FormData();
-    form.append("hospital_name", hospitalName);
-    form.append("address", address);
-    form.append("accreditation", accreditation);
-    form.append("service_name", serviceName);
-    form.append("province", province);
-    form.append("lgu", lgu);
-    const ll = logoLeftRef.current?.files?.[0];
-    const lr = logoRightRef.current?.files?.[0];
-    if (ll) form.append("logo_left", ll);
-    if (lr) form.append("logo_right", lr);
-
-    try {
-      const updated = await saveAdminBranding(form);
-      setBranding(updated);
-      setEditingBranding(false);
-      setSavedOk(true);
-      // Clear file inputs after a successful save
-      if (logoLeftRef.current) logoLeftRef.current.value = "";
-      if (logoRightRef.current) logoRightRef.current.value = "";
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to save.";
-      // Try to parse Laravel validation errors embedded in the message
-      try {
-        const parsed = JSON.parse(msg);
-        if (parsed?.errors) {
-          const flat: Record<string, string> = {};
-          for (const [k, v] of Object.entries(parsed.errors as Record<string, string[]>)) {
-            flat[k] = Array.isArray(v) ? v[0] : String(v);
-          }
-          setValidationErrors(flat);
-          setSaveError("Please fix the errors below.");
-        } else {
-          setSaveError(msg);
-        }
-      } catch {
-        setSaveError(msg);
-      }
-    } finally {
-      setSaving(false);
-    }
-  }
-
   return (
     <div className="space-y-6 font-sans">
       <PageHeader
@@ -215,138 +111,6 @@ export default function AdminSettingsPage() {
         title="Settings"
         icon={<Settings className="h-5 w-5 text-emerald-600" />}
       />
-
-      {/* ── Branding card ────────────────────────────────────────── */}
-      <Card className="p-6">
-        <div className="mb-5 flex items-center justify-between gap-3">
-          <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-warm-900">
-            <Building2 className="h-4 w-4 text-emerald-600" /> Hospital Branding
-          </h3>
-          {!editingBranding && branding && (
-            <Button variant="secondary" onClick={() => setEditingBranding(true)} className="w-auto">Edit</Button>
-          )}
-        </div>
-
-        {brandingLoading && (
-          <p className="text-sm text-warm-400">Loading branding…</p>
-        )}
-
-        {brandingError && (
-          <p className="text-sm font-semibold text-red-600">{brandingError}</p>
-        )}
-
-        {!brandingLoading && !brandingError && branding && !editingBranding && (
-          <dl className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {[
-              ["Hospital Name", branding.hospital_name], ["Service Name", branding.service_name],
-              ["Address", branding.address], ["Accreditation", branding.accreditation],
-              ["Province", branding.province], ["LGU", branding.lgu],
-              ["Logo Left", branding.logo_left_path ? "Saved" : "Not set"],
-              ["Logo Right", branding.logo_right_path ? "Saved" : "Not set"],
-            ].map(([label, value]) => (
-              <div key={label}>
-                <dt className="text-xs font-bold uppercase tracking-wider text-warm-500">{label}</dt>
-                <dd className="mt-1 text-sm text-warm-800">{value || "—"}</dd>
-              </div>
-            ))}
-          </dl>
-        )}
-
-        {!brandingLoading && !brandingError && branding && editingBranding && (
-          <form onSubmit={handleBrandingSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input
-                label="Hospital Name"
-                value={hospitalName}
-                onChange={(e) => setHospitalName(e.target.value)}
-                error={validationErrors.hospital_name}
-              />
-              <Input
-                label="Service Name"
-                value={serviceName}
-                onChange={(e) => setServiceName(e.target.value)}
-                error={validationErrors.service_name}
-              />
-              <Input
-                label="Address"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                error={validationErrors.address}
-              />
-              <Input
-                label="Accreditation"
-                value={accreditation}
-                onChange={(e) => setAccreditation(e.target.value)}
-                error={validationErrors.accreditation}
-              />
-              <Input
-                label="Province"
-                value={province}
-                onChange={(e) => setProvince(e.target.value)}
-                error={validationErrors.province}
-              />
-              <Input
-                label="LGU"
-                value={lgu}
-                onChange={(e) => setLgu(e.target.value)}
-                error={validationErrors.lgu}
-              />
-            </div>
-
-            {/* Logo uploads */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-              <div>
-                <ImageFilePicker ref={logoLeftRef} id="admin-logo-left" name="logo_left" label="Logo Left" current={branding.logo_left_path} />
-                {validationErrors.logo_left && (
-                  <span className="text-sm font-semibold text-red-600">
-                    {validationErrors.logo_left}
-                  </span>
-                )}
-              </div>
-              <div>
-                <ImageFilePicker ref={logoRightRef} id="admin-logo-right" name="logo_right" label="Logo Right" current={branding.logo_right_path} />
-                {validationErrors.logo_right && (
-                  <span className="text-sm font-semibold text-red-600">
-                    {validationErrors.logo_right}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 pt-2">
-              <Button type="submit" loading={saving} className="w-auto">
-                Save
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => {
-                  setHospitalName(branding.hospital_name ?? "");
-                  setAddress(branding.address ?? "");
-                  setAccreditation(branding.accreditation ?? "");
-                  setServiceName(branding.service_name ?? "");
-                  setProvince(branding.province ?? "");
-                  setLgu(branding.lgu ?? "");
-                  setEditingBranding(false);
-                }}
-                className="w-auto"
-              >
-                Cancel
-              </Button>
-              {savedOk && (
-                <span className="text-sm font-semibold text-emerald-600">
-                  Saved.
-                </span>
-              )}
-              {saveError && (
-                <span className="text-sm font-semibold text-red-600">
-                  {saveError}
-                </span>
-              )}
-            </div>
-          </form>
-        )}
-      </Card>
 
       <PerHeadDayLimitCard />
 

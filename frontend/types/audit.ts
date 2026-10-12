@@ -1,7 +1,5 @@
 export type AuditCategory = "security" | "clinical" | "operations";
-export type AuditModule = "security_administration" | "nutrition_care" | "food_service_operations" | "reports";
-export type AuditSeverity = "info" | "notice" | "warning" | "critical";
-export type AuditOutcome = "success" | "failure" | "blocked";
+export type AuditModule = "security_administration" | "nutrition_care" | "food_service_operations";
 export type AuditValueType = "text" | "number" | "currency" | "quantity" | "boolean" | "date" | "datetime" | "enum" | "reference" | "field_list" | "redacted";
 export type AuditScalar = string | number | boolean | string[] | null;
 
@@ -10,6 +8,7 @@ export interface AuditActorDto {
   kind: "user" | "system" | "anonymous";
   name: string;
   role: string | null;
+  ip: string | null;
 }
 
 export interface AuditEntityDto {
@@ -54,13 +53,11 @@ export interface AuditEventDto {
   id: string;
   module: AuditModule | "legacy_unclassified";
   category: AuditCategory | "legacy_unclassified";
-  domain: "accounts" | "patients" | "ncp" | "reports" | "budget" | "procurement" | "food_service" | "nutrition_library" | "system" | "legacy_unclassified";
+  domain: "accounts" | "patients" | "ncp" | "budget" | "procurement" | "food_service" | "nutrition_library" | "system" | "legacy_unclassified";
   record_type: string;
   action: string;
   action_label: string;
   summary: string;
-  severity: AuditSeverity;
-  outcome: AuditOutcome;
   actor: AuditActorDto | null;
   subject: AuditEntityDto | null;
   context: AuditEntityDto | null;
@@ -83,11 +80,8 @@ export interface AuditFilterOption {
 export interface AuditFilterMetadata {
   modules: AuditFilterOption[];
   actions: AuditFilterOption[];
-  outcomes: AuditFilterOption[];
-  severities: AuditFilterOption[];
-  module_subfilters: Record<AuditModule, AuditFilterOption[]>;
-  module_actions: Record<AuditModule, string[]>;
   module_counts: Record<"all" | AuditModule, number>;
+  report_contexts: Partial<Record<AuditModule, AuditFilterOption[]>>;
 }
 
 export interface AuditCapabilities {

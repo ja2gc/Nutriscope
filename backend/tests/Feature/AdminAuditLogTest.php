@@ -74,7 +74,7 @@ class AdminAuditLogTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->admin, 'sanctum')
-            ->getJson("/api/admin/audit-logs?actor_id={$rnd->uuid}&subject_id={$patient->uuid}&action=created&start=2026-06-10&end=2026-06-10&per_page=5");
+            ->getJson("/api/admin/audit-logs?actor_id={$rnd->uuid}&action=created&start=2026-06-10&end=2026-06-10&per_page=5");
 
         $response->assertOk()
             ->assertJsonCount(1, 'data')
@@ -82,8 +82,8 @@ class AdminAuditLogTest extends TestCase
             ->assertJsonPath('data.0.actor.id', $rnd->uuid)
             ->assertJsonStructure([
                 'data' => [[
-                    'id', 'category', 'domain', 'action', 'action_label', 'summary', 'severity',
-                    'outcome', 'actor', 'subject', 'context', 'occurred_at', 'details', 'changes',
+                    'id', 'category', 'domain', 'action', 'action_label', 'summary',
+                    'actor' => ['id', 'kind', 'name', 'role', 'ip'], 'subject', 'context', 'occurred_at', 'details', 'changes',
                 ]],
                 'links',
                 'meta',
@@ -98,11 +98,11 @@ class AdminAuditLogTest extends TestCase
             ->getJson('/api/admin/audit-logs');
 
         $response->assertOk()
-            ->assertJsonCount(4, 'meta.filters.modules')
+            ->assertJsonCount(3, 'meta.filters.modules')
             ->assertJsonPath('meta.filters.modules.0.value', 'security_administration')
-            ->assertJsonPath('meta.filters.actions.0.value', 'created')
-            ->assertJsonPath('meta.filters.outcomes.0.value', 'success')
-            ->assertJsonPath('meta.filters.severities.0.value', 'info');
+            ->assertJsonPath('meta.filters.actions.0.value', 'created');
+        $this->assertArrayNotHasKey('outcomes', $response->json('meta.filters'));
+        $this->assertArrayNotHasKey('severities', $response->json('meta.filters'));
         $this->assertArrayNotHasKey('categories', $response->json('meta.filters'));
         $this->assertArrayNotHasKey('domains', $response->json('meta.filters'));
         $this->assertArrayNotHasKey('category_actions', $response->json('meta.filters'));
@@ -167,7 +167,7 @@ class AdminAuditLogTest extends TestCase
         }
     }
 
-    public function test_admin_retention_change_is_persisted_and_audited_with_safe_old_and_new_values(): void
+    public function test_admin_retention_change_is_persisted_without_audit_noise(): void
     {
         $this->travelTo('2026-07-14 12:34:56');
         config(['audit.features.retention' => false]);
@@ -183,16 +183,7 @@ class AdminAuditLogTest extends TestCase
             'enabled' => true,
         ]);
 
-        $event = AuditActivity::query()
-            ->where('event', 'settings_changed')
-            ->where('domain', 'system')
-            ->sole();
-        $this->assertSame($this->admin->id, $event->causer_id);
-        $this->assertSame('2026-07-14 12:34:56', $event->created_at->format('Y-m-d H:i:s'));
-        $this->assertSame(['retention_enabled' => false], $event->properties->get('old'));
-        $this->assertSame(['retention_enabled' => true], $event->properties->get('attributes'));
-        $this->assertSame(['retention_enabled'], $event->properties->get('details')['changed_fields']);
-        $this->assertStringNotContainsString('patient', strtolower($event->properties->toJson()));
+        $this->assertSame(0, AuditActivity::query()->count());
     }
 
     public function test_clinical_audit_values_are_redacted_before_admin_api_exposes_them(): void
@@ -212,7 +203,7 @@ class AdminAuditLogTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->admin, 'sanctum')
-            ->getJson('/api/admin/audit-logs?subject_id='.$patient->uuid);
+            ->getJson('/api/admin/audit-logs');
 
         $response->assertOk();
 
@@ -283,7 +274,7 @@ class AdminAuditLogTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->admin, 'sanctum')
-            ->getJson('/api/admin/audit-logs?subject_id='.$patient->uuid);
+            ->getJson('/api/admin/audit-logs');
 
         $response->assertOk()
             ->assertJsonPath('data.0.action', 'updated')
@@ -301,7 +292,7 @@ class AdminAuditLogTest extends TestCase
         $this->assertSame([], $leaks, 'Admin audit response leaked forbidden clinical or arbitrary properties.');
     }
 
-    public function test_admin_can_filter_by_module_and_its_contextual_subfilter(): void
+    public function test_admin_uses_module_tabs_and_module_scoped_report_type_filters(): void
     {
         AuditFixture::delete(AuditActivity::query());
 
@@ -313,10 +304,11 @@ class AdminAuditLogTest extends TestCase
             ['procurement', AuditModule::FoodServiceOperations, AuditDomain::Procurement, AuditAction::Ordered, null, []],
             ['budget', AuditModule::FoodServiceOperations, AuditDomain::Budget, AuditAction::Adjusted, null, []],
             ['authentication', AuditModule::SecurityAdministration, AuditDomain::Accounts, AuditAction::LoginSucceeded, null, []],
-            ['accounts', AuditModule::SecurityAdministration, AuditDomain::Accounts, AuditAction::AccountBlocked, User::class, []],
+            ['accounts', AuditModule::SecurityAdministration, AuditDomain::Accounts, AuditAction::Updated, User::class, []],
             ['oversight', AuditModule::SecurityAdministration, AuditDomain::System, AuditAction::AuditLogViewed, null, []],
             ['settings', AuditModule::SecurityAdministration, AuditDomain::System, AuditAction::SettingsChanged, null, []],
-            ['report', AuditModule::Reports, AuditDomain::Reports, AuditAction::Generated, null, ['details' => ['report_type' => 'menu_calendar']]],
+            ['report', AuditModule::FoodServiceOperations, AuditDomain::Reports, AuditAction::Viewed, null, ['report_type' => 'menu_calendar']],
+            ['report preparation', AuditModule::FoodServiceOperations, AuditDomain::Reports, AuditAction::Created, null, ['report_type' => 'menu_calendar']],
         ];
 
         foreach ($events as [$description, $module, $domain, $action, $subjectType, $properties]) {
@@ -335,41 +327,30 @@ class AdminAuditLogTest extends TestCase
         }
         Cache::put('audit-list-view:'.$this->admin->getAuthIdentifier(), true, 900);
 
-        foreach ([
-            ['nutrition_care', 'food_library', 'food-library'],
-            ['nutrition_care', 'patients_ncp', 'patient-ncp'],
-            ['food_service_operations', 'catalog', 'catalog'],
-            ['food_service_operations', 'menus', 'menus'],
-            ['food_service_operations', 'procurement', 'procurement'],
-            ['food_service_operations', 'budget', 'budget'],
-            ['security_administration', 'authentication', 'authentication'],
-            ['security_administration', 'accounts', 'accounts'],
-            ['security_administration', 'audit_oversight', 'oversight'],
-            ['security_administration', 'settings', 'settings'],
-            ['reports', 'menu_calendar', 'report'],
-        ] as [$module, $subfilter, $description]) {
-            $response = $this->actingAs($this->admin, 'sanctum')
-                ->getJson("/api/admin/audit-logs?module={$module}&subfilter={$subfilter}");
-
-            $response->assertOk()->assertJsonCount(1, 'data')
-                ->assertJsonPath('data.0.module', $module)
-                ->assertJsonPath('data.0.summary', fn (string $summary): bool => $summary !== '');
-            $this->assertSame($description, AuditActivity::query()
-                ->where('public_id', $response->json('data.0.id'))->value('description'));
-        }
-
         $this->actingAs($this->admin, 'sanctum')
-            ->getJson('/api/admin/audit-logs?module=nutrition_care&subfilter=budget')
+            ->getJson('/api/admin/audit-logs?module=food_service_operations')
+            ->assertOk()
+            ->assertJsonCount(5, 'data');
+        $this->actingAs($this->admin, 'sanctum')
+            ->getJson('/api/admin/audit-logs?module=food_service_operations&context=menu_calendar')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.action', 'viewed');
+        $this->actingAs($this->admin, 'sanctum')
+            ->getJson('/api/admin/audit-logs?module=nutrition_care&subfilter=food_library')
             ->assertUnprocessable();
         $this->actingAs($this->admin, 'sanctum')
             ->getJson('/api/admin/audit-logs?module=nope')
             ->assertUnprocessable();
     }
 
-    public function test_module_metadata_has_exact_tabs_contextual_filters_actions_and_one_count_aggregate(): void
+    public function test_module_metadata_has_three_tabs_actions_and_one_count_aggregate(): void
     {
         AuditFixture::delete(AuditActivity::query());
         foreach (AuditModule::cases() as $module) {
+            if ($module === AuditModule::Reports) {
+                continue;
+            }
             AuditActivity::query()->create([
                 'log_name' => 'audit',
                 'description' => $module->value,
@@ -387,31 +368,15 @@ class AdminAuditLogTest extends TestCase
         DB::disableQueryLog();
 
         $this->assertSame([
-            'security_administration', 'nutrition_care', 'food_service_operations', 'reports',
+            'security_administration', 'nutrition_care', 'food_service_operations',
         ], collect($metadata['filters']['modules'])->pluck('value')->all());
+        $this->assertArrayNotHasKey('module_subfilters', $metadata['filters']);
+        $this->assertSame(['created', 'updated', 'deleted', 'viewed', 'downloaded', 'archived', 'failed', 'suspended', 'unsuspended', 'discontinued'], collect($metadata['filters']['actions'])->pluck('value')->all());
         $this->assertSame([
-            'authentication', 'accounts', 'audit_oversight', 'settings',
-        ], collect($metadata['filters']['module_subfilters']['security_administration'])->pluck('value')->all());
-        $this->assertSame(['food_library', 'patients_ncp'], collect($metadata['filters']['module_subfilters']['nutrition_care'])->pluck('value')->all());
-        $this->assertSame(['catalog', 'menus', 'procurement', 'budget'], collect($metadata['filters']['module_subfilters']['food_service_operations'])->pluck('value')->all());
-        $this->assertSame([
-            'program_project_activity', 'menu_calendar', 'procurement_pack',
-            'patient_menu_plan', 'ncp_summary', 'accomplishment_report',
-        ], collect($metadata['filters']['module_subfilters']['reports'])->pluck('value')->all());
-        $this->assertSame(
-            'Nutrition Intervention Plan',
-            collect($metadata['filters']['module_subfilters']['reports'])->firstWhere('value', 'patient_menu_plan')['label'],
-        );
-        $this->assertContains('login_succeeded', $metadata['filters']['module_actions']['security_administration']);
-        $this->assertContains('imported', $metadata['filters']['module_actions']['nutrition_care']);
-        $this->assertContains('received', $metadata['filters']['module_actions']['food_service_operations']);
-        $this->assertContains('generated', $metadata['filters']['module_actions']['reports']);
-        $this->assertSame([
-            'all' => 4,
+            'all' => 3,
             'security_administration' => 1,
             'nutrition_care' => 1,
             'food_service_operations' => 1,
-            'reports' => 1,
         ], $metadata['filters']['module_counts']);
 
         $countQueries = $queries->filter(fn (array $query): bool => str_contains(strtolower($query['query']), 'from `activity_log`')

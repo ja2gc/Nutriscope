@@ -198,7 +198,7 @@ class ClinicalTrailTest extends TestCase
             $this->assertSame(['rnd_summary'], collect($response->json('data.0.changes'))->pluck('field')->all());
             $this->assertSame([
                 'id', 'module', 'category', 'domain', 'record_type', 'action', 'action_label',
-                'summary', 'severity', 'outcome', 'actor', 'subject', 'context', 'patient',
+                'summary', 'actor', 'subject', 'context', 'patient',
                 'ncp_reference', 'detail_mode', 'reason', 'history', 'current_record_url',
                 'occurred_at', 'details', 'changes',
             ], array_keys($response->json('data.0')));
@@ -262,7 +262,7 @@ class ClinicalTrailTest extends TestCase
         $this->assertSame($ids, array_values(array_unique($ids)));
     }
 
-    public function test_chart_open_is_deduplicated_for_fifteen_minutes_per_actor_and_patient(): void
+    public function test_chart_open_is_not_audited(): void
     {
         Cache::clear();
         CarbonImmutable::setTestNow('2026-07-12 08:00:00');
@@ -277,26 +277,16 @@ class ClinicalTrailTest extends TestCase
             CarbonImmutable::setTestNow('2026-07-12 08:14:59');
             $this->getJson("/api/rnd/patients/{$patient->uuid}")->assertOk();
 
-            $this->assertSame(1, AuditActivity::query()
-                ->where('event', AuditAction::Viewed->value)
-                ->where('subject_type', $patient->getMorphClass())
-                ->where('subject_id', $patient->id)
-                ->count());
-
             CarbonImmutable::setTestNow('2026-07-12 08:15:00');
             $this->getJson("/api/rnd/patients/{$patient->uuid}")->assertOk();
         } finally {
             CarbonImmutable::setTestNow();
         }
 
-        $this->assertSame(2, AuditActivity::query()
-            ->where('event', AuditAction::Viewed->value)
-            ->where('subject_type', $patient->getMorphClass())
-            ->where('subject_id', $patient->id)
-            ->count());
+        $this->assertSame(0, AuditActivity::query()->where('event', AuditAction::Viewed->value)->count());
     }
 
-    public function test_attachment_downloads_are_never_deduplicated(): void
+    public function test_attachment_downloads_are_audited_without_recording_document_views(): void
     {
         Storage::fake('local');
         $rnd = User::factory()->rnd()->create();
@@ -336,7 +326,7 @@ class ClinicalTrailTest extends TestCase
         $this->deleteJson("/api/rnd/screening-documents/{$document->uuid}")->assertOk();
 
         $events = AuditActivity::query()->orderBy('id')->get();
-        $this->assertEqualsCanonicalizing(['uploaded', 'viewed', 'downloaded', 'deleted'], $events->pluck('event')->all());
+        $this->assertEqualsCanonicalizing(['created', 'downloaded', 'deleted'], $events->pluck('event')->all());
         $this->assertTrue($events->every(fn (AuditActivity $event): bool => (int) $event->root_patient_id === $patient->id
             && (int) $event->ncp_record_id === $ncp->id
             && preg_match('/^NCP-[A-F0-9]{16}$/D', (string) $event->properties['details']['ncp_reference']) === 1
@@ -441,7 +431,7 @@ class ClinicalTrailTest extends TestCase
         }
     }
 
-    public function test_every_authorized_audit_detail_access_is_recorded_without_deduplication(): void
+    public function test_authorized_audit_detail_access_is_not_itself_audited(): void
     {
         $rnd = User::factory()->rnd()->create();
         $patient = Patient::factory()->create();
@@ -450,10 +440,9 @@ class ClinicalTrailTest extends TestCase
         $this->actingAs($rnd, 'sanctum');
 
         $this->getJson("/api/rnd/patients/{$patient->uuid}/activity")->assertOk();
-        $cursor = AuditActivity::query()->where('event', AuditAction::AuditLogViewed->value)->sole()->public_id;
-        $this->getJson("/api/rnd/patients/{$patient->uuid}/activity?before_id={$cursor}")->assertOk();
+        $this->getJson("/api/rnd/patients/{$patient->uuid}/activity")->assertOk();
 
-        $this->assertSame(2, AuditActivity::query()->where('event', AuditAction::AuditLogViewed->value)->count());
+        $this->assertSame(0, AuditActivity::query()->where('event', AuditAction::AuditLogViewed->value)->count());
     }
 
     public function test_trail_query_has_root_cursor_indexes_and_bounded_queries_without_id_pluck(): void

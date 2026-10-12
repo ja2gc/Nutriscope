@@ -9,11 +9,8 @@ import { AuditFilters } from "./AuditFilters";
 const metadata = {
   modules: [],
   actions: [],
-  outcomes: [],
-  severities: [],
-  module_subfilters: {},
-  module_actions: {},
   module_counts: {},
+  report_contexts: {},
 } as unknown as AuditFilterMetadata;
 
 describe("AuditFilters", () => {
@@ -39,5 +36,32 @@ describe("AuditFilters", () => {
     expect(container.querySelector('select[aria-label="Audit year"]')).not.toBeNull();
     expect(container.textContent).not.toContain("Start date");
     expect(container.textContent).not.toContain("End date");
+    expect(container.textContent).not.toMatch(/Context|Outcome|Severity/);
+  });
+  test("limits report type options to the selected module", () => {
+    const scopedMetadata = {
+      ...metadata,
+      report_contexts: {
+        nutrition_care: [
+          { value: "demographic_census", label: "Demographic Census" },
+          { value: "ncp_summary", label: "NCP Summary" },
+        ],
+        food_service_operations: [
+          { value: "accomplishment_report", label: "Accomplishment Report" },
+          { value: "program_project_activity", label: "PPA" },
+          { value: "procurement_pack", label: "Procurement Pack" },
+          { value: "menu_calendar", label: "Menu Calendar" },
+        ],
+      },
+    } as AuditFilterMetadata;
+    const reportTypeSelect = () => Array.from(container.querySelectorAll("label"))
+      .find((label) => label.textContent?.includes("Report type"))
+      ?.querySelector("select");
+
+    act(() => root.render(<AuditFilters metadata={scopedMetadata} value={{ module: "nutrition_care" }} onChange={() => undefined} onClear={() => undefined} />));
+    expect(Array.from(reportTypeSelect()?.options ?? []).map((option) => option.value)).toEqual(["", "demographic_census", "ncp_summary"]);
+
+    act(() => root.render(<AuditFilters metadata={scopedMetadata} value={{ module: "food_service_operations" }} onChange={() => undefined} onClear={() => undefined} />));
+    expect(Array.from(reportTypeSelect()?.options ?? []).map((option) => option.value)).toEqual(["", "accomplishment_report", "program_project_activity", "procurement_pack", "menu_calendar"]);
   });
 });

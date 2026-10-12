@@ -26,7 +26,6 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Support\Facades\Cache;
 
 class PatientController extends Controller
 {
@@ -105,21 +104,6 @@ class PatientController extends Controller
             fn (NcpRecord $record): bool => ! $this->completeness->initialAdiComplete($record),
         ));
         $this->clinicalAttribution->decoratePatients(new Collection([$patient]));
-        $key = "patient-chart-view:{$request->user()->id}:{$patient->id}";
-        if (Cache::add($key, true, (int) config('audit.deduplication.chart_view_seconds', 900))) {
-            try {
-                $this->auditLogger->record(
-                    AuditAction::Viewed,
-                    AuditCategory::Clinical,
-                    AuditDomain::Patients,
-                    subject: $patient,
-                    details: ['status' => 200],
-                );
-            } catch (\Throwable $exception) {
-                Cache::forget($key);
-                throw $exception;
-            }
-        }
 
         return response()->json(new PatientResource($patient));
     }

@@ -22,7 +22,7 @@ class AuditRetentionController extends Controller
 
     public function update(UpdateAuditRetentionRequest $request): JsonResponse
     {
-        $this->setState->execute($request->boolean('enabled'), $request->user());
+        $this->setState->execute($request->boolean('enabled'));
 
         return response()->json(['data' => $this->state->current()]);
     }

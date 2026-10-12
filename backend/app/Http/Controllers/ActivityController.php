@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
 use App\Enums\AuditModule;
@@ -21,10 +20,8 @@ use App\Models\PurchaseOrderAttachment;
 use App\Models\PurchaseOrderItem;
 use App\Models\PurchaseOrderItemCorrection;
 use App\Models\PurchaseOrderVendorGroup;
-use App\Models\Report;
 use App\Models\User;
 use App\Services\Audit\AuditEventPresenter;
-use App\Services\Audit\AuditLogger;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
@@ -36,7 +33,6 @@ use Illuminate\Validation\ValidationException;
 class ActivityController extends Controller
 {
     public function __construct(
-        private readonly AuditLogger $auditLogger,
         private readonly AuditEventPresenter $presenter,
     ) {}
 
@@ -100,13 +96,6 @@ class ActivityController extends Controller
             }), AuditCategory::Operations, AuditDomain::Budget, $budget);
     }
 
-    public function report(Request $request, Report $report): JsonResponse
-    {
-        Gate::authorize('viewTrail', [AuditActivity::class, $report]);
-
-        return $this->directHistory($request, $report, AuditDomain::Reports);
-    }
-
     public function patient(Request $request, Patient $patient): JsonResponse
     {
         Gate::authorize('viewTrail', [AuditActivity::class, $patient]);
@@ -121,8 +110,6 @@ class ActivityController extends Controller
                 $legacy->where('subject_type', NcpRecord::class)
                     ->whereIn('subject_id', NcpRecord::query()->select('id')->where('patient_id', $patient->id));
             }), AuditCategory::Clinical, AuditDomain::Patients, $patient);
-
-        $this->recordTrailAccess($patient, AuditDomain::Patients);
 
         return $response;
     }
@@ -142,8 +129,6 @@ class ActivityController extends Controller
                             ->where('subject_id', $ncpRecord->getKey());
                     });
             }), AuditCategory::Clinical, AuditDomain::Ncp, $ncpRecord);
-
-        $this->recordTrailAccess($ncpRecord, AuditDomain::Ncp);
 
         return $response;
     }
@@ -273,16 +258,5 @@ class ActivityController extends Controller
         $details['changed_fields'] = $fields;
         $properties['details'] = $details;
         $activity->setAttribute('properties', $properties);
-    }
-
-    private function recordTrailAccess(Model $subject, AuditDomain $domain): void
-    {
-        $this->auditLogger->record(
-            AuditAction::AuditLogViewed,
-            AuditCategory::Clinical,
-            $domain,
-            subject: $subject,
-            details: ['status' => 200],
-        );
     }
 }

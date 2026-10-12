@@ -3,16 +3,18 @@
 import { useCallback, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { AuditFilterState } from "./AuditFilters";
-import type { AuditModule, AuditOutcome, AuditSeverity } from "@/types/audit";
+import type { AuditModule } from "@/types/audit";
+
+const modules: AuditModule[] = ["security_administration", "nutrition_care", "food_service_operations"];
 
 function parseFilters(searchParams: URLSearchParams): AuditFilterState {
+  const requestedModule = searchParams.get("module");
+
   return {
-    module: (searchParams.get("module") || undefined) as AuditModule | undefined,
-    subfilter: searchParams.get("subfilter") || undefined,
+    module: modules.find((module) => module === requestedModule),
     action: searchParams.get("action") || undefined,
+    context: searchParams.get("context") || undefined,
     actor_id: searchParams.get("actor_id") || undefined,
-    outcome: (searchParams.get("outcome") || undefined) as AuditOutcome | undefined,
-    severity: (searchParams.get("severity") || undefined) as AuditSeverity | undefined,
     month: searchParams.get("month") || undefined,
   };
 }

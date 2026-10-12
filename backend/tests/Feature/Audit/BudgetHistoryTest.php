@@ -42,7 +42,7 @@ class BudgetHistoryTest extends TestCase
         ])->assertCreated();
 
         $adjusted = AuditActivity::query()->where('subject_type', Budget::class)->sole();
-        $this->assertSame('adjusted', $adjusted->event);
+        $this->assertSame('updated', $adjusted->event);
         $this->assertCount(0, $adjusted->revision->before['ledger']);
         $this->assertSame('Correction with supporting memo', $adjusted->revision->after['ledger'][0]['reason']);
         $this->assertSame(95000, $adjusted->revision->after['totals']['remaining_balance']);

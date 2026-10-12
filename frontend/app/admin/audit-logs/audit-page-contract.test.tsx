@@ -16,18 +16,21 @@ const urlState = source("components/audit/useAuditUrlState.ts");
 const tabsComponent = source("components/ui/Tabs.tsx");
 
 describe("purposeful admin audit views", () => {
-  test("provides exactly five module tabs and every required secondary filter", () => {
-    for (const label of ["All Activity", "Security & Administration", "Nutrition Care", "Food Service Operations", "Reports"]) {
+  test("provides only active module tabs and oversight filters", () => {
+    for (const label of ["All Activity", "Security & Administration", "Nutrition Care", "Food Service Operations"]) {
       expect(page).toContain(label);
     }
+    expect(page).not.toContain('label: "Reports"');
     expect(page).toContain("meta.filters.module_counts");
     expect(page).toContain("items={tabs}");
+    expect(page).toContain("flex-nowrap overflow-x-auto overflow-y-hidden");
     expect(page).not.toContain("meta.filters.categories");
     expect(filters).toContain("MonthYearSelect");
     expect(filters).not.toContain("Date range");
-    for (const label of ["Context", "Action", "Actor", "Outcome", "Severity"]) {
+    for (const label of ["Action", "Actor", "Report type"]) {
       expect(filters).toContain(label);
     }
+    expect(filters).not.toMatch(/Outcome|Severity/);
     expect(filters).not.toContain('label="Domain"');
     expect(filters).not.toContain('label="Category"');
     expect(filters).toContain("AuditActorFilter");
@@ -38,10 +41,13 @@ describe("purposeful admin audit views", () => {
     expect(tabsComponent).toContain("tabTheme.focus");
   });
 
-  test("uses the exact seven table columns and a responsive mobile alternative", () => {
-    for (const label of ["Time", "Action", "Actor", "Subject / context", "Outcome", "Severity", "Summary"]) {
+  test("uses the five useful table columns and a responsive mobile alternative", () => {
+    for (const label of ["Time", "Action", "Actor", "Subject", "Summary"]) {
       expect(table).toContain(label);
     }
+    expect(table).not.toMatch(/event\.(outcome|severity|context)/);
+    expect(table).not.toContain('"Outcome"');
+    expect(table).not.toContain('"Severity"');
     expect(table).toContain("hidden md:block");
     expect(table).toContain("md:hidden");
     expect(table).toContain("break-words");
@@ -65,7 +71,7 @@ describe("purposeful admin audit views", () => {
   });
 
   test("renders every safe drawer section and clinical redaction message", () => {
-    for (const section of ["Event summary", "Actor", "Record context", "Result", "Recorded values", "Field changes"]) {
+    for (const section of ["Event summary", "Actor", "Record", "Recorded values", "Field changes"]) {
       expect(drawer).toContain(section);
     }
     expect(drawer).not.toContain("Safe request metadata");
@@ -86,7 +92,7 @@ describe("purposeful admin audit views", () => {
     expect(urlState).toContain("useSearchParams");
     expect(urlState).toContain("router.replace");
     expect(urlState).toContain('searchParams.get("module")');
-    expect(urlState).toContain('searchParams.get("subfilter")');
+    expect(urlState).not.toContain('searchParams.get("subfilter")');
     expect(urlState).not.toContain('searchParams.get("category")');
     expect(urlState).not.toContain('searchParams.get("domain")');
     expect(urlState).not.toContain('searchParams.set("search"');

@@ -4,16 +4,10 @@ import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { X } from "lucide-react";
 import type { AuditEntityDto, AuditEventDto } from "@/types/audit";
-import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { AuditChangeList } from "./AuditChangeList";
 import { AuditTimestamp } from "./AuditTimestamp";
 import { AuditValue } from "./AuditValue";
-
-const outcomeTones: Record<AuditEventDto["outcome"], BadgeTone> = {
-  success: "emerald",
-  failure: "red",
-  blocked: "amber",
-};
+import { InfoHint } from "@/components/ui/InfoHint";
 
 function Entity({ entity, fallback }: { entity: AuditEntityDto | null; fallback: string }) {
   if (!entity) return <p className="text-sm text-warm-500">{fallback}</p>;
@@ -127,40 +121,46 @@ export function AuditEventDrawer({ event, onClose }: { event: AuditEventDto; onC
                 <p className="mt-1 text-xs text-warm-500">
                   {event.actor.role || event.actor.kind}{event.actor.id ? ` · ${event.actor.id}` : ""}
                 </p>
+                <p className="mt-1 text-xs text-warm-500">IP address: {event.actor.ip || "Not recorded"}</p>
               </div>
             ) : (
-              <p className="text-sm text-warm-500">System actor</p>
+              <div>
+                <p className="text-sm text-warm-500">System actor</p>
+                <p className="mt-1 text-xs text-warm-500">IP address: Not recorded</p>
+              </div>
             )}
           </Section>
 
-          <Section title="Record context">
+          {(event.patient || event.subject) && <Section title="Record">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {event.patient && (
                 <div className="rounded-xl border border-warm-200 p-3">
                   <p className="mb-2 text-xs font-bold uppercase tracking-wider text-warm-500">Patient</p>
                   <p className="text-sm font-semibold tabular-nums text-warm-800 break-words">{event.patient.code}</p>
-                  {event.ncp_reference && <p className="mt-1 text-xs text-warm-500 break-all">{event.ncp_reference}</p>}
+                  <div className="mt-2 flex items-center gap-1">
+                    <span className="text-xs font-semibold text-warm-600">Patient code</span>
+                    <InfoHint label="How to find this patient code" title="Find this patient">
+                      An authorized RND can open Nutrition Care → Patients (NCP Patients), search this code, and select the matching patient. Admin can use the code to correlate audit events but cannot open the clinical record.
+                    </InfoHint>
+                  </div>
+                  {event.ncp_reference && <div className="mt-2">
+                    <p className="text-xs font-semibold text-warm-600">NCP reference</p>
+                    <p className="text-xs text-warm-500 break-all">{event.ncp_reference}</p>
+                    <div className="mt-1 flex items-center gap-1">
+                      <span className="text-xs text-warm-500">How to use this reference</span>
+                      <InfoHint label="How to use this NCP reference" title="Match an NCP record">
+                        This reference helps distinguish audit events for a particular Nutrition Care Process record. It is not a patient name or a direct search code. An authorized RND can find the patient by patient code in Nutrition Care → Patients, then review that patient’s NCP records.
+                      </InfoHint>
+                    </div>
+                  </div>}
                 </div>
               )}
               <div className="rounded-xl border border-warm-200 p-3">
                 <p className="mb-2 text-xs font-bold uppercase tracking-wider text-warm-500">Subject</p>
                 <Entity entity={event.subject} fallback="No subject recorded" />
               </div>
-              <div className="rounded-xl border border-warm-200 p-3">
-                <p className="mb-2 text-xs font-bold uppercase tracking-wider text-warm-500">Context</p>
-                <Entity entity={event.context} fallback="No context recorded" />
-              </div>
             </div>
-          </Section>
-
-          <Section title="Result">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge tone={outcomeTones[event.outcome]}>{event.outcome}</Badge>
-              <Badge tone={event.severity === "critical" ? "red" : event.severity === "warning" ? "amber" : "zinc"}>
-                {event.severity}
-              </Badge>
-            </div>
-          </Section>
+          </Section>}
 
           <Section title="Recorded values">
             {event.details.length === 0 ? (

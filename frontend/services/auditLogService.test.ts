@@ -9,10 +9,12 @@ describe("audit log service contract", () => {
     expect(source).toContain('from "@/types/audit"');
     expect(source).toContain('qs.set("actor_id"');
     expect(source).toContain('qs.set("module"');
-    expect(source).toContain('qs.set("subfilter"');
+    expect(source).not.toContain('qs.set("subfilter"');
     expect(source).toContain('qs.set("action"');
     expect(source).not.toContain('qs.set("category"');
     expect(source).not.toContain('qs.set("domain"');
+    expect(source).not.toContain("context_id");
+    expect(source).not.toContain("subject_id");
     expect(source).not.toContain("properties:");
     expect(source).not.toContain("subject_type");
     expect(source).not.toContain("causer_id");

@@ -1,65 +1,9 @@
 <?php
 
-use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
-use App\Enums\AuditDomain;
-use App\Enums\AuditModule;
-use App\Enums\AuditOutcome;
-use App\Enums\AuditSeverity;
 
 return [
     'log_name' => 'audit',
-
-    /*
-    | Taxonomy is defined once on the backend. API presenters can expose these
-    | values to clients without requiring a second hard-coded frontend list.
-    */
-    'taxonomy' => [
-        'actions' => AuditAction::class,
-        'categories' => AuditCategory::class,
-        'domains' => AuditDomain::class,
-        'modules' => AuditModule::class,
-        'outcomes' => AuditOutcome::class,
-        'severities' => AuditSeverity::class,
-
-        'module_actions' => [
-            AuditModule::SecurityAdministration->value => [
-                AuditAction::Created->value, AuditAction::Updated->value, AuditAction::Deleted->value,
-                AuditAction::ProfileChanged->value, AuditAction::SettingsChanged->value,
-                AuditAction::LoginSucceeded->value, AuditAction::LoginFailed->value,
-                AuditAction::AuthenticationFailed->value, AuditAction::Logout->value,
-                AuditAction::PasswordChanged->value, AuditAction::PasswordReset->value,
-                AuditAction::RecoveryEmailChanged->value, AuditAction::RecoveryEmailVerified->value,
-                AuditAction::RateLimitExceeded->value, AuditAction::AuthorizationDenied->value,
-                AuditAction::AuditLogViewed->value, AuditAction::AccountBlocked->value,
-                AuditAction::AccountUnblocked->value,
-            ],
-            AuditModule::NutritionCare->value => [
-                AuditAction::Created->value, AuditAction::Updated->value, AuditAction::Deleted->value,
-                AuditAction::Viewed->value, AuditAction::Downloaded->value, AuditAction::Approved->value,
-                AuditAction::Uploaded->value, AuditAction::Imported->value, AuditAction::Generated->value,
-            ],
-            AuditModule::FoodServiceOperations->value => [
-                AuditAction::Created->value, AuditAction::Updated->value, AuditAction::Deleted->value,
-                AuditAction::Viewed->value, AuditAction::Downloaded->value, AuditAction::Approved->value,
-                AuditAction::Ordered->value, AuditAction::Received->value, AuditAction::Reversed->value,
-                AuditAction::Archived->value, AuditAction::Adjusted->value, AuditAction::Uploaded->value,
-                AuditAction::Generated->value, AuditAction::Completed->value, AuditAction::PriceCorrected->value,
-                AuditAction::SettingsChanged->value,
-            ],
-            AuditModule::Reports->value => [
-                AuditAction::Created->value, AuditAction::Updated->value, AuditAction::Deleted->value,
-                AuditAction::Viewed->value, AuditAction::Downloaded->value,
-                AuditAction::Archived->value, AuditAction::Generated->value, AuditAction::SettingsChanged->value,
-            ],
-        ],
-    ],
-
-    'legacy' => [
-        'action_aliases' => [
-            'login' => AuditAction::LoginSucceeded->value,
-        ],
-    ],
 
     /* Retention values are defaults pending privacy-owner approval. */
     'retention' => [
@@ -92,7 +36,6 @@ return [
 
     'deduplication' => [
         'chart_view_seconds' => 15 * 60,
-        'audit_list_view_seconds' => 15 * 60,
         'security_failure_seconds' => 5 * 60,
     ],
 
@@ -113,11 +56,11 @@ return [
             'reason' => 'Laravel Boost development telemetry is outside the application API.',
         ],
         'PUT api/admin/ai-usage-limits' => [
-            'classification' => 'explicit_event',
+            'classification' => 'intentionally_not_audited',
             'source' => 'App\\Http\\Controllers\\Admin\\AiUsageLimitController@update',
             'owner_task' => 4,
             'implementation_state' => 'implemented',
-            'reason' => 'Successful PUT api/admin/ai-usage-limits emits one sanitized explicit event; rejected commands emit none.',
+            'reason' => 'Routine AI usage limit setting changes are not audit events.',
         ],
         'PUT api/admin/audit-retention' => [
             'classification' => 'explicit_event',
@@ -190,53 +133,53 @@ return [
             'reason' => 'Successful DELETE api/admin/announcements/{announcement} emits one sanitized explicit event; rejected commands emit none.',
         ],
         'PUT api/admin/food-service-settings' => [
-            'classification' => 'explicit_event',
+            'classification' => 'intentionally_not_audited',
             'source' => 'App\\Http\\Controllers\\FSS\\FoodServiceSettingController@update',
             'owner_task' => 7,
             'implementation_state' => 'implemented',
-            'reason' => 'This administrative setting command needs an explicit actor, safe field list, and outcome event.',
+            'reason' => 'Routine Food Service setting changes are not audit events.',
         ],
         'POST api/admin/report-branding' => [
-            'classification' => 'explicit_event',
+            'classification' => 'intentionally_not_audited',
             'source' => 'App\\Http\\Controllers\\ReportBrandingController@update',
             'owner_task' => 8,
             'implementation_state' => 'implemented',
-            'reason' => 'This report-configuration command needs an explicit safe allow-listed change event; images and arbitrary payloads stay excluded.',
+            'reason' => 'Report branding is managed on the Reports page and has no audit trail.',
         ],
         'PATCH api/admin/report-templates/{reportTemplate}' => [
-            'classification' => 'explicit_event',
+            'classification' => 'intentionally_not_audited',
             'source' => 'App\\Http\\Controllers\\ReportTemplateController@update',
             'owner_task' => 8,
             'implementation_state' => 'implemented',
-            'reason' => 'Admin template changes emit a safe allow-listed report-configuration event without image or arbitrary payload content.',
+            'reason' => 'Report template edits have no audit trail.',
         ],
         'PUT api/admin/reports/archive-settings' => [
-            'classification' => 'explicit_event',
+            'classification' => 'intentionally_not_audited',
             'source' => 'App\\Http\\Controllers\\Admin\\ReportArchiveSettingController@update',
             'owner_task' => 8,
             'implementation_state' => 'implemented',
-            'reason' => 'Retention setting changes emit a safe administrative configuration event.',
+            'reason' => 'Report settings have no audit trail.',
         ],
         'POST api/admin/reports/{report}/archive' => [
             'classification' => 'explicit_event',
             'source' => 'App\\Http\\Controllers\\ReportController@archivePrepared',
             'owner_task' => 8,
             'implementation_state' => 'implemented',
-            'reason' => 'This report lifecycle command needs an explicit outcome event without report snapshots, filters, or file contents.',
+            'reason' => 'Successful report archiving emits an Archived event in the owning module; report type identifies the subject.',
         ],
         'POST api/admin/reports/{report}/unarchive' => [
-            'classification' => 'explicit_event',
+            'classification' => 'intentionally_not_audited',
             'source' => 'App\\Http\\Controllers\\ReportController@unarchive',
             'owner_task' => 8,
             'implementation_state' => 'implemented',
-            'reason' => 'Restoring a filed report emits a safe lifecycle event without report contents.',
+            'reason' => 'Report archive actions have no audit trail.',
         ],
         'POST api/admin/reports/{type}/prepare' => [
-            'classification' => 'explicit_event',
+            'classification' => 'intentionally_not_audited',
             'source' => 'App\\Http\\Controllers\\ReportController@prepare',
             'owner_task' => 8,
             'implementation_state' => 'implemented',
-            'reason' => 'Report preparation records a safe report reference without source data or PDF bytes.',
+            'reason' => 'Report preparation has no audit trail.',
         ],
         'POST api/admin/users' => [
             'classification' => 'explicit_event',
@@ -393,11 +336,11 @@ return [
             'reason' => 'Food-service recipe persistence for DELETE api/fss/food-service-recipes/{food_service_recipe} is covered by its model lifecycle event.',
         ],
         'PUT api/fss/food-service-settings' => [
-            'classification' => 'explicit_event',
+            'classification' => 'intentionally_not_audited',
             'source' => 'App\\Http\\Controllers\\FSS\\FoodServiceSettingController@update',
             'owner_task' => 7,
             'implementation_state' => 'implemented',
-            'reason' => 'This administrative setting command needs an explicit actor, safe field list, and outcome event.',
+            'reason' => 'Routine Food Service setting changes are not audit events.',
         ],
         'POST api/fss/fs-items' => [
             'classification' => 'explicit_event',
@@ -575,39 +518,39 @@ return [
             'reason' => 'This procurement command needs an explicit purchase-order-root event without attachment or receipt contents.',
         ],
         'POST api/fss/report-branding' => [
-            'classification' => 'explicit_event',
+            'classification' => 'intentionally_not_audited',
             'source' => 'App\\Http\\Controllers\\ReportBrandingController@update',
             'owner_task' => 8,
             'implementation_state' => 'implemented',
-            'reason' => 'This report-configuration command needs an explicit safe allow-listed change event; images and arbitrary payloads stay excluded.',
+            'reason' => 'Report branding is managed on the Reports page and has no audit trail.',
         ],
         'PATCH api/fss/report-templates/{reportTemplate}' => [
-            'classification' => 'explicit_event',
+            'classification' => 'intentionally_not_audited',
             'source' => 'App\\Http\\Controllers\\ReportTemplateController@update',
             'owner_task' => 8,
             'implementation_state' => 'implemented',
-            'reason' => 'This report-configuration command needs an explicit safe allow-listed change event; images and arbitrary payloads stay excluded.',
+            'reason' => 'Report template edits have no audit trail.',
         ],
         'POST api/fss/reports/{report}/archive' => [
             'classification' => 'explicit_event',
             'source' => 'App\\Http\\Controllers\\ReportController@archivePrepared',
             'owner_task' => 8,
             'implementation_state' => 'implemented',
-            'reason' => 'This report lifecycle command needs an explicit outcome event without report snapshots, filters, or file contents.',
+            'reason' => 'Successful report archiving emits an Archived event in the owning module; report type identifies the subject.',
         ],
         'POST api/fss/reports/{report}/unarchive' => [
-            'classification' => 'explicit_event',
+            'classification' => 'intentionally_not_audited',
             'source' => 'App\\Http\\Controllers\\ReportController@unarchive',
             'owner_task' => 8,
             'implementation_state' => 'implemented',
-            'reason' => 'Restoring a filed report emits a safe lifecycle event without report contents.',
+            'reason' => 'Report archive actions have no audit trail.',
         ],
         'POST api/fss/reports/{type}/prepare' => [
-            'classification' => 'explicit_event',
+            'classification' => 'intentionally_not_audited',
             'source' => 'App\\Http\\Controllers\\ReportController@prepare',
             'owner_task' => 8,
             'implementation_state' => 'implemented',
-            'reason' => 'Report preparation records a safe report reference without source data or PDF bytes.',
+            'reason' => 'Report preparation has no audit trail.',
         ],
         'PATCH api/fss/shopping-list-items/{shopping_list_item}' => [
             'classification' => 'explicit_event',
@@ -768,7 +711,7 @@ return [
             'source' => 'App\\Http\\Controllers\\RND\\MealPlanController@destroyTemplate',
             'owner_task' => 6,
             'implementation_state' => 'implemented',
-            'reason' => 'Reusable template deletion has no patient/NCP root and is deferred to report/configuration audit coverage.',
+            'reason' => 'Reusable template deletion has no patient/NCP root, matching library template create/update policy.',
         ],
         'POST api/rnd/meal-plan-templates' => [
             'classification' => 'intentionally_not_audited',
@@ -1037,39 +980,39 @@ return [
             'reason' => 'Successful DELETE api/rnd/recipes/{recipe} emits one sanitized explicit event; rejected commands emit none.',
         ],
         'POST api/rnd/report-branding' => [
-            'classification' => 'explicit_event',
+            'classification' => 'intentionally_not_audited',
             'source' => 'App\\Http\\Controllers\\ReportBrandingController@update',
             'owner_task' => 8,
             'implementation_state' => 'implemented',
-            'reason' => 'This report-configuration command needs an explicit safe allow-listed change event; images and arbitrary payloads stay excluded.',
+            'reason' => 'Report branding is managed on the Reports page and has no audit trail.',
         ],
         'PATCH api/rnd/report-templates/{reportTemplate}' => [
-            'classification' => 'explicit_event',
+            'classification' => 'intentionally_not_audited',
             'source' => 'App\\Http\\Controllers\\ReportTemplateController@update',
             'owner_task' => 8,
             'implementation_state' => 'implemented',
-            'reason' => 'This report-configuration command needs an explicit safe allow-listed change event; images and arbitrary payloads stay excluded.',
+            'reason' => 'Report template edits have no audit trail.',
         ],
         'POST api/rnd/reports/{report}/archive' => [
             'classification' => 'explicit_event',
             'source' => 'App\\Http\\Controllers\\ReportController@archivePrepared',
             'owner_task' => 8,
             'implementation_state' => 'implemented',
-            'reason' => 'This report lifecycle command needs an explicit outcome event without report snapshots, filters, or file contents.',
+            'reason' => 'Successful report archiving emits an Archived event in the owning module; report type identifies the subject.',
         ],
         'POST api/rnd/reports/{report}/unarchive' => [
-            'classification' => 'explicit_event',
+            'classification' => 'intentionally_not_audited',
             'source' => 'App\\Http\\Controllers\\ReportController@unarchive',
             'owner_task' => 8,
             'implementation_state' => 'implemented',
-            'reason' => 'Restoring a filed report emits a safe lifecycle event without report contents.',
+            'reason' => 'Report archive actions have no audit trail.',
         ],
         'POST api/rnd/reports/{type}/prepare' => [
-            'classification' => 'explicit_event',
+            'classification' => 'intentionally_not_audited',
             'source' => 'App\\Http\\Controllers\\ReportController@prepare',
             'owner_task' => 8,
             'implementation_state' => 'implemented',
-            'reason' => 'Report preparation records a safe report reference without source data or PDF bytes.',
+            'reason' => 'Report preparation has no audit trail.',
         ],
         'DELETE api/rnd/screening-documents/{screeningDocument}' => [
             'classification' => 'explicit_event',

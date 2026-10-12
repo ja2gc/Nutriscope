@@ -126,6 +126,25 @@ class ReportControllerTest extends TestCase
             ->assertJsonPath('data.0.id', $crossing->uuid);
     }
 
+    public function test_procurement_report_year_and_primary_date_use_selected_business_date(): void
+    {
+        $report = Report::factory()->create([
+            'user_id' => $this->rnd->id,
+            'type' => 'procurement_pack',
+            'status' => 'completed',
+            'report_covered_from' => '2025-12-30',
+            'report_covered_until' => '2026-01-02',
+            'created_at' => '2026-02-10 08:00:00',
+        ]);
+
+        $this->actingAs($this->rnd)
+            ->getJson('/api/rnd/reports?type=procurement_pack&year=2025')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $report->uuid)
+            ->assertJsonPath('data.0.report_covered_from', '2025-12-30');
+    }
+
     public function test_reports_can_be_searched_by_title_with_typo_tolerance(): void
     {
         Report::factory()->create([
@@ -185,8 +204,6 @@ class ReportControllerTest extends TestCase
             'audit_ncp_record_id' => $ncp->id,
             'audit_owner_id' => $this->rnd->id,
         ]);
-        $patientId = $ncp->patient_id;
-        $ncpId = $ncp->id;
         $ncp->delete();
 
         $this->actingAs($coveringRnd, 'sanctum')
@@ -194,13 +211,8 @@ class ReportControllerTest extends TestCase
             ->assertOk();
         $this->get("/api/rnd/reports/{$report->uuid}/download")->assertOk();
 
-        $activity = AuditActivity::query()->where('event', 'downloaded')->latest('id')->firstOrFail();
-        $this->assertSame($patientId, $activity->root_patient_id);
-        $this->assertSame($ncpId, $activity->ncp_record_id);
-        $this->assertMatchesRegularExpression('/^NCP-[A-F0-9]{16}$/D', $activity->properties['details']['ncp_reference']);
-        $this->assertArrayNotHasKey('root_patient_id', $activity->properties['details']);
-        $this->assertArrayNotHasKey('ncp_record_id', $activity->properties['details']);
-        $this->assertSame(2, AuditActivity::query()->where('event', 'downloaded')->count());
+        $this->assertSame(0, AuditActivity::query()->where('domain', 'reports')->count());
+        $this->assertSame(0, AuditActivity::query()->where('event', 'downloaded')->count());
     }
 
     public function test_rnd_can_list_all_rnd_reports_with_creator_attribution(): void

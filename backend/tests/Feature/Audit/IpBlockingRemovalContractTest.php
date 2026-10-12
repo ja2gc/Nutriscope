@@ -8,7 +8,7 @@ use Tests\TestCase;
 
 class IpBlockingRemovalContractTest extends TestCase
 {
-    public function test_ip_blocking_scaffolding_is_absent_while_account_and_rate_limit_events_remain(): void
+    public function test_ip_blocking_scaffolding_and_removed_security_actions_are_absent(): void
     {
         $roots = [
             app_path(),
@@ -34,8 +34,9 @@ class IpBlockingRemovalContractTest extends TestCase
             ->all();
 
         $this->assertSame([], $matches, 'IP-blocking scaffolding remains: '.implode(', ', $matches));
-        $this->assertContains(AuditAction::AccountBlocked, AuditAction::cases());
-        $this->assertContains(AuditAction::AccountUnblocked, AuditAction::cases());
-        $this->assertContains(AuditAction::RateLimitExceeded, AuditAction::cases());
+        $this->assertNull(AuditAction::tryFrom('account_blocked'));
+        $this->assertNull(AuditAction::tryFrom('account_unblocked'));
+        $this->assertNull(AuditAction::tryFrom('rate_limit_exceeded'));
+        $this->assertNull(AuditAction::tryFrom('authorization_denied'));
     }
 }

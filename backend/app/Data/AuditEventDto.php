@@ -5,7 +5,7 @@ namespace App\Data;
 final readonly class AuditEventDto
 {
     /**
-     * @param  array{id: ?string, kind: string, name: string, role: ?string}|null  $actor
+     * @param  array{id: ?string, kind: string, name: string, role: ?string, ip: ?string}|null  $actor
      * @param  array{type: string, id: ?string, label: string}|null  $subject
      * @param  array{type: string, id: ?string, label: string}|null  $context
      * @param  array{code: string}|null  $patient
@@ -21,8 +21,6 @@ final readonly class AuditEventDto
         public string $action,
         public string $actionLabel,
         public string $summary,
-        public string $severity,
-        public string $outcome,
         public ?array $actor,
         public ?array $subject,
         public ?array $context,
@@ -49,8 +47,6 @@ final readonly class AuditEventDto
             'action' => $this->action,
             'action_label' => $this->actionLabel,
             'summary' => $this->summary,
-            'severity' => $this->severity,
-            'outcome' => $this->outcome,
             'actor' => $this->actor,
             'subject' => $this->subject,
             'context' => $this->context,

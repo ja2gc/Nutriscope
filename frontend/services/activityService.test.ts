@@ -9,16 +9,14 @@ const apiFetchMock = vi.mocked(apiFetch);
 
 const structuredEvent: AuditEventDto = {
   id: "event-public-id",
-  module: "reports",
+  module: "nutrition_care",
   category: "operations",
-  domain: "reports",
-  record_type: "Report",
-  action: "archived",
-  action_label: "Archived",
-  summary: "Archived report",
-  severity: "notice",
-  outcome: "success",
-  actor: { id: "user-public-id", kind: "user", name: "Maria Santos", role: "RND" },
+  domain: "patients",
+  record_type: "Patient",
+  action: "updated",
+  action_label: "Updated",
+  summary: "Updated patient record",
+  actor: { id: "user-public-id", kind: "user", name: "Maria Santos", role: "RND", ip: null },
   subject: { type: "report", id: "report-public-id", label: "Nutrition report" },
   context: null,
   patient: null,
@@ -41,10 +39,10 @@ describe("activityService", () => {
       meta: { next_before_id: "event-cursor", has_more: true },
     }), { status: 200, headers: { "Content-Type": "application/json" } }));
 
-    const result = await getActivity("/api/rnd/reports/report-public-id/activity", "newer-cursor");
+    const result = await getActivity("/api/rnd/patients/patient-public-id/activity", "newer-cursor");
 
     expect(apiFetchMock).toHaveBeenCalledWith(
-      "/api/rnd/reports/report-public-id/activity?before_id=newer-cursor",
+      "/api/rnd/patients/patient-public-id/activity?before_id=newer-cursor",
       expect.objectContaining({ headers: { Accept: "application/json" } }),
     );
     expect(result).toEqual({

@@ -73,7 +73,7 @@ class AuditLegacyCompatibilityTest extends TestCase
             'event' => AuditAction::Generated,
             'category' => AuditCategory::Operations,
             'domain' => AuditDomain::Reports,
-            'module' => AuditModule::Reports,
+            'module' => AuditModule::NutritionCare,
             'properties' => [],
         ]);
 
@@ -90,10 +90,10 @@ class AuditLegacyCompatibilityTest extends TestCase
         $this->assertSame('legacy_unclassified', $legacyDto['domain']);
         $this->assertSame('legacy.custom-action', $legacyDto['action']);
         $this->assertSame('Legacy custom action', $legacyDto['action_label']);
-        $this->assertSame('reports', $currentDto['module']);
+        $this->assertNull($currentDto);
     }
 
-    public function test_account_activation_changes_use_block_and_unblock_actions_while_deletion_stays_deleted(): void
+    public function test_account_activation_is_updated_and_deletion_stays_deleted(): void
     {
         $user = User::factory()->create(['role' => 'RND', 'is_active' => true]);
 
@@ -103,7 +103,7 @@ class AuditLegacyCompatibilityTest extends TestCase
         $this->assertDatabaseHas('activity_log', [
             'subject_type' => User::class,
             'subject_id' => $user->id,
-            'event' => AuditAction::AccountBlocked->value,
+            'event' => AuditAction::Updated->value,
         ]);
 
         $this->actingAs($this->admin, 'sanctum')
@@ -112,7 +112,7 @@ class AuditLegacyCompatibilityTest extends TestCase
         $this->assertDatabaseHas('activity_log', [
             'subject_type' => User::class,
             'subject_id' => $user->id,
-            'event' => AuditAction::AccountUnblocked->value,
+            'event' => AuditAction::Updated->value,
         ]);
 
         $this->actingAs($this->admin, 'sanctum')

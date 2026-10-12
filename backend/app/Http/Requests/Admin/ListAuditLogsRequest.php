@@ -4,10 +4,7 @@ namespace App\Http\Requests\Admin;
 
 use App\Enums\AuditAction;
 use App\Enums\AuditModule;
-use App\Enums\AuditOutcome;
-use App\Enums\AuditSeverity;
 use App\Models\AuditActivity;
-use App\Services\Audit\AuditContextualFilters;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
@@ -23,23 +20,27 @@ class ListAuditLogsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'module' => ['nullable', 'required_with:subfilter', Rule::enum(AuditModule::class)],
-            'subfilter' => [
-                'nullable',
-                'string',
-                'max:64',
-                Rule::in(app(AuditContextualFilters::class)->valuesFor($this->input('module'))),
-            ],
+            'module' => ['nullable', Rule::in([
+                AuditModule::SecurityAdministration->value,
+                AuditModule::NutritionCare->value,
+                AuditModule::FoodServiceOperations->value,
+            ])],
+            'subfilter' => ['prohibited'],
             'category' => ['prohibited'],
             'domain' => ['prohibited'],
-            'action' => ['nullable', Rule::enum(AuditAction::class)],
-            'event' => ['nullable', Rule::enum(AuditAction::class)],
-            'severity' => ['nullable', Rule::enum(AuditSeverity::class)],
-            'outcome' => ['nullable', Rule::enum(AuditOutcome::class)],
+            'event' => ['prohibited'],
+            'causer_id' => ['prohibited'],
+            'subject_id' => ['prohibited'],
+            'context_id' => ['prohibited'],
+            'context' => ['nullable', Rule::in([
+                'accomplishment_report', 'program_project_activity', 'procurement_pack', 'menu_calendar',
+                'demographic_census', 'ncp_summary', 'adime_individual', 'adime_aggregate',
+                'ncp_census', 'patient_menu_plan',
+            ])],
+            'action' => ['nullable', Rule::in($this->visibleActions())],
+            'severity' => ['prohibited'],
+            'outcome' => ['prohibited'],
             'actor_id' => ['nullable', 'uuid', 'exists:users,uuid'],
-            'causer_id' => ['nullable', 'uuid', 'exists:users,uuid'],
-            'subject_id' => ['nullable', 'uuid'],
-            'context_id' => ['nullable', 'uuid'],
             'month' => ['nullable', 'date_format:Y-m'],
             'start' => ['nullable', 'date_format:Y-m-d'],
             'end' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:start'],
@@ -52,11 +53,25 @@ class ListAuditLogsRequest extends FormRequest
     public function filters(): array
     {
         $validated = $this->validated();
-        $validated['action'] ??= $validated['event'] ?? null;
-        $validated['actor_id'] ??= $validated['causer_id'] ?? null;
-
-        unset($validated['event'], $validated['causer_id'], $validated['page'], $validated['per_page']);
+        unset($validated['page'], $validated['per_page']);
 
         return array_filter($validated, fn (mixed $value): bool => $value !== null && $value !== '');
+    }
+
+    /** @return list<string> */
+    private function visibleActions(): array
+    {
+        return [
+            AuditAction::Created->value,
+            AuditAction::Updated->value,
+            AuditAction::Deleted->value,
+            AuditAction::Viewed->value,
+            AuditAction::Downloaded->value,
+            AuditAction::Archived->value,
+            AuditAction::Failed->value,
+            AuditAction::Suspended->value,
+            AuditAction::Unsuspended->value,
+            AuditAction::Discontinued->value,
+        ];
     }
 }

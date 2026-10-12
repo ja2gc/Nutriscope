@@ -19,6 +19,7 @@ use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\PurchaseOrder;
 use App\Models\Recipe;
+use App\Models\RecipeIngredient;
 use App\Models\Report;
 use App\Models\ScreeningDocument;
 use App\Models\User;
@@ -95,9 +96,9 @@ class AuditCanonicalEventTest extends TestCase
             AuditCategory::Operations,
             AuditDomain::Procurement,
         )['revision_serializer']);
-        $this->assertSame(AuditModule::Reports, $policy->forEvent(
+        $this->assertSame(AuditModule::NutritionCare, $policy->forEvent(
             AuditAction::Generated,
-            new Report(['audit_patient_id' => 123]),
+            new Report(['type' => 'ncp_summary', 'audit_patient_id' => 123]),
             AuditCategory::Clinical,
             AuditDomain::Reports,
         )['module']);
@@ -161,7 +162,7 @@ class AuditCanonicalEventTest extends TestCase
         );
 
         $this->assertNotNull($event);
-        $this->assertSame(AuditAction::Imported->value, $event->event);
+        $this->assertSame(AuditAction::Created->value, $event->event);
         $this->assertSame(AuditModule::NutritionCare, $event->module);
         $this->assertSame(AuditCategory::Operations, $event->category);
         $this->assertSame(AuditDomain::NutritionLibrary, $event->domain);
@@ -300,7 +301,7 @@ class AuditCanonicalEventTest extends TestCase
         )->assertCreated();
 
         $upload = AuditActivity::query()->sole();
-        $this->assertSame(AuditAction::Uploaded->value, $upload->event);
+        $this->assertSame(AuditAction::Created->value, $upload->event);
         $this->assertSame(ScreeningDocument::class, $upload->subject_type);
         $this->assertSame(AuditModule::NutritionCare, $upload->module);
 
@@ -319,13 +320,13 @@ class AuditCanonicalEventTest extends TestCase
         ])->assertCreated();
 
         $approval = AuditActivity::query()->sole();
-        $this->assertSame(AuditAction::Approved->value, $approval->event);
+        $this->assertSame(AuditAction::Created->value, $approval->event);
         $this->assertSame(AuditModule::NutritionCare, $approval->module);
         $this->assertStringNotContainsString('poor appetite', $approval->properties->toJson());
         $this->assertStringNotContainsString('weight loss', $approval->properties->toJson());
     }
 
-    public function test_generated_meal_plan_emits_generated_without_generic_created_event(): void
+    public function test_generated_meal_plan_is_a_created_event(): void
     {
         $actor = User::factory()->rnd()->create();
         $patient = Patient::factory()->create();
@@ -341,13 +342,21 @@ class AuditCanonicalEventTest extends TestCase
             'fat_g' => 55,
             'fluid_ml' => 2000,
         ]);
-        Recipe::factory(15)->create(['rnd_user_id' => $actor->id]);
-        FoodItem::factory(5)->create([
+        $recipes = Recipe::factory(15)->create(['rnd_user_id' => $actor->id]);
+        $foods = FoodItem::factory(5)->create([
             'category' => 'fruit',
             'ready_to_eat' => true,
             'serving_size' => 100,
             'serving_unit' => 'g',
         ]);
+        foreach ($recipes as $index => $recipe) {
+            RecipeIngredient::forceCreate([
+                'recipe_id' => $recipe->id,
+                'food_item_id' => $foods[$index % $foods->count()]->id,
+                'quantity' => 100,
+                'unit' => 'g',
+            ]);
+        }
         AuditFixture::delete(AuditActivity::query());
 
         $this->actingAs($actor, 'sanctum')->postJson(
@@ -363,16 +372,16 @@ class AuditCanonicalEventTest extends TestCase
         $event = AuditActivity::query()
             ->where('subject_type', MealPlan::class)
             ->sole();
-        $this->assertSame(AuditAction::Generated->value, $event->event);
+        $this->assertSame(AuditAction::Created->value, $event->event);
         $this->assertSame(MealPlan::class, $event->subject_type);
         $this->assertSame(AuditModule::NutritionCare, $event->module);
-        $this->assertSame(0, AuditActivity::query()
+        $this->assertSame(1, AuditActivity::query()
             ->where('subject_type', MealPlan::class)
             ->where('event', AuditAction::Created->value)
             ->count());
     }
 
-    public function test_usda_import_uses_imported_and_failure_writes_nothing(): void
+    public function test_usda_import_creates_and_failure_writes_nothing(): void
     {
         $actor = User::factory()->rnd()->create();
         $food = FoodItem::factory()->create(['usda_fdc_id' => 456]);
@@ -387,7 +396,7 @@ class AuditCanonicalEventTest extends TestCase
         $this->postJson('/api/rnd/usda/import/457')->assertStatus(502);
 
         $event = AuditActivity::query()->sole();
-        $this->assertSame(AuditAction::Imported->value, $event->event);
+        $this->assertSame(AuditAction::Created->value, $event->event);
         $this->assertSame(AuditModule::NutritionCare, $event->module);
         $this->assertSame(AuditDomain::NutritionLibrary, $event->domain);
         $presented = app(AuditEventPresenter::class)

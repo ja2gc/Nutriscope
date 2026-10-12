@@ -3,8 +3,6 @@
 namespace Tests\Feature\Audit;
 
 use App\Actions\Reports\PrepareSavedReport;
-use App\Enums\AuditAction;
-use App\Exceptions\AuditLoggingUnavailable;
 use App\Jobs\GenerateReport;
 use App\Jobs\ProcessReportFileOperation;
 use App\Models\AuditActivity;
@@ -21,7 +19,6 @@ use App\Services\FSS\AccomplishmentReportArchiveService;
 use App\Services\Reports\BrandingAssetStorage;
 use App\Services\Reports\Contracts\InstanceSource;
 use App\Services\Reports\ReportArchiveStorage;
-use App\Services\Reports\ReportAuditReference;
 use App\Services\Reports\ReportBrowser;
 use App\Services\Reports\ReportService;
 use App\Services\StoredObjectStorage;
@@ -75,7 +72,7 @@ class ReportAuditTest extends TestCase
         $this->assertSame('Rewritten archive', $report->fresh()->title);
     }
 
-    public function test_report_views_downloads_and_unarchive_emit_safe_semantic_events(): void
+    public function test_report_view_and_download_are_audited_in_the_report_domain(): void
     {
         Storage::fake('public');
         $rnd = User::factory()->rnd()->create();
@@ -90,23 +87,27 @@ class ReportAuditTest extends TestCase
         ]);
 
         $this->actingAs($rnd, 'sanctum')->getJson("/api/rnd/reports/{$report->uuid}")->assertOk();
+        $this->get("/api/rnd/reports/{$report->uuid}/view")->assertOk();
         $this->get("/api/rnd/reports/{$report->uuid}/download")->assertOk();
         $this->postJson("/api/rnd/reports/{$report->uuid}/unarchive")->assertOk();
 
-        $events = AuditActivity::query()->whereIn('event', ['viewed', 'downloaded', 'updated'])->get();
-        $this->assertEqualsCanonicalizing(['viewed', 'downloaded', 'updated'], $events->pluck('event')->all());
-        foreach ($events as $event) {
-            $encoded = json_encode($event->properties, JSON_THROW_ON_ERROR);
-            $this->assertStringNotContainsString('PHI-SENTINEL', $encoded);
-            $this->assertStringNotContainsString('TOKEN-SENTINEL', $encoded);
-            $this->assertSame('procurement_pack', $event->properties['details']['report_type']);
-            $this->assertSame($report->uuid, $event->properties['details']['report_public_id']);
-            $this->assertSame('reports', $event->domain->value);
-            $this->assertSame('reports', $event->module->value);
-        }
+        $this->assertDatabaseHas('activity_log', [
+            'log_name' => 'audit',
+            'event' => 'viewed',
+            'module' => 'food_service_operations',
+            'domain' => 'reports',
+        ]);
+        $this->assertDatabaseHas('activity_log', [
+            'log_name' => 'audit',
+            'event' => 'downloaded',
+            'module' => 'food_service_operations',
+            'domain' => 'reports',
+        ]);
+        $this->assertSame(1, AuditActivity::query()->where('event', 'viewed')->count());
+        $this->assertSame(1, AuditActivity::query()->where('event', 'downloaded')->count());
     }
 
-    public function test_patient_linked_report_audit_exposes_only_safe_identity_and_actual_actor(): void
+    public function test_patient_linked_report_view_is_listed_in_nutrition_care(): void
     {
         Storage::fake('public');
         $creator = User::factory()->rnd()->create();
@@ -141,31 +142,25 @@ class ReportAuditTest extends TestCase
             ->get("/api/rnd/reports/{$report->uuid}/view")
             ->assertOk();
 
-        $event = AuditActivity::query()->where('event', 'viewed')->sole();
-        $this->assertSame('clinical', $event->category->value);
-        $this->assertSame('reports', $event->domain->value);
-        $this->assertSame('reports', $event->module->value);
-        $this->assertSame($patient->patient_code, $event->patient_code_snapshot);
-        $this->assertNull($event->patient_display_name_snapshot);
-        $this->assertSame($actor->uuid, $event->properties['actor']['public_id']);
-        $this->assertSame($actor->id, $event->causer_id);
-        $this->assertMatchesRegularExpression('/^NCP-[A-F0-9]{16}$/D', $event->properties['details']['ncp_reference']);
-
-        $adminResponse = $this->actingAs($admin, 'sanctum')
-            ->getJson('/api/admin/audit-logs?module=reports')
+        $this->assertDatabaseHas('activity_log', [
+            'log_name' => 'audit',
+            'event' => 'viewed',
+            'module' => 'nutrition_care',
+            'domain' => 'reports',
+        ]);
+        $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/admin/audit-logs?module=nutrition_care&context=ncp_summary&action=viewed')
             ->assertOk()
-            ->assertJsonPath('data.0.patient.code', $patient->patient_code)
-            ->assertJsonPath('data.0.actor.id', $actor->uuid);
-        $reportType = collect($adminResponse->json('data.0.details'))->firstWhere('key', 'report_type');
-        $this->assertSame('ncp_summary', $reportType['value']);
-        $adminPayload = $adminResponse->getContent();
-
-        foreach (['REPORT-PHI-SENTINEL', 'REPORT-CONTENT-SENTINEL', 'REPORT-SNAPSHOT-SENTINEL'] as $sentinel) {
-            $this->assertStringNotContainsString($sentinel, $event->properties->toJson());
-            $this->assertStringNotContainsString($sentinel, $adminPayload);
-        }
-        $rawSnapshot = DB::table('activity_log')->where('id', $event->id)->value('patient_code_snapshot');
-        $this->assertSame($patient->patient_code, $rawSnapshot);
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.subject.label', 'NCP Summary')
+            ->assertJsonPath('data.0.actor.ip', '127.0.0.1');
+        $this->getJson('/api/admin/audit-logs?module=nutrition_care&context=procurement_pack')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+        $this->assertSame(0, AuditActivity::query()->where('module', 'reports')->count());
+        $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/admin/audit-logs?module=reports')
+            ->assertUnprocessable();
 
         $this->actingAs($admin, 'sanctum')
             ->getJson("/api/admin/reports/{$report->uuid}")
@@ -199,61 +194,27 @@ class ReportAuditTest extends TestCase
             ]],
         ])->assertOk();
 
-        $events = AuditActivity::query()->where('domain', 'reports')->get();
-        $this->assertCount(2, $events);
-        $encoded = json_encode($events->pluck('properties'), JSON_THROW_ON_ERROR);
-        $this->assertStringContainsString('Safe Signatory', $encoded);
-        $this->assertStringNotContainsString('IMAGE-SENTINEL', $encoded);
-        $this->assertStringNotContainsString('TEMPLATE-IMAGE-SENTINEL', $encoded);
-        $this->assertStringNotContainsString('logo_left_path', $encoded);
-        $this->assertSame($branding->id, $events->firstWhere('event', 'updated')->subject_id);
+        $this->assertNoReportAuditEvents();
     }
 
-    public function test_rnd_and_admin_report_activity_routes_are_authorized_and_not_shadowed(): void
+    public function test_report_activity_routes_are_removed(): void
     {
         $owner = User::factory()->rnd()->create();
         $other = User::factory()->rnd()->create();
-        $admin = User::factory()->admin()->create();
+        User::factory()->admin()->create();
         $report = Report::factory()->create([
             'user_id' => $owner->id,
             'type' => 'procurement_pack',
             'status' => 'archived',
         ]);
-        AuditActivity::create([
-            'log_name' => config('audit.log_name'),
-            'event' => AuditAction::Archived->value,
-            'category' => 'operations',
-            'domain' => 'reports',
-            'description' => 'Archived report',
-            'subject_type' => Report::class,
-            'subject_id' => $report->id,
-            'subject_public_id' => $report->uuid,
-        ]);
-
         $this->actingAs($other, 'sanctum')
             ->getJson("/api/rnd/reports/{$report->uuid}")
             ->assertOk();
-        $event = $this->getJson("/api/rnd/reports/{$report->uuid}/activity")
-            ->assertOk()
-            ->assertJsonPath('data.0.action', 'viewed')
-            ->assertJsonPath('data.0.actor.id', $other->uuid)
-            ->assertJsonPath('data.1.action', 'archived')
-            ->json('data.0');
-        $this->assertSame([
-            'id', 'module', 'category', 'domain', 'record_type', 'action', 'action_label',
-            'summary', 'severity', 'outcome', 'actor', 'subject', 'context', 'patient',
-            'ncp_reference', 'detail_mode', 'reason', 'history', 'current_record_url',
-            'occurred_at', 'details', 'changes',
-        ], array_keys($event));
-        $this->assertSame('operations', $event['category']);
-        $this->assertSame('reports', $event['domain']);
-        $this->assertArrayNotHasKey('subject_id', $event);
-        $this->actingAs($admin, 'sanctum')->getJson("/api/admin/reports/{$report->uuid}/activity")
-            ->assertOk()->assertJsonPath('data.0.action', 'viewed');
-        $this->actingAs($owner, 'sanctum')->getJson("/api/admin/reports/{$report->uuid}/activity")->assertForbidden();
+        $this->getJson("/api/rnd/reports/{$report->uuid}/activity")->assertNotFound();
+        $this->actingAs($owner, 'sanctum')->getJson("/api/admin/reports/{$report->uuid}/activity")->assertNotFound();
     }
 
-    public function test_generation_job_emits_one_system_lifecycle_event_without_parameters(): void
+    public function test_generation_job_does_not_emit_audit_events(): void
     {
         $report = Report::factory()->create([
             'type' => 'procurement_pack',
@@ -263,14 +224,9 @@ class ReportAuditTest extends TestCase
         $service = $this->createMock(ReportService::class);
         $service->method('generate')->willReturn('reports/generated.pdf');
 
-        (new GenerateReport($report))->handle($service, app(AuditLogger::class), app(ReportArchiveStorage::class), app(ReportAuditReference::class));
+        (new GenerateReport($report))->handle($service, app(ReportArchiveStorage::class));
 
-        $event = AuditActivity::query()->where('event', 'generated')->sole();
-        $this->assertSame('system', $event->properties['actor']['kind']);
-        $this->assertSame('report_generation', $event->properties['actor']['name']);
-        $this->assertSame('reports', $event->domain->value);
-        $this->assertSame('reports', $event->module->value);
-        $this->assertStringNotContainsString('JOB-PHI-SENTINEL', json_encode($event->properties, JSON_THROW_ON_ERROR));
+        $this->assertNoReportAuditEvents();
     }
 
     public function test_deprecated_report_commands_are_removed(): void
@@ -281,11 +237,11 @@ class ReportAuditTest extends TestCase
         $this->postJson('/api/rnd/reports/generate-all', [])->assertMethodNotAllowed();
     }
 
-    public function test_prepare_creates_no_record_when_required_audit_is_unavailable(): void
+    public function test_report_preparation_does_not_require_audit_availability(): void
     {
         $rnd = User::factory()->rnd()->create();
         $auditLogger = $this->createMock(AuditLogger::class);
-        $auditLogger->method('assertAvailable')->willThrowException(new AuditLoggingUnavailable('offline'));
+        $auditLogger->expects($this->never())->method('assertAvailable');
         $source = $this->createMock(InstanceSource::class);
         $source->method('hasData')->willReturn(true);
         $browser = $this->createMock(ReportBrowser::class);
@@ -293,22 +249,21 @@ class ReportAuditTest extends TestCase
         $browser->method('sourceFor')->willReturn($source);
         $reports = $this->createMock(ReportService::class);
         $reports->method('supports')->willReturn(true);
-        $reports->method('generate')->willReturn('reports/should-not-persist.pdf');
+        $reports->method('signatoriesFor')->willReturn([]);
+        $reports->method('buildPdf')->willReturn(['bytes' => '%PDF-safe', 'meta' => []]);
         $this->app->instance(AuditLogger::class, $auditLogger);
         $this->app->instance(ReportBrowser::class, $browser);
         $this->app->instance(ReportService::class, $reports);
 
-        try {
-            $this->withoutExceptionHandling()
-                ->actingAs($rnd, 'sanctum')
-                ->postJson('/api/rnd/reports/procurement_pack/prepare');
-            $this->fail('Expected required audit failure.');
-        } catch (AuditLoggingUnavailable) {
-            $this->assertDatabaseCount('reports', 0);
-        }
+        $this->actingAs($rnd, 'sanctum')
+            ->postJson('/api/rnd/reports/procurement_pack/prepare')
+            ->assertOk();
+
+        $this->assertDatabaseCount('reports', 1);
+        $this->assertNoReportAuditEvents();
     }
 
-    public function test_automatic_accomplishment_archive_fails_closed_without_orphans(): void
+    public function test_automatic_accomplishment_archive_cleans_up_after_generation_failure(): void
     {
         Storage::fake('public');
         $fss = User::factory()->create(['role' => 'FSS']);
@@ -318,18 +273,6 @@ class ReportAuditTest extends TestCase
                 'service_date' => "2026-06-0{$day}",
             ]);
         }
-        $unavailable = $this->createMock(AuditLogger::class);
-        $unavailable->method('assertAvailable')->willThrowException(new AuditLoggingUnavailable('offline'));
-        $unusedReports = $this->createMock(ReportService::class);
-        $unusedReports->expects($this->never())->method('buildPdf');
-        try {
-            (new AccomplishmentReportArchiveService(new PrepareSavedReport($unusedReports, app(StoredObjectStorage::class)), $unavailable, app(ReportAuditReference::class)))
-                ->archiveCompletedWeek($fss, '2026-06-07');
-        } catch (AuditLoggingUnavailable) {
-            $this->assertDatabaseCount('reports', 0);
-        }
-
-        $audit = app(AuditLogger::class);
         $reports = $this->createMock(ReportService::class);
         $transientUuid = null;
         $reports->method('signatoriesFor')->willReturn([]);
@@ -337,7 +280,7 @@ class ReportAuditTest extends TestCase
             $transientUuid = $report->uuid;
             throw new RuntimeException('generation failed');
         });
-        $service = new AccomplishmentReportArchiveService(new PrepareSavedReport($reports, app(StoredObjectStorage::class)), $audit, app(ReportAuditReference::class));
+        $service = new AccomplishmentReportArchiveService(new PrepareSavedReport($reports, app(StoredObjectStorage::class)));
 
         try {
             $service->archiveCompletedWeek($fss, '2026-06-07');
@@ -345,17 +288,11 @@ class ReportAuditTest extends TestCase
         } catch (RuntimeException) {
             $this->assertDatabaseCount('reports', 0);
             $this->assertSame([], Storage::disk('public')->allFiles('reports'));
-            $event = AuditActivity::query()->where('event', 'generated')->sole();
-            $this->assertSame('failure', $event->outcome->value);
-            $this->assertSame('accomplishment_report_preparation', $event->properties['actor']['name']);
-            $publicId = $event->properties['details']['report_public_id'];
-            $this->assertMatchesRegularExpression('/^[0-9a-f-]{36}$/D', $publicId);
-            $this->assertSame($publicId, $event->properties['details']['instance_reference']);
-            $this->assertStringNotContainsString($fss->name, json_encode($event->properties, JSON_THROW_ON_ERROR));
+            $this->assertNoReportAuditEvents();
         }
     }
 
-    public function test_report_file_mutations_restore_or_cleanup_files_when_audit_fails(): void
+    public function test_report_file_mutations_do_not_depend_on_audit_availability(): void
     {
         Storage::fake('public');
         $rnd = User::factory()->rnd()->create();
@@ -367,30 +304,17 @@ class ReportAuditTest extends TestCase
             'file_path' => 'reports/archive.pdf',
         ]);
         $audit = $this->createMock(AuditLogger::class);
-        $audit->method('record')->willThrowException(new AuditLoggingUnavailable('offline'));
+        $audit->expects($this->never())->method('record');
         $this->app->instance(AuditLogger::class, $audit);
 
-        $this->actingAs($rnd, 'sanctum')->postJson("/api/rnd/reports/{$report->uuid}/unarchive")->assertServerError();
+        $this->actingAs($rnd, 'sanctum')->postJson("/api/rnd/reports/{$report->uuid}/unarchive")->assertOk();
 
-        $this->assertDatabaseHas('reports', ['id' => $report->id]);
+        $this->assertDatabaseHas('reports', ['id' => $report->id, 'status' => 'completed']);
         Storage::disk('public')->assertExists('reports/archive.pdf');
-
-        $queued = Report::factory()->create(['user_id' => $rnd->id, 'status' => 'pending', 'type' => 'procurement_pack']);
-        $reports = $this->createMock(ReportService::class);
-        $reports->method('generate')->willReturnCallback(function (): string {
-            Storage::disk('public')->put('reports/job.pdf', '%PDF');
-
-            return 'reports/job.pdf';
-        });
-        try {
-            (new GenerateReport($queued))->handle($reports, $audit, app(ReportArchiveStorage::class), app(ReportAuditReference::class));
-        } catch (AuditLoggingUnavailable) {
-            Storage::disk('public')->assertMissing('reports/job.pdf');
-            $this->assertSame([], Storage::disk('public')->allFiles('reports-quarantine'));
-        }
+        $this->assertNoReportAuditEvents();
     }
 
-    public function test_prepare_preview_and_download_emit_distinct_actions(): void
+    public function test_prepare_preview_and_download_do_not_create_report_audit_events(): void
     {
         $rnd = User::factory()->rnd()->create();
         $source = $this->createMock(InstanceSource::class);
@@ -409,7 +333,7 @@ class ReportAuditTest extends TestCase
         $id = $prepared->json('data.id');
         $this->get("/api/rnd/reports/{$id}/view")->assertOk();
         $this->get("/api/rnd/reports/{$id}/download")->assertOk();
-        $this->assertEqualsCanonicalizing(['created', 'viewed', 'downloaded'], AuditActivity::query()->pluck('event')->all());
+        $this->assertNoReportAuditEvents();
     }
 
     public function test_template_audit_normalizes_cleared_and_removed_signatories(): void
@@ -428,10 +352,7 @@ class ReportAuditTest extends TestCase
             'signatories' => [['role' => 'prepared', 'label' => 'Prepared', 'name' => null, 'title' => null]],
         ])->assertOk();
 
-        $details = AuditActivity::query()->sole()->properties['details'];
-        $this->assertContains('signatories.0.name', $details['changed_fields']);
-        $this->assertContains('signatories.1.name', $details['changed_fields']);
-        $this->assertSame([], $details['signatory_names']);
+        $this->assertNoReportAuditEvents();
     }
 
     public function test_archived_actions_derive_only_strict_safe_period_reference(): void
@@ -474,10 +395,7 @@ class ReportAuditTest extends TestCase
 
         $this->assertDatabaseCount('diet_list_counts', 7);
         $this->assertDatabaseCount('reports', 0);
-        $failure = AuditActivity::query()->where('event', 'generated')->sole();
-        $this->assertSame('failure', $failure->outcome->value);
-        $this->assertNotNull($failure->properties['details']['report_public_id']);
-        $this->assertStringNotContainsString('GENERATION-SENTINEL', json_encode($failure->properties, JSON_THROW_ON_ERROR));
+        $this->assertNoReportAuditEvents();
     }
 
     public function test_report_service_fails_when_storage_put_returns_false(): void
@@ -593,43 +511,30 @@ class ReportAuditTest extends TestCase
         $this->assertDatabaseCount('report_file_operations', 0);
     }
 
-    public function test_http_auto_prepare_audit_failure_compensates_file_after_diet_commit(): void
+    public function test_http_auto_prepare_does_not_require_audit_availability(): void
     {
         Storage::fake('public');
         $fss = User::factory()->create(['role' => 'FSS']);
         foreach (range(1, 6) as $day) {
             DietListCount::factory()->create(['fss_user_id' => $fss->id, 'service_date' => "2026-06-0{$day}"]);
         }
-        $actual = app(AuditLogger::class);
-        $calls = 0;
-        $audit = $this->createMock(AuditLogger::class);
-        $audit->method('assertAvailable')->willReturnCallback(fn () => $actual->assertAvailable());
-        $audit->method('record')->willReturnCallback(function (...$arguments) use ($actual, &$calls) {
-            $calls++;
-            if ($calls === 2) {
-                throw new AuditLoggingUnavailable('report audit unavailable');
-            }
-
-            return $actual->record(...$arguments);
-        });
         $reports = $this->createMock(ReportService::class);
         Storage::fake('report_cache');
         $reports->method('signatoriesFor')->willReturn([]);
         $reports->method('buildPdf')->willReturn(['bytes' => '%PDF-safe', 'meta' => []]);
-        $this->app->instance(AuditLogger::class, $audit);
         $this->app->instance(ReportService::class, $reports);
 
         $this->actingAs($fss, 'sanctum')->postJson('/api/fss/diet-list-counts', [
             'service_date' => '2026-06-07',
             'collected_ward_diet_lists' => 1,
             'apportioned_distributed_meals' => 1,
-        ])->assertServerError();
+        ])->assertCreated();
 
         $this->assertDatabaseCount('diet_list_counts', 7);
-        $this->assertDatabaseCount('reports', 0);
-        $this->assertSame([], Storage::disk('report_cache')->allFiles());
-        $failure = AuditActivity::query()->where('event', 'generated')->sole();
-        $this->assertNotNull($failure->properties['details']['report_public_id']);
+        $this->assertDatabaseCount('reports', 1);
+        $report = Report::query()->sole();
+        Storage::disk('report_cache')->assertExists($report->cache_path);
+        $this->assertNoReportAuditEvents();
     }
 
     public function test_report_file_outbox_survives_dispatch_outage_with_safe_mapping(): void
@@ -705,7 +610,7 @@ class ReportAuditTest extends TestCase
         Storage::disk('public')->assertMissing('reports-quarantine/sweep.pdf');
     }
 
-    public function test_branding_upload_audit_failure_restores_old_and_cleans_new_file(): void
+    public function test_branding_upload_does_not_require_audit_availability(): void
     {
         Storage::fake('public');
         Storage::disk('public')->put('branding/old.png', 'old');
@@ -713,16 +618,17 @@ class ReportAuditTest extends TestCase
         $branding->update(['logo_left_path' => 'branding/old.png']);
         $rnd = User::factory()->rnd()->create();
         $audit = $this->createMock(AuditLogger::class);
-        $audit->method('record')->willThrowException(new AuditLoggingUnavailable('offline'));
+        $audit->expects($this->never())->method('record');
         $this->app->instance(AuditLogger::class, $audit);
 
         $this->actingAs($rnd, 'sanctum')->post('/api/rnd/report-branding', [
-            'logo_left' => UploadedFile::fake()->create('new.png', 1, 'image/png'),
-        ], ['Accept' => 'application/json'])->assertServerError();
+            'logo_left' => UploadedFile::fake()->createWithContent('new.png', base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=')),
+        ], ['Accept' => 'application/json'])->assertOk();
 
-        $this->assertSame('branding/old.png', $branding->refresh()->logo_left_path);
+        $this->assertNotSame('branding/old.png', $branding->refresh()->logo_left_path);
         Storage::disk('public')->assertExists('branding/old.png');
         $this->assertSame(['branding/old.png'], Storage::disk('public')->allFiles('branding'));
+        $this->assertNoReportAuditEvents();
     }
 
     public function test_branding_store_false_and_exception_create_safe_cleanup_intent(): void
@@ -774,8 +680,7 @@ class ReportAuditTest extends TestCase
         $branding->refresh();
         $this->assertNotNull($branding->logo_left_stored_object_id);
         Storage::disk('public')->assertExists('branding/old.png');
-        $properties = json_encode(AuditActivity::query()->sole()->properties, JSON_THROW_ON_ERROR);
-        $this->assertStringNotContainsString('branding/old.png', $properties);
+        $this->assertNoReportAuditEvents();
     }
 
     public function test_report_archive_hides_without_moving_legacy_file(): void
@@ -893,7 +798,7 @@ class ReportAuditTest extends TestCase
         Storage::fake('report_cache');
         $reports->method('signatoriesFor')->willReturn([]);
         $reports->expects($this->exactly(2))->method('buildPdf')->willReturn(['bytes' => "%PDF-1.4\n%%EOF", 'meta' => []]);
-        $service = new AccomplishmentReportArchiveService(new PrepareSavedReport($reports, app(StoredObjectStorage::class)), app(AuditLogger::class), app(ReportAuditReference::class));
+        $service = new AccomplishmentReportArchiveService(new PrepareSavedReport($reports, app(StoredObjectStorage::class)));
 
         $first = $service->archiveCompletedWeek($fss, '2026-06-07');
         $second = $service->archiveCompletedWeek($fss, '2026-06-07');
@@ -901,7 +806,7 @@ class ReportAuditTest extends TestCase
         $this->assertSame($first->id, $second->id);
         $this->assertNotNull($first->archive_identity);
         $this->assertDatabaseCount('reports', 1);
-        $this->assertSame(2, AuditActivity::query()->where('event', 'generated')->count());
+        $this->assertNoReportAuditEvents();
     }
 
     public function test_generate_report_duplicate_delivery_is_terminal_and_failure_is_once(): void
@@ -909,23 +814,20 @@ class ReportAuditTest extends TestCase
         $completed = Report::factory()->create(['status' => 'completed']);
         $reports = $this->createMock(ReportService::class);
         $reports->expects($this->never())->method('generate');
-        (new GenerateReport($completed))->handle($reports, app(AuditLogger::class), app(ReportArchiveStorage::class), app(ReportAuditReference::class));
+        (new GenerateReport($completed))->handle($reports, app(ReportArchiveStorage::class));
 
         $failed = Report::factory()->create(['status' => 'pending']);
         $failing = $this->createMock(ReportService::class);
         $failing->method('generate')->willThrowException(new RuntimeException('failure'));
         foreach (range(1, 2) as $_) {
             try {
-                (new GenerateReport($failed))->handle($failing, app(AuditLogger::class), app(ReportArchiveStorage::class), app(ReportAuditReference::class));
+                (new GenerateReport($failed))->handle($failing, app(ReportArchiveStorage::class));
             } catch (RuntimeException) {
             }
         }
 
         $this->assertSame('failed', $failed->refresh()->status);
-        $event = AuditActivity::query()->where('event', 'generated')->where('subject_id', $failed->id)->sole();
-        $this->assertSame('failure', $event->outcome->value);
-        $this->assertSame('reports', $event->module->value);
-        $this->assertSame(500, $event->properties['details']['status']);
+        $this->assertNoReportAuditEvents();
     }
 
     public function test_report_outbox_and_archive_identity_migrations_roll_back_and_forward(): void
@@ -942,5 +844,10 @@ class ReportAuditTest extends TestCase
         $identity->up();
         $this->assertTrue(Schema::hasTable('report_file_operations'));
         $this->assertTrue(Schema::hasColumn('reports', 'archive_identity'));
+    }
+
+    private function assertNoReportAuditEvents(): void
+    {
+        $this->assertSame(0, AuditActivity::query()->where('module', 'reports')->count());
     }
 }

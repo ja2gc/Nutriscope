@@ -132,7 +132,7 @@ class ProcurementHistoryTest extends TestCase
             ->json('data.purchase_order_id');
         $po = PurchaseOrder::where('uuid', $poId)->firstOrFail();
         $approved = AuditActivity::query()->where('subject_type', PurchaseOrder::class)->sole();
-        $this->assertSame('approved', $approved->event);
+        $this->assertSame('created', $approved->event);
         $this->assertNull($approved->revision->before);
         $this->assertSame('Rice', $approved->revision->after['lines'][0]['item']);
 
@@ -141,7 +141,7 @@ class ProcurementHistoryTest extends TestCase
             ->patchJson("/api/fss/purchase-orders/{$po->uuid}", ['status' => 'ordered'])
             ->assertOk();
         $ordered = AuditActivity::query()->where('subject_type', PurchaseOrder::class)->sole();
-        $this->assertSame('ordered', $ordered->event);
+        $this->assertSame('created', $ordered->event);
         $this->assertSame('draft', $ordered->revision->before['status']);
         $this->assertSame('ordered', $ordered->revision->after['status']);
 
@@ -150,7 +150,7 @@ class ProcurementHistoryTest extends TestCase
             ->patchJson("/api/fss/purchase-orders/{$po->uuid}", ['status' => 'received'])
             ->assertOk();
         $received = AuditActivity::query()->where('subject_type', PurchaseOrder::class)->sole();
-        $this->assertSame('received', $received->event);
+        $this->assertSame('updated', $received->event);
         $this->assertSame('ordered', $received->revision->before['status']);
         $this->assertSame('received', $received->revision->after['status']);
 

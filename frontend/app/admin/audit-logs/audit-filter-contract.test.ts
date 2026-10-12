@@ -23,8 +23,9 @@ describe("admin audit filter contract", () => {
 
   test("renders backend-provided filter options without a duplicate taxonomy", () => {
     expect(source).toContain("meta.filters");
-    expect(source).toContain("module_actions");
-    expect(filtersSource).toContain("module_subfilters");
+    expect(source).not.toContain("module_actions");
+    expect(filtersSource).toContain('label="Report type"');
+    expect(filtersSource).not.toMatch(/Outcome|Severity/);
     expect(source).not.toContain('<option value="patients">');
     expect(source).not.toContain('<option value="procurement">');
     expect(source).not.toContain(["App", "Models"].join("\\"));
@@ -43,14 +44,8 @@ describe("admin audit filter contract", () => {
       per_page: "50",
       actor_id: "00000000-0000-4000-8000-000000000001",
       module: "nutrition_care",
-      subfilter: "patients_ncp",
-      category: "clinical",
-      domain: "patients",
       action: "updated",
-      outcome: "success",
-      severity: "notice",
-      start: "2026-06-01",
-      end: "2026-06-30",
+      month: "2026-06",
     });
 
     await GET(new NextRequest(`http://localhost/api/admin/audit-logs?${search}`));

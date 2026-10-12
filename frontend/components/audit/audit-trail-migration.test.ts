@@ -22,15 +22,13 @@ describe("contextual structured audit trail migration", () => {
     expect(existsSync(join(process.cwd(), "components/HistoryPanel.tsx"))).toBe(false);
   });
 
-  test("keeps every required contextual proxy and forwards cursors", () => {
+  test("keeps only operational and clinical activity proxies and forwards cursors", () => {
     const routes = [
       "app/api/rnd/patients/[id]/activity/route.ts",
       "app/api/rnd/ncp-records/[ncpRecordId]/activity/route.ts",
       "app/api/fss/purchase-orders/[id]/activity/route.ts",
       "app/api/fss/budgets/[id]/activity/route.ts",
       "app/api/admin/budgets/[id]/activity/route.ts",
-      "app/api/rnd/reports/[id]/activity/route.ts",
-      "app/api/admin/reports/[id]/activity/route.ts",
     ];
 
     for (const route of routes) {

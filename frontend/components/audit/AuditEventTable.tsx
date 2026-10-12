@@ -1,41 +1,21 @@
 "use client";
 
 import type { AuditEventDto } from "@/types/audit";
-import { Badge, type BadgeTone } from "@/components/ui/Badge";
+import { Badge } from "@/components/ui/Badge";
 import { AuditTimestamp } from "./AuditTimestamp";
 
-const outcomeTones: Record<AuditEventDto["outcome"], BadgeTone> = {
-  success: "emerald",
-  failure: "red",
-  blocked: "amber",
-};
-
-function severityTone(severity: AuditEventDto["severity"]): BadgeTone {
-  if (severity === "critical") return "red";
-  if (severity === "warning") return "amber";
-  return "zinc";
-}
-
-function subjectContext(event: AuditEventDto) {
-  const typedContext = Array.from(new Set([
-    event.patient?.code,
-    event.ncp_reference,
-    event.subject?.label,
-    event.context?.label,
-  ].filter((value): value is string => Boolean(value)))).join(" / ");
-  if (typedContext) return typedContext;
-
-  return [event.subject?.label, event.context?.label].filter(Boolean).join(" · ") || "No subject or context";
+function subjectLabel(event: AuditEventDto) {
+  return event.patient?.code || event.ncp_reference || event.subject?.label || "No subject recorded";
 }
 
 export function AuditEventTable({ events, onSelect }: { events: AuditEventDto[]; onSelect: (event: AuditEventDto) => void }) {
   return (
     <>
       <div className="hidden md:block overflow-x-auto">
-        <table className="w-full min-w-[1120px] text-left">
+        <table className="w-full min-w-[900px] text-left">
           <thead className="border-b border-warm-200 bg-warm-50">
             <tr>
-              {(["Time", "Action", "Actor", "Subject / context", "Outcome", "Severity", "Summary"] as const).map((label) => (
+              {(["Time", "Action", "Actor", "Subject", "Summary"] as const).map((label) => (
                 <th key={label} className="px-4 py-3 text-xs font-bold uppercase tracking-wider text-warm-500">{label}</th>
               ))}
             </tr>
@@ -55,9 +35,7 @@ export function AuditEventTable({ events, onSelect }: { events: AuditEventDto[];
                   <td className="max-w-48 px-4 py-3 align-top text-sm font-semibold text-warm-800 break-words">
                     {event.actor?.name || "System"}
                   </td>
-                  <td className="max-w-56 px-4 py-3 align-top text-sm text-warm-700 break-words">{subjectContext(event)}</td>
-                  <td className="px-4 py-3 align-top"><Badge tone={outcomeTones[event.outcome]}>{event.outcome}</Badge></td>
-                  <td className="px-4 py-3 align-top"><Badge tone={severityTone(event.severity)}>{event.severity}</Badge></td>
+                  <td className="max-w-56 px-4 py-3 align-top text-sm text-warm-700 break-words">{subjectLabel(event)}</td>
                   <td className="max-w-72 p-0 align-top text-sm leading-relaxed text-warm-600 break-words">
                     <button
                       type="button"
@@ -92,12 +70,8 @@ export function AuditEventTable({ events, onSelect }: { events: AuditEventDto[];
                 <span className="text-xs tabular-nums text-warm-500"><AuditTimestamp value={event.occurred_at} /></span>
               </div>
               <p className="mt-3 text-sm font-semibold text-warm-800 break-words">{event.actor?.name || "System"}</p>
-              <p className="mt-1 text-sm text-warm-600 break-words">{subjectContext(event)}</p>
+              <p className="mt-1 text-sm text-warm-600 break-words">{subjectLabel(event)}</p>
               <p className="mt-2 text-sm leading-relaxed text-warm-700 break-words">{event.summary}</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Badge tone={outcomeTones[event.outcome]}>{event.outcome}</Badge>
-                <Badge tone={severityTone(event.severity)}>{event.severity}</Badge>
-              </div>
             </button>
           );
         })}

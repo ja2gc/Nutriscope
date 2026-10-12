@@ -20,8 +20,9 @@ describe("report template editor", () => {
     const letterhead = readFileSync(join(root, "..", "backend", "resources", "views", "reports", "partials", "letterhead.blade.php"), "utf8");
 
     expect(editor).toContain("<ImageFilePicker");
-    expect(adminSettings).toContain("<ImageFilePicker");
-    expect(adminSettings).toContain("editingBranding");
+    expect(adminSettings).not.toContain("<ImageFilePicker");
+    expect(adminSettings).not.toContain("editingBranding");
+    expect(adminSettings).toContain("Food Service Budget");
     expect(letterhead).toContain("width:56px; height:56px; object-fit:contain;");
     expect(editor).toContain("brandingLogoUrl(apiPrefix, \"left\")");
     expect(editor).toContain("brandingLogoUrl(apiPrefix, \"right\")");

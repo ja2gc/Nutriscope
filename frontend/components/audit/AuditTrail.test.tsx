@@ -13,10 +13,10 @@ const getActivityMock = vi.mocked(getActivity);
 
 function event(overrides: Partial<AuditEventDto> = {}): AuditEventDto {
   return {
-    id: "event-1", module: "reports", category: "operations", domain: "reports", record_type: "Report", action: "archived",
-    action_label: "Archived", summary: "Archived nutrition report", severity: "notice",
-    outcome: "success", actor: { id: "user-1", kind: "user", name: "Maria Santos", role: "RND" },
-    subject: { type: "report", id: "report-1", label: "Nutrition report" }, context: null,
+    id: "event-1", module: "nutrition_care", category: "clinical", domain: "patients", record_type: "Patient", action: "updated",
+    action_label: "Updated", summary: "Updated patient record",
+    actor: { id: "user-1", kind: "user", name: "Maria Santos", role: "RND", ip: null },
+    subject: { type: "patient", id: "patient-1", label: "Nutrition patient" }, context: null,
     patient: null, ncp_reference: null, detail_mode: "changes", reason: null, history: null, current_record_url: null,
     occurred_at: "2026-07-12T08:30:00Z", details: [], changes: [], ...overrides,
   };
@@ -55,7 +55,7 @@ describe("AuditTrail", () => {
       event({ id: "event-2", actor: null, summary: "Automated lifecycle refresh" }),
     ]));
     const user = userEvent.setup();
-    await act(async () => root.render(<AuditTrail path="/api/rnd/reports/report-1/activity" title="Report history" />));
+    await act(async () => root.render(<AuditTrail path="/api/rnd/patients/patient-1/activity" title="Patient history" />));
     await act(async () => user.click(container.querySelector("button")!));
 
     expect(container.textContent).toContain("Maria Santos");
@@ -85,13 +85,13 @@ describe("AuditTrail", () => {
 
   test("keeps deletion events readable after their subject no longer exists", async () => {
     getActivityMock.mockResolvedValue(page([event({
-      action: "deleted", action_label: "Deleted", summary: "Deleted archived report", subject: null,
+      action: "deleted", action_label: "Deleted", summary: "Deleted patient record", subject: null,
     })]));
     const user = userEvent.setup();
-    await act(async () => root.render(<AuditTrail path="/api/admin/reports/report-1/activity" />));
+    await act(async () => root.render(<AuditTrail path="/api/rnd/patients/patient-1/activity" />));
     await act(async () => user.click(container.querySelector("button")!));
 
-    expect(container.textContent).toContain("Deleted archived report");
+    expect(container.textContent).toContain("Deleted patient record");
     expect(container.textContent).toContain("Deleted");
   });
 
@@ -121,14 +121,14 @@ describe("AuditTrail", () => {
     getActivityMock.mockReturnValueOnce(older.promise).mockReturnValueOnce(newer.promise);
     const user = userEvent.setup();
 
-    await act(async () => root.render(<AuditTrail path="/api/rnd/reports/older/activity" />));
+    await act(async () => root.render(<AuditTrail path="/api/rnd/patients/older/activity" />));
     await act(async () => user.click(container.querySelector("button")!));
     const firstSignal = getActivityMock.mock.calls[0][2]?.signal;
-    await act(async () => root.render(<AuditTrail path="/api/rnd/reports/newer/activity" />));
+    await act(async () => root.render(<AuditTrail path="/api/rnd/patients/newer/activity" />));
 
     expect(firstSignal?.aborted).toBe(true);
     expect(getActivityMock).toHaveBeenCalledTimes(2);
-    expect(getActivityMock.mock.calls[1][0]).toBe("/api/rnd/reports/newer/activity");
+    expect(getActivityMock.mock.calls[1][0]).toBe("/api/rnd/patients/newer/activity");
     await act(async () => newer.resolve(page([event({ id: "newer", summary: "Current event" })])));
     expect(container.textContent).toContain("Current event");
     await act(async () => older.resolve(page([event({ id: "older", summary: "Stale event" })])));

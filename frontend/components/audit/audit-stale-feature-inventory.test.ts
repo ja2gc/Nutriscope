@@ -41,7 +41,9 @@ describe("audit stale-feature inventory", () => {
     expect(page).not.toContain("meta.capabilities.export");
     expect(filters).not.toContain('label="Domain"');
     expect(urlState).toContain('searchParams.get("module")');
-    expect(urlState).toContain('searchParams.get("subfilter")');
+    expect(urlState).not.toContain('searchParams.get("subfilter")');
+    expect(filters).toContain('label="Report type"');
+    expect(filters).not.toMatch(/Outcome|Severity/);
     expect(urlState).not.toContain('searchParams.get("category")');
     expect(urlState).not.toContain('searchParams.get("domain")');
     expect(service).not.toContain('qs.set("category"');

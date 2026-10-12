@@ -97,8 +97,6 @@ class AuditEntityPresenter
             AuditAction::PasswordReset->value,
             AuditAction::RecoveryEmailChanged->value,
             AuditAction::RecoveryEmailVerified->value => ['admin_web_login', 'Admin web login'],
-            AuditAction::AuthorizationDenied->value,
-            AuditAction::RateLimitExceeded->value => ['protected_route', 'Protected route'],
             AuditAction::AuditLogViewed->value,
             AuditAction::Exported->value => ['audit_oversight', 'Audit oversight'],
             AuditAction::SettingsChanged->value => ['retention_setting', 'Retention setting'],

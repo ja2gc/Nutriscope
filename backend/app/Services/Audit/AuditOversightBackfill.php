@@ -33,8 +33,6 @@ use App\Models\PurchaseOrderItemCorrection;
 use App\Models\PurchaseOrderVendorGroup;
 use App\Models\Recipe;
 use App\Models\Report;
-use App\Models\ReportBranding;
-use App\Models\ReportTemplate;
 use App\Models\ScreeningDocument;
 use App\Models\ShoppingList;
 use App\Models\ShoppingListItem;
@@ -60,7 +58,7 @@ class AuditOversightBackfill
         ScreeningDocument::class,
     ];
 
-    private const REPORT_TYPES = [Report::class, ReportBranding::class, ReportTemplate::class];
+    private const REPORT_TYPES = [Report::class];
 
     private const FOOD_SERVICE_TYPES = [
         Budget::class,
@@ -100,7 +98,7 @@ class AuditOversightBackfill
         $connection->table(config('activitylog.table_name'))
             ->where('log_name', config('audit.log_name'))
             ->select([
-                'id', 'module', 'patient_code_snapshot', 'category', 'domain',
+                'id', 'module', 'patient_code_snapshot', 'category', 'domain', 'properties',
                 'subject_type', 'subject_id', 'context_type', 'context_id',
                 'root_patient_id', 'ncp_record_id',
             ])
@@ -115,8 +113,9 @@ class AuditOversightBackfill
                     $update = [];
                     $nutritionLibraryType = $this->isNutritionLibraryType($row->subject_type);
                     $needsModule = $row->module === null
+                        || $row->module === AuditModule::Reports->value
                         || ($nutritionLibraryType && $row->module === AuditModule::FoodServiceOperations->value);
-                    if ($needsModule && ($module = $this->moduleFor($row)) !== null) {
+                    if ($needsModule && ($module = $this->moduleFor($row, $connection)) !== null) {
                         $update['module'] = $module->value;
                         $stats['modules']++;
                     }
@@ -145,14 +144,26 @@ class AuditOversightBackfill
         return $stats;
     }
 
-    private function moduleFor(object $row): ?AuditModule
+    private function moduleFor(object $row, Connection $connection): ?AuditModule
     {
         if ($this->isNutritionLibraryType($row->subject_type)) {
             return AuditModule::NutritionCare;
         }
         if ($this->isTypeIn($row->subject_type, self::REPORT_TYPES)
             || $row->domain === AuditDomain::Reports->value) {
-            return AuditModule::Reports;
+            $properties = is_array($row->properties)
+                ? $row->properties
+                : (json_decode((string) $row->properties, true) ?: []);
+            $reportType = $properties['report_type'] ?? data_get($properties, 'details.report_type');
+            if (! is_string($reportType) && $this->isTypeIn($row->subject_type, self::REPORT_TYPES)) {
+                $reportType = $connection->table((new Report)->getTable())->where('id', $row->subject_id)->value('type');
+            }
+
+            return match ($reportType) {
+                'demographic_census', 'ncp_summary', 'adime_individual', 'adime_aggregate', 'ncp_census', 'patient_menu_plan' => AuditModule::NutritionCare,
+                'accomplishment_report', 'program_project_activity', 'procurement_pack', 'menu_calendar' => AuditModule::FoodServiceOperations,
+                default => null,
+            };
         }
         if ($this->isTypeIn($row->subject_type, self::CLINICAL_TYPES)
             || $row->category === AuditCategory::Clinical->value

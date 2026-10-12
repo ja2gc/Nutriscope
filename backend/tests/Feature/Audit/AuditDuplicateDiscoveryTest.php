@@ -11,6 +11,7 @@ use App\Models\PurchaseOrder;
 use App\Models\ShoppingList;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class AuditDuplicateDiscoveryTest extends TestCase
@@ -25,28 +26,18 @@ class AuditDuplicateDiscoveryTest extends TestCase
         ],
         'purchase-order conversion and ordering' => [
             'tests/Feature/Audit/PurchaseOrderTrailTest.php',
-            'test_draft_to_ordered_uses_ordered_not_generic_updated',
-            ['ordered'],
+            'test_draft_to_ordered_is_categorized_as_created',
+            ['created'],
         ],
         'purchase-order receiving' => [
             'tests/Feature/Audit/PurchaseOrderTrailTest.php',
-            'test_vendor_receipt_transition_emits_exactly_one_received_and_no_generic_lifecycle_update',
-            ['received'],
+            'test_vendor_receipt_transition_uses_updated_actions',
+            ['updated'],
         ],
         'budget purchase-order deduction' => [
             'tests/Feature/BudgetAuditTest.php',
             'test_po_deduction_ledger_creation_writes_system_audit_event',
-            ['adjusted'],
-        ],
-        'report view download and unarchive' => [
-            'tests/Feature/Audit/ReportAuditTest.php',
-            'test_report_views_downloads_and_unarchive_emit_safe_semantic_events',
-            ['viewed', 'downloaded', 'updated'],
-        ],
-        'report generation retry' => [
-            'tests/Feature/Audit/ReportAuditTest.php',
-            'test_generate_report_duplicate_delivery_is_terminal_and_failure_is_once',
-            ['generated'],
+            ['updated'],
         ],
         'RND Food Library create' => [
             'tests/Feature/OperationsAuditTest.php',
@@ -88,10 +79,10 @@ class AuditDuplicateDiscoveryTest extends TestCase
             'test_every_clinical_model_create_update_delete_is_rooted_and_phi_free',
             ['created', 'updated', 'deleted'],
         ],
-        'authentication and security failures' => [
+        'authentication and security rejections' => [
             'tests/Feature/Audit/SecurityAuditTest.php',
-            'test_each_rejected_http_request_increments_recurrence_once',
-            ['authorization_denied'],
+            'test_authentication_failure_is_audited_but_role_denial_is_not',
+            [],
         ],
     ];
 
@@ -126,7 +117,7 @@ class AuditDuplicateDiscoveryTest extends TestCase
         $listener->handle(new PurchaseOrderCompleted($purchaseOrder));
 
         $this->assertSame(1, BudgetLedger::query()->where('purchase_order_id', $purchaseOrder->id)->count());
-        $this->assertSame(1, AuditActivity::query()->where('event', 'adjusted')->count());
+        $this->assertSame(1, AuditActivity::query()->where('event', 'updated')->count());
     }
 
     public function test_every_required_duplicate_family_is_bound_to_a_behavioral_contract(): void
@@ -136,8 +127,6 @@ class AuditDuplicateDiscoveryTest extends TestCase
             'purchase-order conversion and ordering',
             'purchase-order receiving',
             'budget purchase-order deduction',
-            'report view download and unarchive',
-            'report generation retry',
             'RND Food Library create',
             'RND Food Library update',
             'RND Food Library delete',
@@ -146,14 +135,18 @@ class AuditDuplicateDiscoveryTest extends TestCase
             'RND recipe update',
             'RND recipe delete',
             'patient and NCP clinical changes',
-            'authentication and security failures',
+            'authentication and security rejections',
         ], array_keys(self::BEHAVIORAL_CONTRACTS));
 
         foreach (self::BEHAVIORAL_CONTRACTS as [$path, $method, $events]) {
             $source = file_get_contents(base_path($path));
             $this->assertStringContainsString($method, $source, $path);
             foreach ($events as $event) {
-                $this->assertStringContainsString("'{$event}'", $source, $method);
+                $this->assertStringContainsString(
+                    str_contains($source, "'{$event}'") ? "'{$event}'" : 'AuditAction::'.Str::studly($event),
+                    $source,
+                    $method,
+                );
             }
         }
     }

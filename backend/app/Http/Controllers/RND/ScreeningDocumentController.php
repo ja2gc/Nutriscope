@@ -31,7 +31,6 @@ class ScreeningDocumentController extends Controller
     public function show(ScreeningDocument $screeningDocument): ScreeningDocumentResource
     {
         $this->authorizeDocument($screeningDocument);
-        $this->recordAccess(AuditAction::Viewed, $screeningDocument);
 
         return new ScreeningDocumentResource($screeningDocument);
     }

@@ -55,11 +55,7 @@ class AuditContractTest extends TestCase
             'password_reset' => 'Password reset',
             'recovery_email_changed' => 'Recovery email changed',
             'recovery_email_verified' => 'Recovery email verified',
-            'rate_limit_exceeded' => 'Rate limit exceeded',
-            'authorization_denied' => 'Authorization denied',
             'audit_log_viewed' => 'Audit log viewed',
-            'account_blocked' => 'Account blocked',
-            'account_unblocked' => 'Account unblocked',
             'appointment_scheduled' => 'Appointment scheduled',
             'visit_started' => 'Visit started',
             'visit_completed' => 'Visit completed',
@@ -109,11 +105,10 @@ class AuditContractTest extends TestCase
         ], collect(AuditModule::cases())->mapWithKeys(
             fn (AuditModule $module): array => [$module->value => $module->label()],
         )->all());
-        $this->assertSame(['success', 'failure', 'blocked'], array_column(AuditOutcome::cases(), 'value'));
+        $this->assertSame(['success', 'failure'], array_column(AuditOutcome::cases(), 'value'));
         $this->assertSame([
             'success' => 'Success',
             'failure' => 'Failure',
-            'blocked' => 'Blocked',
         ], collect(AuditOutcome::cases())->mapWithKeys(
             fn (AuditOutcome $outcome): array => [$outcome->value => $outcome->label()],
         )->all());
@@ -222,8 +217,8 @@ class AuditContractTest extends TestCase
         $this->assertSame('legacy_event', $payload['action']);
         $this->assertSame('legacy_unclassified', $payload['category']);
         $this->assertSame('legacy_unclassified', $payload['domain']);
-        $this->assertSame('info', $payload['severity']);
-        $this->assertSame('success', $payload['outcome']);
+        $this->assertArrayNotHasKey('severity', $payload);
+        $this->assertArrayNotHasKey('outcome', $payload);
         $this->assertSame('Unknown actor recorded Legacy event for system operation.', $payload['summary']);
 
         $activity->refresh();

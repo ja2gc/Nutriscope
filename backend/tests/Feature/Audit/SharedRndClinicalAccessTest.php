@@ -2,9 +2,6 @@
 
 namespace Tests\Feature\Audit;
 
-use App\Enums\AuditAction;
-use App\Enums\AuditCategory;
-use App\Enums\AuditDomain;
 use App\Models\Assessment;
 use App\Models\Diagnosis;
 use App\Models\Intervention;
@@ -17,7 +14,6 @@ use App\Models\Patient;
 use App\Models\Report;
 use App\Models\ScreeningDocument;
 use App\Models\User;
-use App\Services\Audit\AuditLogger;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -265,20 +261,6 @@ class SharedRndClinicalAccessTest extends TestCase
             ])->assertOk();
 
         $this->actingAs($viewer, 'sanctum');
-        app(AuditLogger::class)->record(
-            AuditAction::Viewed,
-            AuditCategory::Clinical,
-            AuditDomain::Ncp,
-            subject: $ncp,
-            details: ['status' => 200],
-        );
-        app(AuditLogger::class)->record(
-            AuditAction::Downloaded,
-            AuditCategory::Clinical,
-            AuditDomain::Ncp,
-            subject: $ncp,
-            details: ['status' => 200],
-        );
         $report = Report::factory()->create([
             'user_id' => $viewer->id,
             'audit_patient_id' => $patient->id,
@@ -286,13 +268,7 @@ class SharedRndClinicalAccessTest extends TestCase
             'audit_owner_id' => $creator->id,
             'type' => 'ncp_summary',
         ]);
-        app(AuditLogger::class)->record(
-            AuditAction::Created,
-            AuditCategory::Clinical,
-            AuditDomain::Reports,
-            subject: $report,
-            details: ['status' => 200],
-        );
+        $this->getJson("/api/rnd/reports/{$report->uuid}")->assertOk();
 
         $this->getJson('/api/rnd/patients?per_page=10')
             ->assertOk()

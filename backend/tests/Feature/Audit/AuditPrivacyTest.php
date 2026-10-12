@@ -5,7 +5,6 @@ namespace Tests\Feature\Audit;
 use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditDomain;
-use App\Enums\AuditModule;
 use App\Enums\AuditOutcome;
 use App\Enums\AuditSeverity;
 use App\Events\PurchaseOrderCompleted;
@@ -21,6 +20,7 @@ use App\Models\NcpAppointment;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\PurchaseOrder;
+use App\Models\Report;
 use App\Models\ShoppingList;
 use App\Models\User;
 use App\Services\Audit\AuditContextResolver;
@@ -46,7 +46,7 @@ class AuditPrivacyTest extends TestCase
         $patient = Patient::factory()->create();
 
         $activity = app(AuditLogger::class)->record(
-            AuditAction::Viewed,
+            AuditAction::Updated,
             AuditCategory::Clinical,
             AuditDomain::Patients,
             subject: $patient,
@@ -56,7 +56,7 @@ class AuditPrivacyTest extends TestCase
         );
 
         $this->assertSame('audit', $activity->log_name);
-        $this->assertSame(AuditAction::Viewed->value, $activity->event);
+        $this->assertSame(AuditAction::Updated->value, $activity->event);
         $this->assertSame(AuditCategory::Clinical, $activity->category);
         $this->assertSame(AuditDomain::Patients, $activity->domain);
         $this->assertSame($patient->getMorphClass(), $activity->subject_type);
@@ -82,7 +82,7 @@ class AuditPrivacyTest extends TestCase
         $ncp = NcpRecord::factory()->create(['patient_id' => $patient->id]);
 
         $activity = app(AuditLogger::class)->record(
-            AuditAction::Viewed,
+            AuditAction::Updated,
             AuditCategory::Clinical,
             AuditDomain::Ncp,
             subject: $ncp,
@@ -96,34 +96,63 @@ class AuditPrivacyTest extends TestCase
         $this->assertArrayNotHasKey('ncp_record_id', $activity->properties['details']);
     }
 
-    public function test_security_action_preserves_security_taxonomy_context_outcome_and_severity(): void
+    public function test_non_success_outcomes_are_rejected(): void
     {
         $patient = Patient::factory()->create();
         $budget = Budget::factory()->create();
 
-        $activity = app(AuditLogger::class)->record(
-            AuditAction::AuthorizationDenied,
+        $this->expectException(\LogicException::class);
+
+        app(AuditLogger::class)->record(
+            AuditAction::Updated,
             AuditCategory::Security,
             AuditDomain::Accounts,
             subject: $patient,
             context: $budget,
-            outcome: AuditOutcome::Blocked,
+            outcome: AuditOutcome::Failure,
             severity: AuditSeverity::Critical,
         );
 
-        $this->assertSame(AuditCategory::Security, $activity->category);
-        $this->assertSame(AuditDomain::Accounts, $activity->domain);
-        $this->assertSame(AuditModule::SecurityAdministration, $activity->module);
-        $this->assertSame(AuditOutcome::Blocked, $activity->outcome);
-        $this->assertSame(AuditSeverity::Critical, $activity->severity);
-        $this->assertSame($budget->getMorphClass(), $activity->context_type);
-        $this->assertSame($budget->id, $activity->context_id);
+    }
+
+    public function test_report_activity_cannot_be_written_to_the_audit_trail(): void
+    {
+        $this->expectException(\LogicException::class);
+
+        app(AuditLogger::class)->record(
+            AuditAction::Updated,
+            AuditCategory::Operations,
+            AuditDomain::Reports,
+        );
+    }
+
+    public function test_report_subject_cannot_be_audited_under_another_domain(): void
+    {
+        $this->expectException(\LogicException::class);
+
+        app(AuditLogger::class)->record(
+            AuditAction::Updated,
+            AuditCategory::Operations,
+            AuditDomain::System,
+            subject: new Report,
+        );
+    }
+
+    public function test_generated_system_events_cannot_be_written_to_the_audit_trail(): void
+    {
+        $this->expectException(\LogicException::class);
+
+        app(AuditLogger::class)->record(
+            AuditAction::Generated,
+            AuditCategory::Operations,
+            AuditDomain::System,
+        );
     }
 
     public function test_nested_forbidden_keys_and_format_variants_are_removed(): void
     {
         $activity = app(AuditLogger::class)->record(
-            AuditAction::LoginFailed,
+            AuditAction::Updated,
             AuditCategory::Security,
             AuditDomain::Accounts,
             details: [
@@ -208,7 +237,7 @@ class AuditPrivacyTest extends TestCase
     public function test_email_shaped_values_are_masked_inside_numeric_arrays(): void
     {
         $activity = app(AuditLogger::class)->record(
-            AuditAction::LoginFailed,
+            AuditAction::Updated,
             AuditCategory::Security,
             AuditDomain::Accounts,
             details: ['identifiers' => [' Victim.Example@Example.COM ']],
@@ -222,9 +251,9 @@ class AuditPrivacyTest extends TestCase
     public function test_all_url_forms_are_scrubbed_without_userinfo_query_or_fragment(): void
     {
         $activity = app(AuditLogger::class)->record(
-            AuditAction::Viewed,
+            AuditAction::Updated,
             AuditCategory::Operations,
-            AuditDomain::Reports,
+            AuditDomain::System,
             details: [
                 'absolute_url' => 'https://user:pass@example.test/reports/42?token=x#private',
                 'relative_url' => '/reports/42?token=x#private',
@@ -242,7 +271,7 @@ class AuditPrivacyTest extends TestCase
     public function test_clinical_scalar_strings_use_email_masking_and_url_scrubbing(): void
     {
         $activity = app(AuditLogger::class)->record(
-            AuditAction::Viewed,
+            AuditAction::Updated,
             AuditCategory::Clinical,
             AuditDomain::Patients,
             details: [
@@ -259,9 +288,9 @@ class AuditPrivacyTest extends TestCase
     public function test_operational_path_is_scrubbed_as_a_relative_url(): void
     {
         $activity = app(AuditLogger::class)->record(
-            AuditAction::Viewed,
+            AuditAction::Updated,
             AuditCategory::Operations,
-            AuditDomain::Reports,
+            AuditDomain::System,
             details: ['path' => '/reports/42?token=PATH-SENTINEL#private'],
         );
 
@@ -273,9 +302,9 @@ class AuditPrivacyTest extends TestCase
     {
         $longPath = str_repeat('a', 5000);
         $activity = app(AuditLogger::class)->record(
-            AuditAction::Viewed,
+            AuditAction::Updated,
             AuditCategory::Operations,
-            AuditDomain::Reports,
+            AuditDomain::System,
             details: [
                 'absolute_url' => "https://example.test/{$longPath}?token=x",
                 'scheme_relative_url' => "//example.test/{$longPath}?token=x",
@@ -289,7 +318,7 @@ class AuditPrivacyTest extends TestCase
     public function test_control_characters_are_removed_from_detail_values(): void
     {
         $activity = app(AuditLogger::class)->record(
-            AuditAction::Viewed,
+            AuditAction::Updated,
             AuditCategory::Operations,
             AuditDomain::System,
             details: ['route' => "reports.show\r\nFORGED\0ENTRY"],
@@ -301,7 +330,7 @@ class AuditPrivacyTest extends TestCase
     public function test_detail_values_are_capped(): void
     {
         $activity = app(AuditLogger::class)->record(
-            AuditAction::Viewed,
+            AuditAction::Updated,
             AuditCategory::Operations,
             AuditDomain::System,
             details: ['reason' => str_repeat('x', 5000)],
@@ -313,9 +342,9 @@ class AuditPrivacyTest extends TestCase
     public function test_url_query_and_fragment_are_removed(): void
     {
         $activity = app(AuditLogger::class)->record(
-            AuditAction::Viewed,
+            AuditAction::Updated,
             AuditCategory::Operations,
-            AuditDomain::Reports,
+            AuditDomain::System,
             details: ['url' => 'https://example.test/reports/42?token=FORBIDDEN#private'],
         );
 
@@ -325,7 +354,7 @@ class AuditPrivacyTest extends TestCase
     public function test_anonymous_login_email_is_normalized_and_partially_masked(): void
     {
         $activity = app(AuditLogger::class)->record(
-            AuditAction::LoginFailed,
+            AuditAction::Updated,
             AuditCategory::Security,
             AuditDomain::Accounts,
             details: ['email' => '  Victim.Example@Example.COM  '],
@@ -353,7 +382,7 @@ class AuditPrivacyTest extends TestCase
 
         try {
             $activity = app(AuditLogger::class)->record(
-                AuditAction::Viewed,
+                AuditAction::Updated,
                 AuditCategory::Clinical,
                 AuditDomain::Patients,
             );
@@ -403,7 +432,7 @@ class AuditPrivacyTest extends TestCase
     public function test_system_actor_is_sanitized_and_has_no_spatie_causer(): void
     {
         $activity = app(AuditLogger::class)->record(
-            AuditAction::Generated,
+            AuditAction::Updated,
             AuditCategory::Operations,
             AuditDomain::System,
             systemActor: "nightly-scheduler\r\nFORGED",
@@ -419,7 +448,7 @@ class AuditPrivacyTest extends TestCase
     {
         $actor = User::factory()->admin()->create();
         $activity = app(AuditLogger::class)->record(
-            AuditAction::AuditLogViewed,
+            AuditAction::Updated,
             AuditCategory::Security,
             AuditDomain::Accounts,
             actor: $actor,
@@ -439,7 +468,7 @@ class AuditPrivacyTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
 
         app(AuditLogger::class)->record(
-            AuditAction::Generated,
+            AuditAction::Updated,
             AuditCategory::Operations,
             AuditDomain::System,
             actor: User::factory()->create(),
@@ -452,7 +481,7 @@ class AuditPrivacyTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
 
         app(AuditLogger::class)->record(
-            AuditAction::Generated,
+            AuditAction::Updated,
             AuditCategory::Operations,
             AuditDomain::System,
             systemActor: " \r\n ",
@@ -466,7 +495,7 @@ class AuditPrivacyTest extends TestCase
         try {
             $expected = LogBatch::getUuid();
             $activity = app(AuditLogger::class)->record(
-                AuditAction::Generated,
+                AuditAction::Updated,
                 AuditCategory::Operations,
                 AuditDomain::System,
                 systemActor: 'scheduler',
@@ -514,7 +543,7 @@ class AuditPrivacyTest extends TestCase
         $assessment = Assessment::factory()->create(['ncp_record_id' => $ncp->id]);
 
         $activity = app(AuditLogger::class)->record(
-            AuditAction::Viewed,
+            AuditAction::Updated,
             AuditCategory::Clinical,
             AuditDomain::Ncp,
             subject: $assessment,
@@ -534,7 +563,7 @@ class AuditPrivacyTest extends TestCase
         foreach ([$unsupported, $missing] as $context) {
             try {
                 app(AuditLogger::class)->record(
-                    AuditAction::Viewed,
+                    AuditAction::Updated,
                     AuditCategory::Operations,
                     AuditDomain::System,
                     context: $context,
@@ -581,7 +610,7 @@ class AuditPrivacyTest extends TestCase
         try {
             DB::transaction(function (): void {
                 app(AuditLogger::class)->record(
-                    AuditAction::Generated,
+                    AuditAction::Updated,
                     AuditCategory::Operations,
                     AuditDomain::System,
                     systemActor: 'transaction-test',
@@ -673,7 +702,7 @@ class AuditPrivacyTest extends TestCase
         }
 
         $manualAdjustment = AuditActivity::query()
-            ->where('event', 'adjusted')
+            ->where('event', 'updated')
             ->where('properties->details->source', 'manual')
             ->sole();
         $this->assertSame('BUDGET-REASON-SENTINEL', $manualAdjustment->properties['details']['reason']);

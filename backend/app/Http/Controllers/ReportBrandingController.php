@@ -2,20 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\AuditAction;
-use App\Enums\AuditCategory;
-use App\Enums\AuditDomain;
 use App\Http\Requests\UpdateReportBrandingRequest;
 use App\Models\ReportBranding;
-use App\Services\Audit\AuditLogger;
 use App\Services\StoredObjectStorage;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportBrandingController extends Controller
 {
     public function __construct(
-        private readonly AuditLogger $auditLogger,
         private readonly StoredObjectStorage $storedObjects,
     ) {}
 
@@ -53,7 +49,6 @@ class ReportBrandingController extends Controller
     public function update(UpdateReportBrandingRequest $request): JsonResponse
     {
         $branding = ReportBranding::singleton();
-        $this->auditLogger->assertAvailable();
         $data = $request->validated();
         $newObjects = [];
         foreach (['logo_left', 'logo_right'] as $field) {
@@ -66,15 +61,8 @@ class ReportBrandingController extends Controller
             unset($data[$field]);
         }
         try {
-            $this->audited(function () use ($branding, $data): void {
+            DB::transaction(function () use ($branding, $data): void {
                 $branding->update($data);
-                $this->auditLogger->record(
-                    AuditAction::Updated,
-                    AuditCategory::Operations,
-                    AuditDomain::Reports,
-                    subject: $branding,
-                    details: ['changed_fields' => array_keys($data), 'configuration' => 'branding'],
-                );
             });
         } catch (\Throwable $exception) {
             collect($newObjects)->each(fn ($object) => $this->storedObjects->deleteOrQueue($object));
