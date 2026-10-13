@@ -75,7 +75,7 @@ flowchart LR
 |---|---|---|---|---|
 | 1. Daily orientation | Home | Reviews meals to log, pending POs, active cycle, today's service, announcements | Shows work queues and missing requirements | FSS knows what needs attention |
 | 2. Menu briefing | Menu | Opens today's foods and recipe/item profiles | Shows servings, ingredients, and prep notes read-only | Kitchen sees RND's approved plan |
-| 3. Receiving | Purchase | Reviews prefilled values, corrects decimal actual quantity/price, uploads receipt/proof, optionally records OR, and marks vendor received | Validates required evidence and updates the confirmed purchase | Evidence closes receiving explicitly |
+| 3. Receiving | Purchase | Reviews prefilled values, corrects decimal actual quantity/price, uploads receipt/proof, and optionally records OR | Saves actual values and evidence for RND confirmation | RND closes receiving explicitly on web Procurement |
 | 4. Preparation/service | Meal Prep | Reviews the selected date's meals and records actual population | Stores the served-population record and refreshes PO served-day progress | Actual service connects to cost outcome without a redundant completion log |
 | 5. Daily accomplishment | Accomplish | Enters two counts, selects five duties, or marks off duty | Stores one daily entry and refreshes its semi-monthly report | Staff work becomes reportable |
 | 6. Communication | Announcement tab and header bell | Opens a photo announcement with its author's profile image, switches between Announcements and SOP, and reads notifications from the bell | Preserves image proportions in a bounded responsive frame, current procedure, and alert state | Communication stays visible without crowding the header |
@@ -134,7 +134,8 @@ flowchart LR
 | 1 | RND | Active menu cycle | Approves foods and dates; reusable template may provide the structure |
 | 2 | RND | Shopping list | Enters one span estimate and generates requirements, or creates a named manual list |
 | 3 | RND | Purchase order | Converts to one PO with vendor groups and frozen plan snapshots |
-| 4 | FSS | Vendor group | Confirms actual values, uploads receipt/proof, optionally saves OR, and marks received |
+| 4 | FSS | Vendor group | Confirms actual values, uploads receipt/proof, and optionally saves OR |
+| 4a | RND | Vendor group | Reviews actual values and evidence, then marks received on web Procurement |
 | 5 | FSS | Service date | Records actual population in Meal Prep |
 | 6 | System | Completed PO/budget event | Checks vendor evidence and applicable dates, calculates food purchase cost per served patient-day, writes ledger/audit events |
 | 7 | RND | Operational reports | Reviews menu, procurement, accomplishment, and budget outcomes |

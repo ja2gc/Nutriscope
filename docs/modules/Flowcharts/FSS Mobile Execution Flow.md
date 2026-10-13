@@ -68,13 +68,13 @@ flowchart TD
     D --> E["Confirm actual quantity and unit price"]
     E --> F["Upload receipt and proof"]
     F --> G["Optionally enter OR number"]
-    G --> H["Explicitly mark vendor received"]
+    G --> H["RND marks vendor received on web Procurement"]
     H --> I{"PO completed or archived?"}
     I -->|"Yes"| J["Edits locked"]
     I -->|"No"| K["Continue remaining vendor/date requirements"]
 ```
 
-FSS can correct actual quantities/prices and the actual vendor while the group is open and has no evidence. **Change vendor for all** applies to the group; row-level **Change vendor** moves only that item. Planned quantities, units, and calculated need stay frozen. Receipt and proof do not change status until **Mark vendor received** is used. OR number is optional.
+FSS can correct actual quantities/prices and the actual vendor while the group is open and has no evidence. **Change vendor for all** applies to the group; row-level **Change vendor** moves only that item. Planned quantities, units, and calculated need stay frozen. Receipt and proof do not change status; RND uses **Mark vendor received** on web Procurement after reviewing them. OR number is optional.
 
 ## Semi-monthly Accomplishment Report Lifecycle
 

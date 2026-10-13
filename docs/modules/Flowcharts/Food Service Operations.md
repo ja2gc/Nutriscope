@@ -34,7 +34,7 @@ flowchart TD
     R4 --> S
     S --> T["Correct actual decimal quantity and actual unit price if needed"]
     T --> U["Upload receipt and proof for each vendor; OR number optional"]
-    U --> V["Explicitly mark each vendor received"]
+    U --> V["RND marks each vendor received on web Procurement"]
     V --> W{"Completion checks"}
     W -->|"Suggested food"| X["All vendors complete plus served population for every covered date"]
     W -->|"Manual food or supplies"| Y["All vendors complete; no population gate"]
@@ -61,7 +61,7 @@ flowchart TD
 | PO release | Requires included rows, vendors, applicable estimate/coverage, and sufficient FY budget | Prevents a frozen but unusable PO |
 | Vendor correction | Before evidence or receiving, **Change vendor for all** moves a group and row-level **Change vendor** moves one item; an existing destination group is reused | Actual purchase vendor can be corrected without reopening shopping-list calculations |
 | Receiving comparison | Planned purchase stays visible; editable actuals are prefilled; calculated/planned/actual details expand on request | Correct rows need no retyping and the screen avoids showing three dense value sets at once |
-| Vendor completion | Requires reviewed actuals, receipt, proof, assigned vendor, and explicit **Mark vendor received** | Upload alone never silently completes receiving |
+| Vendor completion | FSS saves actuals and evidence; RND reviews them and uses **Mark vendor received** | Upload alone never silently completes receiving |
 | OR number | Optional; shown as **Not provided** when absent | Vendors without an OR can complete with evidence |
 | Food completion | Suggested food also needs served population per covered date; manual food does not | Menu-derived reports keep their denominator without blocking one-off events |
 | Reporting | Procurement packs include every frozen PO row, including generated-list manual additions and fully manual lists; draft packs are visibly incomplete and finals use actuals | Planned, manual, and actual purchases are not omitted or misrepresented |

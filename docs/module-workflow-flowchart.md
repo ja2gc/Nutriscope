@@ -50,7 +50,7 @@ flowchart TD
     N --> N1["Review draft; add bulk Rice in kg when needed"]
     N1 --> O["Attach calculated need, purchase values, vendor, and estimated cost"]
     O --> P["Create and release purchase order / vendor groups"]
-    P --> Q["FSS confirms actuals, uploads evidence, and marks vendors received"]
+    P --> Q["FSS saves actuals and evidence; RND marks vendors received"]
 ```
 
 ---
@@ -203,7 +203,7 @@ flowchart TD
     B --> D["Purchase: open PO and vendor"]
     D --> E["Review calculated values; confirm actual qty/price"]
     E --> F["Upload receipt and proof; optional OR"]
-    F --> G["Explicitly mark vendor received"]
+    F --> G["RND marks vendor received on web Procurement"]
     B --> H["Meal Prep: review planned meals and record positive actual served population"]
     B --> I["Accomplish: record 2 counts, 5 duties, or off-duty"]
     I --> J["Own semi-monthly accomplishment report"]
@@ -337,7 +337,7 @@ flowchart TD
 
 1. Launch mobile app and log in as `fss@nutriscope.local`.
 2. Open Home for today's service list, meals-to-log KPI, POs awaiting receipt, active menu, and announcements.
-3. Open Purchase, confirm actual values, optionally enter an OR number, upload receipt/proof, and explicitly mark each vendor received.
+3. Open Purchase, confirm actual values, optionally enter an OR number, and upload receipt/proof. RND then marks each vendor received on web Procurement.
 4. Open Meal Prep to review the selected day's menu and record actual served population.
 5. Open Accomplish to record diet-list/accomplishment rows for today or a missed previous date.
 6. Open Menu to review weekly menu slots and open each read-only food profile.

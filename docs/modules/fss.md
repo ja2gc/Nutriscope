@@ -114,9 +114,9 @@ FSS sees existing POs and vendor groups. For an open PO, FSS can:
 - upload proof-of-purchase images;
 - add captions;
 - view or delete attachments while unlocked;
-- explicitly mark the vendor received once requirements are complete.
+- send the saved actual values and evidence to RND for vendor-received confirmation on web Procurement.
 
-Receipt upload alone does not change status. A vendor can be marked received only after supplier assignment, reviewed actual values, at least one receipt, and at least one proof-of-purchase image. OR number is not required.
+Receipt upload alone does not change status. RND marks a vendor received after supplier assignment, reviewed actual values, at least one receipt, and at least one proof-of-purchase image. OR number is not required.
 
 FSS cannot change:
 

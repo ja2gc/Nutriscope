@@ -172,12 +172,12 @@ Use this as both the recording checklist and narration script. The main recordin
 8. Select **Save actuals and optional OR**.
 9. Under Receipt images and Proof of purchase, select **Upload**, choose Receipt or Proof, optionally add a caption, then choose **Library** or **Camera**.
 10. Open one uploaded image to show its private in-app preview.
-11. Select **Mark vendor received** only after actual values, receipt, and proof are ready.
-12. Return to **Notifications**, show that the completed receiving action resolved the item even though it was completed from the Purchase workflow, and dismiss it.
+11. Point out the note that RND marks the vendor received on web Procurement after reviewing actual values, receipt, and proof.
+12. After RND confirms the vendor, return to **Notifications** and show that the receiving action has resolved; dismiss it.
 
 **Narration**
 
-> FSS receives an existing purchase order; FSS does not create it. An action-required notification opens that exact purchase order and cannot be dismissed until the required receiving work is complete. The approved quantity and price stay visible while staff correct the actual quantity and unit price when the delivery differs. A vendor can be corrected only before receipt or proof images are attached. To finish a vendor delivery, staff must review the actual values, confirm the vendor, attach a receipt and proof of purchase, and select Mark vendor received. Completing the work resolves the notification even when staff finish from Purchase rather than directly from the notification. The official receipt number is optional.
+> FSS opens an existing purchase order; FSS does not create it. An action-required notification opens that exact purchase order and cannot be dismissed while receiving is incomplete. The approved quantity and price stay visible while staff correct the actual quantity and unit price when delivery differs. A vendor can be corrected only before receipt or proof images are attached. FSS saves actual values and uploads receipt and proof; RND reviews these on web Procurement and marks the vendor received. The official receipt number is optional.
 
 **Expected result:** The vendor status changes to received, locked records no longer expose editing controls, and the resolved notification becomes dismissible.
 
@@ -271,7 +271,7 @@ Use this as both the recording checklist and narration script. The main recordin
 - **No active menu:** show the instruction to contact RND.
 - **Outside the active cycle:** choose a planned date or contact RND.
 - **Upload permission denied:** show the safe camera/library permission message.
-- **Incomplete receiving:** show why **Mark vendor received** cannot proceed.
+- **Incomplete receiving:** show the missing actual values or evidence that RND needs before marking the vendor received.
 - **Backdated accomplishment:** show the warning and **Today** recovery action.
 - **Network failure:** show **Retry** rather than an empty list.
 - **No reports yet:** show the message explaining that a semi-monthly report appears after the first saved Daily Log.

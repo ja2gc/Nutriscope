@@ -487,13 +487,13 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### FSS-05 — Vendor Group Receiving
 
-**Description:** FSS reviews calculated values, corrects actual decimal quantity/price, uploads receipt and proof, optionally saves an OR number, then explicitly marks the vendor received.
+**Description:** FSS reviews calculated values, corrects actual decimal quantity/price, uploads receipt and proof, and optionally saves an OR number. RND marks the vendor received on web Procurement.
 
-**User should do:** Review actuals, upload receipt and proof, leave OR blank for a vendor without one, then point to **Mark vendor received**.
+**User should do:** Review actuals, upload receipt and proof, leave OR blank for a vendor without one, then point to the note explaining RND confirmation.
 
 **Next scene:** Image Upload.
 
-> **Screenshot needed:** Vendor detail with supplier, status, calculated and actual values, optional OR, Receipt images, Proof of purchase, and Mark vendor received.
+> **Screenshot needed:** Vendor detail with supplier, status, calculated and actual values, optional OR, Receipt images, Proof of purchase, and RND confirmation note.
 >
 > **Insert screenshot below this line.**
 

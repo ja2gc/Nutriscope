@@ -207,7 +207,7 @@ Verified against current navigation and server permissions on **2026-09-08**. Fo
 5. Confirm or correct the prefilled actual decimal quantity and unit price, then save.
 6. Enter an OR number only when the vendor provided one.
 7. Upload at least one receipt and one proof-of-purchase image for the vendor.
-8. Use **Mark vendor received**; uploads alone do not change the status.
+8. Ask RND to review the saved actual values and evidence and use **Mark vendor received** on web Procurement. Uploads alone do not change the status.
 9. Completed/archived POs lock edits.
 
 ### 6. Announcements, SOP, and Notifications
