@@ -62,6 +62,7 @@
 - [ ] Write failing tests for every cycle mutation after PO conversion and for historical read access; guard via the existing PO/snapshot relationship at conversion, including alternate edit/delete paths. Keep actual served correction possible until completed PO as currently intended.
 - [ ] Re-verify the single Shopping List estimate input, preview/save behavior, per-date calculations across cycle boundaries, saved-list recalculation, and no duplicate population fields. Fix only reproduced regressions.
 - [ ] Exercise an unplanned past week end to end in focused integration tests: create/populate past cycle, set estimate, Save list, convert PO, enter true historical service counts and vendor evidence/actuals, complete under the correct fiscal-year budget, and inspect PPA/Procurement Pack dates and frozen data. Preserve real event timestamps.
+- [ ] Use focused commits for independently verified changes. Before starting accomplishment review, record passing cycle/procurement evidence and checkpoint the completed work.
 
 ### 4. FSS period submission and RND review on existing reports
 
@@ -71,6 +72,7 @@
 - [ ] Add minimal review metadata to the **existing** accomplishment report/period record. Keep PDF generation/archive status and existing reports intact; distinguish legacy rows so they remain visible without a false approval claim.
 - [ ] Implement authorized FSS Submit, Withdraw, edit-after-reject, and Resubmit; RND Approve/Reject with required 1–500-character rejection reason; server-enforce ownership, role, period identity, valid transitions, and immutable approved daily logs.
 - [ ] Make submitted content exactly what RND reviews: block FSS edits while pending, reflect changed daily logs after withdrawal/rejection before resubmission, and make stale review actions fail cleanly. Approved PDF/report content must remain frozen and visible in existing Reports. Test concurrent transition cases, duplicate requests, and direct API edits.
+- [ ] Test that after approval, daily-log save attempts and archive refresh/regeneration cannot change the content RND reviewed, the approved Report, or its stored PDF; cover direct API and service paths.
 - [ ] Keep old generated accomplishment reports/files unchanged and readable. Ensure new unapproved periods do not appear as approved reports; RND's review queue identifies the FSS user and period.
 
 ### 5. Focused UI and copy
