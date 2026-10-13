@@ -55,6 +55,7 @@
 - Use `requesting-code-review`/`receiving-code-review` when review is requested or received, and `finishing-a-development-branch` when integration choices are needed. Do not use worktree or subagent skills unless explicitly authorized.
 - Backend skill: `backend/.agents/skills/laravel-best-practices/SKILL.md`; read it plus only matching `rules/*.md`. Laravel Boost MCP is a tool integration; use it when available for Laravel inspection/work.
 - Backend/frontend/mobile nested instructions are `backend/AGENTS.md`, `frontend/AGENTS.md`, and `mobile/AGENTS.md`; read the matching one. Use exact installed framework/Expo docs, not remembered APIs.
+- Frontend/mobile UI work → read `.agents/rules/ui-ux.md` for layout, content, accessibility, and reuse guidance.
 - For PDFs, documents, spreadsheets, UI, image generation, or other special artifacts, use the matching installed skill and its `SKILL.md`; do not load unrelated skills.
 - Use official current web sources only when external facts matter. Do not treat search results, memory, or pasted advice as implementation proof.
 
