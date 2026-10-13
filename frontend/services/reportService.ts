@@ -121,6 +121,27 @@ export interface Branding {
   logo_right_path: string | null;
 }
 
+interface RevisionMetadata {
+  id: string;
+  created_at: string;
+  origin: "created" | "edited" | "baseline";
+  editor: { name: string } | null;
+}
+
+export interface ReportTemplateRevision extends RevisionMetadata {
+  type: string;
+  name: string;
+  description: string | null;
+  signatories: Signatory[];
+}
+
+export interface ReportBrandingRevision extends RevisionMetadata, Omit<Branding, "id"> {}
+
+export interface RevisionHistoryPage<T> {
+  data: T[];
+  meta: PaginationMeta;
+}
+
 export type ReportParams = Record<string, string | number | null | undefined>;
 export type ReportApiPrefix = "rnd" | "admin" | "fss";
 
@@ -273,8 +294,35 @@ export async function saveAdminBranding(form: FormData): Promise<Branding> {
 export const brandingLogoUrl = (apiPrefix: "rnd" | "admin", side: "left" | "right") =>
   `/api/${apiPrefix}/report-branding/logo/${side}`;
 
+export const brandingHistoryLogoUrl = (apiPrefix: "rnd" | "admin", revision: string, side: "left" | "right") =>
+  `/api/${apiPrefix}/report-branding/history/${encodeURIComponent(revision)}/logo/${side}`;
+
+async function fetchRevisionHistory<T>(url: string): Promise<RevisionHistoryPage<T>> {
+  const response = await apiFetch(url);
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error((body as { message?: string }).message ?? "Failed to load configuration history.");
+  }
+  return body as RevisionHistoryPage<T>;
+}
+
 export async function listTemplates(apiPrefix: "rnd" | "admin" = "rnd"): Promise<ReportTemplate[]> {
   return unwrap(await apiFetch(`/api/${apiPrefix}/report-templates`), "Failed to load templates.");
+}
+
+export async function listTemplateHistory(
+  apiPrefix: "rnd" | "admin",
+  id: string,
+  page: number,
+): Promise<RevisionHistoryPage<ReportTemplateRevision>> {
+  return fetchRevisionHistory(`/api/${apiPrefix}/report-templates/${encodeURIComponent(id)}/history?per_page=3&page=${page}`);
+}
+
+export async function listBrandingHistory(
+  apiPrefix: "rnd" | "admin",
+  page: number,
+): Promise<RevisionHistoryPage<ReportBrandingRevision>> {
+  return fetchRevisionHistory(`/api/${apiPrefix}/report-branding/history?per_page=3&page=${page}`);
 }
 
 export async function saveTemplate(id: string, payload: { name?: string; signatories?: Signatory[] }, apiPrefix: "rnd" | "admin" = "rnd"): Promise<ReportTemplate> {

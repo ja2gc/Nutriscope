@@ -2,10 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AuditAction;
+use App\Enums\AuditDomain;
+use App\Http\Requests\PaginatedRequest;
+use App\Models\ReportConfigurationRevision;
 use App\Models\ReportTemplate;
+use App\Services\Audit\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -15,6 +19,8 @@ use Illuminate\Validation\ValidationException;
  */
 class ReportTemplateController extends Controller
 {
+    public function __construct(private readonly AuditLogger $auditLogger) {}
+
     public function index(): JsonResponse
     {
         $templates = ReportTemplate::where('is_active', true)
@@ -43,17 +49,71 @@ class ReportTemplateController extends Controller
         if (
             in_array($reportTemplate->type, ['patient_menu_plan', 'ncp_summary'], true)
             && array_key_exists('signatories', $data)
-            && $data['signatories'] !== ($reportTemplate->signatories ?? [])
+            && ! $this->sameSignatories($data['signatories'], $reportTemplate->signatories ?? [])
         ) {
             throw ValidationException::withMessages([
                 'signatories' => 'Patient report signatories are filled from the responsible care-cycle RND and attending physician.',
             ]);
         }
 
-        DB::transaction(function () use ($reportTemplate, $data): void {
-            $reportTemplate->update($data);
-        });
+        if (isset($data['signatories']) && $this->sameSignatories($data['signatories'], $reportTemplate->signatories ?? [])) {
+            unset($data['signatories']);
+        }
+        $reportTemplate->fill($data);
+        $changedFields = array_keys($reportTemplate->getDirty());
+        if ($changedFields !== []) {
+            $this->audited(function () use ($reportTemplate, $changedFields): void {
+                $reportTemplate->save();
+                $this->auditLogger->recordMutation(
+                    AuditAction::Updated,
+                    AuditDomain::System,
+                    $reportTemplate,
+                    $changedFields,
+                    ['configuration' => 'report_template', 'report_type' => $reportTemplate->type],
+                );
+            });
+        }
 
         return response()->json(['data' => array_merge($reportTemplate->fresh()->toArray(), ['id' => $reportTemplate->uuid])]);
+    }
+
+    public function history(PaginatedRequest $request, ReportTemplate $reportTemplate): JsonResponse
+    {
+        $history = $reportTemplate->revisions()
+            ->with('editor:id,name,first_name,last_name')
+            ->orderByDesc('created_at')->orderByDesc('id')
+            ->paginate($request->perPage());
+
+        return response()->json([
+            'data' => $history->getCollection()->map(function (ReportConfigurationRevision $revision): array {
+                return [
+                    'id' => $revision->uuid,
+                    'created_at' => $revision->created_at?->toISOString(),
+                    'origin' => $revision->origin,
+                    'editor' => $revision->editor ? ['name' => $revision->editor->display_name] : null,
+                    ...($revision->snapshot ?? []),
+                ];
+            })->values(),
+            'meta' => [
+                'current_page' => $history->currentPage(),
+                'per_page' => $history->perPage(),
+                'total' => $history->total(),
+                'last_page' => $history->lastPage(),
+            ],
+        ]);
+    }
+
+    private function sameSignatories(array $left, array $right): bool
+    {
+        $normalize = static function (array $signatories): array {
+            return array_map(static function (array $signatory): array {
+                ksort($signatory);
+
+                return $signatory;
+            }, $signatories);
+        };
+
+        return json_encode($normalize($left), JSON_THROW_ON_ERROR)
+            === json_encode($normalize($right), JSON_THROW_ON_ERROR);
     }
 }

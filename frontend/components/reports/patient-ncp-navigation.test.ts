@@ -43,10 +43,11 @@ describe("Patients NCP report navigation", () => {
   test("uses the patient-facing Nutrition Intervention Plan name without changing its internal type", () => {
     const browser = readFileSync(join(root, "components", "reports", "ReportsBrowser.tsx"), "utf8");
     const patients = readFileSync(join(root, "components", "reports", "PatientsNcpTab.tsx"), "utf8");
+    const patientReports = readFileSync(join(root, "app", "(rnd)", "reports", "patients", "[patientId]", "page.tsx"), "utf8");
     const help = readFileSync(join(root, "lib", "helpContent.ts"), "utf8");
 
-    expect(browser).toContain("Nutrition Intervention Plan");
     expect(browser).toContain("patient_menu_plan");
+    expect(patientReports).toContain('instance.type === "ncp_summary" ? "NCP Summary" : "Nutrition Intervention Plan"');
     expect(patients).not.toContain("Choose a patient and ADIME cycle for its NCP Summary and Nutrition Intervention Plan.");
     expect(help).toContain("Nutrition Intervention Plan and NCP Summary are blocked");
     expect(browser).not.toContain('name: "Patient Menu Plan"');

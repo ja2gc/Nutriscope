@@ -20,6 +20,7 @@ use App\Services\Reports\BrandingAssetStorage;
 use App\Services\Reports\Contracts\InstanceSource;
 use App\Services\Reports\ReportArchiveStorage;
 use App\Services\Reports\ReportBrowser;
+use App\Services\Reports\ReportConfigurationSnapshot;
 use App\Services\Reports\ReportService;
 use App\Services\StoredObjectStorage;
 use Illuminate\Contracts\Bus\Dispatcher;
@@ -194,7 +195,16 @@ class ReportAuditTest extends TestCase
             ]],
         ])->assertOk();
 
-        $this->assertNoReportAuditEvents();
+        $events = AuditActivity::query()->whereIn('subject_type', [ReportBranding::class, ReportTemplate::class])->get();
+        $this->assertCount(2, $events);
+        $this->assertSame('security_administration', $events->first()->module->value);
+        $this->assertContains('hospital_name', data_get($events->firstWhere('subject_type', ReportBranding::class)?->properties, 'details.changed_fields', []));
+        $this->assertContains('signatories', data_get($events->firstWhere('subject_type', ReportTemplate::class)?->properties, 'details.changed_fields', []));
+        foreach ($events as $event) {
+            $properties = json_encode($event->properties, JSON_THROW_ON_ERROR);
+            $this->assertStringNotContainsString('IMAGE-SENTINEL', $properties);
+            $this->assertStringNotContainsString('TEMPLATE-IMAGE-SENTINEL', $properties);
+        }
     }
 
     public function test_report_activity_routes_are_removed(): void
@@ -280,7 +290,7 @@ class ReportAuditTest extends TestCase
             $transientUuid = $report->uuid;
             throw new RuntimeException('generation failed');
         });
-        $service = new AccomplishmentReportArchiveService(new PrepareSavedReport($reports, app(StoredObjectStorage::class)));
+        $service = new AccomplishmentReportArchiveService(new PrepareSavedReport($reports, app(StoredObjectStorage::class), app(ReportConfigurationSnapshot::class)));
 
         try {
             $service->archiveCompletedWeek($fss, '2026-06-07');
@@ -352,7 +362,10 @@ class ReportAuditTest extends TestCase
             'signatories' => [['role' => 'prepared', 'label' => 'Prepared', 'name' => null, 'title' => null]],
         ])->assertOk();
 
-        $this->assertNoReportAuditEvents();
+        $event = AuditActivity::query()->where('subject_type', ReportTemplate::class)
+            ->where('subject_id', $template->id)->sole();
+        $this->assertSame(['signatories'], $event->properties['details']['changed_fields']);
+        $this->assertSame('system', $event->domain->value);
     }
 
     public function test_archived_actions_derive_only_strict_safe_period_reference(): void
@@ -610,17 +623,13 @@ class ReportAuditTest extends TestCase
         Storage::disk('public')->assertMissing('reports-quarantine/sweep.pdf');
     }
 
-    public function test_branding_upload_does_not_require_audit_availability(): void
+    public function test_branding_upload_is_audited_and_preserves_legacy_logo(): void
     {
         Storage::fake('public');
         Storage::disk('public')->put('branding/old.png', 'old');
         $branding = ReportBranding::singleton();
         $branding->update(['logo_left_path' => 'branding/old.png']);
         $rnd = User::factory()->rnd()->create();
-        $audit = $this->createMock(AuditLogger::class);
-        $audit->expects($this->never())->method('record');
-        $this->app->instance(AuditLogger::class, $audit);
-
         $this->actingAs($rnd, 'sanctum')->post('/api/rnd/report-branding', [
             'logo_left' => UploadedFile::fake()->createWithContent('new.png', base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=')),
         ], ['Accept' => 'application/json'])->assertOk();
@@ -628,7 +637,9 @@ class ReportAuditTest extends TestCase
         $this->assertNotSame('branding/old.png', $branding->refresh()->logo_left_path);
         Storage::disk('public')->assertExists('branding/old.png');
         $this->assertSame(['branding/old.png'], Storage::disk('public')->allFiles('branding'));
-        $this->assertNoReportAuditEvents();
+        $event = AuditActivity::query()->where('subject_type', ReportBranding::class)
+            ->where('subject_id', $branding->id)->sole();
+        $this->assertSame(['logo_left'], $event->properties['details']['changed_fields']);
     }
 
     public function test_branding_store_false_and_exception_create_safe_cleanup_intent(): void
@@ -664,7 +675,7 @@ class ReportAuditTest extends TestCase
         });
     }
 
-    public function test_branding_success_preserves_legacy_logo_without_auditing_paths(): void
+    public function test_branding_upload_preserves_legacy_logo_without_exposing_paths_in_audit(): void
     {
         Storage::fake('public');
         Storage::fake('private_uploads');
@@ -680,7 +691,10 @@ class ReportAuditTest extends TestCase
         $branding->refresh();
         $this->assertNotNull($branding->logo_left_stored_object_id);
         Storage::disk('public')->assertExists('branding/old.png');
-        $this->assertNoReportAuditEvents();
+        $event = AuditActivity::query()->where('subject_type', ReportBranding::class)
+            ->where('subject_id', $branding->id)->sole();
+        $this->assertSame(['logo_left'], $event->properties['details']['changed_fields']);
+        $this->assertStringNotContainsString('branding/old.png', json_encode($event->properties, JSON_THROW_ON_ERROR));
     }
 
     public function test_report_archive_hides_without_moving_legacy_file(): void
@@ -798,7 +812,7 @@ class ReportAuditTest extends TestCase
         Storage::fake('report_cache');
         $reports->method('signatoriesFor')->willReturn([]);
         $reports->expects($this->exactly(2))->method('buildPdf')->willReturn(['bytes' => "%PDF-1.4\n%%EOF", 'meta' => []]);
-        $service = new AccomplishmentReportArchiveService(new PrepareSavedReport($reports, app(StoredObjectStorage::class)));
+        $service = new AccomplishmentReportArchiveService(new PrepareSavedReport($reports, app(StoredObjectStorage::class), app(ReportConfigurationSnapshot::class)));
 
         $first = $service->archiveCompletedWeek($fss, '2026-06-07');
         $second = $service->archiveCompletedWeek($fss, '2026-06-07');

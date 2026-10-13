@@ -78,10 +78,14 @@ $reportRoutes = function (string $routeName) {
     Route::get('report-branding', [ReportBrandingController::class, 'show']);
     Route::get('report-templates', [ReportTemplateController::class, 'index']);
     Route::middleware('role:RND,Admin')->group(function () {
+        Route::get('report-branding/history', [ReportBrandingController::class, 'history']);
+        Route::get('report-branding/history/{revision}/logo/{side}', [ReportBrandingController::class, 'historyLogo'])
+            ->whereUuid('revision')->whereIn('side', ['left', 'right']);
         Route::get('report-branding/logo/{side}', [ReportBrandingController::class, 'logo'])
             ->whereIn('side', ['left', 'right']);
         Route::post('report-branding', [ReportBrandingController::class, 'update']);
         Route::patch('report-templates/{reportTemplate}', [ReportTemplateController::class, 'update']);
+        Route::get('report-templates/{reportTemplate}/history', [ReportTemplateController::class, 'history']);
     });
 };
 
@@ -387,11 +391,15 @@ Route::middleware(['auth:sanctum', 'active', 'role:Admin'])->prefix('admin')->gr
     Route::get('budgets/{budget}/activity', [ActivityController::class, 'budget']);
     Route::apiResource('budgets', BudgetController::class)->only(['index', 'show'])->names('admin.budgets');
     Route::get('report-branding', [ReportBrandingController::class, 'show']);
+    Route::get('report-branding/history', [ReportBrandingController::class, 'history']);
+    Route::get('report-branding/history/{revision}/logo/{side}', [ReportBrandingController::class, 'historyLogo'])
+        ->whereUuid('revision')->whereIn('side', ['left', 'right']);
     Route::get('report-branding/logo/{side}', [ReportBrandingController::class, 'logo'])
         ->whereIn('side', ['left', 'right']);
     Route::post('report-branding', [ReportBrandingController::class, 'update']);
     Route::get('report-templates', [ReportTemplateController::class, 'index']);
     Route::patch('report-templates/{reportTemplate}', [ReportTemplateController::class, 'update']);
+    Route::get('report-templates/{reportTemplate}/history', [ReportTemplateController::class, 'history']);
     Route::get('reports/archive-settings', [ReportArchiveSettingController::class, 'show']);
     Route::put('reports/archive-settings', [ReportArchiveSettingController::class, 'update']);
     Route::get('ai-usage-limits', [AiUsageLimitController::class, 'show']);

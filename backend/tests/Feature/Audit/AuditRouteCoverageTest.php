@@ -10,7 +10,7 @@ use Tests\TestCase;
 
 class AuditRouteCoverageTest extends TestCase
 {
-    public function test_report_archive_mutations_are_audited_and_other_report_mutations_are_not(): void
+    public function test_report_configuration_and_archive_mutations_are_audited(): void
     {
         $reportRoutes = collect(config('audit.route_coverage'))
             ->filter(fn (array $policy, string $route): bool => str_contains($route, '/reports/')
@@ -18,7 +18,11 @@ class AuditRouteCoverageTest extends TestCase
 
         $this->assertNotEmpty($reportRoutes);
         $reportRoutes->each(fn (array $policy, string $route) => $this->assertSame(
-            str_ends_with($route, '/archive') ? 'explicit_event' : 'intentionally_not_audited',
+            str_ends_with($route, '/archive')
+                || str_contains($route, '/report-branding')
+                || str_contains($route, '/report-templates')
+                ? 'explicit_event'
+                : 'intentionally_not_audited',
             $policy['classification'],
             $route,
         ));

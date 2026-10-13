@@ -10,6 +10,7 @@ use App\Models\Report;
 use App\Models\ReportBranding;
 use App\Models\ReportTemplate;
 use App\Models\User;
+use App\Services\Reports\ReportConfigurationSnapshot;
 use App\Services\Reports\ReportCoveredDate;
 use App\Services\Reports\ReportService;
 use App\Services\StoredObjectStorage;
@@ -21,6 +22,7 @@ class PrepareSavedReport
     public function __construct(
         private readonly ReportService $reports,
         private readonly StoredObjectStorage $storedObjects,
+        private readonly ReportConfigurationSnapshot $configuration,
     ) {}
 
     public function execute(User $actor, string $type, array $parameters, ?Report $existing = null, bool $freeze = true): Report
@@ -34,7 +36,8 @@ class PrepareSavedReport
         $sourceConfiguration = $this->sourceConfiguration($type, $parameters);
         $coveredUntil = ReportCoveredDate::forParameters($type, $parameters);
         $coveredFrom = ReportCoveredDate::startForParameters($type, $parameters);
-        $sourceTemplate = $sourceConfiguration['templates'][$type] ?? null;
+        $periodConfiguration = $sourceConfiguration ?? $this->configuration->capture([$type], $coveredFrom);
+        $sourceTemplate = $periodConfiguration['templates'][$type] ?? null;
         $title = $this->titleFor($type, $parameters, $sourceTemplate['name'] ?? $template?->name ?? $type);
         $report = $existing ?? Report::query()->where('archive_identity', $identity)->first();
         $created = $report === null;
@@ -54,7 +57,7 @@ class PrepareSavedReport
             return $report->fresh(['user:id,uuid,name,first_name,last_name', 'officialFile']);
         }
         $initialSnapshot = [
-            'branding' => $sourceConfiguration['branding'] ?? ReportBranding::singleton()->only([
+            'branding' => $periodConfiguration['branding'] ?? ReportBranding::singleton()->only([
                 'hospital_name', 'address', 'accreditation', 'service_name', 'province', 'lgu',
                 'logo_left_path', 'logo_right_path', 'logo_left_stored_object_id', 'logo_right_stored_object_id',
             ]),
@@ -64,6 +67,7 @@ class PrepareSavedReport
                 'snapshot' => $sourceTemplate === null ? null : ['template_signatories' => $sourceTemplate['signatories']],
             ])),
             'params' => $parameters,
+            'configuration_revisions' => $periodConfiguration['revisions'] ?? null,
         ];
         if ($type === 'procurement_pack' && $sourceConfiguration !== null) {
             $initialSnapshot['procurement_form_signatories'] = collect([

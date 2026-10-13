@@ -43,4 +43,22 @@ describe("report template editor", () => {
     expect(adminList).toContain('proxy("/admin/report-templates")');
     expect(adminUpdate).toContain('proxy(`/admin/report-templates/${id}`');
   });
+
+  test("shows read-only paginated history on the branding and template cards", () => {
+    const browser = readFileSync(join(root, "components", "reports", "ReportsBrowser.tsx"), "utf8");
+    const service = readFileSync(join(root, "services", "reportService.ts"), "utf8");
+
+    expect(browser).toContain("listBrandingHistory");
+    expect(browser).toContain("listTemplateHistory");
+    expect(browser).toContain("Back to history");
+    expect(browser).toContain("Back to current");
+    expect(service).toContain("per_page=3");
+    expect(service).toContain("brandingHistoryLogoUrl");
+  });
+
+  test("omits clinical templates whose signatories cannot be edited", () => {
+    const browser = readFileSync(join(root, "components", "reports", "ReportsBrowser.tsx"), "utf8");
+
+    expect(browser).toContain("templates.filter((template) => !isClinicalAutoFilledSignatory(template)).map((saved) => {");
+  });
 });

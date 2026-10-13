@@ -23,6 +23,12 @@ class ReportBranding extends Model
         'logo_left_stored_object_id', 'logo_right_stored_object_id',
     ];
 
+    protected static function booted(): void
+    {
+        static::created(fn (self $branding) => ReportConfigurationRevision::captureBranding($branding, 'created'));
+        static::updated(fn (self $branding) => ReportConfigurationRevision::captureBranding($branding, 'edited'));
+    }
+
     /** The one-and-only branding row, created on demand if missing. */
     public static function singleton(): self
     {

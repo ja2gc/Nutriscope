@@ -17,10 +17,11 @@ import { MonthYearSelect } from "@/components/ui/MonthYearSelect";
 import SearchInput from "@/components/ui/SearchInput";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import {
-  ReportItem, ReportTemplate, Branding, ReportAxis, ReportInstance,
+  ReportItem, ReportTemplate, Branding, ReportAxis, ReportInstance, ReportBrandingRevision, ReportTemplateRevision,
   listReports, unarchiveReport, getReportArchiveSettings, setReportArchiveSettings, reportDownloadUrl, reportViewUrl,
   listInstances, prepareReport, archiveReport,
-   getBranding, saveBranding, getAdminBranding, saveAdminBranding, brandingLogoUrl, listTemplates, saveTemplate,
+   getBranding, saveBranding, getAdminBranding, saveAdminBranding, brandingLogoUrl, brandingHistoryLogoUrl,
+   listBrandingHistory, listTemplateHistory, listTemplates, saveTemplate,
 } from "@/services/reportService";
 import { ReportPreview } from "@/components/ReportPreview";
 import { PatientsNcpTab } from "@/components/reports/PatientsNcpTab";
@@ -41,6 +42,36 @@ function reportDate(value: string): string {
 
 function reportCalendarDate(value: string): string {
   return new Date(value).toLocaleDateString("en-PH", { timeZone: "Asia/Manila", dateStyle: "medium" });
+}
+
+type HistoryRow = Pick<ReportTemplateRevision, "id" | "created_at" | "origin" | "editor">;
+
+function RevisionHistoryList({
+  title, items, page, meta, onPageChange, onSelect,
+}: {
+  title: string;
+  items: HistoryRow[];
+  page: number;
+  meta: PaginationMeta | null;
+  onPageChange: (page: number) => void;
+  onSelect: (item: HistoryRow) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <h4 className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">{title}</h4>
+      {items.length === 0 ? <p className="text-sm text-warm-500">No saved history yet.</p> : (
+        <div className="space-y-2">
+          {items.map((item) => (
+            <button key={item.id} type="button" onClick={() => onSelect(item)} className="w-full min-w-0 rounded-xl border border-warm-200 bg-white px-3 py-3 text-left hover:bg-warm-50">
+              <span className="block text-sm font-bold text-warm-800">{reportDate(item.created_at)}</span>
+              <span className="block truncate text-xs text-warm-500">{item.editor?.name ?? (item.origin === "baseline" ? "Initial tracked version" : "System")}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      <Pagination meta={meta} page={page} onPageChange={onPageChange} />
+    </div>
+  );
 }
 
 type TabKey = "browse" | "archived" | "templates";
@@ -529,6 +560,16 @@ function TemplateEditor({ apiPrefix, onFlash }: { apiPrefix: "rnd" | "admin"; on
   const [templateDraft, setTemplateDraft] = useState<ReportTemplate | null>(null);
   const [editingBranding, setEditingBranding] = useState(false);
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
+  const [brandingView, setBrandingView] = useState<"current" | "history">("current");
+  const [brandingHistory, setBrandingHistory] = useState<{ data: ReportBrandingRevision[]; meta: PaginationMeta } | null>(null);
+  const [brandingHistoryPage, setBrandingHistoryPage] = useState(1);
+  const [selectedBrandingRevision, setSelectedBrandingRevision] = useState<ReportBrandingRevision | null>(null);
+  const [loadingBrandingHistory, setLoadingBrandingHistory] = useState(false);
+  const [historyTemplateId, setHistoryTemplateId] = useState<string | null>(null);
+  const [templateHistory, setTemplateHistory] = useState<{ data: ReportTemplateRevision[]; meta: PaginationMeta } | null>(null);
+  const [templateHistoryPage, setTemplateHistoryPage] = useState(1);
+  const [selectedTemplateRevision, setSelectedTemplateRevision] = useState<ReportTemplateRevision | null>(null);
+  const [loadingTemplateHistory, setLoadingTemplateHistory] = useState(false);
   const [savingB, setSavingB] = useState(false);
   const [savingT, setSavingT] = useState<string | null>(null);
 
@@ -540,6 +581,32 @@ function TemplateEditor({ apiPrefix, onFlash }: { apiPrefix: "rnd" | "admin"; on
   useEffect(() => { load(); }, [load]);
 
   const setB = (p: Partial<Branding>) => setBrandingDraft((b) => (b ? { ...b, ...p } : b));
+
+  async function showBrandingHistory(page = 1) {
+    setBrandingView("history");
+    setSelectedBrandingRevision(null);
+    setBrandingHistoryPage(page);
+    setLoadingBrandingHistory(true);
+    try {
+      setBrandingHistory(await listBrandingHistory(apiPrefix, page));
+    } catch (err) {
+      onFlash(false, err instanceof Error ? err.message : "History could not be loaded.");
+    } finally { setLoadingBrandingHistory(false); }
+  }
+
+  async function showTemplateHistory(id: string, page = 1) {
+    setHistoryTemplateId(id);
+    setEditingTemplateId(null);
+    setTemplateDraft(null);
+    setSelectedTemplateRevision(null);
+    setTemplateHistoryPage(page);
+    setLoadingTemplateHistory(true);
+    try {
+      setTemplateHistory(await listTemplateHistory(apiPrefix, id, page));
+    } catch (err) {
+      onFlash(false, err instanceof Error ? err.message : "History could not be loaded.");
+    } finally { setLoadingTemplateHistory(false); }
+  }
 
   async function saveB(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -588,9 +655,28 @@ function TemplateEditor({ apiPrefix, onFlash }: { apiPrefix: "rnd" | "admin"; on
       <Card padded>
         <div className="mb-4 flex items-start justify-between gap-3">
           <h2 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Header Branding</h2>
-          {!editingBranding && <Button variant="secondary" onClick={() => { setBrandingDraft(branding); setEditingBranding(true); }} className="!w-auto !py-1.5 !px-3.5 text-sm">Edit</Button>}
+          {brandingView === "history" ? (
+            <Button variant="secondary" onClick={() => { setBrandingView("current"); setSelectedBrandingRevision(null); }} className="!w-auto !shrink-0 !py-1.5 !px-3.5 text-sm">Back to current</Button>
+          ) : !editingBranding && <div className="flex shrink-0 gap-2">
+            <Button variant="secondary" onClick={() => showBrandingHistory()} className="!w-auto !py-1.5 !px-3.5 text-sm">History</Button>
+            <Button variant="secondary" onClick={() => { setBrandingDraft(branding); setEditingBranding(true); }} className="!w-auto !py-1.5 !px-3.5 text-sm">Edit</Button>
+          </div>}
         </div>
-        {!editingBranding ? (
+        {brandingView === "history" ? (
+          selectedBrandingRevision ? <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-warm-500">Saved {reportDate(selectedBrandingRevision.created_at)} · {selectedBrandingRevision.editor?.name ?? (selectedBrandingRevision.origin === "baseline" ? "Initial tracked version" : "System")}</p>
+              <Button variant="secondary" onClick={() => setSelectedBrandingRevision(null)} className="!w-auto !py-1.5 !px-3.5 text-sm">Back to history</Button>
+            </div>
+            <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {[["Hospital name", selectedBrandingRevision.hospital_name], ["Address", selectedBrandingRevision.address], ["Accreditation", selectedBrandingRevision.accreditation], ["Service name", selectedBrandingRevision.service_name], ["Province", selectedBrandingRevision.province], ["LGU", selectedBrandingRevision.lgu]].map(([label, value]) => <div key={label}><dt className={lbl}>{label}</dt><dd className="break-words text-sm text-warm-800">{value || "—"}</dd></div>)}
+              <div><dt className={lbl}>Left logo</dt><dd>{selectedBrandingRevision.logo_left_path ? <Image src={brandingHistoryLogoUrl(apiPrefix, selectedBrandingRevision.id, "left")} alt="Historical left report logo" width={72} height={72} unoptimized className="h-18 w-18 rounded-lg border border-warm-200 bg-white object-contain p-1" /> : <span className="text-sm text-warm-800">Not set</span>}</dd></div>
+              <div><dt className={lbl}>Right logo</dt><dd>{selectedBrandingRevision.logo_right_path ? <Image src={brandingHistoryLogoUrl(apiPrefix, selectedBrandingRevision.id, "right")} alt="Historical right report logo" width={72} height={72} unoptimized className="h-18 w-18 rounded-lg border border-warm-200 bg-white object-contain p-1" /> : <span className="text-sm text-warm-800">Not set</span>}</dd></div>
+            </dl>
+          </div> : loadingBrandingHistory ? <p className="text-sm text-warm-500">Loading history…</p> : brandingHistory && (
+            <RevisionHistoryList title="Branding edits" items={brandingHistory.data} page={brandingHistoryPage} meta={brandingHistory.meta} onPageChange={(next) => showBrandingHistory(next)} onSelect={(item) => setSelectedBrandingRevision(brandingHistory.data.find((revision) => revision.id === item.id) ?? null)} />
+          )
+        ) : !editingBranding ? (
           <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {[["Hospital name", branding.hospital_name], ["Address", branding.address], ["Accreditation", branding.accreditation], ["Service name", branding.service_name], ["Province", branding.province], ["LGU", branding.lgu]].map(([label, value]) => <div key={label}><dt className={lbl}>{label}</dt><dd className="text-sm text-warm-800">{value || "—"}</dd></div>)}
             <div><dt className={lbl}>Left logo</dt><dd>{branding.logo_left_path ? <Image src={brandingLogoUrl(apiPrefix, "left")} alt="Current left report logo" width={72} height={72} unoptimized className="h-18 w-18 rounded-lg border border-warm-200 bg-white object-contain p-1" /> : <span className="text-sm text-warm-800">Not set</span>}</dd></div>
@@ -620,33 +706,55 @@ function TemplateEditor({ apiPrefix, onFlash }: { apiPrefix: "rnd" | "admin"; on
 
       {/* Signatories per report */}
       <div className="grid lg:grid-cols-2 gap-4">
-        {templates.map((saved) => {
+        {templates.filter((template) => !isClinicalAutoFilledSignatory(template)).map((saved) => {
           const t = editingTemplateId === saved.id && templateDraft ? templateDraft : saved;
-          const protectedClinical = isClinicalAutoFilledSignatory(t);
-          const templateName = t.type === "patient_menu_plan" ? "Nutrition Intervention Plan" : t.name;
+          const viewingHistory = historyTemplateId === saved.id;
+          const displayed = viewingHistory && selectedTemplateRevision ? selectedTemplateRevision : t;
+          const templateName = displayed.name;
           return <Card key={t.id} padded className="space-y-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <h3 className="text-base font-bold text-warm-800">{templateName}</h3>
-                {t.description && <p className="text-xs text-warm-500">{t.description}</p>}
+                {displayed.description && <p className="text-xs text-warm-500">{displayed.description}</p>}
               </div>
-              {!protectedClinical && editingTemplateId !== t.id && <Button variant="secondary" onClick={() => { setTemplateDraft({ ...saved, signatories: (saved.signatories ?? []).map((s) => ({ ...s })) }); setEditingTemplateId(saved.id); }} className="!w-auto shrink-0 !py-1.5 !px-3.5 text-sm">Edit</Button>}
+              {viewingHistory ? (
+                <Button variant="secondary" onClick={() => { setHistoryTemplateId(null); setSelectedTemplateRevision(null); }} className="!w-auto shrink-0 !py-1.5 !px-3.5 text-sm">Back to current</Button>
+              ) : editingTemplateId !== t.id && <div className="flex shrink-0 gap-2">
+                <Button variant="secondary" onClick={() => showTemplateHistory(saved.id)} className="!w-auto !py-1.5 !px-3.5 text-sm">History</Button>
+                <Button variant="secondary" onClick={() => { setTemplateDraft({ ...saved, signatories: (saved.signatories ?? []).map((s) => ({ ...s })) }); setEditingTemplateId(saved.id); }} className="!w-auto shrink-0 !py-1.5 !px-3.5 text-sm">Edit</Button>
+              </div>}
             </div>
-            {protectedClinical ? (
-              <p className="text-xs text-warm-500">Prepared by and attending physician come from patient care records.</p>
-            ) : (t.signatories ?? []).length === 0 ? (
+            {viewingHistory && !selectedTemplateRevision ? (
+              loadingTemplateHistory ? <p className="text-sm text-warm-500">Loading history…</p> : templateHistory && (
+                <RevisionHistoryList title="Template edits" items={templateHistory.data} page={templateHistoryPage} meta={templateHistory.meta} onPageChange={(next) => showTemplateHistory(saved.id, next)} onSelect={(item) => setSelectedTemplateRevision(templateHistory.data.find((revision) => revision.id === item.id) ?? null)} />
+              )
+            ) : viewingHistory && selectedTemplateRevision ? <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs text-warm-500">Saved {reportDate(selectedTemplateRevision.created_at)} · {selectedTemplateRevision.editor?.name ?? (selectedTemplateRevision.origin === "baseline" ? "Initial tracked version" : "System")}</p>
+                <Button variant="secondary" onClick={() => setSelectedTemplateRevision(null)} className="!w-auto !py-1.5 !px-3.5 text-sm">Back to history</Button>
+              </div>
+              {selectedTemplateRevision.signatories.length === 0 ? <p className="text-xs text-warm-400">No signatory block.</p> : (
+                <div className="space-y-2">
+                  {selectedTemplateRevision.signatories.map((s, i) => <div key={`${s.role}-${i}`} className="grid grid-cols-1 gap-1 sm:grid-cols-[90px_1fr_1fr] sm:gap-2">
+                    <span className="text-xs font-bold text-warm-400 uppercase sm:truncate" title={s.label}>{s.label}</span>
+                    <span className="break-words text-sm text-warm-800">{s.name || "—"}</span>
+                    <span className="break-words text-sm text-warm-600">{s.title || "—"}</span>
+                  </div>)}
+                </div>
+              )}
+            </div> : (t.signatories ?? []).length === 0 ? (
               <p className="text-xs text-warm-400">No signatory block.</p>
             ) : (
               <div className="space-y-2">
                 {(t.signatories ?? []).map((s, i) => (
-                  <div key={`${s.role}-${i}`} className="grid grid-cols-[90px_1fr_1fr] gap-2 items-center">
-                    <span className="text-xs font-bold text-warm-400 uppercase truncate" title={s.label}>{s.label}</span>
+                  <div key={`${s.role}-${i}`} className="grid grid-cols-1 gap-1 sm:grid-cols-[90px_1fr_1fr] sm:gap-2 sm:items-center">
+                    <span className="text-xs font-bold text-warm-400 uppercase sm:truncate" title={s.label}>{s.label}</span>
                     {editingTemplateId === t.id ? <><input value={s.name ?? ""} onChange={(e) => editSig(t.id, i, "name", e.target.value)} className={`${inp} !py-1.5`} /><input value={s.title ?? ""} onChange={(e) => editSig(t.id, i, "title", e.target.value)} className={`${inp} !py-1.5`} /></> : <><span className="text-sm text-warm-800">{s.name || "—"}</span><span className="text-sm text-warm-600">{s.title || "—"}</span></>}
                   </div>
                 ))}
               </div>
             )}
-            {!protectedClinical && editingTemplateId === t.id && <div className="flex gap-2"><Button variant="primary" onClick={() => saveT(t)} loading={savingT === t.id} className="!w-auto !py-1.5 !px-3.5 text-sm"><Save className="h-3.5 w-3.5" /> Save</Button><Button variant="secondary" onClick={() => { setTemplateDraft(null); setEditingTemplateId(null); }} className="!w-auto !py-1.5 !px-3.5 text-sm">Cancel</Button></div>}
+            {editingTemplateId === t.id && <div className="flex gap-2"><Button variant="primary" onClick={() => saveT(t)} loading={savingT === t.id} className="!w-auto !py-1.5 !px-3.5 text-sm"><Save className="h-3.5 w-3.5" /> Save</Button><Button variant="secondary" onClick={() => { setTemplateDraft(null); setEditingTemplateId(null); }} className="!w-auto !py-1.5 !px-3.5 text-sm">Cancel</Button></div>}
           </Card>;
         })}
       </div>
