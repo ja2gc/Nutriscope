@@ -1,32 +1,65 @@
-# Web and Mobile UI/UX
+# UI/UX for Web and Mobile App
 
-Read for any frontend or mobile screen, navigation, form, or visible copy change. Apply these rules within the existing product workflow and component system; do not redesign unrelated screens.
+Read for any frontend or mobile screen, navigation, form, or visible-copy change. Apply the shared section and the matching platform section. Preserve the existing product workflow and visual language unless the task explicitly changes them.
 
-## Do
+## Shared principles — every screen
 
-- Start with the user's role, immediate task, and next valid action. Put the most useful status and action first; group related details and reveal secondary information in a detail view or disclosure when needed.
-- Keep navigation and repeated actions in familiar, consistent locations. Prefer the existing page, tab, and list-to-detail pattern before adding a destination or another layer of tabs.
-- Use clear, short, task-based labels. Show human-readable dates, progress, and statuses; explain errors with a recovery action. Keep internal IDs, flags, and debug terms out of normal UI.
-- Inspect and reuse existing components, styles, hooks, formatters, validation, and API helpers before adding anything. On web, check `frontend/components/ui/` (including `DatePicker`, `CharacterCountTextarea`, `EmptyState`, `StatusBadge`, and form controls). On mobile, check existing screens and `mobile/components/`. Adapt an existing component when its responsibility truly fits; keep platform-specific behavior on its platform.
-- Design responsive web layouts around content, starting narrow and changing layout where content needs room. Reflow ordinary content at 320 CSS px and at 200% text size; reserve horizontal scrolling for content that genuinely needs two dimensions, such as a dense data table.
-- On mobile, respect safe areas, system bars, keyboard, text scaling, and both compact and larger screens. Keep key actions reachable and tappable; aim for at least 44 × 44 pt on iOS and 48 × 48 dp on Android.
-- Give controls visible labels and accessible names. Preserve keyboard access and visible focus on web. Show required fields, character limits, loading, success, empty, and error states where the user acts; retain entered values after a validation error. Communicate status in text, not color alone.
-- Verify the actual screen with realistic content, long labels, empty and error states, narrow and wide viewports, enlarged text, keyboard navigation, and touch/mobile interaction as relevant to the change.
+### Do
 
-## Don't
+- Identify the user's role, current task, and next valid action. Put the useful status and main action first; group related information and reveal secondary detail only when needed.
+- Keep navigation, labels, and repeated actions consistent. Prefer an existing page and list-to-detail flow before adding a destination, tab, or modal.
+- Use short, task-based labels and human-readable dates, progress, and statuses. Explain an error with a recovery action near the affected task.
+- Inspect existing components, styles, hooks, formatters, validation, and API helpers before adding any. Reuse a fitting component; extend shared code only when its responsibility remains clear.
+- Show loading, empty, success, error, and read-only states where they affect decisions. Keep entered values after validation errors and make state changes visible.
+- Give controls accessible names and make status understandable without color alone. Check the rendered screen with realistic content, long labels, and enlarged text.
 
-- Do not crowd one screen with every field, action, report, and explanation; prioritize the current task and allow a clear path to detail.
-- Do not add a new tab, modal, component, helper, dependency, or parallel flow solely to avoid using an existing fitting pattern.
-- Do not hide required actions behind gesture-only controls, use icon-only actions without accessible labels, or rely on a disabled button as the only explanation of what is missing.
-- Do not use fixed widths or clipping that lose content on small screens or with enlarged text. Do not substitute placeholder text for a field label.
-- Do not add instructional copy that merely repeats a visible label or obvious consequence.
+### Don't
+
+- Do not crowd one screen with every field, report, explanation, and action. Keep a clear route to details.
+- Do not expose internal IDs, flags, debug labels, or instructions that merely repeat a visible control.
+- Do not create duplicate components, helpers, forms, or workflows because an existing one needs a small adaptation.
+- Do not hide required actions behind gestures or unlabeled icons, or use a disabled control as the only explanation of what is missing.
+
+## Responsive web — desktop and mobile browsers
+
+### Do
+
+- Start at a narrow viewport and change layout when the **content** needs room, rather than targeting named devices. Let columns, forms, actions, and text reflow as the viewport changes.
+- Preserve ordinary content and actions at 320 CSS px and with text enlarged to 200%. A genuinely dense data table may scroll horizontally within its own region.
+- Keep navigation order and action-to-content relationships clear across breakpoints. Give inputs persistent visible labels, associated errors, keyboard access, and visible focus.
+- Reuse `frontend/components/ui/` controls, including `DatePicker`, `CharacterCountTextarea`, `EmptyState`, `StatusBadge`, and existing form controls.
+- Check narrow and wide rendered pages, browser zoom/text scaling, keyboard-only use, touch use, and loading/empty/error states.
+
+### Don't
+
+- Do not shrink a desktop table or action row until text clips or controls overlap; reflow or contain a necessary table scroll.
+- Do not rely on hover, color, placeholder text, or an icon alone to communicate an action or status.
+- Do not use fixed-width panels or sticky controls that obscure focused content on small screens.
+
+## Mobile app — Expo/React Native
+
+### Do
+
+- Use the existing app navigation and screen patterns. On a compact phone, show a focused list or detail at a time; let an item open its days/details with a clear way back. Adapt the layout for larger screens.
+- Respect safe areas, system bars, orientation, the on-screen keyboard, and text scaling. Keep key actions reachable when content grows or the keyboard opens.
+- Make touch targets at least 48 × 48 dp on Android and aim for at least 44 × 44 pt on iOS, including icon buttons. Separate nearby controls and show press feedback.
+- Use accessible labels, roles, and states. Provide a visible alternative to gesture-only actions and communicate progress/status in text.
+- Reuse `mobile/components/`, existing date/navigation helpers, query/loading patterns, and report screens. Keep native behavior in the app; do not import a web component because its name matches.
+- Verify the real Android emulator screen with normal and enlarged text, long lists, empty/error states, keyboard open, and task-specific actions. Follow `mobile-testing.md`.
+
+### Don't
+
+- Do not add a top-level destination for detail that fits an existing task area or pile every period, day, and action onto one screen.
+- Do not place controls under system bars, behind the keyboard, or outside the reachable scroll area.
+- Do not rely on tiny icons, swipe-only actions, or truncated text to explain a workflow state.
 
 ## Primary guidance
 
-- [W3C WCAG 2.2: reflow, focus, target size, forms, and status](https://www.w3.org/WAI/WCAG22/Understanding/)
+- [Apple design principles: hierarchy, simplicity, feedback, and consistency](https://developer.apple.com/design/human-interface-guidelines/design-principles)
+- [W3C WCAG 2.2 accessibility guidance](https://www.w3.org/WAI/WCAG22/Understanding/)
 - [W3C form labels and validation](https://www.w3.org/WAI/tutorials/forms/)
 - [web.dev responsive design basics](https://web.dev/articles/responsive-web-design-basics)
-- [Apple Human Interface Guidelines: layout](https://developer.apple.com/design/human-interface-guidelines/layout)
-- [Apple Human Interface Guidelines: buttons](https://developer.apple.com/design/human-interface-guidelines/buttons)
-- [Android adaptive navigation and layouts](https://developer.android.com/design/ui/mobile/guides/layout-and-content/layout-and-nav-patterns)
+- [Apple layout and safe areas](https://developer.apple.com/design/human-interface-guidelines/layout)
+- [Apple buttons and hit regions](https://developer.apple.com/design/human-interface-guidelines/buttons)
+- [Android adaptive layouts and navigation](https://developer.android.com/design/ui/mobile/guides/layout-and-content/layout-and-nav-patterns)
 - [Android accessibility and touch targets](https://developer.android.com/guide/topics/ui/accessibility/apps)
