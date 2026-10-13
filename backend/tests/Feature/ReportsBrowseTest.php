@@ -199,6 +199,46 @@ class ReportsBrowseTest extends TestCase
         $this->assertSame($menu->id, $menuInstance['params']['menu_cycle_id']);
     }
 
+    public function test_procurement_browse_uses_order_date_when_completion_is_later(): void
+    {
+        $po = $this->receivedPo('2026-06-02');
+        $po->update(['order_date' => '2026-05-10']);
+        ProgramProjectActivity::create([
+            'purchase_order_id' => $po->id,
+            'activity' => 'Food Subsistence for Patients',
+            'period_start' => '2026-05-10',
+            'period_end' => '2026-05-17',
+            'estimated_total_cost' => 1000,
+            'estimated_output_patients' => 90,
+        ]);
+
+        foreach (['procurement_pack', 'program_project_activity'] as $type) {
+            $instance = $this->actingAs($this->rnd)
+                ->getJson("/api/rnd/reports/{$type}/instances")
+                ->assertOk()
+                ->json('data.instances.0');
+
+            $this->assertSame('2026-05-10', $instance['date']);
+        }
+
+        $pack = $this->getJson('/api/rnd/reports/procurement_pack/instances')->json('data.instances.0');
+        $this->assertSame($po->po_number.' — May 10, 2026', $pack['label']);
+    }
+
+    public function test_procurement_browse_falls_back_to_completion_date_for_legacy_orders(): void
+    {
+        $po = $this->receivedPo('2026-05-10');
+        $po->update(['order_date' => null]);
+
+        $instance = $this->actingAs($this->rnd)
+            ->getJson('/api/rnd/reports/procurement_pack/instances')
+            ->assertOk()
+            ->json('data.instances.0');
+
+        $this->assertSame('2026-05-10', $instance['date']);
+        $this->assertSame($po->po_number.' — May 10, 2026', $instance['label']);
+    }
+
     public function test_ppa_axis_lists_completed_food_pos(): void
     {
         $po = $this->receivedPo('2026-05-10');
