@@ -6,12 +6,13 @@ Read for any frontend or mobile screen, navigation, form, or visible-copy change
 
 ### Do
 
-- Identify the user's role, current task, and next valid action. Put the useful status and main action first; group related information and reveal secondary detail only when needed.
+- Identify the user's role, current task, and next valid action. Keep the primary action and essential choices visible; group other decisions and reveal secondary detail when needed.
 - Keep navigation, labels, and repeated actions consistent. Prefer an existing page and list-to-detail flow before adding a destination, tab, or modal.
-- Use short, task-based labels and human-readable dates, progress, and statuses. Explain an error with a recovery action near the affected task.
+- Use alignment, spacing, and containment to group related information and separate unrelated content. Show the dates, status, and context needed for a decision without making users remember another screen.
+- Use short, task-based labels. Explain an error with a recovery action near the affected task.
 - Inspect existing components, styles, hooks, formatters, validation, and API helpers before adding any. Reuse a fitting component; extend shared code only when its responsibility remains clear.
-- Show loading, empty, success, error, and read-only states where they affect decisions. Keep entered values after validation errors and make state changes visible.
-- Give controls accessible names and make status understandable without color alone. Check the rendered screen with realistic content, long labels, and enlarged text.
+- Show loading, empty, success, error, and read-only states promptly where they affect decisions. Keep entered values after validation errors and make state changes visible.
+- Make important controls easy to select and separate adjacent actions, especially destructive ones. Give controls accessible names and make status understandable without color alone. Check the rendered screen with realistic content, long labels, and enlarged text.
 
 ### Don't
 
@@ -52,14 +53,3 @@ Read for any frontend or mobile screen, navigation, form, or visible-copy change
 - Do not add a top-level destination for detail that fits an existing task area or pile every period, day, and action onto one screen.
 - Do not place controls under system bars, behind the keyboard, or outside the reachable scroll area.
 - Do not rely on tiny icons, swipe-only actions, or truncated text to explain a workflow state.
-
-## Primary guidance
-
-- [Apple design principles: hierarchy, simplicity, feedback, and consistency](https://developer.apple.com/design/human-interface-guidelines/design-principles)
-- [W3C WCAG 2.2 accessibility guidance](https://www.w3.org/WAI/WCAG22/Understanding/)
-- [W3C form labels and validation](https://www.w3.org/WAI/tutorials/forms/)
-- [web.dev responsive design basics](https://web.dev/articles/responsive-web-design-basics)
-- [Apple layout and safe areas](https://developer.apple.com/design/human-interface-guidelines/layout)
-- [Apple buttons and hit regions](https://developer.apple.com/design/human-interface-guidelines/buttons)
-- [Android adaptive layouts and navigation](https://developer.android.com/design/ui/mobile/guides/layout-and-content/layout-and-nav-patterns)
-- [Android accessibility and touch targets](https://developer.android.com/guide/topics/ui/accessibility/apps)
