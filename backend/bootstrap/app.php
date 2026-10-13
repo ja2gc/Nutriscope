@@ -14,6 +14,7 @@ use App\Services\Audit\AuditLogger;
 use App\Services\Audit\AuditRetentionState;
 use App\Services\Backup\BackupRetentionService;
 use App\Services\Backup\DispatchDueBackups;
+use App\Services\FSS\MaintainMenuCycles;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
@@ -30,6 +31,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withSchedule(function (Schedule $schedule): void {
+        $schedule->call(fn (): mixed => app(MaintainMenuCycles::class)->handle())
+            ->dailyAt('00:05')
+            ->timezone('Asia/Manila')
+            ->name('menu-cycles:maintain')
+            ->withoutOverlapping()
+            ->onOneServer();
         $schedule->call(fn (): mixed => app(DispatchDueBackups::class)->handle(
             now(config('nutriscope-backups.timezone'))->toImmutable(),
         ))

@@ -17,6 +17,7 @@ use App\Models\MenuCycleDay;
 use App\Services\Audit\AuditLogger;
 use App\Services\Audit\Revisions\AuditRevisionRegistry;
 use App\Services\Audit\Revisions\AuditRevisionWriter;
+use App\Services\FSS\MaintainMenuCycles;
 use App\Services\FSS\ShoppingListPopulationService;
 use App\Services\MenuCycleCostService;
 use App\Support\RecipeScaler;
@@ -41,10 +42,13 @@ class MenuCycleController extends Controller
         private readonly AuditLogger $auditLogger,
         private readonly AuditRevisionRegistry $revisionRegistry,
         private readonly AuditRevisionWriter $revisionWriter,
+        private readonly MaintainMenuCycles $maintainMenuCycles,
     ) {}
 
     public function index(PaginatedRequest $request): AnonymousResourceCollection
     {
+        $this->maintainMenuCycles->handle();
+
         $cycles = MenuCycle::with('days')
             ->withCount('days')
             ->when($request->boolean('active'), fn ($query) => $query->where('is_active', true))
@@ -67,7 +71,10 @@ class MenuCycleController extends Controller
         $data['cycle_days'] = 7;
         $data['week_start_date'] = ! empty($data['week_start_date'])
             ? Carbon::parse($data['week_start_date'])->toDateString()
-            : now()->startOfWeek(Carbon::MONDAY)->toDateString();
+            : now('Asia/Manila')->startOfWeek(Carbon::MONDAY)->toDateString();
+        if (MenuCycle::query()->whereDate('week_start_date', $data['week_start_date'])->exists()) {
+            return response()->json(['message' => 'A menu already exists for this week. Open it to make changes.'], 409);
+        }
         $data['name'] = filled($data['name'] ?? null)
             ? $data['name']
             : MenuCycle::defaultName($data['week_start_date']);
@@ -138,6 +145,9 @@ class MenuCycleController extends Controller
         MenuCycle $menuCycle,
         MenuCycleDay $slot,
     ): JsonResponse {
+        if ($menuCycle->hasPurchaseOrderSnapshot()) {
+            return $this->purchaseOrderLockResponse();
+        }
         if ($slot->po_snapshot_locked) {
             return response()->json(['message' => 'This menu item is locked to a purchase order.'], 409);
         }
@@ -196,6 +206,9 @@ class MenuCycleController extends Controller
 
     private function restoreResolvedSlot(MenuCycle $menuCycle, MenuCycleDay $slot): JsonResponse
     {
+        if ($menuCycle->hasPurchaseOrderSnapshot()) {
+            return $this->purchaseOrderLockResponse();
+        }
         if ($slot->po_snapshot_locked) {
             return response()->json(['message' => 'This menu item is locked to a purchase order.'], 409);
         }
@@ -213,6 +226,9 @@ class MenuCycleController extends Controller
 
     public function update(UpdateMenuCycleRequest $request, MenuCycle $menuCycle): JsonResponse
     {
+        if ($menuCycle->hasPurchaseOrderSnapshot()) {
+            return $this->purchaseOrderLockResponse();
+        }
         $data = $request->validated();
         $days = $data['days'] ?? null;
         unset($data['days']);
@@ -229,6 +245,13 @@ class MenuCycleController extends Controller
             } else {
                 unset($data['week_start_date']);
             }
+        }
+
+        if (isset($data['week_start_date'])
+            && $data['week_start_date'] !== $menuCycle->week_start_date?->toDateString()
+            && MenuCycle::query()->whereDate('week_start_date', $data['week_start_date'])
+                ->where('id', '!=', $menuCycle->id)->exists()) {
+            return response()->json(['message' => 'A menu already exists for this week. Open it to make changes.'], 409);
         }
 
         if ($days !== null && $this->structuralDaysLocked($menuCycle)) {
@@ -285,6 +308,9 @@ class MenuCycleController extends Controller
 
     public function destroy(MenuCycle $menuCycle): JsonResponse
     {
+        if ($menuCycle->hasPurchaseOrderSnapshot()) {
+            return $this->purchaseOrderLockResponse();
+        }
         $this->audited(function () use ($menuCycle): void {
             $before = $this->revisionRegistry->capture($menuCycle->load(self::DAY_RELATIONS));
             $oldValues = $this->auditValues($menuCycle);
@@ -306,6 +332,9 @@ class MenuCycleController extends Controller
 
     public function activate(MenuCycle $menuCycle): JsonResponse
     {
+        if ($menuCycle->hasPurchaseOrderSnapshot()) {
+            return $this->purchaseOrderLockResponse();
+        }
         $missingDays = $this->missingPlannedWeekdays($menuCycle);
         if ($missingDays !== []) {
             return response()->json([
@@ -369,13 +398,10 @@ class MenuCycleController extends Controller
      */
     public function costToday(Request $request): JsonResponse
     {
-        $date = $request->filled('date') ? \Carbon\Carbon::parse($request->get('date')) : now();
+        $date = $request->filled('date') ? Carbon::parse($request->get('date'), 'Asia/Manila') : now('Asia/Manila');
         $weekday = $date->format('l');
 
-        $cycle = MenuCycle::with('days.recipe.ingredients.fsItem', 'days.fsItem')
-            ->where('is_active', true)
-            ->orderByDesc('activation_date')
-            ->first();
+        $cycle = MenuCycle::coveringDate($date)?->load('days.recipe.ingredients.fsItem', 'days.fsItem');
 
         if (! $cycle) {
             return response()->json(['data' => null]);
@@ -614,10 +640,6 @@ class MenuCycleController extends Controller
 
     private function structuralDaysLocked(MenuCycle $cycle): bool
     {
-        if ($cycle->is_active) {
-            return true;
-        }
-
         return $cycle->days()
             ->where(function ($query) {
                 $query->whereNotNull('po_snapshot')
@@ -626,6 +648,11 @@ class MenuCycleController extends Controller
                     ->orWhere('po_snapshot_locked', true);
             })
             ->exists();
+    }
+
+    private function purchaseOrderLockResponse(): JsonResponse
+    {
+        return response()->json(['message' => 'This menu has a purchase order and can no longer be changed.'], 409);
     }
 
     /** Replace the cycle's days with the supplied grid (single batch INSERT). */

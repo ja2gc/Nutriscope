@@ -13,6 +13,7 @@ class FssDashboardService
 {
     public function __construct(
         private readonly PurchaseOrderLifecycleService $lifecycle,
+        private readonly MaintainMenuCycles $maintainMenuCycles,
     ) {}
 
     /**
@@ -21,12 +22,11 @@ class FssDashboardService
      */
     public function summary(): array
     {
-        $today = now()->toDateString();
-        $weekday = Carbon::today()->format('l'); // e.g. "Friday"
+        $today = now('Asia/Manila')->toDateString();
+        $weekday = Carbon::parse($today)->format('l'); // e.g. "Friday"
 
-        $cycle = MenuCycle::where('is_active', true)
-            ->orderByDesc('activation_date')
-            ->first();
+        $this->maintainMenuCycles->handle();
+        $cycle = MenuCycle::coveringDate($today);
 
         $pendingPos = $this->pendingPos();
 

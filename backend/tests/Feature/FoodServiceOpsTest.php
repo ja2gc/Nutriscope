@@ -491,6 +491,69 @@ class FoodServiceOpsTest extends TestCase
             ->assertStatus(422);
     }
 
+    public function test_a_missed_past_week_uses_the_normal_food_procurement_and_report_lifecycle(): void
+    {
+        Storage::fake('public');
+        Storage::fake('report_cache');
+        Storage::fake(config('filesystems.private_uploads'));
+        $supplier = Supplier::factory()->create();
+        $item = $this->makeFsItem([
+            'base_unit' => 'piece', 'purchase_unit' => 'piece', 'purchase_price' => 5,
+            'default_supplier_id' => $supplier->id,
+        ]);
+        $weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        $days = array_map(fn (string $day): array => [
+            'day_of_week' => $day, 'meal_type' => 'lunch', 'fs_item_id' => $item->uuid, 'quantity' => 1,
+        ], $weekdays);
+        $startedAt = now()->startOfSecond();
+
+        $cycleId = $this->actingAs($this->rnd)->postJson('/api/fss/menu-cycles', [
+            'week_start_date' => '2026-06-01', 'days' => $days,
+        ])->assertCreated()->json('data.id');
+        $cycle = MenuCycle::where('uuid', $cycleId)->firstOrFail();
+        $listId = $this->postJson('/api/fss/shopping-lists/generate', [
+            'name' => 'Missed June week', 'start_date' => '2026-06-01', 'end_date' => '2026-06-07',
+            'estimate_population' => 10,
+        ])->assertCreated()->assertJsonPath('data.coverage_status', 'full')->json('data.id');
+        $list = ShoppingList::where('uuid', $listId)->firstOrFail();
+        $this->postJson("/api/fss/shopping-lists/{$listId}/approve")->assertCreated();
+        $po = PurchaseOrder::where('shopping_list_id', $list->id)->firstOrFail();
+        $this->assertSame(7, $cycle->days()->whereNotNull('snapshot_purchase_order_id')->count());
+
+        foreach (range(1, 7) as $day) {
+            $this->actingAs($this->fss)->patchJson("/api/fss/menu-cycles/{$cycleId}/served-population", [
+                'service_date' => sprintf('2026-06-%02d', $day), 'served_population' => 8,
+            ])->assertOk();
+        }
+        $group = $po->vendorGroups()->firstOrFail();
+        $line = $group->items()->firstOrFail();
+        $image = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=');
+        foreach (['receipt', 'proof'] as $type) {
+            $this->post("/api/fss/purchase-order-vendor-groups/{$group->uuid}/attachments", [
+                'type' => $type,
+                'file' => UploadedFile::fake()->createWithContent("{$type}.png", $image),
+            ])->assertCreated();
+        }
+        $this->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
+            'items' => [['id' => $line->id, 'actual_qty' => 70, 'actual_unit_price' => 5]],
+        ])->assertOk();
+        $this->actingAs($this->rnd)->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
+            'status' => 'received',
+        ])->assertOk();
+
+        $po->refresh();
+        $this->assertSame('completed', $po->lifecycle_status);
+        $this->assertTrue($po->created_at->gte($startedAt));
+        $this->assertTrue($po->completed_at->gte($startedAt));
+        $this->assertTrue(BudgetLedger::where('purchase_order_id', $po->id)
+            ->where('fiscal_year', 2026)->where('type', 'po_deduction')->exists());
+        $this->assertDatabaseHas('program_project_activities', [
+            'purchase_order_id' => $po->id, 'actual_output_patients' => 56,
+        ]);
+        $this->assertSame(1, Report::where('type', 'program_project_activity')->where('parameters->purchase_order_id', $po->id)->count());
+        $this->assertSame(1, Report::where('type', 'procurement_pack')->where('parameters->purchase_order_id', $po->id)->count());
+    }
+
     public function test_ppa_is_rnd_only_and_fss_cannot_delete_po(): void
     {
         $fsItem = $this->makeFsItem();
@@ -561,13 +624,19 @@ class FoodServiceOpsTest extends TestCase
             'fs_item_id' => $this->makeFsItem()->id,
         ]);
 
-        $this->actingAs($this->fss)
-            ->getJson('/api/fss/menu-cycles')
-            ->assertOk()
-            ->assertJsonPath('data.0.id', $active->uuid)
-            ->assertJsonPath('data.0.plan_days.Monday', true)
-            ->assertJsonPath('data.0.plan_days.Tuesday', false)
-            ->assertJsonPath('data.1.id', $past->uuid);
+        Carbon::setTestNow(Carbon::parse('2026-06-09 12:00:00', 'Asia/Manila'));
+        try {
+            $cycles = $this->actingAs($this->fss)
+                ->getJson('/api/fss/menu-cycles')
+                ->assertOk()
+                ->assertJsonPath('data.0.id', $active->uuid)
+                ->assertJsonPath('data.0.plan_days.Monday', true)
+                ->assertJsonPath('data.0.plan_days.Tuesday', false)
+                ->json('data');
+            $this->assertContains($past->uuid, array_column($cycles, 'id'));
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_fss_can_read_purchase_order(): void
@@ -849,6 +918,30 @@ class FoodServiceOpsTest extends TestCase
         $this->assertEqualsCanonicalizing(['2026-06-20', '2026-06-21'], $response->json('missing_dates'));
         // No partial list is created.
         $this->assertDatabaseMissing('shopping_lists', ['period_start' => '2026-06-19']);
+    }
+
+    public function test_saved_cross_week_list_applies_one_estimate_to_each_covered_date_without_preview_writes(): void
+    {
+        $item = $this->makeFsItem(['name' => 'Cross-week fruit', 'base_unit' => 'piece', 'purchase_unit' => 'piece', 'purchase_price' => 1, 'units_per_purchase' => 1]);
+        $first = MenuCycle::factory()->create(['rnd_user_id' => $this->rnd->id, 'week_start_date' => '2026-06-15']);
+        $second = MenuCycle::factory()->create(['rnd_user_id' => $this->rnd->id, 'week_start_date' => '2026-06-22']);
+        foreach (['Friday', 'Saturday', 'Sunday'] as $day) {
+            MenuCycleDay::create(['menu_cycle_id' => $first->id, 'day_of_week' => $day, 'meal_type' => 'lunch', 'fs_item_id' => $item->id, 'quantity' => 1, 'estimate_population' => 10]);
+        }
+        MenuCycleDay::create(['menu_cycle_id' => $second->id, 'day_of_week' => 'Monday', 'meal_type' => 'lunch', 'fs_item_id' => $item->id, 'quantity' => 1, 'estimate_population' => 10]);
+
+        $url = '/api/fss/shopping-lists/generate';
+        $span = ['start_date' => '2026-06-19', 'end_date' => '2026-06-22', 'name' => 'Cross-week list'];
+        $this->actingAs($this->rnd)->postJson($url, $span + ['estimate_population' => 20, 'preview' => true])
+            ->assertOk()->assertJsonPath('data.items.0.qty', 80);
+        $this->assertDatabaseMissing('shopping_lists', ['name' => 'Cross-week list']);
+        $this->assertSame(10, (int) $first->days()->firstOrFail()->estimate_population);
+
+        $response = $this->postJson($url, $span + ['estimate_population' => 25])->assertCreated();
+        $this->assertEqualsWithDelta(100, (float) $response->json('data.items.0.qty'), 0.01);
+        $this->assertSame(25, (int) $second->days()->firstOrFail()->estimate_population);
+        $this->assertSame([25, 25, 25], $first->days()->pluck('estimate_population')->all());
+        $this->assertSame('draft', ShoppingList::where('uuid', $response->json('data.id'))->firstOrFail()->status);
     }
 
     public function test_generate_hard_blocks_when_entire_span_uncovered(): void
@@ -1623,13 +1716,14 @@ class FoodServiceOpsTest extends TestCase
 
     public function test_cost_today_returns_active_cycle_per_head_from_menu(): void
     {
-        $weekday = now()->format('l');
+        $weekday = now('Asia/Manila')->format('l');
         // kg→g: 1000 base per purchase → ₱0.10/g; 100 g/head × 10 heads = 1000 g = ₱100/day; ÷10 = ₱10/head
         $fs = FsItem::factory()->create([
             'base_unit' => 'g', 'purchase_unit' => 'kg', 'purchase_price' => 100, 'units_per_purchase' => null,
         ]);
         $cycle = MenuCycle::factory()->create([
             'rnd_user_id' => $this->rnd->id, 'is_active' => true, 'status' => 'active',
+            'week_start_date' => now('Asia/Manila')->startOfWeek(Carbon::MONDAY)->toDateString(),
         ]);
         MenuCycleDay::create([
             'menu_cycle_id' => $cycle->id, 'day_of_week' => $weekday,
@@ -2430,6 +2524,7 @@ class FoodServiceOpsTest extends TestCase
             'menu_cycle_id' => $cycle->id,
             'day_of_week' => 'Wednesday',
             'meal_type' => 'lunch',
+            'fs_item_id' => $this->makeFsItem()->id,
             'estimate_population' => 40,
         ]);
 
@@ -2462,6 +2557,7 @@ class FoodServiceOpsTest extends TestCase
             'menu_cycle_id' => $cycle->id,
             'day_of_week' => 'Wednesday',
             'meal_type' => 'lunch',
+            'fs_item_id' => $this->makeFsItem()->id,
             'estimate_population' => 40,
         ]);
 

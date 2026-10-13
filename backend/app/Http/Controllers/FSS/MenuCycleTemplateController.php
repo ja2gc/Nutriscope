@@ -229,9 +229,13 @@ class MenuCycleTemplateController extends Controller
             'week_start_date' => ['nullable', 'date'],
         ]);
 
-        $cycle = $this->audited(function () use ($data, $menuCycleTemplate): MenuCycle {
-            $cycle = $this->auditLogger->withoutModelEvents(fn () => DB::transaction(function () use ($data, $menuCycleTemplate) {
-                $weekStart = $data['week_start_date'] ?? now()->startOfWeek()->toDateString();
+        $weekStart = $data['week_start_date'] ?? now('Asia/Manila')->startOfWeek()->toDateString();
+        if (MenuCycle::query()->whereDate('week_start_date', $weekStart)->exists()) {
+            return response()->json(['message' => 'A menu already exists for this week. Open it to make changes.'], 409);
+        }
+
+        $cycle = $this->audited(function () use ($data, $menuCycleTemplate, $weekStart): MenuCycle {
+            $cycle = $this->auditLogger->withoutModelEvents(fn () => DB::transaction(function () use ($data, $menuCycleTemplate, $weekStart) {
                 $cycle = MenuCycle::create([
                     'rnd_user_id' => Auth::id(),
                     'name' => $data['name'] ?? MenuCycle::defaultName($weekStart),

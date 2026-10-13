@@ -8,6 +8,7 @@ use App\Models\FoodServiceRecipeIngredient;
 use App\Models\FsItem;
 use App\Models\MenuCycle;
 use App\Models\MenuCycleDay;
+use App\Models\MenuCycleTemplate;
 use App\Models\ShoppingList;
 use App\Models\Supplier;
 use App\Models\User;
@@ -85,6 +86,37 @@ class MenuCyclePoSnapshotTest extends TestCase
         $snapshot = collect($response->json('data.days'))->firstWhere('id', $day->uuid)['po_snapshot'];
         $this->assertSame(10, $snapshot['population']);
         $this->assertEqualsWithDelta(10, (float) $snapshot['total_quantity'], 0.01);
+
+        $this->actingAs($this->rnd);
+        $this->assertSame(409, $this->patchJson("/api/fss/menu-cycles/{$cycle->uuid}", ['name' => 'Changed after order'])->status(), 'rename');
+        $this->assertSame(409, $this->patchJson("/api/fss/menu-cycles/{$cycle->uuid}", ['week_start_date' => '2026-06-22'])->status(), 'move week');
+        $this->assertSame(409, $this->patchJson("/api/fss/menu-cycles/{$cycle->uuid}", ['days' => []])->status(), 'replace days');
+        $this->assertSame(409, $this->patchJson("/api/fss/menu-cycles/{$cycle->uuid}/activate")->status(), 'activate');
+        $this->assertSame(409, $this->deleteJson("/api/fss/menu-cycles/{$cycle->uuid}/lines/{$day->uuid}")->status(), 'restore line');
+        $this->assertSame(409, $this->deleteJson("/api/fss/menu-cycles/{$cycle->uuid}/slots/Monday/{$day->meal_type}")->status(), 'restore slot');
+        $this->assertSame(409, $this->deleteJson("/api/fss/menu-cycles/{$cycle->uuid}")->status(), 'delete cycle');
+        $this->assertSame(409, $this->postJson('/api/fss/menu-cycles', [
+            'week_start_date' => '2026-06-15',
+            'name' => 'Replacement week',
+        ])->status(), 'replace purchased week with a new cycle');
+        $template = MenuCycleTemplate::create([
+            'rnd_user_id' => $this->rnd->id,
+            'name' => 'Copy',
+            'cycle_days' => 7,
+        ]);
+        $this->assertSame(409, $this->postJson("/api/fss/menu-cycle-templates/{$template->uuid}/instantiate", [
+            'week_start_date' => '2026-06-15',
+        ])->status(), 'replace purchased week from a template');
+        $other = MenuCycle::factory()->create([
+            'rnd_user_id' => $this->rnd->id,
+            'week_start_date' => '2026-06-22',
+        ]);
+        $this->assertSame(409, $this->patchJson("/api/fss/menu-cycles/{$other->uuid}", [
+            'week_start_date' => '2026-06-15',
+        ])->status(), 'move another cycle into the purchased week');
+        $this->getJson("/api/fss/menu-cycles/{$cycle->uuid}")
+            ->assertOk()
+            ->assertJsonPath('data.name', $cycle->name);
     }
 
     public function test_food_po_snapshot_uses_slot_override_at_purchase_population(): void

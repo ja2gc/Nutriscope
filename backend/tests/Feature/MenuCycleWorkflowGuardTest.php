@@ -7,6 +7,7 @@ use App\Models\MenuCycle;
 use App\Models\MenuCycleDay;
 use App\Models\MenuCycleTemplate;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -20,6 +21,122 @@ class MenuCycleWorkflowGuardTest extends TestCase
     {
         parent::setUp();
         $this->rnd = User::factory()->rnd()->create();
+    }
+
+    public function test_service_date_uses_the_latest_covering_week_instead_of_a_stale_active_overlap(): void
+    {
+        $stale = MenuCycle::factory()->create([
+            'rnd_user_id' => $this->rnd->id,
+            'week_start_date' => '2026-06-14',
+            'is_active' => true,
+            'status' => 'active',
+        ]);
+        $current = MenuCycle::factory()->create([
+            'rnd_user_id' => $this->rnd->id,
+            'week_start_date' => '2026-06-15',
+            'is_active' => false,
+            'status' => 'upcoming',
+        ]);
+        $item = FsItem::factory()->create();
+        MenuCycleDay::factory()->create([
+            'menu_cycle_id' => $current->id,
+            'day_of_week' => 'Wednesday',
+            'meal_type' => 'lunch',
+            'fs_item_id' => $item->id,
+        ]);
+
+        $this->assertTrue(MenuCycle::coveringDate('2026-06-17')->is($current));
+        $this->assertTrue(MenuCycle::coveringDate('2026-06-14')->is($stale));
+        $this->assertNull(MenuCycle::coveringDate('2026-06-22'));
+
+        $this->actingAs(User::factory()->create(['role' => 'FSS']))
+            ->patchJson("/api/fss/menu-cycles/{$current->uuid}/served-population", [
+                'service_date' => '2026-06-17',
+                'served_population' => 33,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.served_population', 33);
+    }
+
+    public function test_cost_for_a_requested_date_uses_the_covering_cycle(): void
+    {
+        MenuCycle::factory()->create([
+            'rnd_user_id' => $this->rnd->id,
+            'name' => 'Stale active menu',
+            'week_start_date' => '2026-06-14',
+            'is_active' => true,
+        ]);
+        MenuCycle::factory()->create([
+            'rnd_user_id' => $this->rnd->id,
+            'name' => 'Wednesday menu',
+            'week_start_date' => '2026-06-15',
+        ]);
+
+        $this->actingAs($this->rnd)
+            ->getJson('/api/fss/menu-cycles/cost-today?date=2026-06-17')
+            ->assertOk()
+            ->assertJsonPath('data.cycle', 'Wednesday menu');
+    }
+
+    public function test_a_placeholder_weekday_without_a_service_item_cannot_record_served_population(): void
+    {
+        $cycle = MenuCycle::factory()->create([
+            'rnd_user_id' => $this->rnd->id,
+            'week_start_date' => '2026-06-15',
+        ]);
+        MenuCycleDay::factory()->create([
+            'menu_cycle_id' => $cycle->id,
+            'day_of_week' => 'Wednesday',
+            'recipe_id' => null,
+            'fs_item_id' => null,
+        ]);
+
+        $this->actingAs(User::factory()->create(['role' => 'FSS']))
+            ->patchJson("/api/fss/menu-cycles/{$cycle->uuid}/served-population", [
+                'service_date' => '2026-06-17',
+                'served_population' => 33,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('service_date');
+    }
+
+    public function test_listing_cycles_maintains_an_empty_current_week_and_four_future_weeks_idempotently(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-12-29 12:00:00', 'Asia/Manila'));
+        try {
+            $response = $this->actingAs($this->rnd)->getJson('/api/fss/menu-cycles?per_page=10')->assertOk();
+            $this->assertSame(5, MenuCycle::count());
+            $this->assertSame([
+                '2026-12-28', '2027-01-04', '2027-01-11', '2027-01-18', '2027-01-25',
+            ], MenuCycle::orderBy('week_start_date')->pluck('week_start_date')->map->toDateString()->all());
+            $this->assertSame(1, MenuCycle::where('is_active', true)->count());
+            $this->assertSame('2026-12-28', MenuCycle::where('is_active', true)->firstOrFail()->week_start_date->toDateString());
+            $this->assertNull(MenuCycle::where('is_active', true)->firstOrFail()->cost_snapshot);
+            $this->assertSame(5, count($response->json('data')));
+
+            $this->getJson('/api/fss/menu-cycles?per_page=10')->assertOk();
+            $this->assertSame(5, MenuCycle::count());
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_week_rollover_retires_the_past_week_without_replacing_it(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-12-29 12:00:00', 'Asia/Manila'));
+        try {
+            $this->actingAs($this->rnd)->getJson('/api/fss/menu-cycles?per_page=10')->assertOk();
+            $past = MenuCycle::whereDate('week_start_date', '2026-12-28')->firstOrFail();
+            Carbon::setTestNow(Carbon::parse('2027-01-04 12:00:00', 'Asia/Manila'));
+            $this->getJson('/api/fss/menu-cycles?per_page=10')->assertOk();
+
+            $this->assertFalse($past->fresh()->is_active);
+            $this->assertSame('completed', $past->fresh()->status);
+            $this->assertSame('2027-01-04', MenuCycle::where('is_active', true)->firstOrFail()->week_start_date->toDateString());
+            $this->assertSame(6, MenuCycle::count());
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_cycle_name_defaults_to_its_week_span_and_tracks_date_changes(): void
@@ -138,7 +255,7 @@ class MenuCycleWorkflowGuardTest extends TestCase
         $this->assertFalse($cycle->fresh()->is_active);
     }
 
-    public function test_active_cycle_rejects_structural_day_edits(): void
+    public function test_active_cycle_without_a_purchase_order_can_fill_an_empty_service_day(): void
     {
         $item = FsItem::factory()->create();
         $cycle = MenuCycle::factory()->create([
@@ -164,12 +281,11 @@ class MenuCycleWorkflowGuardTest extends TestCase
                     'quantity' => 1,
                 ]],
             ])
-            ->assertStatus(422)
-            ->assertJsonPath('message', 'Active or snapshotted menu cycles cannot change menu day structure.');
+            ->assertOk();
 
         $this->assertDatabaseHas('menu_cycle_days', [
             'menu_cycle_id' => $cycle->id,
-            'day_of_week' => 'Monday',
+            'day_of_week' => 'Tuesday',
         ]);
     }
 

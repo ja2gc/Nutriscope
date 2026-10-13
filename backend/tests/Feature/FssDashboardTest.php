@@ -127,11 +127,12 @@ class FssDashboardTest extends TestCase
 
     public function test_active_cycle_with_slot_today_and_no_log_returns_one(): void
     {
-        $weekday = Carbon::today()->format('l');
+        $weekday = Carbon::today('Asia/Manila')->format('l');
 
         $cycle = MenuCycle::factory()->create([
             'is_active' => true,
             'status' => 'active',
+            'week_start_date' => now('Asia/Manila')->startOfWeek(Carbon::MONDAY)->toDateString(),
         ]);
 
         MenuCycleDay::factory()->create([
@@ -150,12 +151,13 @@ class FssDashboardTest extends TestCase
 
     public function test_service_day_already_completed_returns_zero_meals_to_log(): void
     {
-        $weekday = Carbon::today()->format('l');
-        $today = now()->toDateString();
+        $weekday = Carbon::today('Asia/Manila')->format('l');
+        $today = now('Asia/Manila')->toDateString();
 
         $cycle = MenuCycle::factory()->create([
             'is_active' => true,
             'status' => 'active',
+            'week_start_date' => now('Asia/Manila')->startOfWeek(Carbon::MONDAY)->toDateString(),
         ]);
 
         MenuCycleDay::factory()->create([
@@ -182,11 +184,12 @@ class FssDashboardTest extends TestCase
 
     public function test_today_service_shows_slot_as_not_prepped_when_no_log(): void
     {
-        $weekday = Carbon::today()->format('l');
+        $weekday = Carbon::today('Asia/Manila')->format('l');
 
         $cycle = MenuCycle::factory()->create([
             'is_active' => true,
             'status' => 'active',
+            'week_start_date' => now('Asia/Manila')->startOfWeek(Carbon::MONDAY)->toDateString(),
         ]);
 
         MenuCycleDay::factory()->create([

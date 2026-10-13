@@ -146,7 +146,10 @@ class MealPrepLogController extends Controller
 
                     $owner = MenuCycle::coveringDate($serviceDate);
                     $weekday = CarbonImmutable::parse($serviceDate, 'Asia/Manila')->format('l');
-                    if ($owner === null || ! $owner->is($menuCycle) || ! $menuCycle->days()->where('day_of_week', $weekday)->exists()) {
+                    $planned = $menuCycle->days()->where('day_of_week', $weekday)
+                        ->where(fn ($query) => $query->whereNotNull('recipe_id')->orWhereNotNull('fs_item_id'))
+                        ->exists();
+                    if ($owner === null || ! $owner->is($menuCycle) || ! $planned) {
                         $fail('The service date is not a planned day in this menu cycle.');
                     }
                 },

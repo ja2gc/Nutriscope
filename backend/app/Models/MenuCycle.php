@@ -58,6 +58,11 @@ class MenuCycle extends Model
         return $this->hasMany(MenuCycleDay::class);
     }
 
+    public function hasPurchaseOrderSnapshot(): bool
+    {
+        return $this->days()->whereNotNull('snapshot_purchase_order_id')->exists();
+    }
+
     public static function defaultName(Carbon|string $weekStart): string
     {
         $start = ($weekStart instanceof Carbon ? $weekStart->copy() : Carbon::parse($weekStart))->startOfDay();
@@ -77,8 +82,9 @@ class MenuCycle extends Model
     /**
      * The cycle that owns a given calendar date — the single source of truth for
      * date→cycle resolution. A cycle covers [week_start_date, week_start_date +
-     * (cycle_days-1)] (default 7-day span). On overlap an active cycle wins, else the
-     * latest-starting one. Returns null when no cycle covers the date (an uncovered day).
+     * (cycle_days-1)] (default 7-day span). On overlap the latest-starting
+     * cycle owns the date; stale activation must not select an older week.
+     * Returns null when no cycle covers the date (an uncovered day).
      *
      * Candidate filtering is done in SQL (week_start_date <= date) and the window-end
      * check in PHP so the date math stays portable across sqlite (tests) and the prod DB.
@@ -90,8 +96,8 @@ class MenuCycle extends Model
         return self::query()
             ->whereNotNull('week_start_date')
             ->whereDate('week_start_date', '<=', $day->toDateString())
-            ->orderByDesc('is_active')
             ->orderByDesc('week_start_date')
+            ->orderByDesc('id')
             ->get()
             ->first(function (self $cycle) use ($day) {
                 $span = (int) ($cycle->cycle_days ?: 7);
