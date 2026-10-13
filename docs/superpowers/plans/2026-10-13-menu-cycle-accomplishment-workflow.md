@@ -22,8 +22,10 @@
 - Remove internal/debug copy from normal Menu Cycle screens, including “Not in Menu Cycle,” “Locked to PO,” “Locked to PO · open details,” “line 1 open details,” UUID-style Cycle IDs, and similar implementation terms. Keep backend flags/IDs for API and history where needed. Use useful task language or omit redundant copy.
 - Accomplishment review is **per FSS user, per semi-monthly period** (1–15 and 16–month end). Progress is unique dates with saved daily logs, e.g. 1/15 or the actual variable length for the second half. Every calendar date requires a saved log, including an off-duty entry where applicable, before submission. Daily logging must not depend on an unrelated RND Menu Cycle update.
 - FSS submits a complete period; submitted periods are read-only to FSS. FSS may **Withdraw submission** while pending, which removes it from RND's queue and unlocks editing. Rejected periods unlock for correction and resubmission. Approved periods and their daily logs lock. Prevent stale/concurrent RND decisions after withdrawal or resubmission.
+- RND sees a new FSS accomplishment period only after submission: pending periods appear in **To Review**, and approved periods appear in existing Reports. Unsubmitted daily logs and auto-generated draft report copies are not available to RND through browsing, preview/download, or direct APIs. Withdrawal removes a period from the review queue.
 - RND reviews each FSS submission and **Approves** or **Rejects**. Rejection requires a reason of at most **500 characters**, with the existing web `CharacterCountTextarea` counter inside the box and backend validation. FSS sees that reason and can navigate to and correct any day in the period.
 - FSS mobile placement is the existing **Accomplish → My Reports** tab: a semi-monthly period list with progress/status, period detail with day traversal and Submit/Withdraw, and links to the existing Daily Log editor. RND placement is the existing **Reports → Accomplishment Report** area with a separate “To Review” view. Approved new reports appear in the existing Reports view. Reports already generated before this workflow remain untouched and visible; do not retroactively approve, remove, or migrate them. No extra top-level page.
+- Admin has no accomplishment review queue or Approve/Reject actions. Admin's existing Reports view shows approved new accomplishment reports and pre-workflow generated legacy reports, but no new unapproved periods or logs. Keep Admin access to unrelated report types unchanged.
 - Reuse established components and UI patterns; keep the screens focused, responsive, and accessible under `.agents/rules/ui-ux.md`.
 
 ## Current code: preserve or repair
@@ -74,6 +76,7 @@
 - [ ] Make submitted content exactly what RND reviews: block FSS edits while pending, reflect changed daily logs after withdrawal/rejection before resubmission, and make stale review actions fail cleanly. Approved PDF/report content must remain frozen and visible in existing Reports. Test concurrent transition cases, duplicate requests, and direct API edits.
 - [ ] Test that after approval, daily-log save attempts and archive refresh/regeneration cannot change the content RND reviewed, the approved Report, or its stored PDF; cover direct API and service paths.
 - [ ] Keep old generated accomplishment reports/files unchanged and readable. Ensure new unapproved periods do not appear as approved reports; RND's review queue identifies the FSS user and period.
+- [ ] Enforce and test RND/Admin visibility on report lists, instances, generation, preview/download, and direct APIs: RND cannot access unsubmitted new logs or draft report copies; Admin can access approved new and legacy accomplishment reports but not the review queue or new unapproved records. Existing report `status=completed` alone must not grant approval visibility.
 
 ### 5. Focused UI and copy
 
@@ -81,6 +84,7 @@
 
 - [ ] Remove specified internal labels/IDs and misleading stale-active UI only after backend behavior is correct; keep clear read-only historical viewing and responsive current/empty states.
 - [ ] Add RND “To Review” within the existing Accomplishment Report Reports area, with per-FSS periods, review details, Approve/Reject, required counted note, loading/error/empty states, and keyboard/accessibility coverage.
+- [ ] Keep Admin's existing Reports page limited to approved new and legacy accomplishment reports, with no “To Review” tab or review actions; keep other Admin report types as they are.
 - [ ] Enhance FSS Accomplish → My Reports with progress/status and period-day traversal; link days to the existing Daily Log with the date selected. Show Submit/Withdraw only in valid states, rejection reason when relevant, and approved PDF in the existing report view. Make pending/approved daily logs visibly read-only and enforce it server-side.
 - [ ] Check narrow/wide web layouts and Android phone layout with realistic long names, 13–16-day periods, text scaling, touch targets, and safe areas. Reuse existing components/helpers; do not add a new top-level page.
 
