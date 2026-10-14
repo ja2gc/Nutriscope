@@ -17,7 +17,7 @@ class UploadPurchaseOrderAttachmentRequest extends FormRequest
             'type' => ['required', 'in:receipt,proof'],
             'caption' => ['nullable', 'string', 'max:255'],
             'file' => ['sometimes', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'files' => ['sometimes', 'array', 'max:15'],
+            'files' => ['sometimes', 'array', 'max:12'],
             'files.*' => ['file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ];
     }

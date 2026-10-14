@@ -16,6 +16,8 @@ interface DashboardData {
 interface Announcement {
   id: string | number;
   title: string;
+  attachment?: string | null;
+  attachments?: string[];
 }
 
 async function fetchDashboard(): Promise<DashboardData> {
@@ -23,9 +25,9 @@ async function fetchDashboard(): Promise<DashboardData> {
   return response.data.data;
 }
 
-async function fetchLatestAnnouncement(): Promise<Announcement | null> {
-  const response = await api.get<{ data: Announcement[] }>('/api/fss/announcements', { params: { per_page: 1 } });
-  return response.data.data[0] ?? null;
+async function fetchLatestAnnouncements(): Promise<Announcement[]> {
+  const response = await api.get<{ data: Announcement[] }>('/api/fss/announcements', { params: { per_page: 2, sort: 'latest' } });
+  return response.data.data;
 }
 
 async function hasTodayLog(date: string): Promise<boolean> {
@@ -37,7 +39,7 @@ export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const today = todayManilaKey();
   const dashboard = useQuery({ queryKey: ['fss-dashboard'], queryFn: fetchDashboard, staleTime: 60_000 });
-  const announcement = useQuery({ queryKey: ['fss-latest-announcement'], queryFn: fetchLatestAnnouncement, staleTime: 120_000 });
+  const announcement = useQuery({ queryKey: ['fss-latest-announcements'], queryFn: fetchLatestAnnouncements, staleTime: 120_000 });
   const dailyLog = useQuery({ queryKey: ['fss-dashboard-daily-log', today], queryFn: () => hasTodayLog(today), staleTime: 30_000 });
   const onRefresh = useCallback(() => { void dashboard.refetch(); void announcement.refetch(); void dailyLog.refetch(); }, [dashboard, announcement, dailyLog]);
 
@@ -45,7 +47,7 @@ export default function DashboardScreen() {
   if (dashboard.isError || !dashboard.data) return <View className="flex-1 items-center justify-center bg-[#F4F7F5] px-6"><Text className="text-center text-sm text-red-700">Could not load dashboard.</Text><TouchableOpacity onPress={() => dashboard.refetch()} className="mt-4 min-h-12 justify-center rounded-xl bg-[#087F5B] px-6"><Text className="font-bold text-white">Retry</Text></TouchableOpacity></View>;
 
   const data = dashboard.data;
-  const latestAnnouncement = announcement.data;
+  const latestAnnouncements = announcement.data ?? [];
   const next = !dailyLog.data && !dailyLog.isLoading && !dailyLog.isError
     ? { label: "Record today's Daily Log", path: '/(tabs)/accomplishments' as const }
     : data.meals_to_log_today > 0
@@ -67,6 +69,6 @@ export default function DashboardScreen() {
 
     <TouchableOpacity onPress={() => router.push('/(tabs)/menu')} className="mt-3 min-h-16 justify-center rounded-2xl border border-[#E2EAE5] bg-white px-4 py-3" accessibilityRole="button" accessibilityLabel="Open today's menu"><Text className="text-xs font-bold uppercase tracking-wide text-[#6B7F77]">Today’s meals</Text><Text className="mt-1 text-sm text-[#30483F]" numberOfLines={1}>{todayItems.length ? `${todayItems.slice(0, 2).join(', ')}${todayItems.length > 2 ? ` +${todayItems.length - 2} more` : ''}` : 'No meals planned for today.'}</Text></TouchableOpacity>
 
-    <View className="mt-3 min-h-16 justify-center rounded-2xl border border-[#E2EAE5] bg-white px-4 py-3"><Text className="text-xs font-bold uppercase tracking-wide text-[#6B7F77]">Announcement</Text>{announcement.isLoading ? <ActivityIndicator color="#087F5B" /> : announcement.isError ? <TouchableOpacity onPress={() => announcement.refetch()} className="min-h-12 justify-center"><Text className="text-sm text-red-700">Could not load. Retry</Text></TouchableOpacity> : latestAnnouncement ? <View className="flex-row items-center gap-3"><Text className="min-w-0 flex-1 text-sm text-[#30483F]" numberOfLines={1}>{latestAnnouncement.title}</Text><TouchableOpacity onPress={() => router.push({ pathname: '/(tabs)/announcements', params: { announcementId: String(latestAnnouncement.id) } })} className="min-h-12 justify-center" accessibilityRole="button"><Text className="text-sm font-bold text-[#087F5B]">View announcement</Text></TouchableOpacity></View> : <Text className="mt-1 text-sm text-[#6B7F77]">No announcements.</Text>}</View>
+    <View className="mt-3 rounded-2xl border border-[#E2EAE5] bg-white px-4 py-3"><View className="flex-row items-center justify-between"><Text className="text-xs font-bold uppercase tracking-wide text-[#6B7F77]">Announcements</Text><TouchableOpacity onPress={() => router.push('/(tabs)/announcements')} className="min-h-12 justify-center" accessibilityRole="button" accessibilityLabel="View all announcements"><Text className="text-xs font-bold text-[#087F5B]">See all</Text></TouchableOpacity></View>{announcement.isLoading ? <ActivityIndicator color="#087F5B" /> : announcement.isError ? <TouchableOpacity onPress={() => announcement.refetch()} className="min-h-12 justify-center"><Text className="text-sm text-red-700">Could not load. Retry</Text></TouchableOpacity> : latestAnnouncements.length ? latestAnnouncements.map((item, index) => <TouchableOpacity key={String(item.id)} onPress={() => router.push({ pathname: '/(tabs)/announcements', params: { announcementId: String(item.id) } })} className={`min-h-12 flex-row items-center gap-3 ${index > 0 ? 'border-t border-[#E2EAE5]' : ''}`} accessibilityRole="button" accessibilityLabel={`View announcement: ${item.title}`}><Text className="min-w-0 flex-1 text-sm text-[#30483F]" numberOfLines={1}>{item.title}</Text><Text className="text-xs font-bold text-[#087F5B]">{item.attachments?.length || item.attachment ? 'View image' : 'View'}</Text></TouchableOpacity>) : <Text className="mt-1 text-sm text-[#6B7F77]">No announcements.</Text>}</View>
   </ScrollView>;
 }

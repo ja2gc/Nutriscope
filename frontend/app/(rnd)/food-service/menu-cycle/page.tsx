@@ -16,7 +16,7 @@ import {
   DAYS, MEALS, MEAL_LABELS, Day, Meal,
   CycleListItem, MenuCycle, RecipeOption, FsItemOption, TemplateListItem, TemplateDetail, MenuSnapshot,
   listCycles, getCycle, saveCycle, deleteCycle,
-  listRecipeOptions, listFsItemOptions, listTemplates, getTemplate, saveTemplate, instantiateTemplate, deleteTemplate,
+  listRecipeOptions, listFsItemOptions, listTemplates, getTemplate, saveTemplate, deleteTemplate,
 } from "@/services/menuCycleService";
 import { setServedPopulation, listServiceLogs } from "@/services/consumptionService";
 
@@ -95,13 +95,13 @@ function gridFromTemplate(template: TemplateDetail): Grid {
 
 
 // ─── Breadcrumb + header shell ──────────────────────────────────────────────────
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({ children, templates = false }: { children: React.ReactNode; templates?: boolean }) {
   return (
     <div className="space-y-6 font-sans">
       <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
         <Link href="/dashboard" className="hover:text-emerald-700 transition-colors">Home</Link>
         <span>/</span><span>Food Service</span><span>/</span>
-        <span className="font-bold text-warm-600">Menu Calendar</span>
+        {templates ? <><Link href="/food-service/menu-cycle" className="hover:text-emerald-700">Menu Calendar</Link><span>/</span><span className="font-bold text-warm-600">Templates</span></> : <span className="font-bold text-warm-600">Menu Calendar</span>}
       </div>
       {children}
     </div>
@@ -109,8 +109,9 @@ function Shell({ children }: { children: React.ReactNode }) {
 }
 
 // ═══ LIST VIEW ═══════════════════════════════════════════════════════════════════
-function CycleList({ readOnly, onOpen, onNew, onOpenTemplate, onNewTemplate }: {
+function CycleList({ readOnly, mode = "cycles", onOpen, onNew, onOpenTemplate, onNewTemplate }: {
   readOnly: boolean;
+  mode?: "cycles" | "templates";
   onOpen: (id: string) => void;
   onNew: () => void;
   onOpenTemplate: (id: string) => void;
@@ -124,69 +125,47 @@ function CycleList({ readOnly, onOpen, onNew, onOpenTemplate, onNewTemplate }: {
   const [templatePage, setTemplatePage] = useState(1);
   const [cycleMeta, setCycleMeta] = useState<PaginationMeta | null>(null);
   const [templateMeta, setTemplateMeta] = useState<PaginationMeta | null>(null);
-  const [editingNameId, setEditingNameId] = useState<string | null>(null);
-  const [nameDraft, setNameDraft] = useState("");
-  const [savingNameId, setSavingNameId] = useState<string | null>(null);
-  const [nameError, setNameError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true); setErr("");
     try {
-      const [c, t] = await Promise.all([listCycles(cyclePage), listTemplates(templatePage)]);
-      setCycles(c.data); setCycleMeta(c.meta); setTemplates(t.data); setTemplateMeta(t.meta);
-    } catch { setErr("Failed to load menu weeks."); } finally { setLoading(false); }
-  }, [cyclePage, templatePage]);
+      if (mode === "templates") {
+        const result = await listTemplates(templatePage);
+        setTemplates(result.data); setTemplateMeta(result.meta);
+      } else {
+        const result = await listCycles(cyclePage);
+        setCycles(result.data); setCycleMeta(result.meta);
+      }
+    } catch { setErr(mode === "templates" ? "Failed to load menu templates." : "Failed to load menu weeks."); } finally { setLoading(false); }
+  }, [mode, cyclePage, templatePage]);
   useEffect(() => { load(); }, [load]);
 
   async function remove(id: string) { await deleteCycle(id); load(); }
-  async function saveName(cycle: CycleListItem) {
-    if (savingNameId === cycle.id) return;
-    const nextName = nameDraft.trim();
-    if (!nextName) {
-      setNameDraft(cycle.name);
-      setEditingNameId(null);
-      return;
-    }
-    if (nextName === cycle.name) {
-      setEditingNameId(null);
-      return;
-    }
-    setSavingNameId(cycle.id); setNameError("");
-    try {
-      const saved = await saveCycle(cycle.id, { name: nextName });
-      setCycles((current) => current.map((item) => item.id === cycle.id ? { ...item, name: saved.name } : item));
-      setNameDraft(saved.name);
-      setEditingNameId(null);
-    } catch (error) {
-      setNameError(error instanceof Error ? error.message : "Failed to save menu name.");
-    } finally { setSavingNameId(null); }
-  }
-  async function applyTemplate(t: TemplateListItem) {
-    const res = await instantiateTemplate(t.id, {});
-    onOpen(res.id);
-  }
   async function removeTemplate(id: string) { await deleteTemplate(id); load(); }
 
   return (
-    <Shell>
+    <Shell templates={mode === "templates"}>
       <div className="border-b border-warm-200 pb-5 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
           <h2 className="text-xl font-extrabold text-warm-900 tracking-tight flex items-center gap-2.5">
-            <CalendarDays className="h-5 w-5 text-emerald-600" /> Menu Calendar
-            <InfoHint label="About menu population">Suggested lists use estimated population to scale planned food. Served population records actual attendance.</InfoHint>
+            <CalendarDays className="h-5 w-5 text-emerald-600" /> {mode === "templates" ? "Menu Templates" : "Menu Calendar"}
+            {mode === "cycles" && <InfoHint label="About menu population">Suggested lists use estimated population to scale planned food. Served population records actual attendance.</InfoHint>}
           </h2>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          {!readOnly && (
+          {mode === "cycles" && <Link href="/food-service/menu-cycle/templates" className="inline-flex min-h-10 items-center rounded-lg border border-warm-200 px-3 text-sm font-semibold text-warm-700 hover:bg-warm-50">Templates</Link>}
+          {!readOnly && mode === "cycles" && (
             <Button variant="primary" onClick={onNew} className="px-4 py-2.5 flex items-center gap-2">
               <Plus className="h-4 w-4" /> Add week
             </Button>
           )}
+          {!readOnly && mode === "templates" && <Button variant="secondary" onClick={onNewTemplate} className="!w-auto !px-3 !py-2 text-sm"><Plus className="h-4 w-4" /> New Template</Button>}
         </div>
       </div>
 
       {err && <div className="text-sm text-red-500">{err}</div>}
 
+      {mode === "cycles" && <>
       {/* Cycles */}
       <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
         {loading ? <div className="py-16 text-center text-sm text-warm-400">Loading…</div>
@@ -207,31 +186,7 @@ function CycleList({ readOnly, onOpen, onNew, onOpenTemplate, onNewTemplate }: {
                   const when = temporal(c.week_start_date);
                   return (
                   <tr key={c.id} className={`hover:bg-warm-50/60 transition-colors ${coversToday(c.week_start_date) ? "border-l-4 border-l-emerald-500" : "border-l-4 border-l-transparent"}`}>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5">
-                        {editingNameId === c.id && !readOnly ? (
-                          <input
-                            aria-label="Edit menu name"
-                            autoFocus
-                            value={nameDraft}
-                            disabled={savingNameId === c.id}
-                            onChange={(event) => setNameDraft(event.target.value)}
-                            onBlur={() => { void saveName(c); }}
-                            onKeyDown={(event) => { if (event.key === "Enter" || event.key === "Escape") event.currentTarget.blur(); }}
-                            className="min-h-10 w-full max-w-xs rounded-lg border border-warm-300 px-2 font-semibold text-warm-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:bg-warm-50"
-                          />
-                        ) : (
-                          <span className="font-semibold text-warm-800">{c.name}</span>
-                        )}
-                        {!readOnly && editingNameId !== c.id && <button
-                          onClick={() => { setNameDraft(c.name); setNameError(""); setEditingNameId(c.id); }}
-                          aria-label={`Rename ${c.name}`}
-                          title="Edit name"
-                          className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-lg text-warm-400 hover:bg-warm-100 hover:text-warm-700"
-                        ><Pencil className="h-3.5 w-3.5" /></button>}
-                      </div>
-                      {nameError && editingNameId === c.id && <p role="alert" className="mt-1 text-xs text-red-600">{nameError}</p>}
-                    </td>
+                    <td className="px-4 py-3 font-semibold text-warm-800">{c.name}</td>
                     <td className="px-4 py-3 text-warm-500 tabular-nums">{weekRange(c.week_start_date)}</td>
                     <td className="px-4 py-3 text-warm-500">{when.label}</td>
                     <td className="px-4 py-3">
@@ -254,12 +209,12 @@ function CycleList({ readOnly, onOpen, onNew, onOpenTemplate, onNewTemplate }: {
           )}
           <Pagination meta={cycleMeta} page={cyclePage} onPageChange={setCyclePage} />
       </div>
+      </>}
 
       {/* Templates */}
-      <div>
+      {mode === "templates" && <div>
         <div className="mb-3 flex items-center justify-between gap-3">
           <h3 className="flex items-center gap-2 text-sm font-extrabold uppercase tracking-wider text-warm-700"><LayoutTemplate className="h-4 w-4 text-warm-400" /> Templates</h3>
-          {!readOnly && <Button variant="secondary" onClick={onNewTemplate} className="!w-auto !px-3 !py-2 text-sm"><Plus className="h-4 w-4" /> New Template</Button>}
         </div>
         {templates.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-warm-200 bg-warm-50/40 py-10 text-center text-sm font-medium text-warm-400">
@@ -278,17 +233,12 @@ function CycleList({ readOnly, onOpen, onNew, onOpenTemplate, onNewTemplate }: {
                     <div className="flex items-center gap-1"><button onClick={() => onOpenTemplate(t.id)} aria-label={`Edit ${t.name}`} className="p-1 rounded text-warm-400 hover:text-emerald-600 cursor-pointer"><Pencil className="h-3.5 w-3.5" /></button><button onClick={() => removeTemplate(t.id)} aria-label={`Delete ${t.name}`} className="p-1 rounded text-warm-400 hover:text-red-500 cursor-pointer"><Trash2 className="h-3.5 w-3.5" /></button></div>
                   )}
                 </div>
-                {!readOnly && (
-                  <button onClick={() => applyTemplate(t)} className="mt-3 w-full text-xs font-bold uppercase tracking-wider text-emerald-700 border border-emerald-200 rounded-lg py-1.5 hover:bg-emerald-50 cursor-pointer">
-                    Create plan from template
-                  </button>
-                )}
               </div>
             ))}
           </div>
         )}
         <Pagination meta={templateMeta} page={templatePage} onPageChange={setTemplatePage} />
-      </div>
+      </div>}
     </Shell>
   );
 }
@@ -300,6 +250,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [weekStart, setWeekStart] = useState("");
+  const [includeSnacks, setIncludeSnacks] = useState(true);
 
   const [grid, setGrid] = useState<Grid>({});
   // Served (actual) population per weekday for the active week — logged by FSS/RND,
@@ -377,6 +328,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
         setName(template.name);
         setDescription(template.description ?? "");
         setGrid(gridFromTemplate(template));
+        setIncludeSnacks(template.days.some((day) => day.meal_type === "am_snack" || day.meal_type === "pm_snack"));
       }).catch(() => setErr("Failed to load template.")).finally(() => setLoading(false));
       return;
     }
@@ -503,7 +455,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
         if (!name.trim()) throw new Error("Template name is required.");
         const savedTemplate = await saveTemplate(savedId, {
           name: name.trim(), description: description.trim() || null, cycle_days: 7,
-          days: daysPayload().map(({ day_of_week, meal_type, line_order, recipe_id, fs_item_id, quantity }) => ({
+          days: daysPayload().filter((day) => includeSnacks || (day.meal_type !== "am_snack" && day.meal_type !== "pm_snack")).map(({ day_of_week, meal_type, line_order, recipe_id, fs_item_id, quantity }) => ({
             day_of_week, meal_type, line_order, recipe_id, fs_item_id, quantity,
           })),
         });
@@ -619,7 +571,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
   if (loading) return <Shell><div className="py-16 text-center text-sm text-warm-400">Loading…</div></Shell>;
 
   return (
-    <Shell>
+    <Shell templates={isTemplate}>
       {/* Header */}
       <div className="border-b border-warm-200 pb-5 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
         <div className="flex items-start gap-3">
@@ -645,6 +597,8 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
 
       {err && <div className="bg-red-50 border border-red-100 p-3 rounded-xl text-sm text-red-700 font-bold flex items-center gap-2"><AlertTriangle className="h-3.5 w-3.5" /> {err}</div>}
       {templateNotice && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">{templateNotice}</div>}
+
+      {isTemplate && !readOnly && <label className="flex min-h-11 items-center gap-3 text-sm font-semibold text-warm-700"><input type="checkbox" aria-label="Include snacks" checked={includeSnacks} onChange={(event) => setIncludeSnacks(event.target.checked)} className="h-4 w-4 accent-emerald-600" /> Include AM and PM snacks</label>}
 
       {/* Settings */}
       <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -738,7 +692,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
             </tr>
           </thead>
           <tbody>
-            {MEALS.map((m) => (
+            {MEALS.filter((meal) => !isTemplate || includeSnacks || (meal !== "am_snack" && meal !== "pm_snack")).map((m) => (
               <tr key={m} className="border-b border-warm-100 last:border-0">
                 <td className="px-3 py-3 font-bold text-warm-600 sticky left-0 bg-white whitespace-nowrap">{MEAL_LABELS[m]}</td>
                 {DAYS.map((d) => {
@@ -886,7 +840,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
 // ═══ ROOT ═══════════════════════════════════════════════════════════════════════
 export default function MenuCyclePage() {
   const searchParams = useSearchParams();
-  const [view, setView] = useState<{ mode: "list" } | { mode: "edit" | "template"; id: string | "new" } | { mode: "loading" }>({ mode: "loading" });
+  const [view, setView] = useState<{ mode: "list" } | { mode: "edit"; id: string | "new" } | { mode: "loading" }>({ mode: "loading" });
   const { user } = useAuth();
   // FSS may VIEW menu cycles but never author them (RND owns writes). Backend already
   // enforces this; here we render a read-only editor so FSS sees no edit affordances.
@@ -918,14 +872,29 @@ export default function MenuCyclePage() {
   if (view.mode === "edit") {
     return <CycleEditor cycleId={view.id} readOnly={readOnly} onBack={() => setView({ mode: "list" })} />;
   }
-  if (view.mode === "template") {
-    return <CycleEditor kind="template" cycleId={view.id} readOnly={readOnly} onBack={() => setView({ mode: "list" })} />;
-  }
   return <CycleList
     readOnly={readOnly}
     onOpen={(id) => setView({ mode: "edit", id })}
     onNew={() => setView({ mode: "edit", id: "new" })}
-    onOpenTemplate={(id) => setView({ mode: "template", id })}
-    onNewTemplate={() => setView({ mode: "template", id: "new" })}
+    onOpenTemplate={() => {}}
+    onNewTemplate={() => {}}
+  />;
+}
+
+export function MenuTemplateDirectory() {
+  const [templateId, setTemplateId] = useState<string | "new" | null>(null);
+  const { user } = useAuth();
+  const readOnly = user?.role === "FSS";
+
+  if (templateId !== null) {
+    return <CycleEditor kind="template" cycleId={templateId} readOnly={readOnly} onBack={() => setTemplateId(null)} />;
+  }
+  return <CycleList
+    mode="templates"
+    readOnly={readOnly}
+    onOpen={() => {}}
+    onNew={() => {}}
+    onOpenTemplate={setTemplateId}
+    onNewTemplate={() => setTemplateId("new")}
   />;
 }

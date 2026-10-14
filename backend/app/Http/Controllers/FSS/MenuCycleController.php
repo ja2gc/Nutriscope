@@ -54,7 +54,6 @@ class MenuCycleController extends Controller
             ->withCount('days')
             ->when($request->filled('date'), fn ($query) => $query->whereKey(MenuCycle::coveringDate($request->string('date')->toString())?->id ?? 0))
             ->when($request->boolean('active'), fn ($query) => $query->where('is_active', true))
-            ->orderByDesc('is_active')
             ->orderByDesc('week_start_date')
             ->orderByDesc('id')
             ->paginate($request->perPage())

@@ -25,7 +25,7 @@ class FoodServiceMenuTemplateSeeder extends Seeder
         $items = FsItem::query()->get()->keyBy('name');
         DB::transaction(function () use ($rnd, $recipes, $items): void {
             foreach ($this->templates() as $name => $definition) {
-                $template = MenuCycleTemplate::updateOrCreate(
+                $template = MenuCycleTemplate::firstOrCreate(
                     ['name' => $name],
                     [
                         'rnd_user_id' => $rnd->id,
@@ -33,10 +33,15 @@ class FoodServiceMenuTemplateSeeder extends Seeder
                         'cycle_days' => 7,
                     ],
                 );
-                $template->days()->delete();
+                if (! $template->wasRecentlyCreated) {
+                    continue;
+                }
 
                 foreach ($definition['plan'] as $day => $plannedItems) {
                     foreach (self::SLOTS as $index => $meal) {
+                        if (($definition['include_snacks'] ?? true) === false && in_array($meal, ['am_snack', 'pm_snack'], true)) {
+                            continue;
+                        }
                         $itemName = $plannedItems[$index];
                         $recipe = $recipes->get($itemName);
                         $item = $items->get($itemName);
@@ -69,10 +74,10 @@ class FoodServiceMenuTemplateSeeder extends Seeder
         };
     }
 
-    /** @return array<string,array{description:string,plan:array<string,list<string>>}> */
+    /** @return array<string,array{description:string,plan:array<string,list<string>>,include_snacks?:bool}> */
     private function templates(): array
     {
-        return [
+        $templates = [
             'Balanced Filipino Hospital Menu' => [
                 'description' => 'Balanced seven-day hospital meal rotation.',
                 'plan' => [
@@ -110,5 +115,12 @@ class FoodServiceMenuTemplateSeeder extends Seeder
                 ],
             ],
         ];
+        $templates['Three Meals Hospital Menu'] = [
+            'description' => 'Seven-day breakfast, lunch, and dinner rotation without snacks.',
+            'plan' => $templates['Balanced Filipino Hospital Menu']['plan'],
+            'include_snacks' => false,
+        ];
+
+        return $templates;
     }
 }

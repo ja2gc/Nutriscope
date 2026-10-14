@@ -26,6 +26,7 @@ class AnnouncementController extends Controller
 
     public function index(PaginatedRequest $request): AnonymousResourceCollection
     {
+        $request->validate(['sort' => ['nullable', 'in:latest']]);
         $user = $request->user();
 
         $announcements = Announcement::query()
@@ -41,7 +42,7 @@ class AnnouncementController extends Controller
                 $query->whereIn('visibility', ['FSS', 'All']);
             })
             ->when($user->role === 'Admin', fn ($query) => $query)
-            ->orderByDesc('pinned')
+            ->when($request->string('sort')->toString() !== 'latest', fn ($query) => $query->orderByDesc('pinned'))
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->paginate($request->perPage())

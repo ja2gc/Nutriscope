@@ -48,10 +48,10 @@ test('mobile screens retain actionable safety and state guidance', () => {
 test('Android release metadata matches the current signed build', () => {
   const appConfig = JSON.parse(read('app.json'));
   const release = JSON.parse(read('release.json'));
-  assert.equal(appConfig.expo.version, '1.2.10');
-  assert.equal(appConfig.expo.android.versionCode, 14);
+  assert.equal(appConfig.expo.version, '1.2.12');
+  assert.equal(appConfig.expo.android.versionCode, 16);
   assert.equal(release.version, appConfig.expo.version);
   assert.equal(release.version_code, appConfig.expo.android.versionCode);
-  assert.equal(release.artifact_url, 'https://expo.dev/artifacts/eas/VS_MXlqvgSaqGUpoUP1603EaNTcYFPsYo3lvJIaEkKk.apk');
-  assert.equal(release.sha256, '79bf47252045221aaed90c64c38bfc0953d8bd755b6349439aa62ccc16a36cda');
+  assert.equal(release.artifact_url, 'https://expo.dev/artifacts/eas/EAzBPjKu2CiU7SK22uDYSANbvesqt_pz3rMTwvFL1qU.apk');
+  assert.equal(release.sha256, '74a26182003793c32c65f93018a807e46040d25c23dcb9aa4d33a97b515a43a1');
 });

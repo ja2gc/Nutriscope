@@ -271,6 +271,9 @@ class DemoSeederCurrentContractTest extends TestCase
 
         $this->seed(FoodServiceDemoSeeder::class);
         $this->seed(FoodServiceMenuTemplateSeeder::class);
+        $editedTemplate = MenuCycleTemplate::where('name', 'Balanced Filipino Hospital Menu')->sole();
+        $editedTemplate->update(['description' => 'Edited by RND']);
+        $editedTemplate->days()->where('meal_type', 'am_snack')->delete();
         $first = $this->foodServiceCounts();
         $this->seed(FoodServiceDemoSeeder::class);
         $this->seed(FoodServiceMenuTemplateSeeder::class);
@@ -278,7 +281,7 @@ class DemoSeederCurrentContractTest extends TestCase
 
         $this->assertSame($first, $second);
         $this->assertSame(3, $second['menu_cycles']);
-        $this->assertSame(3, $second['menu_cycle_templates']);
+        $this->assertSame(4, $second['menu_cycle_templates']);
         $this->assertGreaterThan(0, $second['recipes']);
         $this->assertGreaterThan(0, $second['suppliers']);
         $this->assertGreaterThan(0, $second['shopping_lists']);
@@ -287,9 +290,16 @@ class DemoSeederCurrentContractTest extends TestCase
 
         $this->assertFalse(FoodServiceRecipe::query()->where('name', 'Cooked Rice')->exists());
         foreach (MenuCycleTemplate::query()->with('days.recipe')->get() as $template) {
-            $this->assertSame(35, $template->days->count());
+            $expected = match ($template->name) {
+                'Balanced Filipino Hospital Menu' => 28,
+                'Three Meals Hospital Menu' => 21,
+                default => 35,
+            };
+            $this->assertSame($expected, $template->days->count());
             $this->assertSame(0, $template->days->where('line_order', '>', 1)->count());
         }
+        $this->assertSame('Edited by RND', $editedTemplate->fresh()->description);
+        $this->assertSame(0, MenuCycleTemplate::where('name', 'Three Meals Hospital Menu')->sole()->days()->whereIn('meal_type', ['am_snack', 'pm_snack'])->count());
 
         $this->assertEmpty(MenuCycle::query()->whereNotIn('status', ['completed', 'active', 'upcoming'])->pluck('status'));
         $this->assertEmpty(ShoppingList::query()->whereNotIn('status', ['draft', 'converted'])->pluck('status'));

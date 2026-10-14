@@ -170,6 +170,8 @@ function UploadAttachmentModal({ group, visible, type, onChangeType, onClose }: 
   const qc = useQueryClient();
   const [caption, setCaption] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const maxImages = type === 'receipt' ? 2 : 12;
+  const existingImages = (group?.attachments ?? []).filter((attachment) => attachment.type === type).length;
 
   const uploadMutation = useMutation({
     mutationFn: async (files: { uri: string; name: string; type: string }[]) => {
@@ -203,6 +205,10 @@ function UploadAttachmentModal({ group, visible, type, onChangeType, onClose }: 
   const pickWithPermission = useCallback(
     async (source: 'library' | 'camera') => {
       setError(null);
+      if (existingImages >= maxImages) {
+        setError(`Maximum ${maxImages} ${type === 'receipt' ? 'receipt' : 'proof'} images per vendor.`);
+        return;
+      }
       let assets: ImagePicker.ImagePickerAsset[] = [];
 
       if (source === 'library') {
@@ -216,7 +222,7 @@ function UploadAttachmentModal({ group, visible, type, onChangeType, onClose }: 
           quality: 0.85,
           allowsEditing: false,
           allowsMultipleSelection: true,
-          selectionLimit: 15,
+          selectionLimit: maxImages - existingImages,
         });
         if (result.canceled || !result.assets?.length) return;
         assets = result.assets;
@@ -249,8 +255,8 @@ function UploadAttachmentModal({ group, visible, type, onChangeType, onClose }: 
       const validation = validateUploadFiles(files, {
         maxBytes: 5 * 1024 * 1024,
         allowedTypes: ['image/jpeg', 'image/png', 'image/webp'],
-        maxFiles: 15,
-      });
+        maxFiles: maxImages,
+      }, existingImages);
       if (!validation.valid) {
         setError(validation.error);
         return;
@@ -258,7 +264,7 @@ function UploadAttachmentModal({ group, visible, type, onChangeType, onClose }: 
 
       uploadMutation.mutate(files.map(({ uri, name, type: mimeType }) => ({ uri, name, type: mimeType })));
     },
-    [type, uploadMutation],
+    [type, uploadMutation, existingImages, maxImages],
   );
 
   const close = () => {

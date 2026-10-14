@@ -4,8 +4,8 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { instantiateTemplate, listCycles, listTemplates, getTemplate, saveCycle, saveTemplate, type MenuCycle, type TemplateDetail, type CycleListItem, type TemplateListItem } from "@/services/menuCycleService";
-import MenuCyclePage from "./page";
+import { instantiateTemplate, listCycles, getCycle, listTemplates, getTemplate, saveCycle, saveTemplate, type MenuCycle, type TemplateDetail, type CycleListItem, type TemplateListItem } from "@/services/menuCycleService";
+import MenuCyclePage, { MenuTemplateDirectory } from "./page";
 
 vi.mock("next/navigation", () => ({
   useSearchParams: (() => {
@@ -28,6 +28,7 @@ vi.mock("@/services/menuCycleService", async (importOriginal) => ({
 vi.mock("@/services/consumptionService", () => ({ setServedPopulation: vi.fn(), listServiceLogs: vi.fn().mockResolvedValue([]) }));
 
 const mockListCycles = vi.mocked(listCycles);
+const mockGetCycle = vi.mocked(getCycle);
 const mockListTemplates = vi.mocked(listTemplates);
 const mockGetTemplate = vi.mocked(getTemplate);
 const mockInstantiateTemplate = vi.mocked(instantiateTemplate);
@@ -59,6 +60,7 @@ describe("Menu Cycle template and name editing", () => {
     document.body.append(container);
     root = createRoot(container);
     mockListCycles.mockResolvedValue({ data: [cycle], meta: { ...meta, total: 1 } });
+    mockGetCycle.mockResolvedValue(makeCycle());
     mockListTemplates.mockResolvedValue({ data: [templateSummary], meta: { ...meta, total: 1 } });
     mockGetTemplate.mockResolvedValue(template);
     mockSaveCycle.mockImplementation(async (id, payload) => makeCycle(payload.name ?? "Lunch cycle"));
@@ -84,6 +86,7 @@ describe("Menu Cycle template and name editing", () => {
 
   test("keeps templates outside the Menu Cycle records table", async () => {
     await renderPage();
+    expect(mockListTemplates).not.toHaveBeenCalled();
     expect(container.textContent).toContain("Menu Calendar");
     expect(container.textContent).not.toContain("Menu Cycle");
     const cycleRows = Array.from(container.querySelectorAll("table tbody tr"));
@@ -142,18 +145,31 @@ describe("Menu Cycle template and name editing", () => {
     expect(container.textContent).toContain("Rice");
   });
 
-  test("saves inline Menu Cycle name on blur and shows returned name", async () => {
-    const user = userEvent.setup();
+  test("keeps the menu name read-only in the list and edits it inside the calendar", async () => {
     await renderPage();
     const rename = container.querySelector<HTMLButtonElement>('button[aria-label="Rename Lunch cycle"]');
-    expect(rename).not.toBeNull();
-    await act(async () => { rename?.click(); });
-    const name = container.querySelector<HTMLInputElement>('input[aria-label="Edit menu name"]');
-    if (!name) throw new Error("Inline Menu Cycle name field missing.");
-    await act(async () => { await user.clear(name); await user.type(name, "Dinner cycle"); });
-    await act(async () => { name.blur(); await Promise.resolve(); });
+    expect(rename).toBeNull();
+    expect(container.querySelector<HTMLInputElement>('input[aria-label="Edit menu name"]')).toBeNull();
+    const edit = container.querySelector<HTMLButtonElement>('button[title="Edit"]');
+    await act(async () => { edit?.click(); await Promise.resolve(); });
+    expect(container.querySelector<HTMLInputElement>('input[aria-label="Menu name"]')).not.toBeNull();
+  });
 
-    expect(mockSaveCycle).toHaveBeenCalledWith("cycle-1", { name: "Dinner cycle" });
-    expect(container.textContent).toContain("Dinner cycle");
+  test("template editor hides snack rows and saves three-meal templates", async () => {
+    mockGetTemplate.mockResolvedValue({ ...template, days: template.days });
+    await act(async () => { root.render(<MenuTemplateDirectory />); await Promise.resolve(); });
+    expect(mockListCycles).not.toHaveBeenCalled();
+    const edit = container.querySelector<HTMLButtonElement>('button[aria-label="Edit Rice plan"]');
+    await act(async () => { edit?.click(); await Promise.resolve(); });
+    expect(container.textContent).not.toContain("AM Snack");
+    expect(container.textContent).not.toContain("PM Snack");
+    const toggle = container.querySelector<HTMLInputElement>('input[aria-label="Include snacks"]');
+    expect(toggle?.checked).toBe(false);
+    const save = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
+      .find((candidate) => candidate.textContent?.trim() === "Save");
+    await act(async () => { save?.click(); await Promise.resolve(); });
+    expect(mockSaveTemplate).toHaveBeenCalledWith("template-1", expect.objectContaining({
+      days: [expect.objectContaining({ meal_type: "lunch" })],
+    }));
   });
 });

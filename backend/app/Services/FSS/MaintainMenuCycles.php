@@ -28,7 +28,7 @@ class MaintainMenuCycles
             }
 
             $current = null;
-            for ($offset = 0; $offset <= 4; $offset++) {
+            for ($offset = 0; $offset <= 1; $offset++) {
                 $start = $week->addWeeks($offset)->toDateString();
                 $cycle = MenuCycle::query()->whereDate('week_start_date', $start)
                     ->orderByDesc('id')->first();

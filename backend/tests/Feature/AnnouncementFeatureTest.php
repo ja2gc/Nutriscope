@@ -15,6 +15,26 @@ class AnnouncementFeatureTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_fss_dashboard_can_request_the_two_latest_posts_even_when_an_older_post_is_pinned(): void
+    {
+        $owner = $this->user('RND', 'rnd-latest@example.com');
+        $viewer = $this->user('FSS', 'fss-latest@example.com');
+        foreach ([
+            ['Older pinned', '2026-10-11 09:00:00', true],
+            ['Yesterday', '2026-10-13 09:00:00', false],
+            ['Today', '2026-10-14 09:00:00', false],
+        ] as [$title, $created, $pinned]) {
+            Announcement::forceCreate([
+                'user_id' => $owner->id, 'title' => $title, 'body' => 'Demo announcement.',
+                'category' => 'General', 'visibility' => 'FSS', 'pinned' => $pinned,
+                'created_at' => $created,
+            ]);
+        }
+
+        $response = $this->actingAs($viewer, 'sanctum')->getJson('/api/fss/announcements?sort=latest&per_page=2')->assertOk();
+        $this->assertSame(['Today', 'Yesterday'], array_column($response->json('data'), 'title'));
+    }
+
     public function test_visible_announcement_exposes_and_streams_its_actual_author_photo(): void
     {
         Storage::fake((string) config('filesystems.private_uploads'));

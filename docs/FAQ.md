@@ -216,11 +216,11 @@ No. Current FSS mobile navigation has no Inventory tab or stock add/deduct workf
 
 Auto Grocery items use a measured recipe unit that converts to the Inventory unit: g/kg/oz for weight, or mL/L/cup/tbsp/tsp for liquids. Pieces and packs match only the same unit. Changing Inventory to a compatible unit converts Cost/unit to keep the same price. For an incompatible change, open each affected Food or editable Menu Calendar item from the Inventory list, enter its new quantity and matching unit, then return and save Inventory. Nothing changes until every listed correction is complete. Completed PO snapshots stay as recorded. Every ingredient has a baseline amount that scales with servings. Non-Auto Grocery may use a different recipe unit, such as tbsp, tsp, or pinch, but adds no automatic cost or Shopping List quantity. Add it manually using the Inventory unit when needed. Use the separate **Adjust to taste** checkbox to group seasonings below a note in the Food profile; their measured amounts still scale.
 
-### How do I build a food-service menu cycle?
+### How do I build a Menu Calendar week?
 
-Prepare Inventory and Foods first. Open **Food Service → Menu Cycle** and fill the current Monday–Sunday week, or choose a past or future week and load a template. Save meal recipes or single items in each slot. The current empty week and four future weeks are created automatically; no activation step is needed. A blank name is generated from the date span. Weekly menus and templates contain meals only; bulk rice is added later in the shopping list.
+Prepare Inventory and Foods first. Open **Food Service → Menu Calendar** and fill the current Monday–Sunday week, or choose a past or future week and load a template. Save meal recipes or single items in each slot. Empty calendars for the current and next week are created automatically; an existing plan for next week is reused. A blank name is generated from the date span. Open **Templates** to create or edit reusable weekly grids, including a three-meal template with no snack rows. Bulk rice is added later in the shopping list.
 
-### What is a menu-cycle template?
+### What is a Menu Calendar template?
 
 A reusable saved layout. Loading it copies the menu structure into a dated week; edits to the week do not edit the template. Review the dates and foods before saving.
 
@@ -250,7 +250,7 @@ Review the saved list and select **Turn Into PO**. A warning asks you to confirm
 
 ### Who records OR numbers and receipts?
 
-FSS can enter actual quantity and unit price and upload receipt and proof. RND reviews those details on web Procurement and marks each vendor received. OR number may be recorded when the vendor provides one, but it is optional.
+FSS can enter actual quantity and unit price and upload up to two receipt images and 12 proof-of-purchase images per vendor. RND reviews those details on web Procurement and marks each vendor received. OR number may be recorded when the vendor provides one, but it is optional.
 
 ### When does a food purchase order complete?
 
@@ -336,7 +336,7 @@ It is the explicit daily record for a non-working day and counts toward semi-mon
 
 ### What can I change on a purchase order?
 
-FSS can review planned values and expand calculation details, confirm or correct actual decimal quantity and unit price, upload/delete receipt and proof, and optionally save an OR number. RND marks a vendor received on web Procurement after reviewing those details. Before evidence or receiving, **Change vendor for all** changes the group and row-level **Change vendor** moves one item. Planned quantities, units, and calculated need remain locked.
+FSS can review planned and actual vendor item values, confirm or correct actual decimal quantity and unit price, upload/delete receipt and proof, and optionally save an OR number. The mobile app omits calculation details. RND marks a vendor received on web Procurement after reviewing those details. Before evidence or receiving, **Change vendor for all** changes the group and row-level **Change vendor** moves one item. Planned quantities, units, and calculated need remain locked.
 
 ### Why did uploading a receipt not change the vendor status?
 

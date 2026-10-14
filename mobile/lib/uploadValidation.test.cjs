@@ -28,5 +28,8 @@ test('mobile upload validation enforces batch count including files already sele
     name: `receipt-${index}.jpg`,
   }));
 
-  assert.equal(validateUploadFiles(files, { ...options, maxFiles: 15 }, 14).valid, false);
+  assert.equal(validateUploadFiles(files, { ...options, maxFiles: 2 }, 1).valid, false);
+  assert.equal(validateUploadFiles(files, { ...options, maxFiles: 2 }, 0).valid, true);
+  assert.equal(validateUploadFiles(files, { ...options, maxFiles: 12 }, 10).valid, true);
+  assert.equal(validateUploadFiles(files, { ...options, maxFiles: 12 }, 11).valid, false);
 });

@@ -9,9 +9,11 @@ describe("menu template CRUD", () => {
     const page = readFileSync(join(root, "app", "(rnd)", "food-service", "menu-cycle", "page.tsx"), "utf8");
     const service = readFileSync(join(root, "services", "menuCycleService.ts"), "utf8");
 
+    const directory = readFileSync(join(root, "app", "(rnd)", "food-service", "menu-cycle", "templates", "page.tsx"), "utf8");
+    expect(page).toContain('href="/food-service/menu-cycle/templates"');
+    expect(page).toContain("export function MenuTemplateDirectory");
+    expect(directory).toContain("MenuTemplateDirectory");
     expect(page).toContain("New Template");
-    expect(page).toContain('mode: "template"');
-    expect(page).toContain("onOpenTemplate");
     expect(page).toContain("getTemplate(");
     expect(page).toContain("saveTemplate(");
     expect(page).toContain("Save as Template");
@@ -19,7 +21,6 @@ describe("menu template CRUD", () => {
     expect(page).toContain("loadTemplateIntoDraft");
     expect(page).toContain("gridFromTemplate(template)");
     expect(page).not.toContain("saveCycleAsTemplate");
-    expect(page).toContain("Create plan from template");
     expect(page).toContain("deleteTemplate(");
     expect(service).toContain("export async function saveTemplate");
   });

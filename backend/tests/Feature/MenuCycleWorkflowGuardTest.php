@@ -116,22 +116,22 @@ class MenuCycleWorkflowGuardTest extends TestCase
             ->assertJsonPath('errors.service_date.0', 'No meals are planned for this service date.');
     }
 
-    public function test_listing_cycles_maintains_an_empty_current_week_and_four_future_weeks_idempotently(): void
+    public function test_listing_cycles_maintains_an_empty_current_week_and_one_future_week_idempotently(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-12-29 12:00:00', 'Asia/Manila'));
         try {
             $response = $this->actingAs($this->rnd)->getJson('/api/fss/menu-cycles?per_page=10')->assertOk();
-            $this->assertSame(5, MenuCycle::count());
+            $this->assertSame(2, MenuCycle::count());
             $this->assertSame([
-                '2026-12-28', '2027-01-04', '2027-01-11', '2027-01-18', '2027-01-25',
+                '2026-12-28', '2027-01-04',
             ], MenuCycle::orderBy('week_start_date')->pluck('week_start_date')->map->toDateString()->all());
             $this->assertSame(1, MenuCycle::where('is_active', true)->count());
             $this->assertSame('2026-12-28', MenuCycle::where('is_active', true)->firstOrFail()->week_start_date->toDateString());
             $this->assertNull(MenuCycle::where('is_active', true)->firstOrFail()->cost_snapshot);
-            $this->assertSame(5, count($response->json('data')));
+            $this->assertSame(['2027-01-04', '2026-12-28'], array_column($response->json('data'), 'week_start_date'));
 
             $this->getJson('/api/fss/menu-cycles?per_page=10')->assertOk();
-            $this->assertSame(5, MenuCycle::count());
+            $this->assertSame(2, MenuCycle::count());
         } finally {
             Carbon::setTestNow();
         }
@@ -149,7 +149,33 @@ class MenuCycleWorkflowGuardTest extends TestCase
             $this->assertFalse($past->fresh()->is_active);
             $this->assertSame('completed', $past->fresh()->status);
             $this->assertSame('2027-01-04', MenuCycle::where('is_active', true)->firstOrFail()->week_start_date->toDateString());
-            $this->assertSame(6, MenuCycle::count());
+            $this->assertSame(3, MenuCycle::count());
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_preplanned_next_week_is_reused_and_calendar_lists_latest_week_first(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-14 12:00:00', 'Asia/Manila'));
+        try {
+            $next = MenuCycle::factory()->create([
+                'rnd_user_id' => $this->rnd->id,
+                'name' => 'Already planned',
+                'week_start_date' => '2026-10-19',
+            ]);
+            MenuCycle::factory()->create([
+                'rnd_user_id' => $this->rnd->id,
+                'week_start_date' => '2026-09-28',
+            ]);
+
+            $response = $this->actingAs($this->rnd)->getJson('/api/fss/menu-cycles?per_page=10')->assertOk();
+            $this->assertSame(['2026-10-19', '2026-10-12', '2026-09-28'], array_column($response->json('data'), 'week_start_date'));
+            $this->assertSame($next->id, MenuCycle::whereDate('week_start_date', '2026-10-19')->sole()->id);
+            $this->assertSame('Already planned', $next->fresh()->name);
+
+            $this->getJson('/api/fss/menu-cycles?per_page=10')->assertOk();
+            $this->assertSame(3, MenuCycle::count());
         } finally {
             Carbon::setTestNow();
         }

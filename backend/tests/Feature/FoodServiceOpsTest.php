@@ -86,6 +86,39 @@ class FoodServiceOpsTest extends TestCase
 
     // ===== INVENTORY =====
 
+    public function test_vendor_evidence_limits_include_images_already_uploaded(): void
+    {
+        Storage::fake(config('filesystems.private_uploads'));
+        $po = PurchaseOrder::factory()->create(['rnd_user_id' => $this->rnd->id, 'status' => 'ordered']);
+        $group = $po->vendorGroups()->create([
+            'supplier_id' => $po->supplier_id, 'status' => 'pending', 'total_amount' => 0,
+        ]);
+        $image = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=');
+        $files = fn (int $count): array => array_map(
+            fn (int $index) => UploadedFile::fake()->createWithContent("evidence-{$index}.png", $image),
+            range(1, $count),
+        );
+
+        $this->actingAs($this->fss)->post("/api/fss/purchase-order-vendor-groups/{$group->uuid}/attachments", [
+            'type' => 'receipt', 'files' => $files(2),
+        ])->assertCreated();
+        $this->post("/api/fss/purchase-order-vendor-groups/{$group->uuid}/attachments", [
+            'type' => 'receipt', 'file' => $files(1)[0],
+        ])->assertStatus(422);
+        $this->post("/api/fss/purchase-order-vendor-groups/{$group->uuid}/attachments", [
+            'type' => 'proof', 'files' => $files(12),
+        ])->assertCreated();
+        $this->post("/api/fss/purchase-order-vendor-groups/{$group->uuid}/attachments", [
+            'type' => 'proof', 'file' => $files(1)[0],
+        ])->assertStatus(422);
+        $this->assertSame(14, $group->attachments()->count());
+
+        $this->post("/api/fss/purchase-orders/{$po->uuid}/attachments", [
+            'type' => 'receipt', 'files' => $files(3),
+        ])->assertStatus(422);
+        $this->assertSame(0, $po->attachments()->whereNull('vendor_group_id')->count());
+    }
+
     public function test_retired_stock_columns_are_removed(): void
     {
         $this->assertFalse(Schema::hasColumn('inventory', 'quantity_in_stock'));
@@ -527,13 +560,28 @@ class FoodServiceOpsTest extends TestCase
         }
         $group = $po->vendorGroups()->firstOrFail();
         $line = $group->items()->firstOrFail();
-        $image = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=');
-        foreach (['receipt', 'proof'] as $type) {
+        $canvas = imagecreatetruecolor(360, 480);
+        $background = imagecolorallocate($canvas, 242, 248, 244);
+        $ink = imagecolorallocate($canvas, 24, 78, 54);
+        imagefill($canvas, 0, 0, $background);
+        imagestring($canvas, 5, 30, 40, 'FICTIONAL PURCHASE EVIDENCE', $ink);
+        for ($row = 0; $row < 8; $row++) {
+            imagestring($canvas, 4, 30, 90 + ($row * 35), 'Demo item '.($row + 1).' - paid', $ink);
+        }
+        ob_start();
+        imagepng($canvas);
+        $image = ob_get_clean();
+        imagedestroy($canvas);
+        foreach (['receipt' => 2, 'proof' => 12] as $type => $count) {
             $this->post("/api/fss/purchase-order-vendor-groups/{$group->uuid}/attachments", [
                 'type' => $type,
-                'file' => UploadedFile::fake()->createWithContent("{$type}.png", $image),
+                'files' => array_map(
+                    fn (int $index) => UploadedFile::fake()->createWithContent("{$type}-{$index}.png", $image),
+                    range(1, $count),
+                ),
             ])->assertCreated();
         }
+        $this->assertSame(14, $group->attachments()->count());
         $this->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
             'items' => [['id' => $line->id, 'actual_qty' => 70, 'actual_unit_price' => 5]],
         ])->assertOk();
@@ -602,7 +650,7 @@ class FoodServiceOpsTest extends TestCase
             ->assertJsonPath('data.0.lifecycle_status', 'open_execution');
     }
 
-    public function test_menu_cycle_index_is_active_first_with_per_day_plan_flags(): void
+    public function test_menu_cycle_index_is_latest_first_with_per_day_plan_flags(): void
     {
         $past = MenuCycle::factory()->create([
             'rnd_user_id' => $this->rnd->id,
@@ -629,10 +677,11 @@ class FoodServiceOpsTest extends TestCase
             $cycles = $this->actingAs($this->fss)
                 ->getJson('/api/fss/menu-cycles')
                 ->assertOk()
-                ->assertJsonPath('data.0.id', $active->uuid)
-                ->assertJsonPath('data.0.plan_days.Monday', true)
-                ->assertJsonPath('data.0.plan_days.Tuesday', false)
                 ->json('data');
+            $this->assertSame(['2026-06-15', '2026-06-08', '2026-06-01'], array_column($cycles, 'week_start_date'));
+            $this->assertSame($active->uuid, $cycles[1]['id']);
+            $this->assertTrue($cycles[1]['plan_days']['Monday']);
+            $this->assertFalse($cycles[1]['plan_days']['Tuesday']);
             $this->assertContains($past->uuid, array_column($cycles, 'id'));
         } finally {
             Carbon::setTestNow();

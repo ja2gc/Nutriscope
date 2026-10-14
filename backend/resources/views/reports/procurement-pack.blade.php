@@ -114,23 +114,53 @@
                     'title'    => 'RECEIPTS & PROOF OF PURCHASE',
                     'subtitle' => 'P.O. No: ' . $pack['po']->po_number . ($pack['order_date'] ? ' - ' . $pack['order_date'] : ''),
                 ])
-                <table class="grid" style="margin-top:8px;">
-                    @foreach(array_chunk($pack['attachments'], 2) as $row)
+                @php
+                    $receipts = array_values(array_filter($pack['attachments'], fn ($att) => $att['type'] === 'receipt'));
+                    $proofs = array_values(array_filter($pack['attachments'], fn ($att) => $att['type'] === 'proof'));
+                    $proofCount = count($proofs);
+                    $proofColumns = $proofCount <= 3 ? 1 : ($proofCount <= 6 ? 2 : ($proofCount <= 9 ? 3 : 4));
+                    $proofRows = max(1, (int) ceil($proofCount / $proofColumns));
+                    $proofCellHeight = (int) floor(625 / $proofRows);
+                @endphp
+                @if($receipts)
+                    <div class="section">Receipts</div>
+                    <table class="grid" style="table-layout:fixed;">
                         <tr>
-                            @foreach($row as $att)
-                                <td style="width:50%; height:260px; vertical-align:top;" class="center">
-                                    <div class="bold upper" style="font-size:9px; margin-bottom:4px;">{{ $att['type'] }}{{ $att['caption'] ? ' - ' . $att['caption'] : '' }}</div>
+                            @foreach($receipts as $att)
+                                <td class="center" style="width:{{ 100 / count($receipts) }}%; height:190px; vertical-align:middle;">
+                                    @if($att['caption'])<div class="bold" style="font-size:9px;">{{ $att['caption'] }}</div>@endif
                                     @if($att['src'] && (str_starts_with($att['src'], 'data:image/') || file_exists($att['src'])))
-                                        <img src="{{ $att['src'] }}" style="max-width:100%; max-height:230px;">
+                                        <img src="{{ $att['src'] }}" style="max-width:100%; max-height:165px;">
                                     @else
                                         <span class="muted">[image unavailable]</span>
                                     @endif
                                 </td>
                             @endforeach
-                            @if(count($row) === 1)<td style="width:50%;"></td>@endif
                         </tr>
-                    @endforeach
-                </table>
+                    </table>
+                @endif
+                @if($proofs)
+                    <div class="section">Proof of Purchase</div>
+                    <table class="grid" style="table-layout:fixed;">
+                        @foreach(array_chunk($proofs, $proofColumns) as $row)
+                            <tr>
+                                @foreach($row as $att)
+                                    <td class="center" style="width:{{ 100 / $proofColumns }}%; height:{{ $proofCellHeight }}px; vertical-align:middle;">
+                                        @if($att['caption'])<div class="bold" style="font-size:9px;">{{ $att['caption'] }}</div>@endif
+                                        @if($att['src'] && (str_starts_with($att['src'], 'data:image/') || file_exists($att['src'])))
+                                            <img src="{{ $att['src'] }}" style="max-width:100%; max-height:{{ $proofCellHeight - 22 }}px;">
+                                        @else
+                                            <span class="muted">[image unavailable]</span>
+                                        @endif
+                                    </td>
+                                @endforeach
+                                @for($empty = count($row); $empty < $proofColumns; $empty++)
+                                    <td style="width:{{ 100 / $proofColumns }}%; height:{{ $proofCellHeight }}px; border:0;"></td>
+                                @endfor
+                            </tr>
+                        @endforeach
+                    </table>
+                @endif
             </div>
         @endif
     @empty

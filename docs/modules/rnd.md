@@ -180,7 +180,7 @@ This resolves the old module note claiming the Foods route was not wired.
 
 ### Menu Cycles
 
-RND can create, edit, delete, save, activate, template, and instantiate Monday-anchored weekly cycles. Menu templates are full records: RND may open, edit, rename, delete, or load one into a new cycle. Loading copies its structure without changing the template. A blank cycle name is generated from its date span. A cell may contain multiple ordered meal lines, each backed by a recipe or single food-service item. Weekly menus and seeded templates contain meals only; the catalog keeps bulk **Rice** in kilograms for manual addition to a generated draft shopping list. Before procurement generation a line profile shows baseline recipe values and no purchase estimate.
+RND edits Monday-anchored Menu Calendar weeks. The current week and next week are created automatically; an existing plan is reused. The list sorts newest week first. RND edits a week's name inside its calendar editor. **Menu Calendar → Templates** contains reusable grids that RND may create, view, edit, rename, and delete. A template may omit both snack rows; loading copies its structure without changing the template. A blank week name is generated from its date span. A cell may contain multiple ordered meal lines, each backed by a recipe or single food-service item. The catalog keeps bulk **Rice** in kilograms for manual addition to a generated draft shopping list. Before procurement generation a line profile shows baseline recipe values and no purchase estimate.
 
 FSS sees active/saved cycles read-only but may record actual served population.
 
@@ -200,6 +200,7 @@ The review keeps calculated requirements read-only while purchase quantity, sele
 Food and supplies remain separate procurement tracks, but related event lists can share the same purpose name. Conversion freezes included quantities, units, calculations, and relevant menu snapshots. Before a vendor group has evidence or is received, RND/FSS may use **Change vendor for all** outside the item table or row-level **Change vendor** for one item. This corrects the actual vendor without reopening the shopping list. RND then follows optional OR numbers, receipt/proof attachments, actual decimal quantities/prices, served-day progress, totals, corrections, and activity.
 
 Each vendor requires reviewed actual values, receipt, proof, and explicit receiving; OR number is optional. Suggested-food completion additionally requires served population for all covered dates. Manual food and supplies do not require population.
+Each vendor can have up to two receipt images and 12 proof-of-purchase images. The Procurement Pack places receipts above a count-based proof grid on one appendix page per vendor.
 
 Procurement packs read all frozen PO rows, so manual additions to a suggested list and items from a fully manual list remain included in the vendor documents and totals.
 

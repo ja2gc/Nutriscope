@@ -107,12 +107,12 @@ The Daily Log view shows one self-scoped record for the selected date. It defaul
 
 FSS sees existing POs and vendor groups. For an open PO, FSS can:
 
-- review planned values, with calculated/planned/actual details available on request;
+- review planned and actual vendor item values without calculation details in the mobile app;
 - confirm or correct actual quantity (including decimals) and actual unit price;
 - change the vendor for the whole group or one item before evidence is uploaded;
 - optionally save `or_number`;
-- upload receipt images;
-- upload proof-of-purchase images;
+- upload up to two receipt images per vendor;
+- upload up to 12 proof-of-purchase images per vendor;
 - add captions;
 - view or delete attachments while unlocked;
 - send the saved actual values and evidence to RND for vendor-received confirmation on web Procurement.

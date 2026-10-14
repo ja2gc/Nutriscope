@@ -72,9 +72,11 @@ test('PO detail exposes lifecycle and vendor evidence without item calculations'
   }
 });
 
-test('dashboard stays compact with one announcement action and no decorative icons', () => {
+test('dashboard shows two latest announcements compactly without decorative icons', () => {
   const dashboard = read('app/(tabs)/index.tsx');
-  assert.match(dashboard, /View announcement/);
+  assert.match(dashboard, /per_page: 2, sort: 'latest'/);
+  assert.match(dashboard, /latestAnnouncements\.map/);
+  assert.match(dashboard, /View image/);
   assert.match(dashboard, /Next action/);
   assert.match(dashboard, /flex-row gap-3/);
   assert.doesNotMatch(dashboard, /<Bell|<Pin|<ShoppingBag|<CalendarDays|<ClipboardList/);

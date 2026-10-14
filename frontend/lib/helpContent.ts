@@ -358,7 +358,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Food Library & Food Service",
     question: "How do I plan a Menu Calendar week?",
-    answer: "Open the current Monday–Sunday week, fill meal slots, and save. The empty current week and four future weeks are created automatically. You can also fill a past week or load a template. The purchase estimate is entered once later when generating a suggested shopping list.",
+    answer: "Open the current Monday–Sunday week, fill meal slots, and save. Empty calendars for the current and next week are created automatically. You can also fill a past week or load a template. The purchase estimate is entered once later when generating a suggested shopping list.",
     keywords: ["week", "meal slots", "population"],
   },
   {

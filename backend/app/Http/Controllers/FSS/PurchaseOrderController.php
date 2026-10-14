@@ -543,6 +543,11 @@ class PurchaseOrderController extends Controller
                 if (in_array($purchaseOrder->lifecycle_status, ['completed', 'archived'], true)) {
                     abort(422, 'Completed purchase orders are locked.');
                 }
+                $this->ensureAttachmentRoom(
+                    $purchaseOrder->attachments()->whereNull('vendor_group_id')->where('type', $request->input('type'))->count(),
+                    count($files),
+                    (string) $request->input('type'),
+                );
                 $before = $this->revisionRegistry->capture($purchaseOrder);
                 $attachments = collect($files)->map(function ($file) use ($purchaseOrder, $request, &$storedPaths) {
                     $storedObject = $this->attachmentStorage->store($file);
@@ -620,6 +625,11 @@ class PurchaseOrderController extends Controller
                     if (in_array($lockedPo->lifecycle_status, ['completed', 'archived'], true)) {
                         abort(422, 'Completed purchase orders are locked.');
                     }
+                    $this->ensureAttachmentRoom(
+                        $vendorGroup->attachments()->where('type', $request->input('type'))->count(),
+                        count($files),
+                        (string) $request->input('type'),
+                    );
                     $attachments = collect($files)->map(function ($file) use ($vendorGroup, $request, &$storedPaths) {
                         $storedObject = $this->attachmentStorage->store($file);
                         $storedPaths[] = $storedObject;
@@ -767,6 +777,13 @@ class PurchaseOrderController extends Controller
                 $poId,
             );
         });
+    }
+
+    private function ensureAttachmentRoom(int $existing, int $incoming, string $type): void
+    {
+        $limit = $type === 'receipt' ? 2 : 12;
+        abort_if($existing + $incoming > $limit, 422,
+            $type === 'receipt' ? 'Maximum 2 receipt images per vendor.' : 'Maximum 12 proof images per vendor.');
     }
 
     /** @param array<int, string> $ordinaryFields */
