@@ -18,6 +18,7 @@ use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\RecoveryEmailController;
+use App\Http\Controllers\FSS\AccomplishmentPeriodController;
 use App\Http\Controllers\FSS\BudgetController;
 use App\Http\Controllers\FSS\DashboardController as FssDashboardController;
 use App\Http\Controllers\FSS\DietListCountController;
@@ -134,6 +135,9 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
 });
 
 Route::middleware(['auth:sanctum', 'active', 'role:RND'])->prefix('rnd')->group(function () use ($reportRoutes) {
+    Route::get('accomplishment-periods/to-review', [AccomplishmentPeriodController::class, 'toReview']);
+    Route::post('accomplishment-periods/{report}/approve', [AccomplishmentPeriodController::class, 'approve']);
+    Route::post('accomplishment-periods/{report}/reject', [AccomplishmentPeriodController::class, 'reject']);
     Route::get('ncp-appointments/dashboard', [NcpAppointmentController::class, 'upcoming']);
     Route::get('ncp-appointments/active', [NcpAppointmentController::class, 'active']);
     Route::get('patients/{patient}/appointments', [NcpAppointmentController::class, 'index']);
@@ -242,6 +246,12 @@ Route::middleware(['auth:sanctum', 'active', 'role:RND'])->prefix('rnd')->group(
 });
 
 Route::middleware(['auth:sanctum', 'active', 'role:FSS,RND'])->prefix('fss')->group(function () use ($reportRoutes) {
+    Route::middleware('role:FSS')->group(function () {
+        Route::get('accomplishment-periods', [AccomplishmentPeriodController::class, 'index']);
+        Route::get('accomplishment-periods/{start}', [AccomplishmentPeriodController::class, 'show']);
+        Route::post('accomplishment-periods/{start}/submit', [AccomplishmentPeriodController::class, 'submit']);
+        Route::post('accomplishment-periods/{start}/withdraw', [AccomplishmentPeriodController::class, 'withdraw']);
+    });
     // Dashboard
     Route::get('dashboard/summary', [FssDashboardController::class, 'summary']);
 

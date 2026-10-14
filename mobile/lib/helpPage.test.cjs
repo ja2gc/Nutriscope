@@ -54,8 +54,8 @@ test('mobile Help uses reusable accessible search and disclosures', () => {
 test('APK build identity is incremented', () => {
   const appConfig = JSON.parse(read('app.json'));
 
-  assert.equal(appConfig.expo.version, '1.2.9');
-  assert.equal(appConfig.expo.android.versionCode, 13);
+  assert.equal(appConfig.expo.version, '1.2.10');
+  assert.equal(appConfig.expo.android.versionCode, 14);
   assert.deepEqual(appConfig.expo.platforms, ['android', 'ios']);
   assert.deepEqual(appConfig.expo.android.blockedPermissions, ['android.permission.RECORD_AUDIO']);
 });

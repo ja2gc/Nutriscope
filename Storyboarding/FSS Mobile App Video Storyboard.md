@@ -84,13 +84,13 @@ Use this as both the recording checklist and narration script. The main recordin
 
 1. Open **Home**.
 2. Show **Meals to log today** and **Pending POs**.
-3. Point out the **Active Menu Cycle** card.
+3. Point out the **This week's menu** card.
 4. Show a waiting reason such as **Needs receipts** or **Needs served population**, if available.
 5. Scroll to today's service rows and Announcements.
 
 **Narration**
 
-> Home gives a short view of work that needs attention. Staff can see the active weekly menu, pending purchases, whether today's number of people served has been recorded, and current announcements. If no menu is active, the app tells FSS to contact RND because only RND can create or activate the weekly menu.
+> Home shows the current dated menu, pending purchases, served population, and announcements. The current week appears even before RND fills its meal slots. If no menu covers a selected date, FSS contacts RND.
 
 **Expected result:** The viewer understands the day's priorities and the six primary tabs: Home, Announcement, Menu, Meal Prep, Accomplish, and Purchase.
 
@@ -207,24 +207,24 @@ Use this as both the recording checklist and narration script. The main recordin
 
 ## Scene 9 — View and Save a Semi-monthly Accomplishment Report
 
-**Purpose:** Open the signed-in staff member's semi-monthly report and save its PDF.
+**Purpose:** Complete a semi-monthly period, submit it for RND review, and open the approved PDF.
 
-**Before this scene:** Refer to **Scene 8 — Complete Today's or a Missed Daily Log**. Reports update progressively for each semi-monthly period.
+**Before this scene:** Refer to **Scene 8 — Complete Today's or a Missed Daily Log**. Save one entry for every date, including Off duty days, after the period ends.
 
 **On-screen actions**
 
 1. Inside **Accomplish**, switch to **My Reports**.
-2. Use **Search accomplishment reports** if multiple demo reports exist.
-3. Open one semi-monthly report.
-4. Review the saved day 1–15 or day 16–month-end report table.
-5. Select **View PDF** and confirm the day 1–15 or day 16–month-end table fits on one readable A4 landscape page without clipping, then use **Download PDF** to show the folder picker without exposing unrelated apps or recipients.
-6. Return to the report list.
+2. Open the period and show the saved-day count and each date's status. Tap a date to return to its Daily Log.
+3. Submit the complete past period. Show that Daily Log becomes read-only.
+4. Withdraw while RND review is pending, correct a date, and submit again.
+5. After RND rejection, read the reason, correct the requested date, and resubmit. After approval, show the locked period.
+6. Open the approved report from the period or Saved PDFs. Use **View PDF** and **Download PDF** and inspect the readable semi-monthly table.
 
 **Narration**
 
-> My Reports shows only the signed-in staff member's accomplishment reports and divides a long list into manageable pages. Reports update progressively for the current semi-monthly period. Daily Log uses two numeric fields, starts on Today, and allows earlier dates. View PDF and Download PDF use the same saved report file and layout as the website, so mobile does not generate a separate design.
+> My Reports shows each semi-monthly period's progress and status. Only a complete past period can be submitted. Withdrawal or rejection permits correction; approval locks daily logs and the submitted PDF. Earlier generated reports remain available under Saved PDFs. Mobile opens the same stored PDF reviewed by RND.
 
-**Expected result:** Only the demo FSS user's reports are visible, and the selected PDF opens after the app confirms the signed-in account.
+**Expected result:** Only the demo FSS user's periods and PDFs are visible, and approval leaves the submitted PDF unchanged.
 
 ## Scene 10 — Use Notifications, Help, Account Tools, and Updates
 
@@ -268,13 +268,12 @@ Use this as both the recording checklist and narration script. The main recordin
 
 ## Optional Exception Captures
 
-- **No active menu:** show the instruction to contact RND.
-- **Outside the active cycle:** choose a planned date or contact RND.
+- **No menu for date:** choose a planned date or contact RND.
 - **Upload permission denied:** show the safe camera/library permission message.
 - **Incomplete receiving:** show the missing actual values or evidence that RND needs before marking the vendor received.
 - **Backdated accomplishment:** show the warning and **Today** recovery action.
 - **Network failure:** show **Retry** rather than an empty list.
-- **No reports yet:** show the message explaining that a semi-monthly report appears after the first saved Daily Log.
+- **Incomplete period:** show saved-day count and missing dates before submission.
 - **Update available:** show the version comparison and **Open download page**.
 
 ## Closing Shot

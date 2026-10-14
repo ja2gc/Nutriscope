@@ -57,9 +57,9 @@ export const MEAL_LABELS: Record<string, string> = {
   breakfast: 'Breakfast', am_snack: 'AM Snack', lunch: 'Lunch', pm_snack: 'PM Snack', dinner: 'Dinner',
 };
 
-export async function listMenuCycles(page: number, active = false): Promise<PaginatedResponse<MenuCycle>> {
+export async function listMenuCycles(page: number, active = false, date?: string): Promise<PaginatedResponse<MenuCycle>> {
   const res = await api.get<PaginatedResponse<MenuCycle>>('/api/fss/menu-cycles', {
-    params: { page, per_page: active ? 1 : MOBILE_PAGE_SIZE, ...(active ? { active: 1 } : {}) },
+    params: { page, per_page: active || date ? 1 : MOBILE_PAGE_SIZE, ...(active ? { active: 1 } : {}), ...(date ? { date } : {}) },
   });
   return res.data;
 }

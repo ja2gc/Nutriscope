@@ -65,7 +65,8 @@ class ReportBrowser
             // ── period axis: accomplishment report (FSS §4) ──────────────────
             'accomplishment_report' => fn () => new PeriodInstanceSource(
                 fn () => DietListCount::query()
-                    ->when(Auth::user()?->role === 'FSS', fn ($q) => $q->where('fss_user_id', Auth::id())),
+                    ->when(Auth::user()?->role === 'FSS', fn ($q) => $q->where('fss_user_id', Auth::id()))
+                    ->when(Auth::user()?->role !== 'FSS', fn ($q) => $q->visibleToReportReviewers()),
                 'service_date',
                 semiMonthly: true,
             ),

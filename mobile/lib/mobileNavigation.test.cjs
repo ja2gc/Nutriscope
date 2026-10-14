@@ -88,7 +88,7 @@ test('unresolved action notifications keep a visible disabled dismiss control', 
   assert.doesNotMatch(notifications, /\{item\.dismissible && <TouchableOpacity/);
 });
 
-test('report details prepare current PDF and expose view/download actions', () => {
+test('report details use saved PDF and expose view/download actions', () => {
   const screen = fs.readFileSync(path.join(root, 'components', 'ReportsScreen.tsx'), 'utf8');
   const reports = fs.readFileSync(path.join(root, 'lib', 'reports.ts'), 'utf8');
   const rootLayout = fs.readFileSync(path.join(root, 'app', '_layout.tsx'), 'utf8');
@@ -100,9 +100,9 @@ test('report details prepare current PDF and expose view/download actions', () =
   assert.match(screen, /onPress: \(\) => pdfAction\.mutate\(action\)/);
   assert.match(screen, /pdfAction\.variables === 'view'/);
   assert.match(screen, /pdfAction\.variables === 'download'/);
-  assert.match(reports, /reportDownloadPath\(current\.id\)/);
-  assert.match(reports, /preparedReport/);
-  assert.match(reports, /accomplishment_report\/prepare/);
+  assert.match(reports, /reportDownloadPath\(report\.id\)/);
+  assert.match(reports, /getAccomplishmentPeriod/);
+  assert.doesNotMatch(reports, /accomplishment_report\/prepare/);
   assert.match(reports, /Authorization: `Bearer \$\{token\}`/);
   assert.match(reports, /StorageAccessFramework/);
   assert.match(reports, /IntentLauncher\.startActivityAsync/);

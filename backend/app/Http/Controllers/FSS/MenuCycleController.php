@@ -47,10 +47,12 @@ class MenuCycleController extends Controller
 
     public function index(PaginatedRequest $request): AnonymousResourceCollection
     {
+        $request->validate(['date' => ['nullable', 'date_format:Y-m-d']]);
         $this->maintainMenuCycles->handle();
 
         $cycles = MenuCycle::with('days')
             ->withCount('days')
+            ->when($request->filled('date'), fn ($query) => $query->whereKey(MenuCycle::coveringDate($request->string('date')->toString())?->id ?? 0))
             ->when($request->boolean('active'), fn ($query) => $query->where('is_active', true))
             ->orderByDesc('is_active')
             ->orderByDesc('week_start_date')
@@ -72,9 +74,6 @@ class MenuCycleController extends Controller
         $data['week_start_date'] = ! empty($data['week_start_date'])
             ? Carbon::parse($data['week_start_date'])->toDateString()
             : now('Asia/Manila')->startOfWeek(Carbon::MONDAY)->toDateString();
-        if (MenuCycle::query()->whereDate('week_start_date', $data['week_start_date'])->exists()) {
-            return response()->json(['message' => 'A menu already exists for this week. Open it to make changes.'], 409);
-        }
         $data['name'] = filled($data['name'] ?? null)
             ? $data['name']
             : MenuCycle::defaultName($data['week_start_date']);
@@ -82,6 +81,9 @@ class MenuCycleController extends Controller
         $data['status'] = $data['status'] ?? 'upcoming';
 
         $cycle = $this->audited(function () use ($data, $days): MenuCycle {
+            MaintainMenuCycles::lockCreationOwner();
+            abort_if(MenuCycle::query()->whereDate('week_start_date', $data['week_start_date'])->exists(),
+                409, 'A menu already exists for this week. Open it to make changes.');
             $cycle = $this->auditLogger->withoutModelEvents(fn () => DB::transaction(function () use ($data, $days) {
                 $cycle = MenuCycle::create($data);
                 if ($days !== null) {
@@ -247,13 +249,6 @@ class MenuCycleController extends Controller
             }
         }
 
-        if (isset($data['week_start_date'])
-            && $data['week_start_date'] !== $menuCycle->week_start_date?->toDateString()
-            && MenuCycle::query()->whereDate('week_start_date', $data['week_start_date'])
-                ->where('id', '!=', $menuCycle->id)->exists()) {
-            return response()->json(['message' => 'A menu already exists for this week. Open it to make changes.'], 409);
-        }
-
         if ($days !== null && $this->structuralDaysLocked($menuCycle)) {
             return response()->json([
                 'message' => 'Active or snapshotted menu cycles cannot change menu day structure.',
@@ -261,6 +256,13 @@ class MenuCycleController extends Controller
         }
 
         $this->audited(function () use ($menuCycle, $data, $days): void {
+            if (isset($data['week_start_date'])
+                && $data['week_start_date'] !== $menuCycle->week_start_date?->toDateString()) {
+                MaintainMenuCycles::lockCreationOwner();
+                abort_if(MenuCycle::query()->whereDate('week_start_date', $data['week_start_date'])
+                    ->where('id', '!=', $menuCycle->id)->exists(),
+                    409, 'A menu already exists for this week. Open it to make changes.');
+            }
             $beforeValues = $this->auditValues($menuCycle);
             $revisionEligible = $days !== null
                 || array_key_exists('week_start_date', $data)

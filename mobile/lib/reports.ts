@@ -30,10 +30,38 @@ export interface Report {
   title: string;
   type: string;
   status: string;
+  review_state?: 'approved' | null;
   generated_at: string | null;
   created_at: string;
   snapshot: { accomplishment?: AccomplishmentSnapshot } | null;
   parameters: Record<string, unknown> | null;
+}
+
+export interface AccomplishmentPeriod {
+  start: string;
+  end: string;
+  expected_days: number;
+  saved_days: number;
+  status: 'draft' | 'pending' | 'rejected' | 'approved';
+  report_id: string | null;
+  submission_version: number;
+  rejection_reason: string | null;
+  days: { date: string; logged: boolean; off_duty: boolean }[];
+}
+
+export async function listAccomplishmentPeriods(): Promise<AccomplishmentPeriod[]> {
+  const res = await api.get<{ data: AccomplishmentPeriod[] }>('/api/fss/accomplishment-periods');
+  return res.data.data;
+}
+
+export async function getAccomplishmentPeriod(start: string): Promise<AccomplishmentPeriod> {
+  const res = await api.get<{ data: AccomplishmentPeriod }>(`/api/fss/accomplishment-periods/${start}`);
+  return res.data.data;
+}
+
+export async function changeAccomplishmentPeriod(start: string, action: 'submit' | 'withdraw'): Promise<AccomplishmentPeriod> {
+  const res = await api.post<{ data: AccomplishmentPeriod }>(`/api/fss/accomplishment-periods/${start}/${action}`);
+  return res.data.data;
 }
 
 /** FSS sees only their own accomplishment reports (backend-scoped). */
@@ -49,16 +77,6 @@ export async function getReport(id: string): Promise<Report> {
   return res.data.data;
 }
 
-async function preparedReport(report: Report): Promise<Report> {
-  const start = String(report.parameters?.start ?? report.snapshot?.accomplishment?.from ?? '');
-  const end = String(report.parameters?.end ?? report.snapshot?.accomplishment?.to ?? '');
-  if (!start || !end) throw new Error('This report has no period information.');
-  const refreshed = await api.post<{ data: Report }>('/api/fss/reports/accomplishment_report/prepare', {
-    ...(report.parameters ?? {}), start, end,
-  });
-  return refreshed.data.data;
-}
-
 async function fetchReportPdf(report: Report): Promise<{ uri: string; filename: string }> {
   const start = String(report.parameters?.start ?? report.snapshot?.accomplishment?.from ?? '');
   const end = String(report.parameters?.end ?? report.snapshot?.accomplishment?.to ?? '');
@@ -68,9 +86,8 @@ async function fetchReportPdf(report: Report): Promise<{ uri: string; filename: 
   if (!token || !FileSystem.cacheDirectory) throw new Error('Please sign in again.');
   const destination = `${FileSystem.cacheDirectory}nutriscope-accomplishment-${start}-${end}.pdf`;
   const headers = { Authorization: `Bearer ${token}`, Accept: 'application/pdf' };
-  const current = await preparedReport(report);
   const result = await FileSystem.downloadAsync(
-    absoluteApiUrl(String(api.defaults.baseURL ?? ''), reportDownloadPath(current.id)),
+    absoluteApiUrl(String(api.defaults.baseURL ?? ''), reportDownloadPath(report.id)),
     destination,
     { headers },
   );

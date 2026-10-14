@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight, Download, Eye, FileText } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
@@ -11,10 +11,11 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AccomplishmentSnapshot, Report, downloadReportPdf, getReport, listReports, viewReportPdf } from '../lib/reports';
+import { AccomplishmentSnapshot, AccomplishmentPeriod, Report, changeAccomplishmentPeriod, downloadReportPdf, getAccomplishmentPeriod, getReport, listAccomplishmentPeriods, listReports, viewReportPdf } from '../lib/reports';
 import { PaginatedListFooter } from './PaginatedListFooter';
 import { SearchInput } from './SearchInput';
 import { flattenUniquePages, getNextPageParam } from '../lib/pagination';
+import { localDateKey } from '../lib/localDate';
 
 function fmtDate(d: string): string {
   return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -135,9 +136,42 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
   );
 }
 
-export default function ReportsScreen({ embedded = false }: { embedded?: boolean }) {
+function PeriodDetail({ start, onBack, onEditDay, onOpenReport }: { start: string; onBack: () => void; onEditDay: (date: string) => void; onOpenReport: (id: string) => void }) {
+  const queryClient = useQueryClient();
+  const { data: period, isLoading, isError, refetch } = useQuery({ queryKey: ['fss-accomplishment-period', start], queryFn: () => getAccomplishmentPeriod(start) });
+  const action = useMutation({
+    mutationFn: (kind: 'submit' | 'withdraw') => changeAccomplishmentPeriod(start, kind),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['fss-accomplishment-period', start] }),
+        queryClient.invalidateQueries({ queryKey: ['fss-accomplishment-periods'] }),
+        queryClient.invalidateQueries({ queryKey: ['fss-reports'] }),
+      ]);
+    },
+    onError: (error: any) => Alert.alert('Could not update period', error?.response?.data?.message ?? 'Refresh and try again.'),
+  });
+
+  return <ScrollView className="flex-1 bg-gray-50" contentContainerStyle={{ padding: 16, paddingBottom: 96 }}>
+    <TouchableOpacity onPress={onBack} className="min-h-12 flex-row items-center gap-2" accessibilityRole="button" accessibilityLabel="Back to periods"><ChevronLeft color="#087F5B" size={20} /><Text className="font-bold text-[#087F5B]">Periods</Text></TouchableOpacity>
+    {isLoading ? <ActivityIndicator color="#087F5B" /> : isError || !period ? <TouchableOpacity onPress={() => refetch()} className="min-h-12 rounded-xl bg-white p-4"><Text>Could not load period. Tap to retry.</Text></TouchableOpacity> : <>
+      <View className="rounded-2xl border border-gray-200 bg-white p-4"><Text className="text-lg font-extrabold text-[#16352B]">{fmtDate(period.start)} – {fmtDate(period.end)}</Text><Text className="mt-1 text-sm text-gray-600">{period.saved_days}/{period.expected_days} days logged · {period.status === 'draft' ? 'In progress' : period.status === 'pending' ? 'Submitted for review' : period.status === 'rejected' ? 'Needs correction' : 'Approved'}</Text></View>
+      {period.rejection_reason && <View className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4"><Text className="font-bold text-amber-900">Reason for correction</Text><Text className="mt-1 text-sm text-amber-900">{period.rejection_reason}</Text></View>}
+      <View className="mt-3 overflow-hidden rounded-2xl border border-gray-200 bg-white">{period.days.map((day) => <TouchableOpacity key={day.date} onPress={() => onEditDay(day.date)} className="min-h-14 flex-row items-center justify-between gap-3 border-b border-gray-100 px-4 py-2" accessibilityRole="button" accessibilityLabel={`${fmtDate(day.date)}, ${day.logged ? day.off_duty ? 'off duty log saved' : 'log saved' : 'no log'}, open daily log`}><Text className="font-semibold text-gray-800">{fmtDate(day.date)}</Text><Text className={`text-sm ${day.logged ? 'text-emerald-700' : 'text-amber-700'}`}>{day.logged ? day.off_duty ? 'Off duty' : 'Saved' : 'Missing'}</Text></TouchableOpacity>)}</View>
+      {(period.status === 'draft' || period.status === 'rejected') && <TouchableOpacity onPress={() => action.mutate('submit')} disabled={action.isPending || period.saved_days !== period.expected_days || period.end >= localDateKey()} className={`mt-4 min-h-12 items-center justify-center rounded-xl ${action.isPending || period.saved_days !== period.expected_days || period.end >= localDateKey() ? 'bg-gray-300' : 'bg-[#087F5B]'}`} accessibilityRole="button"><Text className="font-bold text-white">Submit for review</Text></TouchableOpacity>}
+      {(period.status === 'draft' || period.status === 'rejected') && period.saved_days !== period.expected_days && <Text className="mt-2 text-sm text-gray-600">Save a log for every day before submitting.</Text>}
+      {(period.status === 'draft' || period.status === 'rejected') && period.end >= localDateKey() && <Text className="mt-2 text-sm text-gray-600">You can submit after this period ends.</Text>}
+      {period.status === 'pending' && <TouchableOpacity onPress={() => action.mutate('withdraw')} disabled={action.isPending} className="mt-4 min-h-12 items-center justify-center rounded-xl border border-amber-700 bg-white" accessibilityRole="button"><Text className="font-bold text-amber-800">Withdraw submission</Text></TouchableOpacity>}
+      {(period.status === 'pending' || period.status === 'approved') && period.report_id && <TouchableOpacity onPress={() => onOpenReport(period.report_id!)} className="mt-3 min-h-12 items-center justify-center rounded-xl border border-emerald-700 bg-white" accessibilityRole="button"><Text className="font-bold text-emerald-700">View submitted report</Text></TouchableOpacity>}
+      {action.isPending && <ActivityIndicator className="mt-3" color="#087F5B" />}
+    </>}
+  </ScrollView>;
+}
+
+export default function ReportsScreen({ embedded = false, onEditDay }: { embedded?: boolean; onEditDay?: (date: string) => void }) {
   const insets = useSafeAreaInsets();
   const [openId, setOpenId] = useState<string | null>(null);
+  const [openPeriod, setOpenPeriod] = useState<string | null>(null);
+  const periodsQuery = useQuery({ queryKey: ['fss-accomplishment-periods'], queryFn: listAccomplishmentPeriods });
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   useEffect(() => {
@@ -153,22 +187,7 @@ export default function ReportsScreen({ embedded = false }: { embedded?: boolean
   const data = flattenUniquePages(pages?.pages);
 
   if (openId != null) return <ReportDetail id={openId} onBack={() => setOpenId(null)} />;
-
-  if (isLoading) {
-    return <View className="flex-1 items-center justify-center bg-gray-50"><ActivityIndicator size="large" color="#059669" /></View>;
-  }
-
-  if (isError) {
-    return (
-      <View className="flex-1 items-center justify-center bg-gray-50 px-6">
-        <FileText color="#ef4444" size={40} />
-        <Text className="mt-3 text-gray-700 text-base font-medium">Could not load reports</Text>
-        <TouchableOpacity className="mt-5 bg-emerald-600 px-6 py-3 rounded-lg" onPress={() => refetch()}>
-          <Text className="text-white font-semibold">Retry</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  if (openPeriod != null && onEditDay) return <PeriodDetail start={openPeriod} onBack={() => setOpenPeriod(null)} onEditDay={onEditDay} onOpenReport={setOpenId} />;
 
   return (
     <FlatList
@@ -176,7 +195,14 @@ export default function ReportsScreen({ embedded = false }: { embedded?: boolean
       data={data}
       keyExtractor={(r: Report) => String(r.id)}
       contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + (embedded ? 80 : 16), flexGrow: 1 }}
-      ListHeaderComponent={<View className="mb-4"><SearchInput label="Search accomplishment reports" value={search} onChangeText={setSearch} loading={isFetching && search.trim() !== debouncedSearch} /></View>}
+      ListHeaderComponent={<View className="mb-4">
+        <Text className="mb-3 text-base font-extrabold text-[#16352B]">Semi-monthly periods</Text>
+        {periodsQuery.isLoading ? <ActivityIndicator color="#087F5B" /> : periodsQuery.isError ? <TouchableOpacity onPress={() => periodsQuery.refetch()} className="min-h-12 justify-center rounded-xl bg-white px-4"><Text className="text-red-700">Could not load periods. Tap to retry.</Text></TouchableOpacity> : periodsQuery.data?.length ? periodsQuery.data.map((period: AccomplishmentPeriod) => <TouchableOpacity key={period.start} onPress={() => setOpenPeriod(period.start)} className="mb-2 min-h-16 flex-row items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white p-4" accessibilityRole="button" accessibilityLabel={`${fmtDate(period.start)} to ${fmtDate(period.end)}, ${period.saved_days} of ${period.expected_days} days logged, ${period.status}`}><View className="flex-1"><Text className="font-bold text-gray-900">{fmtDate(period.start)} – {fmtDate(period.end)}</Text><Text className="mt-1 text-sm text-gray-600">{period.saved_days}/{period.expected_days} days logged · {period.status}</Text></View><ChevronRight color="#087F5B" size={20} /></TouchableOpacity>) : <Text className="rounded-xl bg-white p-4 text-sm text-gray-600">No periods yet.</Text>}
+        <Text className="mb-3 mt-6 text-base font-extrabold text-[#16352B]">Saved PDFs</Text>
+        <SearchInput label="Search saved reports" value={search} onChangeText={setSearch} loading={isFetching && search.trim() !== debouncedSearch} />
+        {isLoading && <ActivityIndicator className="mt-3" color="#087F5B" />}
+        {isError && <TouchableOpacity onPress={() => refetch()} className="mt-3 min-h-12 justify-center rounded-xl border border-red-200 bg-white px-4"><Text className="text-red-700">Could not load saved PDFs. Tap to retry.</Text></TouchableOpacity>}
+      </View>}
       renderItem={({ item }) => {
         const period = item.snapshot?.accomplishment?.period_label
           ?? (item.parameters?.start && item.parameters?.end
@@ -195,7 +221,7 @@ export default function ReportsScreen({ embedded = false }: { embedded?: boolean
               {period ? <Text className="text-[11px] text-gray-400 mt-0.5">{period}</Text> : null}
             </View>
             <View className="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 mr-2">
-              <Text className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-700">{item.status}</Text>
+              <Text className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-700">{item.review_state === 'approved' ? 'Approved' : 'Earlier report'}</Text>
             </View>
             <ChevronRight color="#9ca3af" size={18} />
           </TouchableOpacity>
@@ -204,15 +230,15 @@ export default function ReportsScreen({ embedded = false }: { embedded?: boolean
       onEndReached={() => { if (hasNextPage && !isFetchingNextPage) void fetchNextPage(); }}
       onEndReachedThreshold={0.4}
       ListFooterComponent={<PaginatedListFooter loading={isFetchingNextPage} error={isFetchNextPageError} onRetry={() => void fetchNextPage()} />}
-      ListEmptyComponent={
+      ListEmptyComponent={!isLoading && !isError ?
         <View className="items-center justify-center py-20">
           <FileText color="#d1d5db" size={40} />
-          <Text className="mt-4 text-gray-400 text-sm text-center">{debouncedSearch ? 'No matching reports.' : 'No accomplishment reports yet.'}</Text>
+          <Text className="mt-4 text-gray-400 text-sm text-center">{debouncedSearch ? 'No matching reports.' : 'No saved PDFs yet.'}</Text>
           <Text className="mt-1 text-gray-400 text-xs text-center px-8">
-            Your semi-monthly report appears after the first saved daily log.
+            Submitted and earlier reports appear here.
           </Text>
         </View>
-      }
+      : null}
     />
   );
 }

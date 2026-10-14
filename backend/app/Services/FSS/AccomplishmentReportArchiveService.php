@@ -14,14 +14,22 @@ class AccomplishmentReportArchiveService
         private readonly PrepareSavedReport $prepare,
     ) {}
 
-    public function preparePeriod(User $user, string $serviceDate): ?Report
+    /** @return array{0: string, 1: string} */
+    public static function periodBounds(string $serviceDate): array
+    {
+        $date = Carbon::parse($serviceDate);
+        $start = $date->copy()->startOfMonth()->addDays($date->day > 15 ? 15 : 0)->toDateString();
+        $end = $date->day <= 15 ? $date->copy()->startOfMonth()->day(15)->toDateString() : $date->copy()->endOfMonth()->toDateString();
+
+        return [$start, $end];
+    }
+
+    public function preparePeriod(User $user, string $serviceDate, bool $freeze = false): ?Report
     {
         if ($user->role !== 'FSS') {
             return null;
         }
-        $date = Carbon::parse($serviceDate);
-        $start = $date->copy()->startOfMonth()->addDays($date->day > 15 ? 15 : 0)->toDateString();
-        $end = $date->day <= 15 ? $date->copy()->startOfMonth()->day(15)->toDateString() : $date->copy()->endOfMonth()->toDateString();
+        [$start, $end] = self::periodBounds($serviceDate);
         $params = [
             'start' => $start,
             'end' => $end,
@@ -30,6 +38,7 @@ class AccomplishmentReportArchiveService
             'fss_user_id' => $user->id,
             'prepared_by_name' => $user->display_name,
             'auto_generated' => true,
+            'review_workflow' => 1,
         ];
         $report = null;
         $existing = Report::query()
@@ -37,11 +46,15 @@ class AccomplishmentReportArchiveService
             ->where('type', 'accomplishment_report')
             ->where('parameters->start', $start)
             ->where('parameters->end', $end)
+            ->whereNotNull('review_state')
             ->first();
+        if (in_array($existing?->review_state, ['pending', 'approved'], true)) {
+            return $existing;
+        }
         try {
             // Current-period auto copies stay refreshable as each daily entry is saved.
             // Explicitly prepared/filed reports use the action's immutable default.
-            $report = $this->prepare->execute($user, 'accomplishment_report', $params, freeze: false);
+            $report = $this->prepare->execute($user, 'accomplishment_report', $params, freeze: $freeze);
 
             return $report->fresh();
         } catch (\Throwable $exception) {

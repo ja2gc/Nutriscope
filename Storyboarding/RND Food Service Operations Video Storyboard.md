@@ -26,8 +26,8 @@ Use this as both the recording checklist and narration script. Create every name
 
 ## Recording Setup
 
-- Pick a future Monday-to-Sunday week that is not already covered by a menu cycle.
-- Use future dates in the current fiscal year (budget year) and confirm that its budget exists.
+- Find the latest planned Monday-to-Sunday week and choose the next unplanned week after it. A missed past week uses the same workflow.
+- Confirm a budget exists for the selected procurement dates' fiscal year.
 - Prepare two small receipt/proof image files for each vendor shown.
 - Use two roles: RND on the website and FSS in the native mobile app.
 - Suggested record names below use `Demo Video` so they are easy to remove after recording.
@@ -77,27 +77,25 @@ Use this as both the recording checklist and narration script. Create every name
 
 ## Scene 3 — Create and Reuse a Weekly Menu
 
-**Purpose:** Place the saved recipe into a weekly plan and save that structure for reuse.
+**Purpose:** Load an existing weekly template into the next unplanned week and replace one meal with the newly saved recipe.
 
 **Before this scene:** Refer to **Scene 2 — Create a Recipe and Its Standard Serving Size** for the recipe used in the menu.
 
 **On-screen actions**
 
-1. Open **Food Service → Menu Cycle** and create a new cycle.
-2. Choose the prepared Monday as the week start and enter **Demo Video Weekly Menu** as its name.
-3. Assign **Demo Video Chicken Stew** and, where useful, a second meal line to at least one slot on every date included in the purchase. Fill all required days so the menu can be activated and used to make a shopping list. Do not add rice as a weekly-menu line.
+1. Open **Food Service → Menu Cycle** and inspect the latest dated plan. Choose the next unplanned Monday–Sunday week after it; open the automatically created week if present.
+2. Choose **Templates**, open an existing weekly template, and load it into that week's Menu Plan.
+3. Replace one template meal with **Demo Video Chicken Stew**. Keep at least one planned meal on Tuesday, Wednesday, and Thursday. Do not add rice as a weekly-menu line.
 4. Open one slot before generating a shopping list. Show **Purchase estimate: Not set**, baseline quantities, and preparation notes.
-5. Choose **Save as Template** and name it **Demo Video Weekly Template**. Show that this saves a template without adding a Menu Cycle record.
-6. Choose **Templates**, view the saved template, and load it into the current Menu Plan draft.
-7. Save the Menu Plan, then activate the cycle.
-8. Return to the Menu Cycle list. Use the pencil beside the cycle name, edit it, and leave the field to show that the saved name updates without a separate Save action.
-9. Create another future Menu Plan, load **Demo Video Weekly Template** through **Templates**, change one slot, and save. Show that the reusable template remains separate and unchanged. Delete only a disposable template if demonstrating Delete.
+5. Save the Menu Plan. Return to the list and confirm its Monday–Sunday dates. The menu becomes current automatically when that week arrives.
+6. Use the pencil beside the menu name, edit it, and leave the field to show the saved name updates.
+7. Reopen the original template and confirm it still contains its original meal.
 
 **Narration**
 
-> A weekly menu can be created manually or loaded from a saved template. Templates stay in their own list. Saving a plan as a template does not create a Menu Cycle record. The **Templates** action lets staff view a template and load its menu into the current draft. Saving the plan creates the cycle; activation remains separate. A slot can contain more than one ordered meal line. The pencil beside a cycle name saves the new name when staff leave the field. Weekly menus show meals only; bulk rice is handled later in the shopping-list draft. Before a shopping list is generated, the food profile shows the recipe's standard quantities because no purchase estimate has been entered yet.
+> The current empty week and four future weeks are maintained automatically. RND can load an existing template, replace a meal, and save the dated plan without changing the template. The applicable week follows the service date automatically. A slot can contain more than one ordered meal line. Weekly menus show meals only; bulk rice is handled later in the shopping-list draft. The purchase estimate is entered later and does not change baseline recipe amounts.
 
-**Expected result:** The weekly menu is saved, available as a reusable template, and active for its selected dates.
+**Expected result:** The next weekly menu is saved with the new recipe and the original template remains unchanged.
 
 ## Scene 4 — Make a Food Shopping List from the Menu
 
@@ -109,7 +107,7 @@ Use this as both the recording checklist and narration script. Create every name
 
 1. Open **Food Service → Procurement → Food Shopping Lists**.
 2. Choose **Suggest from Menu**.
-3. Select only the fully planned date span.
+3. Select Tuesday through Thursday of the newly saved week.
 4. Enter one estimated serving count, for example **120**, for the whole span.
 5. Enter a shopping-list name before generating it.
 6. Generate the list.
@@ -249,9 +247,11 @@ Use this as both the recording checklist and narration script. Create every name
 2. Show completed vendor evidence, confirmed actual totals, served population, and **Food purchase cost per served patient-day**.
 3. Open **Food Service → Budget** and show the PO deduction in the fiscal-year budget history and the updated remaining balance.
 4. Open **Reports**, choose a month and year in Browse, and preview the **Procurement Pack** purchase report and **Program Project Activity** report for the new PO. Show the same month and year dropdowns in Archived. Reports appear when any part of their covered period overlaps the selected month; lists show newest first.
-   Confirm their header and signatories reflect the report template configuration captured when the PO completed. A Menu Calendar captures its template configuration when its menu cycle is created; active linked menu data may still change before archiving.
+   Confirm their header and signatories reflect the report template configuration captured when the PO completed. A Menu Calendar captures its template configuration when the week is created; the generated PO locks that week's planned menu.
 5. Point out actual quantities/prices, evidence, optional OR shown as **Not provided**, and final status.
 6. If previewing an unfinished manual list/PO, point out the visible draft/incomplete banner.
+7. In **Reports → Accomplishment Report → To Review**, open a submitted FSS period, review its dates and PDF, and approve it. If correction is needed, reject it with a reason of up to 500 characters; the FSS can correct and resubmit it.
+8. In **Food Service → Budget**, create a clearly labeled **Manual Adjustment** with its type, amount, and reason, then confirm the new ledger row and balance. Keep the PO deduction as its own entry.
 
 **Narration**
 

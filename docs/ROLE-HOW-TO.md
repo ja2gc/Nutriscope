@@ -113,11 +113,11 @@ Verified against current navigation and server permissions on **2026-09-08**. Fo
 #### C. Menu Cycle
 
 1. Open **Food Service → Menu Cycle**.
-2. Create a cycle or instantiate a template.
+2. Open the current empty week or choose the next unplanned week and load a template.
 3. Set the week and add one or more ordered meal recipes/items to each slot. Leave the name blank to use the date-span name. Keep bulk rice out of the menu itself.
 4. Review baseline ingredients and preparation notes; the purchase estimate is set later for the whole shopping span.
 5. Save; optionally save as template. Add bulk **Rice** in kilograms later through the generated shopping-list draft's existing add-item control; an empty search recommends it first.
-6. Activate the approved cycle so FSS can execute it.
+6. The current week applies by date automatically, even while empty. Four future weeks are maintained. Once a PO is generated for a planned week, its menu is read-only.
 
 #### D. Procurement
 
@@ -151,11 +151,12 @@ Verified against current navigation and server permissions on **2026-09-08**. Fo
 1. Open **Reports → Browse**.
 2. Choose Food Service or Clinical report type.
 3. For **Patients NCP** under Clinical, choose the patient, choose one ADIME cycle, then open only the reports filed under that cycle.
-4. For other report types, select the record/period and open live preview.
-5. Validate data and branding.
-6. Download live output when appropriate, or **Archive** to freeze the formally filed copy.
-7. Use **Archived** to view/download frozen copies and activity history.
-8. Use **Template Edit** to maintain report branding/signatories when authorized.
+4. For other report types, select the record/period and open live preview. For Accomplishment Report, use **To Review** to inspect a submitted FSS period and its PDF, then approve or reject it with a required reason of up to 500 characters.
+5. Find approved and earlier generated accomplishment reports in **Reports**; unsubmitted logs are not available to RND.
+6. Validate data and branding.
+7. Download live output when appropriate, or **Archive** to freeze the formally filed copy.
+8. Use **Archived** to view/download frozen copies and activity history.
+9. Use **Template Edit** to maintain report branding/signatories when authorized.
 
 ### 7. Help, Notifications, Settings, and Profile
 
@@ -170,7 +171,7 @@ Verified against current navigation and server permissions on **2026-09-08**. Fo
 
 1. Open **Home** after signing in.
 2. Check **Meals to log today** and **Pending POs**.
-3. Open the active menu-cycle card.
+3. Open **This week's menu** to review the plan for today's service date.
 4. Review each pending PO's **Needs receipts** or **Needs served population** status.
 5. Review today's service and announcements.
 
@@ -195,8 +196,8 @@ Verified against current navigation and server permissions on **2026-09-08**. Fo
 3. Select the other five duties completed.
 4. If off duty, enable that switch; the report records an X.
 5. Choose **Save today's log** or **Save past log**, depending on the selected date.
-6. Saving the same date updates the existing entry and its semi-monthly report.
-7. Open **My reports** to view, download, or open your own semi-monthly PDFs.
+6. Saving the same date updates the existing entry until its period is submitted or approved.
+7. Open **My Reports** to check period progress. Save every date, including off-duty days, then submit a completed past period. Withdraw while pending to edit; after rejection, read RND's reason, correct the dates, and resubmit. Approval locks the logs and makes the PDF available to view or download.
 
 ### 5. Purchase
 
@@ -264,7 +265,7 @@ Verified against current navigation and server permissions on **2026-09-08**. Fo
 ### 5. Reports and Budget Oversight
 
 1. Open **Reports** for Program Project Activity, Menu Calendar, Procurement Pack, and Accomplishment PDFs, or the aggregate Demographic Census year/month screen.
-2. Preview live data; archive only approved as-filed copies.
+2. Preview permitted data; Accomplishment Report shows approved new periods and earlier generated reports. Admin does not receive a review queue.
 3. Do not seek Nutrition Intervention Plan or NCP Summary; server access is blocked for Admin.
 4. Open **Budget** to inspect fiscal-year summary, ledger, and history in read-only mode.
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
   FileText, CalendarRange, CalendarDays, PackageCheck,
@@ -20,6 +20,8 @@ import {
   ReportItem, ReportTemplate, Branding, ReportAxis, ReportInstance, ReportBrandingRevision, ReportTemplateRevision,
   listReports, unarchiveReport, getReportArchiveSettings, setReportArchiveSettings, reportDownloadUrl, reportViewUrl,
   listInstances, prepareReport, archiveReport,
+  listAccomplishmentsToReview, decideAccomplishment,
+  type AccomplishmentReview,
    getBranding, saveBranding, getAdminBranding, saveAdminBranding, brandingLogoUrl, brandingHistoryLogoUrl,
    listBrandingHistory, listTemplateHistory, listTemplates, saveTemplate,
 } from "@/services/reportService";
@@ -28,6 +30,8 @@ import { PatientsNcpTab } from "@/components/reports/PatientsNcpTab";
 import { CensusPanel } from "@/components/reports/CensusPanel";
 import { ImageFilePicker } from "@/components/ui/ImageFilePicker";
 import { InfoHint } from "@/components/ui/InfoHint";
+import { CharacterCountTextarea } from "@/components/ui/CharacterCountTextarea";
+import { personDisplayName } from "@/lib/personName";
 
 const inp = "w-full px-3 py-2 text-base border border-warm-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500";
 const lbl = "block text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1";
@@ -227,9 +231,86 @@ function BrowseTab({
         ? <PatientsNcpTab />
         : selected.type === "demographic_census" && apiPrefix !== "fss"
           ? <CensusPanel apiPrefix={apiPrefix} />
+          : selected.type === "accomplishment_report"
+            ? <AccomplishmentReportsPanel apiPrefix={apiPrefix} onFlash={onFlash} />
           : <InstancesPanel key={selected.type} entry={selected} apiPrefix={apiPrefix} onFlash={onFlash} />}
     </div>
   );
+}
+
+function AccomplishmentReportsPanel({ apiPrefix, onFlash }: { apiPrefix: ApiPrefix; onFlash: (ok: boolean, msg: string) => void }) {
+  const [view, setView] = useState<"reports" | "review">("reports");
+  const [reports, setReports] = useState<ReportItem[]>([]);
+  const [queue, setQueue] = useState<AccomplishmentReview[]>([]);
+  const [selected, setSelected] = useState<AccomplishmentReview | null>(null);
+  const [preview, setPreview] = useState<ReportItem | null>(null);
+  const [reason, setReason] = useState("");
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState<PaginationMeta | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const reviewRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { if (selected) reviewRef.current?.focus(); }, [selected]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      if (view === "review" && apiPrefix === "rnd") {
+        setQueue(await listAccomplishmentsToReview());
+      } else {
+        const result = await listReports(apiPrefix, page, { type: "accomplishment_report" });
+        setReports(result.data);
+        setMeta(result.meta);
+      }
+    } catch (error) {
+      onFlash(false, error instanceof Error ? error.message : "Could not load reports.");
+    } finally { setLoading(false); }
+  }, [apiPrefix, onFlash, page, view]);
+  useEffect(() => { void load(); }, [load]);
+
+  async function decide(decision: "approve" | "reject") {
+    if (!selected || (decision === "reject" && !reason.trim())) return;
+    setBusy(true);
+    try {
+      await decideAccomplishment(selected.report_id, selected.submission_version, decision, reason.trim());
+      setSelected(null);
+      setReason("");
+      setQueue(await listAccomplishmentsToReview());
+      onFlash(true, decision === "approve" ? "Submission approved." : "Submission returned for correction.");
+    } catch (error) {
+      onFlash(false, error instanceof Error ? error.message : "Could not save review. Refresh and try again.");
+      await load();
+    } finally { setBusy(false); }
+  }
+
+  return <Card className="min-w-0 overflow-hidden">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-warm-100 px-4 py-4 sm:px-5">
+      <div><h2 className="font-bold text-warm-800">Accomplishment Report</h2><p className="text-sm text-warm-500">Semi-monthly reports from Food Service Staff</p></div>
+      {apiPrefix === "rnd" && <div className="flex gap-2" aria-label="Accomplishment views">
+        {(["reports", "review"] as const).map((key) => <button key={key} type="button" onClick={() => { setView(key); setSelected(null); setPage(1); }} aria-current={view === key} className={`min-h-11 rounded-lg px-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-emerald-600 ${view === key ? "bg-emerald-700 text-white" : "bg-warm-50 text-warm-700"}`}>{key === "review" ? "To Review" : "Reports"}</button>)}
+      </div>}
+    </div>
+    {loading ? <p className="px-5 py-10 text-sm text-warm-500">Loading…</p> : view === "review" && apiPrefix === "rnd" ? (
+      queue.length === 0 ? <div className="p-6"><EmptyState title="No submissions to review" message="Submitted periods appear here." /></div> :
+      <ul className="divide-y divide-warm-100">{queue.map((item) => <li key={item.report_id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-5">
+        <div className="min-w-0"><p className="break-words font-semibold text-warm-800">{item.fss_user.display_name}</p><p className="text-sm text-warm-600">{item.start} to {item.end}</p><p className="text-xs text-warm-500">Submitted {reportDate(item.submitted_at)}</p></div>
+        <button type="button" onClick={() => { setSelected(item); setReason(""); }} className="min-h-11 rounded-lg bg-emerald-700 px-4 text-sm font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">Review</button>
+      </li>)}</ul>
+    ) : reports.length === 0 ? <div className="p-6"><EmptyState title="No reports yet" message="Approved reports and earlier generated reports appear here." /></div> :
+      <><ul className="divide-y divide-warm-100">{reports.map((report) => <li key={report.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-5">
+        <div className="min-w-0"><p className="break-words font-semibold text-warm-800">{personDisplayName(report.created_by, "Food Service Staff")}</p><p className="text-sm text-warm-600">{report.report_covered_until ? `Through ${reportCalendarDate(report.report_covered_until)}` : report.title}</p></div>
+        <button type="button" onClick={() => setPreview(report)} className="min-h-11 rounded-lg border border-emerald-700 px-4 text-sm font-semibold text-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">View report</button>
+      </li>)}</ul><div className="px-4 py-3"><Pagination meta={meta} page={page} onPageChange={setPage} /></div></>
+    }
+    {selected && <div ref={reviewRef} tabIndex={-1} className="border-t border-warm-200 bg-warm-50 p-4 sm:p-5 focus:outline-2 focus:outline-emerald-700" aria-label="Review submission">
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-bold text-warm-800">{selected.fss_user.display_name}</h3><p className="text-sm text-warm-600">{selected.start} to {selected.end}</p></div><button type="button" onClick={() => setSelected(null)} className="min-h-11 px-2 text-sm text-warm-600">Close</button></div>
+      <a href={reportViewUrl(selected.report_id, "rnd")} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-emerald-700 px-4 text-sm font-semibold text-emerald-700">View submitted PDF</a>
+      <div className="mt-4 max-w-xl"><label htmlFor="accomplishment-rejection-reason" className="mb-1 block text-sm font-semibold text-warm-700">Reason for rejection</label><CharacterCountTextarea id="accomplishment-rejection-reason" value={reason} onChange={setReason} maxLength={500} rows={4} className={inp} /></div>
+      <div className="mt-4 flex flex-wrap gap-2"><Button type="button" onClick={() => void decide("approve")} disabled={busy}>Approve</Button><Button type="button" variant="secondary" onClick={() => void decide("reject")} disabled={busy || !reason.trim()}>Reject</Button></div>
+    </div>}
+    {preview && <ReportPreview title={preview.title} src={reportViewUrl(preview.id, apiPrefix)} downloadUrl={reportDownloadUrl(preview.id, apiPrefix)} onClose={() => setPreview(null)} />}
+  </Card>;
 }
 
 function InstancesPanel({

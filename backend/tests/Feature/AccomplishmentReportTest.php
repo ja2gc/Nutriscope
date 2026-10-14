@@ -237,10 +237,8 @@ class AccomplishmentReportTest extends TestCase
         $this->seedCount($this->fss1, '2026-06-10', ['helped_food_prep' => true]);
         $before = Report::count();
 
-        $prepared = $this->actingAs($this->fss1)
-            ->postJson('/api/fss/reports/accomplishment_report/prepare', ['start' => '2026-06-10', 'end' => '2026-06-10'])
-            ->assertOk();
-        $res = $this->get('/api/fss/reports/'.$prepared->json('data.id').'/view')->assertOk();
+        $report = app(AccomplishmentReportArchiveService::class)->preparePeriod($this->fss1, '2026-06-10');
+        $res = $this->actingAs($this->fss1)->get('/api/fss/reports/'.$report->uuid.'/view')->assertOk();
 
         $this->assertSame('application/pdf', $res->headers->get('Content-Type'));
         $this->assertStringStartsWith('%PDF', $res->streamedContent());
@@ -251,7 +249,7 @@ class AccomplishmentReportTest extends TestCase
     {
         $this->actingAs($this->fss1)
             ->postJson('/api/fss/reports/accomplishment_report/prepare', ['start' => '2099-01-01', 'end' => '2099-01-31'])
-            ->assertNotFound();
+            ->assertStatus(409);
     }
 
     public function test_instances_list_only_populated_semi_monthly_periods(): void
@@ -295,8 +293,7 @@ class AccomplishmentReportTest extends TestCase
             ->json('data');
 
         $labels = collect($data['instances'])->pluck('label')->all();
-        $this->assertContains('June 1–15, 2026', $labels);
-        $this->assertContains('May 1–15, 2026', $labels, 'RND must see all FSS staff periods');
+        $this->assertSame([], $labels, 'RND only sees submitted or legacy periods.');
     }
 
     public function test_prepare_normalizes_accomplishment_range_to_one_half_month(): void
@@ -304,14 +301,7 @@ class AccomplishmentReportTest extends TestCase
         $rnd = User::factory()->create(['role' => 'RND']);
         $this->seedCount($this->fss1, '2026-06-20');
 
-        $response = $this->actingAs($rnd)
-            ->postJson('/api/rnd/reports/accomplishment_report/prepare', [
-                'start' => '2026-06-16',
-                'end' => '2026-06-30',
-            ])
-            ->assertOk();
-
-        $report = Report::query()->where('uuid', $response->json('data.id'))->firstOrFail();
+        $report = app(AccomplishmentReportArchiveService::class)->preparePeriod($this->fss1, '2026-06-20');
         $this->assertSame('2026-06-16', $report->parameters['start']);
         $this->assertSame('2026-06-30', $report->parameters['end']);
         $this->assertCount(15, (new AccomplishmentReportGenerator)->data($report)['days']);
@@ -324,7 +314,7 @@ class AccomplishmentReportTest extends TestCase
 
         $this->actingAs($rnd)
             ->postJson('/api/rnd/reports/accomplishment_report/prepare', ['start' => '2026-06-10', 'end' => '2026-06-10'])
-            ->assertOk();
+            ->assertStatus(409);
     }
 
     public function test_rnd_index_sees_fss_filed_accomplishment_reports(): void
@@ -422,13 +412,9 @@ class AccomplishmentReportTest extends TestCase
         Storage::fake('public');
         $this->seedCount($this->fss1, '2026-06-10');
 
-        $prepared = $this->actingAs($this->fss1, 'sanctum')
-            ->postJson('/api/fss/reports/accomplishment_report/prepare', [
-                'start' => '2026-06-10',
-                'end' => '2026-06-10',
-            ])
-            ->assertOk();
-        $this->postJson('/api/fss/reports/'.$prepared->json('data.id').'/archive')->assertOk();
+        $report = app(AccomplishmentReportArchiveService::class)->preparePeriod($this->fss1, '2026-06-10');
+        $this->actingAs($this->fss1, 'sanctum')
+            ->postJson('/api/fss/reports/'.$report->uuid.'/archive')->assertStatus(409);
 
         $report = Report::query()->where('user_id', $this->fss1->id)->latest('id')->firstOrFail();
         $this->assertSame('Alice Reyes', $report->parameters['prepared_by_name']);
@@ -519,10 +505,8 @@ class AccomplishmentReportTest extends TestCase
     public function test_missing_prepared_pdf_is_rebuilt_for_view_and_download(): void
     {
         $this->seedCount($this->fss1, '2026-06-10', ['helped_food_prep' => true]);
-        $prepared = $this->actingAs($this->fss1)
-            ->postJson('/api/fss/reports/accomplishment_report/prepare', ['start' => '2026-06-10', 'end' => '2026-06-10'])
-            ->assertOk();
-        $report = Report::where('uuid', $prepared->json('data.id'))->firstOrFail();
+        $report = app(AccomplishmentReportArchiveService::class)->preparePeriod($this->fss1, '2026-06-10');
+        $this->actingAs($this->fss1);
         Storage::disk('report_cache')->delete($report->cache_path);
 
         $view = $this->get('/api/fss/reports/'.$report->uuid.'/view')->assertOk();
@@ -537,10 +521,8 @@ class AccomplishmentReportTest extends TestCase
     public function test_expired_active_pdf_refreshes_current_data_without_filing_official_bytes(): void
     {
         $this->seedCount($this->fss1, '2026-06-10', ['helped_food_prep' => true]);
-        $prepared = $this->actingAs($this->fss1)
-            ->postJson('/api/fss/reports/accomplishment_report/prepare', ['start' => '2026-06-10', 'end' => '2026-06-10'])
-            ->assertOk();
-        $report = Report::where('uuid', $prepared->json('data.id'))->firstOrFail();
+        $report = app(AccomplishmentReportArchiveService::class)->preparePeriod($this->fss1, '2026-06-10');
+        $this->actingAs($this->fss1);
         $beforeHash = $report->content_hash;
         $report->update(['cache_expires_at' => now()->subMinute()]);
         DietListCount::where('fss_user_id', $this->fss1->id)

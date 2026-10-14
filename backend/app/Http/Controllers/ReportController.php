@@ -95,6 +95,8 @@ class ReportController extends Controller
             $query->where('user_id', Auth::id());
         }
         $query->where('type', '!=', 'demographic_census');
+        $query->where(fn ($visible) => $visible->where('type', '!=', 'accomplishment_report')
+            ->orWhereNull('review_state')->orWhere('review_state', 'approved'));
 
         // FSS may only see accomplishment_report rows (fss.md §8).
         if ($role === 'FSS') {
@@ -386,6 +388,7 @@ class ReportController extends Controller
 
     public function prepare(PrepareReportRequest $request, string $type, ReportService $reports, ReportBrowser $browser, PrepareSavedReport $prepare): JsonResponse
     {
+        abort_if($type === 'accomplishment_report', 409, 'Submit the period through My Reports.');
         $this->rejectCensusPdf($type);
         abort_unless($reports->supports($type) && $browser->supports($type), 404, 'Unknown report type.');
         $this->guardClinical($type);
@@ -407,6 +410,7 @@ class ReportController extends Controller
     public function archivePrepared(Report $report, StoredObjectStorage $storedObjects): JsonResponse
     {
         $this->authorizeReportAccess($report);
+        $this->guardReviewedAccomplishment($report);
         $this->guardAdmin($report->type);
         $this->guardFss($report->type);
         abort_if(in_array($report->type, self::CLINICAL_TYPES, true), 403, 'Clinical reports are not archived separately.');
@@ -451,6 +455,7 @@ class ReportController extends Controller
     public function unarchive(Report $report): JsonResponse
     {
         $this->authorizeReportAccess($report);
+        $this->guardReviewedAccomplishment($report);
         $this->guardAdmin($report->type);
         $this->guardFss($report->type);
         abort_if(in_array($report->type, self::CLINICAL_TYPES, true), 403, 'Clinical reports are not archived separately.');
@@ -508,6 +513,7 @@ class ReportController extends Controller
             && Storage::disk($diskName)->exists($path);
 
         if (((($report->status === 'archived' || ($report->snapshot['was_archived'] ?? false)) && ! $cacheUsable)
+            || in_array($report->review_state, ['pending', 'approved'], true)
             || $report->hasFinalizedPurchaseOrderFile())
             && ($officialFile = $report->officialFile)) {
             if (! Storage::disk($officialFile->storage_disk)->exists($officialFile->object_key)) {
@@ -564,6 +570,7 @@ class ReportController extends Controller
             && Storage::disk($diskName)->exists($path);
 
         if (((($report->status === 'archived' || ($report->snapshot['was_archived'] ?? false)) && ! $cacheUsable)
+            || in_array($report->review_state, ['pending', 'approved'], true)
             || $report->hasFinalizedPurchaseOrderFile())
             && ($officialFile = $report->officialFile)) {
             if (! Storage::disk($officialFile->storage_disk)->exists($officialFile->object_key)) {
@@ -611,6 +618,7 @@ class ReportController extends Controller
     public function destroy(Report $report): JsonResponse
     {
         $this->authorizeReportAccess($report);
+        $this->guardReviewedAccomplishment($report);
         $this->rejectCensusPdf($report->type);
         $this->guardClinical($report->type);
         $this->guardAdmin($report->type);
@@ -879,6 +887,13 @@ class ReportController extends Controller
 
     private function authorizeReportAccess(Report $report): void
     {
+        if ($report->type === 'accomplishment_report' && $report->review_state !== null) {
+            if (Auth::user()?->role === 'Admin') {
+                abort_unless($report->review_state === 'approved', 403);
+            } elseif (Auth::user()?->role === 'RND') {
+                abort_unless(in_array($report->review_state, ['pending', 'approved'], true), 403);
+            }
+        }
         if (Auth::user()?->role === 'RND') {
             return;
         }
@@ -888,6 +903,12 @@ class ReportController extends Controller
         }
 
         abort_unless($report->user_id === Auth::id(), 403, 'This action is unauthorized.');
+    }
+
+    private function guardReviewedAccomplishment(Report $report): void
+    {
+        abort_if($report->type === 'accomplishment_report' && $report->review_state !== null,
+            409, 'Use the accomplishment period workflow for this report.');
     }
 
     private function applyReportContext(Report $report, string $type, array $parameters): void
@@ -906,7 +927,8 @@ class ReportController extends Controller
     {
         $actor = Auth::user();
         $parameters = $report->parameters;
-        if ($actor === null || ! is_array($parameters) || $report->status === 'archived' || ($report->snapshot['was_archived'] ?? false)) {
+        if ($actor === null || ! is_array($parameters) || $report->status === 'archived' || ($report->snapshot['was_archived'] ?? false)
+            || in_array($report->review_state, ['pending', 'approved'], true)) {
             return null;
         }
 

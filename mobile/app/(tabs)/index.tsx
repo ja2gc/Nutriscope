@@ -202,22 +202,19 @@ export default function DashboardScreen() {
             className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3.5 flex-row items-center"
             onPress={() => router.push('/(tabs)/menu')}
             accessibilityRole="button"
-            accessibilityLabel="Open active menu cycle"
+            accessibilityLabel="Open this week's menu"
             activeOpacity={0.8}
           >
             <View className="w-9 h-9 rounded-full bg-emerald-100 items-center justify-center mr-3">
               <CalendarDays color="#059669" size={18} />
             </View>
             <View className="flex-1">
-              <Text className="text-xs text-emerald-600 font-medium uppercase tracking-wide">Active Menu Cycle</Text>
+              <Text className="text-xs text-emerald-600 font-medium uppercase tracking-wide">This week's menu</Text>
               <Text className="text-sm font-semibold text-gray-800 mt-0.5" numberOfLines={1}>
                 {data.active_cycle.name}
               </Text>
               <Text className="text-xs text-gray-500 mt-0.5">
-                {data.active_cycle.service_day_count} service day{data.active_cycle.service_day_count !== 1 ? 's' : ''} per week
-                {data.active_cycle.activation_date
-                  ? ` · started ${new Date(data.active_cycle.activation_date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })}`
-                  : ''}
+                {data.active_cycle.service_day_count} planned day{data.active_cycle.service_day_count !== 1 ? 's' : ''}
               </Text>
             </View>
             <ChevronRight color="#059669" size={16} />

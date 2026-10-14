@@ -120,7 +120,21 @@ class ReportsBrowseTest extends TestCase
 
     public function test_browse_month_includes_periods_that_overlap_it(): void
     {
-        DietListCount::factory()->create(['service_date' => '2026-05-10']);
+        $log = DietListCount::factory()->create(['service_date' => '2026-05-10']);
+
+        $this->actingAs($this->rnd)
+            ->getJson('/api/rnd/reports/accomplishment_report/instances?covered_month=2026-05')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 0);
+
+        Report::factory()->create([
+            'user_id' => $log->fss_user_id,
+            'type' => 'accomplishment_report',
+            'status' => 'completed',
+            'review_state' => null,
+            'report_covered_from' => '2026-05-01',
+            'report_covered_until' => '2026-05-15',
+        ]);
 
         $this->actingAs($this->rnd)
             ->getJson('/api/rnd/reports/accomplishment_report/instances?covered_month=2026-05')

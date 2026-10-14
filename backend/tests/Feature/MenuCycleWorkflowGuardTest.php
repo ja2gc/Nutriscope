@@ -78,6 +78,21 @@ class MenuCycleWorkflowGuardTest extends TestCase
             ->assertJsonPath('data.cycle', 'Wednesday menu');
     }
 
+    public function test_date_filtered_cycle_list_resolves_a_past_service_week_without_activation(): void
+    {
+        $past = MenuCycle::factory()->create([
+            'rnd_user_id' => $this->rnd->id,
+            'week_start_date' => '2026-06-15',
+            'is_active' => false,
+        ]);
+
+        $this->actingAs($this->rnd)->getJson('/api/fss/menu-cycles?date=2026-06-17')
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $past->uuid);
+        $this->getJson('/api/fss/menu-cycles?date=2026-06-24')
+            ->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson('/api/fss/menu-cycles?date=tomorrow')->assertUnprocessable();
+    }
+
     public function test_a_placeholder_weekday_without_a_service_item_cannot_record_served_population(): void
     {
         $cycle = MenuCycle::factory()->create([

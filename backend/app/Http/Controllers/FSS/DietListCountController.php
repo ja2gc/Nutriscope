@@ -8,6 +8,7 @@ use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\FSS\StoreDietListCountRequest;
 use App\Models\DietListCount;
+use App\Models\Report;
 use App\Models\User;
 use App\Services\Audit\AuditLogger;
 use App\Services\FSS\AccomplishmentReportArchiveService;
@@ -32,6 +33,11 @@ class DietListCountController extends Controller
         // Self-scoped write: force fss_user_id to the authenticated user; never accept from request.
         [$count, $created] = $this->audited(function () use ($validated, $isExactEntry): array {
             User::query()->whereKey(Auth::id())->lockForUpdate()->firstOrFail();
+            [$periodStart] = AccomplishmentReportArchiveService::periodBounds($validated['service_date']);
+            $lockedPeriod = Report::query()->where('type', 'accomplishment_report')
+                ->where('user_id', Auth::id())->where('parameters->start', $periodStart)
+                ->whereIn('review_state', ['pending', 'approved'])->exists();
+            abort_if($lockedPeriod, 409, 'This accomplishment period is submitted and cannot be edited.');
             if ($isExactEntry) {
                 [$count, $oldValues] = $this->saveExactEntry($validated);
             } else {
@@ -73,6 +79,7 @@ class DietListCountController extends Controller
 
         $counts = DietListCount::with('user:id,uuid,name,first_name,last_name')
             ->when($request->user()->isFss(), fn ($q) => $q->where('fss_user_id', Auth::id()))
+            ->when(! $request->user()->isFss(), fn ($q) => $q->visibleToReportReviewers($request->user()->role === 'RND'))
             ->when($data['from'] ?? null, fn ($q, $d) => $q->where('service_date', '>=', $d))
             ->when($data['to'] ?? null, fn ($q, $d) => $q->where('service_date', '<=', $d))
             ->when($data['menu_cycle_id'] ?? null, fn ($q, $id) => $q->where('menu_cycle_id', $id))

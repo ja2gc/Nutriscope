@@ -16,6 +16,7 @@ export interface ReportItem {
   title: string;
   type: string;
   status: "pending" | "generating" | "completed" | "failed" | "queued" | "archived";
+  review_state?: "approved" | null;
   file_path: string | null;
   snapshot: ReportSnapshot | null;
   generated_at: string | null;
@@ -23,6 +24,33 @@ export interface ReportItem {
   report_covered_until?: string | null;
   retention_expires_at?: string | null;
   updated_at: string;
+}
+
+export interface AccomplishmentReview {
+  report_id: string;
+  start: string;
+  end: string;
+  status: "pending" | "approved" | "rejected";
+  submission_version: number;
+  submitted_at: string;
+  fss_user: { id: string; display_name: string };
+}
+
+export async function listAccomplishmentsToReview(): Promise<AccomplishmentReview[]> {
+  return unwrap(await apiFetch('/api/rnd/accomplishment-periods/to-review'), 'Could not load submissions.');
+}
+
+export async function decideAccomplishment(
+  reportId: string,
+  submissionVersion: number,
+  decision: 'approve' | 'reject',
+  reason?: string,
+): Promise<AccomplishmentReview> {
+  return unwrap(await apiFetch(`/api/rnd/accomplishment-periods/${reportId}/${decision}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ submission_version: submissionVersion, ...(decision === 'reject' ? { reason } : {}) }),
+  }), 'Could not save review.');
 }
 
 /** The frozen as-filed metadata captured when a report is archived (Spec 4). */

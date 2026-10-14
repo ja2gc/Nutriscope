@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../../lib/api';
 import { dateFromKey, localDateKey, readableLocalDate } from '../../lib/localDate';
 import ReportsScreen from '../../components/ReportsScreen';
+import { getAccomplishmentPeriod } from '../../lib/reports';
 
 const TASKS = [
   ['helped_food_prep', 'Helped in food preparation work.'],
@@ -31,6 +32,10 @@ async function getDailyRows(date: string): Promise<DailyRow[]> {
   return res.data.data;
 }
 
+function periodStart(date: string): string {
+  return `${date.slice(0, 8)}${Number(date.slice(8, 10)) <= 15 ? '01' : '16'}`;
+}
+
 export default function AccomplishmentsScreen() {
   const params = useLocalSearchParams<{ section?: string }>();
   const insets = useSafeAreaInsets();
@@ -52,6 +57,8 @@ export default function AccomplishmentsScreen() {
   const resetForm = useCallback(() => { setNumbers({ collected_ward_diet_lists: '', apportioned_distributed_meals: '' }); setOffDuty(false); setTasks(emptyTasks()); }, []);
   useEffect(() => resetForm(), [selectedDate, resetForm]);
   const rowsQuery = useQuery({ queryKey: ['fss-diet-list-day', selectedDate], queryFn: () => getDailyRows(selectedDate), staleTime: 30_000 });
+  const periodQuery = useQuery({ queryKey: ['fss-accomplishment-period', periodStart(selectedDate)], queryFn: () => getAccomplishmentPeriod(periodStart(selectedDate)) });
+  const locked = periodQuery.data?.status === 'pending' || periodQuery.data?.status === 'approved';
   useEffect(() => {
     const row = rowsQuery.data?.find((entry) => entry.ward === 'Accomplishment report') ?? rowsQuery.data?.[0];
     if (!row) return;
@@ -85,6 +92,8 @@ export default function AccomplishmentsScreen() {
         queryClient.invalidateQueries({ queryKey: ['fss-diet-list-day', selectedDate] }),
         queryClient.invalidateQueries({ queryKey: ['fss-dashboard'] }),
         queryClient.invalidateQueries({ queryKey: ['fss-reports'] }),
+        queryClient.invalidateQueries({ queryKey: ['fss-accomplishment-period', periodStart(selectedDate)] }),
+        queryClient.invalidateQueries({ queryKey: ['fss-accomplishment-periods'] }),
       ]);
     },
     onError: (error: any) => {
@@ -96,6 +105,7 @@ export default function AccomplishmentsScreen() {
 
   const submit = () => {
     setMessage(null);
+    if (locked) { setMessage({ kind: 'error', text: 'This period is read-only.' }); return; }
     if (rowsQuery.isLoading || rowsQuery.isError) { setMessage({ kind: 'error', text: 'Could not check existing logs. Retry before saving.' }); return; }
     const values = Object.values(numbers).map((value) => Number.parseInt(value || '0', 10));
     if (!offDuty && values.some((value) => !Number.isInteger(value) || value < 0)) { setMessage({ kind: 'error', text: 'Enter whole numbers at 0 or greater.' }); return; }
@@ -119,7 +129,7 @@ export default function AccomplishmentsScreen() {
         </TouchableOpacity>)}
     </View>
 
-    {section === 'reports' ? <ReportsScreen embedded /> : <ScrollView className="flex-1" contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 28 }} keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="#087F5B" />}>
+    {section === 'reports' ? <ReportsScreen embedded onEditDay={(date) => { setSelectedDate(date); setSection('log'); setMessage(null); }} /> : <ScrollView className="flex-1" contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 28 }} keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="#087F5B" />}>
       <View className="rounded-[22px] bg-white border border-[#E2EAE5] p-4">
         <Text className="text-xs font-bold uppercase tracking-widest text-[#6B7F77]">Log date</Text>
         <View className="mt-2 flex-row gap-2">
@@ -132,8 +142,11 @@ export default function AccomplishmentsScreen() {
         {showPicker && <DateTimePicker value={dateFromKey(selectedDate)} mode="date" maximumDate={dateFromKey(today)} onChange={selectDate} />}
       </View>
 
+      {locked && <View className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3"><Text className="text-sm font-semibold text-amber-900">{periodQuery.data?.status === 'approved' ? 'Approved period · read-only' : 'Submitted period · withdraw in My Reports to edit'}</Text></View>}
+      {periodQuery.isError && <TouchableOpacity onPress={() => periodQuery.refetch()} className="mt-3 min-h-12 justify-center rounded-xl border border-red-200 bg-red-50 px-3"><Text className="text-sm font-semibold text-red-700">Could not check period status. Tap to retry.</Text></TouchableOpacity>}
+
       <View className="rounded-[22px] bg-white border border-[#E2EAE5] p-4 mt-3">
-        <View className="flex-row items-center justify-between"><View className="flex-1 pr-4"><Text className="text-sm font-bold text-[#263D35]">Off duty</Text><Text className="text-xs text-[#7A8D85] mt-0.5">Records X for this date.</Text></View><Switch value={offDuty} onValueChange={(value) => { setOffDuty(value); if (value) { setNumbers({ collected_ward_diet_lists: '', apportioned_distributed_meals: '' }); setTasks(emptyTasks()); } }} trackColor={{ false: '#D8E0DC', true: '#A7E8CE' }} thumbColor={offDuty ? '#087F5B' : '#74857D'} /></View>
+        <View className="flex-row items-center justify-between"><View className="flex-1 pr-4"><Text className="text-sm font-bold text-[#263D35]">Off duty</Text><Text className="text-xs text-[#7A8D85] mt-0.5">Records X for this date.</Text></View><Switch value={offDuty} disabled={locked} onValueChange={(value) => { setOffDuty(value); if (value) { setNumbers({ collected_ward_diet_lists: '', apportioned_distributed_meals: '' }); setTasks(emptyTasks()); } }} trackColor={{ false: '#D8E0DC', true: '#A7E8CE' }} thumbColor={offDuty ? '#087F5B' : '#74857D'} /></View>
       </View>
 
       {!offDuty && <View className="rounded-[22px] bg-white border border-[#E2EAE5] p-4 mt-3">
@@ -142,16 +155,16 @@ export default function AccomplishmentsScreen() {
           if (key === 'collected_ward_diet_lists' || key === 'apportioned_distributed_meals') {
             return <View key={key} className="border-b border-[#F0F3F1] py-3">
               <Text className="text-sm font-semibold leading-5 text-[#30483F]">{index + 1}. {label}</Text>
-              <TextInput value={numbers[key]} onChangeText={(value) => { setNumbers((current) => ({ ...current, [key]: value.replace(/[^0-9]/g, '') })); setMessage(null); }} keyboardType="number-pad" className="mt-2 min-h-12 border border-[#D9E3DD] bg-[#FAFCFB] rounded-xl px-3.5 text-[#16352B] tabular-nums" accessibilityLabel={label} />
+              <TextInput value={numbers[key]} editable={!locked} onChangeText={(value) => { setNumbers((current) => ({ ...current, [key]: value.replace(/[^0-9]/g, '') })); setMessage(null); }} keyboardType="number-pad" className="mt-2 min-h-12 border border-[#D9E3DD] bg-[#FAFCFB] rounded-xl px-3.5 text-[#16352B] tabular-nums" accessibilityLabel={label} />
             </View>;
           }
           const checkboxKey = key as TaskKey;
-          return <Pressable key={key} onPress={() => setTasks((current) => ({ ...current, [checkboxKey]: !current[checkboxKey] }))} className="min-h-14 flex-row items-center gap-3 border-b border-[#F0F3F1] py-2" accessibilityRole="checkbox" accessibilityState={{ checked: tasks[checkboxKey] }}><View className={`h-6 w-6 rounded-lg items-center justify-center ${tasks[checkboxKey] ? 'bg-[#087F5B]' : 'bg-[#F4F7F5] border border-[#CEDAD3]'}`}>{tasks[checkboxKey] && <Check color="#FFFFFF" size={15} strokeWidth={3} />}</View><Text className="flex-1 text-sm text-[#30483F] leading-5">{index + 1}. {label}</Text></Pressable>;
+          return <Pressable key={key} disabled={locked} onPress={() => setTasks((current) => ({ ...current, [checkboxKey]: !current[checkboxKey] }))} className="min-h-14 flex-row items-center gap-3 border-b border-[#F0F3F1] py-2" accessibilityRole="checkbox" accessibilityState={{ checked: tasks[checkboxKey], disabled: locked }}><View className={`h-6 w-6 rounded-lg items-center justify-center ${tasks[checkboxKey] ? 'bg-[#087F5B]' : 'bg-[#F4F7F5] border border-[#CEDAD3]'}`}>{tasks[checkboxKey] && <Check color="#FFFFFF" size={15} strokeWidth={3} />}</View><Text className="flex-1 text-sm text-[#30483F] leading-5">{index + 1}. {label}</Text></Pressable>;
         })}
       </View>}
 
       {message && <View className={`mt-3 flex-row gap-2 rounded-xl border p-3 ${message.kind === 'success' ? 'border-emerald-200 bg-emerald-50' : 'border-red-200 bg-red-50'}`}><CheckCircle2 color={message.kind === 'success' ? '#087F5B' : '#DC2626'} size={18} /><Text className={`flex-1 text-sm ${message.kind === 'success' ? 'text-emerald-800' : 'text-red-700'}`}>{message.text}</Text></View>}
-      <TouchableOpacity onPress={submit} disabled={saveMutation.isPending} className={`mt-4 min-h-12 rounded-2xl flex-row items-center justify-center gap-2 ${saveMutation.isPending ? 'bg-[#69B99D]' : 'bg-[#087F5B]'}`} accessibilityRole="button">{saveMutation.isPending ? <ActivityIndicator color="#FFFFFF" /> : <ClipboardCheck color="#FFFFFF" size={19} />}<Text className="text-white font-extrabold">{saveMutation.isPending ? 'Saving…' : `Save ${selectedDate === today ? "today's" : 'past'} log`}</Text></TouchableOpacity>
+      {!locked && <TouchableOpacity onPress={submit} disabled={saveMutation.isPending || periodQuery.isLoading || periodQuery.isError} className={`mt-4 min-h-12 rounded-2xl flex-row items-center justify-center gap-2 ${saveMutation.isPending || periodQuery.isError ? 'bg-[#69B99D]' : 'bg-[#087F5B]'}`} accessibilityRole="button">{saveMutation.isPending ? <ActivityIndicator color="#FFFFFF" /> : <ClipboardCheck color="#FFFFFF" size={19} />}<Text className="text-white font-extrabold">{saveMutation.isPending ? 'Saving…' : `Save ${selectedDate === today ? "today's" : 'past'} log`}</Text></TouchableOpacity>}
     </ScrollView>}
   </View>;
 }

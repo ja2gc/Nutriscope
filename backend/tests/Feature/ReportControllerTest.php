@@ -304,26 +304,19 @@ class ReportControllerTest extends TestCase
             ->assertJsonPath('data.created_by.name', 'Rosa Maria Dela Peña');
     }
 
-    public function test_live_render_uses_current_prepared_by_display_name(): void
+    public function test_generic_live_render_cannot_publish_unsubmitted_accomplishment_logs(): void
     {
         Storage::fake('report_cache');
         Storage::fake('private_uploads');
         DietListCount::factory()->create(['service_date' => '2026-06-10']);
         $reports = $this->createMock(ReportService::class);
         $reports->method('supports')->willReturn(true);
-        $reports->expects($this->once())
-            ->method('buildPdf')
-            ->willReturnCallback(function (Report $report): array {
-                $this->assertSame('accomplishment_report', $report->type);
-                $this->assertSame('Rosa Maria Dela Peña', $report->parameters['prepared_by_name']);
-
-                return ['bytes' => "%PDF-1.4\ncurrent name\n%%EOF", 'meta' => []];
-            });
+        $reports->expects($this->never())->method('buildPdf');
         $this->app->instance(ReportService::class, $reports);
 
         $this->actingAs($this->rnd, 'sanctum')
             ->post('/api/rnd/reports/accomplishment_report/prepare?start=2026-06-10&end=2026-06-10')
-            ->assertOk();
+            ->assertStatus(409);
     }
 
     public function test_patient_report_browser_groups_reports_by_adime_cycle(): void

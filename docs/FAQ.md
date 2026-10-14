@@ -218,15 +218,15 @@ Auto Grocery items use a measured recipe unit that converts to the Inventory uni
 
 ### How do I build a food-service menu cycle?
 
-Prepare Inventory and Foods first. Open **Food Service → Menu Cycle**, create a Monday-anchored week or load a template, add one or more meal recipes or single items to each slot, save, then activate. A blank name is generated from the date span. Weekly menus and templates contain the meals only; bulk rice is not a menu line. Baseline profiles remain visible; one purchase estimate is entered later when generating a suggested list.
+Prepare Inventory and Foods first. Open **Food Service → Menu Cycle** and fill the current Monday–Sunday week, or choose a past or future week and load a template. Save meal recipes or single items in each slot. The current empty week and four future weeks are created automatically; no activation step is needed. A blank name is generated from the date span. Weekly menus and templates contain meals only; bulk rice is added later in the shopping list.
 
 ### What is a menu-cycle template?
 
-A reusable saved layout. Loading it copies the menu structure into a new dated cycle; edits to the cycle do not edit the template. Review dates and foods before activation.
+A reusable saved layout. Loading it copies the menu structure into a dated week; edits to the week do not edit the template. Review the dates and foods before saving.
 
-### What does activating a menu cycle do?
+### When does a weekly menu become current?
 
-It makes that cycle the active operational week shown to FSS. FSS can view it but cannot author or activate it.
+The menu covering today's date is current automatically, even when it has no meals yet. RND can fill that empty week. FSS can view the weekly menu but cannot edit it. After a food PO is generated from a menu, its plan is read-only; historical menus remain viewable.
 
 ### How is a suggested food shopping list created?
 
@@ -292,9 +292,13 @@ Admin also has **Reports → Template Edit** for shared header branding and non-
 
 Only their own Accomplishment Reports.
 
-### Why is an accomplishment report not archived yet?
+### Why can't I submit an accomplishment period yet?
 
-The FSS user needs one entry for every day from Monday through Sunday. An off-duty entry counts and appears as **X**.
+Each FSS user needs one saved Daily Log for every date of the semi-monthly period, including Off duty where applicable. The first period covers days 1–15; the second covers day 16 through month end. Submission is available after the period ends. RND sees it in **Reports → Accomplishment Report → To Review** only after submission.
+
+### How are accomplishment corrections reviewed?
+
+FSS can withdraw while a submission is pending, edit the daily logs, and submit again. RND can approve or reject a submitted period. A rejection includes a reason of up to 500 characters; FSS sees it in **Accomplish → My Reports** and can open any day for correction. Approval locks the daily logs and the reviewed PDF. Earlier generated reports remain available in Reports.
 
 ### Can an archived report be changed by editing source data?
 
@@ -308,11 +312,11 @@ Six tabs: **Home**, **Announcement**, **Menu**, **Meal Prep**, **Accomplish**, a
 
 ### What should I do first each day?
 
-Check Home for meals to log, pending POs, the active menu cycle, today's service, and announcements. Then handle Purchase receipts, Meal Prep, and Accomplish as work occurs.
+Check Home for meals to log, pending POs, this week's menu, today's service, and announcements. Then handle Purchase receipts, Meal Prep, and Accomplish as work occurs.
 
-### Why does Home say there is no active menu cycle?
+### Why is no weekly menu shown?
 
-RND has not activated a current cycle. Contact RND; FSS cannot create or activate one.
+If no menu covers the selected date, contact RND. A current empty week can appear before meals are planned.
 
 ### Can I edit the menu?
 
@@ -320,15 +324,15 @@ No. Menu is a read-only weekly reference. Tap a meal to open its scaled food pro
 
 ### Where do I record actual population served?
 
-Open **Meal Prep**, choose today or an earlier planned date in the active cycle, review its meals, then record or update a positive whole-number headcount. There is no separate prep-completion log.
+Open **Meal Prep**, choose today or an earlier planned date, review its meals, then record or update a positive whole-number headcount. A Shopping List or PO is not required to record served population. A completed related food PO locks further corrections.
 
 ### Where should I enter my daily accomplishment?
 
-Use **Accomplish → Daily Log**. It defaults to today. Choose any past date for a missed log; future dates are blocked, and **Today** returns to the default. Save a separate working row for each ward when needed.
+Use **Accomplish → Daily Log**. It defaults to today. Choose any past date for a missed log; future dates are blocked, and **Today** returns to the default. Saving again updates that date's log until its period is submitted or approved.
 
 ### Why does Off duty save an X?
 
-It is the explicit daily record for a non-working day and counts toward Monday-Sunday report completeness. It cannot coexist with working rows for that date.
+It is the explicit daily record for a non-working day and counts toward semi-monthly period completeness. It cannot coexist with working rows for that date.
 
 ### What can I change on a purchase order?
 
@@ -348,7 +352,7 @@ Allow camera/photo-library permission, confirm network access, and retry with a 
 
 ### Where are my reports?
 
-Open **Accomplish → My Reports**. The list is paginated and owner-scoped. Tap a report to view frozen details, then use **Open or save PDF**.
+Open **Accomplish → My Reports** for your semi-monthly periods, progress, review status, and each date's log. Submit a complete past period there or withdraw a pending submission to make corrections. Approved and earlier PDFs are available under Saved PDFs with **View PDF** and **Download PDF**.
 
 ### How do I update the Android app?
 

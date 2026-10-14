@@ -28,6 +28,7 @@ class ReportResource extends JsonResource
             'template_version' => $this->template_version,
             'appearance_version' => $this->appearance_version,
             'status' => $this->status,
+            'review_state' => $this->type === 'accomplishment_report' ? $this->review_state : null,
             'generated_at' => $this->generated_at?->toIso8601String(),
             'expires_at' => $this->expires_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),

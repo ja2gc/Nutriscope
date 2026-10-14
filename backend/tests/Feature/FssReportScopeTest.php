@@ -54,13 +54,13 @@ class FssReportScopeTest extends TestCase
             ->assertOk();
     }
 
-    public function test_fss_can_render_accomplishment_report(): void
+    public function test_fss_cannot_bypass_submission_with_generic_prepare(): void
     {
         $this->seedAccomplishment('2026-06-10');
 
         $this->actingAs($this->fss)
             ->postJson('/api/fss/reports/accomplishment_report/prepare', ['start' => '2026-06-10', 'end' => '2026-06-10'])
-            ->assertOk();
+            ->assertStatus(409);
     }
 
     public function test_fss_report_list_includes_completed_and_archived_reports_only(): void

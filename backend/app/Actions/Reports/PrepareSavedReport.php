@@ -41,6 +41,9 @@ class PrepareSavedReport
         $title = $this->titleFor($type, $parameters, $sourceTemplate['name'] ?? $template?->name ?? $type);
         $report = $existing ?? Report::query()->where('archive_identity', $identity)->first();
         $created = $report === null;
+        if ($type === 'accomplishment_report' && in_array($report?->review_state, ['pending', 'approved'], true)) {
+            return $report->fresh(['user:id,uuid,name,first_name,last_name', 'officialFile']);
+        }
         if ($report?->status === 'archived'
             || ($report?->snapshot['was_archived'] ?? false)
             || $report?->hasFinalizedPurchaseOrderFile()) {
@@ -91,6 +94,7 @@ class PrepareSavedReport
                 'snapshot' => $snapshot,
                 'report_covered_until' => $coveredUntil,
                 'report_covered_from' => $coveredFrom,
+                'review_state' => $type === 'accomplishment_report' && ($parameters['review_workflow'] ?? false) ? 'draft' : null,
             ]);
         } else {
             $report->forceFill([

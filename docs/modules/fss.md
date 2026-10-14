@@ -89,18 +89,19 @@ FSS records:
 
 The Daily Log view shows one self-scoped record for the selected date. It defaults to today; any previous date is allowed, future dates are blocked, and **Today** resets the date. Re-saving updates the same record. Logged zero remains **0** in the report. Off duty cannot coexist with work and renders as **X**.
 
-**My Reports** is the second view inside Accomplish. It is paginated, owner-scoped, opens frozen details, and can prepare then open/save the authenticated PDF.
+**My Reports** is the second view inside Accomplish. It shows each owner's semi-monthly progress and dates. A complete past period can be submitted to RND. FSS can withdraw a pending submission, correct a rejected period, and resubmit. Pending and approved dates are read-only. Approved PDFs and reports generated before this review workflow remain available under Saved PDFs.
 
 ### Semi-monthly Accomplishment Reports
 
-- Week is Monday through Sunday.
 - Reports cover day 1–15 or day 16–the month’s actual `endOfMonth()` date.
-- The first saved log creates its period report; later saves refresh that same report.
+- One saved daily log per calendar date is required before submission, including off-duty dates.
+- The first saved log creates a draft period report; later saves refresh it while editable. RND sees a new report only after FSS submits it.
 - Every date column is shown; unlogged dates remain blank.
 - Off-duty entries render as **X** and numeric zero renders as **0**.
 - Historical snapshots and legacy rows remain readable through fallback fields.
-- FSS sees only their own archived accomplishment reports.
-- RND/Admin may view accomplishment reports within their allowed report scope.
+- FSS sees only their own accomplishment periods and saved PDFs.
+- RND reviews submitted periods in Reports → Accomplishment Report → To Review, then approves or rejects with a reason of up to 500 characters.
+- RND/Admin Reports shows approved new reports and previously generated reports. Approved content is frozen.
 
 ## Purchase
 

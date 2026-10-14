@@ -358,8 +358,8 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Food Library & Food Service",
     question: "How do I build a food-service menu cycle?",
-    answer: "Create a dated cycle or load a template, fill meal slots, save, and activate it. Blank names are generated from the date span. The purchase estimate is entered once later when generating a suggested shopping list.",
-    keywords: ["week", "meal slots", "activate", "population"],
+    answer: "Open the current Monday–Sunday week, fill meal slots, and save. The empty current week and four future weeks are created automatically. You can also fill a past week or load a template. The purchase estimate is entered once later when generating a suggested shopping list.",
+    keywords: ["week", "meal slots", "population"],
   },
   {
     id: "rnd-menu-template",
@@ -373,9 +373,9 @@ export const HELP_ITEMS: HelpItem[] = [
     id: "rnd-activate-menu",
     role: "RND",
     category: "Food Library & Food Service",
-    question: "What does activating a menu cycle do?",
-    answer: "Activation makes the cycle the current operational menu visible to FSS. Confirm the complete week and planned population first because daily execution depends on it.",
-    keywords: ["FSS", "current menu", "publish"],
+    question: "When does a weekly menu become current?",
+    answer: "The menu covering today's date becomes current automatically, even when it is empty. RND can fill it until a food PO has been generated from the plan. FSS sees the current week read-only.",
+    keywords: ["FSS", "current menu", "weekly"],
   },
   {
     id: "rnd-shopping-list",

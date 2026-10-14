@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  CalendarDays, Plus, Search, X, Trash2, Save, Zap, Copy, BookmarkPlus,
+  CalendarDays, Plus, Search, X, Trash2, Save, Copy, BookmarkPlus,
   LayoutTemplate, ChevronLeft, AlertTriangle, Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -15,7 +15,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   DAYS, MEALS, MEAL_LABELS, Day, Meal,
   CycleListItem, MenuCycle, RecipeOption, FsItemOption, TemplateListItem, TemplateDetail, MenuSnapshot,
-  listCycles, getCycle, saveCycle, deleteCycle, activateCycle,
+  listCycles, getCycle, saveCycle, deleteCycle,
   listRecipeOptions, listFsItemOptions, listTemplates, getTemplate, saveTemplate, instantiateTemplate, deleteTemplate,
 } from "@/services/menuCycleService";
 import { setServedPopulation, listServiceLogs } from "@/services/consumptionService";
@@ -27,6 +27,12 @@ const isoAddDays = (start: string, n: number) => {
   d.setDate(d.getDate() + n);
   return d.toISOString().slice(0, 10);
 };
+const manilaToday = () => {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+  const value = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${value("year")}-${value("month")}-${value("day")}`;
+};
+const coversToday = (start: string | null) => !!start && start <= manilaToday() && manilaToday() <= isoAddDays(start, 6);
 
 // Week label + Past/Current/Upcoming tag for a cycle, from its week_start_date.
 const weekRange = (start: string | null, days = 7) => {
@@ -40,9 +46,9 @@ const temporal = (start: string | null, days = 7): { label: string; cls: string 
   if (!start) return { label: "Unscheduled", cls: "bg-warm-100 text-warm-500 border-warm-200" };
   const s = new Date(`${start}T00:00:00`);
   const e = new Date(s); e.setDate(e.getDate() + days - 1);
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  if (today < s) return { label: "Upcoming", cls: "bg-sky-50 text-sky-700 border-sky-200" };
-  if (today > e) return { label: "Past", cls: "bg-warm-100 text-warm-500 border-warm-200" };
+  const today = manilaToday();
+  if (today < start) return { label: "Upcoming", cls: "bg-sky-50 text-sky-700 border-sky-200" };
+  if (today > isoAddDays(start, days - 1)) return { label: "Past", cls: "bg-warm-100 text-warm-500 border-warm-200" };
   return { label: "Current week", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" };
 };
 
@@ -192,7 +198,7 @@ function CycleList({ readOnly, onOpen, onNew, onOpenTemplate, onNewTemplate }: {
           ) : (
             <table className="w-full text-sm">
               <thead className="bg-warm-50 border-b border-warm-100">
-                <tr>{["Cycle", "Week", "When", "Status", "Actions"].map((h) => (
+                <tr>{["Menu", "Week", "When", "Actions"].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
                 ))}</tr>
               </thead>
@@ -200,7 +206,7 @@ function CycleList({ readOnly, onOpen, onNew, onOpenTemplate, onNewTemplate }: {
                 {cycles.map((c) => {
                   const when = temporal(c.week_start_date);
                   return (
-                  <tr key={c.id} className={`hover:bg-warm-50/60 transition-colors ${c.is_active ? "border-l-4 border-l-emerald-500" : "border-l-4 border-l-transparent"}`}>
+                  <tr key={c.id} className={`hover:bg-warm-50/60 transition-colors ${coversToday(c.week_start_date) ? "border-l-4 border-l-emerald-500" : "border-l-4 border-l-transparent"}`}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5">
                         {editingNameId === c.id && !readOnly ? (
@@ -225,11 +231,9 @@ function CycleList({ readOnly, onOpen, onNew, onOpenTemplate, onNewTemplate }: {
                         ><Pencil className="h-3.5 w-3.5" /></button>}
                       </div>
                       {nameError && editingNameId === c.id && <p role="alert" className="mt-1 text-xs text-red-600">{nameError}</p>}
-                      {c.is_active && <div className="text-xs text-emerald-700 font-semibold mt-0.5">Active cycle</div>}
                     </td>
                     <td className="px-4 py-3 text-warm-500 tabular-nums">{weekRange(c.week_start_date)}</td>
                     <td className="px-4 py-3 text-warm-500">{when.label}</td>
-                    <td className="px-4 py-3 text-warm-500">{c.is_active ? "Active" : c.status}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
                         <button onClick={() => onOpen(c.id)} className="p-1.5 rounded-lg hover:bg-warm-100 text-warm-500 cursor-pointer" title={readOnly ? "View" : "Edit"}>
@@ -296,7 +300,6 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [weekStart, setWeekStart] = useState("");
-  const [isActive, setIsActive] = useState(false);
 
   const [grid, setGrid] = useState<Grid>({});
   // Served (actual) population per weekday for the active week — logged by FSS/RND,
@@ -379,7 +382,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
     }
     getCycle(cycleId).then((c: MenuCycle) => {
       setName(c.name);
-      setWeekStart(c.week_start_date ?? ""); setIsActive(c.is_active);
+      setWeekStart(c.week_start_date ?? "");
       const g: Grid = {};
       (c.days ?? []).forEach((d) => {
         const k = cellKey(d.day_of_week, d.meal_type);
@@ -540,12 +543,6 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
     } finally { setBusy(false); }
   }
 
-  async function handleActivate() {
-    if (isTemplate) return;
-    const id = savedId ?? (await handleSave())?.id;
-    if (!id) return;
-    await activateCycle(id); setIsActive(true);
-  }
   function openSaveTemplateDialog() {
     if (isTemplate) return;
     setTemplateNameDraft(`${name.trim() || "Menu Plan"} template`);
@@ -607,7 +604,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
 
   async function openSlot(day: Day, meal: Meal, cell: Cell, lineIndex: number) {
     if (isTemplate) return;
-    const saved = readOnly || isActive || cell.po_snapshot ? null : await handleSave();
+    const saved = readOnly || cell.po_snapshot ? null : await handleSave();
     const id = savedId ?? saved?.id;
     const lineId = cell.id ?? saved?.days?.filter((line) => line.day_of_week === day && line.meal_type === meal)
       .sort((a, b) => a.line_order - b.line_order)[lineIndex]?.id;
@@ -631,8 +628,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
             <input aria-label="Menu Cycle name" value={name} onChange={(e) => setName(e.target.value)} readOnly={readOnly}
               className="text-xl font-extrabold text-warm-900 tracking-tight bg-transparent border-b border-dashed border-warm-200 focus:border-emerald-500 focus:outline-none read-only:border-transparent" />
             <div className="flex items-center gap-2 mt-1">
-              {!isTemplate && isActive && <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Active</span>}
-              <span className="text-xs text-warm-400">{savedId ? `${isTemplate ? "Template" : "Cycle"} #${savedId}` : `Unsaved ${isTemplate ? "template" : "draft"}`}</span>
+              {!isTemplate && <span className="text-xs text-warm-500">{temporal(weekStart).label}</span>}
             </div>
           </div>
         </div>
@@ -643,7 +639,6 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
             {!isTemplate && <button onClick={openSaveTemplateDialog} disabled={busy} className="flex items-center gap-1.5 text-sm font-semibold text-warm-600 border border-warm-200 rounded-lg px-3 py-2 hover:bg-warm-50 cursor-pointer disabled:opacity-50"><BookmarkPlus className="h-3.5 w-3.5" /> Save as Template</button>}
             {!isTemplate && <button onClick={openTemplates} className="flex items-center gap-1.5 text-sm font-semibold text-warm-600 border border-warm-200 rounded-lg px-3 py-2 hover:bg-warm-50 cursor-pointer"><LayoutTemplate className="h-3.5 w-3.5" /> Templates</button>}
             <Button variant="primary" onClick={() => handleSave()} loading={busy} className="px-4 py-2 flex items-center gap-2"><Save className="h-4 w-4" /> Save</Button>
-            {!isTemplate && <button onClick={handleActivate} className="flex items-center gap-1.5 text-sm font-semibold text-emerald-700 border border-emerald-200 rounded-lg px-3 py-2 hover:bg-emerald-50 cursor-pointer"><Zap className="h-3.5 w-3.5" /> Activate</button>}
           </div>
         )}
       </div>
@@ -768,9 +763,6 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
                               )}
                             </div>
                             {cell.portion_label && <div className="text-xs font-medium text-emerald-700">{cell.portion_label}</div>}
-                            <div className="text-xs text-emerald-500 mt-1">
-                              {isTemplate ? `Line ${lineIndex + 1}` : cell.po_snapshot ? "Locked to PO · open details" : `Line ${lineIndex + 1} · open details`}
-                            </div>
                             {cell.hasRecipeOverride && <span className="mt-1 inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800">Customized item</span>}
                           </div>
                         ))}
@@ -900,8 +892,7 @@ export default function MenuCyclePage() {
   // enforces this; here we render a read-only editor so FSS sees no edit affordances.
   const readOnly = user?.role === "FSS";
 
-  // Landing page is the current ACTIVE menu cycle, not the list. The list stays
-  // reachable via "View all cycles". Falls back to the list when none is active.
+  // Open the cycle covering today; the list remains reachable from its editor.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -912,7 +903,7 @@ export default function MenuCyclePage() {
       }
       try {
         const cycles = await listCycles(1);
-        const active = cycles.data.find((c) => c.is_active);
+        const active = cycles.data.find((c) => coversToday(c.week_start_date));
         if (!cancelled) setView(active ? { mode: "edit", id: active.id } : { mode: "list" });
       } catch {
         if (!cancelled) setView({ mode: "list" });

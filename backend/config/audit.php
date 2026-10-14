@@ -293,6 +293,20 @@ return [
             'implementation_state' => 'implemented',
             'reason' => 'This authentication or account-security command needs an explicit outcome event; credentials, tokens, and codes stay excluded.',
         ],
+        'POST api/fss/accomplishment-periods/{start}/submit' => [
+            'classification' => 'explicit_event',
+            'source' => 'App\\Http\\Controllers\\FSS\\AccomplishmentPeriodController@submit',
+            'owner_task' => 8,
+            'implementation_state' => 'implemented',
+            'reason' => 'Submission records the report review-state transition without daily-log values.',
+        ],
+        'POST api/fss/accomplishment-periods/{start}/withdraw' => [
+            'classification' => 'explicit_event',
+            'source' => 'App\\Http\\Controllers\\FSS\\AccomplishmentPeriodController@withdraw',
+            'owner_task' => 8,
+            'implementation_state' => 'implemented',
+            'reason' => 'Withdrawal records the report review-state transition without daily-log values.',
+        ],
         'POST api/fss/budgets' => [
             'classification' => 'explicit_event',
             'source' => 'App\\Http\\Controllers\\FSS\\BudgetController@store',
@@ -656,6 +670,20 @@ return [
             'owner_task' => 4,
             'implementation_state' => 'implemented',
             'reason' => 'Notification dismissal is routine user-owned UI housekeeping.',
+        ],
+        'POST api/rnd/accomplishment-periods/{report}/approve' => [
+            'classification' => 'explicit_event',
+            'source' => 'App\\Http\\Controllers\\FSS\\AccomplishmentPeriodController@approve',
+            'owner_task' => 8,
+            'implementation_state' => 'implemented',
+            'reason' => 'Approval records the report review-state transition without daily-log values.',
+        ],
+        'POST api/rnd/accomplishment-periods/{report}/reject' => [
+            'classification' => 'explicit_event',
+            'source' => 'App\\Http\\Controllers\\FSS\\AccomplishmentPeriodController@reject',
+            'owner_task' => 8,
+            'implementation_state' => 'implemented',
+            'reason' => 'Rejection records the review-state transition without the free-text reason.',
         ],
         'POST api/rnd/announcements' => [
             'classification' => 'explicit_event',

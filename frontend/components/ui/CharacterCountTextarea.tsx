@@ -3,6 +3,7 @@
 import { useId, useLayoutEffect, useRef } from "react";
 
 type CharacterCountTextareaProps = {
+  id?: string;
   value: string;
   onChange: (value: string) => void;
   maxLength: number;
@@ -14,6 +15,7 @@ type CharacterCountTextareaProps = {
 };
 
 export function CharacterCountTextarea({
+  id,
   value,
   onChange,
   maxLength,
@@ -35,6 +37,7 @@ export function CharacterCountTextarea({
   return (
     <div className="relative">
       <textarea
+        id={id}
         ref={textareaRef}
         value={value}
         onChange={(event) => onChange(event.target.value)}

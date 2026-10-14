@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -51,5 +52,20 @@ class DietListCount extends Model
     public function menuCycle(): BelongsTo
     {
         return $this->belongsTo(MenuCycle::class);
+    }
+
+    public function scopeVisibleToReportReviewers(Builder $query, bool $includePending = false): Builder
+    {
+        $states = $includePending ? ['pending', 'approved'] : ['approved'];
+
+        return $query->whereExists(fn ($report) => $report->selectRaw('1')->from('reports')
+            ->whereColumn('reports.user_id', 'diet_list_counts.fss_user_id')
+            ->where('reports.type', 'accomplishment_report')
+            ->whereColumn('reports.report_covered_from', '<=', 'diet_list_counts.service_date')
+            ->whereColumn('reports.report_covered_until', '>=', 'diet_list_counts.service_date')
+            ->where(fn ($visible) => $visible->whereIn('reports.review_state', $states)
+                ->orWhere(fn ($legacy) => $legacy->whereNull('reports.review_state')
+                    ->whereIn('reports.status', ['completed', 'archived'])
+                    ->whereRaw('diet_list_counts.created_at <= COALESCE(reports.generated_at, reports.created_at)'))));
     }
 }

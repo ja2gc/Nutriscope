@@ -11,13 +11,18 @@ use Illuminate\Support\Facades\DB;
 
 class MaintainMenuCycles
 {
+    public static function lockCreationOwner(): ?User
+    {
+        return User::query()->where('role', 'RND')->where('is_active', true)
+            ->orderBy('id')->lockForUpdate()->first();
+    }
+
     public function handle(): ?MenuCycle
     {
         $week = CarbonImmutable::now('Asia/Manila')->startOfWeek(CarbonInterface::MONDAY);
 
         return DB::transaction(function () use ($week): ?MenuCycle {
-            $owner = User::query()->where('role', 'RND')->where('is_active', true)
-                ->orderBy('id')->lockForUpdate()->first();
+            $owner = self::lockCreationOwner();
             if ($owner === null) {
                 return null;
             }

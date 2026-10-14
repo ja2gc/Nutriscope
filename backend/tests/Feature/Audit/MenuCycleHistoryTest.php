@@ -172,7 +172,7 @@ class MenuCycleHistoryTest extends TestCase
             ->assertJsonPath('data.after', null);
     }
 
-    public function test_locked_structural_update_leaves_no_event_or_revision(): void
+    public function test_active_week_structural_update_records_a_revision_before_purchasing(): void
     {
         $item = $this->item('Banana', 12);
         $cycle = $this->cycleWithItem($item, 'Active Week', 'Monday', true);
@@ -186,9 +186,9 @@ class MenuCycleHistoryTest extends TestCase
                 'quantity' => 1,
                 'estimate_population' => 10,
             ]],
-        ])->assertUnprocessable();
+        ])->assertOk();
 
-        $this->assertSame(0, AuditActivity::query()->where('subject_type', MenuCycle::class)->count());
+        $this->assertSame(1, AuditActivity::query()->where('subject_type', MenuCycle::class)->count());
     }
 
     private function item(string $name, float $price): FsItem

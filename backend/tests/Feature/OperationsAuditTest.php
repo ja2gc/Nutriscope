@@ -205,6 +205,7 @@ class OperationsAuditTest extends TestCase
 
         $cycleId = $this->actingAs($user)->postJson('/api/fss/menu-cycles', [
             'name' => 'Structural cycle',
+            'week_start_date' => '2026-06-01',
             'days' => $days,
         ])->assertCreated()->json('data.id');
         $templateId = $this->actingAs($user)->postJson('/api/fss/menu-cycle-templates', [
@@ -223,11 +224,12 @@ class OperationsAuditTest extends TestCase
         ])->assertCreated()->json('data.id');
         $instantiatedId = $this->actingAs($user)->postJson("/api/fss/menu-cycle-templates/{$fromCycleId}/instantiate", [
             'name' => 'Instantiated structural cycle',
+            'week_start_date' => '2026-06-08',
         ])->assertCreated()->json('data.id');
         $this->actingAs($user)->patchJson("/api/fss/menu-cycles/{$cycleId}/activate")->assertOk();
         $this->actingAs($user)->postJson('/api/fss/shopping-lists/generate', [
-            'start_date' => now()->startOfWeek()->toDateString(),
-            'end_date' => now()->endOfWeek()->toDateString(),
+            'start_date' => '2026-06-01',
+            'end_date' => '2026-06-07',
             'estimate_population' => 10,
         ])->assertCreated();
         $this->actingAs($user)->deleteJson("/api/fss/menu-cycles/{$instantiatedId}")->assertNoContent();

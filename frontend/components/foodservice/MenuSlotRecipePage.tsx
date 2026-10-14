@@ -162,14 +162,14 @@ export function MenuSlotRecipePage({ backHref, lineId }: { backHref: string; lin
 
       <header className="flex flex-col gap-3 border-b border-warm-200 pb-5 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-xs font-extrabold uppercase tracking-wider text-warm-500">{data.day} · {MEAL_LABELS[data.meal]} · Line {data.line_order}</p>
+          <p className="text-xs font-extrabold uppercase tracking-wider text-warm-500">{data.day} · {MEAL_LABELS[data.meal]}</p>
           <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-warm-900">Menu Item Details</h1>
           {canEdit && <InfoHint label="About menu slot changes" title="Menu slot changes">Changes apply only to this menu slot. The original recipe stays unchanged.</InfoHint>}
         </div>
         <div className="flex flex-wrap gap-2">
           <span className="rounded-full border border-warm-200 bg-warm-50 px-3 py-1 text-xs font-bold text-warm-600">{data.source === "custom" ? "Customized slot" : "Original recipe"}</span>
           {!data.editable && <span className="rounded-full border border-warm-200 px-3 py-1 text-xs font-bold text-warm-500">View only</span>}
-          {data.locked && <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800"><LockKeyhole className="h-3 w-3" /> Locked to PO</span>}
+          {data.locked && <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800"><LockKeyhole className="h-3 w-3" /> Purchasing started</span>}
         </div>
       </header>
 
