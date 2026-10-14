@@ -150,7 +150,7 @@ class MealPrepLogController extends Controller
                         ->where(fn ($query) => $query->whereNotNull('recipe_id')->orWhereNotNull('fs_item_id'))
                         ->exists();
                     if ($owner === null || ! $owner->is($menuCycle) || ! $planned) {
-                        $fail('The service date is not a planned day in this menu cycle.');
+                        $fail('No meals are planned for this service date.');
                     }
                 },
             ],

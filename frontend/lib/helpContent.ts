@@ -146,7 +146,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "Shared",
     category: "Announcements & SOP",
     question: "Who can revise the SOP?",
-    answer: "RND and Admin can revise the current SOP. FSS has read-only access. Each revision preserves its timestamp, author, role, title, and content in history.",
+    answer: "RND and Admin can revise the current SOP in the SOP tab of Announcements. The procedure is limited to 3,000 characters. History opens a separate page where each title opens its saved version. FSS has read-only access.",
     keywords: ["edit procedure", "history", "version"],
   },
   {
@@ -357,7 +357,7 @@ export const HELP_ITEMS: HelpItem[] = [
     id: "rnd-menu-cycle",
     role: "RND",
     category: "Food Library & Food Service",
-    question: "How do I build a food-service menu cycle?",
+    question: "How do I plan a Menu Calendar week?",
     answer: "Open the current Monday–Sunday week, fill meal slots, and save. The empty current week and four future weeks are created automatically. You can also fill a past week or load a template. The purchase estimate is entered once later when generating a suggested shopping list.",
     keywords: ["week", "meal slots", "population"],
   },
@@ -365,8 +365,8 @@ export const HELP_ITEMS: HelpItem[] = [
     id: "rnd-menu-template",
     role: "RND",
     category: "Food Library & Food Service",
-    question: "What is a menu-cycle template?",
-    answer: "A template is a reusable menu pattern. Loading it copies the structure into a new dated cycle, so editing the cycle does not change the template.",
+    question: "What is a Menu Plan template?",
+    answer: "A template is a reusable menu pattern. Loading it copies meals into a dated Menu Calendar week without changing the template.",
     keywords: ["reuse", "copy menu", "week"],
   },
   {
@@ -448,6 +448,14 @@ export const HELP_ITEMS: HelpItem[] = [
     question: "Which reports can RND access?",
     answer: "RND can access authorized clinical and operational report types, including NCP and patient menu outputs plus food-service reports. Use live preview for current data. Food-service reports can be archived when a frozen record is required.",
     keywords: ["NCP summary", "patient menu", "food service", "archive"],
+  },
+  {
+    id: "rnd-accomplishment-review",
+    role: "RND",
+    category: "Reports",
+    question: "Where do I review Food Service Staff accomplishment reports?",
+    answer: "Open Reports → Accomplishment Report and select a staff name. That staff card has Approved Reports and To Review tabs, each with a report-month filter. Open a submitted PDF in To Review, then approve or reject with a required reason of up to 500 characters. Rejected periods return to FSS for correction and resubmission. Earlier generated reports remain in Approved Reports.",
+    keywords: ["accomplishment", "FSS", "approve", "reject", "review"],
   },
   {
     id: "rnd-live-archive",

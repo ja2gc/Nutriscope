@@ -2,13 +2,17 @@ import { ChevronDown } from 'lucide-react-native';
 import { useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import type { MobileHelpItem } from '../../lib/helpContent';
+import { paginateItems } from '../../lib/pagination';
+import { MobilePagination } from '../MobilePagination';
 
 export default function HelpQuestionList({ items }: { items: MobileHelpItem[] }) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [page, setPage] = useState(1);
+  const pager = paginateItems(items, page);
 
   return (
     <View className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-      {items.map((item, index) => {
+      {pager.items.map((item, index) => {
         const expanded = expandedIds.has(item.id);
         return (
           <View key={item.id} className={index ? 'border-t border-gray-100' : ''}>
@@ -36,6 +40,7 @@ export default function HelpQuestionList({ items }: { items: MobileHelpItem[] })
           </View>
         );
       })}
+      <View className="px-3"><MobilePagination page={pager.page} pages={pager.pages} total={pager.total} onPrevious={() => setPage(pager.page - 1)} onNext={() => setPage(pager.page + 1)} /></View>
     </View>
   );
 }

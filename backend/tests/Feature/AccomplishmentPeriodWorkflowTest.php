@@ -16,6 +16,24 @@ class AccomplishmentPeriodWorkflowTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_rnd_selects_fss_by_name_before_filtering_the_review_queue_by_user_and_month(): void
+    {
+        $rnd = User::factory()->rnd()->create();
+        $ada = User::factory()->fss()->create(['first_name' => 'Ada', 'last_name' => 'Santos']);
+        $bea = User::factory()->fss()->create(['first_name' => 'Bea', 'last_name' => 'Reyes']);
+        Report::factory()->create(['user_id' => $ada->id, 'type' => 'accomplishment_report', 'review_state' => 'pending', 'report_covered_from' => '2026-06-01', 'report_covered_until' => '2026-06-15', 'submitted_at' => now()]);
+        Report::factory()->create(['user_id' => $ada->id, 'type' => 'accomplishment_report', 'review_state' => 'pending', 'report_covered_from' => '2026-07-01', 'report_covered_until' => '2026-07-15', 'submitted_at' => now()]);
+        Report::factory()->create(['user_id' => $bea->id, 'type' => 'accomplishment_report', 'review_state' => 'pending', 'report_covered_from' => '2026-06-01', 'report_covered_until' => '2026-06-15', 'submitted_at' => now()]);
+
+        $this->actingAs($rnd)->getJson('/api/rnd/accomplishment-periods/staff?search=Ada')
+            ->assertOk()->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.id', $ada->uuid);
+        $this->getJson('/api/rnd/accomplishment-periods/staff?search=Ada%20Santos')
+            ->assertOk()->assertJsonPath('meta.total', 1);
+        $this->getJson("/api/rnd/accomplishment-periods/to-review?fss_user_id={$ada->uuid}&covered_month=2026-06")
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.fss_user.id', $ada->uuid);
+        $this->actingAs($bea)->getJson('/api/rnd/accomplishment-periods/staff')->assertForbidden();
+    }
+
     public function test_progress_counts_unique_fss_dates_in_a_leap_year_without_a_menu_cycle(): void
     {
         $fss = User::factory()->fss()->create();

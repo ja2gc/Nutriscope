@@ -14,7 +14,7 @@ test('mobile announcements preserve image ratio in a fixed responsive blurred fr
   assert.match(media, /resizeMode="contain"/);
   assert.match(media, /Math\.min\(360, Math\.max\(180,/);
   assert.match(feed, /<AnnouncementMedia/);
-  assert.match(dashboard, /<AnnouncementMedia/);
+  assert.doesNotMatch(dashboard, /<AnnouncementMedia/);
   assert.match(procurement, /blurRadius=\{24\}[\s\S]*resizeMode="cover"[\s\S]*resizeMode="contain"/);
   assert.match(procurement, /Math\.min\(720, Math\.max\(280,/);
 });
@@ -23,6 +23,6 @@ test('mobile announcement author avatars use scoped profile photo URLs', () => {
   assert.match(media, /authenticatedImageSource/);
   assert.match(media, /profile_photo/);
   assert.match(feed, /<AnnouncementAuthorAvatar/);
-  assert.match(dashboard, /<AnnouncementAuthorAvatar/);
+  assert.doesNotMatch(dashboard, /<AnnouncementAuthorAvatar/);
   assert.doesNotMatch(`${feed}\n${dashboard}`, /Announcement author/);
 });

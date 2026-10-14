@@ -1,459 +1,72 @@
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import {
-  AlertCircle,
-  Bell,
-  CalendarDays,
-  ChevronRight,
-  ClipboardList,
-  Pin,
-  ShoppingBag,
-} from 'lucide-react-native';
 import { useCallback } from 'react';
-import {
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../../lib/api';
-import { AnnouncementAuthorAvatar, AnnouncementMedia } from '../../components/AnnouncementMedia';
-
-interface ServiceRow {
-  id: string;
-  meal_type: string;
-  line_order: number;
-  name: string;
-  prepped: boolean;
-}
-
-interface PendingPo {
-  id: number;
-  po_number: string | null;
-  procurement_track: 'food' | 'supplies';
-  waiting_on: string[];
-}
-
-interface ActiveCycle {
-  id: string;
-  name: string;
-  activation_date: string | null;
-  service_day_count: number;
-}
+import { todayManilaKey } from '../../lib/localDate';
 
 interface DashboardData {
   meals_to_log_today: number;
-  pending_pos: PendingPo[];
   pending_pos_count: number;
-  today_service: ServiceRow[];
-  active_cycle: ActiveCycle | null;
-}
-
-interface AnnouncementAuthor {
-  id: number | null;
-  name: string | null;
-  role: string | null;
-  profile_photo?: string | null;
+  today_service: { id: string; name: string; prepped: boolean }[];
+  active_cycle: { id: string; name: string; service_day_count: number } | null;
 }
 
 interface Announcement {
-  id: number | string;
+  id: string | number;
   title: string;
-  body: string;
-  category: string | null;
-  pinned: boolean;
-  visibility: string;
-  created_at: string;
-  author: AnnouncementAuthor;
-  attachment?: string | null;
-  attachments?: string[];
-}
-
-interface AnnouncementsMeta {
-  current_page: number;
-  last_page: number;
-  per_page: number;
-  total: number;
-}
-
-interface AnnouncementsResponse {
-  data: Announcement[];
-  meta: AnnouncementsMeta;
 }
 
 async function fetchDashboard(): Promise<DashboardData> {
-  const res = await api.get<{ data: DashboardData }>('/api/fss/dashboard/summary');
-  return res.data.data;
+  const response = await api.get<{ data: DashboardData }>('/api/fss/dashboard/summary');
+  return response.data.data;
 }
 
-async function fetchAnnouncements(): Promise<Announcement[]> {
-  const res = await api.get<AnnouncementsResponse>('/api/fss/announcements', {
-    params: { per_page: 3 },
-  });
-  return res.data.data;
+async function fetchLatestAnnouncement(): Promise<Announcement | null> {
+  const response = await api.get<{ data: Announcement[] }>('/api/fss/announcements', { params: { per_page: 1 } });
+  return response.data.data[0] ?? null;
 }
 
-function relativeTime(isoString: string): string {
-  const diffMs = Date.now() - new Date(isoString).getTime();
-  const diffMins = Math.floor(diffMs / 60_000);
-  if (diffMins < 1) return 'just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  const diffHrs = Math.floor(diffMins / 60);
-  if (diffHrs < 24) return `${diffHrs}h ago`;
-  const diffDays = Math.floor(diffHrs / 24);
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return new Date(isoString).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
+async function hasTodayLog(date: string): Promise<boolean> {
+  const response = await api.get<{ data: { ward: string }[] }>('/api/fss/diet-list-counts', { params: { from: date, to: date } });
+  return response.data.data.some((row) => row.ward === 'Accomplishment report');
 }
-
-const WAITING_LABELS: Record<string, string> = {
-  receipts: 'Needs receipts',
-  served_population: 'Needs served population',
-};
 
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
+  const today = todayManilaKey();
+  const dashboard = useQuery({ queryKey: ['fss-dashboard'], queryFn: fetchDashboard, staleTime: 60_000 });
+  const announcement = useQuery({ queryKey: ['fss-latest-announcement'], queryFn: fetchLatestAnnouncement, staleTime: 120_000 });
+  const dailyLog = useQuery({ queryKey: ['fss-dashboard-daily-log', today], queryFn: () => hasTodayLog(today), staleTime: 30_000 });
+  const onRefresh = useCallback(() => { void dashboard.refetch(); void announcement.refetch(); void dailyLog.refetch(); }, [dashboard, announcement, dailyLog]);
 
-  const { data, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: ['fss-dashboard'],
-    queryFn: fetchDashboard,
-    staleTime: 60_000,
-  });
+  if (dashboard.isLoading) return <View className="flex-1 items-center justify-center bg-[#F4F7F5]"><ActivityIndicator color="#087F5B" /><Text className="mt-2 text-sm text-[#6B7F77]">Loading dashboard…</Text></View>;
+  if (dashboard.isError || !dashboard.data) return <View className="flex-1 items-center justify-center bg-[#F4F7F5] px-6"><Text className="text-center text-sm text-red-700">Could not load dashboard.</Text><TouchableOpacity onPress={() => dashboard.refetch()} className="mt-4 min-h-12 justify-center rounded-xl bg-[#087F5B] px-6"><Text className="font-bold text-white">Retry</Text></TouchableOpacity></View>;
 
-  const {
-    data: announcements,
-    isLoading: announcementsLoading,
-    refetch: refetchAnnouncements,
-    isFetching: announcementsFetching,
-  } = useQuery({
-    queryKey: ['fss-announcements'],
-    queryFn: fetchAnnouncements,
-    staleTime: 120_000,
-  });
+  const data = dashboard.data;
+  const latestAnnouncement = announcement.data;
+  const next = !dailyLog.data && !dailyLog.isLoading && !dailyLog.isError
+    ? { label: "Record today's Daily Log", path: '/(tabs)/accomplishments' as const }
+    : data.meals_to_log_today > 0
+      ? { label: 'Record served population', path: '/(tabs)/prep' as const }
+      : data.pending_pos_count > 0
+        ? { label: 'Continue procurement', path: '/(tabs)/procurement' as const }
+        : { label: 'Review today’s menu', path: '/(tabs)/menu' as const };
+  const todayItems = data.today_service.map((row) => row.name);
 
-  const onRefresh = useCallback(() => {
-    refetch();
-    refetchAnnouncements();
-  }, [refetch, refetchAnnouncements]);
-
-  if (isLoading) {
-    return (
-      <View className="flex-1 items-center justify-center bg-gray-50">
-        <ActivityIndicator size="large" color="#059669" />
-        <Text className="mt-3 text-gray-500 text-sm">Loading dashboard…</Text>
-      </View>
-    );
-  }
-
-  if (isError) {
-    return (
-      <View className="flex-1 items-center justify-center bg-gray-50 px-6">
-        <AlertCircle color="#ef4444" size={40} />
-        <Text className="mt-3 text-gray-700 text-base font-medium">
-          Could not load dashboard
-        </Text>
-        <Text className="mt-1 text-gray-500 text-sm text-center">
-          Check your connection and try again.
-        </Text>
-        <TouchableOpacity
-          className="mt-5 bg-emerald-600 px-6 py-3 rounded-lg"
-          onPress={() => refetch()}
-        >
-          <Text className="text-white font-semibold">Retry</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  return (
-    <ScrollView
-      className="flex-1 bg-gray-50"
-      contentContainerStyle={{ paddingBottom: insets.bottom + 16, paddingTop: 16 }}
-      refreshControl={
-        <RefreshControl
-          refreshing={(isFetching || announcementsFetching) && !isLoading}
-          onRefresh={onRefresh}
-        />
-      }
-    >
-      {/* KPI Cards */}
-      <View className="px-4 gap-3">
-        <KpiCard
-          icon={<ClipboardList color="#059669" size={22} />}
-          label="Meals to log today"
-          value={data?.meals_to_log_today ?? 0}
-          accent="blue"
-        />
-        <KpiCard
-          icon={<ShoppingBag color="#d97706" size={22} />}
-          label="Pending POs"
-          value={data?.pending_pos_count ?? 0}
-          accent="amber"
-          onPress={() => router.push('/(tabs)/procurement')}
-        />
-      </View>
-
-      {/* Active Menu Week Card */}
-      <View className="px-4 mt-4">
-        {data?.active_cycle ? (
-          <TouchableOpacity
-            className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3.5 flex-row items-center"
-            onPress={() => router.push('/(tabs)/menu')}
-            accessibilityRole="button"
-            accessibilityLabel="Open this week's menu"
-            activeOpacity={0.8}
-          >
-            <View className="w-9 h-9 rounded-full bg-emerald-100 items-center justify-center mr-3">
-              <CalendarDays color="#059669" size={18} />
-            </View>
-            <View className="flex-1">
-              <Text className="text-xs text-emerald-600 font-medium uppercase tracking-wide">This week's menu</Text>
-              <Text className="text-sm font-semibold text-gray-800 mt-0.5" numberOfLines={1}>
-                {data.active_cycle.name}
-              </Text>
-              <Text className="text-xs text-gray-500 mt-0.5">
-                {data.active_cycle.service_day_count} planned day{data.active_cycle.service_day_count !== 1 ? 's' : ''}
-              </Text>
-            </View>
-            <ChevronRight color="#059669" size={16} />
-          </TouchableOpacity>
-        ) : (
-          <View className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3.5 flex-row items-center gap-3">
-            <AlertCircle color="#d97706" size={18} />
-            <Text className="text-sm text-amber-700 flex-1">No active menu cycle — contact RND.</Text>
-          </View>
-        )}
-      </View>
-
-      {/* Pending POs Detail */}
-      {(data?.pending_pos?.length ?? 0) > 0 && (
-        <View className="px-4 mt-4">
-          <Text className="text-base font-semibold text-gray-800 mb-2">Pending POs</Text>
-          <View className="bg-white rounded-xl overflow-hidden border border-gray-100">
-            {data!.pending_pos.map((po, idx) => (
-              <TouchableOpacity
-                key={po.id}
-                className={`px-4 py-3 ${idx < data!.pending_pos.length - 1 ? 'border-b border-gray-100' : ''}`}
-                onPress={() => router.push('/(tabs)/procurement')}
-                accessibilityRole="button"
-                activeOpacity={0.7}
-              >
-                <View className="flex-row items-center justify-between mb-1">
-                  <Text className="text-sm font-semibold text-gray-800">
-                    {po.po_number ?? `PO #${po.id}`}
-                  </Text>
-                  <View className={`px-2 py-0.5 rounded-full ${
-                    po.procurement_track === 'food' ? 'bg-emerald-100' : 'bg-sky-100'
-                  }`}>
-                    <Text className={`text-xs font-medium ${
-                      po.procurement_track === 'food' ? 'text-emerald-700' : 'text-sky-700'
-                    }`}>
-                      {po.procurement_track === 'food' ? 'Food' : 'Supplies'}
-                    </Text>
-                  </View>
-                </View>
-                <View className="flex-row flex-wrap gap-1.5 mt-1">
-                  {po.waiting_on.map((reason) => (
-                    <View key={reason} className="flex-row items-center gap-1 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
-                      <AlertCircle color="#d97706" size={10} />
-                      <Text className="text-xs text-amber-700">{WAITING_LABELS[reason] ?? reason}</Text>
-                    </View>
-                  ))}
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      )}
-
-      {/* Today's Service */}
-      <View className="px-4 mt-6">
-        <Text className="text-base font-semibold text-gray-800 mb-3">
-          Today's service
-        </Text>
-
-        {data?.today_service && data.today_service.length > 0 ? (
-          <View className="bg-white rounded-xl overflow-hidden border border-gray-100">
-            {data.today_service.map((row, idx) => (
-              <ServiceRowItem
-                key={row.id}
-                row={row}
-                isLast={idx === data.today_service.length - 1}
-              />
-            ))}
-          </View>
-        ) : (
-          <View className="bg-white rounded-xl border border-gray-100 px-4 py-6 items-center">
-            <Text className="text-gray-400 text-sm">No service entries for today.</Text>
-          </View>
-        )}
-      </View>
-
-      {/* Announcements feed */}
-      <View className="px-4 mt-6">
-        <View className="flex-row items-center gap-2 mb-3">
-          <Bell color="#7c3aed" size={18} />
-          <Text className="text-base font-semibold text-gray-800">Announcements</Text>
-        </View>
-
-        {announcementsLoading ? (
-          <View className="bg-white rounded-xl border border-gray-100 py-6 items-center">
-            <ActivityIndicator color="#7c3aed" />
-          </View>
-        ) : !announcements || announcements.length === 0 ? (
-          <View className="bg-white rounded-xl border border-gray-100 px-4 py-6 items-center">
-            <Text className="text-gray-400 text-sm">No announcements.</Text>
-          </View>
-        ) : (
-          <View className="bg-white rounded-xl overflow-hidden border border-gray-100">
-            {announcements.map((ann, idx) => (
-              <AnnouncementCard
-                key={ann.id}
-                announcement={ann}
-                isLast={idx === announcements.length - 1}
-              />
-            ))}
-          </View>
-        )}
-      </View>
-    </ScrollView>
-  );
-}
-
-function KpiCard({
-  icon,
-  label,
-  value,
-  accent,
-  onPress,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  accent: 'blue' | 'amber' | 'red';
-  onPress?: () => void;
-}) {
-  const borderColor = {
-    blue: 'border-emerald-200',
-    amber: 'border-amber-200',
-    red: 'border-red-200',
-  }[accent];
-
-  const bgColor = {
-    blue: 'bg-emerald-50',
-    amber: 'bg-amber-50',
-    red: 'bg-red-50',
-  }[accent];
-
-  const valueColor = {
-    blue: 'text-emerald-700',
-    amber: 'text-amber-700',
-    red: 'text-red-700',
-  }[accent];
-
-  const content = (
-    <View className={`flex-row items-center bg-white rounded-xl px-4 py-4 border ${borderColor}`}>
-      <View className={`w-10 h-10 rounded-full ${bgColor} items-center justify-center mr-4`}>
-        {icon}
-      </View>
-      <View className="flex-1">
-        <Text className="text-gray-500 text-xs">{label}</Text>
-        <Text className={`text-2xl font-bold ${valueColor}`}>{value}</Text>
-      </View>
-      {onPress && <ChevronRight color="#9ca3af" size={16} />}
+  return <ScrollView className="flex-1 bg-[#F4F7F5]" contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 20 }} refreshControl={<RefreshControl refreshing={dashboard.isFetching || announcement.isFetching || dailyLog.isFetching} onRefresh={onRefresh} tintColor="#087F5B" />}>
+    <View className="flex-row gap-3">
+      <TouchableOpacity onPress={() => router.push('/(tabs)/prep')} className="min-h-24 flex-1 justify-center rounded-2xl border border-[#E2EAE5] bg-white p-4" accessibilityRole="button" accessibilityLabel={`${data.meals_to_log_today} meals to record, open Meal Prep`}><Text className="text-xs font-semibold text-[#6B7F77]">Meals to record</Text><Text className="mt-1 text-2xl font-extrabold text-[#16352B]">{data.meals_to_log_today}</Text></TouchableOpacity>
+      <TouchableOpacity onPress={() => router.push('/(tabs)/procurement')} className="min-h-24 flex-1 justify-center rounded-2xl border border-[#E2EAE5] bg-white p-4" accessibilityRole="button" accessibilityLabel={`${data.pending_pos_count} pending purchase orders, open Procurement`}><Text className="text-xs font-semibold text-[#6B7F77]">Pending POs</Text><Text className="mt-1 text-2xl font-extrabold text-[#16352B]">{data.pending_pos_count}</Text></TouchableOpacity>
     </View>
-  );
 
-  if (!onPress) return content;
+    <TouchableOpacity onPress={() => router.push('/(tabs)/menu')} className="mt-3 min-h-16 justify-center rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3" accessibilityRole="button" accessibilityLabel="Open this week's menu"><Text className="text-xs font-bold uppercase tracking-wide text-emerald-700">This week’s menu</Text><Text className="mt-1 text-sm font-semibold text-[#16352B]" numberOfLines={1}>{data.active_cycle?.service_day_count ? `${data.active_cycle.name} · ${data.active_cycle.service_day_count} planned days` : 'Menu not planned for this week yet.'}</Text></TouchableOpacity>
 
-  return (
-    <TouchableOpacity onPress={onPress} accessibilityRole="button" activeOpacity={0.8}>
-      {content}
-    </TouchableOpacity>
-  );
-}
+    <View className="mt-3 rounded-2xl border border-[#E2EAE5] bg-white p-4"><Text className="text-xs font-bold uppercase tracking-wide text-[#6B7F77]">Next action</Text><TouchableOpacity onPress={() => router.push(next.path)} className="mt-1 min-h-12 justify-center" accessibilityRole="button"><Text className="text-sm font-bold text-[#087F5B]">{next.label}</Text></TouchableOpacity></View>
 
-function ServiceRowItem({ row, isLast }: { row: ServiceRow; isLast: boolean }) {
-  return (
-    <View className={`flex-row items-center px-4 py-3 ${isLast ? '' : 'border-b border-gray-100'}`}>
-      <View className="flex-1">
-        <Text className="text-xs text-gray-400 uppercase tracking-wide">{row.meal_type}</Text>
-        <Text className="text-sm font-medium text-gray-800 mt-0.5">{row.name}</Text>
-      </View>
-      <View className="flex-row gap-2">
-        <StatusBadge label="Served recorded" active={row.prepped} activeColor="green" />
-      </View>
-    </View>
-  );
-}
+    <TouchableOpacity onPress={() => router.push('/(tabs)/menu')} className="mt-3 min-h-16 justify-center rounded-2xl border border-[#E2EAE5] bg-white px-4 py-3" accessibilityRole="button" accessibilityLabel="Open today's menu"><Text className="text-xs font-bold uppercase tracking-wide text-[#6B7F77]">Today’s meals</Text><Text className="mt-1 text-sm text-[#30483F]" numberOfLines={1}>{todayItems.length ? `${todayItems.slice(0, 2).join(', ')}${todayItems.length > 2 ? ` +${todayItems.length - 2} more` : ''}` : 'No meals planned for today.'}</Text></TouchableOpacity>
 
-function StatusBadge({
-  label,
-  active,
-  activeColor,
-}: {
-  label: string;
-  active: boolean;
-  activeColor: 'green' | 'red';
-}) {
-  if (!active) return null;
-  const color = activeColor === 'green'
-    ? 'bg-green-100 text-green-700'
-    : 'bg-red-100 text-red-700';
-  return (
-    <View className={`px-2 py-0.5 rounded-full ${color.split(' ')[0]}`}>
-      <Text className={`text-xs font-medium ${color.split(' ')[1]}`}>{label}</Text>
-    </View>
-  );
-}
-
-function AnnouncementCard({
-  announcement,
-  isLast,
-}: {
-  announcement: Announcement;
-  isLast: boolean;
-}) {
-  return (
-    <View
-      className={`px-4 py-3.5 ${isLast ? '' : 'border-b border-gray-100'} ${
-        announcement.pinned ? 'bg-emerald-50' : 'bg-white'
-      }`}
-    >
-      <View className="flex-row items-start gap-2.5">
-        <AnnouncementAuthorAvatar author={announcement.author} size={36} />
-        <View className="flex-1">
-          <View className="flex-row items-center gap-1.5 flex-wrap mb-0.5">
-            {announcement.pinned && (
-              <Pin color="#7c3aed" size={12} />
-            )}
-            {announcement.category && (
-              <View className="bg-emerald-100 px-1.5 py-0.5 rounded-full">
-                <Text className="text-xs font-medium text-emerald-700">{announcement.category}</Text>
-              </View>
-            )}
-          </View>
-          <Text className="text-sm font-semibold text-gray-900 leading-5">
-            {announcement.title}
-          </Text>
-        </View>
-        <Text className="text-xs text-gray-400 tabular-nums mt-0.5 shrink-0">
-          {relativeTime(announcement.created_at)}
-        </Text>
-      </View>
-      <Text className="text-sm text-gray-600 mt-1 leading-5">{announcement.body}</Text>
-      {announcement.author.name && (
-        <Text className="text-xs text-gray-400 mt-1.5">
-          {announcement.author.name}
-          {announcement.author.role ? ` · ${announcement.author.role}` : ''}
-        </Text>
-      )}
-      <AnnouncementMedia
-        attachments={announcement.attachments?.length ? announcement.attachments : (announcement.attachment ? [announcement.attachment] : [])}
-        title={announcement.title}
-      />
-    </View>
-  );
+    <View className="mt-3 min-h-16 justify-center rounded-2xl border border-[#E2EAE5] bg-white px-4 py-3"><Text className="text-xs font-bold uppercase tracking-wide text-[#6B7F77]">Announcement</Text>{announcement.isLoading ? <ActivityIndicator color="#087F5B" /> : announcement.isError ? <TouchableOpacity onPress={() => announcement.refetch()} className="min-h-12 justify-center"><Text className="text-sm text-red-700">Could not load. Retry</Text></TouchableOpacity> : latestAnnouncement ? <View className="flex-row items-center gap-3"><Text className="min-w-0 flex-1 text-sm text-[#30483F]" numberOfLines={1}>{latestAnnouncement.title}</Text><TouchableOpacity onPress={() => router.push({ pathname: '/(tabs)/announcements', params: { announcementId: String(latestAnnouncement.id) } })} className="min-h-12 justify-center" accessibilityRole="button"><Text className="text-sm font-bold text-[#087F5B]">View announcement</Text></TouchableOpacity></View> : <Text className="mt-1 text-sm text-[#6B7F77]">No announcements.</Text>}</View>
+  </ScrollView>;
 }

@@ -12,10 +12,9 @@ test('mobile receiving keeps vendor scope and shows compact actual PO item field
     'Actual Quantity',
     'Unit',
     'Actual Cost/unit',
-    'Actual Total',
   ]) assert.match(source, new RegExp(label));
   for (const label of ['Calculation details', 'Planned purchase:', 'Actual purchased:']) {
-    assert.match(source, new RegExp(label));
+    assert.doesNotMatch(source, new RegExp(label));
   }
   for (const label of ['Calculated need:', 'Quantity difference:', 'Cost difference:']) {
     assert.doesNotMatch(source, new RegExp(label));

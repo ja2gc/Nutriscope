@@ -20,8 +20,8 @@ import {
   ReportItem, ReportTemplate, Branding, ReportAxis, ReportInstance, ReportBrandingRevision, ReportTemplateRevision,
   listReports, unarchiveReport, getReportArchiveSettings, setReportArchiveSettings, reportDownloadUrl, reportViewUrl,
   listInstances, prepareReport, archiveReport,
-  listAccomplishmentsToReview, decideAccomplishment,
-  type AccomplishmentReview,
+  listAccomplishmentStaff, listAccomplishmentsToReview, decideAccomplishment,
+  type AccomplishmentReview, type AccomplishmentStaff,
    getBranding, saveBranding, getAdminBranding, saveAdminBranding, brandingLogoUrl, brandingHistoryLogoUrl,
    listBrandingHistory, listTemplateHistory, listTemplates, saveTemplate,
 } from "@/services/reportService";
@@ -240,6 +240,13 @@ function BrowseTab({
 
 function AccomplishmentReportsPanel({ apiPrefix, onFlash }: { apiPrefix: ApiPrefix; onFlash: (ok: boolean, msg: string) => void }) {
   const [view, setView] = useState<"reports" | "review">("reports");
+  const [staff, setStaff] = useState<AccomplishmentStaff[]>([]);
+  const [staffMeta, setStaffMeta] = useState<PaginationMeta | null>(null);
+  const [staffPage, setStaffPage] = useState(1);
+  const [staffSearch, setStaffSearch] = useState("");
+  const debouncedStaffSearch = useDebouncedValue(staffSearch);
+  const [selectedStaff, setSelectedStaff] = useState<AccomplishmentStaff | null>(null);
+  const [coveredMonth, setCoveredMonth] = useState("");
   const [reports, setReports] = useState<ReportItem[]>([]);
   const [queue, setQueue] = useState<AccomplishmentReview[]>([]);
   const [selected, setSelected] = useState<AccomplishmentReview | null>(null);
@@ -248,6 +255,7 @@ function AccomplishmentReportsPanel({ apiPrefix, onFlash }: { apiPrefix: ApiPref
   const [page, setPage] = useState(1);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [busy, setBusy] = useState(false);
   const reviewRef = useRef<HTMLDivElement>(null);
 
@@ -255,18 +263,25 @@ function AccomplishmentReportsPanel({ apiPrefix, onFlash }: { apiPrefix: ApiPref
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError("");
     try {
+      if (apiPrefix === "rnd" && !selectedStaff) {
+        const result = await listAccomplishmentStaff(staffPage, debouncedStaffSearch);
+        setStaff(result.data);
+        setStaffMeta(result.meta);
+        return;
+      }
       if (view === "review" && apiPrefix === "rnd") {
-        setQueue(await listAccomplishmentsToReview());
+        setQueue(await listAccomplishmentsToReview({ fss_user_id: selectedStaff?.id, ...(coveredMonth ? { covered_month: coveredMonth } : {}) }));
       } else {
-        const result = await listReports(apiPrefix, page, { type: "accomplishment_report" });
+        const result = await listReports(apiPrefix, page, { type: "accomplishment_report", ...(selectedStaff ? { fss_user_id: selectedStaff.id } : {}), ...(coveredMonth ? { covered_month: coveredMonth } : {}) });
         setReports(result.data);
         setMeta(result.meta);
       }
     } catch (error) {
-      onFlash(false, error instanceof Error ? error.message : "Could not load reports.");
+      setLoadError(error instanceof Error ? error.message : "Could not load reports.");
     } finally { setLoading(false); }
-  }, [apiPrefix, onFlash, page, view]);
+  }, [apiPrefix, coveredMonth, debouncedStaffSearch, page, selectedStaff, staffPage, view]);
   useEffect(() => { void load(); }, [load]);
 
   async function decide(decision: "approve" | "reject") {
@@ -276,7 +291,7 @@ function AccomplishmentReportsPanel({ apiPrefix, onFlash }: { apiPrefix: ApiPref
       await decideAccomplishment(selected.report_id, selected.submission_version, decision, reason.trim());
       setSelected(null);
       setReason("");
-      setQueue(await listAccomplishmentsToReview());
+      setQueue(await listAccomplishmentsToReview({ fss_user_id: selectedStaff?.id, ...(coveredMonth ? { covered_month: coveredMonth } : {}) }));
       onFlash(true, decision === "approve" ? "Submission approved." : "Submission returned for correction.");
     } catch (error) {
       onFlash(false, error instanceof Error ? error.message : "Could not save review. Refresh and try again.");
@@ -286,12 +301,18 @@ function AccomplishmentReportsPanel({ apiPrefix, onFlash }: { apiPrefix: ApiPref
 
   return <Card className="min-w-0 overflow-hidden">
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-warm-100 px-4 py-4 sm:px-5">
-      <div><h2 className="font-bold text-warm-800">Accomplishment Report</h2><p className="text-sm text-warm-500">Semi-monthly reports from Food Service Staff</p></div>
-      {apiPrefix === "rnd" && <div className="flex gap-2" aria-label="Accomplishment views">
-        {(["reports", "review"] as const).map((key) => <button key={key} type="button" onClick={() => { setView(key); setSelected(null); setPage(1); }} aria-current={view === key} className={`min-h-11 rounded-lg px-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-emerald-600 ${view === key ? "bg-emerald-700 text-white" : "bg-warm-50 text-warm-700"}`}>{key === "review" ? "To Review" : "Reports"}</button>)}
+      <div>{selectedStaff && <button type="button" onClick={() => { setSelectedStaff(null); setSelected(null); setCoveredMonth(""); }} className="mb-2 min-h-11 text-sm font-semibold text-emerald-700">Back to Food Service Staff</button>}<h2 className="font-bold text-warm-800">{selectedStaff?.display_name ?? "Accomplishment Report"}</h2><p className="text-sm text-warm-500">{selectedStaff ? "Semi-monthly accomplishment reports" : apiPrefix === "rnd" ? "Select Food Service Staff to view reports" : "Semi-monthly reports from Food Service Staff"}</p></div>
+      {apiPrefix === "rnd" && selectedStaff && <div className="flex gap-2" aria-label="Accomplishment views">
+        {(["reports", "review"] as const).map((key) => <button key={key} type="button" onClick={() => { setView(key); setSelected(null); setPage(1); }} aria-current={view === key} className={`min-h-11 rounded-lg px-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-emerald-600 ${view === key ? "bg-emerald-700 text-white" : "bg-warm-50 text-warm-700"}`}>{key === "review" ? "To Review" : "Approved Reports"}</button>)}
       </div>}
     </div>
-    {loading ? <p className="px-5 py-10 text-sm text-warm-500">Loading…</p> : view === "review" && apiPrefix === "rnd" ? (
+    {apiPrefix === "rnd" && !selectedStaff ? <>
+      <div className="border-b border-warm-100 px-4 py-3 sm:px-5"><SearchInput label="Search Food Service Staff" value={staffSearch} onChange={(value) => { setStaffSearch(value); setStaffPage(1); }} /></div>
+      {loadError ? <div className="p-5" role="alert"><p className="text-sm text-red-700">{loadError}</p><button type="button" onClick={() => void load()} className="mt-2 min-h-11 font-semibold text-emerald-700">Retry</button></div> : loading ? <p className="px-5 py-10 text-sm text-warm-500">Loading staff…</p> : staff.length === 0 ? <div className="p-6"><EmptyState title="No Food Service Staff found" message="Try another name." /></div> : <ul className="divide-y divide-warm-100">{staff.map((user) => <li key={user.id}><button type="button" onClick={() => { setSelectedStaff(user); setView("reports"); setPage(1); setCoveredMonth(""); }} className="min-h-14 w-full px-4 py-3 text-left font-semibold text-warm-800 hover:bg-warm-50 focus-visible:outline-2 focus-visible:outline-emerald-600 sm:px-5">{user.display_name}</button></li>)}</ul>}
+      {!loading && !loadError && <Pagination meta={staffMeta} page={staffPage} onPageChange={setStaffPage} />}
+    </> : <>
+    {apiPrefix === "rnd" && <div className="border-b border-warm-100 px-4 py-3 sm:px-5"><label className="block max-w-xs text-sm font-semibold text-warm-700">Report month<input type="month" aria-label={view === "review" ? "Review month" : "Approved report month"} value={coveredMonth} onChange={(event) => { setCoveredMonth(event.target.value); setPage(1); }} className={`${inp} mt-1`} /></label></div>}
+    {loadError ? <div className="p-5" role="alert"><p className="text-sm text-red-700">{loadError}</p><button type="button" onClick={() => void load()} className="mt-2 min-h-11 font-semibold text-emerald-700">Retry</button></div> : loading ? <p className="px-5 py-10 text-sm text-warm-500">Loading…</p> : view === "review" && apiPrefix === "rnd" ? (
       queue.length === 0 ? <div className="p-6"><EmptyState title="No submissions to review" message="Submitted periods appear here." /></div> :
       <ul className="divide-y divide-warm-100">{queue.map((item) => <li key={item.report_id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-5">
         <div className="min-w-0"><p className="break-words font-semibold text-warm-800">{item.fss_user.display_name}</p><p className="text-sm text-warm-600">{item.start} to {item.end}</p><p className="text-xs text-warm-500">Submitted {reportDate(item.submitted_at)}</p></div>
@@ -299,7 +320,7 @@ function AccomplishmentReportsPanel({ apiPrefix, onFlash }: { apiPrefix: ApiPref
       </li>)}</ul>
     ) : reports.length === 0 ? <div className="p-6"><EmptyState title="No reports yet" message="Approved reports and earlier generated reports appear here." /></div> :
       <><ul className="divide-y divide-warm-100">{reports.map((report) => <li key={report.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-5">
-        <div className="min-w-0"><p className="break-words font-semibold text-warm-800">{personDisplayName(report.created_by, "Food Service Staff")}</p><p className="text-sm text-warm-600">{report.report_covered_until ? `Through ${reportCalendarDate(report.report_covered_until)}` : report.title}</p></div>
+        <div className="min-w-0"><p className="break-words font-semibold text-warm-800">{selectedStaff && report.report_covered_from && report.report_covered_until ? `${reportCalendarDate(report.report_covered_from)} – ${reportCalendarDate(report.report_covered_until)}` : personDisplayName(report.created_by, "Food Service Staff")}</p><p className="text-sm text-warm-600">{selectedStaff ? `${report.title} · ${report.review_state === "approved" ? "Approved" : "Earlier generated"}` : report.report_covered_until ? `Through ${reportCalendarDate(report.report_covered_until)}` : report.title}</p></div>
         <button type="button" onClick={() => setPreview(report)} className="min-h-11 rounded-lg border border-emerald-700 px-4 text-sm font-semibold text-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">View report</button>
       </li>)}</ul><div className="px-4 py-3"><Pagination meta={meta} page={page} onPageChange={setPage} /></div></>
     }
@@ -310,6 +331,7 @@ function AccomplishmentReportsPanel({ apiPrefix, onFlash }: { apiPrefix: ApiPref
       <div className="mt-4 flex flex-wrap gap-2"><Button type="button" onClick={() => void decide("approve")} disabled={busy}>Approve</Button><Button type="button" variant="secondary" onClick={() => void decide("reject")} disabled={busy || !reason.trim()}>Reject</Button></div>
     </div>}
     {preview && <ReportPreview title={preview.title} src={reportViewUrl(preview.id, apiPrefix)} downloadUrl={reportDownloadUrl(preview.id, apiPrefix)} onClose={() => setPreview(null)} />}
+    </>}
   </Card>;
 }
 

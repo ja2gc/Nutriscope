@@ -19,7 +19,7 @@ describe("menu template CRUD", () => {
     expect(page).toContain("loadTemplateIntoDraft");
     expect(page).toContain("gridFromTemplate(template)");
     expect(page).not.toContain("saveCycleAsTemplate");
-    expect(page).toContain("Create cycle from this");
+    expect(page).toContain("Create plan from template");
     expect(page).toContain("deleteTemplate(");
     expect(service).toContain("export async function saveTemplate");
   });

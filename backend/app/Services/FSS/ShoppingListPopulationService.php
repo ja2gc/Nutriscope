@@ -29,7 +29,7 @@ class ShoppingListPopulationService
             $cycle = MenuCycle::coveringDate($d);
             if (! $cycle) {
                 $uncovered[] = $date;
-                $missingByDate[$date] = 'no menu cycle covers this date';
+                $missingByDate[$date] = 'no menu planned for this date';
 
                 continue;
             }

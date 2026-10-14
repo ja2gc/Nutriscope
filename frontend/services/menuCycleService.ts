@@ -283,13 +283,13 @@ export async function listFsItemOptions(search: string): Promise<FsItemOption[]>
 export async function listCycles(page = 1): Promise<{ data: CycleListItem[]; meta: PaginationMeta }> {
   const res = await apiFetch(`/api/fss/menu-cycles?page=${page}&per_page=10`);
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.message ?? "Failed to load menu cycles.");
+  if (!res.ok) throw new Error(body.message ?? "Failed to load menu weeks.");
   return { data: body.data ?? [], meta: body.meta ?? { current_page: page, per_page: 10, total: 0, last_page: 1 } };
 }
 
 export async function getCycle(id: string): Promise<MenuCycle> {
   const res = await apiFetch(`/api/fss/menu-cycles/${id}`);
-  return json<MenuCycle>(res, "Failed to load menu cycle.");
+  return json<MenuCycle>(res, "Failed to load menu week.");
 }
 
 export async function saveCycle(id: string | null, payload: SaveCyclePayload): Promise<MenuCycle> {
@@ -298,12 +298,12 @@ export async function saveCycle(id: string | null, payload: SaveCyclePayload): P
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  return json<MenuCycle>(res, "Failed to save menu cycle.");
+  return json<MenuCycle>(res, "Failed to save menu week.");
 }
 
 export async function deleteCycle(id: string): Promise<void> {
   const res = await apiFetch(`/api/fss/menu-cycles/${id}`, { method: "DELETE" });
-  if (!res.ok && res.status !== 204) throw new Error("Failed to delete menu cycle.");
+  if (!res.ok && res.status !== 204) throw new Error("Failed to delete menu week.");
 }
 
 export interface CostToday {

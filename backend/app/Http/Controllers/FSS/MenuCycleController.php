@@ -251,7 +251,7 @@ class MenuCycleController extends Controller
 
         if ($days !== null && $this->structuralDaysLocked($menuCycle)) {
             return response()->json([
-                'message' => 'Active or snapshotted menu cycles cannot change menu day structure.',
+                'message' => 'This menu week can no longer be changed.',
             ], 422);
         }
 

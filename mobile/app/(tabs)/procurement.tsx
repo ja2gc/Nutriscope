@@ -35,8 +35,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../../lib/api';
 import { getToken } from '../../lib/auth';
 import { authenticatedImageSource, collectAllPages } from '../../lib/mobileContracts';
-import { PaginatedListFooter } from '../../components/PaginatedListFooter';
-import { MOBILE_PAGE_SIZE, PaginatedResponse, flattenUniquePages, getNextPageParam } from '../../lib/pagination';
+import { MobilePagination } from '../../components/MobilePagination';
+import { MOBILE_PAGE_SIZE, PaginatedResponse, flattenUniquePages, getNextPageParam, paginateItems } from '../../lib/pagination';
+import { useMobileServerPage } from '../../lib/useMobileServerPage';
 import { validateUploadFiles } from '../../lib/uploadValidation';
 
 type AttachmentType = 'receipt' | 'proof';
@@ -115,7 +116,7 @@ async function fetchPOs(page: number): Promise<PaginatedResponse<PurchaseOrder>>
 async function fetchSuppliers(): Promise<Supplier[]> {
   return collectAllPages(async (page) => {
     const res = await api.get<PaginatedResponse<Supplier>>('/api/fss/suppliers', {
-      params: { page, per_page: 10 },
+      params: { page, per_page: MOBILE_PAGE_SIZE },
     });
     return res.data;
   });
@@ -385,6 +386,8 @@ function AttachmentList({
 }) {
   const qc = useQueryClient();
   const attachments = (group.attachments ?? []).filter((att) => att.type === type);
+  const [attachmentPage, setAttachmentPage] = useState(1);
+  const attachmentPager = paginateItems(attachments, attachmentPage);
   const [viewing, setViewing] = useState<PurchaseOrderAttachment | null>(null);
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const previewHeight = Math.min(720, Math.max(280, Math.min(windowHeight * 0.72, windowWidth * 1.25)));
@@ -447,7 +450,7 @@ function AttachmentList({
           </Text>
         </View>
       ) : (
-        attachments.map((att, idx) => (
+        attachmentPager.items.map((att, idx) => (
           <View
             key={att.id}
             className={`flex-row items-center px-4 py-3 ${idx < attachments.length - 1 ? 'border-b border-gray-100' : ''}`}
@@ -488,6 +491,7 @@ function AttachmentList({
           </View>
         ))
       )}
+      <View className="px-4"><MobilePagination page={attachmentPager.page} pages={attachmentPager.pages} total={attachmentPager.total} onPrevious={() => setAttachmentPage(attachmentPager.page - 1)} onNext={() => setAttachmentPage(attachmentPager.page + 1)} /></View>
       <Modal visible={viewing !== null} transparent animationType="fade" onRequestClose={() => setViewing(null)}>
         <Pressable className="flex-1 bg-black/90 justify-center px-4" onPress={() => setViewing(null)}>
           {viewing && (
@@ -556,7 +560,10 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
     }])),
   );
   const [vendorScope, setVendorScope] = useState<'all' | number | null>(null);
-  const [expandedItems, setExpandedItems] = useState<Set<number>>(() => new Set());
+  const [vendorPage, setVendorPage] = useState(1);
+  const [itemPage, setItemPage] = useState(1);
+  const vendorPager = paginateItems(suppliers.filter((supplier) => supplier.id !== group.supplier?.id), vendorPage);
+  const itemPager = paginateItems(group.items ?? [], itemPage);
 
   useEffect(() => {
     setOrNumber(group.or_number ?? '');
@@ -566,8 +573,9 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
       qtyEdited: false,
       priceEdited: false,
     }])));
-    setExpandedItems(new Set());
     setError(null);
+    setVendorPage(1);
+    setItemPage(1);
   }, [group]);
 
   const updateMutation = useMutation({
@@ -638,7 +646,7 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
   const vendorChoices = (itemId?: number) => (
     <View className="mt-2 gap-2">
       {supplierLoadFailed && <View className="rounded-lg border border-red-200 bg-red-50 p-3"><Text className="text-sm text-red-700">Could not load vendors.</Text><TouchableOpacity className="mt-2 min-h-11 justify-center" onPress={onRetrySuppliers}><Text className="font-semibold text-emerald-700">Retry</Text></TouchableOpacity></View>}
-      {suppliers.filter((supplier) => supplier.id !== group.supplier?.id).map((supplier) => (
+      {vendorPager.items.map((supplier) => (
         <TouchableOpacity
           key={supplier.id}
           className="min-h-11 justify-center rounded-lg border border-gray-200 bg-white px-3 py-2"
@@ -648,6 +656,7 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
           <Text className="text-sm font-semibold text-gray-700">{supplier.name}</Text>
         </TouchableOpacity>
       ))}
+      <MobilePagination page={vendorPager.page} pages={vendorPager.pages} total={vendorPager.total} onPrevious={() => setVendorPage(vendorPager.page - 1)} onNext={() => setVendorPage(vendorPager.page + 1)} />
       <TouchableOpacity className="min-h-11 justify-center px-3" onPress={() => setVendorScope(null)} disabled={vendorMutation.isPending}>
         <Text className="text-center text-sm font-semibold text-gray-500">Cancel</Text>
       </TouchableOpacity>
@@ -726,7 +735,7 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
             </Text>
           </View>
 
-          {(group.items ?? []).map((item, idx) => (
+          {itemPager.items.map((item, idx) => (
             <View key={item.id} className={`px-4 py-4 ${idx < (group.items?.length ?? 0) - 1 ? 'border-b border-gray-100' : ''}`}>
               <Text className="text-sm font-semibold text-gray-900 mb-1" numberOfLines={2}>
                 {item.description}
@@ -742,28 +751,6 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
                   return { ...current, [item.id]: { ...draft, price: value, priceEdited: true } };
                 })} className="border border-gray-200 rounded-lg px-3 py-2 text-sm" /></View>
               </View>
-              <View className="mt-3 flex-row items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
-                <Text className="text-xs font-semibold text-gray-500">Actual Total</Text>
-                <Text className="text-sm font-semibold text-emerald-700">{money((actuals[item.id]?.qtyEdited ? Number(actuals[item.id].qty) : Number(item.actual_qty)) * (actuals[item.id]?.priceEdited ? Number(actuals[item.id].price) : Number(item.actual_unit_price)))}</Text>
-              </View>
-              <TouchableOpacity
-                className="min-h-11 flex-row items-center justify-between"
-                onPress={() => setExpandedItems((current) => {
-                  const next = new Set(current);
-                  if (next.has(item.id)) next.delete(item.id); else next.add(item.id);
-                  return next;
-                })}
-                accessibilityRole="button"
-                accessibilityLabel={`Calculation details for ${item.description}`}
-                accessibilityState={{ expanded: expandedItems.has(item.id) }}
-              >
-                <Text className="text-sm font-semibold text-emerald-700">Calculation details</Text>
-                <ChevronDown color="#047857" size={16} style={{ transform: [{ rotate: expandedItems.has(item.id) ? '180deg' : '0deg' }] }} />
-              </TouchableOpacity>
-              {expandedItems.has(item.id) && <View className="gap-1 rounded-lg bg-gray-50 p-3">
-                <Text className="text-xs text-gray-500">Planned purchase: {formatActualInput(item.purchase_qty ?? item.qty)} {item.actual_unit} at {money(item.purchase_price ?? item.unit_price)}</Text>
-                <Text className="text-xs text-gray-500">Actual purchased: {actuals[item.id]?.qty ?? formatActualInput(item.actual_qty)} {item.actual_unit} at {money(actuals[item.id]?.price ?? item.actual_unit_price)}</Text>
-              </View>}
               <TouchableOpacity
                 className="min-h-11 justify-center self-start"
                 onPress={() => setVendorScope(vendorScope === item.id ? null : item.id)}
@@ -776,6 +763,7 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
               {vendorScope === item.id && vendorChoices(item.id)}
             </View>
           ))}
+          <View className="px-4"><MobilePagination page={itemPager.page} pages={itemPager.pages} total={itemPager.total} onPrevious={() => setItemPage(itemPager.page - 1)} onNext={() => setItemPage(itemPager.page + 1)} /></View>
         </View>
 
         <View className="gap-4">
@@ -799,6 +787,8 @@ function PurchaseOrderDetail({
 }) {
   const groups = po.vendor_groups ?? [];
   const [plannedTotalOpen, setPlannedTotalOpen] = useState(false);
+  const [groupPage, setGroupPage] = useState(1);
+  const groupPager = paginateItems(groups, groupPage);
 
   return (
     <ScrollView className="flex-1 bg-gray-50" contentContainerStyle={{ paddingBottom: 24 }}>
@@ -810,6 +800,7 @@ function PurchaseOrderDetail({
           <Text className="text-xs text-gray-400 mt-1">
             {po.ppa?.target_date_range ?? po.order_date ?? 'No schedule'}
           </Text>
+          <Text className="mt-2 text-sm font-semibold text-gray-700">Status: {purchaseOrderStatusLabel(po.lifecycle_status)}</Text>
         </View>
 
         <View className="bg-white rounded-xl border border-gray-100 overflow-hidden mb-4">
@@ -840,7 +831,7 @@ function PurchaseOrderDetail({
               <Text className="text-sm text-gray-400">No vendor groups for this purchase order.</Text>
             </View>
           ) : (
-            groups.map((group, idx) => (
+            groupPager.items.map((group, idx) => (
               <TouchableOpacity
                 key={group.id}
                 className={`flex-row items-center px-4 py-4 ${idx < groups.length - 1 ? 'border-b border-gray-100' : ''}`}
@@ -852,8 +843,9 @@ function PurchaseOrderDetail({
                     {group.supplier?.name ?? 'Unassigned vendor'}
                   </Text>
                   <Text className="text-xs text-gray-400 mt-0.5">
-                    OR: {group.or_number || 'missing'} | receipt {countReceipts(group) ? 'uploaded' : 'missing'} | proof {countProofs(group)}
+                    {group.status === 'received' || Boolean(group.received_at) ? 'Received' : 'Pending'} · OR {group.or_number || 'missing'}
                   </Text>
+                  <Text className="mt-0.5 text-xs text-gray-500">Receipt {countReceipts(group) ? 'uploaded' : 'missing'} · Proof {countProofs(group) ? 'uploaded' : 'missing'}</Text>
                 </View>
                 <View className="items-end mr-2">
                   <Text className="text-sm font-bold text-gray-800">{money(group.total_amount)}</Text>
@@ -863,6 +855,7 @@ function PurchaseOrderDetail({
               </TouchableOpacity>
             ))
           )}
+          <View className="px-4"><MobilePagination page={groupPager.page} pages={groupPager.pages} total={groupPager.total} onPrevious={() => setGroupPage(groupPager.page - 1)} onNext={() => setGroupPage(groupPager.page + 1)} /></View>
         </View>
       </View>
     </ScrollView>
@@ -929,6 +922,7 @@ export default function ProcurementScreen() {
     staleTime: 5 * 60_000,
   });
   const suppliers = supplierQuery.data ?? [];
+  const ordersPager = useMobileServerPage(data, fetchNextPage);
 
   const orders = useMemo(() => flattenUniquePages(data?.pages), [data]);
   const selectedPo = useMemo(
@@ -944,12 +938,14 @@ export default function ProcurementScreen() {
     if (!targetPoId || consumedTargetPo.current === targetPoId) return;
     if (orders.some((po) => String(po.id) === targetPoId)) {
       consumedTargetPo.current = targetPoId;
+      const foundPage = data?.pages.find((page) => page.data.some((po) => String(po.id) === targetPoId));
+      if (foundPage) ordersPager.setPage(foundPage.meta.current_page);
       setSelectedPoId(targetPoId);
       setSelectedGroupId(null);
     } else if (hasNextPage && !isFetchingNextPage) {
       void fetchNextPage();
     }
-  }, [fetchNextPage, hasNextPage, isFetchingNextPage, orders, selectedPoId, targetPoId]);
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage, orders, selectedPoId, targetPoId, data, ordersPager.setPage]);
 
   const openUpload = useCallback((group: VendorGroup, type: AttachmentType) => {
     setUploadGroup(group);
@@ -1022,13 +1018,11 @@ export default function ProcurementScreen() {
     <>
       <FlatList
         className="flex-1 bg-gray-50"
-        data={orders}
+        data={ordersPager.items}
         keyExtractor={(po) => String(po.id)}
         contentContainerStyle={{ paddingBottom: insets.bottom + 16, paddingTop: 16 }}
         refreshing={isFetching && !isLoading}
         onRefresh={refetch}
-        onEndReached={() => { if (hasNextPage && !isFetchingNextPage) void fetchNextPage(); }}
-        onEndReachedThreshold={0.4}
         ListHeaderComponent={<View className="px-4 mb-4">
           <Text className="text-lg font-bold text-gray-900">Procurement</Text>
         </View>}
@@ -1043,7 +1037,7 @@ export default function ProcurementScreen() {
               <ShoppingBag color="#d1d5db" size={32} />
               <Text className="mt-2 text-sm text-gray-400">No purchase orders assigned yet.</Text>
             </View></View>}
-        ListFooterComponent={<PaginatedListFooter loading={isFetchingNextPage} error={isFetchNextPageError} onRetry={() => void fetchNextPage()} />}
+        ListFooterComponent={<MobilePagination page={ordersPager.page} pages={ordersPager.pages} total={ordersPager.total} onPrevious={ordersPager.previous} onNext={() => void ordersPager.next()} loading={isFetchingNextPage} error={isFetchNextPageError} />}
       />
 
       <UploadAttachmentModal

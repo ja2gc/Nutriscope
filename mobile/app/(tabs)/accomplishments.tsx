@@ -1,12 +1,12 @@
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, Check, CheckCircle2, ClipboardCheck, FileText, RotateCcw } from 'lucide-react-native';
+import { CalendarDays, Check, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, FileText, RotateCcw } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { ActivityIndicator, Platform, Pressable, RefreshControl, ScrollView, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../../lib/api';
-import { dateFromKey, localDateKey, readableLocalDate } from '../../lib/localDate';
+import { addCalendarDays, dateFromKey, localDateKey, readableLocalDate, todayManilaKey } from '../../lib/localDate';
 import ReportsScreen from '../../components/ReportsScreen';
 import { getAccomplishmentPeriod } from '../../lib/reports';
 
@@ -40,7 +40,7 @@ export default function AccomplishmentsScreen() {
   const params = useLocalSearchParams<{ section?: string }>();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const today = localDateKey();
+  const today = todayManilaKey();
   const [section, setSection] = useState<'log' | 'reports'>('log');
   const [selectedDate, setSelectedDate] = useState(today);
   const [showPicker, setShowPicker] = useState(false);
@@ -49,6 +49,7 @@ export default function AccomplishmentsScreen() {
   const [tasks, setTasks] = useState<TaskFlags>(emptyTasks);
   const [message, setMessage] = useState<{ kind: 'error' | 'success'; text: string } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  useFocusEffect(useCallback(() => { setSelectedDate(todayManilaKey()); }, []));
 
   useEffect(() => {
     if (params.section === 'reports') setSection('reports');
@@ -59,6 +60,7 @@ export default function AccomplishmentsScreen() {
   const rowsQuery = useQuery({ queryKey: ['fss-diet-list-day', selectedDate], queryFn: () => getDailyRows(selectedDate), staleTime: 30_000 });
   const periodQuery = useQuery({ queryKey: ['fss-accomplishment-period', periodStart(selectedDate)], queryFn: () => getAccomplishmentPeriod(periodStart(selectedDate)) });
   const locked = periodQuery.data?.status === 'pending' || periodQuery.data?.status === 'approved';
+  const savedRow = rowsQuery.data?.find((entry) => entry.ward === 'Accomplishment report') ?? rowsQuery.data?.[0];
   useEffect(() => {
     const row = rowsQuery.data?.find((entry) => entry.ward === 'Accomplishment report') ?? rowsQuery.data?.[0];
     if (!row) return;
@@ -116,7 +118,12 @@ export default function AccomplishmentsScreen() {
     if (Platform.OS === 'android') setShowPicker(false);
     if (event.type !== 'dismissed' && date) { setSelectedDate(localDateKey(date)); setMessage(null); }
   };
-  const goToday = () => { setSelectedDate(localDateKey()); setShowPicker(false); setMessage(null); };
+  const goToday = () => { setSelectedDate(todayManilaKey()); setShowPicker(false); setMessage(null); };
+  const moveDay = (days: number) => {
+    const next = addCalendarDays(selectedDate, days);
+    if (next > today) return;
+    setSelectedDate(next); setShowPicker(false); setMessage(null);
+  };
   const refresh = useCallback(async () => {
     setRefreshing(true); await rowsQuery.refetch(); setRefreshing(false);
   }, [rowsQuery]);
@@ -132,12 +139,15 @@ export default function AccomplishmentsScreen() {
     {section === 'reports' ? <ReportsScreen embedded onEditDay={(date) => { setSelectedDate(date); setSection('log'); setMessage(null); }} /> : <ScrollView className="flex-1" contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 28 }} keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="#087F5B" />}>
       <View className="rounded-[22px] bg-white border border-[#E2EAE5] p-4">
         <Text className="text-xs font-bold uppercase tracking-widest text-[#6B7F77]">Log date</Text>
-        <View className="mt-2 flex-row gap-2">
-          <TouchableOpacity onPress={() => setShowPicker(true)} className="min-h-12 flex-1 flex-row items-center gap-3 rounded-xl border border-[#D9E3DD] bg-[#FAFCFB] px-3" accessibilityLabel={`Select log date, ${readableLocalDate(selectedDate)}`}>
-            <CalendarDays color="#087F5B" size={20} /><Text className="flex-1 text-sm font-bold text-[#263D35]">{readableLocalDate(selectedDate)}</Text>
+        <View className="mt-2 flex-row items-center gap-2">
+          <TouchableOpacity onPress={() => moveDay(-1)} className="min-h-12 min-w-12 items-center justify-center rounded-xl border border-[#D9E3DD]" accessibilityRole="button" accessibilityLabel="Previous day"><ChevronLeft color="#087F5B" size={22} /></TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowPicker(true)} className="min-h-12 flex-1 flex-row items-center gap-2 rounded-xl border border-[#D9E3DD] bg-[#FAFCFB] px-3" accessibilityRole="button" accessibilityLabel={`Select log date, ${readableLocalDate(selectedDate)}`}>
+            <CalendarDays color="#087F5B" size={18} /><Text className="flex-1 text-sm font-bold text-[#263D35]" numberOfLines={2}>{readableLocalDate(selectedDate)}</Text>
           </TouchableOpacity>
-          {selectedDate !== today && <TouchableOpacity onPress={goToday} className="min-h-12 flex-row items-center gap-1.5 rounded-xl bg-[#E7F7F0] px-3" accessibilityLabel="Return to today's daily log"><RotateCcw color="#087F5B" size={17} /><Text className="text-sm font-bold text-[#087F5B]">Today</Text></TouchableOpacity>}
+          <TouchableOpacity onPress={() => moveDay(1)} disabled={selectedDate >= today} className="min-h-12 min-w-12 items-center justify-center rounded-xl border border-[#D9E3DD]" accessibilityRole="button" accessibilityLabel="Next day" accessibilityState={{ disabled: selectedDate >= today }}><ChevronRight color={selectedDate >= today ? '#A7B5AE' : '#087F5B'} size={22} /></TouchableOpacity>
         </View>
+        {selectedDate !== today && <TouchableOpacity onPress={goToday} className="mt-2 min-h-12 flex-row items-center justify-center gap-1.5 rounded-xl bg-[#E7F7F0] px-3" accessibilityRole="button" accessibilityLabel="Return to today's daily log"><RotateCcw color="#087F5B" size={17} /><Text className="text-sm font-bold text-[#087F5B]">Today</Text></TouchableOpacity>}
+        <Text className="mt-2 text-xs font-semibold text-[#6B7F77]">{rowsQuery.isLoading ? 'Checking log…' : rowsQuery.isError ? 'Log status unavailable' : savedRow ? savedRow.off_duty ? 'Off duty' : 'Saved' : 'Not logged'}</Text>
         {selectedDate !== today && <Text className="mt-2 text-xs text-amber-700">Backfilling a missed daily log.</Text>}
         {showPicker && <DateTimePicker value={dateFromKey(selectedDate)} mode="date" maximumDate={dateFromKey(today)} onChange={selectDate} />}
       </View>

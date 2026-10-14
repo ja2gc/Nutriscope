@@ -33,6 +33,7 @@ test('food profile groups measured adjustable ingredients separately', () => {
   assert.match(profile, /adjustableIngredients/);
   assert.match(profile, /Adjust to taste/);
   assert.match(profile, /item\.scaled_quantity \?\? item\.quantity/);
+  assert.match(profile, /ingredientPager\.items/);
 });
 
 test('daily log supports past dates and a clear return to today', () => {
@@ -74,7 +75,7 @@ test('announcement page separates announcements and SOP into internal tabs', () 
   assert.match(screen, />SOP<\/Text>/);
   assert.match(screen, /section === 'sop'/);
   assert.match(screen, /Could not load the current SOP/);
-  assert.match(screen, /Could not load SOP history/);
+  assert.match(fs.readFileSync(path.join(root, 'app', 'sop-history.tsx'), 'utf8'), /Could not load SOP history/);
   assert.match(screen, /consumedTargetAnnouncement/);
   assert.match(notificationTargets, /pathname: '\/\(tabs\)\/announcements'/);
   assert.doesNotMatch(rootLayout, /name="announcements"/);

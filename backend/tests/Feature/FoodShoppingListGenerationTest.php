@@ -90,6 +90,13 @@ class FoodShoppingListGenerationTest extends TestCase
 
         // No partial list created.
         $this->assertDatabaseCount('shopping_lists', 0);
+
+        $this->postJson('/api/fss/shopping-lists/generate', [
+            'start_date' => '2026-06-22',
+            'end_date' => '2026-06-22',
+            'estimate_population' => 10,
+        ])->assertUnprocessable()
+            ->assertJsonPath('missing_items_by_date.2026-06-22', 'no menu planned for this date');
     }
 
     public function test_fully_covered_span_creates_food_track_list(): void

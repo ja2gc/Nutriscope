@@ -112,7 +112,8 @@ class MenuCycleWorkflowGuardTest extends TestCase
                 'served_population' => 33,
             ])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors('service_date');
+            ->assertJsonValidationErrors('service_date')
+            ->assertJsonPath('errors.service_date.0', 'No meals are planned for this service date.');
     }
 
     public function test_listing_cycles_maintains_an_empty_current_week_and_four_future_weeks_idempotently(): void
@@ -332,6 +333,7 @@ class MenuCycleWorkflowGuardTest extends TestCase
                     'quantity' => 1,
                 ]],
             ])
-            ->assertStatus(422);
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'This menu week can no longer be changed.');
     }
 }

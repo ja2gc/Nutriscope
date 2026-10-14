@@ -45,7 +45,7 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <CalendarDays color={color} size={size} />
           ),
-          header: () => <AppHeader title="Menu Cycle" />,
+          header: () => <AppHeader title="Menu" />,
         }}
       />
       <Tabs.Screen

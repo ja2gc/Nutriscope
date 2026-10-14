@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
-import { fetchCurrentSop, fetchSopHistory, saveSop, Sop } from "@/services/sopService";
+import { CharacterCountTextarea } from "@/components/ui/CharacterCountTextarea";
+import { fetchCurrentSop, saveSop, Sop } from "@/services/sopService";
 import { ClipboardList, History, PencilLine, X } from "lucide-react";
-import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 
 function formatTimeStamp(value: string) {
   return new Date(value).toLocaleString("en-US", {
@@ -18,7 +19,7 @@ function formatTimeStamp(value: string) {
  * board, same visual language as a pinned post. RND/Admin can revise (each save is
  * a new version); History shows the full audit trail of past SOPs.
  */
-export function SopBanner() {
+export function SopBanner({ historyHref }: { historyHref: string }) {
   const { user } = useAuth();
   const canEdit = user?.role === "RND" || user?.role === "Admin";
 
@@ -29,12 +30,6 @@ export function SopBanner() {
   const [draft, setDraft] = useState({ title: "", body: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [history, setHistory] = useState<Sop[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyPage, setHistoryPage] = useState(1);
-  const [historyMeta, setHistoryMeta] = useState<PaginationMeta | null>(null);
 
   async function load() {
     setLoading(true);
@@ -57,24 +52,9 @@ export function SopBanner() {
     setEditing(true);
   }
 
-  async function openHistory(page = 1) {
-    setHistoryOpen(true);
-    setHistoryLoading(true);
-    try {
-      const result = await fetchSopHistory(page);
-      setHistory(result.data);
-      setHistoryMeta(result.meta);
-      setHistoryPage(page);
-    } catch {
-      setHistory([]);
-    } finally {
-      setHistoryLoading(false);
-    }
-  }
-
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!draft.title.trim() || !draft.body.trim()) return;
+    if (!draft.title.trim() || !draft.body.trim() || draft.body.length > 3000) return;
     setSaving(true);
     setError(null);
     try {
@@ -113,13 +93,12 @@ export function SopBanner() {
           </div>
         </div>
         <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto">
-          <button
-            type="button"
-            onClick={() => void openHistory()}
+          <Link
+            href={historyHref}
             className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg border border-emerald-200 px-2.5 py-1.5 text-xs font-bold uppercase tracking-wider text-emerald-700 transition-colors hover:bg-white sm:flex-none"
           >
             <History className="h-3.5 w-3.5" /> History
-          </button>
+          </Link>
           {canEdit && (
             <button
               type="button"
@@ -175,9 +154,11 @@ export function SopBanner() {
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-warm-500 uppercase tracking-wider">Procedure</label>
-                <textarea
+                <CharacterCountTextarea
                   value={draft.body}
-                  onChange={(e) => setDraft((p) => ({ ...p, body: e.target.value }))}
+                  onChange={(value) => setDraft((p) => ({ ...p, body: value }))}
+                  maxLength={3000}
+                  rows={8}
                   className="w-full px-3 py-2 text-base bg-white border border-warm-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 min-h-40"
                 />
               </div>
@@ -196,57 +177,6 @@ export function SopBanner() {
         </div>
       )}
 
-      {/* History modal */}
-      {historyOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-forest-900/45 backdrop-blur-sm"
-          onClick={() => setHistoryOpen(false)}
-        >
-          <div
-            className="w-full max-w-2xl bg-white border border-warm-200 rounded-3xl overflow-hidden shadow-2xl max-h-[85vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="px-5 py-4 border-b border-warm-100 bg-warm-50 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-warm-900 uppercase tracking-[0.18em]">SOP History</h3>
-              <button
-                type="button"
-                onClick={() => setHistoryOpen(false)}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-warm-200 text-xs font-bold uppercase tracking-wider text-warm-600 hover:bg-white"
-              >
-                <X className="h-3.5 w-3.5" /> Close
-              </button>
-            </div>
-            <div className="p-5 space-y-3 overflow-y-auto">
-              {historyLoading ? (
-                <div className="text-sm text-warm-400 text-center py-8">Loading…</div>
-              ) : history.length === 0 ? (
-                <div className="text-sm text-warm-400 text-center py-8">No past versions.</div>
-              ) : (
-                history.map((v, i) => (
-                  <details key={v.id} className="group rounded-2xl border border-warm-200 bg-white open:border-emerald-200">
-                    <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-4 py-2.5 text-sm font-bold text-warm-800 transition-colors hover:bg-warm-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-inset">
-                      <span>{formatTimeStamp(v.created_at)}</span>
-                      {i === 0 && (
-                        <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-extrabold uppercase tracking-wider border bg-emerald-50 text-emerald-700 border-emerald-200">
-                          Current
-                        </span>
-                      )}
-                    </summary>
-                    <div className="border-t border-warm-100 px-4 pb-4 pt-3">
-                      <div className="break-words text-base font-bold text-warm-900">{v.title}</div>
-                      <div className="mt-1 text-xs font-semibold text-warm-500">
-                        Created by {v.author?.name ?? "Unknown"}{v.author?.role ? ` · ${v.author.role}` : ""} · {formatTimeStamp(v.created_at)}
-                      </div>
-                      <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-warm-700">{v.body}</p>
-                    </div>
-                  </details>
-                ))
-              )}
-              <Pagination meta={historyMeta} page={historyPage} onPageChange={(page) => void openHistory(page)} />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

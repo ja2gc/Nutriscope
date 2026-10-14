@@ -16,6 +16,7 @@ use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\Report;
 use App\Models\ReportArchiveSetting;
+use App\Models\User;
 use App\Policies\AuditPolicy;
 use App\Services\Audit\AuditContextResolver;
 use App\Services\Audit\AuditLogger;
@@ -79,6 +80,7 @@ class ReportController extends Controller
             'type' => ['nullable', 'string', 'max:60'],
             'year' => ['nullable', 'integer', 'min:2000', 'max:2100'],
             'covered_month' => ['nullable', 'date_format:Y-m'],
+            'fss_user_id' => ['nullable', 'uuid'],
         ]);
 
         $monthStart = $request->filled('covered_month') ? $request->string('covered_month')->toString().'-01' : null;
@@ -97,6 +99,10 @@ class ReportController extends Controller
         $query->where('type', '!=', 'demographic_census');
         $query->where(fn ($visible) => $visible->where('type', '!=', 'accomplishment_report')
             ->orWhereNull('review_state')->orWhere('review_state', 'approved'));
+        if ($request->filled('fss_user_id')) {
+            $fssUserId = User::withTrashed()->where('uuid', $request->string('fss_user_id')->toString())->value('id') ?? 0;
+            $query->where('type', 'accomplishment_report')->where('user_id', $fssUserId);
+        }
 
         // FSS may only see accomplishment_report rows (fss.md §8).
         if ($role === 'FSS') {

@@ -27,7 +27,7 @@ Use this as both the recording checklist and narration script. The main recordin
 
 - Install the current signed APK from `https://nutriscope.live/mobile-app` on an Android phone or emulator.
 - Use an active demo account assigned to the Food Service Staff (FSS) role. Do not use an RND or Admin account.
-- Ask RND to prepare one active Monday-to-Sunday menu containing demo meals and food profiles. For that setup, refer to **RND Food Service Operations Video Storyboard, Scene 3 — Create and Reuse a Weekly Menu**.
+- Ask RND to prepare one Monday-to-Sunday menu containing demo meals and food profiles. For that setup, refer to **RND Food Service Operations Video Storyboard, Scene 3 — Create and Reuse a Weekly Menu**.
 - Ask RND to prepare one open demo purchase order with items assigned to vendors. For that setup, refer to **RND Food Service Operations Video Storyboard, Scene 7 — Create and Release the Purchase Order**.
 - Prepare privacy-safe demo receipt and proof images. Do not use real financial or patient records.
 - For the report scene, prepare privacy-safe Daily Logs across one semi-monthly period for the signed-in FSS user.
@@ -83,14 +83,13 @@ Use this as both the recording checklist and narration script. The main recordin
 **On-screen actions**
 
 1. Open **Home**.
-2. Show **Meals to log today** and **Pending POs**.
+2. Show the compact **Meals to record** and **Pending POs** cards.
 3. Point out the **This week's menu** card.
-4. Show a waiting reason such as **Needs receipts** or **Needs served population**, if available.
-5. Scroll to today's service rows and Announcements.
+4. Show **Next action**, **Today's meals**, and the latest **Announcement**. Use **View announcement** to open its detail.
 
 **Narration**
 
-> Home shows the current dated menu, pending purchases, served population, and announcements. The current week appears even before RND fills its meal slots. If no menu covers a selected date, FSS contacts RND.
+> Home shows today's priorities in compact cards. The current week appears even before RND fills its meal slots. The latest announcement opens on its own full-screen detail with Back.
 
 **Expected result:** The viewer understands the day's priorities and the six primary tabs: Home, Announcement, Menu, Meal Prep, Accomplish, and Purchase.
 
@@ -103,13 +102,13 @@ Use this as both the recording checklist and narration script. The main recordin
 **On-screen actions**
 
 1. Open the second bottom tab, **Announcement**.
-2. In **Announcements**, open the seeded demo post with a photo. Point out the author's real profile image and the fixed responsive post-photo frame, then close its detail sheet.
+2. In **Announcements**, open the seeded demo post with a photo. Point out the author's profile image and the responsive post-photo frame, then use **Back** from its full-screen detail.
 3. Switch to **SOP**.
-4. Read the current Standard Operating Procedure and open **History**.
+4. Read the current Standard Operating Procedure, open **History**, select a version by its title, and use **Back** to return to the history list.
 
 **Narration**
 
-> The Announcement tab contains two separate views. Announcements show messages intended for Food Service Staff, including the author's profile photo and optional post images without stretching or cropping the original photo. SOP shows the current Standard Operating Procedure and its earlier versions. FSS can read this information but cannot change it.
+> The Announcement tab contains two separate views. Announcements show messages intended for Food Service Staff, including the author's profile photo and optional post images without stretching or cropping the original photo. SOP shows the current procedure; History opens a separate list and each saved version has its own detail. FSS can read but cannot revise it.
 
 **Expected result:** Announcements, the current SOP, and SOP History open within the Announcement section.
 
@@ -117,13 +116,13 @@ Use this as both the recording checklist and narration script. The main recordin
 
 **Purpose:** Check the meals for each day and open the complete preparation details for a selected food.
 
-**Before this scene:** RND must first activate the weekly menu. Refer to **RND Food Service Operations Video Storyboard, Scene 3 — Create and Reuse a Weekly Menu**.
+**Before this scene:** RND plans the weekly menu. No manual activation is needed. Refer to **RND Food Service Operations Video Storyboard, Scene 3 — Create and Reuse a Weekly Menu**.
 
 **On-screen actions**
 
-1. Open **Menu** and select the active cycle.
+1. Open **Menu**. Confirm today and the current week are selected, even if no meals are planned.
 2. Point out **Read-only weekly plan** and **Planned population**.
-3. Select a weekday, show multiple meal lines when present, and open one line. Point out that bulk rice is not represented as a menu meal.
+3. Use the left and right day arrows, show multiple meal lines when present, and open one line. Point out that bulk rice is not represented as a menu meal.
 4. On the separate Food profile page, show its source label, servings, ingredients, scaled quantities, and preparation notes.
 5. Use the normal back action to return to Menu.
 
@@ -142,7 +141,7 @@ Use this as both the recording checklist and narration script. The main recordin
 **On-screen actions**
 
 1. Open **Meal Prep**.
-2. Use **Service date** to choose today or an earlier planned date.
+2. Use the one-day arrows or **Service date** to choose today or an earlier planned date.
 3. Review that date's meal rows; optionally open and return from one food profile.
 4. Under **Actual population served**, enter a positive whole-number demo headcount.
 5. Select **Record actual served**. If a record already exists, change the value and select **Update actual served**.
@@ -167,12 +166,12 @@ Use this as both the recording checklist and narration script. The main recordin
 3. Before uploading evidence, optionally demonstrate **Change vendor for all** or row-level **Change vendor** with demo suppliers.
 4. Review **Planned purchase** and the prefilled **Actual purchased** values.
 5. Correct **Actual qty** and **Actual unit price** only when the demo receipt differs.
-6. Expand **Calculation details**, then collapse it.
+6. Point out the PO lifecycle and vendor status, including receipt and proof status. No calculation details appear on vendor items.
 7. Enter an official receipt number only if the demo vendor supplied one.
 8. Select **Save actuals and optional OR**.
 9. Under Receipt images and Proof of purchase, select **Upload**, choose Receipt or Proof, optionally add a caption, then choose **Library** or **Camera**.
 10. Open one uploaded image to show its private in-app preview.
-11. Point out the note that RND marks the vendor received on web Procurement after reviewing actual values, receipt, and proof.
+11. Point out that RND marks the vendor received on web Procurement after reviewing actual values, receipt, and proof.
 12. After RND confirms the vendor, return to **Notifications** and show that the receiving action has resolved; dismiss it.
 
 **Narration**
@@ -194,7 +193,7 @@ Use this as both the recording checklist and narration script. The main recordin
 3. Enter **Collected diet list from different wards.** and **Apportioned and distributed food to in patient in the different wards.**
 4. Select each applicable checkbox under **Accomplishment rows**.
 5. Select **Save today's log**.
-6. Choose a previous date to show **Backfilling a missed daily log** and the **Today** action.
+6. Use the day arrows to choose a previous date, showing **Backfilling a missed daily log** and the **Today** action.
 7. Correct the same date and select **Save past log**.
 8. Use **Today** to return to the current date.
 9. Optionally explain **Off duty** without mixing it with working rows.

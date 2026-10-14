@@ -63,6 +63,7 @@ function formatTimeStamp(value: string) {
 export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
   const isAdmin = variant === "admin";
   const searchParams = useSearchParams();
+  const [section, setSection] = useState<"announcements" | "sop">(searchParams.get("tab") === "sop" ? "sop" : "announcements");
   // Announcement ids are public uuids (strings) — match as strings, never Number().
   const targetAnnouncementId = searchParams.get("announcementId") || null;
   const openedTargetRef = useRef<string | null>(null);
@@ -506,10 +507,16 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
 
   // ---------- Page ----------
 
+  const tabs = <div className="flex max-w-sm gap-1 rounded-xl bg-warm-100 p-1" role="tablist" aria-label="Announcements and SOP">
+    <button type="button" role="tab" aria-selected={section === "announcements"} onClick={() => setSection("announcements")} className={`min-h-11 flex-1 rounded-lg px-3 text-sm font-bold ${section === "announcements" ? "bg-white text-emerald-700 shadow-sm" : "text-warm-600"}`}>Announcements</button>
+    <button type="button" role="tab" aria-selected={section === "sop"} onClick={() => setSection("sop")} className={`min-h-11 flex-1 rounded-lg px-3 text-sm font-bold ${section === "sop" ? "bg-white text-emerald-700 shadow-sm" : "text-warm-600"}`}>SOP</button>
+  </div>;
+
+  if (section === "sop") return <div className="space-y-6 font-sans">{tabs}<SopBanner historyHref={isAdmin ? "/admin/announcements/sop-history" : "/announcements/sop-history"} /></div>;
+
   return (
     <div className="space-y-6 font-sans">
-      {/* Standard Operating Procedure — pinned at the very top, all roles */}
-      <SopBanner />
+      {tabs}
 
       {/* Breadcrumb & header */}
       <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">

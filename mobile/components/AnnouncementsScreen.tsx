@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { useLocalSearchParams } from 'expo-router';
-import { ClipboardList, History, Newspaper, X } from 'lucide-react-native';
+import { router, type Href, useLocalSearchParams } from 'expo-router';
+import { ChevronLeft, ClipboardList, History, Newspaper } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -13,17 +13,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../lib/api';
-import { PaginatedListFooter } from './PaginatedListFooter';
+import { MobilePagination } from './MobilePagination';
 import { MOBILE_PAGE_SIZE, PaginatedResponse, flattenUniquePages, getNextPageParam } from '../lib/pagination';
+import { useMobileServerPage } from '../lib/useMobileServerPage';
+import { fetchSop } from '../lib/sop';
 import { AnnouncementAuthorAvatar, AnnouncementMedia } from './AnnouncementMedia';
-
-interface Sop {
-  id: number;
-  title: string;
-  body: string;
-  author?: { id: number; name: string; role: string } | null;
-  created_at: string;
-}
 
 interface Announcement {
   id: number | string;
@@ -56,16 +50,6 @@ function fmt(date: string): string {
   });
 }
 
-async function fetchSop(): Promise<Sop | null> {
-  const res = await api.get<{ data: Sop | null }>('/api/sop');
-  return res.data.data;
-}
-
-async function fetchSopHistory(page: number): Promise<PaginatedResponse<Sop>> {
-  const res = await api.get<PaginatedResponse<Sop>>('/api/sop/history', { params: { page, per_page: MOBILE_PAGE_SIZE } });
-  return res.data;
-}
-
 async function fetchAnnouncements(page: number): Promise<PaginatedResponse<Announcement>> {
   const res = await api.get<PaginatedResponse<Announcement>>('/api/fss/announcements', {
     params: { page, per_page: MOBILE_PAGE_SIZE },
@@ -74,16 +58,7 @@ async function fetchAnnouncements(page: number): Promise<PaginatedResponse<Annou
 }
 
 function SopBanner() {
-  const [historyOpen, setHistoryOpen] = useState(false);
   const { data: sop, isLoading, isError, refetch } = useQuery({ queryKey: ['sop'], queryFn: fetchSop });
-  const { data: historyPages, isLoading: histLoading, isError: histError, refetch: refetchHistory, fetchNextPage, hasNextPage, isFetchingNextPage, isFetchNextPageError } = useInfiniteQuery({
-    queryKey: ['sop-history'],
-    queryFn: ({ pageParam }) => fetchSopHistory(pageParam),
-    initialPageParam: 1,
-    getNextPageParam,
-    enabled: historyOpen,
-  });
-  const history = flattenUniquePages(historyPages?.pages);
 
   if (isLoading) {
     return <View className="h-24 rounded-2xl bg-gray-100 mb-4" />;
@@ -112,8 +87,8 @@ function SopBanner() {
           </View>
         </View>
         <TouchableOpacity
-          onPress={() => setHistoryOpen(true)}
-          className="flex-row items-center gap-1 px-2.5 py-1.5 rounded-lg border border-emerald-200"
+          onPress={() => router.push('/sop-history' as Href)}
+          className="min-h-12 flex-row items-center gap-1 px-2.5 rounded-lg border border-emerald-200"
         >
           <History color="#047857" size={14} />
           <Text className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">History</Text>
@@ -123,48 +98,6 @@ function SopBanner() {
       <Text className="text-sm font-extrabold text-gray-900 mt-3">{sop.title}</Text>
       <Text className="text-xs text-gray-700 leading-6 mt-1">{sop.body}</Text>
 
-      <Modal visible={historyOpen} animationType="slide" transparent onRequestClose={() => setHistoryOpen(false)}>
-        <View className="flex-1 bg-black/40 justify-end">
-          <View className="bg-white rounded-t-3xl max-h-[80%]">
-            <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">
-              <Text className="text-xs font-bold uppercase tracking-widest text-gray-900">SOP History</Text>
-              <TouchableOpacity onPress={() => setHistoryOpen(false)} hitSlop={8}>
-                <X color="#374151" size={20} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView contentContainerStyle={{ padding: 16 }}>
-              {histLoading ? (
-                <ActivityIndicator color="#059669" />
-              ) : histError ? (
-                <View className="items-center p-4"><Text className="text-sm text-red-700">Could not load SOP history.</Text><TouchableOpacity className="mt-2 min-h-11 justify-center px-4" onPress={() => refetchHistory()}><Text className="font-bold text-emerald-700">Retry</Text></TouchableOpacity></View>
-              ) : (
-                history.map((v, i) => (
-                  <View key={v.id} className="rounded-2xl border border-gray-200 p-4 mb-3">
-                    <View className="flex-row items-center justify-between">
-                      <Text className="text-sm font-bold text-gray-900">{v.title}</Text>
-                      {i === 0 && (
-                        <View className="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200">
-                          <Text className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-700">Current</Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mt-0.5">
-                      {v.author?.name} · {v.author?.role} · {fmt(v.created_at)}
-                    </Text>
-                    <Text className="text-xs text-gray-600 leading-6 mt-2">{v.body}</Text>
-                  </View>
-                ))
-              )}
-              {hasNextPage && (
-                <TouchableOpacity className="min-h-12 items-center justify-center" onPress={() => void fetchNextPage()}>
-                  <PaginatedListFooter loading={isFetchingNextPage} error={isFetchNextPageError} onRetry={() => void fetchNextPage()} />
-                  {!isFetchingNextPage && !isFetchNextPageError && <Text className="text-sm font-semibold text-emerald-700">Load more</Text>}
-                </TouchableOpacity>
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -184,17 +117,20 @@ export default function AnnouncementsScreen() {
     getNextPageParam,
   });
   const data = flattenUniquePages(pages?.pages);
+  const feedPager = useMobileServerPage(pages, fetchNextPage);
   const selected = data.find((item) => String(item.id) === selectedId) ?? null;
 
   useEffect(() => {
     if (!targetAnnouncementId || consumedTargetAnnouncement.current === targetAnnouncementId) return;
     if (data.some((item) => String(item.id) === targetAnnouncementId)) {
       consumedTargetAnnouncement.current = targetAnnouncementId;
+      const foundPage = pages?.pages.find((page) => page.data.some((item) => String(item.id) === targetAnnouncementId));
+      if (foundPage) feedPager.setPage(foundPage.meta.current_page);
       setSelectedId(targetAnnouncementId);
     } else if (hasNextPage && !isFetchingNextPage) {
       void fetchNextPage();
     }
-  }, [data, fetchNextPage, hasNextPage, isFetchingNextPage, selectedId, targetAnnouncementId]);
+  }, [data, fetchNextPage, hasNextPage, isFetchingNextPage, selectedId, targetAnnouncementId, pages, feedPager.setPage]);
 
   if (section === 'announcements' && isLoading) {
     return (
@@ -246,7 +182,7 @@ export default function AnnouncementsScreen() {
         </ScrollView>
       ) : (
         <FlatList
-          data={data}
+          data={feedPager.items}
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 16, flexGrow: 1 }}
         renderItem={({ item }) => {
@@ -284,9 +220,7 @@ export default function AnnouncementsScreen() {
             </TouchableOpacity>
           );
         }}
-        onEndReached={() => { if (hasNextPage && !isFetchingNextPage) void fetchNextPage(); }}
-        onEndReachedThreshold={0.4}
-        ListFooterComponent={<PaginatedListFooter loading={isFetchingNextPage} error={isFetchNextPageError} onRetry={() => void fetchNextPage()} />}
+        ListFooterComponent={<MobilePagination page={feedPager.page} pages={feedPager.pages} total={feedPager.total} onPrevious={feedPager.previous} onNext={() => void feedPager.next()} loading={isFetchingNextPage} error={isFetchNextPageError} />}
         ListEmptyComponent={
           <View className="items-center justify-center py-20">
             <Newspaper color="#d1d5db" size={40} />
@@ -295,14 +229,14 @@ export default function AnnouncementsScreen() {
         }
         />
       )}
-      <Modal visible={selected !== null} animationType="slide" transparent onRequestClose={() => setSelectedId(null)}>
-        <View className="flex-1 bg-black/40 justify-end">
-          <View className="bg-white rounded-t-3xl max-h-[82%]">
-            <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">
-              <Text className="text-xs font-extrabold uppercase tracking-widest text-gray-900">Announcement</Text>
-              <TouchableOpacity onPress={() => setSelectedId(null)} hitSlop={8}>
-                <X color="#374151" size={20} />
+      <Modal visible={selected !== null} animationType="slide" presentationStyle="fullScreen" onRequestClose={() => setSelectedId(null)}>
+        <View className="flex-1 bg-white" style={{ paddingTop: insets.top }}>
+            <View className="min-h-14 flex-row items-center gap-3 px-4 border-b border-gray-100">
+              <TouchableOpacity onPress={() => setSelectedId(null)} className="min-h-12 flex-row items-center gap-1 pr-3" accessibilityRole="button" accessibilityLabel="Back to announcements">
+                <ChevronLeft color="#087F5B" size={22} />
+                <Text className="text-sm font-bold text-emerald-700">Back</Text>
               </TouchableOpacity>
+              <Text className="text-sm font-extrabold text-gray-900">Announcement</Text>
             </View>
             {selected && (
               <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 24 }}>
@@ -332,7 +266,6 @@ export default function AnnouncementsScreen() {
                 />
               </ScrollView>
             )}
-          </View>
         </View>
       </Modal>
     </View>

@@ -21,6 +21,18 @@ class ReportControllerTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_accomplishment_report_list_filters_one_fss_without_hiding_legacy_reports(): void
+    {
+        $ada = User::factory()->fss()->create();
+        $bea = User::factory()->fss()->create();
+        $legacy = Report::factory()->create(['user_id' => $ada->id, 'type' => 'accomplishment_report', 'review_state' => null, 'report_covered_from' => '2026-06-01', 'report_covered_until' => '2026-06-15']);
+        Report::factory()->create(['user_id' => $ada->id, 'type' => 'accomplishment_report', 'review_state' => 'pending', 'report_covered_from' => '2026-06-16', 'report_covered_until' => '2026-06-30']);
+        Report::factory()->create(['user_id' => $bea->id, 'type' => 'accomplishment_report', 'review_state' => 'approved', 'report_covered_from' => '2026-06-01', 'report_covered_until' => '2026-06-15']);
+
+        $this->actingAs($this->rnd)->getJson("/api/rnd/reports?type=accomplishment_report&fss_user_id={$ada->uuid}&covered_month=2026-06")
+            ->assertOk()->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.id', $legacy->uuid);
+    }
+
     private User $rnd;
 
     protected function setUp(): void

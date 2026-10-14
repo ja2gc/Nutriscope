@@ -18,8 +18,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../lib/api';
-import { PaginatedListFooter } from '../components/PaginatedListFooter';
-import { MOBILE_PAGE_SIZE, PaginatedResponse, flattenUniquePages, getNextPageParam, mapPageItems } from '../lib/pagination';
+import { MobilePagination } from '../components/MobilePagination';
+import { MOBILE_PAGE_SIZE, PaginatedResponse, getNextPageParam, mapPageItems } from '../lib/pagination';
+import { useMobileServerPage } from '../lib/useMobileServerPage';
 import { mobileNotificationTarget } from '../lib/mobileContracts';
 
 interface Notification {
@@ -93,7 +94,8 @@ export default function NotificationsScreen() {
     initialPageParam: 1,
     getNextPageParam,
   });
-  const notifications = flattenUniquePages(data?.pages);
+  const notificationsPager = useMobileServerPage(data, fetchNextPage);
+  const notifications = notificationsPager.items;
   const { data: unreadCount = 0 } = useQuery({
     queryKey: ['notifications-unread-count'],
     queryFn: fetchUnreadCount,
@@ -256,9 +258,7 @@ export default function NotificationsScreen() {
         data={notifications}
         keyExtractor={(item) => String(item.id)}
         renderItem={renderItem}
-        onEndReached={() => { if (hasNextPage && !isFetchingNextPage) void fetchNextPage(); }}
-        onEndReachedThreshold={0.4}
-        ListFooterComponent={<PaginatedListFooter loading={isFetchingNextPage} error={isFetchNextPageError} onRetry={() => void fetchNextPage()} />}
+        ListFooterComponent={<MobilePagination page={notificationsPager.page} pages={notificationsPager.pages} total={notificationsPager.total} onPrevious={notificationsPager.previous} onNext={() => void notificationsPager.next()} loading={isFetchingNextPage} error={isFetchNextPageError} />}
         contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 16, flexGrow: 1 }}
         ListEmptyComponent={
           <View className="flex-1 items-center justify-center py-20">

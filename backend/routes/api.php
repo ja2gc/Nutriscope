@@ -135,6 +135,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
 });
 
 Route::middleware(['auth:sanctum', 'active', 'role:RND'])->prefix('rnd')->group(function () use ($reportRoutes) {
+    Route::get('accomplishment-periods/staff', [AccomplishmentPeriodController::class, 'staff']);
     Route::get('accomplishment-periods/to-review', [AccomplishmentPeriodController::class, 'toReview']);
     Route::post('accomplishment-periods/{report}/approve', [AccomplishmentPeriodController::class, 'approve']);
     Route::post('accomplishment-periods/{report}/reject', [AccomplishmentPeriodController::class, 'reject']);

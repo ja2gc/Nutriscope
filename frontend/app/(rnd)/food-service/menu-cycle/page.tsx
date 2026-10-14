@@ -101,7 +101,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
         <Link href="/dashboard" className="hover:text-emerald-700 transition-colors">Home</Link>
         <span>/</span><span>Food Service</span><span>/</span>
-        <span className="font-bold text-warm-600">Menu Cycle</span>
+        <span className="font-bold text-warm-600">Menu Calendar</span>
       </div>
       {children}
     </div>
@@ -134,7 +134,7 @@ function CycleList({ readOnly, onOpen, onNew, onOpenTemplate, onNewTemplate }: {
     try {
       const [c, t] = await Promise.all([listCycles(cyclePage), listTemplates(templatePage)]);
       setCycles(c.data); setCycleMeta(c.meta); setTemplates(t.data); setTemplateMeta(t.meta);
-    } catch { setErr("Failed to load menu cycles."); } finally { setLoading(false); }
+    } catch { setErr("Failed to load menu weeks."); } finally { setLoading(false); }
   }, [cyclePage, templatePage]);
   useEffect(() => { load(); }, [load]);
 
@@ -158,7 +158,7 @@ function CycleList({ readOnly, onOpen, onNew, onOpenTemplate, onNewTemplate }: {
       setNameDraft(saved.name);
       setEditingNameId(null);
     } catch (error) {
-      setNameError(error instanceof Error ? error.message : "Failed to save Menu Cycle name.");
+      setNameError(error instanceof Error ? error.message : "Failed to save menu name.");
     } finally { setSavingNameId(null); }
   }
   async function applyTemplate(t: TemplateListItem) {
@@ -172,14 +172,14 @@ function CycleList({ readOnly, onOpen, onNew, onOpenTemplate, onNewTemplate }: {
       <div className="border-b border-warm-200 pb-5 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
           <h2 className="text-xl font-extrabold text-warm-900 tracking-tight flex items-center gap-2.5">
-            <CalendarDays className="h-5 w-5 text-emerald-600" /> Menu Cycles
+            <CalendarDays className="h-5 w-5 text-emerald-600" /> Menu Calendar
             <InfoHint label="About menu population">Suggested lists use estimated population to scale planned food. Served population records actual attendance.</InfoHint>
           </h2>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {!readOnly && (
             <Button variant="primary" onClick={onNew} className="px-4 py-2.5 flex items-center gap-2">
-              <Plus className="h-4 w-4" /> New Cycle
+              <Plus className="h-4 w-4" /> Add week
             </Button>
           )}
         </div>
@@ -193,7 +193,7 @@ function CycleList({ readOnly, onOpen, onNew, onOpenTemplate, onNewTemplate }: {
           : cycles.length === 0 ? (
             <div className="py-16 text-center">
               <CalendarDays className="h-8 w-8 text-warm-300 mx-auto mb-3" />
-              <p className="text-sm text-warm-400 font-medium">No menu cycles yet. Create your first.</p>
+              <p className="text-sm text-warm-400 font-medium">No menu weeks yet. Add a week to start planning.</p>
             </div>
           ) : (
             <table className="w-full text-sm">
@@ -211,7 +211,7 @@ function CycleList({ readOnly, onOpen, onNew, onOpenTemplate, onNewTemplate }: {
                       <div className="flex items-center gap-1.5">
                         {editingNameId === c.id && !readOnly ? (
                           <input
-                            aria-label="Edit Menu Cycle name"
+                            aria-label="Edit menu name"
                             autoFocus
                             value={nameDraft}
                             disabled={savingNameId === c.id}
@@ -263,7 +263,7 @@ function CycleList({ readOnly, onOpen, onNew, onOpenTemplate, onNewTemplate }: {
         </div>
         {templates.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-warm-200 bg-warm-50/40 py-10 text-center text-sm font-medium text-warm-400">
-            No menu cycle templates yet.
+            No menu templates yet.
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -280,7 +280,7 @@ function CycleList({ readOnly, onOpen, onNew, onOpenTemplate, onNewTemplate }: {
                 </div>
                 {!readOnly && (
                   <button onClick={() => applyTemplate(t)} className="mt-3 w-full text-xs font-bold uppercase tracking-wider text-emerald-700 border border-emerald-200 rounded-lg py-1.5 hover:bg-emerald-50 cursor-pointer">
-                    Create cycle from this
+                    Create plan from template
                   </button>
                 )}
               </div>
@@ -404,7 +404,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
         g[k] = existing.sort((a, b) => a.line_order - b.line_order);
       });
       setGrid(g);
-    }).catch(() => setErr("Failed to load cycle.")).finally(() => setLoading(false));
+    }).catch(() => setErr("Failed to load menu week.")).finally(() => setLoading(false));
   }, [cycleId, isTemplate]);
 
   // Load served population for the active week's dates (keyed back to weekday).
@@ -625,7 +625,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
         <div className="flex items-start gap-3">
           <button onClick={onBack} className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 cursor-pointer mt-0.5"><ChevronLeft className="h-4 w-4" /></button>
           <div>
-            <input aria-label="Menu Cycle name" value={name} onChange={(e) => setName(e.target.value)} readOnly={readOnly}
+            <input aria-label="Menu name" value={name} onChange={(e) => setName(e.target.value)} readOnly={readOnly}
               className="text-xl font-extrabold text-warm-900 tracking-tight bg-transparent border-b border-dashed border-warm-200 focus:border-emerald-500 focus:outline-none read-only:border-transparent" />
             <div className="flex items-center gap-2 mt-1">
               {!isTemplate && <span className="text-xs text-warm-500">{temporal(weekStart).label}</span>}
@@ -829,7 +829,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
       {templateNameDialogOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setTemplateNameDialogOpen(false); }}>
         <section role="dialog" aria-modal="true" aria-labelledby="menu-cycle-save-template-title" className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
           <h2 id="menu-cycle-save-template-title" className="text-base font-extrabold text-warm-900">Save as template</h2>
-          <p className="mt-1 text-sm text-warm-500">Save this Menu Plan for reuse. It stays separate from Menu Cycle records.</p>
+          <p className="mt-1 text-sm text-warm-500">Save this Menu Plan for reuse without adding a menu week.</p>
           {templateSaveError && <p role="alert" className="mt-3 text-sm font-semibold text-red-600">{templateSaveError}</p>}
           <form className="mt-4 space-y-4" onSubmit={(event) => { event.preventDefault(); void handleSaveTemplate(); }}>
             <label className="block text-xs font-extrabold uppercase tracking-wider text-warm-500" htmlFor="menu-cycle-save-template-name">Template name</label>
@@ -847,7 +847,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
           <header className="flex items-center justify-between border-b border-warm-100 px-5 py-4">
             <div className="flex min-w-0 items-center gap-2">
               {viewingTemplate && <button type="button" onClick={() => setViewingTemplate(null)} aria-label="Back to templates" className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg text-warm-500 hover:bg-warm-50"><ChevronLeft className="h-4 w-4" /></button>}
-              <h2 id="menu-cycle-template-picker-title" className="truncate text-base font-extrabold text-warm-900">{viewingTemplate?.name ?? "Menu Cycle Templates"}</h2>
+              <h2 id="menu-cycle-template-picker-title" className="truncate text-base font-extrabold text-warm-900">{viewingTemplate?.name ?? "Menu Plan Templates"}</h2>
             </div>
             <button type="button" onClick={() => setTemplatePickerOpen(false)} aria-label="Close templates" className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg text-warm-400 hover:bg-warm-50 hover:text-warm-700"><X className="h-4 w-4" /></button>
           </header>

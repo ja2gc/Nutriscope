@@ -60,4 +60,18 @@ class SopFeatureTest extends TestCase
 
         $this->actingAs($rnd)->getJson('/api/sop')->assertOk()->assertExactJson(['data' => null]);
     }
+
+    public function test_sop_procedure_is_limited_to_3000_characters(): void
+    {
+        $rnd = User::factory()->create(['role' => 'RND']);
+
+        $this->actingAs($rnd)->postJson('/api/sop', ['title' => 'Limit', 'body' => str_repeat('a', 3001)])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('body');
+        $this->assertSame(0, Sop::count());
+
+        $this->actingAs($rnd)->postJson('/api/sop', ['title' => 'Limit', 'body' => str_repeat('a', 3000)])
+            ->assertCreated();
+        $this->assertSame(1, Sop::count());
+    }
 }

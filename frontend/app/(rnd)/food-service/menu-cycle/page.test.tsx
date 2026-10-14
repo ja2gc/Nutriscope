@@ -78,12 +78,14 @@ describe("Menu Cycle template and name editing", () => {
 
   async function openNewCycle() {
     const button = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
-      .find((candidate) => candidate.textContent?.includes("New Cycle"));
+      .find((candidate) => candidate.textContent?.includes("Add week"));
     await act(async () => { button?.click(); });
   }
 
   test("keeps templates outside the Menu Cycle records table", async () => {
     await renderPage();
+    expect(container.textContent).toContain("Menu Calendar");
+    expect(container.textContent).not.toContain("Menu Cycle");
     const cycleRows = Array.from(container.querySelectorAll("table tbody tr"));
     expect(cycleRows).toHaveLength(1);
     expect(cycleRows[0].textContent).toContain("Lunch cycle");
@@ -104,7 +106,7 @@ describe("Menu Cycle template and name editing", () => {
     const user = userEvent.setup();
     await renderPage();
     await openNewCycle();
-    const name = container.querySelector<HTMLInputElement>('input[aria-label="Menu Cycle name"]');
+    const name = container.querySelector<HTMLInputElement>('input[aria-label="Menu name"]');
     if (!name) throw new Error("Menu Cycle name field missing.");
     await act(async () => { await user.type(name, "Lunch plan"); });
     const saveAsTemplate = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
@@ -146,7 +148,7 @@ describe("Menu Cycle template and name editing", () => {
     const rename = container.querySelector<HTMLButtonElement>('button[aria-label="Rename Lunch cycle"]');
     expect(rename).not.toBeNull();
     await act(async () => { rename?.click(); });
-    const name = container.querySelector<HTMLInputElement>('input[aria-label="Edit Menu Cycle name"]');
+    const name = container.querySelector<HTMLInputElement>('input[aria-label="Edit menu name"]');
     if (!name) throw new Error("Inline Menu Cycle name field missing.");
     await act(async () => { await user.clear(name); await user.type(name, "Dinner cycle"); });
     await act(async () => { name.blur(); await Promise.resolve(); });

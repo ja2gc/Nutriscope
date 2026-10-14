@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 type Props = {
@@ -6,11 +7,13 @@ type Props = {
   weekStartDate?: string | null;
   selectedDay: string;
   onSelect: (day: string) => void;
+  onPrevious: () => void;
+  onNext: () => void;
 };
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
 
-export function DayPicker({ days, weekStartDate, selectedDay, onSelect }: Props) {
+export function DayPicker({ days, weekStartDate, selectedDay, onSelect, onPrevious, onNext }: Props) {
   const scroll = useRef<ScrollView>(null);
   const selectedIndex = Math.max(0, days.indexOf(selectedDay));
 
@@ -27,7 +30,9 @@ export function DayPicker({ days, weekStartDate, selectedDay, onSelect }: Props)
 
   return (
     <View className="bg-white border-b border-[#E5ECE8] py-3">
-      <ScrollView ref={scroll} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
+      <View className="flex-row items-center">
+      <TouchableOpacity onPress={onPrevious} className="min-h-12 min-w-12 items-center justify-center" accessibilityRole="button" accessibilityLabel="Previous day"><ChevronLeft color="#087F5B" size={22} /></TouchableOpacity>
+      <ScrollView ref={scroll} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
         {days.map((day) => {
           const active = day === selectedDay;
           const date = dateFor(day);
@@ -46,6 +51,8 @@ export function DayPicker({ days, weekStartDate, selectedDay, onSelect }: Props)
           );
         })}
       </ScrollView>
+      <TouchableOpacity onPress={onNext} className="min-h-12 min-w-12 items-center justify-center" accessibilityRole="button" accessibilityLabel="Next day"><ChevronRight color="#087F5B" size={22} /></TouchableOpacity>
+      </View>
     </View>
   );
 }

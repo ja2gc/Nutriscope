@@ -14,20 +14,22 @@ describe("purchase-order receiving UX contract", () => {
     expect(controls).toContain("can_change_vendor");
   });
 
-  it("keeps Actual Total and the collapsed planned/actual details while removing three comparison fields", () => {
+  it("keeps web calculation details and mobile receiving fields without mobile calculations", () => {
     const web = read("app/(rnd)/food-service/procurement/page.tsx");
     const native = fs.readFileSync(path.join(frontend, "..", "mobile", "app", "(tabs)", "procurement.tsx"), "utf8");
     const comparison = read("components/foodservice/PurchaseValueComparison.tsx");
-    for (const label of ["Actual Quantity", "Unit", "Actual Cost/unit", "Actual Total"]) {
+    for (const label of ["Actual Quantity", "Unit", "Actual Cost/unit"]) {
       expect(web).toContain(label);
       expect(native).toContain(label);
     }
+    expect(web).toContain("Actual Total");
+    expect(native).not.toContain("Actual Total");
     expect(web).toContain("Show planned total");
     expect(native).toContain("Show planned total");
     expect(web).toContain("PurchaseValueComparison");
     for (const label of ["Calculation details", "Planned purchase:", "Actual purchased:"]) {
       expect(comparison).toContain(label);
-      expect(native).toContain(label);
+      expect(native).not.toContain(label);
     }
     for (const label of ["Calculated need", "Quantity difference", "Cost difference"]) {
       expect(comparison).not.toContain(label);

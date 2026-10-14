@@ -12,7 +12,13 @@ export interface PaginatedResponse<T> {
   meta: PaginationMeta;
 }
 
-export const MOBILE_PAGE_SIZE = 10;
+export const MOBILE_PAGE_SIZE = 5;
+
+export function paginateItems<T>(items: readonly T[], requestedPage: number) {
+  const pages = Math.max(1, Math.ceil(items.length / MOBILE_PAGE_SIZE));
+  const page = Math.min(Math.max(1, requestedPage), pages);
+  return { items: items.slice((page - 1) * MOBILE_PAGE_SIZE, page * MOBILE_PAGE_SIZE), page, pages, total: items.length };
+}
 
 export function getNextPageParam<T>(page: PaginatedResponse<T>): number | undefined {
   return page.meta.current_page < page.meta.last_page ? page.meta.current_page + 1 : undefined;

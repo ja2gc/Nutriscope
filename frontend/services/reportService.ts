@@ -21,6 +21,7 @@ export interface ReportItem {
   snapshot: ReportSnapshot | null;
   generated_at: string | null;
   created_at: string;
+  report_covered_from?: string | null;
   report_covered_until?: string | null;
   retention_expires_at?: string | null;
   updated_at: string;
@@ -36,8 +37,20 @@ export interface AccomplishmentReview {
   fss_user: { id: string; display_name: string };
 }
 
-export async function listAccomplishmentsToReview(): Promise<AccomplishmentReview[]> {
-  return unwrap(await apiFetch('/api/rnd/accomplishment-periods/to-review'), 'Could not load submissions.');
+export interface AccomplishmentStaff {
+  id: string;
+  display_name: string;
+}
+
+export async function listAccomplishmentStaff(page = 1, search = ''): Promise<{ data: AccomplishmentStaff[]; meta: PaginationMeta }> {
+  const res = await apiFetch(`/api/rnd/accomplishment-periods/staff${toQuery({ page, search })}`);
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.message ?? 'Could not load Food Service Staff.');
+  return { data: json.data ?? [], meta: json.meta };
+}
+
+export async function listAccomplishmentsToReview(filters: ReportParams = {}): Promise<AccomplishmentReview[]> {
+  return unwrap(await apiFetch(`/api/rnd/accomplishment-periods/to-review${toQuery(filters)}`), 'Could not load submissions.');
 }
 
 export async function decideAccomplishment(

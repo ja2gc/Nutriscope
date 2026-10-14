@@ -12,10 +12,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AccomplishmentSnapshot, AccomplishmentPeriod, Report, changeAccomplishmentPeriod, downloadReportPdf, getAccomplishmentPeriod, getReport, listAccomplishmentPeriods, listReports, viewReportPdf } from '../lib/reports';
-import { PaginatedListFooter } from './PaginatedListFooter';
+import { MobilePagination } from './MobilePagination';
 import { SearchInput } from './SearchInput';
-import { flattenUniquePages, getNextPageParam } from '../lib/pagination';
-import { localDateKey } from '../lib/localDate';
+import { getNextPageParam, paginateItems } from '../lib/pagination';
+import { todayManilaKey } from '../lib/localDate';
+import { useMobileServerPage } from '../lib/useMobileServerPage';
 
 function fmtDate(d: string): string {
   return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -138,7 +139,9 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
 
 function PeriodDetail({ start, onBack, onEditDay, onOpenReport }: { start: string; onBack: () => void; onEditDay: (date: string) => void; onOpenReport: (id: string) => void }) {
   const queryClient = useQueryClient();
+  const [dayPage, setDayPage] = useState(1);
   const { data: period, isLoading, isError, refetch } = useQuery({ queryKey: ['fss-accomplishment-period', start], queryFn: () => getAccomplishmentPeriod(start) });
+  const days = paginateItems(period?.days ?? [], dayPage);
   const action = useMutation({
     mutationFn: (kind: 'submit' | 'withdraw') => changeAccomplishmentPeriod(start, kind),
     onSuccess: async () => {
@@ -156,10 +159,11 @@ function PeriodDetail({ start, onBack, onEditDay, onOpenReport }: { start: strin
     {isLoading ? <ActivityIndicator color="#087F5B" /> : isError || !period ? <TouchableOpacity onPress={() => refetch()} className="min-h-12 rounded-xl bg-white p-4"><Text>Could not load period. Tap to retry.</Text></TouchableOpacity> : <>
       <View className="rounded-2xl border border-gray-200 bg-white p-4"><Text className="text-lg font-extrabold text-[#16352B]">{fmtDate(period.start)} – {fmtDate(period.end)}</Text><Text className="mt-1 text-sm text-gray-600">{period.saved_days}/{period.expected_days} days logged · {period.status === 'draft' ? 'In progress' : period.status === 'pending' ? 'Submitted for review' : period.status === 'rejected' ? 'Needs correction' : 'Approved'}</Text></View>
       {period.rejection_reason && <View className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4"><Text className="font-bold text-amber-900">Reason for correction</Text><Text className="mt-1 text-sm text-amber-900">{period.rejection_reason}</Text></View>}
-      <View className="mt-3 overflow-hidden rounded-2xl border border-gray-200 bg-white">{period.days.map((day) => <TouchableOpacity key={day.date} onPress={() => onEditDay(day.date)} className="min-h-14 flex-row items-center justify-between gap-3 border-b border-gray-100 px-4 py-2" accessibilityRole="button" accessibilityLabel={`${fmtDate(day.date)}, ${day.logged ? day.off_duty ? 'off duty log saved' : 'log saved' : 'no log'}, open daily log`}><Text className="font-semibold text-gray-800">{fmtDate(day.date)}</Text><Text className={`text-sm ${day.logged ? 'text-emerald-700' : 'text-amber-700'}`}>{day.logged ? day.off_duty ? 'Off duty' : 'Saved' : 'Missing'}</Text></TouchableOpacity>)}</View>
-      {(period.status === 'draft' || period.status === 'rejected') && <TouchableOpacity onPress={() => action.mutate('submit')} disabled={action.isPending || period.saved_days !== period.expected_days || period.end >= localDateKey()} className={`mt-4 min-h-12 items-center justify-center rounded-xl ${action.isPending || period.saved_days !== period.expected_days || period.end >= localDateKey() ? 'bg-gray-300' : 'bg-[#087F5B]'}`} accessibilityRole="button"><Text className="font-bold text-white">Submit for review</Text></TouchableOpacity>}
+      <View className="mt-3 overflow-hidden rounded-2xl border border-gray-200 bg-white">{days.items.map((day) => <TouchableOpacity key={day.date} onPress={() => onEditDay(day.date)} className="min-h-14 flex-row items-center justify-between gap-3 border-b border-gray-100 px-4 py-2" accessibilityRole="button" accessibilityLabel={`${fmtDate(day.date)}, ${day.logged ? day.off_duty ? 'off duty log saved' : 'log saved' : 'no log'}, open daily log`}><Text className="font-semibold text-gray-800">{fmtDate(day.date)}</Text><Text className={`text-sm ${day.logged ? 'text-emerald-700' : 'text-amber-700'}`}>{day.logged ? day.off_duty ? 'Off duty' : 'Saved' : 'Missing'}</Text></TouchableOpacity>)}</View>
+      <MobilePagination page={days.page} pages={days.pages} total={days.total} onPrevious={() => setDayPage(days.page - 1)} onNext={() => setDayPage(days.page + 1)} />
+      {(period.status === 'draft' || period.status === 'rejected') && <TouchableOpacity onPress={() => action.mutate('submit')} disabled={action.isPending || period.saved_days !== period.expected_days || period.end >= todayManilaKey()} className={`mt-4 min-h-12 items-center justify-center rounded-xl ${action.isPending || period.saved_days !== period.expected_days || period.end >= todayManilaKey() ? 'bg-gray-300' : 'bg-[#087F5B]'}`} accessibilityRole="button"><Text className="font-bold text-white">Submit for review</Text></TouchableOpacity>}
       {(period.status === 'draft' || period.status === 'rejected') && period.saved_days !== period.expected_days && <Text className="mt-2 text-sm text-gray-600">Save a log for every day before submitting.</Text>}
-      {(period.status === 'draft' || period.status === 'rejected') && period.end >= localDateKey() && <Text className="mt-2 text-sm text-gray-600">You can submit after this period ends.</Text>}
+      {(period.status === 'draft' || period.status === 'rejected') && period.end >= todayManilaKey() && <Text className="mt-2 text-sm text-gray-600">You can submit after this period ends.</Text>}
       {period.status === 'pending' && <TouchableOpacity onPress={() => action.mutate('withdraw')} disabled={action.isPending} className="mt-4 min-h-12 items-center justify-center rounded-xl border border-amber-700 bg-white" accessibilityRole="button"><Text className="font-bold text-amber-800">Withdraw submission</Text></TouchableOpacity>}
       {(period.status === 'pending' || period.status === 'approved') && period.report_id && <TouchableOpacity onPress={() => onOpenReport(period.report_id!)} className="mt-3 min-h-12 items-center justify-center rounded-xl border border-emerald-700 bg-white" accessibilityRole="button"><Text className="font-bold text-emerald-700">View submitted report</Text></TouchableOpacity>}
       {action.isPending && <ActivityIndicator className="mt-3" color="#087F5B" />}
@@ -169,6 +173,7 @@ function PeriodDetail({ start, onBack, onEditDay, onOpenReport }: { start: strin
 
 export default function ReportsScreen({ embedded = false, onEditDay }: { embedded?: boolean; onEditDay?: (date: string) => void }) {
   const insets = useSafeAreaInsets();
+  const [periodPage, setPeriodPage] = useState(1);
   const [openId, setOpenId] = useState<string | null>(null);
   const [openPeriod, setOpenPeriod] = useState<string | null>(null);
   const periodsQuery = useQuery({ queryKey: ['fss-accomplishment-periods'], queryFn: listAccomplishmentPeriods });
@@ -184,7 +189,9 @@ export default function ReportsScreen({ embedded = false, onEditDay }: { embedde
     initialPageParam: 1,
     getNextPageParam,
   });
-  const data = flattenUniquePages(pages?.pages);
+  const periodPager = paginateItems(periodsQuery.data ?? [], periodPage);
+  const pdfPager = useMobileServerPage(pages, fetchNextPage);
+  const data = pdfPager.items;
 
   if (openId != null) return <ReportDetail id={openId} onBack={() => setOpenId(null)} />;
   if (openPeriod != null && onEditDay) return <PeriodDetail start={openPeriod} onBack={() => setOpenPeriod(null)} onEditDay={onEditDay} onOpenReport={setOpenId} />;
@@ -197,9 +204,10 @@ export default function ReportsScreen({ embedded = false, onEditDay }: { embedde
       contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + (embedded ? 80 : 16), flexGrow: 1 }}
       ListHeaderComponent={<View className="mb-4">
         <Text className="mb-3 text-base font-extrabold text-[#16352B]">Semi-monthly periods</Text>
-        {periodsQuery.isLoading ? <ActivityIndicator color="#087F5B" /> : periodsQuery.isError ? <TouchableOpacity onPress={() => periodsQuery.refetch()} className="min-h-12 justify-center rounded-xl bg-white px-4"><Text className="text-red-700">Could not load periods. Tap to retry.</Text></TouchableOpacity> : periodsQuery.data?.length ? periodsQuery.data.map((period: AccomplishmentPeriod) => <TouchableOpacity key={period.start} onPress={() => setOpenPeriod(period.start)} className="mb-2 min-h-16 flex-row items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white p-4" accessibilityRole="button" accessibilityLabel={`${fmtDate(period.start)} to ${fmtDate(period.end)}, ${period.saved_days} of ${period.expected_days} days logged, ${period.status}`}><View className="flex-1"><Text className="font-bold text-gray-900">{fmtDate(period.start)} – {fmtDate(period.end)}</Text><Text className="mt-1 text-sm text-gray-600">{period.saved_days}/{period.expected_days} days logged · {period.status}</Text></View><ChevronRight color="#087F5B" size={20} /></TouchableOpacity>) : <Text className="rounded-xl bg-white p-4 text-sm text-gray-600">No periods yet.</Text>}
+        {periodsQuery.isLoading ? <ActivityIndicator color="#087F5B" /> : periodsQuery.isError ? <TouchableOpacity onPress={() => periodsQuery.refetch()} className="min-h-12 justify-center rounded-xl bg-white px-4"><Text className="text-red-700">Could not load periods. Tap to retry.</Text></TouchableOpacity> : periodPager.total ? periodPager.items.map((period: AccomplishmentPeriod) => <TouchableOpacity key={period.start} onPress={() => setOpenPeriod(period.start)} className="mb-2 min-h-16 flex-row items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white p-4" accessibilityRole="button" accessibilityLabel={`${fmtDate(period.start)} to ${fmtDate(period.end)}, ${period.saved_days} of ${period.expected_days} days logged, ${period.status}`}><View className="flex-1"><Text className="font-bold text-gray-900">{fmtDate(period.start)} – {fmtDate(period.end)}</Text><Text className="mt-1 text-sm text-gray-600">{period.saved_days}/{period.expected_days} days logged · {period.status}</Text></View><ChevronRight color="#087F5B" size={20} /></TouchableOpacity>) : <Text className="rounded-xl bg-white p-4 text-sm text-gray-600">No periods yet.</Text>}
+        <MobilePagination page={periodPager.page} pages={periodPager.pages} total={periodPager.total} onPrevious={() => setPeriodPage(periodPager.page - 1)} onNext={() => setPeriodPage(periodPager.page + 1)} />
         <Text className="mb-3 mt-6 text-base font-extrabold text-[#16352B]">Saved PDFs</Text>
-        <SearchInput label="Search saved reports" value={search} onChangeText={setSearch} loading={isFetching && search.trim() !== debouncedSearch} />
+        <SearchInput label="Search saved reports" value={search} onChangeText={(value) => { setSearch(value); pdfPager.setPage(1); }} loading={isFetching && search.trim() !== debouncedSearch} />
         {isLoading && <ActivityIndicator className="mt-3" color="#087F5B" />}
         {isError && <TouchableOpacity onPress={() => refetch()} className="mt-3 min-h-12 justify-center rounded-xl border border-red-200 bg-white px-4"><Text className="text-red-700">Could not load saved PDFs. Tap to retry.</Text></TouchableOpacity>}
       </View>}
@@ -227,9 +235,7 @@ export default function ReportsScreen({ embedded = false, onEditDay }: { embedde
           </TouchableOpacity>
         );
       }}
-      onEndReached={() => { if (hasNextPage && !isFetchingNextPage) void fetchNextPage(); }}
-      onEndReachedThreshold={0.4}
-      ListFooterComponent={<PaginatedListFooter loading={isFetchingNextPage} error={isFetchNextPageError} onRetry={() => void fetchNextPage()} />}
+      ListFooterComponent={<MobilePagination page={pdfPager.page} pages={pdfPager.pages} total={pdfPager.total} onPrevious={pdfPager.previous} onNext={() => void pdfPager.next()} loading={isFetchingNextPage} error={isFetchNextPageError} />}
       ListEmptyComponent={!isLoading && !isError ?
         <View className="items-center justify-center py-20">
           <FileText color="#d1d5db" size={40} />

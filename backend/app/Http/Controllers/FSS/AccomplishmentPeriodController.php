@@ -5,6 +5,7 @@ namespace App\Http\Controllers\FSS;
 use App\Enums\AuditAction;
 use App\Enums\AuditDomain;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\PaginatedRequest;
 use App\Models\DietListCount;
 use App\Models\Report;
 use App\Models\User;
@@ -15,6 +16,7 @@ use Carbon\CarbonPeriod;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class AccomplishmentPeriodController extends Controller
 {
@@ -95,10 +97,40 @@ class AccomplishmentPeriodController extends Controller
         return response()->json(['data' => $summary]);
     }
 
-    public function toReview(): JsonResponse
+    public function staff(PaginatedRequest $request): JsonResponse
     {
+        $users = User::withTrashed()->where('role', 'FSS')
+            ->when($request->filled('search'), fn ($query) => $query->where(function ($match) use ($request): void {
+                foreach (explode(' ', Str::squish($request->string('search')->toString())) as $part) {
+                    $match->where(function ($names) use ($part): void {
+                        $search = '%'.$part.'%';
+                        $names->where('name', 'like', $search)->orWhere('first_name', 'like', $search)->orWhere('last_name', 'like', $search);
+                    });
+                }
+            }))
+            ->orderBy('last_name')->orderBy('first_name')->orderBy('id')
+            ->paginate($request->perPage());
+
+        return response()->json([
+            'data' => $users->getCollection()->map(fn (User $user): array => ['id' => $user->uuid, 'display_name' => $user->display_name])->all(),
+            'meta' => ['current_page' => $users->currentPage(), 'per_page' => $users->perPage(), 'total' => $users->total(), 'last_page' => $users->lastPage()],
+        ]);
+    }
+
+    public function toReview(Request $request): JsonResponse
+    {
+        $filters = $request->validate([
+            'fss_user_id' => ['nullable', 'uuid'],
+            'covered_month' => ['nullable', 'date_format:Y-m'],
+        ]);
+        $userId = isset($filters['fss_user_id']) ? User::withTrashed()->where('uuid', $filters['fss_user_id'])->value('id') ?? 0 : null;
+        $monthStart = isset($filters['covered_month']) ? $filters['covered_month'].'-01' : null;
+        $monthEnd = $monthStart ? CarbonImmutable::parse($monthStart)->endOfMonth()->toDateString() : null;
         $reports = Report::query()->with('user:id,uuid,name,first_name,last_name')
             ->where('type', 'accomplishment_report')->where('review_state', 'pending')
+            ->when($userId !== null, fn ($query) => $query->where('user_id', $userId))
+            ->when($monthStart, fn ($query) => $query->whereDate('report_covered_from', '<=', $monthEnd)
+                ->whereDate('report_covered_until', '>=', $monthStart))
             ->orderBy('submitted_at')->get();
 
         return response()->json(['data' => $reports->map(fn (Report $report): array => $this->reviewData($report))->all()]);

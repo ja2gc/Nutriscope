@@ -42,7 +42,7 @@ class SopController extends Controller
     {
         $data = $request->validate([
             'title' => ['required', 'string', 'max:255'],
-            'body' => ['required', 'string'],
+            'body' => ['required', 'string', 'max:3000'],
         ]);
 
         $sop = $this->audited(function () use ($data, $request): Sop {

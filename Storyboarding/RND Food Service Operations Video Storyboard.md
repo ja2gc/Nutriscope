@@ -19,7 +19,7 @@ Use this as both the recording checklist and narration script. Create every name
 - **RND:** Registered Nutritionist-Dietitian who plans food service on the NutriScope website.
 - **FSS:** Food Service Staff who receive purchases and record service information in the NutriScope Android app.
 - **Baseline servings:** The standard number of servings for which a recipe's ingredient quantities were entered.
-- **Menu cycle:** A Monday-to-Sunday meal plan.
+- **Menu Calendar week:** A Monday-to-Sunday meal plan.
 - **Vendor:** The supplier or seller providing an item.
 - **PO (purchase order):** The approved buying record created from a reviewed shopping list.
 - **Planned and actual values:** Planned values show what was approved; actual values show what was really purchased or served.
@@ -83,7 +83,7 @@ Use this as both the recording checklist and narration script. Create every name
 
 **On-screen actions**
 
-1. Open **Food Service → Menu Cycle** and inspect the latest dated plan. Choose the next unplanned Monday–Sunday week after it; open the automatically created week if present.
+1. Open **Food Service → Menu Calendar** and inspect the latest dated plan. Choose the next unplanned Monday–Sunday week after it; open the automatically created week if present.
 2. Choose **Templates**, open an existing weekly template, and load it into that week's Menu Plan.
 3. Replace one template meal with **Demo Video Chicken Stew**. Keep at least one planned meal on Tuesday, Wednesday, and Thursday. Do not add rice as a weekly-menu line.
 4. Open one slot before generating a shopping list. Show **Purchase estimate: Not set**, baseline quantities, and preparation notes.
@@ -250,7 +250,7 @@ Use this as both the recording checklist and narration script. Create every name
    Confirm their header and signatories reflect the report template configuration captured when the PO completed. A Menu Calendar captures its template configuration when the week is created; the generated PO locks that week's planned menu.
 5. Point out actual quantities/prices, evidence, optional OR shown as **Not provided**, and final status.
 6. If previewing an unfinished manual list/PO, point out the visible draft/incomplete banner.
-7. In **Reports → Accomplishment Report → To Review**, open a submitted FSS period, review its dates and PDF, and approve it. If correction is needed, reject it with a reason of up to 500 characters; the FSS can correct and resubmit it.
+7. In **Reports → Accomplishment Report**, select the FSS user by name. Open **To Review** inside that user's card, optionally filter by report month, review the submitted period and PDF, then approve it. If correction is needed, reject it with a required reason of up to 500 characters; the FSS can correct and resubmit it. Open **Approved Reports** in the same card to confirm approved and earlier generated reports remain available.
 8. In **Food Service → Budget**, create a clearly labeled **Manual Adjustment** with its type, amount, and reason, then confirm the new ledger row and balance. Keep the PO deduction as its own entry.
 
 **Narration**
@@ -263,7 +263,7 @@ Use this as both the recording checklist and narration script. Create every name
 
 **On-screen actions**
 
-1. Show the flowchart or briefly revisit Inventory, Foods, Menu Cycle, Procurement, Budget, and Reports.
+1. Show the flowchart or briefly revisit Inventory, Foods, Menu Calendar, Procurement, Budget, and Reports.
 
 **Narration**
 

@@ -12,6 +12,7 @@ describe("dashboard presentation contract", () => {
     expect(dashboard).not.toContain("Good morning");
     expect(dashboard).not.toContain("Open NCP or resolve scheduled attendance.");
     expect(dashboard).not.toContain("Manage announcements");
+    expect(dashboard).not.toContain("Review Window");
     expect(dashboard).toContain("Go to announcement");
     expect(dashboard).not.toContain("pendingKpi.sub");
     expect(dashboard).not.toMatch(/<(Compass|HeartHandshake|Calendar|TrendingUp)\b/);

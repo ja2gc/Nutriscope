@@ -94,6 +94,7 @@ export default function RootLayout() {
             name="food-details"
             options={{ title: 'Food Profile' }}
           />
+          <Stack.Screen name="sop-history" options={{ headerShown: false }} />
         </Stack>
         <Redirector isAuthenticated={isAuthenticated} />
         <AppUpdatePrompt enabled={isAuthenticated} />

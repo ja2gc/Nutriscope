@@ -1,28 +1,26 @@
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { router, type Href } from 'expo-router';
-import { AlertCircle, CalendarDays, ChefHat, ChevronRight, RotateCcw, Save, Users } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+import { router, type Href, useFocusEffect } from 'expo-router';
+import { AlertCircle, CalendarDays, ChefHat, ChevronLeft, ChevronRight, RotateCcw, Save, Users } from 'lucide-react-native';
+import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { dateFromKey, localDateKey, readableLocalDate } from '../../lib/localDate';
+import { addCalendarDays, dateFromKey, localDateKey, readableLocalDate, todayManilaKey } from '../../lib/localDate';
 import { getMenuCycle, listMealPrep, listMenuCycles, MEAL_LABELS, setServedPopulation } from '../../lib/foodService';
 import { isValidServedPopulation } from '../../lib/mobileContracts';
-
-function addDays(value: string, days: number): string {
-  const date = dateFromKey(value);
-  date.setDate(date.getDate() + days);
-  return localDateKey(date);
-}
+import { MobilePagination } from '../../components/MobilePagination';
+import { paginateItems } from '../../lib/pagination';
 
 export default function MealPrepScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const today = localDateKey();
+  const today = todayManilaKey();
   const [selectedDate, setSelectedDate] = useState(today);
   const [showPicker, setShowPicker] = useState(false);
   const [served, setServed] = useState('');
+  const [mealPage, setMealPage] = useState(1);
   const [message, setMessage] = useState<{ error: boolean; text: string } | null>(null);
+  useFocusEffect(useCallback(() => { setSelectedDate(todayManilaKey()); setMealPage(1); }, []));
 
   const activeQuery = useQuery({
     queryKey: ['fss-cycle-for-date', selectedDate],
@@ -42,10 +40,11 @@ export default function MealPrepScreen() {
 
   const cycle = cycleQuery.data;
   const start = cycle?.week_start_date ?? today;
-  const end = cycle?.week_start_date ? addDays(cycle.week_start_date, 6) : today;
+  const end = cycle?.week_start_date ? addCalendarDays(cycle.week_start_date, 6) : today;
   const dateInCycle = selectedDate >= start && selectedDate <= end;
   const weekday = dateFromKey(selectedDate).toLocaleDateString('en-US', { weekday: 'long' });
   const meals = useMemo(() => dateInCycle ? (cycle?.days ?? []).filter((row) => row.day_of_week === weekday) : [], [cycle?.days, dateInCycle, weekday]);
+  const mealPager = paginateItems([...meals].sort((a, b) => a.meal_type.localeCompare(b.meal_type) || a.line_order - b.line_order), mealPage);
   const existing = (logsQuery.data ?? []).find((log) => log.service_date === selectedDate);
 
   const saveMutation = useMutation({
@@ -72,9 +71,13 @@ export default function MealPrepScreen() {
 
   const selectDate = (event: DateTimePickerEvent, value?: Date) => {
     if (Platform.OS === 'android') setShowPicker(false);
-    if (event.type !== 'dismissed' && value) { setSelectedDate(localDateKey(value)); setServed(''); setMessage(null); }
+    if (event.type !== 'dismissed' && value) { setSelectedDate(localDateKey(value)); setMealPage(1); setServed(''); setMessage(null); }
   };
-  const goToday = () => { setSelectedDate(localDateKey()); setShowPicker(false); setServed(''); setMessage(null); };
+  const goToday = () => { setSelectedDate(todayManilaKey()); setMealPage(1); setShowPicker(false); setServed(''); setMessage(null); };
+  const moveDay = (days: number) => {
+    const next = addCalendarDays(selectedDate, days);
+    setSelectedDate(next); setMealPage(1); setShowPicker(false); setServed(''); setMessage(null);
+  };
   const loading = activeQuery.isLoading || cycleQuery.isLoading;
   const loadFailed = activeQuery.isError || cycleQuery.isError || logsQuery.isError;
 
@@ -83,14 +86,16 @@ export default function MealPrepScreen() {
 
     <View className="mt-3 rounded-[22px] border border-[#E2EAE5] bg-white p-4">
       <Text className="text-xs font-bold uppercase tracking-widest text-[#6B7F77]">Service date</Text>
-      <View className="mt-2 flex-row gap-2"><TouchableOpacity onPress={() => setShowPicker(true)} disabled={!cycle} className="min-h-12 flex-1 flex-row items-center gap-3 rounded-xl border border-[#D9E3DD] bg-[#FAFCFB] px-3"><CalendarDays color="#087F5B" size={20} /><Text className="flex-1 text-sm font-bold text-[#263D35]">{readableLocalDate(selectedDate)}</Text></TouchableOpacity>{selectedDate !== today && <TouchableOpacity onPress={goToday} className="min-h-12 flex-row items-center gap-1.5 rounded-xl bg-[#E7F7F0] px-3"><RotateCcw color="#087F5B" size={17} /><Text className="text-sm font-bold text-[#087F5B]">Today</Text></TouchableOpacity>}</View>
-      {showPicker && <DateTimePicker value={dateFromKey(selectedDate)} mode="date" maximumDate={dateFromKey(today)} onChange={selectDate} />}
+      <View className="mt-2 flex-row items-center gap-2"><TouchableOpacity onPress={() => moveDay(-1)} className="min-h-12 min-w-12 items-center justify-center rounded-xl border border-[#D9E3DD]" accessibilityRole="button" accessibilityLabel="Previous day"><ChevronLeft color="#087F5B" size={22} /></TouchableOpacity><TouchableOpacity onPress={() => setShowPicker(true)} className="min-h-12 flex-1 flex-row items-center gap-2 rounded-xl border border-[#D9E3DD] bg-[#FAFCFB] px-3" accessibilityRole="button" accessibilityLabel={`Select service date, ${readableLocalDate(selectedDate)}`}><CalendarDays color="#087F5B" size={18} /><Text className="flex-1 text-sm font-bold text-[#263D35]" numberOfLines={2}>{readableLocalDate(selectedDate)}</Text></TouchableOpacity><TouchableOpacity onPress={() => moveDay(1)} className="min-h-12 min-w-12 items-center justify-center rounded-xl border border-[#D9E3DD]" accessibilityRole="button" accessibilityLabel="Next day"><ChevronRight color="#087F5B" size={22} /></TouchableOpacity></View>
+      {selectedDate !== today && <TouchableOpacity onPress={goToday} className="mt-2 min-h-12 flex-row items-center justify-center gap-1.5 rounded-xl bg-[#E7F7F0] px-3" accessibilityRole="button" accessibilityLabel="Return to today's service date"><RotateCcw color="#087F5B" size={17} /><Text className="text-sm font-bold text-[#087F5B]">Today</Text></TouchableOpacity>}
+      {showPicker && <DateTimePicker value={dateFromKey(selectedDate)} mode="date" onChange={selectDate} />}
     </View>
 
-    {loading ? <View className="py-16"><ActivityIndicator color="#087F5B" /></View> : loadFailed ? <View className="mt-3 rounded-2xl border border-red-200 bg-red-50 p-4"><Text className="text-sm text-red-700">Could not load meal preparation data.</Text><TouchableOpacity className="mt-2 min-h-11 justify-center" onPress={() => { void activeQuery.refetch(); void cycleQuery.refetch(); void logsQuery.refetch(); }}><Text className="font-bold text-[#087F5B]">Retry</Text></TouchableOpacity></View> : !cycle ? <View className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4"><Text className="text-sm text-amber-800">No menu is planned for this date.</Text></View> : !dateInCycle ? <View className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4"><Text className="text-sm text-amber-800">This date is outside the selected menu week.</Text></View> : <>
-      <View className="mt-3 rounded-[22px] border border-[#E2EAE5] bg-white p-4"><Text className="text-base font-extrabold text-[#16352B]">{weekday}'s meals</Text><Text className="mt-1 text-xs text-[#6B7F77]">{cycle.name}</Text>{meals.length === 0 ? <Text className="py-6 text-center text-sm text-[#7A8D85]">No meals planned for this date.</Text> : meals.sort((a, b) => a.meal_type.localeCompare(b.meal_type) || a.line_order - b.line_order).map((meal, index, ordered) => <TouchableOpacity key={meal.id} onPress={() => router.push({ pathname: '/food-details', params: { cycleId: cycle.id, lineId: meal.id } } as unknown as Href)} className="min-h-14 flex-row items-center border-b border-[#EDF2EF] py-2"><View className="flex-1">{index === 0 || ordered[index - 1].meal_type !== meal.meal_type ? <Text className="text-xs font-bold uppercase tracking-wider text-[#7A8D85]">{MEAL_LABELS[meal.meal_type] ?? meal.meal_type}</Text> : null}<Text className="mt-0.5 text-sm font-bold text-[#263D35]">{meal.po_snapshot?.name ?? meal.recipe?.name ?? meal.fs_item?.name ?? 'Meal details'}</Text></View><ChevronRight color="#7A8D85" size={18} /></TouchableOpacity>)}</View>
+    {loading ? <View className="py-16"><ActivityIndicator color="#087F5B" /></View> : loadFailed ? <View className="mt-3 rounded-2xl border border-red-200 bg-red-50 p-4"><Text className="text-sm text-red-700">Could not load meal preparation data.</Text><TouchableOpacity className="mt-2 min-h-11 justify-center" onPress={() => { void activeQuery.refetch(); void cycleQuery.refetch(); void logsQuery.refetch(); }}><Text className="font-bold text-[#087F5B]">Retry</Text></TouchableOpacity></View> : !cycle || !dateInCycle ? <View className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4"><Text className="text-sm text-amber-800">{selectedDate > today ? 'This service date is not active yet.' : 'Menu not planned for this week yet.'}</Text></View> : <>
+      {selectedDate > today && <View className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4"><Text className="text-sm text-amber-800">This service date is not active yet.</Text></View>}
+      <View className="mt-3 rounded-[22px] border border-[#E2EAE5] bg-white p-4"><Text className="text-base font-extrabold text-[#16352B]">{weekday}'s meals</Text><Text className="mt-1 text-xs text-[#6B7F77]">{cycle.name} · {existing?.served_population != null ? 'Recorded' : 'Not logged'}</Text>{meals.length === 0 ? <Text className="py-6 text-center text-sm text-[#7A8D85]">No meals planned for this date.</Text> : mealPager.items.map((meal, index, ordered) => <TouchableOpacity key={meal.id} onPress={() => router.push({ pathname: '/food-details', params: { cycleId: cycle.id, lineId: meal.id } } as unknown as Href)} className="min-h-14 flex-row items-center border-b border-[#EDF2EF] py-2"><View className="flex-1">{index === 0 || ordered[index - 1].meal_type !== meal.meal_type ? <Text className="text-xs font-bold uppercase tracking-wider text-[#7A8D85]">{MEAL_LABELS[meal.meal_type] ?? meal.meal_type}</Text> : null}<Text className="mt-0.5 text-sm font-bold text-[#263D35]">{meal.po_snapshot?.name ?? meal.recipe?.name ?? meal.fs_item?.name ?? 'Meal details'}</Text></View><ChevronRight color="#7A8D85" size={18} /></TouchableOpacity>)}<MobilePagination page={mealPager.page} pages={mealPager.pages} total={mealPager.total} onPrevious={() => setMealPage(mealPager.page - 1)} onNext={() => setMealPage(mealPager.page + 1)} /></View>
 
-      <View className="mt-3 rounded-[22px] border border-[#E2EAE5] bg-white p-4"><View className="flex-row items-center gap-2"><Users color="#087F5B" size={19} /><Text className="text-base font-extrabold text-[#16352B]">Actual population served</Text></View>{existing?.served_population != null && <Text className="mt-2 text-xs text-[#087F5B]">Currently recorded: {existing.served_population}</Text>}<TextInput value={served} onChangeText={(value) => { setServed(value.replace(/[^0-9]/g, '')); setMessage(null); }} keyboardType="number-pad" className="mt-3 min-h-12 rounded-xl border border-[#D9E3DD] bg-[#FAFCFB] px-3.5 text-[#16352B]" /><TouchableOpacity onPress={submit} disabled={saveMutation.isPending || meals.length === 0} className={`mt-3 min-h-12 flex-row items-center justify-center gap-2 rounded-xl ${saveMutation.isPending || meals.length === 0 ? 'bg-[#8FC8B5]' : 'bg-[#087F5B]'}`}>{saveMutation.isPending ? <ActivityIndicator color="#fff" /> : <Save color="#fff" size={18} />}<Text className="font-extrabold text-white">{existing ? 'Update actual served' : 'Record actual served'}</Text></TouchableOpacity></View>
+      {selectedDate <= today && <View className="mt-3 rounded-[22px] border border-[#E2EAE5] bg-white p-4"><View className="flex-row items-center gap-2"><Users color="#087F5B" size={19} /><Text className="text-base font-extrabold text-[#16352B]">Actual population served</Text></View>{existing?.served_population != null && <Text className="mt-2 text-xs text-[#087F5B]">Currently recorded: {existing.served_population}</Text>}<TextInput value={served} onChangeText={(value) => { setServed(value.replace(/[^0-9]/g, '')); setMessage(null); }} keyboardType="number-pad" className="mt-3 min-h-12 rounded-xl border border-[#D9E3DD] bg-[#FAFCFB] px-3.5 text-[#16352B]" /><TouchableOpacity onPress={submit} disabled={saveMutation.isPending || meals.length === 0} className={`mt-3 min-h-12 flex-row items-center justify-center gap-2 rounded-xl ${saveMutation.isPending || meals.length === 0 ? 'bg-[#8FC8B5]' : 'bg-[#087F5B]'}`}>{saveMutation.isPending ? <ActivityIndicator color="#fff" /> : <Save color="#fff" size={18} />}<Text className="font-extrabold text-white">{existing ? 'Update actual served' : 'Record actual served'}</Text></TouchableOpacity></View>}
     </>}
 
     {message && <View className={`mt-3 flex-row gap-2 rounded-xl border p-3 ${message.error ? 'border-red-200 bg-red-50' : 'border-emerald-200 bg-emerald-50'}`}><AlertCircle color={message.error ? '#DC2626' : '#087F5B'} size={18} /><Text className={`flex-1 text-sm ${message.error ? 'text-red-700' : 'text-emerald-800'}`}>{message.text}</Text></View>}

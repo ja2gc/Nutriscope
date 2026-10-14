@@ -281,7 +281,7 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
                 >
                   {[
                     { href: "/food-service/inventory",    label: "Inventory",    match: (p: string) => p === "/food-service/inventory" },
-                    { href: "/food-service/menu-cycle",   label: "Menu Cycle",   match: (p: string) => p === "/food-service/menu-cycle" },
+                    { href: "/food-service/menu-cycle",   label: "Menu Calendar",   match: (p: string) => p === "/food-service/menu-cycle" },
                     { href: "/food-service/budget",       label: "Budget",       match: (p: string) => p === "/food-service/budget" },
                     { href: "/food-service/procurement",  label: "Procurement",  match: (p: string) => p === "/food-service/procurement" },
                     { href: "/food-service/foods",        label: "Foods",        match: (p: string) => p.startsWith("/food-service/foods") || p.startsWith("/food-service/recipes") },

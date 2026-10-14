@@ -712,12 +712,6 @@ export default function RndDashboardPage() {
                     </div>
                     <div className="mt-1 text-xl font-extrabold text-warm-900">{upcomingFollowUpLabel}</div>
                   </div>
-                  <div className="rounded-2xl border border-warm-200 bg-warm-50 p-3">
-                    <div className="text-xs font-extrabold text-warm-400 uppercase tracking-wider">
-                      Review Window
-                    </div>
-                    <div className="mt-1 text-xl font-extrabold text-warm-900">48h</div>
-                  </div>
                 </div>
 
                 <div className="overflow-x-auto rounded-2xl border border-warm-200">
