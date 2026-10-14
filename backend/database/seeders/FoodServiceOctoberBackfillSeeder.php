@@ -28,7 +28,7 @@ use RuntimeException;
 /** One-off, additive fictional backfill for the October 15, 2026 exhibition recording. */
 class FoodServiceOctoberBackfillSeeder extends Seeder
 {
-    private const FIRST_DAY = '2026-09-16';
+    private const FIRST_DAY = '2026-09-15';
 
     private const LAST_LOGGED_DAY = '2026-10-14';
 

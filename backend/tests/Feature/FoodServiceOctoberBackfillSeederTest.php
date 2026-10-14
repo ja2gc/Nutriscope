@@ -64,6 +64,7 @@ class FoodServiceOctoberBackfillSeederTest extends TestCase
             $this->assertSame($before, [$report->getRawOriginal('updated_at'), $report->cache_path, $report->parameters, $report->review_state]);
         }
         $this->assertGreaterThan(0, MenuCycle::query()->whereDate('week_start_date', '2026-10-12')->sole()->days()->count());
+        $this->assertSame(1, DietListCount::query()->whereDate('service_date', '2026-09-15')->count());
         $this->assertSame(1, DietListCount::query()->whereDate('service_date', '2026-10-14')->count());
         $this->assertSame(0, DietListCount::query()->whereDate('service_date', '2026-10-15')->count());
         $currentPo = PurchaseOrder::query()->whereHas('shoppingList', fn ($query) => $query->whereDate('period_start', '2026-10-13'))->sole();
