@@ -4,11 +4,10 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
-  ShoppingBag, Plus, Trash2, ChevronLeft, ChevronDown, Split,
+  ShoppingBag, Plus, Trash2, ChevronLeft, Split,
   FileText, Pencil, Check, Search, X, AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import {
   ShoppingList, PurchaseOrder, POAttachment, ShoppingListItem, ShoppingListDraftItem,
@@ -578,7 +577,6 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
 
 // ═══ PO detail ════════════════════════════════════════════════════════════════
 function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: PurchaseOrder; suppliers: Supplier[]; onBack: () => void; reload: () => void }) {
-  const [plannedTotalOpen, setPlannedTotalOpen] = useState(false);
   const [groupId, setGroupId] = useState<string | null>(null);
   const [orDraft, setOrDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -662,7 +660,7 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
       <div className="space-y-5">
         <div className="flex items-center gap-2 text-sm font-semibold text-warm-400">
           <button onClick={() => setGroupId(null)} className="hover:text-emerald-700">Procurement</button>
-          <span>/</span><span>{po.po_number}</span><span>/</span>
+          <span>/</span><span>{po.display_name}</span><span>/</span>
           <span className="text-warm-700">{group.supplier?.name ?? "Unspecified"}</span>
         </div>
         <div className="flex items-center gap-3">
@@ -811,10 +809,10 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
         </button>
         <div>
           <h3 className="text-lg font-extrabold text-warm-900 flex items-center gap-2">
-            <FileText className="h-4 w-4 text-emerald-600" />{po.po_number}
+            <FileText className="h-4 w-4 text-emerald-600" />{po.display_name}
           </h3>
           <div className="text-xs text-warm-400">
-            {po.shopping_list?.name ?? "Manual procurement"} · {po.po_number} · Status: {poStatusLabel(po.lifecycle_status)}
+            {po.order_date ?? "No order date"} · Status: {poStatusLabel(po.lifecycle_status)}
           </div>
         </div>
         {po.lifecycle_status !== "open_execution" && po.actual_budget_per_head_per_day != null && (
@@ -825,19 +823,9 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
           </div>
         )}
       </div>
-      <div className="overflow-hidden rounded-2xl border border-warm-200 bg-white shadow-sm">
-        <Collapsible open={plannedTotalOpen} onOpenChange={setPlannedTotalOpen}>
-          <CollapsibleTrigger asChild>
-            <button type="button" aria-label={plannedTotalOpen ? "Hide planned total" : "Show planned total"}
-              className="flex min-h-10 w-full items-center justify-between gap-2 px-4 py-2 text-left text-xs font-extrabold uppercase tracking-wider text-warm-600 hover:bg-warm-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500/30">
-              <span>Planned total</span>
-              <ChevronDown className={`h-4 w-4 shrink-0 text-warm-400 transition-transform ${plannedTotalOpen ? "rotate-180" : ""}`} aria-hidden="true" />
-            </button>
-          </CollapsibleTrigger>
-          <CollapsibleContent data-testid="planned-total-content" className="border-t border-warm-100 px-4 py-3">
-            <div className="text-2xl font-extrabold text-warm-900">{peso(num(po.total_amount))}</div>
-          </CollapsibleContent>
-        </Collapsible>
+      <div data-testid="po-current-total" className="flex min-h-14 items-center justify-between gap-4 rounded-2xl border border-warm-200 bg-white px-4 py-3 shadow-sm">
+        <span className="text-xs font-extrabold uppercase tracking-wider text-warm-600">Current total</span>
+        <span className="text-lg font-extrabold text-warm-900">{peso(num(po.current_total_amount))}</span>
       </div>
       {po.served_population_progress && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -1239,7 +1227,7 @@ export default function ProcurementPage() {
             ) : (
               <table className="w-full text-sm">
                 <thead className="bg-warm-50 border-b border-warm-100">
-                  <tr>{["Procurement span", "Track", "Estimated total", "Vendors", "Status", "Actions"].map((h) => (
+                  <tr>{["Procurement span", "Track", "Current total", "Vendors", "Status", "Actions"].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
                   ))}</tr>
                 </thead>
@@ -1247,7 +1235,7 @@ export default function ProcurementPage() {
                   {pos.map((po) => (
                     <tr key={po.id} className="hover:bg-warm-50/60">
                       <td className="px-4 py-3">
-                        <span className="font-semibold text-warm-800">{po.po_number}</span>
+                        <span className="font-semibold text-warm-800">{po.display_name}</span>
                         <div className="text-xs text-warm-400">{po.order_date ?? "No order date"}</div>
                       </td>
                       <td className="px-4 py-3">
@@ -1260,7 +1248,7 @@ export default function ProcurementPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 font-mono text-warm-700">
-                        {peso(num(po.total_amount))}
+                        {peso(num(po.current_total_amount))}
                       </td>
                       <td className="px-4 py-3 text-warm-500">{po?.vendor_groups?.length ?? 0}</td>
                       <td className="px-4 py-3 text-warm-500">{poStatusLabel(po.lifecycle_status)}</td>
@@ -1270,7 +1258,7 @@ export default function ProcurementPage() {
                             onClick={() => setPoDetail(po.id)}
                             className="p-1.5 rounded-lg hover:bg-warm-100 text-warm-500 cursor-pointer"
                             title="Edit purchase order"
-                            aria-label={`Edit ${po.po_number}`}
+                            aria-label={`Edit ${po.display_name}`}
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
@@ -1278,7 +1266,7 @@ export default function ProcurementPage() {
                             <button
                               onClick={() => removePo(po.id)}
                               className="p-1.5 rounded-lg hover:bg-red-50 text-warm-500 hover:text-red-600 cursor-pointer"
-                              aria-label={`Delete ${po.po_number}`}
+                              aria-label={`Delete ${po.display_name}`}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>

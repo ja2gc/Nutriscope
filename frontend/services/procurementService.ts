@@ -99,10 +99,12 @@ export interface PurchaseOrder {
   supplier_id: number | null;
   supplier?: { id: string; name: string; category: string | null } | null;
   po_number: string;
+  display_name: string;
   or_number: string | null;
   order_date: string | null;
   received_date: string | null;
   total_amount: string | null;
+  current_total_amount: number;
   actual_budget_per_head_per_day: string | null;
   served_population_progress?: { expected: number; done: number; served: number } | null;
   status: "draft" | "ordered" | "received";

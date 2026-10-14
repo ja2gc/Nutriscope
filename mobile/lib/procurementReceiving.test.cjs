@@ -25,6 +25,8 @@ test('mobile receiving keeps vendor scope and shows compact actual PO item field
   assert.match(source, /'Content-Type': 'multipart\/form-data'/);
   assert.match(source, /staleTime: 0/);
   assert.match(source, /purchaseOrderStatusLabel\(po\.lifecycle_status\)/);
+  assert.match(source, /po\.display_name/);
+  assert.doesNotMatch(source, />\{po\.po_number\}</);
   assert.doesNotMatch(source, />\{po\.lifecycle_status\}</);
   assert.match(source, /group\.status === 'received' \|\| Boolean\(group\.received_at\)/);
   assert.match(source, /Could not load vendors/);
@@ -38,7 +40,8 @@ test('mobile receiving keeps vendor scope and shows compact actual PO item field
 test('mobile actual PO fields show two decimals and keep full precision until edited', () => {
   assert.match(source, /maximumFractionDigits:\s*2/);
   assert.match(source, /qtyEdited:\s*false/);
-  assert.match(source, /Show planned total/);
+  assert.match(source, /Current total/);
+  assert.match(source, /po\.current_total_amount/);
   assert.match(source, /priceEdited:\s*false/);
   assert.match(source, /actual_qty:\s*actuals\[item\.id\]\?\.qtyEdited\s*\?\s*Number\(actuals\[item\.id\]\.qty\)\s*:\s*Number\(item\.actual_qty\)/);
   assert.match(source, /actual_unit_price:\s*actuals\[item\.id\]\?\.priceEdited\s*\?\s*Number\(actuals\[item\.id\]\.price\)\s*:\s*Number\(item\.actual_unit_price\)/);

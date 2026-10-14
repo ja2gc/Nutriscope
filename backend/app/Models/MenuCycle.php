@@ -91,19 +91,20 @@ class MenuCycle extends Model
      */
     public static function coveringDate(Carbon|string $date): ?self
     {
-        $day = ($date instanceof Carbon ? $date->copy() : Carbon::parse($date))->startOfDay();
+        $day = ($date instanceof Carbon ? $date->copy() : Carbon::parse($date))->toDateString();
 
         return self::query()
             ->whereNotNull('week_start_date')
-            ->whereDate('week_start_date', '<=', $day->toDateString())
+            ->whereDate('week_start_date', '<=', $day)
             ->orderByDesc('week_start_date')
             ->orderByDesc('id')
             ->get()
             ->first(function (self $cycle) use ($day) {
                 $span = (int) ($cycle->cycle_days ?: 7);
-                $end = $cycle->week_start_date->copy()->startOfDay()->addDays($span - 1);
+                $start = $cycle->week_start_date->toDateString();
+                $end = $cycle->week_start_date->copy()->addDays($span - 1)->toDateString();
 
-                return $day->gte($cycle->week_start_date->copy()->startOfDay()) && $day->lte($end);
+                return $day >= $start && $day <= $end;
             });
     }
 }

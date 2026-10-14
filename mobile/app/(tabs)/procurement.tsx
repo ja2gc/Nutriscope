@@ -5,7 +5,6 @@ import {
   AlertCircle,
   Camera,
   ChevronLeft,
-  ChevronDown,
   ChevronRight,
   Image as ImageIcon,
   Paperclip,
@@ -92,8 +91,10 @@ interface VendorGroup {
 interface PurchaseOrder {
   id: string;
   po_number: string;
+  display_name: string;
   order_date: string | null;
   total_amount: number | string | null;
+  current_total_amount: number;
   status: string;
   lifecycle_status: string;
   notes: string | null;
@@ -672,7 +673,7 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
   return (
     <ScrollView className="flex-1 bg-gray-50" contentContainerStyle={{ paddingBottom: 24 }}>
       <View className="px-4 pt-4">
-        <HeaderBack label={po.po_number} onPress={onBack} />
+        <HeaderBack label={po.display_name} onPress={onBack} />
 
         <View className="bg-white rounded-xl border border-gray-100 px-4 py-4 mb-4">
           <Text className="text-lg font-bold text-gray-900" numberOfLines={2}>
@@ -792,7 +793,6 @@ function PurchaseOrderDetail({
   onOpenGroup: (groupId: string) => void;
 }) {
   const groups = po.vendor_groups ?? [];
-  const [plannedTotalOpen, setPlannedTotalOpen] = useState(false);
   const [groupPage, setGroupPage] = useState(1);
   const groupPager = paginateItems(groups, groupPage);
 
@@ -802,29 +802,16 @@ function PurchaseOrderDetail({
         <HeaderBack label="Procurement" onPress={onBack} />
 
         <View className="bg-white rounded-xl border border-gray-100 px-4 py-4 mb-4">
-          <Text className="text-lg font-bold text-gray-900">{po.po_number}</Text>
+          <Text className="text-lg font-bold text-gray-900">{po.display_name}</Text>
           <Text className="text-xs text-gray-400 mt-1">
             {po.ppa?.target_date_range ?? po.order_date ?? 'No schedule'}
           </Text>
           <Text className="mt-2 text-sm font-semibold text-gray-700">Status: {purchaseOrderStatusLabel(po.lifecycle_status)}</Text>
         </View>
 
-        <View className="bg-white rounded-xl border border-gray-100 overflow-hidden mb-4">
-          <TouchableOpacity
-            className="flex-row items-center justify-between min-h-11 px-4 py-3"
-            accessibilityRole="button"
-            accessibilityLabel={plannedTotalOpen ? 'Hide planned total' : 'Show planned total'}
-            accessibilityState={{ expanded: plannedTotalOpen }}
-            onPress={() => setPlannedTotalOpen((open) => !open)}
-          >
-            <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Planned total</Text>
-            <ChevronDown color="#9ca3af" size={18} style={{ transform: [{ rotate: plannedTotalOpen ? '180deg' : '0deg' }] }} />
-          </TouchableOpacity>
-          {plannedTotalOpen && (
-            <View className="border-t border-gray-100 px-4 py-3">
-              <Text className="text-xl font-bold text-gray-900">{money(po.total_amount)}</Text>
-            </View>
-          )}
+        <View className="mb-4 flex-row items-center justify-between rounded-xl border border-gray-100 bg-white px-4 py-3">
+          <Text className="text-xs font-semibold uppercase tracking-wide text-gray-500">Current total</Text>
+          <Text className="text-lg font-bold text-gray-900">{money(po.current_total_amount)}</Text>
         </View>
 
         <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
@@ -885,7 +872,7 @@ function PurchaseOrderRow({ po, onPress }: { po: PurchaseOrder; onPress: () => v
         </View>
         <View className="flex-1 pr-3">
           <Text className="text-sm font-bold text-gray-900" numberOfLines={1}>
-            {po.po_number}
+            {po.display_name}
           </Text>
           <Text className="text-xs text-gray-400 mt-0.5" numberOfLines={1}>
             {po.ppa?.target_date_range ?? po.order_date ?? 'No schedule'}
@@ -895,7 +882,7 @@ function PurchaseOrderRow({ po, onPress }: { po: PurchaseOrder; onPress: () => v
           </Text>
         </View>
         <View className="items-end">
-          <Text className="text-sm font-bold text-gray-800">{money(po.total_amount)}</Text>
+          <Text className="text-sm font-bold text-gray-800">{money(po.current_total_amount)}</Text>
           <Text className="text-xs text-gray-400 mt-1">Status: {purchaseOrderStatusLabel(po.lifecycle_status)}</Text>
         </View>
       </View>

@@ -30,10 +30,14 @@ class PurchaseOrderResource extends JsonResource
                 'id' => $this->supplier->uuid, 'name' => $this->supplier->name, 'category' => $this->supplier->category,
             ] : null),
             'po_number' => $this->po_number,
+            'display_name' => 'PO — '.($this->shoppingList?->name ?? $this->order_date?->format('M j, Y') ?? $this->po_number),
             'or_number' => $this->or_number,
             'order_date' => $this->order_date?->toDateString(),
             'received_date' => $this->received_date?->toDateString(),
             'total_amount' => $this->total_amount,
+            'current_total_amount' => $this->relationLoaded('vendorGroups')
+                ? round((float) $this->vendorGroups->sum('total_amount'), 2)
+                : (float) $this->total_amount,
             'actual_budget_per_head_per_day' => $this->actual_budget_per_head_per_day,
             'served_population_progress' => $servedPopulationProgress,
             'status' => $this->status,

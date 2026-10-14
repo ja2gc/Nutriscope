@@ -28,6 +28,23 @@ class PurchaseOrderCompletionPatternTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_po_display_total_sums_current_vendor_totals(): void
+    {
+        $rnd = User::factory()->rnd()->create();
+        $po = PurchaseOrder::factory()->create([
+            'rnd_user_id' => $rnd->id,
+            'total_amount' => 300,
+            'procurement_track' => 'supplies',
+        ]);
+        $po->vendorGroups()->create(['status' => 'received', 'total_amount' => 100]);
+        $po->vendorGroups()->create(['status' => 'pending', 'total_amount' => 250]);
+
+        $payload = (new PurchaseOrderResource($po->load('vendorGroups')))->toArray(Request::create('/'));
+
+        $this->assertSame(350.0, $payload['current_total_amount']);
+        $this->assertSame('300.00', $po->fresh()->total_amount);
+    }
+
     public function test_food_po_waits_for_every_span_day_served_population_then_calculates_actual_per_head(): void
     {
         Storage::fake('report_cache');
@@ -74,6 +91,7 @@ class PurchaseOrderCompletionPatternTest extends TestCase
 
         $list = ShoppingList::factory()->create([
             'rnd_user_id' => $rnd->id,
+            'name' => 'June subsistence',
             'period_start' => '2026-06-01',
             'period_end' => '2026-06-02',
             'days_span' => 2,
@@ -202,6 +220,7 @@ class PurchaseOrderCompletionPatternTest extends TestCase
             'shoppingList',
             'programProjectActivity',
         ])))->toArray(Request::create('/'));
+        $this->assertSame('PO — June subsistence', $payload['display_name']);
 
         $this->assertSame([
             'expected' => 2,

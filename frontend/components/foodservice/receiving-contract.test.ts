@@ -24,8 +24,10 @@ describe("purchase-order receiving UX contract", () => {
     }
     expect(web).toContain("Actual Total");
     expect(native).not.toContain("Actual Total");
-    expect(web).toContain("Show planned total");
-    expect(native).toContain("Show planned total");
+    expect(web).toContain("po-current-total");
+    expect(web).not.toContain("Show planned total");
+    expect(native).not.toContain("Show planned total");
+    expect(native).toContain("current_total_amount");
     expect(web).toContain("PurchaseValueComparison");
     for (const label of ["Calculation details", "Planned purchase:", "Actual purchased:"]) {
       expect(comparison).toContain(label);

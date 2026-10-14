@@ -49,12 +49,12 @@ const meta = { current_page: 1, per_page: 10, total: 1, last_page: 1 };
 function makePo(overrides: Partial<PurchaseOrder> = {}): PurchaseOrder {
   return {
     id: "po-1", shopping_list_id: "list-1", shopping_list: { id: "list-1", name: "October menu" },
-    supplier_id: null, supplier: null, po_number: "PO-001", or_number: null, order_date: "2026-10-04",
-    received_date: null, total_amount: "642.50", actual_budget_per_head_per_day: null, status: "ordered",
+    supplier_id: null, supplier: null, po_number: "PO-001", display_name: "PO — October menu", or_number: null, order_date: "2026-10-04",
+    received_date: null, total_amount: "642.50", current_total_amount: 700, actual_budget_per_head_per_day: null, status: "ordered",
     lifecycle_status: "open_execution", procurement_track: "food", converted_at: null, completed_at: null,
     archived_at: null, notes: null,
     vendor_groups: [{ id: "vendor-group-1", supplier_id: null, supplier: null, or_number: null, or_number_display: "—",
-      status: "pending", can_change_vendor: false, vendor_change_blocker: null, total_amount: "642.50", received_at: null,
+      status: "pending", can_change_vendor: false, vendor_change_blocker: null, total_amount: "700.00", received_at: null,
       stocked_at: null, items: [{ id: 1, vendor_group_id: 1, fs_item_id: 42, description: "Rice", qty: "12.3456", unit: "kg",
         unit_price: "50.1234", total_value: "618.75", purchase_qty: "12.3456", purchase_unit: "kg", purchase_price: "50.1234",
         actual_qty: "12.3456", actual_unit: "kg", actual_unit_price: "52.3456", actual_total: 646.30 }], attachments: [] }],
@@ -133,7 +133,7 @@ describe("Food Service procurement display", () => {
     const tab = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
       .find((candidate) => candidate.textContent?.trim() === "Purchase Orders");
     await act(async () => { tab?.click(); });
-    const edit = container.querySelector<HTMLButtonElement>('button[aria-label="Edit PO-001"]');
+    const edit = container.querySelector<HTMLButtonElement>('button[aria-label="Edit PO — October menu"]');
     await act(async () => { edit?.click(); await Promise.resolve(); await Promise.resolve(); });
   }
 
@@ -462,8 +462,8 @@ describe("Food Service procurement display", () => {
     expect(container.textContent).not.toContain("Lifecycle");
     expect(container.textContent).toContain("Completed");
     expect(container.textContent).not.toContain("open_execution");
-    expect(container.querySelector('button[aria-label="Edit PO-001"]')).not.toBeNull();
-    expect(container.querySelector('button[aria-label="Delete PO-001"]')).toBeNull();
+    expect(container.querySelector('button[aria-label="Edit PO — October menu"]')).not.toBeNull();
+    expect(container.querySelector('button[aria-label="Delete PO — October menu"]')).toBeNull();
   });
 
   test("formats actual PO inputs but keeps unchanged quantity and cost precision on save", async () => {
@@ -501,17 +501,17 @@ describe("Food Service procurement display", () => {
     });
   });
 
-  test("shows the planned PO total in a collapsed disclosure", async () => {
+  test("shows a readable PO title and current vendor total without a disclosure", async () => {
     await renderPage();
     await openPurchaseOrder();
-    const showPlannedTotal = container.querySelector<HTMLButtonElement>('button[aria-label="Show planned total"]');
-    expect(showPlannedTotal).not.toBeNull();
-    expect(showPlannedTotal?.getAttribute("data-state")).toBe("closed");
-    await act(async () => { showPlannedTotal?.click(); });
-
-    const plannedTotalContent = container.querySelector('[data-testid="planned-total-content"]');
-    expect(plannedTotalContent?.getAttribute("data-state")).toBe("open");
-    expect(plannedTotalContent?.textContent).toContain("₱642.50");
+    expect(container.querySelector("h3")?.textContent).toContain("PO — October menu");
+    expect(container.textContent).not.toContain("PO-001");
+    expect(container.querySelector('button[aria-label="Show planned total"]')).toBeNull();
+    const currentTotalContent = container.querySelector('[data-testid="po-current-total"]');
+    expect(currentTotalContent).not.toBeNull();
+    expect(currentTotalContent?.textContent).toContain("Current total");
+    expect(currentTotalContent?.textContent).toContain("₱700.00");
+    expect(currentTotalContent?.textContent).not.toContain("₱642.50");
   });
 
   test("shows editable actual values and keeps the Shopping List unit locked", async () => {
