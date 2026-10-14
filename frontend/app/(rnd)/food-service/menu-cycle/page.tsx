@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/Button";
 import { InfoHint } from "@/components/ui/InfoHint";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { formatFoodServiceNumber } from "@/lib/foodServiceFormat";
+import { addCalendarDays, manilaCalendarToday } from "@/lib/calendarDate";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   DAYS, MEALS, MEAL_LABELS, Day, Meal,
@@ -22,16 +23,8 @@ import { setServedPopulation, listServiceLogs } from "@/services/consumptionServ
 
 const cellKey = (d: Day, m: Meal) => `${d}|${m}`;
 // Actual calendar date for a weekday column of a Monday-anchored cycle week.
-const isoAddDays = (start: string, n: number) => {
-  const d = new Date(`${start}T00:00:00`);
-  d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
-};
-const manilaToday = () => {
-  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
-  const value = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
-  return `${value("year")}-${value("month")}-${value("day")}`;
-};
+const isoAddDays = addCalendarDays;
+const manilaToday = manilaCalendarToday;
 const coversToday = (start: string | null) => !!start && start <= manilaToday() && manilaToday() <= isoAddDays(start, 6);
 
 // Week label + Past/Current/Upcoming tag for a cycle, from its week_start_date.

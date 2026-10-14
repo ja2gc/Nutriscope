@@ -30,6 +30,7 @@ import { PurchaseValueComparison } from "@/components/foodservice/PurchaseValueC
 import { ShoppingListCopyCard } from "@/components/foodservice/ShoppingListCopyCard";
 import { formatFoodServiceNumber } from "@/lib/foodServiceFormat";
 import { compatibleRecipeUnits, foodServiceUnitFactor } from "@/lib/foodServiceUnits";
+import { manilaCalendarToday } from "@/lib/calendarDate";
 
 const peso = (n: number) => `₱${n.toFixed(2)}`;
 const num = (s: string | number | null | undefined) => (s != null ? parseFloat(String(s)) : 0);
@@ -39,7 +40,7 @@ const poStatusLabel = (status: PurchaseOrder["lifecycle_status"]) => ({
   completed: "Completed",
   archived: "Archived",
 }[status]);
-const today = () => new Date().toISOString().slice(0, 10);
+const today = manilaCalendarToday;
 const attachmentImages = (attachments: POAttachment[] | undefined | null, type: "receipt" | "proof"): UploadImage[] =>
   (attachments ?? []).filter((a) => a.type === type).map((a) => ({
     id: String(a.id),

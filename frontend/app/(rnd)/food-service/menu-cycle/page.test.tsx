@@ -155,6 +155,16 @@ describe("Menu Cycle template and name editing", () => {
     expect(container.querySelector<HTMLInputElement>('input[aria-label="Menu name"]')).not.toBeNull();
   });
 
+  test("maps Tuesday's served population to Tuesday's calendar date", async () => {
+    mockGetCycle.mockResolvedValue({ ...makeCycle(), week_start_date: "2026-09-28" });
+    await renderPage();
+    const edit = container.querySelector<HTMLButtonElement>('button[title="Edit"]');
+    await act(async () => { edit?.click(); await Promise.resolve(); });
+    const served = container.querySelector<HTMLButtonElement>('button[title="Edit Tuesday served population"]');
+    await act(async () => { served?.click(); });
+    expect(container.querySelector<HTMLInputElement>('input[title="Tuesday served population (2026-09-29)"]')).not.toBeNull();
+  });
+
   test("template editor hides snack rows and saves three-meal templates", async () => {
     mockGetTemplate.mockResolvedValue({ ...template, days: template.days });
     await act(async () => { root.render(<MenuTemplateDirectory />); await Promise.resolve(); });
