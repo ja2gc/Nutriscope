@@ -26,3 +26,10 @@
 - Shared mobile-contract/release change → update metadata, run tests/type checks, build/publish through existing workflow, then verify version/versionCode, APK bytes/MIME/header/checksum, and QR target.
 - EAS/build completion alone is insufficient.
 - Live acceptance uses deployed URL, fictional data, exact revision, and recorded pass/fail scenarios. Unit/local/CI/deploy/health checks are not live acceptance.
+
+## Temporary Android build path (2026-10-15 through 2026-10-31)
+
+- Expo's Android Free-plan build quota is exhausted until 2026-11-01. Do not start another EAS cloud build before that date.
+- Until 2026-11-01, build Android APKs locally from the checked-out `mobile/` source. Match the intended EAS profile's public build settings explicitly, especially `EXPO_PUBLIC_API_URL`; the local build itself does not imply local or production data.
+- Publish a verified local APK through the existing release workflow. The workflow's HTTPS artifact URL must be reachable by its GitHub runner; do not point the public download page or QR at a workstation path. A public update must use the existing production signing certificate; a debug-signed local APK is only for emulator testing. Update release metadata only after the APK version, versionCode, signing certificate, and SHA-256 are verified.
+- From 2026-11-01, EAS cloud builds may resume. Confirm quota reset before switching back.

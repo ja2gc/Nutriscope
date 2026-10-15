@@ -1,6 +1,6 @@
 {
-  "artifact_url": "https://expo.dev/artifacts/eas/K8KQH9mHxnueON1JsRr87YILiop09y-RJ_lGnALNWkg.apk",
-  "version": "1.2.22",
-  "version_code": 26,
-  "sha256": "bed81624e79d6099d9c5b12d6ce0d746ff124576d53f820ba88f0359aa3f5670"
+  "artifact_url": "https://github.com/ja2gc/Nutriscope/releases/download/android-1.2.23/nutriscope-fss-1.2.23.apk",
+  "version": "1.2.23",
+  "version_code": 27,
+  "sha256": "dadffa9e06b7977275dbc05d77743659bfe92559caaab93afe7d7a83ccefb682"
 }
