@@ -62,6 +62,14 @@ test('FSS service screens select the Manila date and show unplanned weeks plainl
   assert.match(accomplish, /useFocusEffect/);
 });
 
+test('complete accomplishment periods can be submitted before the period end', () => {
+  const reports = read('components/ReportsScreen.tsx');
+  assert.match(reports, /period\.saved_days !== period\.expected_days/);
+  assert.match(reports, /Save a log for every day before submitting\./);
+  assert.doesNotMatch(reports, /period\.end >= todayManilaKey\(\)/);
+  assert.doesNotMatch(reports, /You can submit after this period ends\./);
+});
+
 test('PO detail exposes lifecycle, vendor evidence, and receipt total editing', () => {
   const screen = read('app/(tabs)/procurement.tsx');
   assert.match(screen, /Status: \{purchaseOrderStatusLabel\(po\.lifecycle_status\)\}/);

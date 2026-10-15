@@ -88,14 +88,17 @@ class AccomplishmentPeriodWorkflowTest extends TestCase
             ->assertUnprocessable();
     }
 
-    public function test_complete_current_period_cannot_be_submitted_until_the_next_day(): void
+    public function test_complete_current_period_can_be_submitted_as_soon_as_every_daily_log_is_saved(): void
     {
+        Storage::fake('report_cache');
+        Storage::fake(config('filesystems.private_uploads'));
         $fss = User::factory()->fss()->create();
         $this->fillPeriod($fss, '2026-06-01', '2026-06-15');
         Carbon::setTestNow(Carbon::parse('2026-06-15 12:00:00', 'Asia/Manila'));
         try {
             $this->actingAs($fss)->postJson('/api/fss/accomplishment-periods/2026-06-01/submit')
-                ->assertUnprocessable();
+                ->assertOk()->assertJsonPath('data.status', 'pending')
+                ->assertJsonPath('data.saved_days', 15)->assertJsonPath('data.expected_days', 15);
         } finally {
             Carbon::setTestNow();
         }

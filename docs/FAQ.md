@@ -294,7 +294,7 @@ Only their own Accomplishment Reports.
 
 ### Why can't I submit an accomplishment period yet?
 
-Each FSS user needs one saved Daily Log for every date of the semi-monthly period, including Off duty where applicable. The first period covers days 1–15; the second covers day 16 through month end. Submission is available after the period ends. RND sees it in **Reports → Accomplishment Report → To Review** only after submission.
+Each FSS user needs one saved Daily Log for every date of the semi-monthly period, including Off duty where applicable. The first period covers days 1–15; the second covers day 16 through month end. Submission is available once every date has a saved log, including before the period ends. RND sees it in **Reports → Accomplishment Report → To Review** only after submission.
 
 ### How are accomplishment corrections reviewed?
 
@@ -352,7 +352,7 @@ Allow camera/photo-library permission, confirm network access, and retry with a 
 
 ### Where are my reports?
 
-Open **Accomplish → My Reports** for your semi-monthly periods, progress, review status, and each date's log. Submit a complete past period there or withdraw a pending submission to make corrections. Approved and earlier PDFs are available under Saved PDFs with **View PDF** and **Download PDF**.
+Open **Accomplish → My Reports** for your semi-monthly periods, progress, review status, and each date's log. Submit when every date has a saved log; you do not need to wait until the period ends. You can withdraw a pending submission to make corrections. Approved and earlier PDFs are available under Saved PDFs with **View PDF** and **Download PDF**.
 
 ### How do I update the Android app?
 

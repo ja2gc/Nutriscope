@@ -62,7 +62,6 @@ class AccomplishmentPeriodController extends Controller
         $summary = $this->audited(function () use ($user, $start, $archives): array {
             User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
             $current = $this->summary($user, $start);
-            abort_if($current['end'] >= CarbonImmutable::now('Asia/Manila')->toDateString(), 422, 'The period has not ended.');
             abort_if($current['saved_days'] !== $current['expected_days'], 422, 'Save a daily log for every date before submitting.');
             abort_if(in_array($current['status'], ['pending', 'approved'], true), 409, 'This period is already submitted.');
 

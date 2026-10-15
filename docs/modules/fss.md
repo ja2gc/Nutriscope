@@ -89,7 +89,7 @@ FSS records:
 
 The Daily Log view shows one self-scoped record for the selected date. It defaults to today; any previous date is allowed, future dates are blocked, and **Today** resets the date. Re-saving updates the same record. Logged zero remains **0** in the report. Off duty cannot coexist with work and appears as **Off duty**.
 
-**My Reports** is the second view inside Accomplish. It shows each owner's semi-monthly progress and dates. A complete past period can be submitted to RND. FSS can withdraw a pending submission, correct a rejected period, and resubmit. Pending and approved dates are read-only. Approved PDFs and reports generated before this review workflow remain available under Saved PDFs.
+**My Reports** is the second view inside Accomplish. It shows each owner's semi-monthly progress and dates. A period can be submitted to RND once every date has a saved log, including before the period ends. FSS can withdraw a pending submission, correct a rejected period, and resubmit. Pending and approved dates are read-only. Approved PDFs and reports generated before this review workflow remain available under Saved PDFs.
 
 ### Semi-monthly Accomplishment Reports
 

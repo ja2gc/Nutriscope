@@ -208,20 +208,20 @@ Use this as both the recording checklist and narration script. The main recordin
 
 **Purpose:** Complete a semi-monthly period, submit it for RND review, and open the approved PDF.
 
-**Before this scene:** Refer to **Scene 8 — Complete Today's or a Missed Daily Log**. Save one entry for every date, including Off duty days, after the period ends.
+**Before this scene:** Refer to **Scene 8 — Complete Today's or a Missed Daily Log**. Save one entry for every date, including Off duty days.
 
 **On-screen actions**
 
 1. Inside **Accomplish**, switch to **My Reports**.
 2. Open the period and show the saved-day count and each date's status. Tap a date to return to its Daily Log.
-3. Submit the complete past period. Show that Daily Log becomes read-only.
+3. Submit the period after every date has a saved log. Show that Daily Log becomes read-only.
 4. Withdraw while RND review is pending, correct a date, and submit again.
 5. After RND rejection, read the reason, correct the requested date, and resubmit. After approval, show the locked period.
 6. Open the approved report from the period or Saved PDFs. Use **View PDF** and **Download PDF** and inspect the readable semi-monthly table.
 
 **Narration**
 
-> My Reports shows each semi-monthly period's progress and status. Only a complete past period can be submitted. Withdrawal or rejection permits correction; approval locks daily logs and the submitted PDF. Earlier generated reports remain available under Saved PDFs. Mobile opens the same stored PDF reviewed by RND.
+> My Reports shows each semi-monthly period's progress and status. Submit once every date has a saved entry. Withdrawal or rejection permits correction; approval locks daily logs and the submitted PDF. Earlier generated reports remain available under Saved PDFs. Mobile opens the same stored PDF reviewed by RND.
 
 **Expected result:** Only the demo FSS user's periods and PDFs are visible, and approval leaves the submitted PDF unchanged.
 
