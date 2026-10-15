@@ -15,7 +15,7 @@ class RecipeFactory extends Factory
         return [
             'rnd_user_id' => User::factory()->rnd(),
             'name' => fake()->unique()->words(3, true),
-            'category' => fake()->randomElement(['breakfast', 'lunch', 'dinner', 'snack']),
+            'category' => 'meal',
             'prep_notes' => fake()->sentence(),
             'total_calories' => fake()->randomFloat(2, 200, 900),
             'total_protein' => fake()->randomFloat(2, 10, 60),

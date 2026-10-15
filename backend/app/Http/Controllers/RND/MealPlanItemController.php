@@ -9,7 +9,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\RND\StoreMealPlanItemRequest;
 use App\Http\Resources\MealPlanItemResource;
 use App\Models\Assessment;
-use App\Models\FoodItem;
 use App\Models\MealPlan;
 use App\Models\MealPlanDay;
 use App\Models\MealPlanItem;
@@ -17,14 +16,14 @@ use App\Models\NcpRecord;
 use App\Models\Recipe;
 use App\Policies\AuditPolicy;
 use App\Services\Audit\AuditLogger;
-use App\Services\UsdaService;
+use App\Support\UnitConverter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class MealPlanItemController extends Controller
 {
     public function __construct(
-        private UsdaService $usdaService,
         private AuditPolicy $auditPolicy,
         private AuditLogger $auditLogger,
     ) {}
@@ -100,8 +99,6 @@ class MealPlanItemController extends Controller
         $item = $this->audited(function () use ($request, $day, $snapshot, $mealPlan, $ncpRecord) {
             $item = MealPlanItem::create([
                 'meal_plan_day_id' => $day->id,
-                'food_item_id' => $request->input('food_item_id'),
-                'fdc_id' => $request->input('fdc_id'),
                 'recipe_id' => $request->input('recipe_id'),
                 'quantity' => $request->quantity,
                 'unit' => $request->unit,
@@ -132,40 +129,22 @@ class MealPlanItemController extends Controller
     }
 
     /**
-     * Resolve the item's display name and declared allergens from its source.
-     * USDA (fdc_id) items carry no structured allergen data, so they're treated
-     * as allergen-unknown (no hard block possible).
+     * Resolve the Menu Item's name and allergens from every measured Ingredient.
      *
      * @return array{0:string,1:array<int,string>}
      */
     private function describeItem(StoreMealPlanItemRequest $request): array
     {
-        if ($request->filled('recipe_id')) {
-            $recipe = Recipe::with('ingredients.foodItem')->find($request->input('recipe_id'));
-            if (! $recipe) {
-                return ['', []];
+        $recipe = Recipe::with('ingredients.foodItem')->findOrFail($request->input('recipe_id'));
+        $allergens = [];
+        foreach ($recipe->ingredients as $ing) {
+            $a = $ing->foodItem?->allergens ?? [];
+            if (is_array($a)) {
+                $allergens = array_merge($allergens, $a);
             }
-            $allergens = [];
-            foreach ($recipe->ingredients as $ing) {
-                $a = $ing->foodItem?->allergens ?? [];
-                if (is_array($a)) {
-                    $allergens = array_merge($allergens, $a);
-                }
-            }
-
-            return [$recipe->name, array_values(array_unique($allergens))];
         }
 
-        if ($request->filled('food_item_id')) {
-            $food = FoodItem::find($request->input('food_item_id'));
-            if (! $food) {
-                return ['', []];
-            }
-
-            return [$food->name, is_array($food->allergens) ? $food->allergens : []];
-        }
-
-        return ['', []]; // fdc_id / USDA — allergens unknown
+        return [$recipe->name, array_values(array_unique($allergens))];
     }
 
     /**
@@ -204,12 +183,21 @@ class MealPlanItemController extends Controller
         // payload falsify the nutrient totals that drive reports. Edits may adjust
         // quantity/unit, and ingredient quantities for a recipe item; in the latter
         // case the snapshot is RE-COMPUTED server-side from trusted food data.
+        if (is_array($request->input('ingredient_overrides'))) {
+            $request->merge(['ingredient_overrides' => array_map(function ($override) {
+                if (is_array($override) && is_float($override['quantity'] ?? null) && round($override['quantity'], 6) === $override['quantity']) {
+                    $override['quantity'] = number_format($override['quantity'], 6, '.', '');
+                }
+
+                return $override;
+            }, $request->input('ingredient_overrides'))]);
+        }
         $validated = $request->validate([
             'quantity' => 'sometimes|numeric|min:0.01',
             'unit' => 'sometimes|string|max:50',
             'ingredient_overrides' => 'sometimes|array',
             'ingredient_overrides.*.id' => 'required_with:ingredient_overrides|integer',
-            'ingredient_overrides.*.quantity' => 'required_with:ingredient_overrides|numeric|min:0',
+            'ingredient_overrides.*.quantity' => 'required_with:ingredient_overrides|numeric|gt:0|decimal:0,6',
         ]);
 
         if (! empty($validated['ingredient_overrides'])) {
@@ -241,12 +229,15 @@ class MealPlanItemController extends Controller
         }
         $recipe = Recipe::with('ingredients.foodItem')->find($item->recipe_id);
         if (! $recipe || ! $recipe->hasValidPortionData()) {
-            return null;
+            throw ValidationException::withMessages(['ingredient_overrides' => 'Correct the Menu Item yield and measured Ingredient units before editing this portion.']);
         }
 
         $servings = (float) $recipe->servings;
         $overrideQty = collect($overrides)->keyBy('id');
-        $cal = $prot = $carb = $fat = 0.0;
+        if ($overrideQty->count() !== count($overrides) || $overrideQty->keys()->diff($recipe->ingredients->pluck('id'))->isNotEmpty()) {
+            throw ValidationException::withMessages(['ingredient_overrides' => 'Choose only ingredients belonging to this Menu Item.']);
+        }
+        $cal = $prot = $carb = $fat = $water = 0.0;
         $micros = [];
         $planIngredients = [];
 
@@ -262,11 +253,12 @@ class MealPlanItemController extends Controller
                 'quantity' => $quantity,
                 'unit' => $ingredient->unit,
             ];
-            $factor = $quantity / max((float) ($food->serving_size ?? 100), 1);
+            $factor = UnitConverter::scalingFactor($quantity, (string) $ingredient->unit, (float) $food->serving_size, (string) $food->serving_unit);
             $cal += (float) $food->calories * $factor;
             $prot += (float) $food->protein * $factor;
             $carb += (float) $food->carbs * $factor;
             $fat += (float) $food->fat * $factor;
+            $water += (float) ($food->water_g ?? 0) * $factor;
             foreach ((is_array($food->micronutrients) ? $food->micronutrients : []) as $key => $value) {
                 $micros[$key] = ($micros[$key] ?? 0) + (float) $value * $factor;
             }
@@ -274,14 +266,14 @@ class MealPlanItemController extends Controller
 
         return [
             'name' => $item->nutrient_snapshot['name'] ?? $recipe->name,
-            'calories' => round($cal / $servings, 1),
-            'protein' => round($prot / $servings, 1),
-            'carbs' => round($carb / $servings, 1),
-            'fat' => round($fat / $servings, 1),
-            'water_g' => $item->nutrient_snapshot['water_g'] ?? null,
+            'calories' => round($cal / $servings, 2),
+            'protein' => round($prot / $servings, 2),
+            'carbs' => round($carb / $servings, 2),
+            'fat' => round($fat / $servings, 2),
+            'water_g' => round($water / $servings, 2),
             'serving_size' => 1,
             'serving_unit' => 'serving',
-            'micronutrients' => array_map(fn ($value) => round($value / $servings, 1), $micros),
+            'micronutrients' => array_map(fn ($value) => round($value / $servings, 3), $micros),
             'recipe_ingredients' => $planIngredients,
         ];
     }
@@ -318,44 +310,21 @@ class MealPlanItemController extends Controller
 
     private function buildSnapshot(StoreMealPlanItemRequest $request): array
     {
-        if ($request->filled('fdc_id')) {
-            $data = $this->usdaService->fetch((int) $request->input('fdc_id'));
-
-            return array_merge($data, ['serving_size' => 100, 'serving_unit' => 'g']);
-        }
-
-        if ($request->filled('recipe_id')) {
-            $recipe = Recipe::findOrFail($request->input('recipe_id'));
-            $servings = (float) $recipe->servings;
-
-            return [
-                'name' => $recipe->name,
-                'calories' => round((float) $recipe->total_calories / $servings, 2),
-                'protein' => round((float) $recipe->total_protein / $servings, 2),
-                'carbs' => round((float) $recipe->total_carbs / $servings, 2),
-                'fat' => round((float) $recipe->total_fat / $servings, 2),
-                'water_g' => round((float) ($recipe->total_water ?? 0) / $servings, 2),
-                'micronutrients' => collect($recipe->micronutrients ?? [])->map(
-                    fn ($value): float => round((float) $value / $servings, 3)
-                )->all(),
-                'serving_size' => 1,
-                'serving_unit' => 'serving',
-            ];
-        }
-
-        $food = FoodItem::findOrFail($request->input('food_item_id'));
+        $recipe = Recipe::findOrFail($request->input('recipe_id'));
+        $servings = (float) $recipe->servings;
 
         return [
-            'fdc_id' => $food->usda_fdc_id,
-            'name' => $food->name,
-            'calories' => (float) $food->calories,
-            'protein' => (float) $food->protein,
-            'carbs' => (float) $food->carbs,
-            'fat' => (float) $food->fat,
-            'water_g' => $food->water_g !== null ? (float) $food->water_g : null,
-            'micronutrients' => $food->micronutrients ?? [],
-            'serving_size' => (float) ($food->serving_size ?? 100),
-            'serving_unit' => $food->serving_unit ?? 'g',
+            'name' => $recipe->name,
+            'calories' => round((float) $recipe->total_calories / $servings, 2),
+            'protein' => round((float) $recipe->total_protein / $servings, 2),
+            'carbs' => round((float) $recipe->total_carbs / $servings, 2),
+            'fat' => round((float) $recipe->total_fat / $servings, 2),
+            'water_g' => round((float) ($recipe->total_water ?? 0) / $servings, 2),
+            'micronutrients' => collect($recipe->micronutrients ?? [])->map(
+                fn ($value): float => round((float) $value / $servings, 3)
+            )->all(),
+            'serving_size' => 1,
+            'serving_unit' => 'serving',
         ];
     }
 }

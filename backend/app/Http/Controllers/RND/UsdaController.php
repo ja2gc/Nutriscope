@@ -41,9 +41,13 @@ class UsdaController extends Controller
      */
     public function preview(int $fdcId): JsonResponse
     {
-        $data = $this->usda->fetch($fdcId);
+        try {
+            $data = $this->usda->fetch($fdcId);
 
-        return response()->json(['data' => $data]);
+            return response()->json(['data' => $data]);
+        } catch (RuntimeException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 502);
+        }
     }
 
     public function import(Request $request, int $fdcId): JsonResponse

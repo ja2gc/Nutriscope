@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
-  Plus, X, Search, Loader2, Database, Leaf, Trash2, BookmarkPlus,
-  Salad, Wand2, AlertTriangle, LayoutTemplate, Edit2,
+  Plus, X, Search, Loader2, Trash2, BookmarkPlus,
+  Wand2, AlertTriangle, LayoutTemplate, Edit2,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
@@ -16,12 +16,13 @@ import {
   MealPlan, MealPlanItem, MealPlanTemplate, MealPlanTemplateDetail, NutrientSnapshot,
 } from "@/services/mealPlanService";
 import {
-  fetchFoodItems, fetchRecipes, searchUsda, importUsdaFood, fetchRecipeById,
-  FoodItem, Recipe, UsdaSearchResult, RecipeIngredient,
+  fetchRecipes, importUsdaFood, fetchRecipeById,
+  Recipe, RecipeIngredient,
 } from "@/services/foodLibraryService";
 import MacroTrackerBar from "./MacroTrackerBar";
 import { ALL_MICROS } from "@/lib/nutritionCalculations";
 import { foodFluidBalance } from "@/lib/mealPlanNutrition";
+import { clinicalIngredientFactor } from "@/lib/clinicalUnits";
 
 const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'] as const;
 const MEAL_TYPES = ['breakfast','am_snack','lunch','pm_snack','dinner'] as const;
@@ -100,52 +101,31 @@ export default function MealPlanSection({
   // Food picker
   const [pickerOpen, setPickerOpen]           = useState(false);
   const [pickerTarget, setPickerTarget]       = useState<{ dayId: string; mealType: string } | null>(null);
-  const [pickerTab, setPickerTab]             = useState<'library'|'recipes'|'usda'>('library');
-  const [libraryQuery, setLibraryQuery]       = useState('');
-  const [libraryResults, setLibraryResults]   = useState<FoodItem[]>([]);
   const [recipeQuery, setRecipeQuery]         = useState('');
   const [recipeResults, setRecipeResults]     = useState<Recipe[]>([]);
-  const [usdaQuery, setUsdaQuery]             = useState('');
-  const [usdaResults, setUsdaResults]         = useState<UsdaSearchResult[]>([]);
+  const [recipePage, setRecipePage]           = useState(1);
+  const [recipeMeta, setRecipeMeta]           = useState<PaginationMeta | null>(null);
   const [pickerLoading, setPickerLoading]     = useState(false);
   const [adding, setAdding]                   = useState<number | string | null>(null);
   const [pickerError, setPickerError]         = useState<string | null>(null);
   const [savingToLibrary, setSavingToLibrary] = useState<string | null>(null);
-  const usdaSearchRef = useRef(0);
-  const usdaDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => () => {
-    usdaSearchRef.current++;
-    if (usdaDebounceRef.current) clearTimeout(usdaDebounceRef.current);
-  }, []);
-
-  const invalidateUsdaSearch = () => {
-    usdaSearchRef.current++;
-    if (usdaDebounceRef.current) clearTimeout(usdaDebounceRef.current);
-  };
-
-  const handleUsdaQueryChange = (value: string) => {
-    invalidateUsdaSearch();
-    const searchId = usdaSearchRef.current;
-    setUsdaQuery(value);
-    setUsdaResults([]);
-    setPickerError(null);
-    if (!value.trim()) { setPickerLoading(false); return; }
-    setPickerLoading(true);
-    usdaDebounceRef.current = setTimeout(async () => {
+  useEffect(() => {
+    if (!pickerOpen) return;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setPickerLoading(true);
+      setPickerError(null);
       try {
-        const results = await searchUsda(value.trim());
-        if (searchId === usdaSearchRef.current) setUsdaResults(results);
+        const result = await fetchRecipes(recipeQuery, 'all', recipePage);
+        if (!cancelled) { setRecipeResults(result.data); setRecipeMeta(result.meta ?? null); }
       } catch (error) {
-        if (searchId === usdaSearchRef.current) {
-          const message = error instanceof Error ? error.message : 'USDA search failed.';
-          setPickerError(message.includes('USDA API search failed:') ? 'USDA search could not complete. Try again.' : message);
-        }
+        if (!cancelled) setPickerError(error instanceof Error ? error.message : 'Could not load Menu Items. Try again.');
       } finally {
-        if (searchId === usdaSearchRef.current) setPickerLoading(false);
+        if (!cancelled) setPickerLoading(false);
       }
     }, 160);
-  };
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [pickerOpen, recipePage, recipeQuery]);
 
   const slotKey = (day: string, mt: string) => `${day}-${mt}`;
   const markPlanNeedsScaling = (planId: string) => {
@@ -340,7 +320,8 @@ export default function MealPlanSection({
     for (const { qty, ing } of editIngredients) {
       const food = ing.food_item;
       if (!food) continue;
-      const factor = parseFloat(qty || '0') / (parseFloat(food.serving_size ?? '100') || 100);
+      const factor = clinicalIngredientFactor(Number(qty), ing.unit, Number(food.serving_size), food.serving_unit ?? '');
+      if (factor === null) continue;
       cal += parseFloat(food.calories || '0') * factor;
       prot += parseFloat(food.protein ?? '0') * factor;
       carb += parseFloat(food.carbs ?? '0') * factor;
@@ -351,13 +332,13 @@ export default function MealPlanSection({
     }
     return {
       name: editTarget?.item.nutrient_snapshot?.name ?? editRecipe.name,
-      calories: Math.round(cal / servings * 10) / 10,
-      protein: Math.round(prot / servings * 10) / 10,
-      carbs: Math.round(carb / servings * 10) / 10,
-      fat: Math.round(fat / servings * 10) / 10,
+      calories: Math.round(cal / servings * 100) / 100,
+      protein: Math.round(prot / servings * 100) / 100,
+      carbs: Math.round(carb / servings * 100) / 100,
+      fat: Math.round(fat / servings * 100) / 100,
       serving_size: 1,
       serving_unit: 'serving',
-      micronutrients: Object.fromEntries(Object.entries(micros).map(([key, value]) => [key, Math.round(value / servings * 10) / 10])),
+      micronutrients: Object.fromEntries(Object.entries(micros).map(([key, value]) => [key, Math.round(value / servings * 1000) / 1000])),
     };
   };
 
@@ -370,7 +351,7 @@ export default function MealPlanSection({
         payload.quantity = Number(editServings);
       } else {
         payload.ingredient_overrides = editIngredients.map(({ id, qty }) => ({ id, quantity: Number(qty || 0) }));
-        payload.quantity = 1;
+        payload.quantity = Number(editServings);
       }
       const updated = await updateMealPlanItem(ncpId, activePlan.id, editTarget.dayId, editTarget.item.id, payload);
       setItemsByKey((prev) => ({
@@ -385,10 +366,8 @@ export default function MealPlanSection({
   // ── Picker helpers ──────────────────────────────────────────────────────────
 
   const openPicker = (dayId: string, mealType: string) => {
-    invalidateUsdaSearch();
-    setPickerTarget({ dayId, mealType }); setPickerOpen(true); setPickerTab('library');
-    setLibraryQuery(''); setLibraryResults([]); setRecipeQuery(''); setRecipeResults([]);
-    setUsdaQuery(''); setUsdaResults([]); setPickerError(null);
+    setPickerTarget({ dayId, mealType }); setPickerOpen(true);
+    setRecipeQuery(''); setRecipeResults([]); setRecipePage(1); setRecipeMeta(null); setPickerError(null);
   };
 
   const appendItem = (item: MealPlanItem, plan: MealPlan, dayId: string) => {
@@ -398,19 +377,6 @@ export default function MealPlanSection({
     markPlanNeedsScaling(plan.id);
   };
 
-  const addFromLibrary = async (food: FoodItem) => {
-    if (!pickerTarget || !activePlan) return;
-    setAdding(food.id); setPickerError(null);
-    try {
-      appendItem(await addMealPlanItem(ncpId, activePlan.id, pickerTarget.dayId, {
-        food_item_id: food.id,
-        quantity: Number(food.serving_size ?? 100),
-        unit: food.serving_unit ?? 'g',
-      }), activePlan, pickerTarget.dayId);
-    } catch (err) {
-      setPickerError(err instanceof Error ? err.message : 'Failed to add food. Please try again.');
-    } finally { setAdding(null); }
-  };
   const addFromRecipe = async (recipe: Recipe) => {
     if (!pickerTarget || !activePlan) return;
     setAdding(`recipe-${recipe.id}`); setPickerError(null);
@@ -421,16 +387,7 @@ export default function MealPlanSection({
         unit: 'serving',
       }), activePlan, pickerTarget.dayId);
     } catch (err) {
-      setPickerError(err instanceof Error ? err.message : 'Failed to add recipe. Please try again.');
-    } finally { setAdding(null); }
-  };
-  const addFromUsda = async (food: UsdaSearchResult) => {
-    if (!pickerTarget || !activePlan) return;
-    setAdding(food.fdc_id); setPickerError(null);
-    try {
-      appendItem(await addMealPlanItem(ncpId, activePlan.id, pickerTarget.dayId, { fdc_id: String(food.fdc_id), quantity: 100, unit: 'g' }), activePlan, pickerTarget.dayId);
-    } catch (err) {
-      setPickerError(err instanceof Error ? err.message : 'Failed to add USDA food. Please try again.');
+      setPickerError(err instanceof Error ? err.message : 'Failed to add Menu Item. Please try again.');
     } finally { setAdding(null); }
   };
   const removeItem = async (key: string, dayId: string, itemId: string) => {
@@ -799,7 +756,7 @@ export default function MealPlanSection({
                               <p className="text-xs text-warm-400">{row.ing.unit} · {row.ing.food_item?.calories ?? 0} kcal per {row.ing.food_item?.serving_size ?? 100}{row.ing.food_item?.serving_unit ?? 'g'}</p>
                             </div>
                             <div className="flex items-center gap-1.5">
-                              <input type="number" min="0" step="1"
+                              <input type="number" min="0.000001" max="100000" step="0.000001"
                                 value={row.qty}
                                 onChange={(e) => {
                                   setEditIngredients((prev) => prev.map((r, idx) => idx === i ? { ...r, qty: e.target.value } : r));
@@ -859,19 +816,11 @@ export default function MealPlanSection({
 
       {/* ── Food Picker Modal ───────────────────────────────────────────────── */}
       {!readOnly && pickerOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+        <div role="dialog" aria-modal="true" aria-label="Add Menu Item" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 flex flex-col max-h-[80vh]">
             <div className="flex items-center justify-between p-4 border-b border-warm-100">
-              <h3 className="text-base font-extrabold text-warm-900">Add Food</h3>
-              <button onClick={() => { invalidateUsdaSearch(); setPickerOpen(false); }} className="text-warm-400 hover:text-warm-700 cursor-pointer"><X className="h-4 w-4" /></button>
-            </div>
-            <div className="flex gap-1 px-4 pt-3">
-              {([{ key: 'library' as const, label: 'Library', Icon: Database }, { key: 'recipes' as const, label: 'Recipes', Icon: Salad }, { key: 'usda' as const, label: 'USDA', Icon: Leaf }]).map(({ key, label, Icon }) => (
-                <button key={key} onClick={() => { invalidateUsdaSearch(); setPickerLoading(false); setPickerTab(key); }}
-                  className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${pickerTab === key ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-warm-50 text-warm-500 border-warm-200'}`}>
-                  <Icon className="h-3 w-3" />{label}
-                </button>
-              ))}
+              <h3 className="text-base font-extrabold text-warm-900">Add Menu Item</h3>
+              <button aria-label="Close Menu Item picker" onClick={() => setPickerOpen(false)} className="text-warm-400 hover:text-warm-700 cursor-pointer"><X className="h-4 w-4" /></button>
             </div>
             {pickerError && (
               <div className="mx-4 mt-2 flex items-start gap-2 p-2.5 bg-red-50 border border-red-200 rounded-lg">
@@ -880,52 +829,19 @@ export default function MealPlanSection({
               </div>
             )}
             <div className="p-4 space-y-3 overflow-y-auto flex-1">
-              {pickerTab === 'library' && (
-                <>
                   <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-warm-400" />
-                    <input type="text" value={libraryQuery} autoFocus
-                      onChange={async (e) => { setLibraryQuery(e.target.value); if (e.target.value.length >= 2) { setPickerLoading(true); try { setLibraryResults((await fetchFoodItems(e.target.value)).data); } finally { setPickerLoading(false); } } else setLibraryResults([]); }}
+                    <input type="text" value={recipeQuery} autoFocus aria-label="Search Menu Items"
+                      onChange={(e) => { setRecipeQuery(e.target.value); setRecipePage(1); setRecipeResults([]); }}
                       className="w-full pl-9 pr-3 py-2 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" /></div>
                   {pickerLoading && <Loader2 className="h-4 w-4 animate-spin text-warm-400 mx-auto" />}
-                  {libraryResults.map((food) => (
-                    <div key={food.id} className="flex items-center justify-between p-3 border border-warm-100 rounded-xl hover:border-emerald-200 transition-colors">
-                      <div><p className="text-sm font-semibold text-warm-800">{food.name}</p><p className="text-xs text-warm-400">{food.calories}kcal · P{food.protein}g · C{food.carbs}g · F{food.fat}g</p></div>
-                      <Button variant="primary" loading={adding === food.id} onClick={() => addFromLibrary(food)} className="w-auto px-3 py-1.5 text-xs">Add</Button>
-                    </div>
-                  ))}
-                </>
-              )}
-              {pickerTab === 'recipes' && (
-                <>
-                  <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-warm-400" />
-                    <input type="text" value={recipeQuery} autoFocus
-                      onChange={async (e) => { setRecipeQuery(e.target.value); if (e.target.value.length >= 2) { setPickerLoading(true); try { setRecipeResults((await fetchRecipes(e.target.value)).data); } finally { setPickerLoading(false); } } else setRecipeResults([]); }}
-                      className="w-full pl-9 pr-3 py-2 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" /></div>
-                  {pickerLoading && <Loader2 className="h-4 w-4 animate-spin text-warm-400 mx-auto" />}
+                  {!pickerLoading && !pickerError && recipeResults.length === 0 && <p className="text-sm text-warm-500">No Menu Items found.</p>}
                   {recipeResults.map((r) => (
                     <div key={r.id} className="flex items-center justify-between p-3 border border-warm-100 rounded-xl hover:border-emerald-200 transition-colors">
                       <div><p className="text-sm font-semibold text-warm-800">{r.name}</p><p className="text-xs text-warm-400">{r.total_calories}kcal · P{r.total_protein}g · C{r.total_carbs}g · F{r.total_fat}g{r.servings ? ` · ${r.servings} srv` : ''}</p></div>
-                      <Button variant="primary" loading={adding === `recipe-${r.id}`} onClick={() => addFromRecipe(r)} className="w-auto px-3 py-1.5 text-xs">Add</Button>
+                      <Button aria-label={`Add ${r.name}`} variant="primary" loading={adding === `recipe-${r.id}`} onClick={() => addFromRecipe(r)} className="w-auto px-3 py-1.5 text-xs">Add</Button>
                     </div>
                   ))}
-                </>
-              )}
-              {pickerTab === 'usda' && (
-                <>
-                  <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-warm-400" />
-                    <input type="text" value={usdaQuery} autoFocus aria-label="Search USDA foods"
-                      onChange={(e) => handleUsdaQueryChange(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" /></div>
-                  <p className="text-xs text-warm-400">USDA foods are not saved to the library unless you bookmark them.</p>
-                  {pickerLoading && <Loader2 className="h-4 w-4 animate-spin text-warm-400 mx-auto" />}
-                  {usdaResults.map((food) => (
-                    <div key={food.fdc_id} className="flex items-center justify-between p-3 border border-warm-100 rounded-xl hover:border-emerald-200 transition-colors">
-                      <div><p className="text-sm font-semibold text-warm-800">{food.name}</p><p className="text-xs text-warm-400">{food.calories}kcal · P{food.protein}g · C{food.carbs}g · F{food.fat}g</p></div>
-                      <Button variant="primary" loading={adding === food.fdc_id} onClick={() => addFromUsda(food)} className="w-auto px-3 py-1.5 text-xs">Add</Button>
-                    </div>
-                  ))}
-                </>
-              )}
+                  <Pagination meta={recipeMeta} page={recipePage} onPageChange={setRecipePage} />
             </div>
           </div>
         </div>

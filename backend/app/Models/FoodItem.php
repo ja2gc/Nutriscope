@@ -26,7 +26,7 @@ class FoodItem extends Model
         'fat' => 'decimal:2',
         'water_g' => 'float',
         'unit_price' => 'decimal:2',
-        'serving_size' => 'decimal:2',
+        'serving_size' => 'decimal:6',
     ];
 
     /**

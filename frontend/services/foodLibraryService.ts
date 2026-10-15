@@ -1,4 +1,5 @@
 ﻿import { apiFetch } from "@/lib/apiFetch";
+import { RecipeCorrectionsRequiredError, type RecipeCorrection } from "./fsCatalogService";
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface FoodItem {
@@ -110,6 +111,7 @@ export type FoodItemPayload = {
   serving_unit?: string | null;
   serving_size?: number | null;
   usda_fdc_id?: number | null;
+  recipe_corrections?: RecipeCorrection[];
 };
 
 export type RecipeIngredientPayload = {
@@ -195,6 +197,9 @@ export async function updateFoodItem(
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
+    if (Array.isArray(err.affected_recipes) && err.affected_recipes.length > 0) {
+      throw new RecipeCorrectionsRequiredError(err.message || "Correct affected Menu Items.", err.affected_recipes);
+    }
     throw new Error(err.message || "Failed to update food item.");
   }
 

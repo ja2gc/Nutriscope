@@ -592,27 +592,24 @@ class MealPlanController extends Controller
             'lines' => ['required', 'array', 'min:1', 'max:350'],
             'lines.*.day_of_week' => ['required', 'in:Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday'],
             'lines.*.meal_type' => ['required', 'in:breakfast,am_snack,lunch,pm_snack,dinner'],
-            'lines.*.food_item_id' => ['nullable', 'uuid', 'exists:food_items,uuid'],
-            'lines.*.recipe_id' => ['nullable', 'uuid', 'exists:recipes,uuid'],
-            'lines.*.quantity' => ['required', 'numeric', 'gt:0', 'lte:99999.99'],
-            'lines.*.unit' => ['required', 'string', 'max:40'],
+            'lines.*.food_item_id' => ['prohibited'],
+            'lines.*.fdc_id' => ['prohibited'],
+            'lines.*.recipe_id' => ['required', 'uuid', 'exists:recipes,uuid'],
+            'lines.*.quantity' => ['required', 'numeric', 'between:0.01,99999.99', 'decimal:0,2'],
+            'lines.*.unit' => ['required', 'in:serving'],
         ]);
         $lines = $validated['lines'];
-        $foodIds = FoodItem::query()->whereIn('uuid', collect($lines)->pluck('food_item_id')->filter()->all())->pluck('id', 'uuid');
-        $recipeIds = Recipe::query()->where('rnd_user_id', $request->user()->id)
-            ->whereIn('uuid', collect($lines)->pluck('recipe_id')->filter()->all())->pluck('id', 'uuid');
+        $recipes = Recipe::query()->where('rnd_user_id', $request->user()->id)
+            ->whereIn('category', ['meal', 'carb', 'snack'])->with('ingredients.foodItem')
+            ->whereIn('uuid', collect($lines)->pluck('recipe_id')->all())->get()->keyBy('uuid');
 
         foreach ($lines as $index => &$line) {
-            $foodUuid = $line['food_item_id'] ?? null;
-            $recipeUuid = $line['recipe_id'] ?? null;
-            if (($foodUuid === null) === ($recipeUuid === null)) {
-                throw ValidationException::withMessages(["lines.{$index}" => 'Choose exactly one food or recipe.']);
+            $recipe = $recipes->get($line['recipe_id']);
+            if ($recipe === null || ! $recipe->hasValidPortionData()) {
+                throw ValidationException::withMessages(["lines.{$index}.recipe_id" => 'Choose an available Menu Item with a valid yield and measured Ingredient units.']);
             }
-            if ($recipeUuid !== null && ! $recipeIds->has($recipeUuid)) {
-                throw ValidationException::withMessages(["lines.{$index}.recipe_id" => 'This recipe is unavailable.']);
-            }
-            $line['food_item_id'] = $foodUuid === null ? null : (int) $foodIds[$foodUuid];
-            $line['recipe_id'] = $recipeUuid === null ? null : (int) $recipeIds[$recipeUuid];
+            $line['food_item_id'] = null;
+            $line['recipe_id'] = $recipe->id;
         }
         unset($line);
         unset($validated['lines']);

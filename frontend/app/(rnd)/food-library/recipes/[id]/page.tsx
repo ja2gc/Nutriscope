@@ -5,9 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CookingPot, ArrowLeft, Search, Plus, X, Loader2, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { InfoHint } from "@/components/ui/InfoHint";
+import { canonicalClinicalUnit, clinicalIngredientFactor, clinicalRecipeUnits, CLINICAL_UNIT_HINT } from "@/lib/clinicalUnits";
 import { fetchRecipeById, updateRecipe, fetchFoodItems, Recipe, FoodItem, RecipeIngredientPayload } from "@/services/foodLibraryService";
 
-const RECIPE_CATEGORIES = ["breakfast", "lunch", "dinner", "snack"];
+const RECIPE_CATEGORIES = ["meal", "carb", "snack"];
 
 interface IngredientRow {
   key: number;
@@ -38,8 +40,8 @@ function calcMacros(rows: IngredientRow[]) {
   for (const row of rows) {
     if (!row.food || !row.quantity) continue;
     const qty = parseFloat(row.quantity);
-    const size = parseFloat(row.food.serving_size ?? "100") || 100;
-    const factor = qty / size;
+    const factor = clinicalIngredientFactor(qty, row.unit, Number(row.food.serving_size), row.food.serving_unit ?? "");
+    if (factor === null) continue;
     cal  += parseFloat(row.food.calories ?? "0") * factor;
     pro  += parseFloat(row.food.protein  ?? "0") * factor;
     carb += parseFloat(row.food.carbs    ?? "0") * factor;
@@ -53,8 +55,8 @@ function calcMicros(rows: IngredientRow[]): Record<string, number> {
   for (const row of rows) {
     if (!row.food || !row.quantity) continue;
     const qty = parseFloat(row.quantity);
-    const size = parseFloat(row.food.serving_size ?? "100") || 100;
-    const factor = qty / size;
+    const factor = clinicalIngredientFactor(qty, row.unit, Number(row.food.serving_size), row.food.serving_unit ?? "");
+    if (factor === null) continue;
     for (const [key, val] of Object.entries(row.food.micronutrients ?? {})) {
       micros[key] = (micros[key] ?? 0) + (val * factor);
     }
@@ -96,7 +98,7 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
               searchResults: [],
               showDropdown: false,
               quantity: ing.quantity ?? "",
-              unit: ing.unit ?? "g",
+              unit: canonicalClinicalUnit(ing.unit ?? ""),
             }))
           : [{ key: rowKey++, food: null, foodSearch: "", searchResults: [], showDropdown: false, quantity: "", unit: "g" }]
         );
@@ -118,13 +120,16 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
     setIngredients((prev) => prev.map((r, i) => i === idx ? { ...r, ...patch } : r));
 
   const selectFood = (idx: number, food: FoodItem) =>
-    updateRow(idx, { food, foodSearch: food.name, showDropdown: false, searchResults: [], unit: food.serving_unit ?? "g" });
+    updateRow(idx, { food, foodSearch: food.name, showDropdown: false, searchResults: [], unit: canonicalClinicalUnit(food.serving_unit ?? "") });
 
   const macros = calcMacros(ingredients);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) { setError("Recipe name is required."); return; }
+    if (!name.trim()) { setError("Menu Item name is required."); return; }
+    if (!category || ingredients.some((row) => !row.food || clinicalIngredientFactor(Number(row.quantity), row.unit, Number(row.food.serving_size), row.food.serving_unit ?? "") === null)) {
+      setError("Choose a category and measured Ingredients with positive quantities in compatible units."); return;
+    }
     const valid: RecipeIngredientPayload[] = ingredients
       .filter((r) => r.food && r.quantity && parseFloat(r.quantity) > 0)
       .map((r) => ({ food_item_id: r.food!.id, quantity: parseFloat(r.quantity), unit: r.unit }));
@@ -160,7 +165,7 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
         <div>
           <h2 className="text-xl font-extrabold text-warm-900 tracking-tight flex items-center gap-2.5">
             <CookingPot className="h-5 w-5 text-emerald-600" />
-            Edit Recipe
+            Edit Menu Item
           </h2>
         </div>
       </div>
@@ -169,16 +174,16 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="bg-white border border-warm-200 rounded-2xl p-6 space-y-4 shadow-sm">
-          <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Recipe Details</h3>
+          <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Menu Item Details</h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="sm:col-span-2"><Label>Recipe Name <Required /></Label><input type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputCls} required /></div>
+            <div className="sm:col-span-2"><Label>Menu Item Name <Required /></Label><input type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputCls} required /></div>
             <div><Label>Category</Label>
-              <select value={category} onChange={(e) => setCategory(e.target.value)} className={inputCls}>
+              <select aria-label="Category" value={category} onChange={(e) => setCategory(e.target.value)} className={inputCls} required>
                 <option value="">Select...</option>
                 {RECIPE_CATEGORIES.map((c) => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
               </select>
             </div>
-            <div><Label>Servings</Label><input type="number" value={servings} onChange={(e) => setServings(e.target.value)} min="1" className={inputCls} /></div>
+            <div><Label>Recipe yield (servings) <Required /></Label><input type="number" value={servings} onChange={(e) => setServings(e.target.value)} min="1" max="10000" step="1" required className={inputCls} /></div>
             <div className="sm:col-span-2"><Label>Prep Notes</Label><textarea value={prepNotes} onChange={(e) => setPrepNotes(e.target.value)} rows={2} className={`${inputCls} resize-none`} /></div>
           </div>
         </div>
@@ -209,10 +214,10 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
 
         <div className="bg-white border border-warm-200 rounded-2xl p-6 space-y-4 shadow-sm">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Ingredients</h3>
+            <div className="flex items-center gap-2"><h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Ingredients</h3><InfoHint label="Ingredient unit families">{CLINICAL_UNIT_HINT}</InfoHint></div>
             <button type="button" onClick={() => setIngredients((prev) => [...prev, { key: rowKey++, food: null, foodSearch: "", searchResults: [], showDropdown: false, quantity: "", unit: "g" }])}
               className="flex items-center gap-1.5 px-3 py-1.5 border border-warm-300 rounded-lg text-warm-600 hover:bg-warm-50 cursor-pointer transition-colors text-xs font-bold uppercase tracking-wider">
-              <Plus className="h-3 w-3" /> Add Row
+              <Plus className="h-3 w-3" /> Add Item
             </button>
           </div>
           <div className="space-y-3">
@@ -241,11 +246,11 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
                     </div>
                   )}
                 </div>
-                <input type="number" value={row.quantity} onChange={(e) => updateRow(idx, { quantity: e.target.value })} min="0" step="0.1"
+                <input aria-label={`Ingredient ${idx + 1} quantity`} type="number" value={row.quantity} onChange={(e) => updateRow(idx, { quantity: e.target.value })} min="0.000001" max="100000" step="0.000001" required
                   className="w-20 px-3 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" />
-                <select value={row.unit} onChange={(e) => updateRow(idx, { unit: e.target.value })}
+                <select aria-label={`Ingredient ${idx + 1} unit`} value={row.unit} onChange={(e) => updateRow(idx, { unit: e.target.value })} disabled={!row.food}
                   className="w-20 px-2 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none cursor-pointer">
-                  {["g", "ml", "piece", "cup", "oz", "tbsp", "tsp"].map((u) => <option key={u} value={u}>{u}</option>)}
+                  {clinicalRecipeUnits(row.food?.serving_unit ?? "").map((u) => <option key={u} value={u}>{u}</option>)}
                 </select>
                 <button type="button" onClick={() => setIngredients((prev) => prev.filter((_, i) => i !== idx))}
                   disabled={ingredients.length === 1}

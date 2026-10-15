@@ -18,7 +18,7 @@ import {
 } from "@/services/foodLibraryService";
 
 const FOOD_CATEGORIES = ["all", "protein", "carbs", "vegetable", "fat", "dairy", "fruit"];
-const RECIPE_CATEGORIES = ["all", "breakfast", "lunch", "dinner", "snack"];
+const RECIPE_CATEGORIES = ["all", "meal", "carb", "snack"];
 
 const NUTRIENT_GROUPS = {
   Minerals: ["sodium","potassium","phosphate","calcium","iron","magnesium","zinc","copper","manganese","selenium","iodine"],
@@ -435,14 +435,14 @@ export default function FoodLibraryPage() {
               </Button>
               <Link href="/food-library/foods/new">
                 <Button variant="primary" className="w-auto px-4 py-2.5 flex items-center gap-2 text-sm">
-                  Add Food
+                  Add Ingredient
                 </Button>
               </Link>
             </>
           ) : activeTab === "recipes" ? (
             <Link href="/food-library/recipes/new">
               <Button variant="primary" className="w-auto px-4 py-2.5 flex items-center gap-2 text-sm">
-                Create Recipe
+                Create Menu Item
               </Button>
             </Link>
           ) : null}
@@ -450,15 +450,15 @@ export default function FoodLibraryPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex overflow-x-auto border-b border-warm-200">
+      <div aria-label="Food Library sections" role="group" className="flex overflow-x-auto border-b border-warm-200">
         {(["foods", "recipes", "templates"] as Tab[]).map((tab) => (
-          <button key={tab} onClick={() => setActiveTab(tab)}
+          <button key={tab} onClick={() => setActiveTab(tab)} aria-pressed={activeTab === tab}
             className={`px-5 py-2.5 text-sm font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer -mb-px ${
               activeTab === tab
                 ? "border-emerald-600 text-emerald-700"
                 : "border-transparent text-warm-400 hover:text-warm-700 hover:border-warm-300"
             }`}>
-            {tab === "foods" ? "Foods" : tab === "recipes" ? "Recipes" : "Templates"}
+            {tab === "foods" ? "Ingredients" : tab === "recipes" ? "Menu Items" : "Templates"}
           </button>
         ))}
       </div>
@@ -470,8 +470,8 @@ export default function FoodLibraryPage() {
         <div className="space-y-4">
           {/* Filters */}
           <div className="flex flex-col sm:flex-row items-center gap-3">
-            <SearchInput className="sm:flex-1" label="Search foods" value={foodSearch} onChange={(value) => { setFoodSearch(value); setFoodPage(1); }} loading={foodLoading} />
-            <div className="flex gap-1.5 flex-wrap">
+            <SearchInput className="sm:flex-1" label="Search Ingredients" value={foodSearch} onChange={(value) => { setFoodSearch(value); setFoodPage(1); }} loading={foodLoading} />
+            <div aria-label="Ingredient groups" role="group" className="flex gap-1.5 flex-wrap">
               {FOOD_CATEGORIES.map((c) => (
                 <button key={c} onClick={() => { setFoodCategory(c); setFoodPage(1); }}
                   className={`min-w-[64px] px-3 py-1.5 text-xs font-bold uppercase tracking-wide rounded-lg border transition-all cursor-pointer text-center ${
@@ -489,14 +489,14 @@ export default function FoodLibraryPage() {
 
           <div className="bg-white border border-warm-200 rounded-2xl overflow-hidden shadow-sm">
             {foodLoading ? <LoadingSkeleton /> : foods.length === 0 ? (
-              <EmptyState icon={<Database className="h-8 w-8 text-emerald-400" />} title="No Foods Found"
-                message="Add foods manually or import from the USDA FoodData Central database." />
+              <EmptyState icon={<Database className="h-8 w-8 text-emerald-400" />} title="No Ingredients Found"
+                message="Add Ingredients manually or import from the USDA FoodData Central database." />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse min-w-[480px]">
                   <thead>
                     <tr className="border-b border-warm-100 select-none">
-                      <Th>Food</Th>
+                      <Th>Ingredient</Th>
                       <Th>Category</Th>
                       <Th>Macros</Th>
                       <Th>Micros</Th>
@@ -580,8 +580,8 @@ export default function FoodLibraryPage() {
         <div className="space-y-4">
           {/* Filters */}
           <div className="flex flex-col sm:flex-row items-center gap-3">
-            <SearchInput className="sm:flex-1" label="Search recipes" value={recipeSearch} onChange={(value) => { setRecipeSearch(value); setRecipePage(1); }} loading={recipeLoading} />
-            <div className="flex gap-1.5 flex-wrap">
+            <SearchInput className="sm:flex-1" label="Search Menu Items" value={recipeSearch} onChange={(value) => { setRecipeSearch(value); setRecipePage(1); }} loading={recipeLoading} />
+            <div aria-label="Menu Item categories" role="group" className="flex gap-1.5 flex-wrap">
               {RECIPE_CATEGORIES.map((c) => (
                 <button key={c} onClick={() => { setRecipeCategory(c); setRecipePage(1); }}
                   className={`min-w-[64px] px-3 py-1.5 text-xs font-bold uppercase tracking-wide rounded-lg border transition-all cursor-pointer text-center ${
@@ -589,7 +589,7 @@ export default function FoodLibraryPage() {
                       ? "bg-forest-900 text-white border-forest-line"
                       : "bg-white text-warm-500 border-warm-200 hover:border-warm-300"
                   }`}>
-                  {c === "all" ? "All" : c}
+                  {c === "all" ? "All" : c.charAt(0).toUpperCase() + c.slice(1)}
                 </button>
               ))}
             </div>
@@ -599,14 +599,14 @@ export default function FoodLibraryPage() {
 
           <div className="bg-white border border-warm-200 rounded-2xl overflow-hidden shadow-sm">
             {recipeLoading ? <LoadingSkeleton /> : recipes.length === 0 ? (
-              <EmptyState icon={<CookingPot className="h-8 w-8 text-emerald-400" />} title="No Recipes Found"
-                message="Build clinical recipes from the foods in your library." />
+              <EmptyState icon={<CookingPot className="h-8 w-8 text-emerald-400" />} title="No Menu Items Found"
+                message="Build a Menu Item from one or more measured Ingredients." />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse min-w-[480px]">
                   <thead>
                     <tr className="border-b border-warm-100 select-none">
-                      <Th>Recipe</Th>
+                      <Th>Menu Item</Th>
                       <Th>Category</Th>
                       <Th>Macros</Th>
                       <Th>Micros</Th>

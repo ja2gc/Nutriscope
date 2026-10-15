@@ -14,7 +14,7 @@ class RecipeIngredient extends Model
 
     protected $fillable = ['recipe_id', 'food_item_id', 'quantity', 'unit'];
 
-    protected $casts = ['quantity' => 'decimal:2'];
+    protected $casts = ['quantity' => 'decimal:6'];
 
     public function recipe(): BelongsTo
     {

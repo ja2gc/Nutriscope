@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\AuditActivity;
 use App\Models\FoodItem;
+use App\Models\Recipe;
 use App\Models\User;
 use App\Services\Audit\AuditEventPresenter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -17,6 +18,61 @@ class FoodItemControllerTest extends TestCase
     private User $rnd;
 
     private User $fss;
+
+    public function test_clinical_baseline_unit_change_preserves_the_measured_basis_and_linked_rows(): void
+    {
+        $food = FoodItem::factory()->create(['serving_size' => 100, 'serving_unit' => 'g', 'calories' => 100]);
+        $recipe = Recipe::factory()->create(['rnd_user_id' => $this->rnd->id, 'total_calories' => 500]);
+        $row = $recipe->ingredients()->create(['food_item_id' => $food->id, 'quantity' => 500, 'unit' => 'g']);
+        $this->actingAs($this->rnd)->putJson('/api/rnd/food-items/'.$food->uuid, ['serving_unit' => 'kg'])
+            ->assertOk()->assertJsonPath('data.serving_unit', 'kg');
+        $this->assertEquals(0.1, (float) $food->fresh()->serving_size);
+        $this->assertEquals(500, (float) $row->fresh()->quantity);
+        $this->assertSame('g', $row->fresh()->unit);
+        $this->assertEquals(500, (float) $recipe->fresh()->total_calories);
+    }
+
+    public function test_clinical_baseline_conversion_keeps_a_one_gram_basis_nonzero(): void
+    {
+        $food = FoodItem::factory()->create(['serving_size' => 1, 'serving_unit' => 'g']);
+        $this->actingAs($this->rnd)->putJson('/api/rnd/food-items/'.$food->uuid, ['serving_unit' => 'kg'])->assertOk();
+        $this->assertEquals(0.001, (float) $food->fresh()->serving_size);
+    }
+
+    public function test_clinical_cross_family_baseline_change_lists_affected_items_and_requires_correction(): void
+    {
+        $food = FoodItem::factory()->create(['serving_size' => 100, 'serving_unit' => 'g']);
+        $recipe = Recipe::factory()->create(['rnd_user_id' => $this->rnd->id]);
+        $row = $recipe->ingredients()->create(['food_item_id' => $food->id, 'quantity' => 500, 'unit' => 'g']);
+        $this->actingAs($this->rnd)->putJson('/api/rnd/food-items/'.$food->uuid, ['serving_unit' => 'mL', 'serving_size' => 100])
+            ->assertUnprocessable()->assertJsonPath('affected_recipes.0.recipe_id', $recipe->uuid);
+        $this->assertSame('g', $food->fresh()->serving_unit);
+        $this->assertSame('g', $row->fresh()->unit);
+    }
+
+    public function test_clinical_explicit_baseline_and_row_corrections_are_atomic(): void
+    {
+        $food = FoodItem::factory()->create(['serving_size' => 100, 'serving_unit' => 'g', 'calories' => 100]);
+        $recipe = Recipe::factory()->create(['rnd_user_id' => $this->rnd->id]);
+        $row = $recipe->ingredients()->create(['food_item_id' => $food->id, 'quantity' => 500, 'unit' => 'g']);
+        $this->actingAs($this->rnd)->putJson('/api/rnd/food-items/'.$food->uuid, [
+            'serving_unit' => 'mL', 'serving_size' => 100,
+            'recipe_corrections' => [['recipe_id' => $recipe->uuid, 'line_index' => 0, 'quantity' => 450, 'unit' => 'mL']],
+        ])->assertOk();
+        $this->assertSame('mL', $food->fresh()->serving_unit);
+        $this->assertEquals(450, (float) $row->fresh()->quantity);
+        $this->assertSame('mL', $row->fresh()->unit);
+        $this->assertEquals(450, (float) $recipe->fresh()->total_calories);
+    }
+
+    public function test_clinical_precision_losing_baseline_conversion_is_rejected(): void
+    {
+        $food = FoodItem::factory()->create(['serving_size' => 100, 'serving_unit' => 'g']);
+        $this->actingAs($this->rnd)->putJson('/api/rnd/food-items/'.$food->uuid, ['serving_unit' => 'oz'])
+            ->assertUnprocessable()->assertJsonValidationErrors('serving_unit');
+        $this->assertSame('g', $food->fresh()->serving_unit);
+        $this->assertEquals(100, (float) $food->fresh()->serving_size);
+    }
 
     protected function setUp(): void
     {

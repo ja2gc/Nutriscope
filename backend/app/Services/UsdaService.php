@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\FoodItem;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
@@ -119,15 +120,22 @@ class UsdaService
 
         return Cache::remember($cacheKey, now()->addMinutes(10), function () use ($query, $pageSize): array {
             $shortPrefix = preg_match('/^[\p{L}]{1,3}$/u', trim($query)) === 1;
-            $response = Http::connectTimeout(3)->timeout(10)->post("{$this->baseUrl}/foods/search?api_key=".urlencode($this->apiKey), [
-                'query' => $shortPrefix ? trim($query).'*' : $query,
-                'pageSize' => max($pageSize, 50),
-                'dataType' => $shortPrefix
-                    ? ['SR Legacy', 'Foundation', 'Survey (FNDDS)']
-                    : ['SR Legacy', 'Foundation', 'Survey (FNDDS)', 'Branded'],
-            ]);
+            try {
+                $response = Http::connectTimeout(3)->timeout(10)->post("{$this->baseUrl}/foods/search?api_key=".urlencode($this->apiKey), [
+                    'query' => $shortPrefix ? trim($query).'*' : $query,
+                    'pageSize' => max($pageSize, 50),
+                    'dataType' => $shortPrefix
+                        ? ['SR Legacy', 'Foundation', 'Survey (FNDDS)']
+                        : ['SR Legacy', 'Foundation', 'Survey (FNDDS)', 'Branded'],
+                ]);
+            } catch (ConnectionException) {
+                throw new RuntimeException('USDA is temporarily unavailable; please try again.');
+            }
 
             if (! $response->successful()) {
+                if ($response->status() === 429 || $response->serverError()) {
+                    throw new RuntimeException('USDA is temporarily unavailable; please try again.');
+                }
                 throw new RuntimeException("USDA API search failed: {$response->status()}");
             }
 
@@ -171,16 +179,35 @@ class UsdaService
      */
     public function fetch(int $fdcId): array
     {
-        return Cache::remember("usda_food_v2_{$fdcId}", now()->addDays(self::CACHE_TTL_DAYS), function () use ($fdcId) {
-            $response = Http::get("{$this->baseUrl}/food/{$fdcId}", [
-                'api_key' => $this->apiKey,
-            ]);
+        return Cache::remember("usda_food_v3_{$fdcId}", now()->addDays(self::CACHE_TTL_DAYS), function () use ($fdcId) {
+            try {
+                $response = Http::connectTimeout(3)->timeout(10)->get("{$this->baseUrl}/food/{$fdcId}", [
+                    'api_key' => $this->apiKey,
+                ]);
+            } catch (ConnectionException) {
+                throw new RuntimeException('USDA is temporarily unavailable; please try again.');
+            }
 
             if (! $response->successful()) {
+                if ($response->status() === 429 || $response->serverError()) {
+                    throw new RuntimeException('USDA is temporarily unavailable; please try again.');
+                }
                 throw new RuntimeException("USDA API fetch failed for FDC ID {$fdcId}: {$response->status()}");
             }
 
             $data = $response->json();
+            $basisUnit = match ($data['dataType'] ?? null) {
+                'SR Legacy', 'Foundation', 'Survey (FNDDS)' => 'g',
+                'Branded' => match (strtolower(trim($data['servingSizeUnit'] ?? ''))) {
+                    'g' => 'g',
+                    'ml' => 'mL',
+                    default => null,
+                },
+                default => null,
+            };
+            if ($basisUnit === null) {
+                throw new RuntimeException('USDA nutrient basis could not be verified. Use a source with a measured gram or milliliter basis.');
+            }
             $nutrients = collect($data['foodNutrients'] ?? []);
 
             // foodCategory is nested as object on detail endpoint, string on search endpoint
@@ -194,6 +221,8 @@ class UsdaService
                 'fdc_id' => $data['fdcId'],
                 'name' => $data['description'],
                 'food_category' => $foodCategory,
+                'serving_size' => 100,
+                'serving_unit' => $basisUnit,
                 'calories' => $this->findEnergyInDetail($nutrients),
                 'protein' => $this->findInDetail($nutrients, self::PROTEIN_ID),
                 'carbs' => $this->findInDetail($nutrients, self::CARBS_ID),
@@ -233,8 +262,8 @@ class UsdaService
             'micronutrients' => $data['micronutrients'],
             'category' => $this->mapCategory($foodCategory),
             'allergens' => $this->detectAllergens($data['name'], $foodCategory ?? ''),
-            'serving_size' => 100,
-            'serving_unit' => 'g',
+            'serving_size' => $data['serving_size'],
+            'serving_unit' => $data['serving_unit'],
         ];
     }
 

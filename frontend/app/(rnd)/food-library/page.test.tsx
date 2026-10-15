@@ -4,7 +4,7 @@ import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import FoodLibraryPage from "./page";
-import { fetchFoodItems, searchUsda } from "@/services/foodLibraryService";
+import { fetchFoodItems, fetchRecipes, searchUsda } from "@/services/foodLibraryService";
 import { fetchMealPlanTemplates } from "@/services/mealPlanService";
 
 vi.mock("@/services/foodLibraryService", () => ({
@@ -66,6 +66,24 @@ afterEach(async () => {
 });
 
 describe("Food Library USDA search", () => {
+  it("offers Ingredients, Menu Items, and Templates with canonical Menu Item filters", async () => {
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    await act(async () => { root.render(<FoodLibraryPage />); });
+    const tabs = Array.from(container.querySelectorAll('[aria-label="Food Library sections"] button'));
+    expect(tabs.map((tab) => tab.textContent)).toEqual(["Ingredients", "Menu Items", "Templates"]);
+    const ingredientFilters = container.querySelector('[aria-label="Ingredient groups"]')!;
+    expect(Array.from(ingredientFilters.querySelectorAll("button")).map((button) => button.textContent)).toEqual(["All", "protein", "carbs", "vegetable", "fat", "dairy", "fruit"]);
+    await act(async () => { (tabs[1] as HTMLButtonElement).click(); });
+    const filters = container.querySelector('[aria-label="Menu Item categories"]')!;
+    expect(Array.from(filters.querySelectorAll("button")).map((button) => button.textContent)).toEqual(["All", "Meal", "Carb", "Snack"]);
+    await act(async () => { (filters.querySelectorAll("button")[2]).click(); });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 300)); });
+    expect(fetchRecipes).toHaveBeenLastCalledWith("", "carb", 1);
+    expect(container.textContent).not.toMatch(/Breakfast|Lunch|Dinner|Diabetic-Friendly|High Protein/);
+  });
+
   it("searches from the first letter", async () => {
     vi.mocked(searchUsda).mockResolvedValue([]);
     const input = await openUsdaSearch();
@@ -107,5 +125,7 @@ describe("Food Library meal templates", () => {
     expect(create).toBeDefined();
     await act(async () => { create!.click(); });
     expect(container.textContent).toContain("Create meal template");
+    expect(container.textContent).toContain("Add Menu Items");
+    expect(container.textContent).not.toContain("Item type");
   });
 });

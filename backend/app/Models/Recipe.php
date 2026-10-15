@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use InvalidArgumentException;
 
 class Recipe extends Model
 {
@@ -48,41 +49,30 @@ class Recipe extends Model
             return false;
         }
 
-        return $this->ingredients->every(
-            fn (RecipeIngredient $ingredient): bool => is_numeric($ingredient->quantity)
-                && (float) $ingredient->quantity > 0
-                && filled($ingredient->unit),
-        );
+        foreach ($this->ingredients as $ingredient) {
+            if (! $ingredient->foodItem) {
+                return false;
+            }
+            try {
+                $this->ingredientFactor($ingredient, $ingredient->foodItem);
+            } catch (InvalidArgumentException) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
-     * Unit-correct scaling factor for one ingredient against its food's serving.
-     * A missing ingredient unit defaults to the food's serving unit (legacy data).
-     *
-     * Physical units (mass/volume) are converted exactly. When either side is a
-     * non-convertible COUNT unit (e.g. 'piece', 'serving', 'slice') — or the units
-     * already match — we use a direct numeric ratio quantity/serving_size: there is
-     * no defined gram-per-piece, so the recorded numbers are taken as comparable
-     * rather than throwing. (Mass↔volume crossings still convert via density.)
+     * Scale only within a physical family or the same measured count unit.
      */
     private function ingredientFactor(RecipeIngredient $ing, FoodItem $food): float
     {
-        $servingUnit = $food->serving_unit ?: 'g';
-        $ingredientUnit = $ing->unit ?: $servingUnit;
-        $size = (float) $food->serving_size ?: 100.0;
-
-        $bothConvertible = UnitConverter::isKnown($ingredientUnit) && UnitConverter::isKnown($servingUnit);
-        $sameUnit = UnitConverter::normalize($ingredientUnit) === UnitConverter::normalize($servingUnit);
-
-        if (! $bothConvertible || $sameUnit) {
-            return (float) $ing->quantity / $size;
-        }
-
         return UnitConverter::scalingFactor(
             (float) $ing->quantity,
-            $ingredientUnit,
-            $size,
-            $servingUnit,
+            (string) $ing->unit,
+            (float) $food->serving_size,
+            (string) $food->serving_unit,
         );
     }
 

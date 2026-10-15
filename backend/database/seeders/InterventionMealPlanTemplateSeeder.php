@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\FoodItem;
 use App\Models\MealPlanTemplate;
 use App\Models\Recipe;
 use App\Models\User;
@@ -22,17 +21,16 @@ class InterventionMealPlanTemplateSeeder extends Seeder
             throw new RuntimeException('Intervention templates require a seeded RND user.');
         }
 
-        $recipes = Recipe::query()->get()->keyBy('name');
-        $foods = FoodItem::query()->get()->keyBy('name');
+        $recipes = Recipe::query()->where('rnd_user_id', $rnd->id)->get()->keyBy('name');
 
-        DB::transaction(function () use ($rnd, $recipes, $foods): void {
+        DB::transaction(function () use ($rnd, $recipes): void {
             foreach ($this->profiles() as $profileKey => $profile) {
                 $goal = array_key_exists('goal_type', $profile) ? $profile['goal_type'] : $profileKey;
                 $withSnacksName = in_array($profileKey, ['custom', 'pregnant', 'lactating'], true)
                     ? 'Balanced'
                     : 'Standard';
                 $variants = $goal === 'liver_disease'
-                    ? [['Frequent Meals', false, 0], ['Soft Frequent Meals', false, 1]]
+                    ? [['Frequent Meals', false, 0], ['No Snacks', true, 1]]
                     : [[$withSnacksName, false, 0], ['No Snacks', true, 1]];
 
                 foreach ($variants as [$variantName, $excludeSnacks, $offset]) {
@@ -94,7 +92,6 @@ class InterventionMealPlanTemplateSeeder extends Seeder
                             $resolved = collect($itemNames)->map(fn (string $itemName): array => $this->resolveTemplateItem(
                                 $itemName,
                                 $recipes,
-                                $foods,
                                 $name,
                                 $profile,
                                 $excludeSnacks && in_array($mealType, ['lunch', 'dinner'], true),
@@ -104,7 +101,7 @@ class InterventionMealPlanTemplateSeeder extends Seeder
                             $templateDay = $template->days()->create([
                                 'day_of_week' => $dayName,
                                 'meal_type' => $mealType,
-                                'food_item_id' => $first['food']->id ?? null,
+                                'food_item_id' => null,
                                 'recipe_id' => $first['recipe']->id ?? null,
                                 'quantity' => $first['quantity'] ?? 1,
                                 'unit' => $first['unit'] ?? 'serving',
@@ -112,8 +109,8 @@ class InterventionMealPlanTemplateSeeder extends Seeder
 
                             foreach ($resolved as $lineIndex => $item) {
                                 $templateDay->items()->create([
-                                    'food_item_id' => $item['food']?->id,
-                                    'recipe_id' => $item['recipe']?->id,
+                                    'food_item_id' => null,
+                                    'recipe_id' => $item['recipe']->id,
                                     'quantity' => $item['quantity'],
                                     'unit' => $item['unit'],
                                     'nutrient_snapshot' => $item['snapshot'],
@@ -143,58 +140,63 @@ class InterventionMealPlanTemplateSeeder extends Seeder
         return [$this->rotate($profile['snacks'], $index)];
     }
 
-    /** @return array{food:?FoodItem,recipe:?Recipe,quantity:float,unit:string,snapshot:array<string,mixed>} */
+    /** @return array{recipe:Recipe,quantity:float,unit:string,snapshot:array<string,mixed>} */
     private function resolveTemplateItem(
         string $itemName,
         $recipes,
-        $foods,
         string $templateName,
         array $profile,
         bool $largerMainMeal,
     ): array {
-        if ($food = $foods->get($itemName)) {
-            $isCarb = in_array($food->name, $profile['carbs'], true);
-            $quantity = isset($profile['item_quantities'][$food->name])
-                ? (float) $profile['item_quantities'][$food->name]
-                : ($isCarb
-                    ? (float) $profile['carb_quantity_g'] + ($largerMainMeal ? 25 : 0)
-                    : (float) ($food->serving_size ?: 100));
-
-            return [
-                'food' => $food,
-                'recipe' => null,
-                'quantity' => $quantity,
-                'unit' => $food->serving_unit ?: 'g',
-                'snapshot' => $this->foodSnapshot($food),
-            ];
-        }
-
         $recipe = $recipes->get($itemName);
         if (! $recipe) {
             throw new RuntimeException("Template '{$templateName}' requires missing item '{$itemName}'.");
         }
 
         return [
-            'food' => null,
             'recipe' => $recipe,
-            'quantity' => $this->templateQuantity($recipe, $largerMainMeal),
-            'unit' => $recipe->prepared_portion_unit ?: 'serving',
+            'quantity' => $this->templateQuantity($recipe, $profile, $largerMainMeal),
+            'unit' => 'serving',
             'snapshot' => $this->recipeSnapshot($recipe),
         ];
     }
 
-    private function templateQuantity(Recipe $recipe, bool $largerMainMeal): float
+    private function templateQuantity(Recipe $recipe, array $profile, bool $largerMainMeal): float
     {
-        $amount = (float) ($recipe->prepared_portion_amount ?: 1);
-        if (! $largerMainMeal) {
-            return $amount;
+        $portionAmount = (float) $recipe->prepared_portion_amount;
+        $portionUnit = trim((string) $recipe->prepared_portion_unit);
+        if ($portionAmount <= 0 || $portionUnit === '') {
+            throw new RuntimeException("Menu Item '{$recipe->name}' has no positive prepared portion.");
         }
 
-        return match ($recipe->prepared_portion_unit) {
-            'g' => $amount + 25,
-            'cup' => $amount + 0.5,
-            default => $amount,
+        $targetAmount = match (true) {
+            $recipe->category === 'carb' => $this->carbTargetAmount($recipe, $profile, $portionUnit, $largerMainMeal),
+            isset($profile['item_quantities'][$recipe->name]) => (float) $profile['item_quantities'][$recipe->name],
+            default => $portionAmount,
         };
+
+        if ($largerMainMeal && $recipe->category !== 'snack' && ! in_array($recipe->name, $profile['carbs'], true)) {
+            $targetAmount += match ($portionUnit) {
+                'g' => 25,
+                'cup' => 0.5,
+                default => 0,
+            };
+        }
+
+        if ($targetAmount <= 0) {
+            throw new RuntimeException("Template Menu Item '{$recipe->name}' requires a positive portion.");
+        }
+
+        return round($targetAmount / $portionAmount, 6);
+    }
+
+    private function carbTargetAmount(Recipe $recipe, array $profile, string $portionUnit, bool $largerMainMeal): float
+    {
+        if ($portionUnit !== 'g') {
+            throw new RuntimeException("Carb Menu Item '{$recipe->name}' uses {$portionUnit}; its gram-based template target cannot be converted safely.");
+        }
+
+        return (float) $profile['carb_quantity_g'] + ($largerMainMeal ? 25 : 0);
     }
 
     /** @return array<string,mixed> */
@@ -212,26 +214,9 @@ class InterventionMealPlanTemplateSeeder extends Seeder
             'micronutrients' => collect($recipe->micronutrients ?? [])->map(
                 fn ($value): float => round((float) $value / $servings, 3)
             )->all(),
-            'serving_size' => (float) ($recipe->prepared_portion_amount ?: 1),
-            'serving_unit' => $recipe->prepared_portion_unit ?: 'serving',
+            'serving_size' => 1,
+            'serving_unit' => 'serving',
             'source' => 'recipe',
-        ];
-    }
-
-    /** @return array<string,mixed> */
-    private function foodSnapshot(FoodItem $food): array
-    {
-        return [
-            'name' => $food->name,
-            'calories' => (float) $food->calories,
-            'protein' => (float) $food->protein,
-            'carbs' => (float) $food->carbs,
-            'fat' => (float) $food->fat,
-            'water_g' => (float) ($food->water_g ?? 0),
-            'micronutrients' => $food->micronutrients ?? [],
-            'serving_size' => (float) ($food->serving_size ?: 100),
-            'serving_unit' => $food->serving_unit ?: 'g',
-            'source' => 'food_item',
         ];
     }
 
@@ -323,15 +308,15 @@ class InterventionMealPlanTemplateSeeder extends Seeder
                     ['Low-fat Milk (1%)'],
                 ],
                 'pm_snack_sets' => [
-                    ['Papaya (Raw)'],
-                    ['Banana (Raw)'],
+                    ['Papaya Snack'],
+                    ['Banana Snack'],
                 ],
                 'carbs' => ['Steamed Brown Rice', 'Sweet Potato / Kamote', 'Sweet Corn (Cooked)'], 'carb_quantity_g' => 200,
                 'vegetables' => ['Bok Choy / Pechay (Cooked)', 'Carrots (Cooked)', 'Squash / Kalabasa (Cooked)', 'String Beans / Sitaw'],
                 'item_quantities' => [
                     'Low-fat Milk (1%)' => 240,
-                    'Papaya (Raw)' => 90,
-                    'Banana (Raw)' => 80,
+                    'Papaya Snack' => 90,
+                    'Banana Snack' => 80,
                 ],
             ],
             'lactating' => [
@@ -342,17 +327,17 @@ class InterventionMealPlanTemplateSeeder extends Seeder
                 'mains' => ['Tinolang Manok (Chicken Ginger Soup)', 'Ginisang Monggo with Sardines', 'Steamed Milkfish (Bangus)', 'Steamed Tilapia'],
                 'snacks' => ['Papaya Snack'],
                 'am_snack_sets' => [
-                    ['Low-fat Milk (1%)', 'Papaya (Raw)'],
+                    ['Low-fat Milk (1%)', 'Papaya Snack'],
                 ],
                 'pm_snack_sets' => [
-                    ['Low-fat Milk (1%)', 'Banana (Raw)'],
+                    ['Low-fat Milk (1%)', 'Banana Snack'],
                 ],
                 'carbs' => ['Steamed Brown Rice', 'Sweet Corn (Cooked)', 'Sweet Potato / Kamote'], 'carb_quantity_g' => 200,
                 'vegetables' => ['Water Spinach (Kangkong)', 'Bok Choy / Pechay (Cooked)', 'Squash / Kalabasa (Cooked)', 'String Beans / Sitaw'],
                 'item_quantities' => [
                     'Low-fat Milk (1%)' => 240,
-                    'Papaya (Raw)' => 90,
-                    'Banana (Raw)' => 80,
+                    'Papaya Snack' => 90,
+                    'Banana Snack' => 80,
                 ],
             ],
         ];

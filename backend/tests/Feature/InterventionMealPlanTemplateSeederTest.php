@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\FoodItem;
 use App\Models\MealPlanTemplate;
+use App\Models\Recipe;
 use App\Models\User;
 use Database\Seeders\AdminUserSeeder;
 use Database\Seeders\FoodItemsSeeder;
@@ -14,6 +16,78 @@ use Tests\TestCase;
 class InterventionMealPlanTemplateSeederTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_recipe_seeder_uses_menu_taxonomy_and_preserves_existing_recipe_ids(): void
+    {
+        $this->seed(AdminUserSeeder::class);
+        $this->seed(FoodItemsSeeder::class);
+
+        $rnd = User::query()->where('role', 'RND')->firstOrFail();
+        $legacyRice = Recipe::forceCreate([
+            'rnd_user_id' => $rnd->id,
+            'name' => 'Plain White Rice Meal',
+            'category' => 'carb',
+            'servings' => 1,
+            'prep_notes' => 'Keep linked recipe identity.',
+        ]);
+        $manual = Recipe::forceCreate([
+            'rnd_user_id' => $rnd->id,
+            'name' => 'Manual RND recipe',
+            'category' => 'meal',
+            'servings' => 1,
+            'prep_notes' => 'Preserve manual values.',
+        ]);
+
+        $this->seed(RecipeSeeder::class);
+
+        $expectedCategories = [
+            'Mixed Vegetable Plate' => 'meal',
+            'Ginisang Sayote (Sautéed Chayote)' => 'meal',
+            'Steamed White Rice' => 'carb',
+            'Boiled Kamote (Sweet Potato)' => 'carb',
+            'Boiled Cassava (Kamoteng Kahoy)' => 'carb',
+            'Boiled Corn (Mais)' => 'carb',
+            'Banana Snack' => 'snack',
+            'Banana (Raw)' => 'snack',
+            'Papaya (Raw)' => 'snack',
+        ];
+        foreach ($expectedCategories as $name => $category) {
+            $this->assertDatabaseHas('recipes', ['name' => $name, 'category' => $category]);
+        }
+
+        foreach ([
+            'Steamed White Rice', 'Steamed Brown Rice', 'Sweet Potato / Kamote', 'Sweet Corn (Cooked)',
+            'Bok Choy / Pechay (Cooked)', 'Carrots (Cooked)', 'Squash / Kalabasa (Cooked)',
+            'String Beans / Sitaw', 'Eggplant / Talong (Cooked)', 'Water Spinach (Kangkong)', 'Low-fat Milk (1%)',
+            'Banana (Raw)', 'Papaya (Raw)',
+        ] as $name) {
+            $source = FoodItem::query()->where('name', $name)->firstOrFail();
+            $menuItem = Recipe::query()->where('rnd_user_id', $rnd->id)->where('name', $name)
+                ->with('ingredients')->firstOrFail();
+
+            $this->assertCount(1, $menuItem->ingredients, $name);
+            $this->assertSame($source->serving_unit, $menuItem->ingredients->first()->unit, $name);
+            $this->assertEquals((float) $source->serving_size, (float) $menuItem->ingredients->first()->quantity, $name);
+            $this->assertEquals((float) $source->serving_size, (float) $menuItem->prepared_portion_amount, $name);
+            $this->assertSame($source->serving_unit, $menuItem->prepared_portion_unit, $name);
+        }
+
+        $this->assertSame([], Recipe::query()->where('rnd_user_id', $rnd->id)
+            ->whereNotIn('category', ['meal', 'carb', 'snack'])
+            ->pluck('name')->all());
+
+        $seededIds = Recipe::query()->whereIn('name', array_keys($expectedCategories))->orderBy('name')->pluck('id')->all();
+        $this->seed(RecipeSeeder::class);
+
+        $this->assertSame($seededIds, Recipe::query()
+            ->whereIn('name', array_keys($expectedCategories))
+            ->orderBy('name')
+            ->pluck('id')
+            ->all());
+        $this->assertSame($legacyRice->id, Recipe::query()->where('name', $legacyRice->name)->value('id'));
+        $this->assertSame($manual->id, Recipe::query()->where('name', $manual->name)->value('id'));
+        $this->assertSame('Preserve manual values.', $manual->fresh()->prep_notes);
+    }
 
     public function test_it_seeds_goal_specific_custom_and_maternal_templates_with_separate_carb_items(): void
     {
@@ -45,7 +119,11 @@ class InterventionMealPlanTemplateSeederTest extends TestCase
         foreach ($templates as $template) {
             $this->assertCount(35, $template->days, $template->name);
             $this->assertTrue($template->days->every(
-                fn ($day): bool => $day->items->every(fn ($item): bool => $item->nutrient_snapshot !== null)
+                fn ($day): bool => $day->items->every(fn ($item): bool => $item->nutrient_snapshot !== null
+                    && $item->recipe_id !== null
+                    && $item->food_item_id === null
+                    && $item->unit === 'serving'
+                    && in_array($item->recipe?->category, ['meal', 'carb', 'snack'], true))
             ), $template->name);
 
             $snackItems = $template->days
@@ -59,23 +137,19 @@ class InterventionMealPlanTemplateSeederTest extends TestCase
             }
 
             foreach ($template->days->whereIn('meal_type', ['lunch', 'dinner']) as $mainMeal) {
-                $carbItems = $mainMeal->items->filter(fn ($item): bool => $item->foodItem?->category === 'carbs');
-                $this->assertLessThanOrEqual(1, $carbItems->count(), $template->name.' '.$mainMeal->day_of_week.' '.$mainMeal->meal_type);
-                $this->assertTrue($carbItems->every(fn ($item): bool => $item->recipe_id === null));
+                $carbItems = $mainMeal->items->filter(fn ($item): bool => $item->recipe?->category === 'carb');
+                $this->assertCount(1, $carbItems, $template->name.' '.$mainMeal->day_of_week.' '.$mainMeal->meal_type);
             }
         }
 
-        $this->assertDatabaseMissing('recipes', ['name' => 'Plain White Rice Meal']);
-        $this->assertDatabaseMissing('recipes', ['name' => 'Plain Brown Rice Meal']);
         $this->assertTrue($templates->flatMap->days->flatMap->items->contains(
-            fn ($item): bool => $item->foodItem?->category === 'carbs'
-                && ! str_contains(strtolower($item->foodItem->name), 'rice')
-        ));
+            fn ($item): bool => $item->recipe?->category === 'carb'
+                && ! str_contains(strtolower($item->recipe->name), 'rice')
+        ), 'At least one template must use a non-rice Carb Menu Item.');
 
         $this->assertCount(2, $templates->where('goal_type', 'liver_disease'));
-        $this->assertTrue($templates->where('goal_type', 'liver_disease')->every(
-            fn ($template): bool => ! str_contains($template->name, 'No Snacks')
-                && str_contains(strtolower($template->description), 'frequent')
+        $this->assertCount(1, $templates->where('goal_type', 'liver_disease')->filter(
+            fn ($template): bool => str_contains($template->name, 'No Snacks')
         ));
 
         $maternalTemplates = $templates->whereNotNull('maternal_status')->values();
@@ -91,8 +165,9 @@ class InterventionMealPlanTemplateSeederTest extends TestCase
             $this->assertStringContainsString('Maternal', $maternal->name);
             $this->assertStringContainsString('NNC/DOH', $maternal->description);
             $this->assertTrue($maternal->days->whereIn('meal_type', ['lunch', 'dinner'])->every(
-                fn ($day): bool => $day->items->contains(fn ($item): bool => $item->foodItem?->category === 'vegetable')
-            ));
+                fn ($day): bool => $day->items->contains(fn ($item): bool => $item->recipe?->category === 'meal'
+                    && in_array($item->recipe?->name, ['Bok Choy / Pechay (Cooked)', 'Carrots (Cooked)', 'Squash / Kalabasa (Cooked)', 'String Beans / Sitaw', 'Water Spinach (Kangkong)'], true))
+            ), $maternal->name.' must retain a Meal Menu Item vegetable at lunch and dinner.');
 
             foreach ($maternal->days->groupBy('day_of_week') as $dayItems) {
                 $items = $dayItems->flatMap->items;
@@ -100,22 +175,40 @@ class InterventionMealPlanTemplateSeederTest extends TestCase
 
                 $this->assertGreaterThanOrEqual(
                     $requiredMilkServings,
-                    $items->filter(fn ($item): bool => $item->foodItem?->name === 'Low-fat Milk (1%)')->count(),
+                    $items->filter(fn ($item): bool => $item->recipe?->name === 'Low-fat Milk (1%)')->count(),
                     $maternal->name.' '.$dayItems->first()->day_of_week.' needs its maternal milk servings.'
                 );
+                $this->assertTrue($items->filter(fn ($item): bool => $item->recipe?->name === 'Low-fat Milk (1%)')->every(
+                    fn ($item): bool => $item->unit === 'serving'
+                        && $item->quantity == 240 / (float) $item->recipe->prepared_portion_amount
+                ), $maternal->name.' milk quantities must stay on the source measure.');
                 $this->assertTrue(
-                    $items->contains(fn ($item): bool => $item->foodItem?->category === 'fruit'),
+                    $items->contains(fn ($item): bool => in_array($item->recipe?->name, ['Papaya Snack', 'Banana Snack'], true)),
                     $maternal->name.' '.$dayItems->first()->day_of_week.' needs fruit.'
                 );
+                $this->assertTrue($items->filter(fn ($item): bool => in_array($item->recipe?->name, ['Papaya Snack', 'Banana Snack'], true))->every(
+                    fn ($item): bool => $item->unit === 'serving'
+                        && $item->quantity == ($item->recipe->name === 'Papaya Snack' ? 90 : 80)
+                            / (float) $item->recipe->prepared_portion_amount
+                ), $maternal->name.' fruit quantities must stay on the source measure.');
+            }
+
+            if (str_contains($maternal->name, 'No Snacks')) {
+                $this->assertTrue($maternal->days->whereIn('meal_type', ['breakfast', 'lunch', 'dinner'])->flatMap->items
+                    ->contains(fn ($item): bool => $item->recipe?->category === 'snack'));
             }
         }
 
         $customTemplates = $templates->where('goal_type', 'custom');
         $this->assertCount(2, $customTemplates);
-        $this->assertTrue($customTemplates->every(
-            fn ($custom): bool => $custom->days->whereIn('meal_type', ['lunch', 'dinner'])->every(
-                fn ($day): bool => $day->items->contains(fn ($item): bool => $item->foodItem?->category === 'vegetable')
-            )
-        ));
+        $customMealsMissingVegetables = $customTemplates->flatMap(
+            fn ($custom) => $custom->days->whereIn('meal_type', ['lunch', 'dinner'])
+                ->filter(fn ($day): bool => ! $day->items->contains(fn ($item): bool => $item->recipe?->category === 'meal'
+                    && in_array($item->recipe?->name, ['Bok Choy / Pechay (Cooked)', 'Carrots (Cooked)', 'Squash / Kalabasa (Cooked)', 'String Beans / Sitaw', 'Water Spinach (Kangkong)', 'Eggplant / Talong (Cooked)'], true)))
+                ->map(fn ($day): string => $custom->name.' '.$day->day_of_week.'/'.$day->meal_type.' ['
+                    .$day->items->map(fn ($item): string => ($item->recipe?->name ?? 'missing recipe').'='.($item->recipe?->category ?? 'missing category'))->implode(', ')
+                    .']')
+        );
+        $this->assertCount(0, $customMealsMissingVegetables, 'Custom templates must use Meal Menu Item vegetables: '.$customMealsMissingVegetables->implode('; '));
     }
 }

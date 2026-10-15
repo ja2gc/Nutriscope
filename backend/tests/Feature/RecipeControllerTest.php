@@ -18,6 +18,49 @@ class RecipeControllerTest extends TestCase
 
     private User $rnd;
 
+    public function test_clinical_recipe_converts_all_nutrients_from_the_measured_baseline(): void
+    {
+        $food = FoodItem::factory()->create([
+            'serving_size' => 100, 'serving_unit' => 'g', 'calories' => 200,
+            'protein' => 10, 'carbs' => 20, 'fat' => 5, 'water_g' => 80,
+            'micronutrients' => ['calcium' => 15],
+        ]);
+        $response = $this->actingAs($this->rnd)->postJson('/api/rnd/recipes', [
+            'name' => 'Measured batch', 'category' => 'meal', 'servings' => 5,
+            'ingredients' => [['food_item_id' => $food->uuid, 'quantity' => 0.5, 'unit' => 'kg']],
+        ])->assertCreated();
+        $recipe = Recipe::query()->where('uuid', $response->json('data.id'))->firstOrFail();
+        $this->assertEquals(1000, $recipe->total_calories);
+        $this->assertEquals(50, $recipe->total_protein);
+        $this->assertEquals(100, $recipe->total_carbs);
+        $this->assertEquals(25, $recipe->total_fat);
+        $this->assertEquals(400, $recipe->total_water_g);
+        $this->assertEquals(75, $recipe->micronutrients['calcium']);
+    }
+
+    public function test_clinical_recipe_rejects_unmeasured_units_before_any_saved_mutation(): void
+    {
+        $food = FoodItem::factory()->create(['serving_size' => 100, 'serving_unit' => 'g']);
+        foreach (['piece', 'cup', 'pinch'] as $unit) {
+            $this->actingAs($this->rnd)->postJson('/api/rnd/recipes', [
+                'name' => 'Invalid '.$unit, 'category' => 'meal', 'servings' => 1,
+                'ingredients' => [['food_item_id' => $food->uuid, 'quantity' => 1, 'unit' => $unit]],
+            ])->assertUnprocessable()->assertJsonValidationErrors('ingredients.0.unit');
+            $this->assertDatabaseMissing('recipes', ['name' => 'Invalid '.$unit]);
+        }
+    }
+
+    public function test_clinical_recipe_retains_six_decimal_quantities(): void
+    {
+        $food = FoodItem::factory()->create(['serving_size' => 100, 'serving_unit' => 'g']);
+        $response = $this->actingAs($this->rnd)->postJson('/api/rnd/recipes', [
+            'name' => 'Small measured amount', 'category' => 'snack', 'servings' => 1,
+            'ingredients' => [['food_item_id' => $food->uuid, 'quantity' => 0.000001, 'unit' => 'kg']],
+        ])->assertCreated();
+        $recipe = Recipe::query()->where('uuid', $response->json('data.id'))->firstOrFail();
+        $this->assertEquals(0.000001, (float) $recipe->ingredients()->sole()->quantity);
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -49,7 +92,7 @@ class RecipeControllerTest extends TestCase
         $response = $this->actingAs($this->rnd)
             ->postJson('/api/rnd/recipes', [
                 'name' => 'Chicken & Rice Bowl',
-                'category' => 'lunch',
+                'category' => 'meal',
                 'servings' => 2,
                 'prep_notes' => 'Cook chicken then combine.',
                 'ingredients' => [
@@ -86,10 +129,91 @@ class RecipeControllerTest extends TestCase
 
     public function test_new_recipe_requires_an_explicit_yield(): void
     {
+        $food = FoodItem::factory()->create();
+
         $this->actingAs($this->rnd)
-            ->postJson('/api/rnd/recipes', ['name' => 'Unspecified yield'])
+            ->postJson('/api/rnd/recipes', [
+                'name' => 'Unspecified yield',
+                'category' => 'meal',
+                'ingredients' => [['food_item_id' => $food->uuid, 'quantity' => 100, 'unit' => 'g']],
+            ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('servings');
+    }
+
+    public function test_only_the_three_menu_item_categories_are_accepted(): void
+    {
+        $food = FoodItem::factory()->create();
+
+        foreach (['meal', 'carb', 'snack'] as $category) {
+            $response = $this->actingAs($this->rnd)->postJson('/api/rnd/recipes', [
+                'name' => "Valid {$category}",
+                'category' => $category,
+                'servings' => 1,
+                'ingredients' => [['food_item_id' => $food->uuid, 'quantity' => 100, 'unit' => 'g']],
+            ]);
+
+            $response->assertCreated()->assertJsonPath('data.category', $category);
+        }
+
+        foreach (['Breakfast', 'Diabetic-Friendly', 'lunch', 'vegetarian'] as $category) {
+            $this->actingAs($this->rnd)->postJson('/api/rnd/recipes', [
+                'name' => "Invalid {$category}",
+                'category' => $category,
+                'servings' => 1,
+                'ingredients' => [['food_item_id' => $food->uuid, 'quantity' => 100, 'unit' => 'g']],
+            ])->assertUnprocessable()->assertJsonValidationErrors('category');
+        }
+
+        $this->actingAs($this->rnd)->postJson('/api/rnd/recipes', [
+            'name' => 'Missing category',
+            'servings' => 1,
+            'ingredients' => [['food_item_id' => $food->uuid, 'quantity' => 100, 'unit' => 'g']],
+        ])->assertUnprocessable()->assertJsonValidationErrors('category');
+
+        $recipe = Recipe::factory()->create(['rnd_user_id' => $this->rnd->id]);
+        $this->actingAs($this->rnd)->putJson("/api/rnd/recipes/{$recipe->uuid}", [
+            'category' => 'Breakfast',
+        ])->assertUnprocessable()->assertJsonValidationErrors('category');
+    }
+
+    public function test_new_menu_item_requires_at_least_one_measured_ingredient(): void
+    {
+        foreach ([null, []] as $ingredients) {
+            $payload = [
+                'name' => 'No measured ingredient',
+                'category' => 'meal',
+                'servings' => 1,
+            ];
+            if ($ingredients !== null) {
+                $payload['ingredients'] = $ingredients;
+            }
+
+            $this->actingAs($this->rnd)->postJson('/api/rnd/recipes', $payload)
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors('ingredients');
+        }
+
+        $recipe = Recipe::factory()->create(['rnd_user_id' => $this->rnd->id]);
+        $this->actingAs($this->rnd)->putJson("/api/rnd/recipes/{$recipe->uuid}", [
+            'ingredients' => [],
+        ])->assertUnprocessable()->assertJsonValidationErrors('ingredients');
+    }
+
+    public function test_multi_ingredient_snack_menu_item_is_valid(): void
+    {
+        $fruit = FoodItem::factory()->create();
+        $milk = FoodItem::factory()->create(['serving_unit' => 'mL']);
+
+        $this->actingAs($this->rnd)->postJson('/api/rnd/recipes', [
+            'name' => 'Fruit and Milk Snack',
+            'category' => 'snack',
+            'servings' => 1,
+            'ingredients' => [
+                ['food_item_id' => $fruit->uuid, 'quantity' => 100, 'unit' => 'g'],
+                ['food_item_id' => $milk->uuid, 'quantity' => 150, 'unit' => 'mL'],
+            ],
+        ])->assertCreated()->assertJsonPath('data.category', 'snack');
     }
 
     public function test_recipe_totals_auto_calculated_on_create(): void
@@ -106,7 +230,7 @@ class RecipeControllerTest extends TestCase
         $response = $this->actingAs($this->rnd)
             ->postJson('/api/rnd/recipes', [
                 'name' => 'Simple Meal',
-                'category' => 'lunch',
+                'category' => 'meal',
                 'servings' => 1,
                 'ingredients' => [
                     ['food_item_id' => $food->uuid, 'quantity' => 100, 'unit' => 'g'],
@@ -149,7 +273,7 @@ class RecipeControllerTest extends TestCase
         $response = $this->actingAs($this->rnd)
             ->putJson("/api/rnd/recipes/{$recipe->uuid}", [
                 'name' => 'Updated Recipe',
-                'category' => 'dinner',
+                'category' => 'carb',
                 'servings' => 3,
                 'ingredients' => [
                     ['food_item_id' => $food->uuid, 'quantity' => 200, 'unit' => 'g'],
@@ -244,12 +368,13 @@ class RecipeControllerTest extends TestCase
 
     public function test_recipe_belongs_to_creating_rnd_user(): void
     {
+        $food = FoodItem::factory()->create();
         $response = $this->actingAs($this->rnd)
             ->postJson('/api/rnd/recipes', [
                 'name' => 'My Recipe',
-                'category' => 'breakfast',
+                'category' => 'meal',
                 'servings' => 1,
-                'ingredients' => [],
+                'ingredients' => [['food_item_id' => $food->uuid, 'quantity' => 100, 'unit' => 'g']],
             ]);
 
         $response->assertCreated();

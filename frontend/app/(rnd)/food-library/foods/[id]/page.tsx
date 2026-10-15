@@ -5,10 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Database, ArrowLeft, Plus, X, Loader2, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { InfoHint } from "@/components/ui/InfoHint";
+import { canonicalClinicalUnit, clinicalIngredientFactor, clinicalRecipeUnits, CLINICAL_BASELINE_UNITS, CLINICAL_UNIT_HINT } from "@/lib/clinicalUnits";
+import { RecipeCorrectionsRequiredError, type AffectedRecipe } from "@/services/fsCatalogService";
 import { fetchFoodItemById, updateFoodItem, FoodItem } from "@/services/foodLibraryService";
 
 const CATEGORIES = ["protein", "carbs", "vegetable", "fat", "dairy", "fruit"];
-const SERVING_UNITS = ["g", "ml", "piece", "cup", "oz", "tbsp", "tsp"];
+const SERVING_UNITS = CLINICAL_BASELINE_UNITS;
 const COMMON_ALLERGENS = ["milk", "eggs", "fish", "shellfish", "tree nuts", "peanuts", "wheat", "soybeans"];
 
 const NUTRIENT_GROUPS = {
@@ -36,14 +39,14 @@ export default function EditFoodPage({ params }: { params: Promise<{ id: string 
 
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
-  // "" = auto (by category) · "true"/"false" = explicit snack-eligibility override
-  const [readyToEat, setReadyToEat] = useState<"" | "true" | "false">("");
   const [calories, setCalories] = useState("");
   const [protein, setProtein] = useState("");
   const [carbs, setCarbs] = useState("");
   const [fat, setFat] = useState("");
   const [servingSize, setServingSize] = useState("");
   const [servingUnit, setServingUnit] = useState("g");
+  const [affectedRecipes, setAffectedRecipes] = useState<AffectedRecipe[]>([]);
+  const [corrections, setCorrections] = useState<Record<string, { quantity: string; unit: string }>>({});
   const [allergens, setAllergens] = useState<string[]>([]);
   const [allergenInput, setAllergenInput] = useState("");
   const [micros, setMicros] = useState<Record<string, string>>({});
@@ -54,13 +57,12 @@ export default function EditFoodPage({ params }: { params: Promise<{ id: string 
         setFood(f);
         setName(f.name);
         setCategory(f.category ?? "");
-        setReadyToEat(f.ready_to_eat == null ? "" : f.ready_to_eat ? "true" : "false");
         setCalories(f.calories ?? "");
         setProtein(f.protein ?? "");
         setCarbs(f.carbs ?? "");
         setFat(f.fat ?? "");
         setServingSize(f.serving_size ?? "100");
-        setServingUnit(f.serving_unit ?? "g");
+        setServingUnit(canonicalClinicalUnit(f.serving_unit ?? ""));
         setAllergens(f.allergens ?? []);
         const microMap: Record<string, string> = {};
         Object.values(NUTRIENT_GROUPS).flat().forEach((key) => {
@@ -81,11 +83,34 @@ export default function EditFoodPage({ params }: { params: Promise<{ id: string 
     setAllergenInput("");
   };
 
+  const changeBaselineUnit = (unit: string) => {
+    const converted = clinicalIngredientFactor(Number(servingSize), servingUnit, 1, unit);
+    if (converted !== null) {
+      const stored = Number(converted.toFixed(6));
+      const restored = clinicalIngredientFactor(stored, unit, 1, servingUnit);
+      if (stored <= 0 || stored > 10000 || restored === null || Number(restored.toFixed(6)) !== Number(servingSize)) {
+        setError("This unit change cannot preserve the measured baseline at six decimals. Choose another compatible unit."); return;
+      }
+      setServingSize(String(stored));
+    }
+    setServingUnit(unit);
+    setAffectedRecipes([]);
+    setCorrections({});
+    setError(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setSaving(true);
       setError(null);
+      const recipeCorrections = affectedRecipes.map((recipe) => {
+        const correction = corrections[`${recipe.recipe_id}:${recipe.line_index}`];
+        return { recipe_id: recipe.recipe_id, line_index: recipe.line_index, quantity: Number(correction?.quantity), unit: correction?.unit ?? "" };
+      });
+      if (recipeCorrections.some((correction) => clinicalIngredientFactor(correction.quantity, correction.unit, Number(servingSize), servingUnit) === null)) {
+        setError("Enter a measured quantity and compatible unit for every affected Menu Item."); return;
+      }
       const micronutrients: Record<string, number> = {};
       if (!food?.usda_fdc_id) {
         Object.entries(micros).forEach(([k, v]) => {
@@ -97,17 +122,24 @@ export default function EditFoodPage({ params }: { params: Promise<{ id: string 
         name: name.trim(),
         calories: parseFloat(calories),
         category: category || null,
-        ready_to_eat: readyToEat === "" ? null : readyToEat === "true",
         protein: protein ? parseFloat(protein) : null,
         carbs: carbs ? parseFloat(carbs) : null,
         fat: fat ? parseFloat(fat) : null,
         serving_size: servingSize ? parseFloat(servingSize) : null,
         serving_unit: servingUnit || null,
         allergens,
+        ...(recipeCorrections.length > 0 && { recipe_corrections: recipeCorrections }),
         ...(!food?.usda_fdc_id && Object.keys(micronutrients).length > 0 && { micronutrients }),
       });
       router.push("/food-library");
     } catch (e: unknown) {
+      if (e instanceof RecipeCorrectionsRequiredError) {
+        setAffectedRecipes(e.affectedRecipes);
+        setCorrections(Object.fromEntries(e.affectedRecipes.map((recipe) => {
+          const key = `${recipe.recipe_id}:${recipe.line_index}`;
+          return [key, corrections[key] ?? { quantity: "", unit: servingUnit }];
+        })));
+      }
       setError(e instanceof Error ? e.message : "Failed to save.");
     } finally {
       setSaving(false);
@@ -168,34 +200,37 @@ export default function EditFoodPage({ params }: { params: Promise<{ id: string 
                 {CATEGORIES.map((c) => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
               </select>
             </div>
-            <div>
-              <Label>Ready-to-Eat Snack</Label>
-              <select value={readyToEat} onChange={(e) => setReadyToEat(e.target.value as "" | "true" | "false")} className={inputCls}>
-                <option value="">Auto (by category)</option>
-                <option value="true">Yes — eligible as snack</option>
-                <option value="false">No — never a snack</option>
-              </select>
-              <p className="text-xs text-warm-400 mt-1 leading-snug">
-                Controls whether meal-plan auto-generation may place this item as a single snack.
-                {readyToEat === "" && (
-                  <> Auto = {["fruit", "vegetable"].includes(category) ? "eligible" : "not eligible"} for “{category || "no category"}”.</>
-                )}
-              </p>
-            </div>
             <div className="flex gap-2">
               <div className="flex-1">
-                <Label>Serving Size</Label>
-                <input type="number" value={servingSize} onChange={(e) => setServingSize(e.target.value)} min="0" step="0.1" className={inputCls} />
+                <Label>Nutrient baseline amount</Label>
+                <input aria-label="Nutrient baseline amount" type="number" value={servingSize} onChange={(e) => setServingSize(e.target.value)} min="0.000001" max="10000" step="0.000001" required className={inputCls} />
               </div>
               <div className="w-28">
-                <Label>Unit</Label>
-                <select value={servingUnit} onChange={(e) => setServingUnit(e.target.value)} className={inputCls}>
-                  {SERVING_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                <div className="flex items-center"><Label>Unit</Label><InfoHint label="Ingredient unit families">{CLINICAL_UNIT_HINT}</InfoHint></div>
+                <select aria-label="Nutrient baseline unit" value={servingUnit} onChange={(e) => changeBaselineUnit(e.target.value)} className={inputCls}>
+                  {[...new Set([...SERVING_UNITS, canonicalClinicalUnit(food?.serving_unit ?? "")].filter(Boolean))].map((u) => <option key={u} value={u}>{u}</option>)}
                 </select>
               </div>
             </div>
           </div>
         </div>
+
+        {affectedRecipes.length > 0 && <section className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4" aria-label="Affected Menu Item corrections">
+          <h3 className="font-bold">Correct affected Menu Items</h3>
+          {affectedRecipes.map((recipe) => {
+            const key = `${recipe.recipe_id}:${recipe.line_index}`;
+            const correction = corrections[key] ?? { quantity: "", unit: servingUnit };
+            return <div key={key} className="space-y-2">
+              <p><Link href={`/food-library/recipes/${recipe.recipe_id}`} target="_blank" className="font-semibold underline">{recipe.recipe_name}</Link>: {recipe.quantity} {recipe.unit}</p>
+              <div className="flex gap-2">
+                <input aria-label={`${recipe.recipe_name} correction quantity ${recipe.line_index + 1}`} type="number" min="0.000001" max="100000" step="0.000001" value={correction.quantity} onChange={(event) => setCorrections((current) => ({ ...current, [key]: { ...correction, quantity: event.target.value } }))} className={inputCls} required />
+                <select aria-label={`${recipe.recipe_name} correction unit ${recipe.line_index + 1}`} value={correction.unit} onChange={(event) => setCorrections((current) => ({ ...current, [key]: { ...correction, unit: event.target.value } }))} className={inputCls}>
+                  {clinicalRecipeUnits(servingUnit).map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+                </select>
+              </div>
+            </div>;
+          })}
+        </section>}
 
         <div className="bg-white border border-warm-200 rounded-2xl p-6 space-y-5 shadow-sm">
           <div className="flex items-center justify-between">

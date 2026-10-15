@@ -13,7 +13,6 @@ use App\Models\Patient;
 use App\Models\Recipe;
 use App\Models\RecipeIngredient;
 use App\Models\User;
-use App\Services\UsdaService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -68,7 +67,7 @@ class MealPlanItemControllerTest extends TestCase
             ->assertJsonCount(1, 'data');
     }
 
-    public function test_store_with_library_food_populates_snapshot(): void
+    public function test_legacy_library_food_snapshot_remains_readable(): void
     {
         $ctx = $this->setupPlan();
         $food = FoodItem::factory()->create([
@@ -81,14 +80,16 @@ class MealPlanItemControllerTest extends TestCase
             'serving_unit' => 'g',
         ]);
 
-        $response = $this->actingAs($ctx['rnd'])
-            ->postJson($this->url($ctx), [
-                'food_item_id' => $food->uuid,
-                'quantity' => 150,
-                'unit' => 'g',
-            ]);
+        MealPlanItem::factory()->create([
+            'meal_plan_day_id' => $ctx['day']->id,
+            'food_item_id' => $food->id,
+            'recipe_id' => null,
+            'quantity' => 150,
+            'unit' => 'g',
+            'nutrient_snapshot' => ['name' => $food->name, 'calories' => 165, 'protein' => 31, 'carbs' => 0, 'fat' => 3.6, 'micronutrients' => ['sodium' => 74], 'serving_size' => 100, 'serving_unit' => 'g'],
+        ]);
 
-        $response->assertCreated();
+        $this->actingAs($ctx['rnd'])->getJson($this->url($ctx))->assertOk()->assertJsonPath('data.0.nutrient_snapshot.calories', 165);
         $item = MealPlanItem::first();
         $this->assertNotNull($item->nutrient_snapshot);
         $this->assertEquals(165, $item->nutrient_snapshot['calories']);
@@ -96,30 +97,31 @@ class MealPlanItemControllerTest extends TestCase
         $this->assertEquals(100, $item->nutrient_snapshot['serving_size']);
     }
 
-    public function test_store_with_fdc_id_fetches_usda_and_populates_snapshot(): void
+    public function test_legacy_usda_snapshot_remains_readable_without_fetching_it_again(): void
     {
         $ctx = $this->setupPlan();
 
-        $this->mock(UsdaService::class, function ($mock) {
-            $mock->shouldReceive('fetch')->with(331960)->once()->andReturn([
+        MealPlanItem::factory()->create([
+            'meal_plan_day_id' => $ctx['day']->id,
+            'food_item_id' => null,
+            'recipe_id' => null,
+            'fdc_id' => '331960',
+            'quantity' => 100,
+            'unit' => 'g',
+            'nutrient_snapshot' => [
                 'fdc_id' => 331960,
                 'name' => 'Chicken breast',
+                'serving_size' => 100,
+                'serving_unit' => 'g',
                 'calories' => 165.0,
                 'protein' => 31.0,
                 'carbs' => 0.0,
                 'fat' => 3.6,
                 'micronutrients' => ['sodium' => 74],
-            ]);
-        });
+            ],
+        ]);
 
-        $response = $this->actingAs($ctx['rnd'])
-            ->postJson($this->url($ctx), [
-                'fdc_id' => '331960',
-                'quantity' => 100,
-                'unit' => 'g',
-            ]);
-
-        $response->assertCreated();
+        $this->actingAs($ctx['rnd'])->getJson($this->url($ctx))->assertOk()->assertJsonPath('data.0.nutrient_snapshot.calories', 165);
         $item = MealPlanItem::first();
         $this->assertEquals('331960', $item->fdc_id);
         $this->assertNull($item->food_item_id);
@@ -189,6 +191,43 @@ class MealPlanItemControllerTest extends TestCase
             ->assertUnprocessable();
     }
 
+    public function test_new_weekly_lines_reject_direct_ingredients_and_usda_sources(): void
+    {
+        $ctx = $this->setupPlan();
+        $food = FoodItem::factory()->create();
+        foreach ([['food_item_id' => $food->uuid], ['fdc_id' => '331960']] as $source) {
+            $this->actingAs($ctx['rnd'])->postJson($this->url($ctx), $source + ['quantity' => 100, 'unit' => 'g'])
+                ->assertUnprocessable()->assertJsonValidationErrors('recipe_id');
+        }
+        $this->assertDatabaseCount('meal_plan_items', 0);
+    }
+
+    public function test_new_menu_item_lines_require_servings_and_two_decimal_quantity(): void
+    {
+        $ctx = $this->setupPlan();
+        $recipe = Recipe::factory()->create();
+        $food = FoodItem::factory()->create();
+        RecipeIngredient::create(['recipe_id' => $recipe->id, 'food_item_id' => $food->id, 'quantity' => 100, 'unit' => 'g']);
+        foreach ([['quantity' => 1, 'unit' => 'g'], ['quantity' => 0.001, 'unit' => 'serving'], ['quantity' => 1.001, 'unit' => 'serving']] as $portion) {
+            $this->actingAs($ctx['rnd'])->postJson($this->url($ctx), ['recipe_id' => $recipe->uuid] + $portion)
+                ->assertUnprocessable();
+        }
+        $this->assertDatabaseCount('meal_plan_items', 0);
+    }
+
+    public function test_a_snack_menu_item_can_be_manually_added_to_any_main_meal(): void
+    {
+        $ctx = $this->setupPlan();
+        $recipe = Recipe::factory()->create(['category' => 'snack', 'servings' => 1]);
+        $food = FoodItem::factory()->create();
+        RecipeIngredient::create(['recipe_id' => $recipe->id, 'food_item_id' => $food->id, 'quantity' => 100, 'unit' => 'g']);
+        foreach (['breakfast', 'lunch', 'dinner'] as $slot) {
+            $ctx['day']->update(['meal_type' => $slot]);
+            $this->actingAs($ctx['rnd'])->postJson($this->url($ctx), ['recipe_id' => $recipe->uuid, 'quantity' => 0.5, 'unit' => 'serving'])
+                ->assertCreated()->assertJsonPath('data.unit', 'serving');
+        }
+    }
+
     public function test_store_rejects_non_numeric_fdc_id(): void
     {
         $ctx = $this->setupPlan();
@@ -252,6 +291,32 @@ class MealPlanItemControllerTest extends TestCase
         $this->assertEquals(200, $item->nutrient_snapshot['calories']);
         $this->assertEquals(200, $item->nutrient_snapshot['recipe_ingredients'][0]['quantity']);
         $this->assertEquals(100, (float) $ingredient->fresh()->quantity);
+    }
+
+    public function test_clinical_override_uses_units_yield_water_and_micronutrients_consistently(): void
+    {
+        $ctx = $this->setupPlan();
+        $food = FoodItem::factory()->create([
+            'calories' => 100, 'protein' => 10, 'carbs' => 20, 'fat' => 5,
+            'water_g' => 80, 'serving_size' => 100, 'serving_unit' => 'g', 'micronutrients' => ['sodium' => 50],
+        ]);
+        $recipe = Recipe::factory()->create(['servings' => 5]);
+        $ingredient = $recipe->ingredients()->create(['food_item_id' => $food->id, 'quantity' => 0.5, 'unit' => 'kg']);
+        $item = MealPlanItem::factory()->create([
+            'meal_plan_day_id' => $ctx['day']->id, 'recipe_id' => $recipe->id,
+            'nutrient_snapshot' => ['name' => 'Measured batch', 'calories' => 100, 'water_g' => 80],
+        ]);
+        $this->actingAs($ctx['rnd'])->patchJson($this->url($ctx, $item->uuid), [
+            'ingredient_overrides' => [['id' => $ingredient->id, 'quantity' => 1]],
+        ])->assertOk();
+        $snapshot = $item->fresh()->nutrient_snapshot;
+        $this->assertEquals(200, $snapshot['calories']);
+        $this->assertEquals(20, $snapshot['protein']);
+        $this->assertEquals(40, $snapshot['carbs']);
+        $this->assertEquals(10, $snapshot['fat']);
+        $this->assertEquals(160, $snapshot['water_g']);
+        $this->assertEquals(100, $snapshot['micronutrients']['sodium']);
+        $this->assertEquals(0.5, (float) $ingredient->fresh()->quantity);
     }
 
     public function test_recipe_item_response_includes_batch_yield_and_ingredient_units(): void
@@ -328,9 +393,11 @@ class MealPlanItemControllerTest extends TestCase
             'allergies' => ['Peanuts'],
         ]);
         $food = FoodItem::factory()->create(['name' => 'Peanut sauce', 'allergens' => ['peanuts']]);
+        $recipe = Recipe::factory()->create(['servings' => 1]);
+        RecipeIngredient::create(['recipe_id' => $recipe->id, 'food_item_id' => $food->id, 'quantity' => 100, 'unit' => 'g']);
 
         $this->actingAs($ctx['rnd'])
-            ->postJson($this->url($ctx), ['food_item_id' => $food->uuid, 'quantity' => 100, 'unit' => 'g'])
+            ->postJson($this->url($ctx), ['recipe_id' => $recipe->uuid, 'quantity' => 1, 'unit' => 'serving'])
             ->assertUnprocessable()
             ->assertJsonStructure(['message', 'errors' => ['allergens']]);
 
@@ -345,16 +412,18 @@ class MealPlanItemControllerTest extends TestCase
             'food_dislikes' => ['broccoli'],
         ]);
         $food = FoodItem::factory()->create(['name' => 'Broccoli soup', 'allergens' => []]);
+        $recipe = Recipe::factory()->create(['name' => 'Broccoli soup', 'servings' => 1]);
+        RecipeIngredient::create(['recipe_id' => $recipe->id, 'food_item_id' => $food->id, 'quantity' => 100, 'unit' => 'g']);
 
         $res = $this->actingAs($ctx['rnd'])
-            ->postJson($this->url($ctx), ['food_item_id' => $food->uuid, 'quantity' => 100, 'unit' => 'g'])
+            ->postJson($this->url($ctx), ['recipe_id' => $recipe->uuid, 'quantity' => 1, 'unit' => 'serving'])
             ->assertCreated();
 
         $this->assertNotEmpty($res->json('warnings'));
         $this->assertDatabaseCount('meal_plan_items', 1);
     }
 
-    public function test_snapshot_includes_water_g_for_library_food(): void
+    public function test_legacy_library_food_preserves_snapshot_water(): void
     {
         $ctx = $this->setupPlan();
         $food = FoodItem::factory()->create([
@@ -363,9 +432,11 @@ class MealPlanItemControllerTest extends TestCase
             'serving_size' => 100, 'serving_unit' => 'g',
         ]);
 
-        $this->actingAs($ctx['rnd'])
-            ->postJson($this->url($ctx), ['food_item_id' => $food->uuid, 'quantity' => 100, 'unit' => 'g'])
-            ->assertCreated();
+        MealPlanItem::factory()->create([
+            'meal_plan_day_id' => $ctx['day']->id, 'food_item_id' => $food->id, 'recipe_id' => null,
+            'nutrient_snapshot' => ['name' => $food->name, 'calories' => 165, 'protein' => 31, 'carbs' => 0, 'fat' => 3.6, 'micronutrients' => [], 'serving_size' => 100, 'serving_unit' => 'g', 'water_g' => 65.5],
+        ]);
+        $this->actingAs($ctx['rnd'])->getJson($this->url($ctx))->assertOk()->assertJsonPath('data.0.nutrient_snapshot.water_g', 65.5);
 
         $this->assertEquals(65.5, MealPlanItem::first()->nutrient_snapshot['water_g']);
     }

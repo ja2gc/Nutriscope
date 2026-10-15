@@ -5,7 +5,7 @@ import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import SearchInput from "@/components/ui/SearchInput";
-import { fetchFoodItems, fetchRecipes, type FoodItem, type Recipe } from "@/services/foodLibraryService";
+import { fetchRecipes, type Recipe } from "@/services/foodLibraryService";
 import {
   deleteMealPlanTemplate, fetchMealPlanTemplate, fetchMealPlanTemplates,
   saveLibraryMealPlanTemplate, type LibraryTemplateLine, type MealPlanTemplate,
@@ -29,9 +29,8 @@ function TemplateEditor({ initial, onClose, onSaved }: {
   const [draft, setDraft] = useState(initial);
   const [day, setDay] = useState("Monday");
   const [meal, setMeal] = useState("breakfast");
-  const [kind, setKind] = useState<"food" | "recipe">("food");
   const [query, setQuery] = useState("");
-  const [matches, setMatches] = useState<Array<FoodItem | Recipe>>([]);
+  const [matches, setMatches] = useState<Recipe[]>([]);
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,9 +46,7 @@ function TemplateEditor({ initial, onClose, onSaved }: {
     setSearching(true);
     const timer = window.setTimeout(async () => {
       try {
-        const result = kind === "food"
-          ? await fetchFoodItems(query.trim(), "all", 1, 10)
-          : await fetchRecipes(query.trim(), "all", 1, 10);
+        const result = await fetchRecipes(query.trim(), "all", 1, 10);
         if (id === searchId.current) setMatches(result.data);
       } catch (cause) {
         if (id === searchId.current) setError(cause instanceof Error ? cause.message : "Search failed.");
@@ -58,19 +55,18 @@ function TemplateEditor({ initial, onClose, onSaved }: {
       }
     }, 200);
     return () => window.clearTimeout(timer);
-  }, [kind, query]);
+  }, [query]);
 
-  function addItem(item: FoodItem | Recipe) {
-    const food = kind === "food" ? item as FoodItem : null;
+  function addItem(item: Recipe) {
     const line: EditorLine = {
       key: ++nextLineKey,
       day_of_week: day,
       meal_type: meal,
-      food_item_id: food?.id ?? null,
-      recipe_id: food ? null : item.id,
+      food_item_id: null,
+      recipe_id: item.id,
       itemName: item.name,
       quantity: 1,
-      unit: food?.serving_unit || "serving",
+      unit: "serving",
     };
     setDraft((current) => ({ ...current, lines: [...current.lines, line] }));
     setQuery("");
@@ -79,11 +75,11 @@ function TemplateEditor({ initial, onClose, onSaved }: {
 
   async function save() {
     if (!draft.name.trim() || draft.lines.length === 0) {
-      setError("Enter a name and add at least one food or recipe.");
+      setError("Enter a name and add at least one Menu Item.");
       return;
     }
-    if (draft.lines.some((line) => !Number.isFinite(line.quantity) || line.quantity <= 0 || !line.unit.trim() || (!line.food_item_id && !line.recipe_id))) {
-      setError("Each line needs an item, positive quantity, and unit.");
+    if (draft.lines.some((line) => !Number.isFinite(line.quantity) || line.quantity < 0.01 || Number(line.quantity.toFixed(2)) !== line.quantity || line.unit !== "serving" || line.food_item_id || !line.recipe_id)) {
+      setError("Each line needs a Menu Item and positive servings with at most two decimals. Replace legacy Ingredient lines before saving.");
       return;
     }
     setSaving(true);
@@ -121,19 +117,16 @@ function TemplateEditor({ initial, onClose, onSaved }: {
         </div>
 
         <div className="mt-5 border-t border-warm-100 pt-4">
-          <h4 className="text-sm font-bold text-warm-800">Add foods or recipes</h4>
-          <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_1fr_1fr]">
+          <h4 className="text-sm font-bold text-warm-800">Add Menu Items</h4>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
             <label className="text-xs font-semibold text-warm-600">Day
               <select value={day} onChange={(event) => setDay(event.target.value)} className="mt-1 w-full rounded-lg border border-warm-200 px-2 py-2">{DAYS.map((value) => <option key={value}>{value}</option>)}</select>
             </label>
             <label className="text-xs font-semibold text-warm-600">Meal
               <select value={meal} onChange={(event) => setMeal(event.target.value)} className="mt-1 w-full rounded-lg border border-warm-200 px-2 py-2">{MEALS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
             </label>
-            <label className="text-xs font-semibold text-warm-600">Item type
-              <select value={kind} onChange={(event) => { setKind(event.target.value as "food" | "recipe"); setMatches([]); }} className="mt-1 w-full rounded-lg border border-warm-200 px-2 py-2"><option value="food">Food</option><option value="recipe">Recipe</option></select>
-            </label>
           </div>
-          <div className="mt-3"><SearchInput label={`Search ${kind}s to add`} value={query} onChange={setQuery} loading={searching} /></div>
+          <div className="mt-3"><SearchInput label="Search Menu Items to add" value={query} onChange={setQuery} loading={searching} /></div>
           {matches.length > 0 && <div className="mt-2 max-h-40 overflow-y-auto rounded-lg border border-warm-200">
             {matches.map((item) => <button key={item.id} onClick={() => addItem(item)} className="block w-full border-b border-warm-100 px-3 py-2 text-left text-sm hover:bg-emerald-50">{item.name}</button>)}
           </div>}
@@ -145,7 +138,7 @@ function TemplateEditor({ initial, onClose, onSaved }: {
           {draft.lines.map((line) => <div key={line.key} className="grid gap-2 rounded-lg border border-warm-200 p-3 sm:grid-cols-[1fr_5rem_7rem_2rem] sm:items-center">
             <div className="min-w-0"><p className="truncate text-sm font-semibold text-warm-800">{line.itemName}</p><p className="text-xs text-warm-500">{line.day_of_week} · {MEALS.find(([key]) => key === line.meal_type)?.[1]}</p></div>
             <label className="text-xs text-warm-600">Quantity<input type="number" min="0.01" step="0.01" value={line.quantity} onChange={(event) => setDraft((current) => ({ ...current, lines: current.lines.map((row) => row.key === line.key ? { ...row, quantity: Number(event.target.value) } : row) }))} className="mt-1 w-full rounded-lg border border-warm-200 px-2 py-1.5" /></label>
-            <label className="text-xs text-warm-600">Unit<input value={line.unit} onChange={(event) => setDraft((current) => ({ ...current, lines: current.lines.map((row) => row.key === line.key ? { ...row, unit: event.target.value } : row) }))} className="mt-1 w-full rounded-lg border border-warm-200 px-2 py-1.5" /></label>
+            <label className="text-xs text-warm-600">Unit<select value={line.unit} onChange={(event) => setDraft((current) => ({ ...current, lines: current.lines.map((row) => row.key === line.key ? { ...row, unit: event.target.value } : row) }))} className="mt-1 w-full rounded-lg border border-warm-200 px-2 py-1.5">{line.unit !== "serving" && <option value={line.unit} disabled>{line.unit} (legacy)</option>}<option value="serving">serving</option></select></label>
             <button onClick={() => setDraft((current) => ({ ...current, lines: current.lines.filter((row) => row.key !== line.key) }))} aria-label={`Remove ${line.itemName}`} className="rounded-lg p-1.5 text-red-600 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button>
           </div>)}
         </div>

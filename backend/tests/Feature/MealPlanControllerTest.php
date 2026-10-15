@@ -452,11 +452,17 @@ class MealPlanControllerTest extends TestCase
     public function test_rnd_can_create_and_edit_an_owned_template_from_food_library(): void
     {
         $food = FoodItem::factory()->create(['name' => 'Apple', 'calories' => 95]);
-        $recipe = Recipe::factory()->create(['rnd_user_id' => $this->rnd->id, 'name' => 'Vegetable soup', 'total_water_g' => 180]);
+        $snack = Recipe::factory()->create(['rnd_user_id' => $this->rnd->id, 'name' => 'Apple', 'category' => 'snack', 'servings' => 1]);
+        $snack->ingredients()->create(['food_item_id' => $food->id, 'quantity' => 100, 'unit' => 'g']);
+        $snack->recalculateTotals();
+        $recipe = Recipe::factory()->create(['rnd_user_id' => $this->rnd->id, 'name' => 'Vegetable soup', 'servings' => 1]);
+        $vegetable = FoodItem::factory()->create(['water_g' => 90]);
+        $recipe->ingredients()->create(['food_item_id' => $vegetable->id, 'quantity' => 200, 'unit' => 'g']);
+        $recipe->recalculateTotals();
         $created = $this->actingAs($this->rnd)->postJson('/api/rnd/meal-plan-templates', [
             'name' => 'Simple week',
             'lines' => [
-                ['day_of_week' => 'Monday', 'meal_type' => 'breakfast', 'food_item_id' => $food->uuid, 'quantity' => 1, 'unit' => 'piece'],
+                ['day_of_week' => 'Monday', 'meal_type' => 'breakfast', 'recipe_id' => $snack->uuid, 'quantity' => 1, 'unit' => 'serving'],
                 ['day_of_week' => 'Monday', 'meal_type' => 'breakfast', 'recipe_id' => $recipe->uuid, 'quantity' => 1, 'unit' => 'serving'],
             ],
         ])->assertCreated();
@@ -469,7 +475,7 @@ class MealPlanControllerTest extends TestCase
         $this->putJson("/api/rnd/meal-plan-templates/{$template->uuid}", [
             'name' => 'Simple week revised',
             'lines' => [
-                ['day_of_week' => 'Tuesday', 'meal_type' => 'lunch', 'food_item_id' => $food->uuid, 'quantity' => 2, 'unit' => 'pieces'],
+                ['day_of_week' => 'Tuesday', 'meal_type' => 'lunch', 'recipe_id' => $snack->uuid, 'quantity' => 2, 'unit' => 'serving'],
             ],
         ])->assertOk()->assertJsonPath('data.name', 'Simple week revised');
         $this->assertSame(1, $template->days()->count());
@@ -493,6 +499,23 @@ class MealPlanControllerTest extends TestCase
             'name' => 'No items', 'lines' => [],
         ])->assertUnprocessable();
         $this->assertDatabaseCount('meal_plan_templates', 1);
+    }
+
+    public function test_new_library_templates_reject_direct_ingredients_and_non_serving_units(): void
+    {
+        $food = FoodItem::factory()->create();
+        $recipe = Recipe::factory()->create(['rnd_user_id' => $this->rnd->id]);
+        $recipe->ingredients()->create(['food_item_id' => $food->id, 'quantity' => 100, 'unit' => 'g']);
+        foreach ([
+            ['food_item_id' => $food->uuid, 'quantity' => 100, 'unit' => 'g'],
+            ['recipe_id' => $recipe->uuid, 'quantity' => 1, 'unit' => 'cup'],
+            ['recipe_id' => $recipe->uuid, 'quantity' => 1.001, 'unit' => 'serving'],
+        ] as $source) {
+            $this->actingAs($this->rnd)->postJson('/api/rnd/meal-plan-templates', [
+                'name' => 'Invalid new line', 'lines' => [['day_of_week' => 'Monday', 'meal_type' => 'breakfast'] + $source],
+            ])->assertUnprocessable();
+        }
+        $this->assertDatabaseCount('meal_plan_templates', 0);
     }
 
     public function test_rnd_can_create_plan_from_template(): void

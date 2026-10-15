@@ -202,6 +202,7 @@ class UsdaServiceTest extends TestCase
             self::DETAIL_URL => Http::response([
                 'fdcId' => 12345,
                 'description' => 'Sweet potatoes, raw',
+                'dataType' => 'Foundation',
                 'foodNutrients' => [
                     ['nutrient' => ['id' => 1008, 'unitName' => 'kcal'], 'amount' => 0],
                     ['nutrient' => ['id' => 2048, 'unitName' => 'kcal'], 'amount' => 90],
@@ -329,6 +330,79 @@ class UsdaServiceTest extends TestCase
     }
 
     // ── Import ────────────────────────────────────────────────────────────────
+
+    public function test_branded_volume_import_uses_100_ml_without_scaling_the_nutrients_again(): void
+    {
+        $data = array_replace($this->detailResponse, ['dataType' => 'Branded', 'servingSize' => 240, 'servingSizeUnit' => 'ml']);
+        Http::fake([self::DETAIL_URL => Http::response($data)]);
+
+        $food = $this->service->import(12345);
+
+        $this->assertEquals(100, $food->serving_size);
+        $this->assertSame('mL', $food->serving_unit);
+        $this->assertEquals(110, $food->calories);
+        $this->assertEquals(23.1, $food->protein);
+    }
+
+    public function test_branded_mass_import_retains_100_gram_basis(): void
+    {
+        $data = array_replace($this->detailResponse, ['dataType' => 'Branded', 'servingSize' => 30, 'servingSizeUnit' => 'g']);
+        Http::fake([self::DETAIL_URL => Http::response($data)]);
+
+        $food = $this->service->import(12345);
+
+        $this->assertEquals(100, $food->serving_size);
+        $this->assertSame('g', $food->serving_unit);
+        $this->assertEquals(110, $food->calories);
+    }
+
+    public function test_branded_import_rejects_unverified_basis_without_saving(): void
+    {
+        $data = array_replace($this->detailResponse, ['dataType' => 'Branded', 'servingSizeUnit' => 'piece']);
+        Http::fake([self::DETAIL_URL => Http::response($data)]);
+
+        try {
+            $this->service->import(12345);
+            $this->fail('Unverified branded nutrient basis was accepted.');
+        } catch (RuntimeException $exception) {
+            $this->assertStringContainsString('nutrient basis', $exception->getMessage());
+        }
+
+        $this->assertDatabaseMissing('food_items', ['usda_fdc_id' => 12345]);
+    }
+
+    public function test_rate_limit_failure_can_be_retried_without_a_partial_import(): void
+    {
+        Http::fake([self::DETAIL_URL => Http::sequence()->push([], 429)->push($this->detailResponse)]);
+
+        try {
+            $this->service->import(12345);
+            $this->fail('Rate-limited import was accepted.');
+        } catch (RuntimeException $exception) {
+            $this->assertStringContainsString('try again', $exception->getMessage());
+        }
+        $this->assertDatabaseMissing('food_items', ['usda_fdc_id' => 12345]);
+        Http::assertSentCount(1);
+
+        $food = $this->service->import(12345);
+
+        $this->assertEquals(12345, $food->usda_fdc_id);
+        Http::assertSentCount(2);
+    }
+
+    public function test_network_failure_is_retryable_without_exposing_request_details(): void
+    {
+        Http::fake([self::DETAIL_URL => Http::failedConnection()]);
+
+        try {
+            $this->service->import(12345);
+            $this->fail('Disconnected import was accepted.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('USDA is temporarily unavailable; please try again.', $exception->getMessage());
+        }
+
+        $this->assertDatabaseMissing('food_items', ['usda_fdc_id' => 12345]);
+    }
 
     public function test_import_creates_food_item_from_usda_data(): void
     {

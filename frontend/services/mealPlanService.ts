@@ -143,11 +143,9 @@ export async function addMealPlanItem(
   planId: string,
   dayId: string,
   payload: {
-    food_item_id?: string;
-    fdc_id?: string;
-    recipe_id?: string;
+    recipe_id: string;
     quantity: number;
-    unit: string;
+    unit: "serving";
   }
 ): Promise<MealPlanItem> {
   const res = await apiFetch(itemsBase(ncpId, planId, dayId), {

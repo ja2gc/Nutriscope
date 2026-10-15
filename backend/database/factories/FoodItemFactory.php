@@ -22,7 +22,7 @@ class FoodItemFactory extends Factory
             'micronutrients' => [],
             'allergens' => [],
             'unit_price' => fake()->randomFloat(2, 5, 200),
-            'serving_unit' => fake()->randomElement(['g', 'ml', 'piece']),
+            'serving_unit' => 'g',
             'serving_size' => 100,
         ];
     }

@@ -5,13 +5,8 @@ namespace App\Support;
 use InvalidArgumentException;
 
 /**
- * Deterministic unit conversion for recipe-ingredient → food-serving scaling.
- *
- * Mass↔mass and volume↔volume conversions are exact. Volume↔mass crossings use a
- * density (default 1.0 g/mL — accurate for water and aqueous foods; pass an
- * explicit density for non-aqueous items). Unknown units THROW rather than being
- * silently divided, so a recipe can never quietly produce wrong nutrient totals.
- * Hospital-grade rule: fail loud, never approximate an unrecognised unit.
+ * Shared physical-unit conversion. Clinical nutrient scaling uses only direct,
+ * compatible units through scalingFactor(), without an assumed density.
  */
 class UnitConverter
 {
@@ -32,7 +27,24 @@ class UnitConverter
 
     public static function normalize(string $unit): string
     {
-        return strtolower(trim($unit));
+        return match ($normalized = strtolower(trim($unit))) {
+            'gram', 'grams' => 'g',
+            'milliliter', 'millilitre', 'cc' => 'ml',
+            'liter', 'litre' => 'l',
+            'teaspoon' => 'tsp',
+            'tablespoon' => 'tbsp',
+            'pc', 'pcs', 'pieces' => 'piece',
+            default => $normalized,
+        };
+    }
+
+    public static function canonical(string $unit): string
+    {
+        return match ($normalized = self::normalize($unit)) {
+            'ml' => 'mL',
+            'l' => 'L',
+            default => $normalized,
+        };
     }
 
     public static function isMass(string $unit): bool
@@ -115,10 +127,14 @@ class UnitConverter
         string $ingredientUnit,
         float $servingSize,
         string $servingUnit,
-        float $density = 1.0
     ): float {
-        $size = $servingSize > 0 ? $servingSize : 100.0;
+        if (! is_finite($quantity) || $quantity <= 0 || ! is_finite($servingSize) || $servingSize <= 0) {
+            throw new InvalidArgumentException('Ingredient quantity and nutrient baseline must be positive finite amounts.');
+        }
+        if (! self::isCompatible($ingredientUnit, $servingUnit)) {
+            throw new InvalidArgumentException("Ingredient unit '{$ingredientUnit}' is incompatible with nutrient baseline '{$servingUnit}'.");
+        }
 
-        return self::convert($quantity, $ingredientUnit, $servingUnit, $density) / $size;
+        return self::convert($quantity, $ingredientUnit, $servingUnit) / $servingSize;
     }
 }
