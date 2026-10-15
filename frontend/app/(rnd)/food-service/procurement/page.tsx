@@ -585,8 +585,21 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
   const [imageError, setImageError] = useState<string | null>(null);
   const [actualError, setActualError] = useState<string | null>(null);
   const [actualDraft, setActualDraft] = useState<Record<number, { qty: string; price: string; total: string; totalEdited: boolean }>>({});
+  const [pendingLeave, setPendingLeave] = useState<(() => void) | null>(null);
+  const allowUnload = useRef(false);
   const group = po.vendor_groups?.find((g) => g.id === groupId) ?? null;
   const locked = po.lifecycle_status !== "open_execution";
+  const hasUnsavedChanges = Boolean(group && (
+    orDraft.trim() !== (group.or_number ?? "").trim()
+    || (!locked && (group.items ?? []).some((item) => {
+      const draft = actualDraft[item.id];
+      if (!draft) return false;
+      const priceChanged = !Number.isFinite(Number(draft.price)) || Number(draft.price) !== num(item.actual_unit_price);
+      return priceChanged || (draft.totalEdited
+        ? !Number.isFinite(Number(draft.total)) || Number(draft.total) !== num(item.actual_total)
+        : !Number.isFinite(Number(draft.qty)) || Number(draft.qty) !== num(item.actual_qty));
+    }))
+  ));
 
   useEffect(() => { setOrDraft(group?.or_number ?? ""); }, [group?.id, group?.or_number]);
   useEffect(() => {
@@ -598,17 +611,49 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
     }])));
   }, [group]);
 
-  async function saveGroup(next: Parameters<typeof updateVendorGroup>[1]) {
-    if (!group) return;
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (allowUnload.current) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    const guardLinks = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const anchor = target.closest<HTMLAnchorElement>("a[href]");
+      if (!anchor || anchor.target || anchor.hasAttribute("download")) return;
+      const destination = new URL(anchor.href, window.location.href);
+      if (destination.origin !== window.location.origin || destination.href === window.location.href) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setPendingLeave(() => () => { allowUnload.current = true; window.location.assign(destination.href); });
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    window.addEventListener("click", guardLinks, true);
+    return () => {
+      window.removeEventListener("beforeunload", beforeUnload);
+      window.removeEventListener("click", guardLinks, true);
+    };
+  }, [hasUnsavedChanges]);
+
+  function requestLeave(next: () => void) {
+    if (hasUnsavedChanges) setPendingLeave(() => next);
+    else next();
+  }
+
+  async function saveGroup(next: Parameters<typeof updateVendorGroup>[1]): Promise<boolean> {
+    if (!group) return false;
     setBusy(true);
     setActualError(null);
-    try { await updateVendorGroup(group.id, next); reload(); }
-    catch (error) { setActualError(error instanceof Error ? error.message : "Could not save actual values."); }
+    try { await updateVendorGroup(group.id, next); reload(); return true; }
+    catch (error) { setActualError(error instanceof Error ? error.message : "Could not save vendor details."); return false; }
     finally { setBusy(false); }
   }
 
-  async function saveActuals(markReceived = false) {
-    if (!group) return;
+  async function saveActuals(markReceived = false): Promise<boolean> {
+    if (!group) return false;
     const items = (group.items ?? []).map((item) => {
       const draft = actualDraft[item.id];
       return {
@@ -623,9 +668,9 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
       ("receipt_total" in item ? !Number.isFinite(item.receipt_total) || item.receipt_total < 0 :
         !Number.isFinite(item.actual_qty) || item.actual_qty < 0))) {
       setActualError("Enter a valid quantity, unit price, and total for each item.");
-      return;
+      return false;
     }
-    await saveGroup({ items, ...(markReceived ? { status: "received" as const } : {}) });
+    return saveGroup({ or_number: orDraft.trim() || null, items, ...(markReceived ? { status: "received" as const } : {}) });
   }
   async function uploadGroupFiles(type: "receipt" | "proof", files: File[]) {
     if (!group || files.length === 0) return;
@@ -659,18 +704,19 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
     return (
       <div className="space-y-5">
         <div className="flex items-center gap-2 text-sm font-semibold text-warm-400">
-          <button onClick={() => setGroupId(null)} className="hover:text-emerald-700">Procurement</button>
+          <button onClick={() => requestLeave(() => setGroupId(null))} className="hover:text-emerald-700">Procurement</button>
           <span>/</span><span>{po.display_name}</span><span>/</span>
           <span className="text-warm-700">{group.supplier?.name ?? "Unspecified"}</span>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={() => setGroupId(null)} className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 cursor-pointer">
+          <button onClick={() => requestLeave(() => setGroupId(null))} className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 cursor-pointer">
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <div>
+          <div className="min-w-0 flex-1">
             <h3 className="text-lg font-extrabold text-warm-900">{group.supplier?.name ?? "Unspecified"}</h3>
             <div className="text-xs text-warm-400">Status: {group.status === "received" ? "Received" : "Pending"} · Total {peso(num(group.total_amount))}</div>
           </div>
+          {!locked && <Button variant="primary" onClick={() => void saveActuals(false)} loading={busy} disabled={!hasUnsavedChanges}>Save</Button>}
         </div>
 
         <div className="rounded-2xl border border-warm-200 bg-white p-4 shadow-sm">
@@ -686,10 +732,9 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
         <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-end">
           <label className="block">
             <span className="block text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1">OR number (optional)</span>
-            <input value={orDraft} onChange={(e) => setOrDraft(e.target.value)} disabled={locked}
+            <input aria-label="OR number (optional)" value={orDraft} onChange={(e) => setOrDraft(e.target.value)} disabled={locked}
               className="w-full px-3 py-2 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:bg-warm-50 disabled:text-warm-400" />
           </label>
-          <Button variant="ghost" onClick={() => saveGroup({ or_number: orDraft || null })} loading={busy} disabled={locked} className="px-4 py-2">Save</Button>
         </div>
 
         <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
@@ -756,7 +801,6 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
         </div>
 
         {!locked && <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-warm-200 bg-white p-4">
-          <Button variant="secondary" onClick={() => saveActuals(false)} loading={busy}>Save actual values</Button>
           <Button variant="primary" onClick={() => saveActuals(true)} loading={busy}
             disabled={!group.evidence_requirements?.receipt_uploaded || !group.evidence_requirements?.proof_uploaded}>
             Mark vendor received
@@ -797,6 +841,18 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
             />
           </div>
         </div>
+        {pendingLeave && <div role="dialog" aria-modal="true" aria-label="Unsaved vendor changes" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md space-y-4 rounded-2xl bg-white p-5 shadow-xl">
+            <h3 className="text-lg font-bold text-warm-900">Unsaved vendor changes</h3>
+            <p className="text-sm text-warm-600">Save your changes before leaving?</p>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setPendingLeave(null)}>Stay</Button>
+              <Button variant="ghost" onClick={() => { const leave = pendingLeave; setPendingLeave(null); leave(); }}>Discard</Button>
+              <Button variant="primary" onClick={async () => { if (await saveActuals(false)) { const leave = pendingLeave; setPendingLeave(null); leave(); } }} loading={busy}>Save</Button>
+            </div>
+            {actualError && <p role="alert" className="text-sm text-red-600">{actualError}</p>}
+          </div>
+        </div>}
       </div>
     );
   }

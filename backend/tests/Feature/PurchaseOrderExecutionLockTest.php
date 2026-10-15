@@ -398,6 +398,36 @@ class PurchaseOrderExecutionLockTest extends TestCase
             ->assertJsonMissingPath('data.vendor_groups.0.evidence_requirements.actual_values_reviewed');
     }
 
+    public function test_rnd_saves_or_number_and_actual_values_in_one_vendor_update(): void
+    {
+        [, $group] = $this->convertedPo();
+        $line = $group->items()->firstOrFail();
+
+        $this->actingAs($this->rnd)
+            ->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
+                'or_number' => 'OR-DEMO-42',
+                'items' => [[
+                    'id' => $line->id,
+                    'actual_qty' => 4.25,
+                    'actual_unit_price' => 21.50,
+                ]],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.vendor_groups.0.or_number', 'OR-DEMO-42')
+            ->assertJsonPath('data.vendor_groups.0.items.0.actual_qty', '4.250')
+            ->assertJsonPath('data.vendor_groups.0.items.0.actual_unit_price', '21.50');
+
+        $this->assertDatabaseHas('purchase_order_vendor_groups', [
+            'id' => $group->id,
+            'or_number' => 'OR-DEMO-42',
+        ]);
+        $this->assertDatabaseHas('purchase_order_items', [
+            'id' => $line->id,
+            'actual_qty' => 4.25,
+            'actual_unit_price' => 21.50,
+        ]);
+    }
+
     public function test_actual_quantity_can_be_calculated_from_receipt_total(): void
     {
         [, $group] = $this->convertedPo();

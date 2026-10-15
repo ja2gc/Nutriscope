@@ -466,7 +466,7 @@ describe("Food Service procurement display", () => {
     expect(container.querySelector('button[aria-label="Delete PO — October menu"]')).toBeNull();
   });
 
-  test("formats actual PO inputs but keeps unchanged quantity and cost precision on save", async () => {
+  test("saves changed OR and actual PO values through one Save action", async () => {
     await renderPage();
     await openPurchaseOrder();
     const openGroup = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
@@ -477,12 +477,69 @@ describe("Food Service procurement display", () => {
     const inputs = row?.querySelectorAll<HTMLInputElement>('input[type="number"]');
     expect(inputs?.[0]?.value).toBe("12.3456");
     expect(inputs?.[1]?.value).toBe("52.3456");
+    const orInput = Array.from(container.querySelectorAll<HTMLLabelElement>("label"))
+      .find((label) => label.textContent?.includes("OR number (optional)"))?.querySelector("input") ?? null;
+    await act(async () => {
+      if (orInput) setInputValue(orInput, "OR-9001");
+      if (inputs?.[0]) setInputValue(inputs[0], "13.5");
+    });
     const save = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
-      .find((candidate) => candidate.textContent?.trim() === "Save actual values");
+      .find((candidate) => candidate.textContent?.trim() === "Save");
     await act(async () => { save?.click(); await Promise.resolve(); await Promise.resolve(); });
     expect(mockUpdateVendorGroup).toHaveBeenCalledWith("vendor-group-1", {
-      items: [{ id: 1, actual_qty: 12.3456, actual_unit_price: 52.3456 }],
+      or_number: "OR-9001",
+      items: [{ id: 1, actual_qty: 13.5, actual_unit_price: 52.3456 }],
     });
+  });
+
+  test("asks before leaving dirty vendor details and skips prompt when unchanged", async () => {
+    await renderPage();
+    await openPurchaseOrder();
+    const openGroup = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
+      .find((candidate) => candidate.textContent?.trim() === "Open");
+    await act(async () => { openGroup?.click(); });
+
+    const orInput = Array.from(container.querySelectorAll<HTMLLabelElement>("label"))
+      .find((label) => label.textContent?.includes("OR number (optional)"))?.querySelector("input") ?? null;
+    await act(async () => { if (orInput) setInputValue(orInput, "OR-9002"); });
+    const back = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
+      .find((candidate) => candidate.textContent?.trim() === "Procurement");
+    await act(async () => { back?.click(); });
+    const dialog = container.querySelector('[role="dialog"][aria-label="Unsaved vendor changes"]');
+    expect(dialog?.textContent).toContain("Save your changes before leaving?");
+    expect(dialog?.textContent).toContain("Discard");
+    expect(dialog?.textContent).toContain("Save");
+  });
+
+  test("leaves unchanged vendor details without a prompt", async () => {
+    await renderPage();
+    await openPurchaseOrder();
+    const openGroup = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
+      .find((candidate) => candidate.textContent?.trim() === "Open");
+    await act(async () => { openGroup?.click(); });
+    const back = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
+      .find((candidate) => candidate.textContent?.trim() === "Procurement");
+    await act(async () => { back?.click(); });
+    expect(container.querySelector('[role="dialog"][aria-label="Unsaved vendor changes"]')).toBeNull();
+  });
+
+  test("prompts before same-app page navigation when vendor details changed", async () => {
+    await renderPage();
+    await openPurchaseOrder();
+    const openGroup = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
+      .find((candidate) => candidate.textContent?.trim() === "Open");
+    await act(async () => { openGroup?.click(); });
+    const orInput = container.querySelector<HTMLInputElement>('input[aria-label="OR number (optional)"]');
+    await act(async () => { if (orInput) setInputValue(orInput, "OR-9003"); });
+
+    const link = document.createElement("a");
+    link.href = "/dashboard";
+    link.textContent = "Dashboard";
+    container.append(link);
+    const click = new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 });
+    await act(async () => { link.dispatchEvent(click); });
+    expect(click.defaultPrevented).toBe(true);
+    expect(container.querySelector('[role="dialog"][aria-label="Unsaved vendor changes"]')).not.toBeNull();
   });
 
   test("editing one item Actual Total derives quantity through the PO update", async () => {
@@ -494,9 +551,10 @@ describe("Food Service procurement display", () => {
     const total = container.querySelector<HTMLInputElement>('input[aria-label="Actual Total for Rice"]');
     await act(async () => { if (total) setInputValue(total, "550"); });
     const save = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
-      .find((candidate) => candidate.textContent?.trim() === "Save actual values");
+      .find((candidate) => candidate.textContent?.trim() === "Save");
     await act(async () => { save?.click(); await Promise.resolve(); });
     expect(mockUpdateVendorGroup).toHaveBeenCalledWith("vendor-group-1", {
+      or_number: null,
       items: [{ id: 1, receipt_total: 550, actual_unit_price: 52.3456 }],
     });
   });

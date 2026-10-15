@@ -135,6 +135,8 @@ describe("report archive action", () => {
     await act(async () => { await Promise.resolve(); });
 
     expect(listReports).toHaveBeenCalledWith("rnd", 1, expect.objectContaining({ status: "archived", type: "procurement_pack" }));
+    const actionsHeader = Array.from(container.querySelectorAll("th")).find((header) => header.textContent === "Actions");
+    expect(actionsHeader?.className).toContain("text-right");
     const month = container.querySelector<HTMLSelectElement>('select[aria-label="Report month"]');
     expect(container.querySelector<HTMLSelectElement>('select[aria-label="Report year"]')).not.toBeNull();
     expect(container.querySelectorAll('input[type="month"]')).toHaveLength(0);

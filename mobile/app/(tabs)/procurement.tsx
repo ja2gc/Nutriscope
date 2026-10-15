@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { usePreventRemove } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useNavigation } from 'expo-router';
 import {
   AlertCircle,
   Camera,
@@ -573,6 +574,7 @@ interface VendorDetailProps {
 }
 
 function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySuppliers, onBack, onUpload, onVendorChanged }: VendorDetailProps) {
+  const navigation = useNavigation();
   const qc = useQueryClient();
   const locked = isLocked(po);
   const actualsLocked = locked || group.status === 'received' || Boolean(group.received_at);
@@ -584,6 +586,12 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
   const [vendorScope, setVendorScope] = useState<'all' | number | null>(null);
   const [vendorPage, setVendorPage] = useState(1);
   const vendorPager = paginateItems(suppliers.filter((supplier) => supplier.id !== group.supplier?.id), vendorPage);
+  const hasUnsavedChanges = orNumber.trim() !== (group.or_number ?? '').trim() || (!actualsLocked && (group.items ?? []).some((item) => {
+    const draft = actuals[item.id] ?? initialActual(item);
+    if (draft.priceEdited && (!Number.isFinite(Number(draft.price)) || Number(draft.price) !== Number(item.actual_unit_price))) return true;
+    if (draft.totalEdited) return !Number.isFinite(Number(draft.total)) || Number(draft.total) !== Number(item.actual_total);
+    return draft.qtyEdited && (!Number.isFinite(Number(draft.qty)) || Number(draft.qty) !== Number(item.actual_qty));
+  }));
 
   useEffect(() => {
     setOrNumber(group.or_number ?? '');
@@ -621,7 +629,7 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
     },
   });
 
-  const saveActuals = () => {
+  const saveActuals = async (): Promise<boolean> => {
     const invalid = !actualsLocked && (group.items ?? []).find((item) => {
       const draft = actuals[item.id] ?? initialActual(item);
       const qty = draft.qtyEdited ? Number(draft.qty) : Number(item.actual_qty);
@@ -633,11 +641,43 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
     });
     if (invalid) {
       setError(`Enter a quantity greater than 0, a non-negative unit price, or a valid total with a positive unit price for ${invalid.description}.`);
-      return;
+      return false;
     }
     setError(null);
-    updateMutation.mutate();
+    try {
+      await updateMutation.mutateAsync();
+      return true;
+    } catch {
+      return false;
+    }
   };
+
+  const requestLeave = (continueLeaving: () => void) => {
+    if (!hasUnsavedChanges) { continueLeaving(); return; }
+    Alert.alert('Unsaved vendor changes', 'Save your changes before leaving?', [
+      { text: 'Stay', style: 'cancel' },
+      { text: 'Discard', style: 'destructive', onPress: continueLeaving },
+      { text: 'Save', onPress: async () => { if (await saveActuals()) continueLeaving(); } },
+    ]);
+  };
+
+  usePreventRemove(hasUnsavedChanges, ({ data }) => requestLeave(() => navigation.dispatch(data.action)));
+
+  useEffect(() => {
+    type TabNavigation = {
+      addListener: (type: 'tabPress', listener: (event: { target?: string; preventDefault: () => void }) => void) => () => void;
+      getState: () => { routes: Array<{ key: string; name: string }> };
+      navigate: (name: string) => void;
+    };
+    const tabs = navigation.getParent() as TabNavigation | undefined;
+    if (!tabs) return;
+    return tabs.addListener('tabPress', (event) => {
+      if (!hasUnsavedChanges) return;
+      const target = tabs.getState().routes.find((route) => route.key === event.target);
+      event.preventDefault();
+      requestLeave(() => { if (target) tabs.navigate(target.name); });
+    });
+  }, [navigation, hasUnsavedChanges]);
 
   const vendorMutation = useMutation({
     mutationFn: async ({ supplierId, itemId }: { supplierId: string; itemId?: number }) => {
@@ -689,7 +729,19 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
   return (
     <ScrollView className="flex-1 bg-gray-50" contentContainerStyle={{ paddingBottom: 24 }}>
       <View className="px-4 pt-4">
-        <HeaderBack label={po.display_name} onPress={onBack} />
+        <View className="mb-4 flex-row items-center justify-between gap-2">
+          <View className="min-w-0 flex-1"><HeaderBack label={po.display_name} onPress={() => requestLeave(onBack)} /></View>
+          {!locked && <TouchableOpacity
+            className="min-h-11 flex-row items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4"
+            onPress={() => { void saveActuals(); }}
+            disabled={!hasUnsavedChanges || updateMutation.isPending}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !hasUnsavedChanges || updateMutation.isPending }}
+          >
+            {updateMutation.isPending ? <ActivityIndicator size="small" color="#fff" /> : <Save color="#fff" size={16} />}
+            <Text className="text-sm font-semibold text-white">Save</Text>
+          </TouchableOpacity>}
+        </View>
 
         <View className="bg-white rounded-xl border border-gray-100 px-4 py-4 mb-4">
           <Text className="text-lg font-bold text-gray-900" numberOfLines={2}>
@@ -724,6 +776,7 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
             OR number (optional)
           </Text>
           <TextInput
+            accessibilityLabel="OR number (optional)"
             value={orNumber}
             onChangeText={setOrNumber}
             editable={!locked}
@@ -737,18 +790,6 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
             </View>
           )}
 
-          {!locked && (
-            <View className="mt-3">
-              <TouchableOpacity
-                className="flex-row items-center justify-center gap-2 border border-gray-200 py-3 rounded-xl"
-                onPress={saveActuals}
-                disabled={updateMutation.isPending}
-              >
-                {updateMutation.isPending ? <ActivityIndicator size="small" color="#059669" /> : <Save color="#059669" size={16} />}
-                <Text className="text-sm font-semibold text-emerald-700">{actualsLocked ? 'Save optional OR' : 'Save actuals and optional OR'}</Text>
-              </TouchableOpacity>
-            </View>
-          )}
         </View>
 
         <View className="bg-white rounded-xl border border-gray-100 overflow-hidden mb-4">

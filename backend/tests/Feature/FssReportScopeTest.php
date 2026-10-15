@@ -63,22 +63,37 @@ class FssReportScopeTest extends TestCase
             ->assertStatus(409);
     }
 
-    public function test_fss_report_list_includes_completed_and_archived_reports_only(): void
+    public function test_fss_saved_reports_include_approved_completed_and_archived_reports_only(): void
     {
         $completed = Report::factory()->create([
             'user_id' => $this->fss->id,
             'type' => 'accomplishment_report',
             'status' => 'completed',
+            'review_state' => 'approved',
         ]);
         $archived = Report::factory()->create([
             'user_id' => $this->fss->id,
             'type' => 'accomplishment_report',
             'status' => 'archived',
+            'review_state' => 'approved',
         ]);
         Report::factory()->create([
             'user_id' => $this->fss->id,
             'type' => 'accomplishment_report',
             'status' => 'failed',
+            'review_state' => 'approved',
+        ]);
+        Report::factory()->create([
+            'user_id' => $this->fss->id,
+            'type' => 'accomplishment_report',
+            'status' => 'completed',
+            'review_state' => 'draft',
+        ]);
+        Report::factory()->create([
+            'user_id' => $this->fss->id,
+            'type' => 'accomplishment_report',
+            'status' => 'completed',
+            'review_state' => null,
         ]);
         Report::factory()->create([
             'user_id' => $this->rnd->id,

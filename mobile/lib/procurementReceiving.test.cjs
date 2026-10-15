@@ -35,7 +35,12 @@ test('mobile receiving keeps vendor scope and shows compact actual PO item field
   assert.doesNotMatch(source, /Calculated:/);
   assert.doesNotMatch(source, /Mark vendor received/);
   assert.doesNotMatch(source, /status: 'received'/);
-  assert.match(source, /Save actuals and optional OR/);
+  assert.match(source, /<Text className="text-sm font-semibold text-white">Save<\/Text>/);
+  assert.doesNotMatch(source, /Save actuals and optional OR|Save optional OR/);
+  assert.match(source, /Unsaved vendor changes/);
+  assert.match(source, /Save your changes before leaving/);
+  assert.match(source, /usePreventRemove/);
+  assert.match(source, /Save/);
   assert.match(source, /\(group\.items \?\? \[\]\)\.map\(\(item, idx\)/);
   assert.doesNotMatch(source, /itemPager|setItemPage/);
 });

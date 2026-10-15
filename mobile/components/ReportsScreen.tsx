@@ -226,9 +226,6 @@ export default function ReportsScreen({ embedded = false, onEditDay }: { embedde
               <Text className="text-sm font-bold text-gray-900" numberOfLines={1}>{item.title}</Text>
               {period ? <Text className="text-[11px] text-gray-400 mt-0.5">{period}</Text> : null}
             </View>
-            <View className="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 mr-2">
-              <Text className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-700">{item.review_state === 'approved' ? 'Approved' : 'Earlier report'}</Text>
-            </View>
             <ChevronRight color="#9ca3af" size={18} />
           </TouchableOpacity>
         );
@@ -239,7 +236,7 @@ export default function ReportsScreen({ embedded = false, onEditDay }: { embedde
           <FileText color="#d1d5db" size={40} />
           <Text className="mt-4 text-gray-400 text-sm text-center">{debouncedSearch ? 'No matching reports.' : 'No saved PDFs yet.'}</Text>
           <Text className="mt-1 text-gray-400 text-xs text-center px-8">
-            Submitted and earlier reports appear here.
+            Approved reports appear here.
           </Text>
         </View>
       : null}

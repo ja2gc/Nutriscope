@@ -68,6 +68,7 @@ test('complete accomplishment periods can be submitted before the period end', (
   assert.match(reports, /Save a log for every day before submitting\./);
   assert.doesNotMatch(reports, /period\.end >= todayManilaKey\(\)/);
   assert.doesNotMatch(reports, /You can submit after this period ends\./);
+  assert.doesNotMatch(reports, /Earlier report|Submitted and earlier reports appear here\./);
 });
 
 test('PO detail exposes lifecycle, vendor evidence, and receipt total editing', () => {

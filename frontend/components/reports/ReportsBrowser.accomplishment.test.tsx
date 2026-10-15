@@ -22,7 +22,10 @@ test("RND selects an FSS name before viewing that user's approved and pending pe
     data: [{ id: "staff-uuid", display_name: "Ada Santos" }],
     meta: { current_page: 1, last_page: 1, per_page: 10, total: 1 },
   });
-  vi.mocked(listReports).mockResolvedValue({ data: [{ id: "legacy-1", title: "June report", review_state: null, created_by: { id: "staff-uuid", name: "Ada Santos" }, report_covered_from: "2026-06-01", report_covered_until: "2026-06-15" } as never], meta: { current_page: 1, last_page: 1, per_page: 10, total: 1 } });
+  vi.mocked(listReports).mockResolvedValue({ data: [
+    { id: "legacy-1", title: "June report", review_state: null, created_by: { id: "staff-uuid", name: "Ada Santos" }, report_covered_from: "2026-06-01", report_covered_until: "2026-06-15" },
+    { id: "approved-1", title: "July report", review_state: "approved", created_by: { id: "staff-uuid", name: "Ada Santos" }, report_covered_from: "2026-07-01", report_covered_until: "2026-07-15" },
+  ] as never, meta: { current_page: 1, last_page: 1, per_page: 10, total: 2 } });
   vi.mocked(listAccomplishmentsToReview).mockResolvedValue([{ report_id: "pending-1", start: "2026-06-01", end: "2026-06-15", status: "pending", submission_version: 1, submitted_at: "2026-06-16T08:00:00Z", fss_user: { id: "staff-uuid", display_name: "Ada Santos" } }]);
   const container = document.createElement("div");
   document.body.append(container);
@@ -42,7 +45,9 @@ test("RND selects an FSS name before viewing that user's approved and pending pe
   expect(listReports).toHaveBeenCalledWith("rnd", 1, { type: "accomplishment_report", fss_user_id: "staff-uuid" });
   expect(container.querySelector("h2")?.textContent).toBe("Ada Santos");
   expect(container.textContent?.match(/Ada Santos/g)).toHaveLength(1);
-  expect(container.textContent).toContain("Earlier generated");
+  const approvedCards = Array.from(container.querySelectorAll<HTMLButtonElement>('button[aria-label^="Open report"]'));
+  expect(approvedCards).toHaveLength(2);
+  expect(approvedCards.map((card) => card.textContent).join(" ")).not.toMatch(/Earlier generated| · Approved/);
   expect(container.textContent).not.toContain("View report");
   const reportCard = container.querySelector<HTMLButtonElement>('button[aria-label^="Open report"]');
   expect(reportCard).not.toBeNull();

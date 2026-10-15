@@ -327,11 +327,11 @@ function AccomplishmentReportsPanel({ apiPrefix, onFlash }: { apiPrefix: ApiPref
           <span className="min-w-0"><span className="block break-words font-semibold text-warm-800">{item.fss_user.display_name}</span><span className="block text-sm text-warm-600">{item.start} to {item.end}</span><span className="block text-xs text-warm-500">Submitted {reportDate(item.submitted_at)}</span></span>
         </button>
       </li>)}</ul>
-    ) : reports.length === 0 ? <div className="p-6"><EmptyState title="No reports yet" message="Approved reports and earlier generated reports appear here." /></div> :
+    ) : reports.length === 0 ? <div className="p-6"><EmptyState title="No reports yet" message="Approved reports appear here." /></div> :
       <><ul className="divide-y divide-warm-100">{reports.map((report) => <li key={report.id} className="hover:bg-warm-50/60">
         <button type="button" onClick={() => setPreview(report)} aria-label={`Open report: ${report.title}`} className="flex min-h-14 w-full items-center gap-3 px-4 py-4 text-left focus-visible:bg-emerald-50/40 focus-visible:outline-2 focus-visible:outline-emerald-600 sm:px-5">
           <Eye className="h-4 w-4 shrink-0 text-warm-300" />
-          <span className="min-w-0"><span className="block break-words font-semibold text-warm-800">{selectedStaff && report.report_covered_from && report.report_covered_until ? `${reportCalendarDate(report.report_covered_from)} – ${reportCalendarDate(report.report_covered_until)}` : personDisplayName(report.created_by, "Food Service Staff")}</span><span className="block text-sm text-warm-600">{selectedStaff ? `${report.title} · ${report.review_state === "approved" ? "Approved" : "Earlier generated"}` : report.report_covered_until ? `Through ${reportCalendarDate(report.report_covered_until)}` : report.title}</span></span>
+          <span className="min-w-0"><span className="block break-words font-semibold text-warm-800">{selectedStaff && report.report_covered_from && report.report_covered_until ? `${reportCalendarDate(report.report_covered_from)} – ${reportCalendarDate(report.report_covered_until)}` : personDisplayName(report.created_by, "Food Service Staff")}</span><span className="block text-sm text-warm-600">{selectedStaff ? report.title : report.report_covered_until ? `Through ${reportCalendarDate(report.report_covered_until)}` : report.title}</span></span>
         </button>
       </li>)}</ul><div className="px-4 py-3"><Pagination meta={meta} page={page} onPageChange={setPage} /></div></>
     }
@@ -633,7 +633,7 @@ function ArchivedTab({
         <table className="w-full min-w-[640px] whitespace-nowrap text-sm">
           <thead className="bg-warm-50 border-b border-warm-100">
             <tr>{["Report", "Created by", "Covers through", "Actions"].map((h) => (
-              <th key={h} className="px-2 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider sm:px-3">{h}</th>
+              <th key={h} className={`px-2 py-3 ${h === "Actions" ? "text-right" : "text-left"} text-xs font-bold text-warm-500 uppercase tracking-wider sm:px-3`}>{h}</th>
             ))}</tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">

@@ -19,6 +19,7 @@ use App\Models\Supplier;
 use App\Models\User;
 use App\Services\Reports\ReportService;
 use App\Services\Reports\StoreMonthlyDemographicCensuses;
+use App\Services\StoredObjectStorage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
@@ -466,6 +467,35 @@ class ReportsBrowseTest extends TestCase
         $this->postJson("/api/rnd/reports/{$report->uuid}/archive")
             ->assertOk()->assertJsonPath('data.status', 'archived');
         $this->assertSame($officialId, $report->fresh()->official_file_stored_object_id);
+    }
+
+    public function test_finalized_purchase_order_reports_can_be_archived_from_their_official_file(): void
+    {
+        Storage::fake('private_uploads');
+        $po = $this->receivedPo('2026-05-10');
+        $this->actingAs($this->rnd);
+        $bytes = "%PDF-1.4\\nfinalized PO report\\n%%EOF";
+
+        foreach (['procurement_pack', 'program_project_activity'] as $type) {
+            $official = app(StoredObjectStorage::class)->storeBytes($bytes, 'application/pdf', 'pdf', 'report', $type.'.pdf');
+            $report = Report::factory()->create([
+                'user_id' => $this->rnd->id,
+                'type' => $type,
+                'status' => 'completed',
+                'parameters' => ['purchase_order_id' => $po->id],
+                'official_file_stored_object_id' => $official->id,
+                'content_hash' => $official->sha256,
+                'cache_path' => null,
+                'cache_expires_at' => null,
+            ]);
+
+            $this->postJson("/api/rnd/reports/{$report->uuid}/archive")
+                ->assertOk()
+                ->assertJsonPath('data.status', 'archived');
+
+            $this->assertSame($official->id, $report->fresh()->official_file_stored_object_id);
+            $this->assertSame($bytes, Storage::disk('private_uploads')->get($official->object_key));
+        }
     }
 
     public function test_clinical_report_cannot_be_archived_or_deleted(): void
