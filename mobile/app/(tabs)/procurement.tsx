@@ -39,6 +39,7 @@ import { MobilePagination } from '../../components/MobilePagination';
 import { MOBILE_PAGE_SIZE, PaginatedResponse, flattenUniquePages, getNextPageParam, paginateItems } from '../../lib/pagination';
 import { useMobileServerPage } from '../../lib/useMobileServerPage';
 import { validateUploadFiles } from '../../lib/uploadValidation';
+import { registerVendorReceivingTabGuard } from '../../lib/vendorReceivingNavigation';
 
 type AttachmentType = 'receipt' | 'proof';
 
@@ -573,15 +574,8 @@ interface VendorDetailProps {
   onVendorChanged: () => void;
 }
 
-type TabNavigation = {
-  addListener: (type: 'tabPress', listener: (event: { target?: string; preventDefault: () => void }) => void) => () => void;
-  getState: () => { routes: Array<{ key: string; name: string }> };
-  navigate: (name: string) => void;
-};
-
 function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySuppliers, onBack, onUpload, onVendorChanged }: VendorDetailProps) {
   const navigation = useNavigation();
-  const tabsNavigation = navigation as unknown as TabNavigation;
   const qc = useQueryClient();
   const locked = isLocked(po);
   const actualsLocked = locked || group.status === 'received' || Boolean(group.received_at);
@@ -670,15 +664,20 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
 
   usePreventRemove(hasUnsavedChanges, ({ data }) => requestLeave(() => navigation.dispatch(data.action)));
 
+  const hasUnsavedChangesRef = useRef(hasUnsavedChanges);
+  const requestLeaveRef = useRef(requestLeave);
+  hasUnsavedChangesRef.current = hasUnsavedChanges;
+  requestLeaveRef.current = requestLeave;
+
   useEffect(() => {
-    const tabs = tabsNavigation;
-    return tabs.addListener('tabPress', (event) => {
-      if (!hasUnsavedChanges) return;
+    return registerVendorReceivingTabGuard((event, tabs) => {
+      if (!hasUnsavedChangesRef.current) return;
       const target = tabs.getState().routes.find((route) => route.key === event.target);
+      if (!target) return;
       event.preventDefault();
-      requestLeave(() => { if (target) tabs.navigate(target.name); });
+      requestLeaveRef.current(() => tabs.navigate(target.name));
     });
-  }, [tabsNavigation, hasUnsavedChanges]);
+  }, []);
 
   const vendorMutation = useMutation({
     mutationFn: async ({ supplierId, itemId }: { supplierId: string; itemId?: number }) => {

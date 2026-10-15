@@ -45,13 +45,14 @@ test('mobile screens retain actionable safety and state guidance', () => {
   );
 });
 
-test('Android release metadata matches the current signed build', () => {
+test('Android release metadata records the latest signed APK and pending build increments it', () => {
   const appConfig = JSON.parse(read('app.json'));
   const release = JSON.parse(read('release.json'));
-  assert.equal(appConfig.expo.version, '1.2.19');
-  assert.equal(appConfig.expo.android.versionCode, 23);
-  assert.equal(release.version, appConfig.expo.version);
-  assert.equal(release.version_code, appConfig.expo.android.versionCode);
-  assert.equal(release.artifact_url, 'https://expo.dev/artifacts/eas/yF3yIbcWbD1GVAshPxq5eKjrUvzaoCPqoK6aq6EAmxs.apk');
-  assert.equal(release.sha256, '60c4741511cfd8d1287505f83f71a8ba0c148053131d4d06eace931485f33d6c');
+  assert.equal(release.version, '1.2.22');
+  assert.equal(release.version_code, 26);
+  assert.equal(appConfig.expo.version, '1.2.23');
+  assert.equal(appConfig.expo.android.versionCode, 27);
+  assert.ok(appConfig.expo.android.versionCode > release.version_code);
+  assert.equal(release.artifact_url, 'https://expo.dev/artifacts/eas/K8KQH9mHxnueON1JsRr87YILiop09y-RJ_lGnALNWkg.apk');
+  assert.equal(release.sha256, 'bed81624e79d6099d9c5b12d6ce0d746ff124576d53f820ba88f0359aa3f5670');
 });

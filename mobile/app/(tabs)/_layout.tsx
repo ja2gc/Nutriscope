@@ -2,6 +2,7 @@ import { Tabs } from 'expo-router';
 import { CalendarDays, ChefHat, ClipboardCheck, LayoutDashboard, Newspaper, ShoppingCart } from 'lucide-react-native';
 import AppHeader from '../../components/AppHeader';
 import { MOBILE_THEME } from '../../lib/theme';
+import { handleVendorReceivingTabPress } from '../../lib/vendorReceivingNavigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabsLayout() {
@@ -10,6 +11,9 @@ export default function TabsLayout() {
   return (
     <Tabs
       backBehavior="history"
+      screenListeners={({ navigation }) => ({
+        tabPress: (event) => handleVendorReceivingTabPress(event, navigation),
+      })}
       screenOptions={{
         headerShown: true,
         tabBarActiveTintColor: MOBILE_THEME.colors.brand,

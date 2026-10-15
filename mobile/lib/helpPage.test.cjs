@@ -53,11 +53,11 @@ test('mobile Help uses reusable accessible search and disclosures', () => {
   assert.match(questions, /min-h-12/);
 });
 
-test('APK build identity is incremented', () => {
+test('APK build identity increments the current signed release', () => {
   const appConfig = JSON.parse(read('app.json'));
 
-  assert.equal(appConfig.expo.version, '1.2.19');
-  assert.equal(appConfig.expo.android.versionCode, 23);
+  assert.equal(appConfig.expo.version, '1.2.23');
+  assert.equal(appConfig.expo.android.versionCode, 27);
   assert.deepEqual(appConfig.expo.platforms, ['android', 'ios']);
   assert.deepEqual(appConfig.expo.android.blockedPermissions, ['android.permission.RECORD_AUDIO']);
 });

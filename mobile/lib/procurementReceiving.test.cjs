@@ -40,7 +40,11 @@ test('mobile receiving keeps vendor scope and shows compact actual PO item field
   assert.match(source, /Unsaved vendor changes/);
   assert.match(source, /Save your changes before leaving/);
   assert.match(source, /usePreventRemove/);
-  assert.match(source, /const tabsNavigation = navigation as unknown as TabNavigation/);
+  const tabsLayout = fs.readFileSync(path.join(__dirname, '../app/(tabs)/_layout.tsx'), 'utf8');
+  assert.match(tabsLayout, /screenListeners=/);
+  assert.match(tabsLayout, /handleVendorReceivingTabPress/);
+  assert.match(source, /registerVendorReceivingTabGuard/);
+  assert.doesNotMatch(source, /tabsNavigation\.addListener\('tabPress'/);
   assert.match(source, /Save/);
   assert.match(source, /\(group\.items \?\? \[\]\)\.map\(\(item, idx\)/);
   assert.doesNotMatch(source, /itemPager|setItemPage/);
