@@ -148,7 +148,6 @@ export default function AccomplishmentsScreen() {
         </View>
         {selectedDate !== today && <TouchableOpacity onPress={goToday} className="mt-2 min-h-12 flex-row items-center justify-center gap-1.5 rounded-xl bg-[#E7F7F0] px-3" accessibilityRole="button" accessibilityLabel="Return to today's daily log"><RotateCcw color="#087F5B" size={17} /><Text className="text-sm font-bold text-[#087F5B]">Today</Text></TouchableOpacity>}
         <Text className="mt-2 text-xs font-semibold text-[#6B7F77]">{rowsQuery.isLoading ? 'Checking log…' : rowsQuery.isError ? 'Log status unavailable' : savedRow ? savedRow.off_duty ? 'Off duty' : 'Saved' : 'Not logged'}</Text>
-        {selectedDate !== today && <Text className="mt-2 text-xs text-amber-700">Backfilling a missed daily log.</Text>}
         {showPicker && <DateTimePicker value={dateFromKey(selectedDate)} mode="date" maximumDate={dateFromKey(today)} onChange={selectDate} />}
       </View>
 
