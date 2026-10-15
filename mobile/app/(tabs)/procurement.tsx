@@ -581,7 +581,7 @@ type TabNavigation = {
 
 function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySuppliers, onBack, onUpload, onVendorChanged }: VendorDetailProps) {
   const navigation = useNavigation();
-  const tabsNavigation = useNavigation('/(tabs)') as unknown as TabNavigation;
+  const tabsNavigation = navigation as unknown as TabNavigation;
   const qc = useQueryClient();
   const locked = isLocked(po);
   const actualsLocked = locked || group.status === 'received' || Boolean(group.received_at);

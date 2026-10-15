@@ -22,8 +22,8 @@ use App\Services\Reports\StoreMonthlyDemographicCensuses;
 use App\Services\StoredObjectStorage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
@@ -483,7 +483,7 @@ class ReportsBrowseTest extends TestCase
         Storage::fake('private_uploads');
         $po = $this->receivedPo('2026-05-10');
         $this->actingAs($this->rnd);
-        $bytes = "%PDF-1.4\\nfinalized PO report\\n%%EOF";
+        $bytes = '%PDF-1.4\\nfinalized PO report\\n%%EOF';
 
         foreach (['procurement_pack', 'program_project_activity'] as $type) {
             $official = app(StoredObjectStorage::class)->storeBytes($bytes, 'application/pdf', 'pdf', 'report', $type.'.pdf');
