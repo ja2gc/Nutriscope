@@ -16,8 +16,8 @@ test('mobile lists use five items and keep a zero-state page', async () => {
   assert.match(footer, /Next/);
 });
 
-test('FSS item detail lists show the pager', () => {
-  for (const path of ['app/food-details.tsx', 'app/help.tsx', 'components/help/HelpQuestionList.tsx', 'app/(tabs)/prep.tsx', 'app/(tabs)/menu.tsx', 'app/(tabs)/procurement.tsx']) {
+test('FSS paginated lists show the pager', () => {
+  for (const path of ['app/help.tsx', 'components/help/HelpQuestionList.tsx', 'app/(tabs)/prep.tsx', 'app/(tabs)/menu.tsx', 'app/(tabs)/procurement.tsx']) {
     assert.match(readFileSync(join(__dirname, '..', path), 'utf8'), /<MobilePagination/, path);
   }
 });

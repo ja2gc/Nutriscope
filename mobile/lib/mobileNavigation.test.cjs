@@ -38,7 +38,9 @@ test('food profile groups measured adjustable ingredients separately', () => {
   assert.match(profile, /adjustableIngredients/);
   assert.match(profile, /Adjust to taste/);
   assert.match(profile, /item\.scaled_quantity \?\? item\.quantity/);
-  assert.match(profile, /ingredientPager\.items/);
+  assert.match(profile, /regularIngredients\.map\(renderIngredient\)/);
+  assert.match(profile, /adjustableIngredients\.map\(renderIngredient\)/);
+  assert.doesNotMatch(profile, /MobilePagination|paginateItems|ingredientPager/);
 });
 
 test('daily log supports past dates and a clear return to today', () => {

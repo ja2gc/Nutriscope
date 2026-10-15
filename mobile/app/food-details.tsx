@@ -1,16 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
 import { ChefHat, Users } from 'lucide-react-native';
-import { useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getMenuLineProfile, getMenuSlotProfile, MenuSlotProfile } from '../lib/foodService';
-import { MobilePagination } from '../components/MobilePagination';
-import { paginateItems } from '../lib/pagination';
 
 export default function FoodDetailsScreen() {
   const insets = useSafeAreaInsets();
-  const [ingredientPage, setIngredientPage] = useState(1);
   const params = useLocalSearchParams<{ cycleId: string; lineId?: string; day?: string; meal?: string }>();
   const query = useQuery<MenuSlotProfile>({
     queryKey: ['fss-food-details', params.cycleId, params.lineId ?? params.day, params.meal],
@@ -27,16 +23,13 @@ export default function FoodDetailsScreen() {
   const sourceLabel = data.source === 'custom' ? 'Menu-slot version' : data.source === 'locked' ? 'Purchase-order snapshot' : 'Master recipe';
   const regularIngredients = data.ingredients.filter((item) => !item.adjust_to_taste);
   const adjustableIngredients = data.ingredients.filter((item) => item.adjust_to_taste);
-  const ingredientPager = paginateItems([...regularIngredients, ...adjustableIngredients], ingredientPage);
-  const visibleRegular = ingredientPager.items.filter((item) => !item.adjust_to_taste);
-  const visibleAdjustable = ingredientPager.items.filter((item) => item.adjust_to_taste);
   const renderIngredient = (item: MenuSlotProfile['ingredients'][number]) => <View key={`${item.fs_item_id}-${item.name}`} className="min-h-12 flex-row items-center border-b border-[#EDF2EF] py-2"><Text className="flex-1 pr-3 text-sm text-[#30483F]">{item.name}</Text><Text className="text-sm font-bold text-[#16352B] tabular-nums">{item.quantity === null ? 'Not measured' : `${Number(item.scaled_quantity ?? item.quantity).toFixed(1)} ${item.unit}`}</Text></View>;
   return <ScrollView className="flex-1 bg-[#F4F7F5]" contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 28 }}>
     <View className="rounded-[24px] bg-[#0B6B4B] p-5"><ChefHat color="#D1FAE5" size={22} /><Text className="mt-3 text-2xl font-extrabold text-white">{data.name}</Text><Text className="mt-1 text-sm text-emerald-100">{sourceLabel}</Text></View>
     {data.portion_label ? <View className="mt-3 rounded-2xl border border-[#CBEADB] bg-[#EAF7F1] p-4"><Text className="text-xs font-bold uppercase tracking-widest text-[#4D7464]">Serving portion</Text><Text className="mt-1 text-base font-extrabold text-[#087F5B]">{data.portion_label}</Text></View> : null}
     <View className="mt-3 rounded-2xl border border-[#CBEADB] bg-[#EAF7F1] p-4"><Users color="#087F5B" size={19} /><Text className="mt-2 text-2xl font-extrabold text-[#087F5B]">{servings}</Text><Text className="text-xs text-[#4D7464]">{data.planned_servings == null ? 'Baseline servings' : 'Planned servings'}</Text></View>
     {data.planned_servings == null ? <View className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3"><Text className="text-sm text-amber-800">No planned population is set for this slot. Baseline recipe quantities are shown.</Text></View> : null}
-    <View className="mt-3 rounded-[22px] border border-[#E2EAE5] bg-white p-4"><Text className="text-base font-extrabold text-[#16352B]">{data.planned_servings == null ? 'Baseline ingredients' : 'Scaled ingredients'}</Text>{data.ingredients.length === 0 ? <Text className="mt-3 text-sm text-[#7A8D85]">No ingredient breakdown is available.</Text> : <>{visibleRegular.map(renderIngredient)}{visibleAdjustable.length > 0 ? <View className="mt-3 border-t border-[#E2EAE5] pt-3"><Text className="text-sm font-bold text-[#16352B]">Adjust to taste</Text><Text className="text-xs text-[#7A8D85]">These amounts scale too. Adjust during preparation if needed.</Text></View> : null}{visibleAdjustable.map(renderIngredient)}</>}<MobilePagination page={ingredientPager.page} pages={ingredientPager.pages} total={ingredientPager.total} onPrevious={() => setIngredientPage(ingredientPager.page - 1)} onNext={() => setIngredientPage(ingredientPager.page + 1)} /></View>
+    <View className="mt-3 rounded-[22px] border border-[#E2EAE5] bg-white p-4"><Text className="text-base font-extrabold text-[#16352B]">{data.planned_servings == null ? 'Baseline ingredients' : 'Scaled ingredients'}</Text>{data.ingredients.length === 0 ? <Text className="mt-3 text-sm text-[#7A8D85]">No ingredient breakdown is available.</Text> : <>{regularIngredients.map(renderIngredient)}{adjustableIngredients.length > 0 ? <View className="mt-3 border-t border-[#E2EAE5] pt-3"><Text className="text-sm font-bold text-[#16352B]">Adjust to taste</Text><Text className="text-xs text-[#7A8D85]">These amounts scale too. Adjust during preparation if needed.</Text></View> : null}{adjustableIngredients.map(renderIngredient)}</>}</View>
     {data.prep_notes ? <View className="mt-3 rounded-[22px] border border-[#E2EAE5] bg-white p-4"><Text className="text-base font-extrabold text-[#16352B]">Preparation notes</Text><Text className="mt-2 text-sm leading-6 text-[#30483F]">{data.prep_notes}</Text></View> : null}
   </ScrollView>;
 }
