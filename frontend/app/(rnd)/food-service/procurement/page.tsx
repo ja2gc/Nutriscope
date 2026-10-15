@@ -1227,7 +1227,7 @@ export default function ProcurementPage() {
             ) : (
               <table className="w-full text-sm">
                 <thead className="bg-warm-50 border-b border-warm-100">
-                  <tr>{["Procurement span", "Track", "Current total", "Vendors", "Status", "Actions"].map((h) => (
+                  <tr>{["PO", "Track", "Current total", "Vendors", "Status", "Actions"].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
                   ))}</tr>
                 </thead>

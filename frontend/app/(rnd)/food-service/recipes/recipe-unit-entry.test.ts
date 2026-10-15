@@ -13,4 +13,9 @@ describe("Food Service recipe unit entry", () => {
     expect(source).toContain("Adjust to taste");
     expect(source).toContain("Enter a baseline quantity for every ingredient.");
   });
+
+  test.each(["new/page.tsx", "[id]/page.tsx"])("accepts fractional ingredient quantities in %s", (page) => {
+    const source = readFileSync(resolve(process.cwd(), "app/(rnd)/food-service/recipes", page), "utf8");
+    expect(source).toMatch(/min="0" step="any"/);
+  });
 });

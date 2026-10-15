@@ -364,7 +364,7 @@ function StandardEditFSSRecipePage({ id }: { id: string }) {
                 {/* Quantity */}
                 <input type="number" value={row.quantity} required={Boolean(row.catalogItem)}
                   onChange={(e) => updateRow(idx, { quantity: e.target.value })}
-                  min="0" step="0.1"
+                  min="0" step="any"
                   className="w-full px-3 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" />
 
                 {/* Non-Auto Grocery units can be entered as used in the recipe. */}
