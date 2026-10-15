@@ -140,7 +140,7 @@ export default function RndDashboardPage() {
   const [followUpPage, setFollowUpPage] = useState(1);
   const [announcementsPage, setAnnouncementsPage] = useState(1);
   const FOLLOW_UPS_PER_PAGE = 3;
-  const ANNOUNCEMENTS_PER_PAGE = 2;
+  const ANNOUNCEMENTS_PER_PAGE = 3;
   const [draft, setDraft] = useState<AnnouncementDraft>({
     category: "General",
     visibility: "All",
@@ -320,8 +320,8 @@ export default function RndDashboardPage() {
     e.preventDefault();
 
     const attachments = imageSrcs(draft.images);
-    const hasContent = Boolean(draft.title.trim() || draft.body.trim() || attachments.length);
-    if (!hasContent) {
+    if (!draft.body.trim()) {
+      setAnnouncementError("Body is required.");
       return;
     }
 
@@ -439,12 +439,15 @@ export default function RndDashboardPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-warm-500 uppercase tracking-wider">
-                  Body
+                <label htmlFor="dashboard-announcement-body" className="text-xs font-semibold text-warm-500 uppercase tracking-wider">
+                  Body <span aria-hidden="true" className="text-red-600">*</span>
                 </label>
                 <textarea
+                  id="dashboard-announcement-body"
                   name="body"
                   value={draft.body}
+                  required
+                  maxLength={5000}
                   onChange={handleDraftChange}
                   className="w-full px-3 py-2 text-base bg-white border border-warm-300 rounded-xl text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 placeholder:text-warm-400 min-h-32"
                 />
@@ -800,7 +803,7 @@ export default function RndDashboardPage() {
           <div className="min-h-0 flex-1 p-3">
             {announcementsLoading ? (
               <div className="space-y-2">
-                {[1, 2].map((index) => (
+                {[1, 2, 3].map((index) => (
                   <div key={index} className="h-28 rounded-2xl bg-warm-100 animate-pulse" />
                 ))}
               </div>

@@ -86,7 +86,7 @@ flowchart LR
     D --> E["RND/Admin may view within allowed report scope"]
 ```
 
-Off-duty entries count and render as X. FSS report reads are owner-scoped.
+Off-duty entries count and appear as Off duty. FSS report reads are owner-scoped.
 
 ## Communication and Account
 

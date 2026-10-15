@@ -66,8 +66,8 @@ describe("RND dashboard pagination", () => {
       meta: { current_page: 1, last_page: 1, per_page: 3, total: 0 },
     });
     vi.mocked(fetchAnnouncements).mockImplementation(async (page, perPage) => ({
-      data: page === 1 ? [announcement(1), announcement(2)] : [announcement(3)],
-      meta: { current_page: page ?? 1, last_page: 2, per_page: perPage ?? 2, total: 3 },
+      data: page === 1 ? [announcement(1), announcement(2), announcement(3)] : [announcement(4)],
+      meta: { current_page: page ?? 1, last_page: 2, per_page: perPage ?? 3, total: 4 },
     }));
   });
 
@@ -77,11 +77,11 @@ describe("RND dashboard pagination", () => {
     vi.clearAllMocks();
   });
 
-  test("shows two announcements per page and loads page two", async () => {
+  test("shows three announcements per page and loads page two", async () => {
     await act(async () => root.render(<RndDashboardPage />));
     await act(async () => undefined);
 
-    expect(fetchAnnouncements).toHaveBeenCalledWith(1, 2);
+    expect(fetchAnnouncements).toHaveBeenCalledWith(1, 3);
     expect(container.textContent).toContain("Page 1 of 2");
 
     const nextButtons = Array.from(container.querySelectorAll<HTMLButtonElement>('button[aria-label="Next page"]'));
@@ -92,7 +92,7 @@ describe("RND dashboard pagination", () => {
     await act(async () => next?.click());
     await act(async () => undefined);
 
-    expect(fetchAnnouncements).toHaveBeenCalledWith(2, 2);
-    expect(container.textContent).toContain("Announcement 3");
+    expect(fetchAnnouncements).toHaveBeenCalledWith(2, 3);
+    expect(container.textContent).toContain("Announcement 4");
   });
 });

@@ -38,8 +38,8 @@
                         @foreach($days as $date)
                             @php $cell = $sheet['task_rows'][$taskKey][$date] ?? ''; @endphp
                             <td style="text-align:center;">
-                                @if($cell === 'X')
-                                    <span style="font-size:9px; color:#333;">X</span>
+                                @if($cell === 'Off duty' || $cell === 'X')
+                                    <span style="font-size:8px; color:#333; white-space:nowrap;">Off duty</span>
                                 @else
                                     {{ $cell }}
                                 @endif

@@ -53,7 +53,7 @@ Do not expose recording setup, camera directions, narration text, demo-data clea
 - Scene order is the full learning sequence.
 - Optional exception captures may be converted into short troubleshooting notes only when they add information that is not already clear in FAQ.
 - The current application remains the source of truth. Recheck visible labels and role permissions before publishing or changing a guide.
-- FSS Daily Log uses the exact numeric labels **Collected diet list from different wards.** and **Apportioned and distributed food to in patient in the different wards.**, five checkbox duties, past-date entry with **Today** reset, and **Off duty** with report `X`.
+- FSS Daily Log uses the exact numeric labels **Collected diet list from different wards.** and **Apportioned and distributed food to in patient in the different wards.**, five checkbox duties, past-date entry with **Today** reset, and **Off duty** with the same label in the report.
 - FSS reports currently use day 1–15 or day 16–month-end periods with separate **View PDF** and **Download PDF** actions.
 
 ## Video Storage and Updates

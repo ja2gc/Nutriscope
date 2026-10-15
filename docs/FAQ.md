@@ -330,7 +330,7 @@ Open **Meal Prep**, choose today or an earlier planned date, review its meals, t
 
 Use **Accomplish → Daily Log**. It defaults to today. Choose any past date for a missed log; future dates are blocked, and **Today** returns to the default. Saving again updates that date's log until its period is submitted or approved.
 
-### Why does Off duty save an X?
+### How does Off duty appear in the report?
 
 It is the explicit daily record for a non-working day and counts toward semi-monthly period completeness. It cannot coexist with working rows for that date.
 

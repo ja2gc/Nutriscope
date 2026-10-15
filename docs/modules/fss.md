@@ -87,7 +87,7 @@ FSS records:
 -  4. worked as assistant cook;
 -  5. checked kitchen/cold-storage cleanliness.
 
-The Daily Log view shows one self-scoped record for the selected date. It defaults to today; any previous date is allowed, future dates are blocked, and **Today** resets the date. Re-saving updates the same record. Logged zero remains **0** in the report. Off duty cannot coexist with work and renders as **X**.
+The Daily Log view shows one self-scoped record for the selected date. It defaults to today; any previous date is allowed, future dates are blocked, and **Today** resets the date. Re-saving updates the same record. Logged zero remains **0** in the report. Off duty cannot coexist with work and appears as **Off duty**.
 
 **My Reports** is the second view inside Accomplish. It shows each owner's semi-monthly progress and dates. A complete past period can be submitted to RND. FSS can withdraw a pending submission, correct a rejected period, and resubmit. Pending and approved dates are read-only. Approved PDFs and reports generated before this review workflow remain available under Saved PDFs.
 
@@ -97,7 +97,7 @@ The Daily Log view shows one self-scoped record for the selected date. It defaul
 - One saved daily log per calendar date is required before submission, including off-duty dates.
 - The first saved log creates a draft period report; later saves refresh it while editable. RND sees a new report only after FSS submits it.
 - Every date column is shown; unlogged dates remain blank.
-- Off-duty entries render as **X** and numeric zero renders as **0**.
+- Off-duty entries appear as **Off duty** and numeric zero renders as **0**.
 - Historical snapshots and legacy rows remain readable through fallback fields.
 - FSS sees only their own accomplishment periods and saved PDFs.
 - RND reviews submitted periods in Reports → Accomplishment Report → To Review, then approves or rejects with a reason of up to 500 characters.

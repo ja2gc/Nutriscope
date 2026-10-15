@@ -72,11 +72,19 @@ test('PO detail exposes lifecycle and vendor evidence without item calculations'
   }
 });
 
-test('dashboard shows two latest announcements compactly without decorative icons', () => {
+test('dashboard shows three latest announcement cards while the feed pages ten', () => {
   const dashboard = read('app/(tabs)/index.tsx');
-  assert.match(dashboard, /per_page: 2, sort: 'latest'/);
+  const feed = read('components/AnnouncementsScreen.tsx');
+  const card = read('components/AnnouncementCard.tsx');
+  assert.match(dashboard, /per_page: 3, sort: 'latest'/);
+  assert.match(feed, /per_page: 10/);
   assert.match(dashboard, /latestAnnouncements\.map/);
-  assert.match(dashboard, /numberOfLines=\{2\} ellipsizeMode="tail"/);
+  assert.match(dashboard, /<AnnouncementCard/);
+  assert.match(feed, /<AnnouncementCard/);
+  assert.match(card, /item\.pinned/);
+  assert.match(card, /item\.category/);
+  assert.match(card, /<AnnouncementAuthorAvatar/);
+  assert.match(card, /<AnnouncementMedia/);
   assert.match(dashboard, /listAccomplishmentPeriods/);
   assert.match(dashboard, /day\.date <= today && !day\.logged/);
   assert.match(dashboard, /Logs due/);

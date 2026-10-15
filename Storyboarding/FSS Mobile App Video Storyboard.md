@@ -83,13 +83,13 @@ Use this as both the recording checklist and narration script. The main recordin
 **On-screen actions**
 
 1. Open **Home**.
-2. Show the compact **Meals to record** and **Pending POs** cards.
+2. Show the compact **Meals to record**, **Logs due**, and **Pending POs** cards.
 3. Point out the **This week's menu** card.
-4. Show **Next action**, **Today's meals**, and the latest **Announcement**. Use **View announcement** to open its detail.
+4. Show **Today's meals** and the three latest announcement cards, including their tags and two-line previews. Tap anywhere on a card to see the full post.
 
 **Narration**
 
-> Home shows today's priorities in compact cards. The current week appears even before RND fills its meal slots. The latest announcement opens on its own full-screen detail with Back.
+> Home shows today's priorities in compact cards. The current week appears even before RND fills its meal slots. The three latest announcements use the same cards as the Announcement tab, with category and pinned tags. Each opens its full-screen detail with Back.
 
 **Expected result:** The viewer understands the day's priorities and the six primary tabs: Home, Announcement, Menu, Meal Prep, Accomplish, and Purchase.
 
@@ -102,7 +102,7 @@ Use this as both the recording checklist and narration script. The main recordin
 **On-screen actions**
 
 1. Open the second bottom tab, **Announcement**.
-2. In **Announcements**, open the seeded demo post with a photo. Point out the author's profile image and the responsive post-photo frame, then use **Back** from its full-screen detail.
+2. In **Announcements**, review the ten posts on the first page and tap anywhere on the seeded demo card with a photo. Point out its two-line preview, author's profile image, and responsive post-photo frame, then read the full body and use **Back**. Use the pager for older posts.
 3. Switch to **SOP**.
 4. Read the current Standard Operating Procedure, open **History**, select a version by its title, and use **Back** to return to the history list.
 
@@ -200,7 +200,7 @@ Use this as both the recording checklist and narration script. The main recordin
 
 **Narration**
 
-> Daily Log opens on today's date but allows any earlier date when work was not entered on time. Future dates are not allowed. Enter two non-negative whole numbers and use checkboxes for the other duties. Re-saving updates the same date. An Off duty entry displays an X in the report.
+> Daily Log opens on today's date but allows any earlier date when work was not entered on time. Future dates are not allowed. Enter two non-negative whole numbers and use checkboxes for the other duties. Re-saving updates the same date. An Off duty entry displays the Off duty label in the report.
 
 **Expected result:** The selected date shows its saved numeric counts and checkbox duties.
 

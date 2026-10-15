@@ -247,6 +247,7 @@ function AccomplishmentReportsPanel({ apiPrefix, onFlash }: { apiPrefix: ApiPref
   const debouncedStaffSearch = useDebouncedValue(staffSearch);
   const [selectedStaff, setSelectedStaff] = useState<AccomplishmentStaff | null>(null);
   const [coveredMonth, setCoveredMonth] = useState("");
+  const [filterYear, setFilterYear] = useState(new Date().getFullYear());
   const [reports, setReports] = useState<ReportItem[]>([]);
   const [queue, setQueue] = useState<AccomplishmentReview[]>([]);
   const [selected, setSelected] = useState<AccomplishmentReview | null>(null);
@@ -311,17 +312,27 @@ function AccomplishmentReportsPanel({ apiPrefix, onFlash }: { apiPrefix: ApiPref
       {loadError ? <div className="p-5" role="alert"><p className="text-sm text-red-700">{loadError}</p><button type="button" onClick={() => void load()} className="mt-2 min-h-11 font-semibold text-emerald-700">Retry</button></div> : loading ? <p className="px-5 py-10 text-sm text-warm-500">Loading staff…</p> : staff.length === 0 ? <div className="p-6"><EmptyState title="No Food Service Staff found" message="Try another name." /></div> : <ul className="divide-y divide-warm-100">{staff.map((user) => <li key={user.id}><button type="button" onClick={() => { setSelectedStaff(user); setView("reports"); setPage(1); setCoveredMonth(""); }} className="min-h-14 w-full px-4 py-3 text-left font-semibold text-warm-800 hover:bg-warm-50 focus-visible:outline-2 focus-visible:outline-emerald-600 sm:px-5">{user.display_name}</button></li>)}</ul>}
       {!loading && !loadError && <Pagination meta={staffMeta} page={staffPage} onPageChange={setStaffPage} />}
     </> : <>
-    {apiPrefix === "rnd" && <div className="border-b border-warm-100 px-4 py-3 sm:px-5"><label className="block max-w-xs text-sm font-semibold text-warm-700">Report month<input type="month" aria-label={view === "review" ? "Review month" : "Approved report month"} value={coveredMonth} onChange={(event) => { setCoveredMonth(event.target.value); setPage(1); }} className={`${inp} mt-1`} /></label></div>}
+    <div className="border-b border-warm-100 px-4 py-3 sm:px-5">
+      <div className="grid max-w-sm grid-cols-2 gap-2">
+        <MonthYearSelect month={coveredMonth ? Number(coveredMonth.slice(5, 7)) : null} year={filterYear} allowAllMonths monthAriaLabel="Report month" yearAriaLabel="Report year"
+          onMonthChange={(month) => { setCoveredMonth(month === null ? "" : `${filterYear}-${String(month).padStart(2, "0")}`); setPage(1); }}
+          onYearChange={(year) => { setFilterYear(year); if (coveredMonth) setCoveredMonth(`${year}-${coveredMonth.slice(5, 7)}`); setPage(1); }} />
+      </div>
+    </div>
     {loadError ? <div className="p-5" role="alert"><p className="text-sm text-red-700">{loadError}</p><button type="button" onClick={() => void load()} className="mt-2 min-h-11 font-semibold text-emerald-700">Retry</button></div> : loading ? <p className="px-5 py-10 text-sm text-warm-500">Loading…</p> : view === "review" && apiPrefix === "rnd" ? (
       queue.length === 0 ? <div className="p-6"><EmptyState title="No submissions to review" message="Submitted periods appear here." /></div> :
-      <ul className="divide-y divide-warm-100">{queue.map((item) => <li key={item.report_id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-5">
-        <div className="min-w-0"><p className="break-words font-semibold text-warm-800">{item.fss_user.display_name}</p><p className="text-sm text-warm-600">{item.start} to {item.end}</p><p className="text-xs text-warm-500">Submitted {reportDate(item.submitted_at)}</p></div>
-        <button type="button" onClick={() => { setSelected(item); setReason(""); }} className="min-h-11 rounded-lg bg-emerald-700 px-4 text-sm font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">Review</button>
+      <ul className="divide-y divide-warm-100">{queue.map((item) => <li key={item.report_id} className="hover:bg-warm-50/60">
+        <button type="button" onClick={() => { setSelected(item); setReason(""); }} aria-label={`Review submission for ${item.fss_user.display_name}, ${item.start} to ${item.end}`} className="flex min-h-14 w-full items-center gap-3 px-4 py-4 text-left focus-visible:bg-emerald-50/40 focus-visible:outline-2 focus-visible:outline-emerald-600 sm:px-5">
+          <Eye className="h-4 w-4 shrink-0 text-warm-300" />
+          <span className="min-w-0"><span className="block break-words font-semibold text-warm-800">{item.fss_user.display_name}</span><span className="block text-sm text-warm-600">{item.start} to {item.end}</span><span className="block text-xs text-warm-500">Submitted {reportDate(item.submitted_at)}</span></span>
+        </button>
       </li>)}</ul>
     ) : reports.length === 0 ? <div className="p-6"><EmptyState title="No reports yet" message="Approved reports and earlier generated reports appear here." /></div> :
-      <><ul className="divide-y divide-warm-100">{reports.map((report) => <li key={report.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-5">
-        <div className="min-w-0"><p className="break-words font-semibold text-warm-800">{selectedStaff && report.report_covered_from && report.report_covered_until ? `${reportCalendarDate(report.report_covered_from)} – ${reportCalendarDate(report.report_covered_until)}` : personDisplayName(report.created_by, "Food Service Staff")}</p><p className="text-sm text-warm-600">{selectedStaff ? `${report.title} · ${report.review_state === "approved" ? "Approved" : "Earlier generated"}` : report.report_covered_until ? `Through ${reportCalendarDate(report.report_covered_until)}` : report.title}</p></div>
-        <button type="button" onClick={() => setPreview(report)} className="min-h-11 rounded-lg border border-emerald-700 px-4 text-sm font-semibold text-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">View report</button>
+      <><ul className="divide-y divide-warm-100">{reports.map((report) => <li key={report.id} className="hover:bg-warm-50/60">
+        <button type="button" onClick={() => setPreview(report)} aria-label={`Open report: ${report.title}`} className="flex min-h-14 w-full items-center gap-3 px-4 py-4 text-left focus-visible:bg-emerald-50/40 focus-visible:outline-2 focus-visible:outline-emerald-600 sm:px-5">
+          <Eye className="h-4 w-4 shrink-0 text-warm-300" />
+          <span className="min-w-0"><span className="block break-words font-semibold text-warm-800">{selectedStaff && report.report_covered_from && report.report_covered_until ? `${reportCalendarDate(report.report_covered_from)} – ${reportCalendarDate(report.report_covered_until)}` : personDisplayName(report.created_by, "Food Service Staff")}</span><span className="block text-sm text-warm-600">{selectedStaff ? `${report.title} · ${report.review_state === "approved" ? "Approved" : "Earlier generated"}` : report.report_covered_until ? `Through ${reportCalendarDate(report.report_covered_until)}` : report.title}</span></span>
+        </button>
       </li>)}</ul><div className="px-4 py-3"><Pagination meta={meta} page={page} onPageChange={setPage} /></div></>
     }
     {selected && <div ref={reviewRef} tabIndex={-1} className="border-t border-warm-200 bg-warm-50 p-4 sm:p-5 focus:outline-2 focus:outline-emerald-700" aria-label="Review submission">

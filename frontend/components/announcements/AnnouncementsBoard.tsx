@@ -204,8 +204,10 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
   async function saveAnnouncement(e: React.FormEvent) {
     e.preventDefault();
     const attachments = imageSrcs(draft.images);
-    const hasContent = Boolean(draft.title.trim() || draft.body.trim() || attachments.length);
-    if (!hasContent) return;
+    if (!draft.body.trim()) {
+      setSaveError("Body is required.");
+      return;
+    }
 
     const payload = {
       title: draft.title.trim() || "Announcement",
@@ -336,12 +338,14 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
 
               {/* Body */}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-warm-500 uppercase tracking-wider">
-                  Body
+                <label htmlFor="announcement-body" className="text-xs font-semibold text-warm-500 uppercase tracking-wider">
+                  Body <span aria-hidden="true" className="text-red-600">*</span>
                 </label>
                 <textarea
+                  id="announcement-body"
                   name="body"
                   value={draft.body}
+                  required
                   maxLength={5000}
                   onChange={handleDraftChange}
                   className="w-full px-3 py-2 text-base bg-white border border-warm-300 rounded-xl text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 placeholder:text-warm-400 min-h-32"
@@ -638,9 +642,10 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
 
                     <div className="mt-3 space-y-2">
                       <h4 className="text-base font-bold text-warm-900 tracking-tight">{post.title}</h4>
-                      <p className="text-sm text-warm-600 leading-relaxed whitespace-pre-wrap line-clamp-4">
+                      <p className="line-clamp-3 whitespace-pre-wrap text-sm leading-relaxed text-warm-600">
                         {post.body}
                       </p>
+                      <span className="text-xs font-bold text-emerald-700">Read more</span>
                     </div>
 
                     <ImageCarousel

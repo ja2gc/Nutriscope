@@ -23,7 +23,7 @@ test("RND selects an FSS name before viewing that user's approved and pending pe
     meta: { current_page: 1, last_page: 1, per_page: 10, total: 1 },
   });
   vi.mocked(listReports).mockResolvedValue({ data: [{ id: "legacy-1", title: "June report", review_state: null, created_by: { id: "staff-uuid", name: "Ada Santos" }, report_covered_from: "2026-06-01", report_covered_until: "2026-06-15" } as never], meta: { current_page: 1, last_page: 1, per_page: 10, total: 1 } });
-  vi.mocked(listAccomplishmentsToReview).mockResolvedValue([]);
+  vi.mocked(listAccomplishmentsToReview).mockResolvedValue([{ report_id: "pending-1", start: "2026-06-01", end: "2026-06-15", status: "pending", submission_version: 1, submitted_at: "2026-06-16T08:00:00Z", fss_user: { id: "staff-uuid", display_name: "Ada Santos" } }]);
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
@@ -36,19 +36,33 @@ test("RND selects an FSS name before viewing that user's approved and pending pe
   await act(async () => { staff!.click(); });
   expect(container.textContent).toContain("Approved Reports");
   expect(container.textContent).toContain("To Review");
-  expect(container.querySelector('input[type="month"]')).not.toBeNull();
+  expect(container.querySelector('select[aria-label="Report month"]')).not.toBeNull();
+  expect(container.querySelector('select[aria-label="Report year"]')).not.toBeNull();
+  expect(container.querySelector('input[type="month"]')).toBeNull();
   expect(listReports).toHaveBeenCalledWith("rnd", 1, { type: "accomplishment_report", fss_user_id: "staff-uuid" });
   expect(container.querySelector("h2")?.textContent).toBe("Ada Santos");
   expect(container.textContent?.match(/Ada Santos/g)).toHaveLength(1);
   expect(container.textContent).toContain("Earlier generated");
+  expect(container.textContent).not.toContain("View report");
+  const reportCard = container.querySelector<HTMLButtonElement>('button[aria-label^="Open report"]');
+  expect(reportCard).not.toBeNull();
+  await act(async () => { reportCard!.click(); });
+  expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+  await act(async () => { document.querySelector<HTMLButtonElement>('[aria-label="Close preview"]')!.click(); });
 
   const review = Array.from(container.querySelectorAll("button")).find((button) => button.textContent === "To Review");
   await act(async () => { review!.click(); });
   expect(listAccomplishmentsToReview).toHaveBeenCalledWith({ fss_user_id: "staff-uuid" });
+  const reviewCard = container.querySelector<HTMLButtonElement>('button[aria-label^="Review submission"]');
+  expect(reviewCard).not.toBeNull();
+  await act(async () => { reviewCard!.click(); });
+  expect(container.querySelector('[aria-label="Review submission"]')).not.toBeNull();
   await act(async () => {
-    const month = container.querySelector<HTMLInputElement>('input[type="month"]')!;
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(month, "2026-06");
-    month.dispatchEvent(new Event("input", { bubbles: true }));
+    const year = container.querySelector<HTMLSelectElement>('select[aria-label="Report year"]')!;
+    year.value = "2026";
+    year.dispatchEvent(new Event("change", { bubbles: true }));
+    const month = container.querySelector<HTMLSelectElement>('select[aria-label="Report month"]')!;
+    month.value = "6";
     month.dispatchEvent(new Event("change", { bubbles: true }));
   });
   expect(listAccomplishmentsToReview).toHaveBeenCalledWith({ fss_user_id: "staff-uuid", covered_month: "2026-06" });

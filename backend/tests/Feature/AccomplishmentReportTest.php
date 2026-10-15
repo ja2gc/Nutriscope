@@ -167,7 +167,7 @@ class AccomplishmentReportTest extends TestCase
         $this->assertSame('✓', $sheet['task_rows']['stored_supplies']['2026-06-03']);
     }
 
-    public function test_off_duty_day_renders_as_x(): void
+    public function test_off_duty_day_renders_as_a_label(): void
     {
         $this->seedCount($this->fss1, '2026-06-04', ['off_duty' => true]);
 
@@ -178,10 +178,10 @@ class AccomplishmentReportTest extends TestCase
         $sheet = collect($data['staff_sheets'])
             ->first(fn ($s) => $s['user']->id === $this->fss1->id);
 
-        // All task columns should be 'off-duty' for this day.
+        // Every task cell states why work is blank for this day.
         foreach (array_keys(AccomplishmentReportGenerator::TASKS) as $task) {
-            $this->assertSame('X', $sheet['task_rows'][$task]['2026-06-04'],
-                "Task [{$task}] should be 'X' on an off-duty day");
+            $this->assertSame('Off duty', $sheet['task_rows'][$task]['2026-06-04'],
+                "Task [{$task}] should say 'Off duty' on an off-duty day");
         }
     }
 
@@ -498,7 +498,7 @@ class AccomplishmentReportTest extends TestCase
         $this->assertCount(15, $data['days']);
         $this->assertSame(0, $sheet['task_rows']['collected_diet_list']['2026-02-01']);
         $this->assertSame(0, $sheet['task_rows']['apportioned_food']['2026-02-01']);
-        $this->assertSame('X', $sheet['task_rows']['helped_food_prep']['2026-02-02']);
+        $this->assertSame('Off duty', $sheet['task_rows']['helped_food_prep']['2026-02-02']);
         $this->assertSame('', $sheet['task_rows']['helped_food_prep']['2026-02-03']);
     }
 

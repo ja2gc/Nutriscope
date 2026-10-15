@@ -535,7 +535,7 @@ Use this version when screenshots are available. Each scene already contains the
 
 #### FSS-09 — My Accomplishment Reports
 
-**Description:** FSS sees only their own semi-monthly accomplishment reports. The first daily save creates the period report; corrections refresh it, blank dates stay blank, zero stays 0, and Off duty renders X.
+**Description:** FSS sees only their own semi-monthly accomplishment reports. The first daily save creates the period report; corrections refresh it, blank dates stay blank, zero stays 0, and Off duty appears by name.
 
 **User should do:** Open one demo report with **View PDF**, then show **Download PDF**.
 

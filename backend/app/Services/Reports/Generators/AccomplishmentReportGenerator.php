@@ -27,7 +27,7 @@ use Illuminate\Support\Collection;
  *   - staff_sheets        — one entry per FSS user:
  *       user              — User model
  *       rows              — keyed by task slug, each an assoc of date => cell value
- *                           ('✓' | numeric count | 'X' | '')
+ *                           ('✓' | numeric count | 'Off duty' | '')
  *       daily_population  — legacy key for date => distributed-meal total
  *
  * Tasks (7 rows, in order):
@@ -137,7 +137,7 @@ class AccomplishmentReportGenerator implements ReportGenerator
                         if ($dateRows === null) {
                             $cells[$date] = '';
                         } elseif ($dateRows->every(fn (DietListCount $row): bool => $row->off_duty)) {
-                            $cells[$date] = 'X';
+                            $cells[$date] = 'Off duty';
                         } elseif (array_key_exists($task, self::NUMERIC_TASK_FIELDS)) {
                             $numericField = self::NUMERIC_TASK_FIELDS[$task];
                             $numericRows = $dateRows->filter(fn (DietListCount $row): bool => ! $row->off_duty && $row->{$numericField} !== null)->values();

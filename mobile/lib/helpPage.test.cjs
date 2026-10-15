@@ -34,6 +34,8 @@ test('mobile Help contains only Shared and FSS guidance', () => {
   assert.doesNotMatch(content, /View all roles|All roles|role switch/i);
   assert.match(content, /sign-in email/);
   assert.match(content, /verified recovery email/);
+  assert.match(content, /Off duty labels that date in the report/);
+  assert.doesNotMatch(content, /records X for that date/i);
 });
 
 test('mobile Help uses reusable accessible search and disclosures', () => {
@@ -54,8 +56,8 @@ test('mobile Help uses reusable accessible search and disclosures', () => {
 test('APK build identity is incremented', () => {
   const appConfig = JSON.parse(read('app.json'));
 
-  assert.equal(appConfig.expo.version, '1.2.15');
-  assert.equal(appConfig.expo.android.versionCode, 19);
+  assert.equal(appConfig.expo.version, '1.2.17');
+  assert.equal(appConfig.expo.android.versionCode, 21);
   assert.deepEqual(appConfig.expo.platforms, ['android', 'ios']);
   assert.deepEqual(appConfig.expo.android.blockedPermissions, ['android.permission.RECORD_AUDIO']);
 });

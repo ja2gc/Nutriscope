@@ -96,7 +96,7 @@ flowchart LR
 - Photo permission denied: upload stops and asks the user to allow camera/library access.
 - Receipt exists but vendor stays pending: proof, reviewed actuals, or explicit receiving is still missing.
 - Suggested food PO stays open after receiving: one or more covered dates still lack served population.
-- Off duty: Accomplish stores zero meals and an X for that day.
+- Off duty: Accomplish stores zero meals and labels the day Off duty in the report.
 - Completed PO: edit controls are removed/locked.
 
 ## Storyboard 4: Admin Maintains Safe Operations

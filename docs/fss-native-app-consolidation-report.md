@@ -73,8 +73,8 @@ The header retains the notification bell and profile icon. The profile side menu
 - A visible **Today** action returns from a backdated log to the current date.
 - Each date uses one record with two numeric fields: ward diet lists collected and meals apportioned/distributed.
 - Five remaining duties are checkboxes; Ward and Meals Logged UI are removed.
-- Off-duty/absent records zero numeric values plus an `X` in the semi-monthly report.
-- Reports cover day 1–15 or day 16–month end, show every date, preserve blank dates, zero values, and off-duty `X`.
+- Off-duty/absent records zero numeric values plus an `Off duty` label in newly generated semi-monthly reports.
+- Reports cover day 1–15 or day 16–month end, show every date, preserve blank dates, zero values, and the off-duty label.
 - **My Reports** is inside Accomplish, uses owner-scoped paginated data, opens report details, and provides **View PDF** and **Download PDF** through authenticated handling. Reports update progressively for each semi-monthly period.
 
 ### Purchase

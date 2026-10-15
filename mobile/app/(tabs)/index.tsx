@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../../lib/api';
 import { todayManilaKey } from '../../lib/localDate';
 import { listAccomplishmentPeriods } from '../../lib/reports';
+import { AnnouncementCard, type Announcement } from '../../components/AnnouncementCard';
 
 interface DashboardData {
   meals_to_log_today: number;
@@ -14,21 +15,13 @@ interface DashboardData {
   active_cycle: { id: string; name: string; service_day_count: number } | null;
 }
 
-interface Announcement {
-  id: string | number;
-  title: string;
-  body: string;
-  attachment?: string | null;
-  attachments?: string[];
-}
-
 async function fetchDashboard(): Promise<DashboardData> {
   const response = await api.get<{ data: DashboardData }>('/api/fss/dashboard/summary');
   return response.data.data;
 }
 
 async function fetchLatestAnnouncements(): Promise<Announcement[]> {
-  const response = await api.get<{ data: Announcement[] }>('/api/fss/announcements', { params: { per_page: 2, sort: 'latest' } });
+  const response = await api.get<{ data: Announcement[] }>('/api/fss/announcements', { params: { per_page: 3, sort: 'latest' } });
   return response.data.data;
 }
 
@@ -65,9 +58,9 @@ export default function DashboardScreen() {
       </View> : <Text className="mt-1 text-sm text-[#6B7F77]">No meals planned for today.</Text>}
     </TouchableOpacity>
 
-    <View className="mt-3 rounded-2xl border border-[#E2EAE5] bg-white px-3 py-2">
-      <View className="flex-row items-center justify-between"><Text className="text-xs font-bold uppercase tracking-wide text-[#6B7F77]">Announcements</Text><TouchableOpacity onPress={() => router.push('/(tabs)/announcements')} className="min-h-12 justify-center" accessibilityRole="button" accessibilityLabel="View all announcements"><Text className="text-xs font-bold text-[#087F5B]">See all</Text></TouchableOpacity></View>
-      {announcement.isLoading ? <ActivityIndicator color="#087F5B" /> : announcement.isError ? <TouchableOpacity onPress={() => announcement.refetch()} className="min-h-12 justify-center"><Text className="text-sm text-red-700">Could not load. Retry</Text></TouchableOpacity> : latestAnnouncements.length ? latestAnnouncements.map((item) => <TouchableOpacity key={String(item.id)} onPress={() => router.push({ pathname: '/(tabs)/announcements', params: { announcementId: String(item.id) } })} className="min-h-16 justify-center border-t border-[#E2EAE5] py-2" accessibilityRole="button" accessibilityLabel={`Open announcement: ${item.title}`}><Text className="text-sm font-semibold text-[#30483F]" numberOfLines={1}>{item.title}</Text><Text className="mt-0.5 text-xs text-[#6B7F77]" numberOfLines={2} ellipsizeMode="tail">{item.body}</Text></TouchableOpacity>) : <Text className="mt-1 text-sm text-[#6B7F77]">No announcements.</Text>}
+    <View className="mt-3">
+      <View className="flex-row items-center justify-between px-1"><Text className="text-xs font-bold uppercase tracking-wide text-[#6B7F77]">Announcements</Text><TouchableOpacity onPress={() => router.push('/(tabs)/announcements')} className="min-h-12 justify-center" accessibilityRole="button" accessibilityLabel="View all announcements"><Text className="text-xs font-bold text-[#087F5B]">See all</Text></TouchableOpacity></View>
+      {announcement.isLoading ? <ActivityIndicator color="#087F5B" /> : announcement.isError ? <TouchableOpacity onPress={() => announcement.refetch()} className="min-h-12 justify-center"><Text className="text-sm text-red-700">Could not load. Retry</Text></TouchableOpacity> : latestAnnouncements.length ? latestAnnouncements.map((item) => <AnnouncementCard key={String(item.id)} item={item} onPress={() => router.push({ pathname: '/(tabs)/announcements', params: { announcementId: String(item.id) } })} />) : <Text className="mt-1 text-sm text-[#6B7F77]">No announcements.</Text>}
     </View>
   </ScrollView>;
 }

@@ -155,7 +155,7 @@ export default function AccomplishmentsScreen() {
       {periodQuery.isError && <TouchableOpacity onPress={() => periodQuery.refetch()} className="mt-3 min-h-12 justify-center rounded-xl border border-red-200 bg-red-50 px-3"><Text className="text-sm font-semibold text-red-700">Could not check period status. Tap to retry.</Text></TouchableOpacity>}
 
       <View className="rounded-[22px] bg-white border border-[#E2EAE5] p-4 mt-3">
-        <View className="flex-row items-center justify-between"><View className="flex-1 pr-4"><Text className="text-sm font-bold text-[#263D35]">Off duty</Text><Text className="text-xs text-[#7A8D85] mt-0.5">Records X for this date.</Text></View><Switch value={offDuty} disabled={locked} onValueChange={(value) => { setOffDuty(value); if (value) { setNumbers({ collected_ward_diet_lists: '', apportioned_distributed_meals: '' }); setTasks(emptyTasks()); } }} trackColor={{ false: '#D8E0DC', true: '#A7E8CE' }} thumbColor={offDuty ? '#087F5B' : '#74857D'} /></View>
+        <View className="flex-row items-center justify-between"><View className="flex-1 pr-4"><Text className="text-sm font-bold text-[#263D35]">Off duty</Text><Text className="text-xs text-[#7A8D85] mt-0.5">The report labels this date Off duty.</Text></View><Switch value={offDuty} disabled={locked} onValueChange={(value) => { setOffDuty(value); if (value) { setNumbers({ collected_ward_diet_lists: '', apportioned_distributed_meals: '' }); setTasks(emptyTasks()); } }} trackColor={{ false: '#D8E0DC', true: '#A7E8CE' }} thumbColor={offDuty ? '#087F5B' : '#74857D'} /></View>
       </View>
 
       {!offDuty && <View className="rounded-[22px] bg-white border border-[#E2EAE5] p-4 mt-3">

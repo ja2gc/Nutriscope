@@ -142,7 +142,7 @@ Verified against current navigation and server permissions on **2026-09-08**. Fo
 
 1. Open **Announcements**.
 2. Review the current SOP and History before publishing procedure-sensitive work.
-3. Add an announcement with category, audience, title/body, pin state, and optional images. Verify the post uses the author's profile photo and keeps the post image inside the bounded responsive frame.
+3. Add an announcement with category, audience, required body text, optional title, pin state, and optional images. The feed previews three body lines; click anywhere on a card for the full post. Verify the author's profile photo and bounded post image.
 4. Edit/delete only authorized posts.
 5. Use **Revise SOP** for a true procedure revision; saving creates a new history version.
 
@@ -194,7 +194,7 @@ Verified against current navigation and server permissions on **2026-09-08**. Fo
 1. Open **Accomplish**.
 2. Enter the number of ward diet lists collected and meals distributed.
 3. Select the other five duties completed.
-4. If off duty, enable that switch; the report records an X.
+4. If off duty, enable that switch; the report labels the date **Off duty**.
 5. Choose **Save today's log** or **Save past log**, depending on the selected date.
 6. Saving the same date updates the existing entry until its period is submitted or approved.
 7. Open **My Reports** to check period progress. Save every date, including off-duty days, then submit a completed past period. Withdraw while pending to edit; after rejection, read RND's reason, correct the dates, and resubmit. Approval locks the logs and makes the PDF available to view or download.
@@ -213,7 +213,7 @@ Verified against current navigation and server permissions on **2026-09-08**. Fo
 
 ### 6. Announcements, SOP, and Notifications
 
-1. Open **Announcement** in the bottom navigation, then switch between Announcements and SOP.
+1. Home shows the three latest announcements with their tags. Open **Announcement** in the bottom navigation for the full list, ten posts per page, then switch between Announcements and SOP.
 2. Use the bell for notifications; opening a notification may navigate to its target.
 3. Use Settings to mark all read if needed.
 

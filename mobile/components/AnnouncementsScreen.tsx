@@ -14,45 +14,15 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../lib/api';
 import { MobilePagination } from './MobilePagination';
-import { MOBILE_PAGE_SIZE, PaginatedResponse, flattenUniquePages, getNextPageParam } from '../lib/pagination';
+import { PaginatedResponse, flattenUniquePages, getNextPageParam } from '../lib/pagination';
 import { useMobileServerPage } from '../lib/useMobileServerPage';
 import { fetchSop } from '../lib/sop';
 import { AnnouncementAuthorAvatar, AnnouncementMedia } from './AnnouncementMedia';
-
-interface Announcement {
-  id: number | string;
-  title: string;
-  body: string;
-  category: string;
-  visibility: string;
-  pinned: boolean;
-  attachment?: string | null;
-  attachments?: string[];
-  author?: { name: string; role: string; profile_photo?: string | null } | null;
-  created_at: string;
-}
-
-// Category pill colors — mirror the website's categoryStyles.
-const CATEGORY: Record<string, { bg: string; text: string }> = {
-  General: { bg: 'bg-zinc-100', text: 'text-zinc-700' },
-  Event: { bg: 'bg-orange-50', text: 'text-orange-700' },
-  Operational: { bg: 'bg-emerald-50', text: 'text-emerald-700' },
-  Urgent: { bg: 'bg-red-50', text: 'text-red-700' },
-  Memo: { bg: 'bg-sky-50', text: 'text-sky-700' },
-};
-
-function fmt(date: string): string {
-  return new Date(date).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
+import { AnnouncementCard, CATEGORY, fmt, type Announcement } from './AnnouncementCard';
 
 async function fetchAnnouncements(page: number): Promise<PaginatedResponse<Announcement>> {
   const res = await api.get<PaginatedResponse<Announcement>>('/api/fss/announcements', {
-    params: { page, per_page: MOBILE_PAGE_SIZE },
+    params: { page, per_page: 10 },
   });
   return res.data;
 }
@@ -185,41 +155,7 @@ export default function AnnouncementsScreen() {
           data={feedPager.items}
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 16, flexGrow: 1 }}
-        renderItem={({ item }) => {
-          const cat = CATEGORY[item.category] ?? CATEGORY.General;
-          return (
-            <TouchableOpacity
-              className="rounded-2xl border border-gray-200 bg-white p-4 mb-3"
-              activeOpacity={0.8}
-              onPress={() => setSelectedId(String(item.id))}
-            >
-              <View className="flex-row items-start gap-2.5">
-                <AnnouncementAuthorAvatar author={item.author} size={36} />
-                <View className="flex-1 flex-row items-center justify-between gap-2">
-                  <Text className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 flex-1">
-                    {item.author?.name ?? 'Staff'} · {fmt(item.created_at)}
-                  </Text>
-                  <View className="flex-row items-center gap-1.5">
-                  {item.pinned && (
-                    <View className="px-2 py-0.5 rounded-full bg-orange-50 border border-orange-200">
-                      <Text className="text-[9px] font-extrabold uppercase tracking-wider text-orange-700">Pinned</Text>
-                    </View>
-                  )}
-                  <View className={`px-2 py-0.5 rounded-full ${cat.bg}`}>
-                    <Text className={`text-[9px] font-extrabold uppercase tracking-wider ${cat.text}`}>{item.category}</Text>
-                  </View>
-                  </View>
-                </View>
-              </View>
-              <Text className="text-sm font-bold text-gray-900 mt-2">{item.title}</Text>
-              <Text className="text-xs text-gray-600 leading-6 mt-1">{item.body}</Text>
-              <AnnouncementMedia
-                attachments={item.attachments?.length ? item.attachments : (item.attachment ? [item.attachment] : [])}
-                title={item.title}
-              />
-            </TouchableOpacity>
-          );
-        }}
+        renderItem={({ item }) => <AnnouncementCard item={item} onPress={() => setSelectedId(String(item.id))} />}
         ListFooterComponent={<MobilePagination page={feedPager.page} pages={feedPager.pages} total={feedPager.total} onPrevious={feedPager.previous} onNext={() => void feedPager.next()} loading={isFetchingNextPage} error={isFetchNextPageError} />}
         ListEmptyComponent={
           <View className="items-center justify-center py-20">

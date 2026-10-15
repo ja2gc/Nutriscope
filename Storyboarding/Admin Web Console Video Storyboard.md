@@ -82,8 +82,8 @@ Use this as both the recording checklist and narration script. Record with demo 
 **On-screen actions**
 
 1. Open **Announcements**.
-2. Create a demo announcement with category, audience, text, image, and pin setting.
-3. Edit the demo announcement, then show its audience, the author's profile photo, and the bounded image frame that preserves the post photo's original ratio.
+2. Create a demo announcement with category, audience, required body text, image, and pin setting.
+3. Edit the demo announcement, then show its audience, the author's profile photo, three-line preview, and bounded image frame that preserves the post photo's original ratio. Click anywhere on the card to read the full body.
 4. Open the pinned SOP and save a small demo revision.
 5. Open **History** and point out the current version, prior version, author, role, and timestamp.
 6. Remove the disposable announcement after its behavior is shown.
