@@ -23,6 +23,7 @@ use App\Services\StoredObjectStorage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\RateLimiter;
 use Tests\TestCase;
 
 /**
@@ -49,6 +50,14 @@ class ReportsBrowseTest extends TestCase
             'last_name' => 'Del Rosario',
         ]);
         ReportBranding::singleton(); // ensure a branding row exists
+    }
+
+    public function test_report_render_rate_limit_allows_thirty_requests_per_minute(): void
+    {
+        $limit = RateLimiter::limiter('reports')(request());
+
+        $this->assertSame(30, $limit->maxAttempts);
+        $this->assertSame(60, $limit->decaySeconds);
     }
 
     /** Seed a completed PO in a given month (procurement_pack browse source). */

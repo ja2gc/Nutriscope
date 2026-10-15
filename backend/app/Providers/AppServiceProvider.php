@@ -170,10 +170,9 @@ class AppServiceProvider extends ServiceProvider
             return $this->rateLimitResponse(Limit::perMinute(30)->by($request->user()?->id ?? $request->ip()));
         });
 
-        // Report rendering — hits DB aggregations and PDF generation; 15/min per user
-        // covers any real workflow, blocks runaway polling or scraping.
+        // Report rendering — 30/min per user keeps normal report work unblocked.
         RateLimiter::for('reports', function (Request $request) {
-            return $this->rateLimitResponse(Limit::perMinute(15)->by($request->user()?->id ?? $request->ip()));
+            return $this->rateLimitResponse(Limit::perMinute(30)->by($request->user()?->id ?? $request->ip()));
         });
     }
 

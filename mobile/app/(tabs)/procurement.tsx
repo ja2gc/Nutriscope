@@ -573,8 +573,15 @@ interface VendorDetailProps {
   onVendorChanged: () => void;
 }
 
+type TabNavigation = {
+  addListener: (type: 'tabPress', listener: (event: { target?: string; preventDefault: () => void }) => void) => () => void;
+  getState: () => { routes: Array<{ key: string; name: string }> };
+  navigate: (name: string) => void;
+};
+
 function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySuppliers, onBack, onUpload, onVendorChanged }: VendorDetailProps) {
   const navigation = useNavigation();
+  const tabsNavigation = useNavigation('/(tabs)') as unknown as TabNavigation;
   const qc = useQueryClient();
   const locked = isLocked(po);
   const actualsLocked = locked || group.status === 'received' || Boolean(group.received_at);
@@ -664,20 +671,14 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
   usePreventRemove(hasUnsavedChanges, ({ data }) => requestLeave(() => navigation.dispatch(data.action)));
 
   useEffect(() => {
-    type TabNavigation = {
-      addListener: (type: 'tabPress', listener: (event: { target?: string; preventDefault: () => void }) => void) => () => void;
-      getState: () => { routes: Array<{ key: string; name: string }> };
-      navigate: (name: string) => void;
-    };
-    const tabs = navigation.getParent() as TabNavigation | undefined;
-    if (!tabs) return;
+    const tabs = tabsNavigation;
     return tabs.addListener('tabPress', (event) => {
       if (!hasUnsavedChanges) return;
       const target = tabs.getState().routes.find((route) => route.key === event.target);
       event.preventDefault();
       requestLeave(() => { if (target) tabs.navigate(target.name); });
     });
-  }, [navigation, hasUnsavedChanges]);
+  }, [tabsNavigation, hasUnsavedChanges]);
 
   const vendorMutation = useMutation({
     mutationFn: async ({ supplierId, itemId }: { supplierId: string; itemId?: number }) => {

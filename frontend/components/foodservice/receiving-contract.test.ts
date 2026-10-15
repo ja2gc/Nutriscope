@@ -23,7 +23,7 @@ describe("purchase-order receiving UX contract", () => {
       expect(native).toContain(label);
     }
     expect(web).toContain("Actual Total");
-    expect(native).not.toContain("Actual Total");
+    expect(native).toContain("Actual Total");
     expect(web).toContain("po-current-total");
     expect(web).not.toContain("Show planned total");
     expect(native).not.toContain("Show planned total");
