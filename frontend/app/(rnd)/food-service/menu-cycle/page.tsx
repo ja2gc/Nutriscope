@@ -274,6 +274,8 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
   const [templateNameDialogOpen, setTemplateNameDialogOpen] = useState(false);
   const [templateNameDraft, setTemplateNameDraft] = useState("");
   const [templateSaveError, setTemplateSaveError] = useState("");
+  const purchasingStarted = !isTemplate && Object.values(grid).some((lines) => lines.some((cell) => Boolean(cell.po_snapshot)));
+  const planReadOnly = readOnly || purchasingStarted;
 
   // Search only while picker is open. Empty queries do not download whole catalogs.
   useEffect(() => {
@@ -549,7 +551,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
 
   async function openSlot(day: Day, meal: Meal, cell: Cell, lineIndex: number) {
     if (isTemplate) return;
-    const saved = readOnly || cell.po_snapshot ? null : await handleSave();
+    const saved = planReadOnly || cell.po_snapshot ? null : await handleSave();
     const id = savedId ?? saved?.id;
     const lineId = cell.id ?? saved?.days?.filter((line) => line.day_of_week === day && line.meal_type === meal)
       .sort((a, b) => a.line_order - b.line_order)[lineIndex]?.id;
@@ -570,15 +572,15 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
         <div className="flex items-start gap-3">
           <button onClick={onBack} className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 cursor-pointer mt-0.5"><ChevronLeft className="h-4 w-4" /></button>
           <div>
-            <input aria-label="Menu name" value={name} onChange={(e) => setName(e.target.value)} readOnly={readOnly}
+            <input aria-label="Menu name" value={name} onChange={(e) => setName(e.target.value)} readOnly={planReadOnly}
               className="text-xl font-extrabold text-warm-900 tracking-tight bg-transparent border-b border-dashed border-warm-200 focus:border-emerald-500 focus:outline-none read-only:border-transparent" />
             <div className="flex items-center gap-2 mt-1">
               {!isTemplate && <span className="text-xs text-warm-500">{temporal(weekStart).label}</span>}
             </div>
           </div>
         </div>
-        {readOnly ? (
-          <span className="text-xs font-bold uppercase tracking-wider text-warm-400 border border-warm-200 rounded-lg px-3 py-2 shrink-0">View only</span>
+        {planReadOnly ? (
+          <span className="text-xs font-bold uppercase tracking-wider text-warm-400 border border-warm-200 rounded-lg px-3 py-2 shrink-0">{purchasingStarted ? "Purchasing started · View only" : "View only"}</span>
         ) : (
           <div className="flex flex-wrap items-center gap-2 shrink-0">
             {!isTemplate && <button onClick={openSaveTemplateDialog} disabled={busy} className="flex items-center gap-1.5 text-sm font-semibold text-warm-600 border border-warm-200 rounded-lg px-3 py-2 hover:bg-warm-50 cursor-pointer disabled:opacity-50"><BookmarkPlus className="h-3.5 w-3.5" /> Save as Template</button>}
@@ -605,7 +607,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
         ].map((f) => (
           <div key={f.label}>
             <label className="block text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1">{f.label}</label>
-            <input type={f.type} value={f.value} onChange={(e) => f.set(e.target.value)}
+            <input type={f.type} value={f.value} onChange={(e) => f.set(e.target.value)} readOnly={planReadOnly}
               className="w-full px-3 py-2 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
           </div>
         ))}
@@ -622,7 +624,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
                   <th key={d} className="px-3 py-2 text-left text-xs font-bold text-warm-500 uppercase min-w-[140px]">
                     <div className="flex items-center justify-between gap-1">
                       <span>{d.slice(0, 3)}</span>
-                      {!readOnly && (
+                      {!planReadOnly && (
                         <button onClick={() => duplicateWeek(d)} title={`Copy ${d} to all days`} className="text-warm-300 hover:text-emerald-600 cursor-pointer"><Copy className="h-3 w-3" /></button>
                       )}
                     </div>
@@ -705,7 +707,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
                                 className="min-h-11 flex-1 text-xs font-semibold text-emerald-800 leading-tight text-left enabled:hover:underline enabled:cursor-pointer">
                                 {cell.recipe_name}
                               </button>
-                              {!readOnly && (
+                              {!planReadOnly && (
                                 <button onClick={() => clearLine(key, lineIndex)} aria-label={`Remove ${cell.recipe_name}`} className="min-h-11 min-w-11 text-emerald-400 hover:text-red-500 cursor-pointer shrink-0 flex items-center justify-center"><X className="h-3 w-3" /></button>
                               )}
                             </div>
@@ -713,7 +715,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
                             {cell.hasRecipeOverride && <span className="mt-1 inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800">Customized item</span>}
                           </div>
                         ))}
-                        {readOnly ? (
+                        {planReadOnly ? (
                           lines.length === 0 && <div className="w-full text-center py-2 text-xs text-warm-300">—</div>
                         ) : (
                           <button onClick={() => { setActiveCell(isPicking ? null : key); setPickerSearch(""); }}
@@ -723,7 +725,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
                         )}
                       </div>
 
-                      {isPicking && !readOnly && (
+                      {isPicking && !planReadOnly && (
                         <div className="absolute z-30 top-full left-0 mt-1 w-56 bg-white border border-warm-200 rounded-xl shadow-lg p-2">
                           <div className="relative mb-1">
                             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-warm-400" />

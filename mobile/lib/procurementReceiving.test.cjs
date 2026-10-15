@@ -12,6 +12,7 @@ test('mobile receiving keeps vendor scope and shows compact actual PO item field
     'Actual Quantity',
     'Unit',
     'Actual Cost/unit',
+    'Actual Total',
   ]) assert.match(source, new RegExp(label));
   for (const label of ['Calculation details', 'Planned purchase:', 'Actual purchased:']) {
     assert.doesNotMatch(source, new RegExp(label));
@@ -35,6 +36,8 @@ test('mobile receiving keeps vendor scope and shows compact actual PO item field
   assert.doesNotMatch(source, /Mark vendor received/);
   assert.doesNotMatch(source, /status: 'received'/);
   assert.match(source, /Save actuals and optional OR/);
+  assert.match(source, /\(group\.items \?\? \[\]\)\.map\(\(item, idx\)/);
+  assert.doesNotMatch(source, /itemPager|setItemPage/);
 });
 
 test('mobile actual PO fields show two decimals and keep full precision until edited', () => {
@@ -43,6 +46,9 @@ test('mobile actual PO fields show two decimals and keep full precision until ed
   assert.match(source, /Current total/);
   assert.match(source, /po\.current_total_amount/);
   assert.match(source, /priceEdited:\s*false/);
-  assert.match(source, /actual_qty:\s*actuals\[item\.id\]\?\.qtyEdited\s*\?\s*Number\(actuals\[item\.id\]\.qty\)\s*:\s*Number\(item\.actual_qty\)/);
-  assert.match(source, /actual_unit_price:\s*actuals\[item\.id\]\?\.priceEdited\s*\?\s*Number\(actuals\[item\.id\]\.price\)\s*:\s*Number\(item\.actual_unit_price\)/);
+  assert.match(source, /receipt_total:\s*Number\(draft\.total\)/);
+  assert.match(source, /totalEdited:\s*false/);
+  assert.match(source, /Math\.round\(Number\(draft\.total\) \/ price \* 1000\) \/ 1000/);
+  assert.match(source, /actual_qty:\s*draft\.qtyEdited\s*\?\s*Number\(draft\.qty\)\s*:\s*Number\(item\.actual_qty\)/);
+  assert.match(source, /actual_unit_price:\s*draft\.priceEdited\s*\?\s*Number\(draft\.price\)\s*:\s*Number\(item\.actual_unit_price\)/);
 });

@@ -165,6 +165,22 @@ describe("Menu Cycle template and name editing", () => {
     expect(container.querySelector<HTMLInputElement>('input[title="Tuesday served population (2026-09-29)"]')).not.toBeNull();
   });
 
+  test("shows a purchased menu for review while keeping served population editable", async () => {
+    mockGetCycle.mockResolvedValue({ ...makeCycle(), week_start_date: "2026-10-05", days: [{
+      id: "line-1", day_of_week: "Monday", meal_type: "lunch", line_order: 1,
+      recipe_id: null, fs_item_id: "rice-id", quantity: 1, servings_override: null,
+      estimate_population: null, is_event: false, event_allocation: null,
+      fs_item: { id: "rice-id", name: "Rice" }, po_snapshot: { name: "Rice" },
+    }] });
+    await renderPage();
+    await act(async () => { container.querySelector<HTMLButtonElement>('button[title="Edit"]')?.click(); await Promise.resolve(); });
+    expect(container.textContent).toContain("Purchasing started");
+    expect(container.querySelector<HTMLInputElement>('input[aria-label="Menu name"]')?.readOnly).toBe(true);
+    expect(Array.from(container.querySelectorAll("button")).some((button) => button.textContent?.trim() === "Save")).toBe(false);
+    expect(container.querySelector<HTMLButtonElement>('button[aria-label="Remove Rice"]')).toBeNull();
+    expect(container.querySelector<HTMLButtonElement>('button[title="Edit Monday served population"]')).not.toBeNull();
+  });
+
   test("template editor hides snack rows and saves three-meal templates", async () => {
     mockGetTemplate.mockResolvedValue({ ...template, days: template.days });
     await act(async () => { root.render(<MenuTemplateDirectory />); await Promise.resolve(); });

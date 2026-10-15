@@ -250,7 +250,7 @@ Review the saved list and select **Turn Into PO**. A warning asks you to confirm
 
 ### Who records OR numbers and receipts?
 
-FSS can enter actual quantity and unit price and upload up to two receipt images and 12 proof-of-purchase images per vendor. RND reviews those details on web Procurement and marks each vendor received. OR number may be recorded when the vendor provides one, but it is optional.
+FSS can enter actual quantity, unit price, or Actual Total and upload up to two receipt images and 12 proof-of-purchase images per vendor. Entering Actual Total derives quantity from the unit price. RND reviews those details on web Procurement and marks each vendor received. OR number may be recorded when the vendor provides one, but it is optional.
 
 ### When does a food purchase order complete?
 
@@ -336,7 +336,7 @@ It is the explicit daily record for a non-working day and counts toward semi-mon
 
 ### What can I change on a purchase order?
 
-FSS can review planned and actual vendor item values, confirm or correct actual decimal quantity and unit price, upload/delete receipt and proof, and optionally save an OR number. The mobile app omits calculation details. RND marks a vendor received on web Procurement after reviewing those details. Before evidence or receiving, **Change vendor for all** changes the group and row-level **Change vendor** moves one item. Planned quantities, units, and calculated need remain locked.
+FSS can review every vendor item without paging, correct actual decimal quantity or unit price, or enter Actual Total to derive quantity, upload/delete receipt and proof, and optionally save an OR number. The mobile app omits calculation details. RND marks a vendor received on web Procurement after reviewing those details. Before evidence or receiving, **Change vendor for all** changes the group and row-level **Change vendor** moves one item. Planned quantities, units, and calculated need remain locked.
 
 ### Why did uploading a receipt not change the vendor status?
 

@@ -164,9 +164,9 @@ Use this as both the recording checklist and narration script. The main recordin
 1. Select the notification bell and open the prepared action-required PO notification. Confirm it opens the exact purchase order, then return once and show that **Dismiss** remains visible but disabled while receiving is incomplete.
 2. Open the same PO and select a vendor group.
 3. Before uploading evidence, optionally demonstrate **Change vendor for all** or row-level **Change vendor** with demo suppliers.
-4. Review **Planned purchase** and the prefilled **Actual purchased** values.
-5. Correct **Actual qty** and **Actual unit price** only when the demo receipt differs.
-6. Point out the PO lifecycle and vendor status, including receipt and proof status. No calculation details appear on vendor items.
+4. Review all rows under **Vendor line details** and their prefilled actual values.
+5. Correct **Actual Quantity** or **Actual Cost/unit** when the receipt differs. For a priced item, enter **Actual Total** to show the quantity recalculated from the unit price.
+6. Point out the PO lifecycle and vendor status, including receipt and proof status. No vendor-item pagination or calculation details appear.
 7. Enter an official receipt number only if the demo vendor supplied one.
 8. Select **Save actuals and optional OR**.
 9. Under Receipt images and Proof of purchase, select **Upload**, choose Receipt or Proof, optionally add a caption, then choose **Library** or **Camera**.
@@ -176,7 +176,7 @@ Use this as both the recording checklist and narration script. The main recordin
 
 **Narration**
 
-> FSS opens an existing purchase order; FSS does not create it. An action-required notification opens that exact purchase order and cannot be dismissed while receiving is incomplete. The approved quantity and price stay visible while staff correct the actual quantity and unit price when delivery differs. A vendor can be corrected only before receipt or proof images are attached. FSS saves actual values and uploads receipt and proof; RND reviews these on web Procurement and marks the vendor received. The official receipt number is optional.
+> FSS opens an existing purchase order; FSS does not create it. An action-required notification opens that exact purchase order and cannot be dismissed while receiving is incomplete. Staff review every vendor item and correct its actual quantity or unit price when delivery differs. Entering Actual Total derives quantity from the unit price. A vendor can be corrected only before receipt or proof images are attached. FSS saves actual values and uploads receipt and proof; RND reviews these on web Procurement and marks the vendor received. The official receipt number is optional.
 
 **Expected result:** The vendor status changes to received, locked records no longer expose editing controls, and the resolved notification becomes dismissible.
 

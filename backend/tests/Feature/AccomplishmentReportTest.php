@@ -329,12 +329,21 @@ class AccomplishmentReportTest extends TestCase
             'status' => 'archived',
         ]);
 
-        $ids = collect(
-            $this->actingAs($rnd)->getJson('/api/rnd/reports')->assertOk()->json('data')
-        )->pluck('id')->all();
+        $slugReport = Report::create([
+            'user_id' => $this->fss1->id,
+            'title' => 'accomplishment_report',
+            'type' => 'accomplishment_report',
+            'status' => 'archived',
+        ]);
 
-        $this->assertContains($fssReport->uuid, $ids,
+        $reports = collect(
+            $this->actingAs($rnd)->getJson('/api/rnd/reports')->assertOk()->json('data')
+        );
+
+        $this->assertContains($fssReport->uuid, $reports->pluck('id')->all(),
             'RND should see accomplishment reports filed by FSS staff');
+        $this->assertSame('Accomplishment May 01-15', $reports->firstWhere('id', $fssReport->uuid)['title']);
+        $this->assertSame('Accomplishment Report', $reports->firstWhere('id', $slugReport->uuid)['title']);
     }
 
     public function test_fss_index_still_only_shows_own_accomplishment_reports(): void

@@ -17,7 +17,9 @@ class ReportResource extends JsonResource
                 'id' => $this->user->uuid,
                 'name' => $this->user->display_name,
             ]),
-            'title' => $this->title,
+            'title' => $this->type === 'accomplishment_report' && $this->title === 'accomplishment_report'
+                ? 'Accomplishment Report'
+                : $this->title,
             'type' => $this->type,
             'filters' => $this->filters,
             'parameters' => $this->parameters,

@@ -62,12 +62,13 @@ test('FSS service screens select the Manila date and show unplanned weeks plainl
   assert.match(accomplish, /useFocusEffect/);
 });
 
-test('PO detail exposes lifecycle and vendor evidence without item calculations', () => {
+test('PO detail exposes lifecycle, vendor evidence, and receipt total editing', () => {
   const screen = read('app/(tabs)/procurement.tsx');
   assert.match(screen, /Status: \{purchaseOrderStatusLabel\(po\.lifecycle_status\)\}/);
   assert.match(screen, /Receipt \{countReceipts\(group\) \? 'uploaded' : 'missing'\}/);
   assert.match(screen, /Proof \{countProofs\(group\) \? 'uploaded' : 'missing'\}/);
-  for (const label of ['Calculation details', 'Planned purchase:', 'Actual purchased:', 'Actual Total']) {
+  assert.match(screen, /Actual Total/);
+  for (const label of ['Calculation details', 'Planned purchase:', 'Actual purchased:']) {
     assert.doesNotMatch(screen, new RegExp(label));
   }
 });

@@ -64,6 +64,26 @@ interface PurchaseOrderItem {
   actual_total: number | string;
 }
 
+interface ActualDraft {
+  qty: string;
+  price: string;
+  total: string;
+  qtyEdited: boolean;
+  priceEdited: boolean;
+  totalEdited: boolean;
+}
+
+function initialActual(item: PurchaseOrderItem): ActualDraft {
+  return {
+    qty: formatActualInput(item.actual_qty),
+    price: formatActualInput(item.actual_unit_price),
+    total: formatActualInput(item.actual_total),
+    qtyEdited: false,
+    priceEdited: false,
+    totalEdited: false,
+  };
+}
+
 interface PurchaseOrderAttachment {
   id: string;
   vendor_group_id?: number | null;
@@ -558,42 +578,34 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
   const actualsLocked = locked || group.status === 'received' || Boolean(group.received_at);
   const [orNumber, setOrNumber] = useState(group.or_number ?? '');
   const [error, setError] = useState<string | null>(null);
-  const [actuals, setActuals] = useState<Record<number, { qty: string; price: string; qtyEdited: boolean; priceEdited: boolean }>>(
-    Object.fromEntries((group.items ?? []).map((item) => [item.id, {
-      qty: formatActualInput(item.actual_qty),
-      price: formatActualInput(item.actual_unit_price),
-      qtyEdited: false,
-      priceEdited: false,
-    }])),
+  const [actuals, setActuals] = useState<Record<number, ActualDraft>>(
+    Object.fromEntries((group.items ?? []).map((item) => [item.id, initialActual(item)])),
   );
   const [vendorScope, setVendorScope] = useState<'all' | number | null>(null);
   const [vendorPage, setVendorPage] = useState(1);
-  const [itemPage, setItemPage] = useState(1);
   const vendorPager = paginateItems(suppliers.filter((supplier) => supplier.id !== group.supplier?.id), vendorPage);
-  const itemPager = paginateItems(group.items ?? [], itemPage);
 
   useEffect(() => {
     setOrNumber(group.or_number ?? '');
-    setActuals(Object.fromEntries((group.items ?? []).map((item) => [item.id, {
-      qty: formatActualInput(item.actual_qty),
-      price: formatActualInput(item.actual_unit_price),
-      qtyEdited: false,
-      priceEdited: false,
-    }])));
+    setActuals(Object.fromEntries((group.items ?? []).map((item) => [item.id, initialActual(item)])));
     setError(null);
     setVendorPage(1);
-    setItemPage(1);
   }, [group]);
 
   const updateMutation = useMutation({
     mutationFn: async () => {
       const payload = {
         or_number: orNumber.trim() || null,
-        ...(!actualsLocked ? { items: (group.items ?? []).map((item) => ({
-          id: item.id,
-          actual_qty: actuals[item.id]?.qtyEdited ? Number(actuals[item.id].qty) : Number(item.actual_qty),
-          actual_unit_price: actuals[item.id]?.priceEdited ? Number(actuals[item.id].price) : Number(item.actual_unit_price),
-        })) } : {}),
+        ...(!actualsLocked ? { items: (group.items ?? []).map((item) => {
+          const draft = actuals[item.id] ?? initialActual(item);
+          return {
+            id: item.id,
+            ...(draft.totalEdited
+              ? { receipt_total: Number(draft.total) }
+              : { actual_qty: draft.qtyEdited ? Number(draft.qty) : Number(item.actual_qty) }),
+            actual_unit_price: draft.priceEdited ? Number(draft.price) : Number(item.actual_unit_price),
+          };
+        }) } : {}),
       };
       const res = await api.patch(`/api/fss/purchase-order-vendor-groups/${group.id}`, payload);
       return res.data;
@@ -611,12 +623,16 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
 
   const saveActuals = () => {
     const invalid = !actualsLocked && (group.items ?? []).find((item) => {
-      const qty = Number(actuals[item.id]?.qty);
-      const price = Number(actuals[item.id]?.price);
-      return !Number.isFinite(qty) || qty <= 0 || !Number.isFinite(price) || price < 0;
+      const draft = actuals[item.id] ?? initialActual(item);
+      const qty = draft.qtyEdited ? Number(draft.qty) : Number(item.actual_qty);
+      const price = draft.priceEdited ? Number(draft.price) : Number(item.actual_unit_price);
+      const total = Number(draft.total);
+      return !Number.isFinite(price) || price < 0 || (draft.totalEdited
+        ? !draft.total.trim() || !Number.isFinite(total) || total < 0.001 * price || price <= 0
+        : !Number.isFinite(qty) || qty <= 0);
     });
     if (invalid) {
-      setError(`Enter a quantity greater than 0 and a non-negative unit price for ${invalid.description}.`);
+      setError(`Enter a quantity greater than 0, a non-negative unit price, or a valid total with a positive unit price for ${invalid.description}.`);
       return;
     }
     setError(null);
@@ -742,21 +758,33 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
             </Text>
           </View>
 
-          {itemPager.items.map((item, idx) => (
+          {(group.items ?? []).map((item, idx) => {
+            const draft = actuals[item.id] ?? initialActual(item);
+            const price = draft.priceEdited ? Number(draft.price) : Number(item.actual_unit_price);
+            const qty = draft.qtyEdited ? Number(draft.qty) : Number(item.actual_qty);
+            const scaledQty = draft.totalEdited && price > 0 && draft.total.trim()
+              ? String(Math.round(Number(draft.total) / price * 1000) / 1000)
+              : draft.qty;
+            const shownTotal = draft.totalEdited ? draft.total : Number.isFinite(qty * price) ? (qty * price).toFixed(2) : '';
+            return (
             <View key={item.id} className={`px-4 py-4 ${idx < (group.items?.length ?? 0) - 1 ? 'border-b border-gray-100' : ''}`}>
               <Text className="text-sm font-semibold text-gray-900 mb-1" numberOfLines={2}>
                 {item.description}
               </Text>
               <View className="flex-row gap-2">
-                <View className="flex-1"><Text className="text-xs text-gray-500 mb-1">Actual Quantity</Text><TextInput keyboardType="decimal-pad" editable={!actualsLocked} value={actuals[item.id]?.qty ?? formatActualInput(item.actual_qty)} onChangeText={(value) => setActuals((current) => {
-                  const draft = current[item.id] ?? { qty: formatActualInput(item.actual_qty), price: formatActualInput(item.actual_unit_price), qtyEdited: false, priceEdited: false };
-                  return { ...current, [item.id]: { ...draft, qty: value, qtyEdited: true } };
-                })} className="border border-gray-200 rounded-lg px-3 py-2 text-sm" /></View>
-                <View className="w-16"><Text className="text-xs text-gray-500 mb-1">Unit</Text><View className="min-h-10 justify-center rounded-lg border border-gray-100 bg-gray-50 px-3"><Text className="text-sm text-gray-700">{item.actual_unit}</Text></View></View>
-                <View className="flex-1"><Text className="text-xs text-gray-500 mb-1">Actual Cost/unit</Text><TextInput keyboardType="decimal-pad" editable={!actualsLocked} value={actuals[item.id]?.price ?? formatActualInput(item.actual_unit_price)} onChangeText={(value) => setActuals((current) => {
-                  const draft = current[item.id] ?? { qty: formatActualInput(item.actual_qty), price: formatActualInput(item.actual_unit_price), qtyEdited: false, priceEdited: false };
-                  return { ...current, [item.id]: { ...draft, price: value, priceEdited: true } };
-                })} className="border border-gray-200 rounded-lg px-3 py-2 text-sm" /></View>
+                <View className="flex-1"><Text className="min-h-9 text-xs text-gray-500 mb-1">Actual Quantity</Text><TextInput keyboardType="decimal-pad" editable={!actualsLocked} accessibilityLabel={`Actual Quantity for ${item.description}`} value={scaledQty} onChangeText={(value) => setActuals((current) => {
+                  const currentDraft = current[item.id] ?? initialActual(item);
+                  return { ...current, [item.id]: { ...currentDraft, qty: value, qtyEdited: true, totalEdited: false } };
+                })} className="border border-gray-200 rounded-lg px-2 py-2 text-sm" /></View>
+                <View className="w-12"><Text className="min-h-9 text-xs text-gray-500 mb-1">Unit</Text><View className="min-h-10 justify-center rounded-lg border border-gray-100 bg-gray-50 px-1"><Text className="text-sm text-gray-700" numberOfLines={1}>{item.actual_unit}</Text></View></View>
+                <View className="flex-1"><Text className="min-h-9 text-xs text-gray-500 mb-1">Actual Cost/unit</Text><TextInput keyboardType="decimal-pad" editable={!actualsLocked} accessibilityLabel={`Actual Cost per unit for ${item.description}`} value={draft.price} onChangeText={(value) => setActuals((current) => {
+                  const currentDraft = current[item.id] ?? initialActual(item);
+                  return { ...current, [item.id]: { ...currentDraft, price: value, priceEdited: true } };
+                })} className="border border-gray-200 rounded-lg px-2 py-2 text-sm" /></View>
+                <View className="flex-1"><Text className="min-h-9 text-xs text-gray-500 mb-1">Actual Total</Text><TextInput keyboardType="decimal-pad" editable={!actualsLocked} accessibilityLabel={`Actual Total for ${item.description}`} value={shownTotal} onChangeText={(value) => setActuals((current) => {
+                  const currentDraft = current[item.id] ?? initialActual(item);
+                  return { ...current, [item.id]: { ...currentDraft, total: value, totalEdited: true } };
+                })} className="border border-gray-200 rounded-lg px-2 py-2 text-sm" /></View>
               </View>
               <TouchableOpacity
                 className="min-h-11 justify-center self-start"
@@ -769,8 +797,8 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
               </TouchableOpacity>
               {vendorScope === item.id && vendorChoices(item.id)}
             </View>
-          ))}
-          <View className="px-4"><MobilePagination page={itemPager.page} pages={itemPager.pages} total={itemPager.total} onPrevious={() => setItemPage(itemPager.page - 1)} onNext={() => setItemPage(itemPager.page + 1)} /></View>
+            );
+          })}
         </View>
 
         <View className="gap-4">
