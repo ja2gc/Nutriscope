@@ -199,16 +199,20 @@ class ReportsBrowseTest extends TestCase
             ->assertJsonPath('data.instances.1.params.purchase_order_id', $secondOrder->id);
     }
 
-    public function test_browse_labels_use_po_date_and_menu_week_instead_of_cycle_name(): void
+    public function test_browse_labels_use_shopping_list_name_and_show_full_procurement_span(): void
     {
-        $po = $this->receivedPo('2026-05-10');
+        $po = $this->receivedPo('2026-05-09');
+        $list = ShoppingList::factory()->create(['name' => 'Hospital pantry', 'period_start' => '2026-05-10', 'period_end' => '2026-05-14']);
+        $po->update(['shopping_list_id' => $list->id]);
         $menu = MenuCycle::factory()->create(['name' => 'Substance Cycle', 'week_start_date' => '2026-05-11']);
 
         $poInstance = $this->actingAs($this->rnd)
             ->getJson('/api/rnd/reports/procurement_pack/instances')->assertOk()->json('data.instances.0');
         $menuInstance = $this->getJson('/api/rnd/reports/menu_calendar/instances')->assertOk()->json('data.instances.0');
 
-        $this->assertSame($po->po_number.' — May 10, 2026', $poInstance['label']);
+        $this->assertSame('PO — Hospital pantry', $poInstance['label']);
+        $this->assertSame('2026-05-10', $poInstance['covered_from']);
+        $this->assertSame('2026-05-14', $poInstance['covered_until']);
         $this->assertSame('Menu — week of May 11, 2026', $menuInstance['label']);
         $this->assertSame($menu->id, $menuInstance['params']['menu_cycle_id']);
     }
@@ -236,7 +240,7 @@ class ReportsBrowseTest extends TestCase
         }
 
         $pack = $this->getJson('/api/rnd/reports/procurement_pack/instances')->json('data.instances.0');
-        $this->assertSame($po->po_number.' — May 10, 2026', $pack['label']);
+        $this->assertSame('PO — May 10, 2026', $pack['label']);
     }
 
     public function test_procurement_browse_falls_back_to_completion_date_for_legacy_orders(): void
@@ -250,7 +254,7 @@ class ReportsBrowseTest extends TestCase
             ->json('data.instances.0');
 
         $this->assertSame('2026-05-10', $instance['date']);
-        $this->assertSame($po->po_number.' — May 10, 2026', $instance['label']);
+        $this->assertSame('PO — May 10, 2026', $instance['label']);
     }
 
     public function test_ppa_axis_lists_completed_food_pos(): void
@@ -276,6 +280,9 @@ class ReportsBrowseTest extends TestCase
         $this->assertCount(1, $instances);
         $this->assertArrayHasKey('purchase_order_id', $instances[0]['params']);
         $this->assertSame($po->id, $instances[0]['params']['purchase_order_id']);
+        $this->assertSame('PO — May 10, 2026', $instances[0]['label']);
+        $this->assertSame('2026-05-05', $instances[0]['covered_from']);
+        $this->assertSame('2026-05-07', $instances[0]['covered_until']);
     }
 
     public function test_unknown_type_instances_is_404(): void

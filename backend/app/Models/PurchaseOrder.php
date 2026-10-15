@@ -50,6 +50,11 @@ class PurchaseOrder extends Model
         return $this->procurement_track === 'food';
     }
 
+    public function displayName(): string
+    {
+        return 'PO — '.($this->shoppingList?->name ?: ($this->order_date ?? $this->completed_at)?->format('M j, Y') ?: 'Purchase Order');
+    }
+
     public function corrections()
     {
         return $this->hasManyThrough(

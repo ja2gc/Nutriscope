@@ -38,6 +38,7 @@ class MenuCyclePoSnapshotTest extends TestCase
         $supplier = Supplier::factory()->create();
         $fsItem = FsItem::factory()->create([
             'base_unit' => 'kg', 'purchase_unit' => 'kg', 'purchase_price' => 25,
+            'notes' => 'Wash and drain before serving.',
         ]);
 
         // 2026-06-15 is a Monday.
@@ -55,6 +56,8 @@ class MenuCyclePoSnapshotTest extends TestCase
             'quantity' => 1,
             'estimate_population' => 10,
         ]);
+        $this->actingAs($this->rnd)->getJson("/api/fss/menu-cycles/{$cycle->uuid}/lines/{$day->uuid}")
+            ->assertOk()->assertJsonPath('data.prep_notes', 'Wash and drain before serving.');
 
         $list = ShoppingList::create([
             'rnd_user_id' => $this->rnd->id, 'name' => 'Span', 'list_date' => '2026-06-15',
@@ -76,6 +79,7 @@ class MenuCyclePoSnapshotTest extends TestCase
         $this->assertNotNull($day->po_snapshot_at);
         $this->assertNotNull($day->snapshot_purchase_order_id);
         $this->assertSame($fsItem->id, $day->po_snapshot['fs_item_id']);
+        $this->assertSame('Wash and drain before serving.', $day->po_snapshot['prep_notes']);
         $this->assertSame(10, $day->po_snapshot['population']);
         $this->assertEqualsWithDelta(10, (float) $day->po_snapshot['total_quantity'], 0.01);
         $this->assertEqualsWithDelta(250, (float) $day->po_snapshot['total_cost'], 0.01);
@@ -86,6 +90,9 @@ class MenuCyclePoSnapshotTest extends TestCase
         $snapshot = collect($response->json('data.days'))->firstWhere('id', $day->uuid)['po_snapshot'];
         $this->assertSame(10, $snapshot['population']);
         $this->assertEqualsWithDelta(10, (float) $snapshot['total_quantity'], 0.01);
+        $fsItem->update(['notes' => 'New preparation note.']);
+        $this->getJson("/api/fss/menu-cycles/{$cycle->uuid}/lines/{$day->uuid}")
+            ->assertOk()->assertJsonPath('data.prep_notes', 'Wash and drain before serving.');
 
         $this->actingAs($this->rnd);
         $this->assertSame(409, $this->patchJson("/api/fss/menu-cycles/{$cycle->uuid}", ['name' => 'Changed after order'])->status(), 'rename');

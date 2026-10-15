@@ -562,7 +562,7 @@ class MenuCycleController extends Controller
             'reference_servings' => (int) ($recipe['servings'] ?? 1),
             'planned_servings' => $estimateSet ? $target : null,
             'purchase_estimate_set' => $estimateSet,
-            'prep_notes' => $recipe['prep_notes'] ?? null,
+            'prep_notes' => $recipe['prep_notes'] ?? ($slot->po_snapshot ? ($slot->po_snapshot['prep_notes'] ?? null) : $slot->fsItem?->notes),
             'portion_label' => $recipe['portion_label'] ?? null,
             'ingredients' => $ingredients,
             'total_cost' => $estimateSet ? (float) $result['total_cost'] : null,

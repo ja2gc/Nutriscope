@@ -8,6 +8,7 @@ use App\Models\PurchaseOrder;
 use App\Models\Report;
 use App\Models\ReportBranding;
 use App\Models\ReportTemplate;
+use App\Models\ShoppingList;
 use App\Models\User;
 use App\Services\Reports\ReportService;
 use App\Services\StoredObjectStorage;
@@ -60,6 +61,23 @@ class PreparedReportTest extends TestCase
 
         $this->assertSame('PO — May 10, 2026', $poReport->title);
         $this->assertSame('Menu — week of May 11, 2026', $menuReport->title);
+    }
+
+    #[Test]
+    public function new_procurement_report_title_uses_shopping_list_name(): void
+    {
+        Storage::fake('report_cache');
+        $actor = User::factory()->rnd()->create();
+        $list = ShoppingList::factory()->create(['name' => 'Hospital pantry']);
+        $po = PurchaseOrder::factory()->create(['shopping_list_id' => $list->id, 'order_date' => '2026-05-10']);
+        $service = $this->createMock(ReportService::class);
+        $service->method('signatoriesFor')->willReturn([]);
+        $service->method('buildPdf')->willReturn(['bytes' => "%PDF-1.4\nreport\n%%EOF", 'meta' => []]);
+        $this->app->instance(ReportService::class, $service);
+
+        $report = app(PrepareSavedReport::class)->execute($actor, 'procurement_pack', ['purchase_order_id' => $po->id], freeze: false);
+
+        $this->assertSame('PO — Hospital pantry', $report->title);
     }
 
     #[Test]

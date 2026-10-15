@@ -67,9 +67,6 @@ export default function LoginScreen() {
         <View className="w-full max-w-md mx-auto">
           {/* Brand Header */}
           <View className="items-center mb-7">
-            <View className="h-16 w-16 rounded-[22px] bg-[#EAF7F1] border border-[#CDE8DB] items-center justify-center mb-3">
-              <BrandLogo size={34} showWordmark={false} />
-            </View>
             <BrandLogo size={28} />
           </View>
 

@@ -163,6 +163,14 @@ class ReportController extends Controller
                 return $key === null || ! isset($hiddenKeys[$key]);
             }));
             $coveredUntil = ReportCoveredDate::forInstances($type, $instances);
+            if (in_array($type, ['procurement_pack', 'program_project_activity'], true)) {
+                $spans = ReportCoveredDate::procurementSpansForInstances($type, $instances);
+                foreach ($instances as &$instance) {
+                    $instance['covered_from'] = $spans[$instance['key']]['start'] ?? null;
+                    $instance['covered_until'] = $spans[$instance['key']]['end'] ?? null;
+                }
+                unset($instance);
+            }
             if (! empty($dates['covered_month'])) {
                 $monthStart = $dates['covered_month'].'-01';
                 $monthEnd = Carbon::parse($monthStart)->endOfMonth()->toDateString();

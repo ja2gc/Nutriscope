@@ -27,20 +27,24 @@ class AccomplishmentPeriodController extends Controller
         $data = $request->validate(['year' => ['nullable', 'integer', 'between:2000,2100']]);
         $user = $request->user();
         $dates = DietListCount::query()->where('fss_user_id', $user->id)
-            ->when(isset($data['year']), fn ($query) => $query->whereYear('service_date', $data['year']))
             ->pluck('service_date');
         $starts = $dates->map(fn ($date) => AccomplishmentReportArchiveService::periodBounds($date->toDateString())[0]);
         $todayStart = AccomplishmentReportArchiveService::periodBounds(CarbonImmutable::now('Asia/Manila')->toDateString())[0];
-        if (! isset($data['year']) || (int) substr($todayStart, 0, 4) === (int) $data['year']) {
-            $starts->push($todayStart);
-        }
         Report::query()->where('type', 'accomplishment_report')->where('user_id', $user->id)
             ->whereNotNull('review_state')
-            ->when(isset($data['year']), fn ($query) => $query->whereYear('report_covered_from', $data['year']))
             ->pluck('report_covered_from')
             ->each(fn ($date) => $starts->push(CarbonImmutable::parse($date)->toDateString()));
 
+        $period = CarbonImmutable::parse($starts->min() ?? $todayStart);
+        $last = CarbonImmutable::parse($todayStart);
+        $starts->push($todayStart);
+        while ($period <= $last) {
+            $starts->push($period->toDateString());
+            $period = $period->day === 1 ? $period->addDays(15) : $period->addMonthNoOverflow()->startOfMonth();
+        }
+
         return response()->json(['data' => $starts->unique()->sortDesc()->values()
+            ->when(isset($data['year']), fn ($periods) => $periods->filter(fn (string $start) => (int) substr($start, 0, 4) === (int) $data['year'])->values())
             ->map(fn (string $start) => $this->summary($user, $start))->all()]);
     }
 

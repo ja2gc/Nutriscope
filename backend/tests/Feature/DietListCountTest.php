@@ -265,14 +265,29 @@ class DietListCountTest extends TestCase
         ]);
     }
 
-    public function test_new_numeric_fields_reject_population_above_five_thousand(): void
+    public function test_new_numeric_fields_use_two_and_four_digit_limits(): void
     {
+        $date = CarbonImmutable::now('Asia/Manila')->subDay()->toDateString();
         $this->actingAs($this->fss)->postJson('/api/fss/diet-list-counts', [
-            'service_date' => CarbonImmutable::now('Asia/Manila')->subDay()->toDateString(),
-            'collected_ward_diet_lists' => 5001,
-            'apportioned_distributed_meals' => 1,
-        ])->assertUnprocessable()
-            ->assertJsonValidationErrors('collected_ward_diet_lists');
+            'service_date' => $date,
+            'collected_ward_diet_lists' => 99,
+            'apportioned_distributed_meals' => 9999,
+        ])->assertCreated();
+
+        $this->postJson('/api/fss/diet-list-counts', [
+            'service_date' => $date,
+            'collected_ward_diet_lists' => 100,
+            'apportioned_distributed_meals' => 10000,
+        ])->assertUnprocessable()->assertJsonValidationErrors([
+            'collected_ward_diet_lists',
+            'apportioned_distributed_meals',
+        ]);
+        $this->assertDatabaseHas('diet_list_counts', [
+            'fss_user_id' => $this->fss->id,
+            'service_date' => $date,
+            'collected_ward_diet_lists' => 99,
+            'apportioned_distributed_meals' => 9999,
+        ]);
     }
 
     public function test_new_form_does_not_delete_or_replace_legacy_ward_rows(): void

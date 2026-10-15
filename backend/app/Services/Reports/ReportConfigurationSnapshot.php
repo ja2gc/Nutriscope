@@ -12,7 +12,7 @@ class ReportConfigurationSnapshot
     /** @param list<string> $types */
     public function capture(array $types, ?string $effectiveDate = null): array
     {
-        $cutoff = $effectiveDate === null ? null : Carbon::parse($effectiveDate)->startOfDay();
+        $cutoff = $effectiveDate === null ? null : Carbon::parse($effectiveDate, config('nutriscope-reports.timezone'))->endOfDay()->utc();
         $brandingRevision = $this->revision('branding', null, $cutoff);
         $saved = ReportTemplate::query()->whereIn('type', $types)->get()
             ->mapWithKeys(function (ReportTemplate $template) use ($cutoff): array {
@@ -48,13 +48,17 @@ class ReportConfigurationSnapshot
 
     private function revision(string $kind, ?int $templateId, ?Carbon $cutoff): ?ReportConfigurationRevision
     {
-        return ReportConfigurationRevision::query()
+        $query = ReportConfigurationRevision::query()
             ->where('kind', $kind)
             ->when($templateId === null, fn ($query) => $query->whereNull('report_template_id'))
-            ->when($templateId !== null, fn ($query) => $query->where('report_template_id', $templateId))
+            ->when($templateId !== null, fn ($query) => $query->where('report_template_id', $templateId));
+
+        $revision = (clone $query)
             ->when($cutoff !== null, fn ($query) => $query->where('created_at', '<=', $cutoff))
             ->latest('created_at')
             ->latest('id')
             ->first();
+
+        return $revision ?? ($cutoff === null ? null : $query->oldest('created_at')->oldest('id')->first());
     }
 }

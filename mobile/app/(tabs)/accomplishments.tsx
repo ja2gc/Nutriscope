@@ -110,7 +110,7 @@ export default function AccomplishmentsScreen() {
     if (locked) { setMessage({ kind: 'error', text: 'This period is read-only.' }); return; }
     if (rowsQuery.isLoading || rowsQuery.isError) { setMessage({ kind: 'error', text: 'Could not check existing logs. Retry before saving.' }); return; }
     const values = Object.values(numbers).map((value) => Number.parseInt(value || '0', 10));
-    if (!offDuty && values.some((value) => !Number.isInteger(value) || value < 0)) { setMessage({ kind: 'error', text: 'Enter whole numbers at 0 or greater.' }); return; }
+    if (!offDuty && values.some((value, index) => !Number.isInteger(value) || value < 0 || value > (index === 0 ? 99 : 9999))) { setMessage({ kind: 'error', text: 'Collected lists must be 0–99; distributed meals must be 0–9,999.' }); return; }
     saveMutation.mutate();
   };
 
@@ -165,7 +165,7 @@ export default function AccomplishmentsScreen() {
           if (key === 'collected_ward_diet_lists' || key === 'apportioned_distributed_meals') {
             return <View key={key} className="border-b border-[#F0F3F1] py-3">
               <Text className="text-sm font-semibold leading-5 text-[#30483F]">{index + 1}. {label}</Text>
-              <TextInput value={numbers[key]} editable={!locked} onChangeText={(value) => { setNumbers((current) => ({ ...current, [key]: value.replace(/[^0-9]/g, '') })); setMessage(null); }} keyboardType="number-pad" className="mt-2 min-h-12 border border-[#D9E3DD] bg-[#FAFCFB] rounded-xl px-3.5 text-[#16352B] tabular-nums" accessibilityLabel={label} />
+              <TextInput value={numbers[key]} editable={!locked} maxLength={key === 'collected_ward_diet_lists' ? 2 : 4} onChangeText={(value) => { setNumbers((current) => ({ ...current, [key]: value.replace(/[^0-9]/g, '').slice(0, key === 'collected_ward_diet_lists' ? 2 : 4) })); setMessage(null); }} keyboardType="number-pad" className="mt-2 min-h-12 border border-[#D9E3DD] bg-[#FAFCFB] rounded-xl px-3.5 text-[#16352B] tabular-nums" accessibilityLabel={label} accessibilityHint={key === 'collected_ward_diet_lists' ? '0 to 99' : '0 to 9999'} />
             </View>;
           }
           const checkboxKey = key as TaskKey;

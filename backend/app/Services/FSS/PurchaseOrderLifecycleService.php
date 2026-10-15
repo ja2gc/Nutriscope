@@ -652,6 +652,7 @@ class PurchaseOrderLifecycleService
                     $snapshot = [
                         'fs_item_id' => $item->id,
                         'name' => $item->name,
+                        'prep_notes' => $item->notes,
                         'unit' => $item->base_unit,
                         'unit_cost' => round($item->unit_cost, 2),
                         'quantity' => round($qty, 2),

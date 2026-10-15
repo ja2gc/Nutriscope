@@ -59,6 +59,25 @@ class AccomplishmentPeriodWorkflowTest extends TestCase
         $this->assertCount(14, $period['days']);
     }
 
+    public function test_progress_includes_empty_periods_between_the_first_log_and_today(): void
+    {
+        $fss = User::factory()->fss()->create();
+        DietListCount::factory()->create(['fss_user_id' => $fss->id, 'service_date' => '2026-06-10']);
+        Carbon::setTestNow(Carbon::parse('2026-08-02 12:00:00', 'Asia/Manila'));
+        try {
+            $periods = $this->actingAs($fss)->getJson('/api/fss/accomplishment-periods?year=2026')
+                ->assertOk()->json('data');
+        } finally {
+            Carbon::setTestNow();
+        }
+
+        $this->assertSame(
+            ['2026-08-01', '2026-07-16', '2026-07-01', '2026-06-16', '2026-06-01'],
+            array_column($periods, 'start'),
+        );
+        $this->assertSame(0, collect($periods)->firstWhere('start', '2026-07-01')['saved_days']);
+    }
+
     public function test_a_period_with_a_missing_date_cannot_be_submitted(): void
     {
         $fss = User::factory()->fss()->create();

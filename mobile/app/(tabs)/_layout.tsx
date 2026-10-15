@@ -9,6 +9,7 @@ export default function TabsLayout() {
   const tabHeight = 58 + insets.bottom;
   return (
     <Tabs
+      backBehavior="history"
       screenOptions={{
         headerShown: true,
         tabBarActiveTintColor: MOBILE_THEME.colors.brand,

@@ -5,6 +5,7 @@ namespace App\Actions\Reports;
 use App\Models\Intervention;
 use App\Models\MealPlan;
 use App\Models\MenuCycle;
+use App\Models\NcpRecord;
 use App\Models\PurchaseOrder;
 use App\Models\Report;
 use App\Models\ReportBranding;
@@ -33,10 +34,12 @@ class PrepareSavedReport
         ksort($parameters);
         $identity = hash('sha256', $actor->role.'|'.$type.'|'.json_encode($parameters, JSON_THROW_ON_ERROR));
         $template = ReportTemplate::query()->where('type', $type)->first();
-        $sourceConfiguration = $this->sourceConfiguration($type, $parameters);
         $coveredUntil = ReportCoveredDate::forParameters($type, $parameters);
         $coveredFrom = ReportCoveredDate::startForParameters($type, $parameters);
-        $periodConfiguration = $sourceConfiguration ?? $this->configuration->capture([$type], $coveredFrom);
+        $types = $type === 'procurement_pack'
+            ? [$type, 'inspection_report', 'marketing_statement', 'marketing_summary']
+            : [$type];
+        $periodConfiguration = $this->configuration->capture($types, $this->configurationDate($type, $parameters, $coveredFrom));
         $sourceTemplate = $periodConfiguration['templates'][$type] ?? null;
         $title = $this->titleFor($type, $parameters, $sourceTemplate['name'] ?? $template?->name ?? $type);
         $report = $existing ?? Report::query()->where('archive_identity', $identity)->first();
@@ -72,11 +75,11 @@ class PrepareSavedReport
             'params' => $parameters,
             'configuration_revisions' => $periodConfiguration['revisions'] ?? null,
         ];
-        if ($type === 'procurement_pack' && $sourceConfiguration !== null) {
+        if ($type === 'procurement_pack') {
             $initialSnapshot['procurement_form_signatories'] = collect([
                 'inspection_report', 'marketing_statement', 'marketing_summary',
             ])->mapWithKeys(fn (string $form): array => [
-                $form => $sourceConfiguration['templates'][$form]['signatories'] ?? [],
+                $form => $periodConfiguration['templates'][$form]['signatories'] ?? [],
             ])->all();
         }
         $snapshot = $report?->snapshot ?: $initialSnapshot;
@@ -192,16 +195,30 @@ class PrepareSavedReport
         return $report->fresh(['user:id,uuid,name,first_name,last_name', 'officialFile']);
     }
 
-    private function sourceConfiguration(string $type, array $parameters): ?array
+    private function configurationDate(string $type, array $parameters, ?string $coveredFrom): string
     {
-        $source = match ($type) {
-            'procurement_pack', 'program_project_activity' => $this->findSource(PurchaseOrder::class, $parameters['purchase_order_id'] ?? null),
-            'menu_calendar' => $this->findSource(MenuCycle::class, $parameters['menu_cycle_id'] ?? null),
-            'patient_menu_plan' => $this->patientMenuSource($parameters),
+        if (in_array($type, ['procurement_pack', 'program_project_activity'], true)) {
+            $order = PurchaseOrder::query()->with(['shoppingList', 'programProjectActivity'])
+                ->find($parameters['purchase_order_id'] ?? null);
+            $start = $type === 'program_project_activity'
+                ? $order?->programProjectActivity?->period_start ?? $order?->shoppingList?->period_start
+                : $order?->shoppingList?->period_start;
+
+            return $start?->toDateString() ?? $coveredFrom ?? now()->toDateString();
+        }
+
+        if ($coveredFrom !== null) {
+            return $coveredFrom;
+        }
+
+        $date = match ($type) {
+            'patient_menu_plan' => $this->patientMenuSource($parameters)?->created_at,
+            'ncp_summary' => $this->findSource(NcpRecord::class, $parameters['ncp_record_id'] ?? null)?->created_at,
             default => null,
         };
 
-        return $source?->report_configuration_snapshot;
+        return $date?->timezone(config('nutriscope-reports.timezone'))->toDateString()
+            ?? $parameters['date'] ?? now(config('nutriscope-reports.timezone'))->toDateString();
     }
 
     private function patientMenuSource(array $parameters): ?MealPlan
@@ -229,10 +246,7 @@ class PrepareSavedReport
     private function titleFor(string $type, array $parameters, string $fallback): string
     {
         if (in_array($type, ['procurement_pack', 'program_project_activity'], true)) {
-            $purchaseOrder = PurchaseOrder::query()->find($parameters['purchase_order_id'] ?? null);
-            $date = $purchaseOrder?->order_date;
-
-            return $date ? 'PO — '.$date->copy()->timezone(config('nutriscope-reports.timezone'))->format('M j, Y') : $fallback;
+            return PurchaseOrder::query()->with('shoppingList')->find($parameters['purchase_order_id'] ?? null)?->displayName() ?? $fallback;
         }
 
         if ($type === 'menu_calendar') {

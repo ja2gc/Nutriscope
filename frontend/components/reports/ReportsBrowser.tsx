@@ -369,6 +369,7 @@ function InstancesPanel({
   }, [entry.type, apiPrefix, onFlash, page, coveredMonth, debouncedSearch, refreshVersion]);
 
   const pagedShown = instances;
+  const hasProcurementSpan = entry.type === "procurement_pack" || entry.type === "program_project_activity";
 
   async function onPreview(i: ReportInstance) {
     if (i.available === false) return;
@@ -444,19 +445,33 @@ function InstancesPanel({
         </div>
       ) : (
         <>
+        {hasProcurementSpan && (
+          <div className="grid grid-cols-[minmax(0,1fr)_8.5rem] gap-3 border-b border-warm-100 px-5 py-2 text-xs font-semibold text-warm-500 sm:grid-cols-[minmax(0,1fr)_14rem]">
+            <span className="pl-7">PO name</span><span>Procurement span</span>
+          </div>
+        )}
         <ul className="divide-y divide-zinc-100">
           {pagedShown.map((i) => (
             <li key={i.key} className="flex items-center justify-between gap-3 hover:bg-warm-50/60">
               <button
                 onClick={() => void onPreview(i)}
                 disabled={i.available === false || busy !== null}
-                className="flex-1 min-w-0 text-left px-5 py-3 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 flex items-center gap-2.5 group focus:outline-none focus-visible:bg-emerald-50/40"
+                className={`flex-1 min-w-0 text-left px-5 py-3 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 gap-3 items-center group focus:outline-none focus-visible:bg-emerald-50/40 ${hasProcurementSpan ? "grid grid-cols-[minmax(0,1fr)_8.5rem] sm:grid-cols-[minmax(0,1fr)_14rem]" : "flex"}`}
               >
-                <Eye className="h-4 w-4 text-warm-300 group-hover:text-emerald-500 shrink-0" />
-                <span className="min-w-0">
-                  <span className="block text-base font-semibold text-warm-800 truncate">{i.label}</span>
-                  {i.date && <span className="block text-xs text-warm-400 tabular-nums">{new Date(i.date).toLocaleDateString()}</span>}
+                <span className="flex min-w-0 items-center gap-2.5">
+                  <Eye className="h-4 w-4 text-warm-300 group-hover:text-emerald-500 shrink-0" />
+                  <span className="min-w-0">
+                    <span className={`block text-base font-semibold text-warm-800 ${hasProcurementSpan ? "break-words" : "truncate"}`}>{i.label}</span>
+                    {!hasProcurementSpan && i.date && <span className="block text-xs text-warm-400 tabular-nums">{new Date(i.date).toLocaleDateString()}</span>}
+                  </span>
                 </span>
+                {hasProcurementSpan ? (
+                  <span className="text-xs text-warm-500 tabular-nums">
+                    {i.covered_from && i.covered_until
+                      ? `${reportCalendarDate(i.covered_from)} – ${reportCalendarDate(i.covered_until)}`
+                      : i.date ? new Date(i.date).toLocaleDateString() : "—"}
+                  </span>
+                ) : null}
               </button>
               {i.available === false && i.unavailable_reason && (
                 <InfoHint label="Why this report is unavailable" title="Menu plan required">

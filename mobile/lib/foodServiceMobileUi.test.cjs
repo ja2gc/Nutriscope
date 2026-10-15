@@ -76,8 +76,12 @@ test('dashboard shows two latest announcements compactly without decorative icon
   const dashboard = read('app/(tabs)/index.tsx');
   assert.match(dashboard, /per_page: 2, sort: 'latest'/);
   assert.match(dashboard, /latestAnnouncements\.map/);
-  assert.match(dashboard, /View image/);
-  assert.match(dashboard, /Next action/);
-  assert.match(dashboard, /flex-row gap-3/);
+  assert.match(dashboard, /numberOfLines=\{2\} ellipsizeMode="tail"/);
+  assert.match(dashboard, /listAccomplishmentPeriods/);
+  assert.match(dashboard, /day\.date <= today && !day\.logged/);
+  assert.match(dashboard, /Logs due/);
+  assert.match(dashboard, /View ›/);
+  assert.match(dashboard, /w-1\/2/);
+  assert.doesNotMatch(dashboard, /Next action|View image/);
   assert.doesNotMatch(dashboard, /<Bell|<Pin|<ShoppingBag|<CalendarDays|<ClipboardList/);
 });

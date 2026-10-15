@@ -30,7 +30,7 @@ class PurchaseOrderResource extends JsonResource
                 'id' => $this->supplier->uuid, 'name' => $this->supplier->name, 'category' => $this->supplier->category,
             ] : null),
             'po_number' => $this->po_number,
-            'display_name' => 'PO — '.($this->shoppingList?->name ?? $this->order_date?->format('M j, Y') ?? $this->po_number),
+            'display_name' => $this->resource->displayName(),
             'or_number' => $this->or_number,
             'order_date' => $this->order_date?->toDateString(),
             'received_date' => $this->received_date?->toDateString(),

@@ -153,6 +153,7 @@ class FssDashboardTest extends TestCase
     {
         $weekday = Carbon::today('Asia/Manila')->format('l');
         $today = now('Asia/Manila')->toDateString();
+        $otherFss = User::factory()->fss()->create();
 
         $cycle = MenuCycle::factory()->create([
             'is_active' => true,
@@ -170,6 +171,7 @@ class FssDashboardTest extends TestCase
             'menu_cycle_id' => $cycle->id,
             'service_date' => $today,
             'status' => 'completed',
+            'completed_by' => $otherFss->id,
         ]);
 
         $data = $this->actingAs($this->fss)

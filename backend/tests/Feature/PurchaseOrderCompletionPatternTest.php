@@ -181,6 +181,9 @@ class PurchaseOrderCompletionPatternTest extends TestCase
         $this->assertSame(1, Report::query()->where('type', 'procurement_pack')->where('parameters->purchase_order_id', $po->id)->count());
         $this->assertSame(1, Report::query()->where('type', 'program_project_activity')->where('parameters->purchase_order_id', $po->id)->count());
         $originalPack = Report::query()->where('type', 'procurement_pack')->where('parameters->purchase_order_id', $po->id)->sole();
+        $originalBranding = $originalPack->snapshot['branding']['hospital_name'];
+        $originalDirector = $originalPack->snapshot['signatories'][0]['name'];
+        $originalInspector = app(ProcurementPackGenerator::class)->data($originalPack)['air_signatories'][0]['name'];
         $this->assertNotNull($originalPack->official_file_stored_object_id);
         $frozenBytes = Storage::disk($originalPack->officialFile->storage_disk)->get($originalPack->officialFile->object_key);
         $originalPack->forceFill(['cache_expires_at' => now()->subMinute()])->save();
@@ -198,11 +201,11 @@ class PurchaseOrderCompletionPatternTest extends TestCase
         $template->update(['signatories' => [['role' => 'approved_by', 'label' => 'Approved by', 'name' => 'New Director', 'title' => 'Director']]]);
         $inspectionTemplate->update(['signatories' => [['role' => 'inspected_by', 'label' => 'Inspected by', 'name' => 'New Inspector', 'title' => 'Inspector']]]);
         $prepared = $this->actingAs($rnd)->postJson("/api/rnd/reports/procurement_pack/prepare?purchase_order_id={$po->id}")->assertOk();
-        $this->assertSame('Hospital at PO completion', $prepared->json('data.snapshot.branding.hospital_name'));
-        $this->assertSame('Original Director', $prepared->json('data.snapshot.signatories.0.name'));
+        $this->assertSame($originalBranding, $prepared->json('data.snapshot.branding.hospital_name'));
+        $this->assertSame($originalDirector, $prepared->json('data.snapshot.signatories.0.name'));
         $report = Report::query()->where('uuid', $prepared->json('data.id'))->firstOrFail();
         $this->assertSame($originalPack->official_file_stored_object_id, $report->official_file_stored_object_id);
-        $this->assertSame('Original Inspector', app(ProcurementPackGenerator::class)->data($report)['air_signatories'][0]['name']);
+        $this->assertSame($originalInspector, app(ProcurementPackGenerator::class)->data($report)['air_signatories'][0]['name']);
         $originalVendor = $supplier->name;
         $supplier->update(['name' => 'Vendor renamed after completion']);
         $this->assertSame($originalVendor, app(ProcurementPackGenerator::class)->data($report)['packs'][0]['supplier']->name);

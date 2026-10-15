@@ -75,6 +75,32 @@ class ReportCoveredDate
         return $starts;
     }
 
+    /** @param list<array<string, mixed>> $instances @return array<string, array{start: ?string, end: ?string}> */
+    public static function procurementSpansForInstances(string $type, array $instances): array
+    {
+        if (! in_array($type, ['procurement_pack', 'program_project_activity'], true)) {
+            return [];
+        }
+
+        $orders = PurchaseOrder::query()->with(['shoppingList', 'programProjectActivity'])
+            ->whereIn('id', array_column(array_column($instances, 'params'), 'purchase_order_id'))
+            ->get()->keyBy('id');
+        $spans = [];
+        foreach ($instances as $instance) {
+            $order = $orders->get($instance['params']['purchase_order_id'] ?? null);
+            $period = $type === 'program_project_activity'
+                ? $order?->programProjectActivity ?? $order?->shoppingList
+                : $order?->shoppingList;
+            $date = $order?->order_date ?? $order?->completed_at;
+            $spans[$instance['key']] = [
+                'start' => $period?->period_start?->toDateString() ?? $date?->toDateString(),
+                'end' => $period?->period_end?->toDateString() ?? $date?->toDateString(),
+            ];
+        }
+
+        return $spans;
+    }
+
     private static function explicitStart(array $parameters): ?string
     {
         $value = $parameters['start'] ?? $parameters['from'] ?? null;

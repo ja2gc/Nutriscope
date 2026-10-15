@@ -31,6 +31,29 @@ afterEach(() => {
 });
 
 describe("report archive action", () => {
+  it("shows procurement span in a separate column beside the readable PO name", async () => {
+    vi.mocked(listInstances).mockResolvedValue({
+      data: { axis: "entity", instances: [{
+        key: "po-1", label: "PO — Hospital pantry", params: { purchase_order_id: "po-1" },
+        date: "2026-05-10", covered_from: "2026-05-10", covered_until: "2026-05-14",
+      }] },
+      meta: { current_page: 1, last_page: 1, per_page: 10, total: 1 },
+    });
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    await act(async () => { root.render(<ReportsBrowser catalog={[{
+      type: "procurement_pack", name: "Procurement Pack", desc: "Pack", icon: () => null, group: "Food Service",
+    }]} apiPrefix="rnd" />); });
+
+    expect(container.textContent).toContain("PO — Hospital pantry");
+    expect(container.textContent).toContain("May 10, 2026 – May 14, 2026");
+    expect(container.textContent).toContain("Procurement span");
+    const row = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("PO — Hospital pantry"));
+    expect(row?.children[1]?.textContent).toBe("May 10, 2026 – May 14, 2026");
+    await act(async () => root.unmount());
+  });
+
   it("filters normal Browse by the selected report month", async () => {
     vi.mocked(listInstances).mockResolvedValue({
       data: { axis: "entity", instances: [] },

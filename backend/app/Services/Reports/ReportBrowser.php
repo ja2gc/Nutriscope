@@ -31,10 +31,9 @@ class ReportBrowser
                 fn () => PurchaseOrder::query()
                     ->select('purchase_orders.*')
                     ->selectRaw('COALESCE(order_date, DATE(completed_at)) as report_browse_date')
-                    ->whereIn('lifecycle_status', ['completed', 'archived'])->with('supplier'),
+                    ->whereIn('lifecycle_status', ['completed', 'archived'])->with(['supplier', 'shoppingList']),
                 'purchase_order_id',
-                fn (PurchaseOrder $po) => trim(($po->po_number ?: "PO #{$po->id}")
-                    .(optional($po->order_date ?? $po->completed_at)?->format('M j, Y') ? ' — '.($po->order_date ?? $po->completed_at)->format('M j, Y') : '')),
+                fn (PurchaseOrder $po) => $po->displayName(),
                 'report_browse_date',
             ),
             'program_project_activity' => fn () => new EntityInstanceSource(
@@ -46,9 +45,7 @@ class ReportBrowser
                     ->whereHas('programProjectActivity')
                     ->with(['programProjectActivity', 'shoppingList']),
                 'purchase_order_id',
-                fn (PurchaseOrder $po) => trim(($po->po_number ?: "PO #{$po->id}")
-                    .' — '.(optional($po->programProjectActivity?->period_start)->format('M j') ?? optional($po->shoppingList?->period_start)->format('M j') ?? '?')
-                    .'-'.(optional($po->programProjectActivity?->period_end)->format('M j, Y') ?? optional($po->shoppingList?->period_end)->format('M j, Y') ?? '?')),
+                fn (PurchaseOrder $po) => $po->displayName(),
                 'report_browse_date',
             ),
             'menu_calendar' => fn () => $this->menuCycleSource(),

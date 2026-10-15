@@ -14,6 +14,11 @@ test('meal prep and accomplishments are separate primary tabs', () => {
   assert.doesNotMatch(prep, /<AccomplishmentSection/);
 });
 
+test('Android back follows tab visit history', () => {
+  const layout = fs.readFileSync(path.join(root, 'app', '(tabs)', '_layout.tsx'), 'utf8');
+  assert.match(layout, /<Tabs\s+backBehavior="history"/);
+});
+
 test('menu cycle sends operational counts to meal prep without redundant helper copy', () => {
   const menu = fs.readFileSync(path.join(root, 'app', '(tabs)', 'menu.tsx'), 'utf8');
   const prep = fs.readFileSync(path.join(root, 'app', '(tabs)', 'prep.tsx'), 'utf8');
@@ -120,6 +125,12 @@ test('daily log visibly numbers the exact numeric duty labels', () => {
   assert.match(accomplish, /\{index \+ 1\}\. \{label\}/);
   assert.match(accomplish, /key === 'collected_ward_diet_lists' \|\| key === 'apportioned_distributed_meals'/);
   assert.match(accomplish, /accessibilityLabel=\{label\}/);
+});
+
+test('daily log limits numeric entries to two and four digits', () => {
+  const accomplish = fs.readFileSync(path.join(root, 'app', '(tabs)', 'accomplishments.tsx'), 'utf8');
+  assert.match(accomplish, /maxLength=\{key === 'collected_ward_diet_lists' \? 2 : 4\}/);
+  assert.match(accomplish, /\.slice\(0, key === 'collected_ward_diet_lists' \? 2 : 4\)/);
 });
 
 test('food profile is a dedicated page backed by menu-slot details', () => {

@@ -83,6 +83,8 @@ export interface ReportInstance {
   label: string;
   params: Record<string, string | number>;
   date: string | null;
+  covered_from?: string | null;
+  covered_until?: string | null;
   intervention_plan_id?: string | null;
   intervention_plan_date?: string | null;
   meal_plan_id?: string | null;
