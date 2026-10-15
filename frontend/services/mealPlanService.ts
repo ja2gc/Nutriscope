@@ -173,11 +173,10 @@ export async function deleteMealPlan(ncpId: string, planId: string): Promise<voi
 
 export async function generateMealPlan(
   ncpId: string,
-  payload: { intervention_plan_id: string; week_start_date: string; conditions?: string[]; allergens?: string[]; exclude_snacks?: boolean; use_rice_as_carb?: boolean }
+  payload: { intervention_plan_id: string; week_start_date: string; conditions?: string[]; allergens?: string[]; exclude_snacks?: boolean } & ({ exclude_carbs: true; carb_menu_item_id?: never } | { exclude_carbs: false; carb_menu_item_id: string })
 ): Promise<MealPlan
   | { insufficient_recipes: true; count: number; message: string }
   | { insufficient_suitable_foods: true; missing_meal_types: string[]; message: string }
-  | { snacks_required: true; message: string }
 > {
   const res = await apiFetch(`/api/rnd/ncp-records/${ncpId}/meal-plans/generate`, {
     method: 'POST',
@@ -187,7 +186,7 @@ export async function generateMealPlan(
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     if (data && typeof data === "object"
-      && ("insufficient_recipes" in data || "insufficient_suitable_foods" in data || "snacks_required" in data)) return data;
+      && ("insufficient_recipes" in data || "insufficient_suitable_foods" in data)) return data;
     throw new Error((data as { message?: string }).message || "Failed to generate meal plan.");
   }
   return data.data ?? data;

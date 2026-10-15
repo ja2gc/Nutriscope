@@ -203,8 +203,9 @@ class MealPlanController extends Controller
                     $request->conditions ?? [],
                     $request->allergens ?? [],
                     $request->boolean('exclude_snacks'),
-                    $request->boolean('use_rice_as_carb'),
+                    $request->boolean('exclude_carbs'),
                     $lockedIntervention,
+                    $request->input('carb_menu_item_id'),
                 ));
 
                 if ($result instanceof MealPlan) {

@@ -11,7 +11,7 @@ use PHPUnit\Framework\TestCase as BaseTestCase;
  * No database — tests use reflection to access private helpers directly.
  *
  * Covers:
- *   4.2  Slot eligibility filter (meal_types)
+ *   4.2  Slot eligibility filter (canonical Menu Item category)
  *   4.3  ±10% variance computation + flagging (incl. "cannot_validate" for data gaps)
  *   4.4  isFlagged correctly identifies within/outside tolerance
  */
@@ -35,10 +35,12 @@ class MealPlanAlgorithmTest extends BaseTestCase
 
     // ── 4.2: Slot eligibility ─────────────────────────────────────────────────
 
-    private function makeRecipe(array $mealTypes, string $name = 'Recipe'): object
+    private function makeRecipe(array $mealTypes, string $name = 'Recipe', string $category = 'meal'): object
     {
-        return new class($mealTypes, $name)
+        return new class($mealTypes, $name, $category)
         {
+            public string $category;
+
             public string $name;
 
             public ?array $meal_types;
@@ -53,8 +55,9 @@ class MealPlanAlgorithmTest extends BaseTestCase
 
             public ?array $micronutrients = null;
 
-            public function __construct(array $mt, string $n)
+            public function __construct(array $mt, string $n, string $category)
             {
+                $this->category = $category;
                 $this->meal_types = $mt ?: null;
                 $this->name = $n;
             }
@@ -76,17 +79,17 @@ class MealPlanAlgorithmTest extends BaseTestCase
         $this->assertCount(1, $filtered);
     }
 
-    public function test_breakfast_recipe_not_eligible_for_lunch_slot(): void
+    public function test_meal_category_is_eligible_for_lunch_despite_breakfast_hint(): void
     {
         $recipe = $this->makeRecipe(['breakfast']);
         $pool = $this->makeCollection([$recipe]);
         $svc = $this->svc();
 
         $filtered = $this->call($svc, 'filterByMealType', [$pool, 'lunch']);
-        $this->assertCount(0, $filtered);
+        $this->assertCount(1, $filtered);
     }
 
-    public function test_any_recipe_eligible_for_all_slots(): void
+    public function test_meal_with_any_hint_is_only_automatically_eligible_for_main_slots(): void
     {
         $recipe = $this->makeRecipe(['any']);
         $pool = $this->makeCollection([$recipe]);
@@ -94,13 +97,13 @@ class MealPlanAlgorithmTest extends BaseTestCase
 
         foreach (['breakfast', 'am_snack', 'lunch', 'pm_snack', 'dinner'] as $slot) {
             $filtered = $this->call($svc, 'filterByMealType', [$pool, $slot]);
-            $this->assertCount(1, $filtered, "Recipe with meal_type=[any] should be eligible for slot={$slot}");
+            $this->assertCount(in_array($slot, ['am_snack', 'pm_snack'], true) ? 0 : 1, $filtered);
         }
     }
 
-    public function test_snack_alias_eligible_for_am_snack_and_pm_snack(): void
+    public function test_snack_category_is_eligible_for_am_and_pm_despite_breakfast_hint(): void
     {
-        $recipe = $this->makeRecipe(['snack']);
+        $recipe = $this->makeRecipe(['breakfast'], category: 'snack');
         $pool = $this->makeCollection([$recipe]);
         $svc = $this->svc();
 
@@ -121,7 +124,7 @@ class MealPlanAlgorithmTest extends BaseTestCase
         }
     }
 
-    public function test_multi_type_recipe_eligible_for_correct_slots(): void
+    public function test_meal_category_overrides_legacy_lunch_and_dinner_hints(): void
     {
         $recipe = $this->makeRecipe(['lunch', 'dinner']);
         $pool = $this->makeCollection([$recipe]);
@@ -129,11 +132,19 @@ class MealPlanAlgorithmTest extends BaseTestCase
 
         $this->assertCount(1, $this->call($svc, 'filterByMealType', [$pool, 'lunch']));
         $this->assertCount(1, $this->call($svc, 'filterByMealType', [$pool, 'dinner']));
-        $this->assertCount(0, $this->call($svc, 'filterByMealType', [$pool, 'breakfast']));
+        $this->assertCount(1, $this->call($svc, 'filterByMealType', [$pool, 'breakfast']));
         $this->assertCount(0, $this->call($svc, 'filterByMealType', [$pool, 'am_snack']));
     }
 
     // ── 4.3: isFlagged logic ─────────────────────────────────────────────────
+
+    public function test_carb_is_not_selected_as_a_meal_or_snack(): void
+    {
+        $pool = collect([$this->makeRecipe(['any'], category: 'carb')]);
+        foreach (['breakfast', 'lunch', 'dinner', 'am_snack', 'pm_snack'] as $slot) {
+            $this->assertCount(0, $this->call($this->svc(), 'filterByMealType', [$pool, $slot]));
+        }
+    }
 
     public function test_within_tolerance_not_flagged(): void
     {

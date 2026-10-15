@@ -50,7 +50,7 @@ interface EditTarget {
 
 export default function MealPlanSection({
   ncpId, interventionPlanId, readOnly = false, prescriptionTargets, foodDislikes = [], allergens = [],
-  displayedMicros = [], micronutrientLimits = {}, interventionGoal = null,
+  displayedMicros = [], micronutrientLimits = {},
 }: Props) {
   const [plans, setPlans]               = useState<MealPlan[]>([]);
   const [activePlan, setActivePlan]     = useState<MealPlan | null>(null);
@@ -68,7 +68,31 @@ export default function MealPlanSection({
   const [generating, setGenerating]       = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [excludeSnacks, setExcludeSnacks] = useState(false);
-  const [useRiceAsCarb, setUseRiceAsCarb] = useState(false);
+  const [excludeCarbs, setExcludeCarbs] = useState(false);
+  const [carbChoiceOpen, setCarbChoiceOpen] = useState(false);
+  const [selectedCarb, setSelectedCarb] = useState<Recipe | null>(null);
+  const [carbChoices, setCarbChoices] = useState<Recipe[]>([]);
+  const [carbQuery, setCarbQuery] = useState('');
+  const [carbPage, setCarbPage] = useState(1);
+  const [carbMeta, setCarbMeta] = useState<PaginationMeta | null>(null);
+  const [loadingCarbs, setLoadingCarbs] = useState(false);
+
+  useEffect(() => {
+    if (!carbChoiceOpen) return;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setLoadingCarbs(true);
+      try {
+        const result = await fetchRecipes(carbQuery, 'carb', carbPage);
+        if (!cancelled) { setCarbChoices(result.data); setCarbMeta(result.meta ?? null); }
+      } catch (error) {
+        if (!cancelled) setGenerateError(error instanceof Error ? error.message : 'Could not load Carb Menu Items. Try again.');
+      } finally {
+        if (!cancelled) setLoadingCarbs(false);
+      }
+    }, 160);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [carbChoiceOpen, carbPage, carbQuery]);
 
   // Micro display
   const [showMicros, setShowMicros] = useState(false);
@@ -188,7 +212,7 @@ export default function MealPlanSection({
     } finally { setCreatingPlan(false); }
   };
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (carb?: Recipe) => {
     const missingTargets = [
       ['energy', prescriptionTargets.energy],
       ['protein', prescriptionTargets.protein],
@@ -198,6 +222,12 @@ export default function MealPlanSection({
 
     if (missingTargets.length > 0) {
       setGenerateError(`Complete nutrition prescription before generating. Missing: ${missingTargets.join(', ')}.`);
+      return;
+    }
+
+    if (!excludeCarbs && !carb) {
+      setGenerateError(null);
+      setCarbChoiceOpen(true);
       return;
     }
 
@@ -211,14 +241,15 @@ export default function MealPlanSection({
         week_start_date: d.toISOString().split('T')[0],
         allergens: allergens.length > 0 ? allergens : undefined,
         exclude_snacks: excludeSnacks,
-        use_rice_as_carb: useRiceAsCarb,
+        ...(excludeCarbs ? { exclude_carbs: true as const } : { exclude_carbs: false as const, carb_menu_item_id: carb!.id }),
       });
-      if ('insufficient_recipes' in result || 'insufficient_suitable_foods' in result || 'snacks_required' in result) {
+      if ('insufficient_recipes' in result || 'insufficient_suitable_foods' in result) {
         setGenerateError(result.message);
         return;
       }
       setPlans([result]);
       setActivePlan(result);
+      setCarbChoiceOpen(false);
     } catch (err) {
       setGenerateError(err instanceof Error ? err.message : 'Failed to generate meal plan. Please try again.');
     } finally { setGenerating(false); }
@@ -473,7 +504,7 @@ export default function MealPlanSection({
               {activePlan.scale_status === 'already_scaled' ? 'Already scaled' : 'Scale to prescription'}
             </button>
           )}
-          {!readOnly && !activePlan && <button onClick={handleGenerate} disabled={generating} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
+          {!readOnly && !activePlan && <button onClick={() => void handleGenerate()} disabled={generating} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
             {generating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />} Auto-Generate
           </button>}
           {!readOnly && !activePlan && <button onClick={handleCreatePlan} disabled={creatingPlan} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
@@ -485,17 +516,16 @@ export default function MealPlanSection({
       {!readOnly && !activePlan && <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-warm-100 bg-warm-50/60 px-3 py-1.5">
         <span className="text-xs font-bold uppercase tracking-wider text-warm-400">Auto-generate</span>
         <label className="flex min-h-9 items-center gap-2 text-xs font-semibold text-warm-600">
-          <input type="checkbox" checked={useRiceAsCarb}
-            onChange={(event) => setUseRiceAsCarb(event.target.checked)}
+          <input type="checkbox" checked={excludeCarbs}
+            onChange={(event) => { setExcludeCarbs(event.target.checked); setSelectedCarb(null); setCarbChoiceOpen(false); }}
             className="h-4 w-4 accent-emerald-600" />
-          Use rice as carb
+          Exclude carbs
         </label>
         <InfoHint label="How the carbohydrate choice works" title="Carbohydrate choice">
-          If off, auto-generation chooses a suitable non-rice carbohydrate source and fits its amount to the prescription. Complete dishes keep their intrinsic carbohydrate without an added side.
+          Choose one Carb Menu Item for all 21 main slots, or exclude the separate Carb side. Carbohydrates within Meal Menu Items remain.
         </InfoHint>
         <label className="flex min-h-9 items-center gap-2 text-xs font-semibold text-warm-600">
           <input type="checkbox" checked={excludeSnacks}
-            disabled={interventionGoal === 'liver_disease'}
             onChange={(event) => setExcludeSnacks(event.target.checked)}
             className="h-4 w-4 accent-emerald-600" />
           Exclude snacks
@@ -686,6 +716,34 @@ export default function MealPlanSection({
       )}
 
       {/* ── Meal Edit Modal ─────────────────────────────────────────────────── */}
+      {!readOnly && carbChoiceOpen && <div role="dialog" aria-modal="true" aria-label="Choose Carb Menu Item" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+        <div className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-xl">
+          <div className="flex items-center justify-between border-b border-warm-100 p-4">
+            <h3 className="font-bold text-warm-900">Choose Carb Menu Item</h3>
+            <button type="button" aria-label="Close Carb selection" onClick={() => setCarbChoiceOpen(false)} className="rounded-lg p-2 text-warm-500"><X className="h-4 w-4" /></button>
+          </div>
+          <div className="space-y-3 overflow-y-auto p-4">
+            <p className="text-sm text-warm-600">The same Carb will accompany the Meal in all 21 Breakfast, Lunch, and Dinner slots.</p>
+            <label className="block text-sm font-semibold text-warm-700">Search Carb Menu Items
+              <input value={carbQuery} onChange={(event) => { setCarbQuery(event.target.value); setCarbPage(1); setCarbChoices([]); }} className="mt-1 w-full rounded-lg border border-warm-200 px-3 py-2" />
+            </label>
+            {loadingCarbs && <p role="status" className="text-sm text-warm-500">Loading Carb Menu Items…</p>}
+            {!loadingCarbs && carbChoices.length === 0 && <p className="text-sm text-warm-500">No Carb Menu Items found. Add one in Food Library or use Exclude carbs.</p>}
+            {carbChoices.map((choice) => <label key={choice.id} className="flex items-center gap-3 rounded-xl border border-warm-200 p-3">
+              <input type="radio" name="selected-carb" checked={selectedCarb?.id === choice.id} onChange={() => { setSelectedCarb(choice); setGenerateError(null); }} className="h-4 w-4 accent-emerald-600" />
+              <span className="min-w-0 text-sm font-semibold text-warm-800">{choice.name}</span>
+            </label>)}
+            <Pagination meta={carbMeta} page={carbPage} onPageChange={setCarbPage} />
+            {selectedCarb && <p className="text-sm text-warm-700">Selected: {selectedCarb.name}. <a href={`/food-library/recipes/${selectedCarb.id}`} target="_blank" rel="noopener noreferrer" className="font-semibold underline">View Ingredients</a></p>}
+            {generateError && <p role="alert" className="text-sm text-red-700">{generateError}</p>}
+          </div>
+          <div className="flex justify-end gap-2 border-t border-warm-100 p-4">
+            <Button variant="secondary" onClick={() => setCarbChoiceOpen(false)}>Cancel</Button>
+            <Button variant="primary" disabled={!selectedCarb || generating} loading={generating} onClick={() => void handleGenerate(selectedCarb ?? undefined)}>Generate week</Button>
+          </div>
+        </div>
+      </div>}
+
       {!readOnly && editTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 flex flex-col max-h-[85vh]">

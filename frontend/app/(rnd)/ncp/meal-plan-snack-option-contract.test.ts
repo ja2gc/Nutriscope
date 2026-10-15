@@ -16,16 +16,18 @@ describe("meal-plan snack exclusion option", () => {
     expect(service).toContain("exclude_snacks?: boolean");
   });
 
-  test("sends the rice-carb preference while explaining the unchecked behavior on demand", () => {
+  test("sends a selected Carb UUID or explicit exclusion", () => {
     const editor = readFileSync(join(
       process.cwd(),
       "app/(rnd)/ncp/[patientId]/intervention/[ncpId]/_components/MealPlanSection.tsx",
     ), "utf8");
     const service = readFileSync(join(process.cwd(), "services/mealPlanService.ts"), "utf8");
 
-    expect(editor).toContain("Use rice as carb");
-    expect(editor).toContain("use_rice_as_carb: useRiceAsCarb");
-    expect(editor).toContain("If off, auto-generation chooses a suitable non-rice carbohydrate source");
-    expect(service).toContain("use_rice_as_carb?: boolean");
+    expect(editor).toContain("Exclude carbs");
+    expect(editor).toContain("carb_menu_item_id: carb!.id");
+    expect(editor).toContain("Choose Carb Menu Item");
+    expect(service).toContain("exclude_carbs: false; carb_menu_item_id: string");
+    expect(editor).not.toContain("use_rice_as_carb");
+    expect(service).not.toContain("use_rice_as_carb");
   });
 });

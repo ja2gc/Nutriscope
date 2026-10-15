@@ -5,6 +5,7 @@ namespace Tests\Unit;
 use App\Models\Assessment;
 use App\Models\FoodItem;
 use App\Models\Intervention;
+use App\Models\MealPlan;
 use App\Models\MealPlanDay;
 use App\Models\MealPlanItem;
 use App\Models\NcpRecord;
@@ -16,6 +17,7 @@ use App\Services\MealPlanService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class MealPlanServiceTest extends TestCase
@@ -38,7 +40,7 @@ class MealPlanServiceTest extends TestCase
             $recipe = Recipe::forceCreate([
                 'rnd_user_id' => $rnd->id,
                 'name' => "Test Recipe {$i}",
-                'category' => 'Test',
+                'category' => 'meal',
                 'servings' => 1,
                 'total_calories' => 400 + ($i * 10),
                 'total_protein' => 15 + $i,
@@ -52,7 +54,7 @@ class MealPlanServiceTest extends TestCase
         }
 
         for ($i = 1; $i <= 5; $i++) {
-            FoodItem::forceCreate([
+            $fruit = FoodItem::forceCreate([
                 'name' => "Test Fruit {$i}",
                 'category' => 'fruit',
                 'ready_to_eat' => true,
@@ -63,6 +65,9 @@ class MealPlanServiceTest extends TestCase
                 'serving_size' => 100,
                 'serving_unit' => 'g',
             ]);
+            $snack = Recipe::forceCreate(['rnd_user_id' => $rnd->id, 'name' => "Snack {$i}", 'category' => 'snack', 'servings' => 1]);
+            $snack->ingredients()->create(['food_item_id' => $fruit->id, 'quantity' => 100, 'unit' => 'g']);
+            $snack->recalculateTotals();
         }
     }
 
@@ -94,21 +99,179 @@ class MealPlanServiceTest extends TestCase
         ], $attributes));
     }
 
-    public function test_generated_quantities_are_at_least_1_serving(): void
+    private function seedCanonicalMenuItems(): array
+    {
+        $rnd = User::factory()->rnd()->create();
+        $meals = collect();
+        foreach (range(1, 5) as $index) {
+            $food = FoodItem::factory()->create(['calories' => 400, 'protein' => 20, 'carbs' => 40, 'fat' => 17.78, 'allergens' => []]);
+            $recipe = Recipe::factory()->create(['rnd_user_id' => $rnd->id, 'name' => "Meal {$index}", 'category' => 'meal', 'servings' => 1, 'meal_types' => ['dinner']]);
+            $recipe->ingredients()->create(['food_item_id' => $food->id, 'quantity' => 100, 'unit' => 'g']);
+            $recipe->recalculateTotals();
+            $meals->push($recipe);
+        }
+        foreach (['snack', 'carb'] as $category) {
+            $food = FoodItem::factory()->create(['calories' => 150, 'protein' => 3, 'carbs' => 30, 'fat' => 2, 'allergens' => []]);
+            $recipe = Recipe::factory()->create(['rnd_user_id' => $rnd->id, 'category' => $category, 'servings' => 1, 'meal_types' => ['breakfast']]);
+            $recipe->ingredients()->create(['food_item_id' => $food->id, 'quantity' => 100, 'unit' => 'g']);
+            $recipe->recalculateTotals();
+            if ($category === 'carb') {
+                $carb = $recipe;
+            }
+        }
+
+        return [$meals, $carb];
+    }
+
+    public function test_canonical_generation_keeps_the_selected_carb_in_all_21_main_slots(): void
+    {
+        [$meals, $carb] = $this->seedCanonicalMenuItems();
+        $ncp = $this->makeNcpWithIntervention();
+        $service = new MealPlanService;
+        $service->setRngSeed(23);
+        $plan = $service->generate($ncp, now()->startOfWeek()->toDateString(), carbMenuItemId: $carb->uuid);
+        $this->assertInstanceOf(MealPlan::class, $plan);
+        $plan->load('days.items.recipe');
+        $mainSlots = $plan->days->whereIn('meal_type', ['breakfast', 'lunch', 'dinner']);
+        $this->assertCount(21, $mainSlots);
+        foreach ($mainSlots as $slot) {
+            $this->assertCount(2, $slot->items);
+            $this->assertCount(1, $slot->items->whereIn('recipe_id', $meals->pluck('id')));
+            $this->assertCount(1, $slot->items->where('recipe_id', $carb->id));
+        }
+        $snackSlots = $plan->days->whereIn('meal_type', ['am_snack', 'pm_snack']);
+        $this->assertCount(14, $snackSlots);
+        foreach ($snackSlots as $slot) {
+            $this->assertCount(1, $slot->items);
+            $this->assertSame('snack', $slot->items->sole()->recipe->category);
+        }
+        foreach ($plan->days->flatMap->items as $item) {
+            $this->assertNull($item->food_item_id);
+            $this->assertSame('serving', $item->unit);
+            $this->assertGreaterThanOrEqual(0.01, (float) $item->quantity);
+        }
+        $before = $mainSlots->flatMap->items->pluck('recipe_id')->all();
+        $service->scaleToPrescription($plan, $ncp->intervention);
+        $this->assertSame($before, $plan->fresh('days.items')->days->whereIn('meal_type', ['breakfast', 'lunch', 'dinner'])->flatMap->items->pluck('recipe_id')->all());
+    }
+
+    public function test_liver_generation_can_exclude_both_carbs_and_snacks(): void
+    {
+        $this->seedCanonicalMenuItems();
+        $ncp = $this->makeNcpWithIntervention(['goal_type' => 'liver_disease']);
+        $plan = (new MealPlanService)->generate($ncp, now()->startOfWeek()->toDateString(), excludeSnacks: true, excludeCarbs: true);
+        $this->assertInstanceOf(MealPlan::class, $plan);
+        $plan->load('days.items.recipe');
+        $this->assertCount(21, $plan->days->flatMap->items);
+        foreach ($plan->days as $slot) {
+            $this->assertCount(in_array($slot->meal_type, ['am_snack', 'pm_snack'], true) ? 0 : 1, $slot->items);
+            foreach ($slot->items as $item) {
+                $this->assertSame('meal', $item->recipe->category);
+            }
+        }
+    }
+
+    public function test_selected_carb_allergy_uses_assessment_even_when_client_sends_other_allergens(): void
+    {
+        [, $carb] = $this->seedCanonicalMenuItems();
+        $ncp = $this->makeNcpWithIntervention();
+        Assessment::factory()->create(['ncp_record_id' => $ncp->id, 'allergies' => ['peanuts']]);
+        $carb->ingredients()->firstOrFail()->foodItem->update(['allergens' => ['peanuts']]);
+        $result = (new MealPlanService)->generate($ncp->fresh(), now()->startOfWeek()->toDateString(), allergens: ['milk'], carbMenuItemId: $carb->uuid);
+        $this->assertIsArray($result);
+        $this->assertTrue($result['invalid_carb']);
+        $this->assertStringContainsString('allergen', $result['message']);
+        $this->assertDatabaseCount('meal_plans', 0);
+    }
+
+    public function test_failure_during_final_scaling_rolls_back_the_entire_generated_week(): void
+    {
+        $this->seedCanonicalMenuItems();
+        $ncp = $this->makeNcpWithIntervention();
+        $service = \Mockery::mock(MealPlanService::class)->makePartial();
+        $service->shouldReceive('scaleToPrescription')->once()->andThrow(new \RuntimeException('Injected final scaling failure.'));
+        try {
+            $service->generate($ncp, now()->startOfWeek()->toDateString(), excludeCarbs: true);
+            $this->fail('Expected the injected generation failure.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame('Injected final scaling failure.', $exception->getMessage());
+        }
+        $this->assertDatabaseCount('meal_plans', 0);
+        $this->assertDatabaseCount('meal_plan_days', 0);
+        $this->assertDatabaseCount('meal_plan_items', 0);
+    }
+
+    #[DataProvider('invalidCarbCases')]
+    public function test_unusable_selected_carb_blocks_without_partial_rows(string $case): void
+    {
+        [, $carb] = $this->seedCanonicalMenuItems();
+        $ncp = $this->makeNcpWithIntervention();
+        if ($case === 'incompatible') {
+            $carb->ingredients()->firstOrFail()->update(['unit' => 'mL']);
+        } elseif ($case === 'zero_energy') {
+            $carb->update(['total_calories' => 0]);
+        } else {
+            $carb->update(['total_calories' => 99999]);
+        }
+        $result = (new MealPlanService)->generate($ncp, now()->startOfWeek()->toDateString(), carbMenuItemId: $carb->uuid);
+        $this->assertIsArray($result);
+        $this->assertTrue($result['invalid_carb']);
+        $this->assertStringContainsString('Exclude carbs', $result['message']);
+        $this->assertDatabaseCount('meal_plans', 0);
+        $this->assertDatabaseCount('meal_plan_days', 0);
+        $this->assertDatabaseCount('meal_plan_items', 0);
+    }
+
+    public static function invalidCarbCases(): array
+    {
+        return [['incompatible'], ['zero_energy'], ['minimum_does_not_fit']];
+    }
+
+    #[DataProvider('missingPoolCases')]
+    public function test_missing_category_pool_blocks_even_with_enough_other_menu_items(string $category): void
+    {
+        $this->seedCanonicalMenuItems();
+        Recipe::where('category', $category)->update(['category' => 'carb']);
+        $ncp = $this->makeNcpWithIntervention();
+        $result = (new MealPlanService)->generate($ncp, now()->startOfWeek()->toDateString(), excludeCarbs: true);
+        $this->assertIsArray($result);
+        $this->assertTrue($result['insufficient_suitable_foods']);
+        $this->assertContains($category === 'meal' ? 'breakfast' : 'am_snack', $result['missing_meal_types']);
+        $this->assertDatabaseCount('meal_plans', 0);
+        $this->assertDatabaseCount('meal_plan_days', 0);
+        $this->assertDatabaseCount('meal_plan_items', 0);
+    }
+
+    public static function missingPoolCases(): array
+    {
+        return [['meal'], ['snack']];
+    }
+
+    public function test_fractional_recipe_servings_remain_representable_without_changing_count_units(): void
+    {
+        $service = new MealPlanService;
+        $snap = new \ReflectionMethod($service, 'snapQuantity');
+        $minimum = new \ReflectionMethod($service, 'minimumQuantity');
+        $this->assertEqualsWithDelta(1.2, $snap->invoke($service, new MealPlanItem(['unit' => 'serving']), 1.2), 0.00001);
+        $this->assertSame(0.01, $minimum->invoke($service, new MealPlanItem(['unit' => 'serving'])));
+        $this->assertSame(1.0, $minimum->invoke($service, new MealPlanItem(['unit' => 'piece'])));
+    }
+
+    public function test_generated_quantities_are_positive_two_decimal_servings(): void
     {
         $this->seedRecipes(15);
         $ncp = $this->makeNcpWithIntervention();
 
         $service = new MealPlanService;
-        $plan = $service->generate($ncp, now()->startOfWeek()->toDateString());
+        $plan = $service->generate($ncp, now()->startOfWeek()->toDateString(), excludeCarbs: true);
 
         $this->assertNotInstanceOf(Collection::class, $plan);
         $this->assertArrayNotHasKey('insufficient_recipes', (array) $plan);
 
         $items = MealPlanItem::whereHas('mealPlanDay', fn ($q) => $q->where('meal_plan_id', $plan->id))->get();
         foreach ($items as $item) {
-            $this->assertGreaterThanOrEqual(1.0, (float) $item->quantity,
-                "Quantity {$item->quantity} for item {$item->id} is below 1.0");
+            $this->assertGreaterThanOrEqual(0.01, (float) $item->quantity,
+                "Quantity {$item->quantity} for item {$item->id} is below 0.01");
         }
     }
 
@@ -117,7 +280,7 @@ class MealPlanServiceTest extends TestCase
         $this->seedRecipes(15);
         $ncp = $this->makeNcpWithIntervention(['fluid_ml' => 250]);
 
-        $plan = (new MealPlanService)->generate($ncp, now()->startOfWeek()->toDateString());
+        $plan = (new MealPlanService)->generate($ncp, now()->startOfWeek()->toDateString(), excludeCarbs: true);
         $days = MealPlanDay::query()->where('meal_plan_id', $plan->id)->get();
 
         foreach ($days as $day) {
@@ -153,10 +316,9 @@ class MealPlanServiceTest extends TestCase
         );
     }
 
-    public function test_ready_to_eat_food_items_fill_snack_slots(): void
+    public function test_snack_menu_items_fill_snack_slots_without_direct_ingredients(): void
     {
-        // Recipes are seeded untyped (no meal_types) → not snack-eligible, so snacks
-        // must be filled by standalone ready-to-eat food items.
+        // Direct ready-to-eat Ingredients must not replace measured Snack Menu Items.
         $this->seedRecipes(15);
         foreach (['Apple', 'Banana', 'Orange', 'Pear', 'Mango'] as $name) {
             FoodItem::forceCreate([
@@ -168,7 +330,7 @@ class MealPlanServiceTest extends TestCase
 
         $service = new MealPlanService;
         $service->setRngSeed(7);
-        $plan = $service->generate($ncp, now()->startOfWeek()->toDateString());
+        $plan = $service->generate($ncp, now()->startOfWeek()->toDateString(), excludeCarbs: true);
 
         $snackDayIds = MealPlanDay::where('meal_plan_id', $plan->id)
             ->whereIn('meal_type', ['am_snack', 'pm_snack'])->pluck('id');
@@ -176,8 +338,9 @@ class MealPlanServiceTest extends TestCase
 
         $this->assertGreaterThan(0, $snackItems->count());
         foreach ($snackItems as $item) {
-            $this->assertNotNull($item->food_item_id, 'Snack slot should hold a ready-to-eat food item');
-            $this->assertNull($item->recipe_id);
+            $this->assertNull($item->food_item_id);
+            $this->assertNotNull($item->recipe_id);
+            $this->assertSame('snack', $item->recipe->category);
         }
 
         // A food item must never leak into a main-meal slot
@@ -196,9 +359,9 @@ class MealPlanServiceTest extends TestCase
         $service = new MealPlanService;
 
         // Generate 3 times and check that not every generation is identical
-        $firstPlan = $service->generate($ncp, now()->startOfWeek()->toDateString());
+        $firstPlan = $service->generate($ncp, now()->startOfWeek()->toDateString(), excludeCarbs: true);
         $this->createIntervention($ncp);
-        $secondPlan = $service->generate($ncp->fresh(), now()->addWeek()->startOfWeek()->toDateString());
+        $secondPlan = $service->generate($ncp->fresh(), now()->addWeek()->startOfWeek()->toDateString(), excludeCarbs: true);
 
         $firstItems = MealPlanItem::whereHas('mealPlanDay', fn ($q) => $q->where('meal_plan_id', $firstPlan->id)
             ->where('day_of_week', 'Monday'))->pluck('recipe_id')->sort()->values()->toArray();
@@ -229,7 +392,7 @@ class MealPlanServiceTest extends TestCase
             $recipe = Recipe::forceCreate([
                 'rnd_user_id' => $rnd->id,
                 'name' => "Vary Recipe {$i}",
-                'category' => 'Test',
+                'category' => 'meal',
                 'servings' => 1,
                 'total_calories' => $kcal,
                 'total_protein' => 10 + $i,
@@ -246,7 +409,7 @@ class MealPlanServiceTest extends TestCase
 
         $service = new MealPlanService;
         $service->setRngSeed(3);
-        $plan = $service->generate($ncp, now()->startOfWeek()->toDateString());
+        $plan = $service->generate($ncp, now()->startOfWeek()->toDateString(), excludeCarbs: true, excludeSnacks: true);
 
         $days = MealPlanDay::where('meal_plan_id', $plan->id)->get();
         $byDayName = $days->groupBy('day_of_week');
@@ -267,6 +430,7 @@ class MealPlanServiceTest extends TestCase
             $ncp,
             now()->startOfWeek()->toDateString(),
             excludeSnacks: true,
+            excludeCarbs: true,
         );
 
         $snackIds = MealPlanDay::query()->where('meal_plan_id', $plan->id)
@@ -292,184 +456,48 @@ class MealPlanServiceTest extends TestCase
         ], $distribution->invoke(new MealPlanService, true));
     }
 
-    public function test_liver_generation_does_not_offer_unsafe_snack_exclusion(): void
+    public function test_liver_generation_redistributes_targets_when_snacks_are_excluded(): void
     {
         $this->seedRecipes(15);
-        $ncp = $this->makeNcpWithIntervention([
-            'goal_type' => 'liver_disease',
-            'disease_stage' => 'decompensated',
-        ]);
-
-        $result = (new MealPlanService)->generate(
-            $ncp,
-            now()->startOfWeek()->toDateString(),
-            excludeSnacks: true,
-        );
-
-        $this->assertIsArray($result);
-        $this->assertTrue($result['snacks_required']);
-        $this->assertDatabaseCount('meal_plans', 0);
+        $ncp = $this->makeNcpWithIntervention(['goal_type' => 'liver_disease', 'disease_stage' => 'decompensated']);
+        $plan = (new MealPlanService)->generate($ncp, now()->startOfWeek()->toDateString(), excludeSnacks: true, excludeCarbs: true);
+        $this->assertInstanceOf(MealPlan::class, $plan);
+        $this->assertCount(21, $plan->fresh('days.items')->days->flatMap->items);
     }
 
-    public function test_generator_does_not_fall_back_to_recipes_ineligible_for_a_meal_slot(): void
+    public function test_generator_uses_categories_despite_legacy_meal_time_hints(): void
     {
         $this->seedRecipes(5);
         Recipe::query()->update(['meal_types' => ['breakfast']]);
         $ncp = $this->makeNcpWithIntervention();
-
-        $result = (new MealPlanService)->generate($ncp, now()->startOfWeek()->toDateString());
-
-        $this->assertIsArray($result);
-        $this->assertTrue($result['insufficient_suitable_foods']);
-        $this->assertContains('lunch', $result['missing_meal_types']);
-        $this->assertContains('dinner', $result['missing_meal_types']);
-        $this->assertDatabaseCount('meal_plans', 0);
+        $plan = (new MealPlanService)->generate($ncp, now()->startOfWeek()->toDateString(), excludeCarbs: true);
+        $this->assertInstanceOf(MealPlan::class, $plan);
+        $this->assertCount(35, $plan->fresh('days.items')->days->flatMap->items);
     }
 
-    public function test_main_dishes_receive_a_separate_selected_carb_but_complete_meals_do_not(): void
+    public function test_selected_carb_is_required_even_when_meal_already_contains_carbohydrate(): void
     {
-        $rnd = User::forceCreate([
-            'name' => 'RND', 'email' => 'rnd@test.com',
-            'password' => Hash::make('pw'), 'role' => 'RND', 'is_active' => true,
-        ]);
-        $mainIngredient = FoodItem::forceCreate([
-            'name' => 'Lean protein', 'calories' => 100, 'protein' => 10,
-            'carbs' => 10, 'fat' => 2, 'serving_size' => 100, 'serving_unit' => 'g',
-        ]);
-        foreach (range(1, 5) as $index) {
-            $recipe = Recipe::forceCreate([
-                'rnd_user_id' => $rnd->id,
-                'name' => "Lean dish {$index}",
-                'category' => 'Main',
-                'component_type' => 'main_dish',
-                'meal_types' => ['any'],
-                'servings' => 1,
-                'prepared_portion_amount' => 100,
-                'prepared_portion_unit' => 'g',
-                'total_calories' => 100,
-                'total_protein' => 10,
-                'total_carbs' => 10,
-                'total_fat' => 2,
-            ]);
-            RecipeIngredient::forceCreate([
-                'recipe_id' => $recipe->id, 'food_item_id' => $mainIngredient->id,
-                'quantity' => 100, 'unit' => 'g',
-            ]);
-        }
-        $rice = FoodItem::forceCreate([
-            'name' => 'Steamed Brown Rice',
-            'category' => 'carbs',
-            'calories' => 123,
-            'protein' => 2.74,
-            'carbs' => 25.6,
-            'fat' => 0.97,
-            'serving_size' => 100,
-            'serving_unit' => 'g',
-        ]);
-        $alternative = FoodItem::forceCreate([
-            'name' => 'Sweet Potato / Kamote',
-            'category' => 'carbs',
-            'calories' => 90,
-            'protein' => 2,
-            'carbs' => 21,
-            'fat' => 0.2,
-            'serving_size' => 100,
-            'serving_unit' => 'g',
-        ]);
-        foreach (range(1, 5) as $index) {
-            FoodItem::forceCreate([
-                'name' => "Fruit {$index}", 'category' => 'fruit', 'ready_to_eat' => true,
-                'calories' => 80, 'protein' => 1, 'carbs' => 20, 'fat' => 0,
-                'serving_size' => 100, 'serving_unit' => 'g',
-            ]);
-        }
+        [$meals, $carb] = $this->seedCanonicalMenuItems();
+        $meals->each(fn ($meal) => $meal->update(['component_type' => 'complete_meal', 'total_carbs' => 100]));
         $ncp = $this->makeNcpWithIntervention();
-
-        $plan = (new MealPlanService)->generate(
-            $ncp,
-            now()->startOfWeek()->toDateString(),
-            useRiceAsCarb: true,
-        );
-        $mainSlots = MealPlanDay::query()->where('meal_plan_id', $plan->id)
-            ->whereIn('meal_type', ['lunch', 'dinner'])->with('items')->get();
-
-        $this->assertTrue(
-            $mainSlots->every(fn ($slot): bool => in_array($slot->items->count(), [1, 2], true)),
-            'Rice mode item counts: '.$mainSlots->map(fn ($slot) => $slot->items->count())->implode(','),
-        );
-        $this->assertTrue(
-            $mainSlots->flatMap->items->contains('food_item_id', $rice->id),
-            'Expected a selected rice addition; planned items: '.$mainSlots->flatMap->items
-                ->map(fn ($item) => ($item->nutrient_snapshot['name'] ?? 'unknown').' ('.$item->quantity.$item->unit.')')
-                ->implode(', '),
-        );
-        $this->assertFalse($mainSlots->flatMap->items->contains('food_item_id', $alternative->id));
-        $this->assertTrue($mainSlots->filter(fn ($slot): bool => $slot->items->contains('food_item_id', $rice->id))->every(fn ($slot): bool => $slot->items
-            ->where('food_item_id', $rice->id)
-            ->every(fn ($item): bool => $item->recipe_id === null)));
-        $this->assertTrue($mainSlots->flatMap->items->every(
-            fn ($item): bool => $item->recipe_id
-                ? $item->unit === 'serving'
-                : in_array($item->unit, ['g', 'cup'], true)
-        ));
-
-        $this->createIntervention($ncp);
-        $alternativePlan = (new MealPlanService)->generate(
-            $ncp->fresh(),
-            now()->addWeek()->startOfWeek()->toDateString(),
-            useRiceAsCarb: false,
-        );
-        $alternativeSlots = MealPlanDay::query()->where('meal_plan_id', $alternativePlan->id)
-            ->whereIn('meal_type', ['lunch', 'dinner'])->with('items')->get();
-        $this->assertTrue($alternativeSlots->flatMap->items->contains('food_item_id', $alternative->id));
-        $this->assertFalse($alternativeSlots->flatMap->items->contains('food_item_id', $rice->id));
-
-        Recipe::query()->where('component_type', 'main_dish')->update(['component_type' => 'complete_meal']);
-        $this->createIntervention($ncp);
-        $completePlan = (new MealPlanService)->generate(
-            $ncp->fresh(),
-            now()->addWeeks(2)->startOfWeek()->toDateString(),
-            useRiceAsCarb: true,
-        );
-        $completeSlots = MealPlanDay::query()->where('meal_plan_id', $completePlan->id)
-            ->whereIn('meal_type', ['lunch', 'dinner'])->with('items')->get();
-        $this->assertTrue($completeSlots->every(fn ($slot): bool => $slot->items->count() === 1));
-        $this->assertFalse($completeSlots->flatMap->items->contains('food_item_id', $rice->id));
-        $this->assertFalse($completeSlots->flatMap->items->contains('food_item_id', $alternative->id));
+        $plan = (new MealPlanService)->generate($ncp, now()->startOfWeek()->toDateString(), carbMenuItemId: $carb->uuid);
+        foreach ($plan->fresh('days.items')->days->whereIn('meal_type', ['breakfast', 'lunch', 'dinner']) as $slot) {
+            $this->assertCount(2, $slot->items);
+            $this->assertCount(1, $slot->items->where('recipe_id', $carb->id));
+        }
     }
 
-    public function test_custom_and_confirmed_maternal_plans_use_balanced_components_when_available(): void
+    public function test_custom_and_confirmed_maternal_plans_do_not_add_direct_ingredient_sides(): void
     {
-        $this->seedRecipes(15);
-        Recipe::query()->update(['component_type' => 'main_dish', 'meal_types' => ['any']]);
-        $carb = FoodItem::forceCreate([
-            'name' => 'Sweet Potato / Kamote', 'category' => 'carbs',
-            'calories' => 90, 'protein' => 2, 'carbs' => 21, 'fat' => 0.2,
-            'serving_size' => 100, 'serving_unit' => 'g',
-        ]);
-        $vegetable = FoodItem::forceCreate([
-            'name' => 'Bok Choy / Pechay (Cooked)', 'category' => 'vegetable',
-            'ready_to_eat' => false, 'calories' => 12, 'protein' => 1.5,
-            'carbs' => 2, 'fat' => 0.2, 'serving_size' => 100, 'serving_unit' => 'g',
-        ]);
-
-        $customNcp = $this->makeNcpWithIntervention(['goal_type' => 'custom']);
-        $customPlan = (new MealPlanService)->generate($customNcp, now()->startOfWeek()->toDateString());
-        $customMainItems = MealPlanItem::query()->whereHas('mealPlanDay', fn ($query) => $query
-            ->where('meal_plan_id', $customPlan->id)
-            ->whereIn('meal_type', ['lunch', 'dinner']))->get();
-        $this->assertTrue($customMainItems->contains('food_item_id', $carb->id));
-        $this->assertTrue($customMainItems->contains('food_item_id', $vegetable->id));
-
-        $maternalNcp = $this->makeNcpWithIntervention(['goal_type' => 'weight_gain']);
-        Assessment::factory()->create([
-            'ncp_record_id' => $maternalNcp->id,
-            'pregnancy_lactation_status' => 'lactating',
-        ]);
-        $maternalPlan = (new MealPlanService)->generate($maternalNcp, now()->addWeek()->startOfWeek()->toDateString());
-        $maternalMainItems = MealPlanItem::query()->whereHas('mealPlanDay', fn ($query) => $query
-            ->where('meal_plan_id', $maternalPlan->id)
-            ->whereIn('meal_type', ['lunch', 'dinner']))->get();
-        $this->assertTrue($maternalMainItems->contains('food_item_id', $vegetable->id));
+        [, $carb] = $this->seedCanonicalMenuItems();
+        FoodItem::factory()->create(['name' => 'Bok Choy / Pechay (Cooked)', 'category' => 'vegetable', 'allergens' => []]);
+        foreach (['custom', 'weight_gain'] as $goal) {
+            $ncp = $this->makeNcpWithIntervention(['goal_type' => $goal]);
+            Assessment::factory()->create(['ncp_record_id' => $ncp->id, 'pregnancy_lactation_status' => 'lactating', 'allergies' => []]);
+            $plan = (new MealPlanService)->generate($ncp, now()->startOfWeek()->toDateString(), carbMenuItemId: $carb->uuid);
+            $items = $plan->fresh('days.items')->days->flatMap->items;
+            $this->assertCount(56, $items);
+            $this->assertTrue($items->every(fn ($item): bool => $item->recipe_id !== null && $item->food_item_id === null));
+        }
     }
 }

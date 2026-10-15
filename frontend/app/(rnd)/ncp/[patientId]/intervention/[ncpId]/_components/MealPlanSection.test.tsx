@@ -5,7 +5,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
 import MealPlanSection from "./MealPlanSection";
 import { fetchFoodItems, fetchRecipes, fetchRecipeById, searchUsda } from "@/services/foodLibraryService";
-import { addMealPlanItem, fetchAllMealPlanItems, updateMealPlanItem } from "@/services/mealPlanService";
+import { addMealPlanItem, fetchAllMealPlanItems, fetchMealPlans, generateMealPlan, updateMealPlanItem } from "@/services/mealPlanService";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -20,6 +20,7 @@ vi.mock("@/services/mealPlanService", async (importOriginal) => ({
   fetchAllMealPlanItems: vi.fn(async () => []),
   addMealPlanItem: vi.fn(async () => ({ id: "item-new", meal_plan_day_id: "day-1", recipe_id: "snack-1", quantity: "1", unit: "serving", source: "recipe", nutrient_snapshot: { name: "Fruit cup", calories: 80, protein: 1, carbs: 20, fat: 0, serving_size: 1, serving_unit: "serving", micronutrients: {} } })),
   updateMealPlanItem: vi.fn(async () => ({ id: "item-1", meal_plan_day_id: "day-1", recipe_id: "recipe-1", quantity: "1.5", unit: "serving", source: "recipe", nutrient_snapshot: { name: "Rice bowl", calories: 200, protein: 8, carbs: 35, fat: 4, serving_size: 1, serving_unit: "serving", micronutrients: {} } })),
+  generateMealPlan: vi.fn(async () => ({ insufficient_recipes: true, count: 0, message: "Add more Menu Items." })),
 }));
 
 vi.mock("@/services/foodLibraryService", () => ({
@@ -33,6 +34,56 @@ vi.mock("@/services/foodLibraryService", () => ({
 afterEach(() => {
   document.body.innerHTML = "";
   vi.clearAllMocks();
+});
+
+async function renderEmptyPlanner(goal: string | null = null) {
+  vi.mocked(fetchMealPlans).mockResolvedValueOnce([]);
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  await act(async () => root.render(<MealPlanSection ncpId="ncp-1" interventionPlanId="intervention-1" interventionGoal={goal} prescriptionTargets={{ energy: 2000, protein: 75, carbs: 250, fat: 65, fluid: 2000 }} />));
+  return { container, root };
+}
+
+it("allows Exclude snacks for liver disease", async () => {
+  const { container, root } = await renderEmptyPlanner("liver_disease");
+  try {
+    const label = Array.from(container.querySelectorAll("label")).find((element) => element.textContent?.includes("Exclude snacks"))!;
+    expect(label.querySelector("input")?.disabled).toBe(false);
+  } finally { await act(async () => root.unmount()); }
+});
+
+it("requires exactly one Carb Menu Item before sending generation", async () => {
+  const { container, root } = await renderEmptyPlanner();
+  vi.mocked(fetchRecipes).mockResolvedValueOnce({ data: [{ id: "carb-1", rnd_user_id: 1, name: "Oats", category: "carb", meal_types: null, prep_notes: null, servings: 1, total_calories: "150", total_protein: "5", total_carbs: "25", total_fat: "2", prepared_portion_amount: null, prepared_portion_unit: null, micronutrients: {}, ingredients: [], created_at: "", updated_at: "" }] });
+  try {
+    const generate = Array.from(container.querySelectorAll("button")).find((button) => button.textContent?.includes("Auto-Generate"))!;
+    await act(async () => generate.click());
+    expect(generateMealPlan).not.toHaveBeenCalled();
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 300)); });
+    const dialog = container.querySelector('[aria-label="Choose Carb Menu Item"]')!;
+    expect(dialog).not.toBeNull();
+    expect(fetchRecipes).toHaveBeenCalledWith("", "carb", 1);
+    const confirm = Array.from(dialog.querySelectorAll("button")).find((button) => button.textContent?.trim() === "Generate week")!;
+    expect(confirm.disabled).toBe(true);
+    const choice = dialog.querySelector('input[type="radio"]')!;
+    await act(async () => (choice as HTMLInputElement).click());
+    await act(async () => confirm.click());
+    expect(generateMealPlan).toHaveBeenCalledWith("ncp-1", expect.objectContaining({ exclude_carbs: false, carb_menu_item_id: "carb-1" }));
+  } finally { await act(async () => root.unmount()); }
+});
+
+it("generates without a Carb selection when Exclude carbs is checked", async () => {
+  const { container, root } = await renderEmptyPlanner();
+  try {
+    const label = Array.from(container.querySelectorAll("label")).find((element) => element.textContent?.includes("Exclude carbs"));
+    expect(label).toBeDefined();
+    await act(async () => label!.querySelector("input")!.click());
+    const generate = Array.from(container.querySelectorAll("button")).find((button) => button.textContent?.includes("Auto-Generate"))!;
+    await act(async () => generate.click());
+    expect(generateMealPlan).toHaveBeenCalledWith("ncp-1", expect.objectContaining({ exclude_carbs: true }));
+    expect(container.querySelector('[aria-label="Choose Carb Menu Item"]')).toBeNull();
+  } finally { await act(async () => root.unmount()); }
 });
 
 it("offers Menu Items only and allows a Snack in a manually planned main slot", async () => {
