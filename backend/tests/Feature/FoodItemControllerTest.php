@@ -19,6 +19,18 @@ class FoodItemControllerTest extends TestCase
 
     private User $fss;
 
+    public function test_legacy_clinical_count_alias_remains_compatible_when_editing_its_baseline(): void
+    {
+        $food = FoodItem::factory()->create(['serving_size' => 1, 'serving_unit' => 'pc', 'calories' => 80]);
+        $recipe = Recipe::factory()->create(['rnd_user_id' => $this->rnd->id]);
+        $row = $recipe->ingredients()->create(['food_item_id' => $food->id, 'quantity' => 2, 'unit' => 'pcs']);
+        $this->actingAs($this->rnd)->putJson('/api/rnd/food-items/'.$food->uuid, ['serving_unit' => 'piece'])
+            ->assertOk()->assertJsonPath('data.serving_unit', 'piece');
+        $this->assertEquals(1, (float) $food->fresh()->serving_size);
+        $this->assertSame('pcs', $row->fresh()->unit);
+        $this->assertEquals(160, (float) $recipe->fresh()->total_calories);
+    }
+
     public function test_clinical_baseline_unit_change_preserves_the_measured_basis_and_linked_rows(): void
     {
         $food = FoodItem::factory()->create(['serving_size' => 100, 'serving_unit' => 'g', 'calories' => 100]);

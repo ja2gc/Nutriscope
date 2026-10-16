@@ -9,6 +9,7 @@ use App\Models\Intervention;
 use App\Models\MealPlan;
 use App\Models\MealPlanDay;
 use App\Models\NcpRecord;
+use App\Models\Recipe;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -56,6 +57,7 @@ class UuidForeignKeyResolutionTest extends TestCase
 
         $this->actingAs($rnd)->postJson('/api/rnd/recipes', [
             'name' => 'Soup',
+            'category' => 'meal',
             'servings' => 2,
             'ingredients' => [
                 ['food_item_id' => $foodItem->uuid, 'quantity' => 100, 'unit' => 'g'],
@@ -77,12 +79,14 @@ class UuidForeignKeyResolutionTest extends TestCase
         ]);
         $day = MealPlanDay::factory()->create(['meal_plan_id' => $mealPlan->id]);
         $foodItem = FoodItem::factory()->create();
+        $recipe = Recipe::factory()->create(['rnd_user_id' => $rnd->id]);
+        $recipe->ingredients()->create(['food_item_id' => $foodItem->id, 'quantity' => 100, 'unit' => 'g']);
 
         $this->actingAs($rnd)->postJson(
             "/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans/{$mealPlan->uuid}/days/{$day->uuid}/items",
-            ['food_item_id' => $foodItem->uuid, 'quantity' => 1, 'unit' => 'serving'],
+            ['recipe_id' => $recipe->uuid, 'quantity' => 1, 'unit' => 'serving'],
         )->assertCreated();
 
-        $this->assertDatabaseHas('meal_plan_items', ['food_item_id' => $foodItem->id]);
+        $this->assertDatabaseHas('meal_plan_items', ['recipe_id' => $recipe->id, 'food_item_id' => null]);
     }
 }

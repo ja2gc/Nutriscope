@@ -91,6 +91,7 @@ class MenuCycleCostServiceTest extends TestCase
                 ['fs_item_id' => 1, 'name' => 'Rice', 'quantity' => 1, 'unit' => 'kg', 'base_unit' => 'g', 'unit_cost' => 0.1, 'include_in_generated_lists' => true],
                 ['fs_item_id' => 2, 'name' => 'Seasoning', 'quantity' => 2, 'unit' => 'tbsp', 'base_unit' => 'kg', 'unit_cost' => 50, 'include_in_generated_lists' => true],
                 ['fs_item_id' => 3, 'name' => 'Garnish', 'quantity' => 2, 'unit' => 'pc', 'base_unit' => 'pc', 'unit_cost' => 5, 'include_in_generated_lists' => false],
+                ['fs_item_id' => 4, 'name' => 'Measured count', 'quantity' => 2, 'unit' => 'piece', 'base_unit' => 'pc', 'unit_cost' => 5, 'include_in_generated_lists' => true],
             ]],
         ]]);
 

@@ -639,7 +639,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
           />
         )}
 
-        {tab !== "plans" && (
+        <div hidden={tab === "plans"}>
           <InterventionPlanEditor
             mode={editorMode}
             plan={intervention}
@@ -649,8 +649,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
             onCancel={cancelNewPlan}
           >
           {/* Food / Nutrient Delivery */}
-          {tab === "nd" && (
-            <div className="space-y-6">
+            <div hidden={tab !== "nd"} className="space-y-6">
             {/* [A] Goal selector */}
             <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm">
               <div className="flex items-center justify-between mb-3">
@@ -720,7 +719,6 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
                 interventionGoal={intervention?.goal_type}
               />
           </div>
-        )}
 
         {/* Education */}
         {tab === "education" && (
@@ -754,7 +752,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
         )}
 
           </InterventionPlanEditor>
-        )}
+        </div>
       </div>
 
       {/* Goal selector modal */}

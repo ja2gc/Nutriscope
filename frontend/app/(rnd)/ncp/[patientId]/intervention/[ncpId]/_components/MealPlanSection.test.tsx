@@ -224,6 +224,11 @@ it("previews a template calendar and keeps the loaded baseline draft after a sav
     await act(async () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'Scale to prescription')!.click());
     expect(createPlanFromTemplate).toHaveBeenLastCalledWith('ncp-1', expect.objectContaining({ preview: true, scale: true }));
     expect(container.textContent).toContain('1.20serving');
+    vi.mocked(createPlanFromTemplate).mockRejectedValueOnce(new Error('Retry save.'));
+    await act(async () => save.click());
+    expect(createPlanFromTemplate).toHaveBeenLastCalledWith('ncp-1', expect.objectContaining({
+      preview: false, scale: false, lines: [expect.objectContaining({ quantity: 1.2 })],
+    }));
     const measuredRecipe = { id: 'carb-1', rnd_user_id: 1, name: 'Oats', category: 'carb', servings: 4, meal_types: null, prep_notes: null, total_calories: '800', total_protein: '40', total_carbs: '80', total_fat: '20', prepared_portion_amount: null, prepared_portion_unit: null, micronutrients: {}, ingredients: [{ id: 1, food_item_id: 1, quantity: '0.4', unit: 'kg', food_item: { id: 'food-1', name: 'Oats', calories: '200', protein: '10', carbs: '20', fat: '5', water_g: '70', serving_size: '100', serving_unit: 'g', micronutrients: {} } }], created_at: '', updated_at: '' };
     vi.mocked(fetchRecipeById).mockResolvedValueOnce(measuredRecipe);
     await act(async () => container.querySelector<HTMLButtonElement>('button[title="Edit"]')!.click());
@@ -241,7 +246,7 @@ it("previews a template calendar and keeps the loaded baseline draft after a sav
     expect(container.textContent).toContain('Per person: Oats 0.14 kg');
     expect(updateMealPlanItem).not.toHaveBeenCalled();
     expect(container.textContent).toContain('1.4serving');
-    expect(createPlanFromTemplate).toHaveBeenCalledTimes(3);
+    expect(createPlanFromTemplate).toHaveBeenCalledTimes(4);
     await act(async () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent === 'Discard draft')!.click());
     expect(Array.from(container.querySelectorAll('button')).some((button) => button.textContent === 'Save week')).toBe(false);
   } finally { await act(async () => root.unmount()); }

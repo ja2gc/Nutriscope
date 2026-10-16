@@ -81,7 +81,7 @@ class DemoSeederCurrentContractTest extends TestCase
         $this->assertTrue(Recipe::query()->whereKey($custom->id)->where('name', 'Ward Custom Recipe')->exists());
         $this->assertSame($firstCount, Recipe::query()->count());
         $this->assertDatabaseMissing('recipes', ['name' => 'Plain White Rice Meal']);
-        $this->assertSame('High Protein', $seeded->fresh()->category);
+        $this->assertSame('meal', $seeded->fresh()->category);
         $this->assertGreaterThan(0, $seeded->fresh()->ingredients()->count());
     }
 
@@ -92,7 +92,7 @@ class DemoSeederCurrentContractTest extends TestCase
         FoodItem::query()->where('name', 'Steamed White Rice')->delete();
 
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('Recipe seeding requires every referenced food item.');
+        $this->expectExceptionMessage("Template Menu Item requires missing USDA food 'Steamed White Rice'.");
 
         try {
             $this->seed(RecipeSeeder::class);
@@ -136,6 +136,14 @@ class DemoSeederCurrentContractTest extends TestCase
                 foreach ([$intervention->mealPlan] as $mealPlan) {
                     $this->assertContains($mealPlan->status, ['draft', 'active']);
                     $this->assertCount(35, $mealPlan->days);
+                    $mainSlots = $mealPlan->days->whereIn('meal_type', ['breakfast', 'lunch', 'dinner']);
+                    $this->assertCount(21, $mainSlots);
+                    foreach ($mainSlots as $slot) {
+                        $carbs = $slot->items->filter(fn ($item) => $item->recipe?->category === 'carb');
+                        $this->assertCount(1, $carbs);
+                        $this->assertSame('Sweet Potato / Kamote', $carbs->sole()->recipe->name);
+                        $this->assertGreaterThan(0, (float) $carbs->sole()->quantity);
+                    }
                     $this->assertTrue(
                         $mealPlan->days->flatMap->items->every(
                             fn ($item) => $item->created_at->isSameDay($mealPlan->created_at),

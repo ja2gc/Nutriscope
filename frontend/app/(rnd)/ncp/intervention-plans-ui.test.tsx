@@ -168,7 +168,9 @@ vi.mock("@/services/monitoringService", () => ({
 vi.mock("./[patientId]/intervention/[ncpId]/_components/MealPlanSection", () => ({
   default: function Planner({ interventionPlanId, readOnly, onSaveIntervention }: { interventionPlanId: string; readOnly: boolean; onSaveIntervention?: () => Promise<string | null> }) {
     React.useEffect(() => () => { plannerUnmount(); }, []);
+    const [draft, setDraft] = React.useState('Previous menu');
     return <div data-testid="meal-plan-section" data-plan={interventionPlanId} data-readonly={String(readOnly)}>
+      <input aria-label="Menu draft" value={draft} onChange={(event) => setDraft(event.target.value)} />
       {!interventionPlanId && <button onClick={() => void onSaveIntervention?.()}>Save intervention for menu</button>}
     </div>;
   },
@@ -235,7 +237,7 @@ describe("intervention plans workspace", () => {
     expect(container.textContent).toContain("Plans");
     expect(container.textContent).toContain("Sep 29, 2026");
     expect(container.textContent).not.toMatch(/current|inactive|revision|version/i);
-    expect(container.querySelector('[data-testid="meal-plan-section"]')).toBeNull();
+    expect(container.querySelector('[data-testid="meal-plan-section"]')?.closest('[hidden]')).not.toBeNull();
     expect(container.textContent).toContain("Create New Intervention Plan");
     await clickButton("Food / Nutrient Delivery");
     expect(container.querySelector('[data-testid="meal-plan-section"]')).not.toBeNull();
@@ -330,5 +332,26 @@ describe("intervention plans workspace", () => {
     await renderPage();
     expect(plannerUnmount).not.toHaveBeenCalled();
     expect(container.querySelector('[data-testid="meal-plan-section"]')?.getAttribute('data-plan')).toBe('saved-plan');
+  });
+
+  it("retains menu draft edits across intervention tabs and saving from Education", async () => {
+    await renderPage();
+    await clickButton('Create New Intervention Plan');
+    const draft = container.querySelector<HTMLInputElement>('input[aria-label="Menu draft"]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(draft, 'Edited breakfast');
+      draft.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    plannerUnmount.mockClear();
+    await clickButton('Education');
+    await clickButton('Counseling');
+    await clickButton('Food / Nutrient Delivery');
+    expect(container.querySelector<HTMLInputElement>('input[aria-label="Menu draft"]')?.value).toBe('Edited breakfast');
+    await clickButton('Education');
+    await clickButton('Save Intervention Plan');
+    await clickButton('Food / Nutrient Delivery');
+    expect(container.querySelector<HTMLInputElement>('input[aria-label="Menu draft"]')?.value).toBe('Edited breakfast');
+    expect(container.querySelector('[data-testid="meal-plan-section"]')?.getAttribute('data-plan')).toBe('saved-plan');
+    expect(plannerUnmount).not.toHaveBeenCalled();
   });
 });

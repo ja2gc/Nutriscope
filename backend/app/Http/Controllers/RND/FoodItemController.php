@@ -81,8 +81,8 @@ class FoodItemController extends Controller
     public function update(StoreFoodItemRequest $request, FoodItem $foodItem): FoodItemResource|JsonResponse
     {
         $data = $request->validated();
-        $targetUnit = (string) ($data['serving_unit'] ?? $foodItem->serving_unit);
-        $unitChanged = UnitConverter::normalize($targetUnit) !== UnitConverter::normalize((string) $foodItem->serving_unit);
+        $targetUnit = UnitConverter::canonical((string) ($data['serving_unit'] ?? $foodItem->serving_unit));
+        $unitChanged = $targetUnit !== UnitConverter::canonical((string) $foodItem->serving_unit);
         $basisTouched = array_intersect(array_keys($data), ['serving_size', 'serving_unit', 'calories', 'protein', 'carbs', 'fat', 'water_g', 'micronutrients']) !== [];
         $rows = $foodItem->recipeIngredients()->with('recipe')->orderBy('recipe_id')->orderBy('id')->get();
         $affected = [];
@@ -91,7 +91,7 @@ class FoodItemController extends Controller
         foreach ($rows as $row) {
             $index = $lineIndices[$row->recipe_id] ?? 0;
             $lineIndices[$row->recipe_id] = $index + 1;
-            if (! $basisTouched || ((float) $row->quantity > 0 && UnitConverter::isCompatible((string) $row->unit, $targetUnit))) {
+            if (! $basisTouched || ((float) $row->quantity > 0 && UnitConverter::isCompatible(UnitConverter::canonical((string) $row->unit), $targetUnit))) {
                 continue;
             }
             $key = $row->recipe->uuid.':'.$index;

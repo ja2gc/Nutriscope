@@ -72,7 +72,7 @@ class StoreFoodItemRequest extends FormRequest
             }
             $food = $this->route('food_item');
             $unit = $this->input('serving_unit');
-            $unchanged = $food instanceof FoodItem && UnitConverter::normalize((string) $food->serving_unit) === UnitConverter::normalize($unit);
+            $unchanged = $food instanceof FoodItem && UnitConverter::canonical((string) $food->serving_unit) === UnitConverter::canonical($unit);
             if (! UnitConverter::isKnown($unit) && $unit !== 'piece' && ! $unchanged) {
                 $validator->errors()->add('serving_unit', 'Choose a mass, volume, or measured piece unit.');
             }

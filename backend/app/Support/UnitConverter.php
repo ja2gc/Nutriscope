@@ -33,7 +33,6 @@ class UnitConverter
             'liter', 'litre' => 'l',
             'teaspoon' => 'tsp',
             'tablespoon' => 'tbsp',
-            'pc', 'pcs', 'pieces' => 'piece',
             default => $normalized,
         };
     }
@@ -41,6 +40,7 @@ class UnitConverter
     public static function canonical(string $unit): string
     {
         return match ($normalized = self::normalize($unit)) {
+            'pc', 'pcs', 'pieces' => 'piece',
             'ml' => 'mL',
             'l' => 'L',
             default => $normalized,
@@ -131,6 +131,8 @@ class UnitConverter
         if (! is_finite($quantity) || $quantity <= 0 || ! is_finite($servingSize) || $servingSize <= 0) {
             throw new InvalidArgumentException('Ingredient quantity and nutrient baseline must be positive finite amounts.');
         }
+        $ingredientUnit = self::canonical($ingredientUnit);
+        $servingUnit = self::canonical($servingUnit);
         if (! self::isCompatible($ingredientUnit, $servingUnit)) {
             throw new InvalidArgumentException("Ingredient unit '{$ingredientUnit}' is incompatible with nutrient baseline '{$servingUnit}'.");
         }

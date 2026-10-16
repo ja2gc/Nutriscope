@@ -341,7 +341,7 @@ export default function MealPlanSection({
     const version = scopeVersion.current;
     setSavingWeek(true); setGenerateError(null);
     try {
-      const result = await createPlanFromTemplate(ncpId, { ...templateRequest(activePlan.scale_status === 'already_scaled', savedInterventionId), preview: false });
+      const result = await createPlanFromTemplate(ncpId, { ...templateRequest(false, savedInterventionId), preview: false });
       if (version !== scopeVersion.current) return;
       setTemplateDraft(null); setPlans([result.plan]); setActivePlan(result.plan);
       setItemsByKey(groupWeekItems(result.plan, result.items));

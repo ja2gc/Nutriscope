@@ -12,6 +12,7 @@ use App\Models\NcpAppointment;
 use App\Models\NcpRecord;
 use App\Models\Notification;
 use App\Models\Patient;
+use App\Models\Recipe;
 use App\Models\ScreeningDocument;
 use App\Models\User;
 use App\Services\MealPlanService;
@@ -77,7 +78,11 @@ class PatientSeeder extends Seeder
         $svc = resolve(MealPlanService::class);
         $svc->setRngSeed(42);
         $allergens = $record->assessment?->allergies ?? [];
-        $result = $svc->generate($record->fresh(), $weekStart, [], is_array($allergens) ? $allergens : []);
+        $carb = Recipe::query()->where('category', 'carb')->where('name', 'Sweet Potato / Kamote')->firstOrFail();
+        $result = $svc->generate(
+            $record->fresh(), $weekStart, [], is_array($allergens) ? $allergens : [],
+            intervention: $intervention, carbMenuItemId: $carb->uuid,
+        );
 
         if (is_array($result)) {
             $this->command->warn('  PatientSeeder: meal plan not generated — '.($result['message'] ?? 'insufficient recipes').'.');

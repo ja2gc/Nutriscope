@@ -342,7 +342,8 @@ class AuditCanonicalEventTest extends TestCase
             'fat_g' => 55,
             'fluid_ml' => 2000,
         ]);
-        $recipes = Recipe::factory(15)->create(['rnd_user_id' => $actor->id]);
+        $recipes = Recipe::factory(15)->create(['rnd_user_id' => $actor->id, 'category' => 'meal']);
+        $recipes->last()->update(['category' => 'snack']);
         $foods = FoodItem::factory(5)->create([
             'category' => 'fruit',
             'ready_to_eat' => true,
@@ -364,6 +365,7 @@ class AuditCanonicalEventTest extends TestCase
             [
                 'intervention_plan_id' => $intervention->uuid,
                 'week_start_date' => '2026-07-13',
+                'exclude_carbs' => true,
                 'conditions' => [],
                 'allergens' => [],
             ],
