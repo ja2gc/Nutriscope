@@ -176,7 +176,7 @@ class FoodServiceOctoberBackfillSeeder extends Seeder
                 $list = DB::transaction(function () use ($rnd, $start, $end, $plan): ShoppingList {
                     $list = ShoppingList::create([
                         'rnd_user_id' => $rnd->id,
-                        'name' => 'Demo Marketing — '.CarbonImmutable::parse($start)->format('M j').'–'.CarbonImmutable::parse($end)->format('M j, Y'),
+                        'name' => 'Marketing — '.CarbonImmutable::parse($start)->format('M j').'–'.CarbonImmutable::parse($end)->format('M j, Y'),
                         'list_date' => $start,
                         'period_start' => $start,
                         'period_end' => $end,

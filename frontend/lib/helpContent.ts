@@ -293,7 +293,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Diagnosis & Intervention",
     question: "Can I make a patient meal plan manually or from a template?",
-    answer: "Yes. Each dated Intervention Plan can own one manual, template-based, or generated menu. Review foods, portions, totals, and patient suitability; fluid guidance is excluded from scaling and target-match success. Create another dated Intervention Plan when treatment changes.",
+    answer: "Yes. New Intervention Plan prefills the previous prescription and latest saved menu as a draft. Edit what changed; Save week stores its independent menu after the intervention is saved. Templates preview and edit in a weekly calendar before Save week. Auto-Generate uses one selected Carb beside a Meal in all main slots unless Exclude carbs is selected. Included Snacks fill AM/PM slots; Exclude snacks works for every goal. Manual menus can place Snacks in main meals. Review allergies, restrictions, portions and totals. Fluid stays outside food scaling.",
     keywords: ["template", "generate", "menu", "nutrition totals"],
   },
   {
@@ -325,7 +325,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Food Library & Food Service",
     question: "What is the difference between Food Library, Inventory, and Foods?",
-    answer: "Food Library stores clinical food nutrient data and clinical recipes. Food Service Inventory is a reference catalog of ingredients and supplies. Food Service Foods stores operational recipes and single ingredients used in menus and purchasing.",
+    answer: "Food Library has Ingredients, Menu Items, and Templates for clinical nutrition. Menu Items contain one or more measured Ingredients and use Meal, Carb, or Snack categories. Units convert only within mass or volume; piece requires a measured count baseline and never implies grams. Food Service Inventory and Foods use separate operational catalog, recipe, and cost calculations for menus and purchasing.",
     keywords: ["recipes", "ingredients", "USDA", "catalog"],
     popular: true,
   },
@@ -366,7 +366,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Food Library & Food Service",
     question: "What is a Menu Plan template?",
-    answer: "A template is a reusable menu pattern. Loading it copies meals into a dated Menu Calendar week without changing the template.",
+    answer: "A template is a reusable menu pattern. View opens its weekly calendar; select an item to inspect its read-only profile and return. Loading copies ordered meals into a dated Menu Calendar draft without changing the template. Confirm before replacing planned cells, review, then save. Both calendar and template editor omit the copy-day-to-all-days action.",
     keywords: ["reuse", "copy menu", "week"],
   },
   {

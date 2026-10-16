@@ -59,7 +59,7 @@ class PreparedReportTest extends TestCase
         $poReport = app(PrepareSavedReport::class)->execute($actor, 'procurement_pack', ['purchase_order_id' => $po->id], freeze: false);
         $menuReport = app(PrepareSavedReport::class)->execute($actor, 'menu_calendar', ['menu_cycle_id' => $menu->id], freeze: false);
 
-        $this->assertSame('PO — May 10, 2026', $poReport->title);
+        $this->assertSame('PP — May 10, 2026', $poReport->title);
         $this->assertSame('Menu — week of May 11, 2026', $menuReport->title);
     }
 
@@ -77,7 +77,10 @@ class PreparedReportTest extends TestCase
 
         $report = app(PrepareSavedReport::class)->execute($actor, 'procurement_pack', ['purchase_order_id' => $po->id], freeze: false);
 
-        $this->assertSame('PO — Hospital pantry', $report->title);
+        $this->assertSame('PP — Hospital pantry', $report->title);
+        $ppa = app(PrepareSavedReport::class)->execute($actor, 'program_project_activity', ['purchase_order_id' => $po->id], freeze: false);
+        $this->assertSame('PPA — Hospital pantry', $ppa->title);
+        $this->assertSame('PO — Hospital pantry', $po->fresh()->displayName());
     }
 
     #[Test]

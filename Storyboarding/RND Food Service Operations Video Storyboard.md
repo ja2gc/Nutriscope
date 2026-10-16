@@ -67,7 +67,7 @@ Use this as both the recording checklist and narration script. Create every name
 3. Add **Demo Video Chicken** with an exact baseline quantity such as **6.250 kg**.
 4. Add **Demo Video Seasoning Mix** with an exact baseline quantity such as **0.125 kg**.
 5. Mark **Demo Video Seasoning Mix** as **Adjust to taste**, add short preparation notes, and save.
-6. Open the recipe/profile and point to baseline servings, scaled measurements, and the separate **Adjust to taste** note.
+6. Open the recipe/profile and point to baseline servings, scaled measurements, and the separate **Adjust to taste** note. Open unit help in both new/edit recipe forms: weight, liquid, exact piece/pack matches, and the Non-Auto Grocery typed-unit exception.
 
 **Narration**
 
@@ -84,12 +84,12 @@ Use this as both the recording checklist and narration script. Create every name
 **On-screen actions**
 
 1. Open **Food Service → Menu Calendar** and inspect the latest dated plan. Choose the next unplanned Monday–Sunday week after it; open the automatically created week if present.
-2. Choose **Templates**, open an existing weekly template, and load it into that week's Menu Plan.
+2. Choose **Templates → View** and inspect the week calendar. Open a cell item to view its read-only Food Service profile, return to the same calendar, then load the template into the week's Menu Plan. Confirm before replacing nonempty cells.
 3. Replace one template meal with **Demo Video Chicken Stew**. Keep at least one planned meal on Tuesday, Wednesday, and Thursday. Do not add rice as a weekly-menu line.
 4. Open one slot before generating a shopping list. Show **Purchase estimate: Not set**, baseline quantities, and preparation notes.
 5. Save the Menu Plan. Return to the list and confirm its Monday–Sunday dates. The menu becomes current automatically when that week arrives.
 6. Use the pencil beside the menu name, edit it, and leave the field to show the saved name updates.
-7. Reopen the original template and confirm it still contains its original meal.
+7. Reopen the original template and confirm it still contains its original meal. Show that both calendar and template editor omit the copy-day-to-all-days action.
 
 **Narration**
 
@@ -246,7 +246,7 @@ Use this as both the recording checklist and narration script. Create every name
 1. Return to RND web and open the completed PO.
 2. Show completed vendor evidence, confirmed actual totals, served population, and **Food purchase cost per served patient-day**.
 3. Open **Food Service → Budget** and show the PO deduction in the fiscal-year budget history and the updated remaining balance.
-4. Open **Reports**, choose a month and year in Browse, and preview the **Procurement Pack** purchase report and **Program Project Activity** report for the new PO. Show the same month and year dropdowns in Archived. Reports appear when any part of their covered period overlaps the selected month; lists show newest first.
+4. Open **Reports**, choose a month and year in Browse, and preview the **Procurement Pack** purchase report and **Program Project Activity** report for the new PO. Confirm report names and downloads start **PP** and **PPA**, with **Marketing** instead of the affected Demo Marketing label and dates retained. The PO's own number remains unchanged. Show the same month/year dropdowns in Archived; stored archived PDF bytes remain unchanged. Reports appear when any part of their covered period overlaps the selected month; lists show newest first.
    Confirm their header and signatories reflect the report template configuration captured when the PO completed. A Menu Calendar captures its template configuration when the week is created; the generated PO locks that week's planned menu.
 5. Point out actual quantities/prices, evidence, optional OR shown as **Not provided**, and final status.
 6. If previewing an unfinished manual list/PO, point out the visible draft/incomplete banner.

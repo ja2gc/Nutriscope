@@ -31,10 +31,10 @@ afterEach(() => {
 });
 
 describe("report archive action", () => {
-  it("shows procurement span in a separate column beside the readable PO name", async () => {
+  it("shows procurement span in a separate column beside the report type name", async () => {
     vi.mocked(listInstances).mockResolvedValue({
       data: { axis: "entity", instances: [{
-        key: "po-1", label: "PO — Hospital pantry", params: { purchase_order_id: "po-1" },
+        key: "po-1", label: "PP — Hospital pantry", params: { purchase_order_id: "po-1" },
         date: "2026-05-10", covered_from: "2026-05-10", covered_until: "2026-05-14",
       }] },
       meta: { current_page: 1, last_page: 1, per_page: 10, total: 1 },
@@ -46,10 +46,10 @@ describe("report archive action", () => {
       type: "procurement_pack", name: "Procurement Pack", desc: "Pack", icon: () => null, group: "Food Service",
     }]} apiPrefix="rnd" />); });
 
-    expect(container.textContent).toContain("PO — Hospital pantry");
+    expect(container.textContent).toContain("PP — Hospital pantry");
     expect(container.textContent).toContain("May 10, 2026 – May 14, 2026");
     expect(container.textContent).toContain("Procurement span");
-    const row = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("PO — Hospital pantry"));
+    const row = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("PP — Hospital pantry"));
     expect(row?.children[1]?.textContent).toBe("May 10, 2026 – May 14, 2026");
     await act(async () => root.unmount());
   });
@@ -120,7 +120,7 @@ describe("report archive action", () => {
   it("filters archived reports by type and restores a selected report", async () => {
     vi.mocked(getReportArchiveSettings).mockResolvedValue({ enabled: false, years: 5 });
     vi.mocked(listReports).mockResolvedValue({
-      data: [{ id: "archived-1", title: "PO — May 10, 2026", type: "procurement_pack", status: "archived", file_path: "prepared", report_covered_until: "2026-05-10", created_by: { id: "staff-1", name: "Staff One" } } as never],
+      data: [{ id: "archived-1", title: "PP — May 10, 2026", type: "procurement_pack", status: "archived", file_path: "prepared", report_covered_until: "2026-05-10", created_by: { id: "staff-1", name: "Staff One" } } as never],
       meta: { current_page: 1, last_page: 1, per_page: 10, total: 1 },
     });
     vi.mocked(unarchiveReport).mockResolvedValue({ id: "archived-1" } as never);
@@ -152,8 +152,8 @@ describe("report archive action", () => {
     }));
     expect(container.textContent).not.toContain("Status");
     expect(container.textContent).toContain("Covers through");
-    expect(container.querySelector('[aria-label="Delete PO — May 10, 2026"]')).toBeNull();
-    const unarchive = container.querySelector<HTMLButtonElement>('[aria-label="Unarchive PO — May 10, 2026"]');
+    expect(container.querySelector('[aria-label="Delete PP — May 10, 2026"]')).toBeNull();
+    const unarchive = container.querySelector<HTMLButtonElement>('[aria-label="Unarchive PP — May 10, 2026"]');
     expect(unarchive).not.toBeNull();
     await act(async () => { unarchive!.click(); });
     expect(unarchiveReport).toHaveBeenCalledWith("archived-1", "rnd");
@@ -164,7 +164,7 @@ describe("report archive action", () => {
     vi.mocked(getReportArchiveSettings).mockResolvedValue({ enabled: false, years: 5 });
     vi.mocked(setReportArchiveSettings).mockResolvedValue({ enabled: true, years: 5 });
     vi.mocked(listReports).mockResolvedValue({
-      data: [{ id: "archived-1", title: "PO — May 10, 2026", type: "procurement_pack", status: "archived", created_at: "2026-05-10T08:00:00Z", retention_expires_at: "2031-05-10T08:00:00Z" } as never],
+      data: [{ id: "archived-1", title: "PP — May 10, 2026", type: "procurement_pack", status: "archived", created_at: "2026-05-10T08:00:00Z", retention_expires_at: "2031-05-10T08:00:00Z" } as never],
       meta: { current_page: 1, last_page: 1, per_page: 10, total: 1 },
     });
     const container = document.createElement("div");
@@ -187,7 +187,7 @@ describe("report archive action", () => {
   it("shows enabled retention to RND without allowing settings changes", async () => {
     vi.mocked(getReportArchiveSettings).mockResolvedValue({ enabled: true, years: 5 });
     vi.mocked(listReports).mockResolvedValue({
-      data: [{ id: "archived-1", title: "PO — May 10, 2026", type: "procurement_pack", status: "archived", created_at: "2026-05-10T08:00:00Z", retention_expires_at: "2031-05-10T08:00:00Z" } as never],
+      data: [{ id: "archived-1", title: "PP — May 10, 2026", type: "procurement_pack", status: "archived", created_at: "2026-05-10T08:00:00Z", retention_expires_at: "2031-05-10T08:00:00Z" } as never],
       meta: { current_page: 1, last_page: 1, per_page: 10, total: 1 },
     });
     const container = document.createElement("div");

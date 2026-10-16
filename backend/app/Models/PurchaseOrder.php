@@ -50,9 +50,15 @@ class PurchaseOrder extends Model
         return $this->procurement_track === 'food';
     }
 
-    public function displayName(): string
+    public function displayName(?string $reportType = null): string
     {
-        return 'PO — '.($this->shoppingList?->name ?: ($this->order_date ?? $this->completed_at)?->format('M j, Y') ?: 'Purchase Order');
+        $prefix = match ($reportType) {
+            'procurement_pack' => 'PP',
+            'program_project_activity' => 'PPA',
+            default => 'PO',
+        };
+
+        return $prefix.' — '.($this->shoppingList?->name ?: ($this->order_date ?? $this->completed_at)?->format('M j, Y') ?: 'Purchase Order');
     }
 
     public function corrections()

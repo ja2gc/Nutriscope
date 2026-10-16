@@ -51,6 +51,9 @@ class FoodServiceOctoberBackfillSeederTest extends TestCase
         ];
         $this->seed(FoodServiceOctoberBackfillSeeder::class);
 
+        $this->assertSame(0, ShoppingList::where('name', 'like', 'Demo Marketing%')->count());
+        $this->assertGreaterThan(0, ShoppingList::where('name', 'like', 'Marketing%')->count());
+
         $this->assertSame($first, [
             MenuCycle::count(), ShoppingList::count(), PurchaseOrder::count(),
             MealPrepLog::count(), DietListCount::count(), Report::count(),

@@ -77,6 +77,13 @@ The Expo mobile app serves Food Service Staff and does not provide the Nutrition
 - Preserve existing backend public UUID contracts for patient/NCP-related references. Do not expose internal numeric IDs in those flows. Elsewhere retain established human-readable labels and existing identifier contracts; do not add user-visible UUIDs.
 - Follow `.agents/AGENTS.md` and applicable topic rules, Superpowers and Ponytail. Preserve unrelated dirty files; no new dependencies or duplicate engines. Complete all scope coding and local checks before the post-deployment live browser QA. Then run one full fictional-data sweep, inventory all unexpected behavior and browser errors, group findings by root cause, apply task-scoped fixes together, and repeat the full sweep. Push task commits to `main` only after local checks; confirm CI/deploy, running revision and health before live QA. A deployed page, not local or CI success, is the final acceptance surface.
 
+## Reconciled implementation safeguards (2026-10-16)
+
+- Previous prescription and menu appear automatically when composing a new intervention; no previous-menu selection is needed. Keep menu draft edits across intervention tabs and saving from Education/Counseling. Save week persists reviewed quantities without repeating preview scaling.
+- Clinical pc/pcs/pieces aliases normalize to piece only in clinical calculation/input paths. Food Service retains exact count-unit compatibility and unchanged client/API contracts.
+- The retained report metadata correction handles the audited reports and exact seeded Marketing date labels, including generic reports whose Purchase Orders no longer exist. Use only the type abbreviation when no source suffix can be verified. Recheck current production targets before application; preserve timestamps, IDs, archive bytes/references, and audits.
+- Read-only production recheck confirms the clinical catalog migrations and six corrected FDC mappings are applied; all active recipe unit pairs are compatible. Report naming migration verification, final revision deployment, and the full fictional-data browser sweep remain required before completion. Local checks are separate evidence.
+
 ## Outside scope
 
 No Food Service nutrition engine merge; no new clinical advice engine, density database, ready-to-eat selection, direct Ingredient/USDA selection for new weekly menus, bulk copy-day action, report type, or change to historical archived report bytes. Do not add user-facing technical flags or identifiers.

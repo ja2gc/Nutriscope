@@ -178,11 +178,13 @@ Food/nutrient delivery and prescription, food guidance, patient meal plan, educa
 
 ### How do saved Intervention Plans work?
 
-The **Plans** tab lists complete dated plans newest first. Opening an older plan reuses the Intervention screen in read-only form. **New Intervention Plan** prefills the newest saved plan and recalculates from the latest complete Monitoring values, falling back to the original Assessment when no follow-up exists. Saving creates a separate immutable plan; cancelling creates nothing. Each plan may have zero or one menu plan, and a new plan does not copy the prior menu. Education and counseling fields allow 1,200 characters each and 2,200 characters combined to keep the printed plan concise.
+The **Plans** tab lists complete dated plans newest first. Older plans open read-only. **New Intervention Plan** prefills the previous prescription and notes plus the latest saved menu in the same care cycle, so you can edit only what changed. Copied prescription values are not immediately recalculated. Saving the intervention creates its separate identity; **Save week** saves its menu draft as an independent copy. Cancelling creates nothing and leaves the previous plan unchanged. Each plan may have zero or one saved menu. Education and counseling fields allow 1,200 characters each and 2,200 characters combined to keep the printed plan concise.
 
 ### Can I make a patient meal plan manually or from a template?
 
-Yes. Meal plans can be created manually, generated, or loaded from a saved template. Templates retain their exact foods, recipes, and quantities and identify goal, stage, and maternal compatibility. The seeded examples include separate NNC/DOH-derived pregnancy and lactation patterns, each with a snack and no-snack variant; no-snack maternal patterns fold their milk and fruit into meals. These remain starting points that must be reviewed and scaled to the final prescription. Use **Scale to prescription** in the common editor to adjust quantities without substituting items. Auto-generation already uses the saved prescription; **Exclude snacks** leaves snack slots empty and redistributes their targets across main meals, except for liver-disease plans where the application keeps clinically required frequent intake. Empty snack rows are omitted from the Nutrition Intervention Plan PDF. **Use rice as carb** limits separate side-carbohydrate choices to rice; when off, generation uses suitable non-rice choices. Complete rice-based dishes do not receive another carbohydrate side, and a side may be omitted when it would worsen prescription fit. Confirmed pregnancy/lactation also uses a balanced maternal composition while keeping the selected clinical goal authoritative. Review allergens, restrictions, portions, nutrition totals, and variance before use. Fluid guidance is shown separately and is excluded from generation, scaling, variance, and target-match success because a food menu does not represent all beverages.
+Yes. Use Menu Items from Food Library to create a week manually, generate it, or load a template. Preview and edit templates in the weekly calendar, review goal/stage/maternal compatibility, optionally **Scale to prescription**, then **Save week**. Replacing nonempty cells requires confirmation. Failed saves retain the draft. Manual menus and templates may place a Snack Menu Item in any meal slot, including milk and fruit in main meals of maternal no-snack patterns.
+
+For **Auto-Generate**, choose one Carb Menu Item for all 21 main-meal slots, or select **Exclude carbs** to omit that separate side. The chosen Carb accompanies a Meal even when the Meal already contains carbohydrates. Included Snacks fill only AM and PM Snack slots. **Exclude snacks** works for every goal, including liver disease, and redistributes targets across main meals. Patient allergies block incompatible Carb choices; staff assess free-text restrictions themselves. An unusable portion blocks generation with an explanation rather than silently replacing or omitting the Carb. Review portions, totals, and patient suitability. Fluid guidance stays outside food scaling and target-match success. Empty snack rows are omitted from the PDF.
 
 ### What can I record in Monitoring?
 
@@ -200,13 +202,17 @@ Upload them from the cycle's Assessment page. The patient profile **Attachments*
 
 ### What is the difference between Food Library, Inventory, and Foods?
 
-- **Food Library:** clinical foods and clinical recipes with nutrients, macros, micronutrients, allergens, and optional USDA source data.
+- **Food Library:** clinical **Ingredients**, **Menu Items**, and **Templates**, with nutrient values, allergens, and optional USDA source data. Menu Items contain one or more measured Ingredients and use exactly Meal, Carb, or Snack categories; Ingredient food-group filters remain separate.
 - **Inventory:** food-service reference catalog for ingredients and supplies, vendor, unit, and purchase cost. It is not a live stock-count workflow.
 - **Foods:** food-service recipes and single-ingredient items used in menu cycles.
 
 ### How do I import food nutrient data?
 
-Open **Food Library → Foods → Import from USDA**, search, import, then review category, nutrients, and allergen suggestions. Branded USDA foods are excluded from the current search source.
+Open **Food Library → Ingredients → Import from USDA**, search, import, then review category, nutrient basis, and allergen suggestions. The importer checks the source's actual 100 g or 100 mL basis. A rate-limit or temporary provider failure saves no partial record; try again later.
+
+### How do clinical Ingredient units and Menu Item portions work?
+
+Recipe amounts describe the whole batch. Nutrients per Menu Item serving equal batch nutrients divided by its declared yield; a planned quantity is the number of servings consumed. Ingredient units convert only within mass or volume families. `piece` is an exact count baseline only when nutrients per measured piece are known; it never implies a gram weight. Unit help is available beside the controls. Changing a baseline from 100 g to 0.1 kg preserves its nutrients and linked recipe amounts; incompatible or precision-losing changes require correction.
 
 ### Does FSS manage inventory quantities?
 
@@ -218,7 +224,7 @@ Auto Grocery items use a measured recipe unit that converts to the Inventory uni
 
 ### How do I build a Menu Calendar week?
 
-Prepare Inventory and Foods first. Open **Food Service → Menu Calendar** and fill the current Monday–Sunday week, or choose a past or future week and load a template. Save meal recipes or single items in each slot. Empty calendars for the current and next week are created automatically; an existing plan for next week is reused. A blank name is generated from the date span. Open **Templates** to create or edit reusable weekly grids, including a three-meal template with no snack rows. Bulk rice is added later in the shopping list.
+Prepare Inventory and Foods first. Open **Food Service → Menu Calendar** and fill a Monday–Sunday week, or load a template into its draft and save after review. Picker **View** shows the weekly grid; open a cell item to inspect its read-only profile and return to the same template. Loading over planned cells requires confirmation. **Templates** uses the same calendar for editing, including three-meal templates without snacks. There is no copy-day-to-all-days action. A blank menu name is generated from its dates; bulk rice is added later in the shopping list. Food Service recipe unit help retains the Non-Auto Grocery typed-unit exception.
 
 ### What is a Menu Calendar template?
 
@@ -258,7 +264,7 @@ When every vendor has reviewed actual values, receipt, proof, and explicit recei
 
 ### When do Inventory, Budget, and procurement reports update?
 
-When the whole PO completes, Inventory takes the final Unit, Cost/unit, and Vendor; the latest completed PO sets the Inventory default Vendor. Budget records the completed purchase. Procurement Pack and, for a menu-based food PO, Program Project Activity are finalized from the completed PO. Their dates follow the selected procurement date or span, and later edits do not change those completed reports.
+When the whole PO completes, Inventory takes the final Unit, Cost/unit, and Vendor; the latest completed PO sets the Inventory default Vendor. Budget records the completed purchase. Procurement Pack and, for a menu-based food PO, Program Project Activity are finalized from the completed PO. Their report names start **PP** and **PPA** respectively, followed by the source name or date. Affected generated marketing labels use **Marketing**. Their dates follow the selected procurement date or span; stored PDF bytes and completed purchase values remain unchanged.
 
 ### Why is a PO still open after all receipts were uploaded?
 
@@ -280,7 +286,7 @@ Preparing an active report refreshes its current source and template, except com
 
 ### Which reports can RND access?
 
-Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment Report, Nutrition Intervention Plan, and NCP Summary are PDF reports. Demographic Census is a year/month screen with direct selected-view PDF download. The internal compatibility identifier for Nutrition Intervention Plan remains `patient_menu_plan`.
+Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment Report, Nutrition Intervention Plan, and NCP Summary are PDF reports. Each Nutrition Intervention Plan uses the selected saved intervention and its own menu. Its compact cards compare whole-recipe and patient ingredient amounts using saved recipe yield and snapshots; unavailable historical batch data is explicitly labelled rather than invented. NCP Summary remains one per cycle and uses its latest saved intervention at preparation. Archived bytes stay frozen. Demographic Census is a year/month screen with direct selected-view PDF download. The internal compatibility identifier for Nutrition Intervention Plan remains `patient_menu_plan`.
 
 ### Which reports can Admin access?
 

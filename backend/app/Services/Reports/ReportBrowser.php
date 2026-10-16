@@ -33,7 +33,7 @@ class ReportBrowser
                     ->selectRaw('COALESCE(order_date, DATE(completed_at)) as report_browse_date')
                     ->whereIn('lifecycle_status', ['completed', 'archived'])->with(['supplier', 'shoppingList']),
                 'purchase_order_id',
-                fn (PurchaseOrder $po) => $po->displayName(),
+                fn (PurchaseOrder $po) => $po->displayName('procurement_pack'),
                 'report_browse_date',
             ),
             'program_project_activity' => fn () => new EntityInstanceSource(
@@ -45,7 +45,7 @@ class ReportBrowser
                     ->whereHas('programProjectActivity')
                     ->with(['programProjectActivity', 'shoppingList']),
                 'purchase_order_id',
-                fn (PurchaseOrder $po) => $po->displayName(),
+                fn (PurchaseOrder $po) => $po->displayName('program_project_activity'),
                 'report_browse_date',
             ),
             'menu_calendar' => fn () => $this->menuCycleSource(),

@@ -246,7 +246,7 @@ class PrepareSavedReport
     private function titleFor(string $type, array $parameters, string $fallback): string
     {
         if (in_array($type, ['procurement_pack', 'program_project_activity'], true)) {
-            return PurchaseOrder::query()->with('shoppingList')->find($parameters['purchase_order_id'] ?? null)?->displayName() ?? $fallback;
+            return PurchaseOrder::query()->with('shoppingList')->find($parameters['purchase_order_id'] ?? null)?->displayName($type) ?? $fallback;
         }
 
         if ($type === 'menu_calendar') {

@@ -16,34 +16,30 @@ Demo logins: RND `rnd@nutriscope.local`, FSS `fss@nutriscope.local` (Maria Santo
 
 ## 2. Food Data, Ingredients, Recipes, and Menu Cycles
 
-Food data is the base used by both food service and clinical meal planning. RND can import ingredient records or manually create them, then use those records in recipes, menu cycles, shopping lists, and patient meal plans.
+Clinical Food Library and Food Service use separate catalogs and calculations. Food Library groups measured Ingredients into Meal, Carb, and Snack Menu Items for intervention menus and templates. The diagram below describes the operational Food Service catalog, recipes, menus, and purchasing; those records do not supply clinical nutrient calculations.
 
 ```mermaid
 flowchart TD
-    A["Open Food Service / Food Items"] --> B{"Create source"}
-    B -->|"Import ingredient data"| C["Upload / import food or ingredient record"]
-    B -->|"Manual entry"| D["Create item manually"]
-
-    C --> E["Normalize item name, unit, category, nutrients"]
+    A["Open Food Service / Inventory"] --> D["Create catalog entry"]
     D --> E
-    E --> F["Set cost, supplier, allergens, restrictions, base unit"]
+    E["Set name and category"] --> F["Set reference cost, vendor, and base unit"]
     F --> G{"Item kind"}
     G -->|"Ingredient"| H["Use inside recipes"]
-    G -->|"Ready-to-serve food"| I["Use directly in menu cycle or meal plan"]
+    G -->|"Single item"| I["Use directly in Food Service menu"]
     G -->|"Supply"| J["Use in shopping list / procurement"]
 
     H --> K["Create recipe"]
     K --> K1["Add ingredient, quantity, unit, servings, prep notes"]
     K1 --> K2{"Units compatible?"}
     K2 -->|"No"| K3["Show validation error"]
-    K2 -->|"Yes"| K4["Save recipe and recalculate cost/nutrients"]
+    K2 -->|"Yes"| K4["Save recipe and recalculate cost"]
 
     I --> L["Create menu cycle"]
     K4 --> L
-    L --> L1["Set dates, days, meal slots, estimated population"]
+    L --> L1["Set dates and ordered meal slots"]
     L1 --> L2["Slot one or more ordered meal lines<br/>No bulk-rice menu line"]
     L2 --> L3["Compute quantity, cost/head, prep notes"]
-    L3 --> L4["Activate cycle or keep draft"]
+    L3 --> L4["Save dated menu; current week follows service date"]
 
     L4 --> M["Generate suggested shopping list"]
     M --> N["Aggregate recipe ingredients and ready-to-serve items"]
@@ -379,7 +375,7 @@ Intervention is unlocked after Assessment and at least one Diagnosis. It progres
 
 ### Meal Planning
 
-Each saved Intervention Plan may have zero or one manual, generated, or template-based menu. Exact loaded templates can be quantity-scaled in the common editor without item substitution, with goal/stage/maternal compatibility shown before use. Seeded templates include separate NNC/DOH-derived pregnancy and lactation examples. Auto-generation follows the saved prescription and can exclude snacks by redistributing targets across main meals, except when the selected liver-disease goal requires frequent intake. The rice option limits independently scaled side-carbohydrate items to rice; otherwise it uses suitable non-rice choices. Complete rice-based dishes receive no duplicate side, and confirmed maternal status uses balanced maternal composition under the selected goal. Fluid guidance is excluded from matching and scaling. A new Intervention Plan prefills the latest saved menu in the same care cycle as an editable draft. Saving the intervention alone does not create its menu; **Save week** saves an independent copy and leaves the previous menu unchanged.
+Each saved Intervention Plan may have zero or one manual, generated, or template-based menu. New choices use measured Menu Items categorized as Meal, Carb, or Snack; historical direct Ingredient lines remain readable. Templates preview and edit in the weekly calendar, preserve ordered items and compatibility warnings, and remain drafts until **Save week**. **Scale to prescription** changes quantities without substituting items. Manual menus/templates may place Snacks in any slot. Auto-generation pairs the same selected Carb with a Meal in all 21 main slots unless **Exclude carbs** is selected; carbohydrates already inside a Meal do not remove that side. Included Snacks appear only in AM/PM slots. **Exclude snacks** works for all goals, including liver disease, and redistributes targets. Allergy conflicts and unusable selected Carb portions block generation; staff assess free-text restrictions. Fluid remains separate from food matching/scaling. A new Intervention Plan prefills the latest saved menu in the same care cycle as an editable draft. Saving the intervention alone does not create its menu; **Save week** saves an independent copy and leaves the previous menu unchanged.
 
 ### Monitoring and Evaluation
 
