@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  CalendarDays, Plus, Search, X, Trash2, Save, Copy, BookmarkPlus,
+  CalendarDays, Plus, Search, X, Trash2, Save, BookmarkPlus,
   LayoutTemplate, ChevronLeft, AlertTriangle, Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -18,6 +18,7 @@ import {
   CycleListItem, MenuCycle, RecipeOption, FsItemOption, TemplateListItem, TemplateDetail, MenuSnapshot,
   listCycles, getCycle, saveCycle, deleteCycle,
   listRecipeOptions, listFsItemOptions, listTemplates, getTemplate, saveTemplate, deleteTemplate,
+  getRecipeProfile, getFsItemProfile, type MenuSlotProfile,
 } from "@/services/menuCycleService";
 import { setServedPopulation, listServiceLogs } from "@/services/consumptionService";
 
@@ -270,12 +271,40 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
   const [templatePickerLoading, setTemplatePickerLoading] = useState(false);
   const [templatePickerError, setTemplatePickerError] = useState("");
   const [viewingTemplate, setViewingTemplate] = useState<TemplateDetail | null>(null);
+  const [profileCell, setProfileCell] = useState<Cell | null>(null);
+  const [profile, setProfile] = useState<MenuSlotProfile | null>(null);
+  const [profileError, setProfileError] = useState("");
+  const profileReturnId = useRef("");
   const [templateNotice, setTemplateNotice] = useState("");
   const [templateNameDialogOpen, setTemplateNameDialogOpen] = useState(false);
   const [templateNameDraft, setTemplateNameDraft] = useState("");
   const [templateSaveError, setTemplateSaveError] = useState("");
   const purchasingStarted = !isTemplate && Object.values(grid).some((lines) => lines.some((cell) => Boolean(cell.po_snapshot)));
   const planReadOnly = readOnly || purchasingStarted;
+
+  useEffect(() => {
+    if (!profileCell) return;
+    let active = true;
+    const request = profileCell.recipe_id
+      ? getRecipeProfile(profileCell.recipe_id, 1)
+      : getFsItemProfile(profileCell.fs_item_id!, 1, profileCell.quantity);
+    request.then((result) => { if (active) setProfile(result); })
+      .catch((error) => { if (active) setProfileError(error instanceof Error ? error.message : "Failed to load item profile."); });
+    return () => { active = false; };
+  }, [profileCell]);
+
+  useEffect(() => {
+    if (!profileCell) document.getElementById(profileReturnId.current)?.focus();
+  }, [profileCell]);
+
+  function openTemplateProfile(cell: Cell, triggerId: string) {
+    profileReturnId.current = triggerId;
+    setProfile(null); setProfileError(""); setProfileCell(cell); setTemplatePickerOpen(true);
+  }
+
+  function closeTemplates() {
+    setProfileCell(null); setTemplatePickerOpen(false);
+  }
 
   // Search only while picker is open. Empty queries do not download whole catalogs.
   useEffect(() => {
@@ -417,18 +446,6 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
       return n;
     });
   }
-  function duplicateWeek(from: Day) {
-    setGrid((g) => {
-      const n = { ...g };
-      DAYS.filter((d) => d !== from).forEach((d) => {
-        MEALS.forEach((m) => {
-          const src = g[cellKey(from, m)];
-          if (src) n[cellKey(d, m)] = src.map((line) => ({ ...line, id: undefined }));
-        });
-      });
-      return n;
-    });
-  }
 
   function daysPayload() {
     return Object.entries(grid).flatMap(([key, cells]) => {
@@ -525,7 +542,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
   }
 
   async function openTemplates() {
-    setViewingTemplate(null); setTemplatePickerOpen(true);
+    setProfileCell(null); setViewingTemplate(null); setTemplatePickerOpen(true);
     await loadTemplatePage(1);
   }
 
@@ -563,57 +580,12 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
   const filteredRecipes = recipes.filter((r) => !pickerSearch || r.name.toLowerCase().includes(pickerSearch.toLowerCase()));
   const filteredItems = items.filter((i) => !pickerSearch || i.name.toLowerCase().includes(pickerSearch.toLowerCase()));
 
-  if (loading) return <Shell><div className="py-16 text-center text-sm text-warm-400">Loading…</div></Shell>;
-
-  return (
-    <Shell templates={isTemplate}>
-      {/* Header */}
-      <div className="border-b border-warm-200 pb-5 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <button onClick={onBack} className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 cursor-pointer mt-0.5"><ChevronLeft className="h-4 w-4" /></button>
-          <div>
-            <input aria-label="Menu name" value={name} onChange={(e) => setName(e.target.value)} readOnly={planReadOnly}
-              className="text-xl font-extrabold text-warm-900 tracking-tight bg-transparent border-b border-dashed border-warm-200 focus:border-emerald-500 focus:outline-none read-only:border-transparent" />
-            <div className="flex items-center gap-2 mt-1">
-              {!isTemplate && <span className="text-xs text-warm-500">{temporal(weekStart).label}</span>}
-            </div>
-          </div>
-        </div>
-        {planReadOnly ? (
-          <span className="text-xs font-bold uppercase tracking-wider text-warm-400 border border-warm-200 rounded-lg px-3 py-2 shrink-0">{purchasingStarted ? "Purchasing started · View only" : "View only"}</span>
-        ) : (
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            {!isTemplate && <button onClick={openSaveTemplateDialog} disabled={busy} className="flex items-center gap-1.5 text-sm font-semibold text-warm-600 border border-warm-200 rounded-lg px-3 py-2 hover:bg-warm-50 cursor-pointer disabled:opacity-50"><BookmarkPlus className="h-3.5 w-3.5" /> Save as Template</button>}
-            {!isTemplate && <button onClick={openTemplates} className="flex items-center gap-1.5 text-sm font-semibold text-warm-600 border border-warm-200 rounded-lg px-3 py-2 hover:bg-warm-50 cursor-pointer"><LayoutTemplate className="h-3.5 w-3.5" /> Templates</button>}
-            <Button variant="primary" onClick={() => handleSave()} loading={busy} className="px-4 py-2 flex items-center gap-2"><Save className="h-4 w-4" /> Save</Button>
-          </div>
-        )}
-      </div>
-
-      {err && <div className="bg-red-50 border border-red-100 p-3 rounded-xl text-sm text-red-700 font-bold flex items-center gap-2"><AlertTriangle className="h-3.5 w-3.5" /> {err}</div>}
-      {templateNotice && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">{templateNotice}</div>}
-
-      {isTemplate && !readOnly && <label className="flex min-h-11 items-center gap-3 text-sm font-semibold text-warm-700"><input type="checkbox" aria-label="Include snacks" checked={includeSnacks} onChange={(event) => setIncludeSnacks(event.target.checked)} className="h-4 w-4 accent-emerald-600" /> Include AM and PM snacks</label>}
-
-      {/* Settings */}
-      <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {isTemplate ? (
-          <div className="sm:col-span-2">
-            <label className="block text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1">Description</label>
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} readOnly={readOnly} rows={2} className="w-full rounded-lg border border-warm-200 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 read-only:bg-warm-50" />
-          </div>
-        ) : [
-          { label: "Week start (Mon)", value: weekStart, set: setWeekStart, type: "date" },
-        ].map((f) => (
-          <div key={f.label}>
-            <label className="block text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1">{f.label}</label>
-            <input type={f.type} value={f.value} onChange={(e) => f.set(e.target.value)} readOnly={planReadOnly}
-              className="w-full px-3 py-2 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-          </div>
-        ))}
-      </div>
-
-      {/* Grid */}
+  function renderWeekGrid(preview?: TemplateDetail) {
+    const displayTemplate = isTemplate || Boolean(preview);
+    const displayReadOnly = planReadOnly || Boolean(preview);
+    const displayGrid = preview ? gridFromTemplate(preview) : grid;
+    const displaySnacks = preview ? preview.days.some((day) => day.meal_type === "am_snack" || day.meal_type === "pm_snack") : includeSnacks;
+    return (
       <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
         <table className="w-full text-sm border-collapse">
           <thead>
@@ -624,14 +596,11 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
                   <th key={d} className="px-3 py-2 text-left text-xs font-bold text-warm-500 uppercase min-w-[140px]">
                     <div className="flex items-center justify-between gap-1">
                       <span>{d.slice(0, 3)}</span>
-                      {!planReadOnly && (
-                        <button onClick={() => duplicateWeek(d)} title={`Copy ${d} to all days`} className="text-warm-300 hover:text-emerald-600 cursor-pointer"><Copy className="h-3 w-3" /></button>
-                      )}
                     </div>
                     {/* Served (actual) population for this day — the real headcount FSS/RND
                         log on/after the day. Summed across the span it completes the food PO
                         and yields its actual budget/head. Editable by both roles. */}
-                    {!isTemplate && savedId && weekStart && (
+                    {!displayTemplate && savedId && weekStart && (
                       <div className="mt-1 normal-case">
                         {editingServed === d ? (
                           <div className="flex items-center gap-1">
@@ -687,12 +656,12 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
             </tr>
           </thead>
           <tbody>
-            {MEALS.filter((meal) => !isTemplate || includeSnacks || (meal !== "am_snack" && meal !== "pm_snack")).map((m) => (
+            {MEALS.filter((meal) => !displayTemplate || displaySnacks || (meal !== "am_snack" && meal !== "pm_snack")).map((m) => (
               <tr key={m} className="border-b border-warm-100 last:border-0">
                 <td className="px-3 py-3 font-bold text-warm-600 sticky left-0 bg-white whitespace-nowrap">{MEAL_LABELS[m]}</td>
                 {DAYS.map((d) => {
                   const key = cellKey(d, m);
-                  const lines = grid[key] ?? [];
+                  const lines = displayGrid[key] ?? [];
                   const isPicking = activeCell === key;
                   return (
                     <td key={key} className="px-2 py-2 align-top relative">
@@ -701,13 +670,13 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
                           <div key={cell.id ?? `${key}-${lineIndex}`} className="bg-emerald-50/60 border border-emerald-100 rounded-lg p-2 group">
                             <div className="flex items-start justify-between gap-1">
                               <button
-                                onClick={() => openSlot(d, m, cell, lineIndex)}
-                                disabled={isTemplate}
-                                title={isTemplate ? "Template menu item" : "Open menu item details"}
+                                id={`menu-item-${Boolean(preview)}-${d}-${m}-${lineIndex}`}
+                                onClick={(event) => displayTemplate ? openTemplateProfile(cell, event.currentTarget.id) : openSlot(d, m, cell, lineIndex)}
+                                title="Open menu item details"
                                 className="min-h-11 flex-1 text-xs font-semibold text-emerald-800 leading-tight text-left enabled:hover:underline enabled:cursor-pointer">
                                 {cell.recipe_name}
                               </button>
-                              {!planReadOnly && (
+                              {!displayReadOnly && (
                                 <button onClick={() => clearLine(key, lineIndex)} aria-label={`Remove ${cell.recipe_name}`} className="min-h-11 min-w-11 text-emerald-400 hover:text-red-500 cursor-pointer shrink-0 flex items-center justify-center"><X className="h-3 w-3" /></button>
                               )}
                             </div>
@@ -715,7 +684,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
                             {cell.hasRecipeOverride && <span className="mt-1 inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800">Customized item</span>}
                           </div>
                         ))}
-                        {planReadOnly ? (
+                        {displayReadOnly ? (
                           lines.length === 0 && <div className="w-full text-center py-2 text-xs text-warm-300">—</div>
                         ) : (
                           <button onClick={() => { setActiveCell(isPicking ? null : key); setPickerSearch(""); }}
@@ -725,7 +694,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
                         )}
                       </div>
 
-                      {isPicking && !planReadOnly && (
+                      {isPicking && !displayReadOnly && (
                         <div className="absolute z-30 top-full left-0 mt-1 w-56 bg-white border border-warm-200 rounded-xl shadow-lg p-2">
                           <div className="relative mb-1">
                             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-warm-400" />
@@ -774,6 +743,60 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
           </tbody>
         </table>
       </div>
+    );
+  }
+
+  if (loading) return <Shell><div className="py-16 text-center text-sm text-warm-400">Loading…</div></Shell>;
+
+  return (
+    <Shell templates={isTemplate}>
+      {/* Header */}
+      <div className="border-b border-warm-200 pb-5 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <button onClick={onBack} className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 cursor-pointer mt-0.5"><ChevronLeft className="h-4 w-4" /></button>
+          <div>
+            <input aria-label="Menu name" value={name} onChange={(e) => setName(e.target.value)} readOnly={planReadOnly}
+              className="text-xl font-extrabold text-warm-900 tracking-tight bg-transparent border-b border-dashed border-warm-200 focus:border-emerald-500 focus:outline-none read-only:border-transparent" />
+            <div className="flex items-center gap-2 mt-1">
+              {!isTemplate && <span className="text-xs text-warm-500">{temporal(weekStart).label}</span>}
+            </div>
+          </div>
+        </div>
+        {planReadOnly ? (
+          <span className="text-xs font-bold uppercase tracking-wider text-warm-400 border border-warm-200 rounded-lg px-3 py-2 shrink-0">{purchasingStarted ? "Purchasing started · View only" : "View only"}</span>
+        ) : (
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {!isTemplate && <button onClick={openSaveTemplateDialog} disabled={busy} className="flex items-center gap-1.5 text-sm font-semibold text-warm-600 border border-warm-200 rounded-lg px-3 py-2 hover:bg-warm-50 cursor-pointer disabled:opacity-50"><BookmarkPlus className="h-3.5 w-3.5" /> Save as Template</button>}
+            {!isTemplate && <button onClick={openTemplates} className="flex items-center gap-1.5 text-sm font-semibold text-warm-600 border border-warm-200 rounded-lg px-3 py-2 hover:bg-warm-50 cursor-pointer"><LayoutTemplate className="h-3.5 w-3.5" /> Templates</button>}
+            <Button variant="primary" onClick={() => handleSave()} loading={busy} className="px-4 py-2 flex items-center gap-2"><Save className="h-4 w-4" /> Save</Button>
+          </div>
+        )}
+      </div>
+
+      {err && <div className="bg-red-50 border border-red-100 p-3 rounded-xl text-sm text-red-700 font-bold flex items-center gap-2"><AlertTriangle className="h-3.5 w-3.5" /> {err}</div>}
+      {templateNotice && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">{templateNotice}</div>}
+
+      {isTemplate && !readOnly && <label className="flex min-h-11 items-center gap-3 text-sm font-semibold text-warm-700"><input type="checkbox" aria-label="Include snacks" checked={includeSnacks} onChange={(event) => setIncludeSnacks(event.target.checked)} className="h-4 w-4 accent-emerald-600" /> Include AM and PM snacks</label>}
+
+      {/* Settings */}
+      <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {isTemplate ? (
+          <div className="sm:col-span-2">
+            <label className="block text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1">Description</label>
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} readOnly={readOnly} rows={2} className="w-full rounded-lg border border-warm-200 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 read-only:bg-warm-50" />
+          </div>
+        ) : [
+          { label: "Week start (Mon)", value: weekStart, set: setWeekStart, type: "date" },
+        ].map((f) => (
+          <div key={f.label}>
+            <label className="block text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1">{f.label}</label>
+            <input type={f.type} value={f.value} onChange={(e) => f.set(e.target.value)} readOnly={planReadOnly}
+              className="w-full px-3 py-2 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+          </div>
+        ))}
+      </div>
+
+      {renderWeekGrid()}
 
       {templateNameDialogOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setTemplateNameDialogOpen(false); }}>
         <section role="dialog" aria-modal="true" aria-labelledby="menu-cycle-save-template-title" className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
@@ -791,25 +814,27 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
         </section>
       </div>}
 
-      {templatePickerOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setTemplatePickerOpen(false); }}>
-        <section role="dialog" aria-modal="true" aria-labelledby="menu-cycle-template-picker-title" className="flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+      {templatePickerOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeTemplates(); }}>
+        <section role="dialog" aria-modal="true" aria-labelledby="menu-cycle-template-picker-title" onKeyDown={(event) => { if (event.key === "Escape") closeTemplates(); }} className={`flex max-h-[85vh] w-full ${viewingTemplate && !profileCell ? "max-w-7xl" : "max-w-xl"} flex-col overflow-hidden rounded-2xl bg-white shadow-2xl`}>
           <header className="flex items-center justify-between border-b border-warm-100 px-5 py-4">
             <div className="flex min-w-0 items-center gap-2">
-              {viewingTemplate && <button type="button" onClick={() => setViewingTemplate(null)} aria-label="Back to templates" className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg text-warm-500 hover:bg-warm-50"><ChevronLeft className="h-4 w-4" /></button>}
-              <h2 id="menu-cycle-template-picker-title" className="truncate text-base font-extrabold text-warm-900">{viewingTemplate?.name ?? "Menu Plan Templates"}</h2>
+              {profileCell ? <button type="button" autoFocus onClick={() => { setProfileCell(null); if (!viewingTemplate) setTemplatePickerOpen(false); }} aria-label="Back to template" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-warm-500 hover:bg-warm-50"><ChevronLeft className="h-4 w-4" /></button> : viewingTemplate && <button type="button" onClick={() => setViewingTemplate(null)} aria-label="Back to templates" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-warm-500 hover:bg-warm-50"><ChevronLeft className="h-4 w-4" /></button>}
+              <h2 id="menu-cycle-template-picker-title" className="text-base font-extrabold text-warm-900 break-words">{profileCell?.recipe_name ?? viewingTemplate?.name ?? "Menu Plan Templates"}</h2>
             </div>
-            <button type="button" onClick={() => setTemplatePickerOpen(false)} aria-label="Close templates" className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg text-warm-400 hover:bg-warm-50 hover:text-warm-700"><X className="h-4 w-4" /></button>
+            <button type="button" onClick={closeTemplates} aria-label="Close templates" className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-warm-400 hover:bg-warm-50 hover:text-warm-700"><X className="h-4 w-4" /></button>
           </header>
           {templatePickerError && <p role="alert" className="px-5 pt-3 text-sm font-semibold text-red-600">{templatePickerError}</p>}
           <div className="min-h-0 flex-1 overflow-y-auto p-4">
-            {templatePickerLoading ? <p className="py-8 text-center text-sm text-warm-500">Loading templates…</p> : viewingTemplate ? (
+            {profileCell ? (
+              profileError ? <p role="alert" className="text-sm font-semibold text-red-600">{profileError}</p> : !profile ? <p role="status" className="py-8 text-center text-sm text-warm-500">Loading item profile…</p> : <div className="space-y-4">
+                <p className="text-sm font-semibold text-warm-600">Per person · ₱{profile.cost_per_head.toFixed(2)}</p>
+                <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th className="p-2">Ingredient</th><th className="p-2">Amount</th></tr></thead><tbody>{profile.ingredient_usage.map((ingredient, index) => <tr key={index} className="border-t border-warm-100"><td className="p-2 break-words">{ingredient.name}</td><td className="p-2 whitespace-nowrap">{formatFoodServiceNumber(ingredient.quantity)} {ingredient.unit}</td></tr>)}</tbody></table></div>
+                {profile.prep_notes && <div><h3 className="text-sm font-bold text-warm-700">Preparation notes</h3><p className="mt-1 whitespace-pre-wrap break-words text-sm text-warm-600">{profile.prep_notes}</p></div>}
+              </div>
+            ) : templatePickerLoading ? <p className="py-8 text-center text-sm text-warm-500">Loading templates…</p> : viewingTemplate ? (
               <div className="space-y-3">
-                {viewingTemplate.days.length === 0 ? <p className="py-6 text-center text-sm text-warm-500">This template has no planned items.</p> : viewingTemplate.days.map((day) => (
-                  <div key={`${day.day_of_week}-${day.meal_type}-${day.line_order}`} className="flex items-center justify-between gap-4 rounded-lg border border-warm-100 px-3 py-2">
-                    <div><p className="text-xs font-semibold text-warm-500">{day.day_of_week} · {MEAL_LABELS[day.meal_type]}</p><p className="text-sm font-semibold text-warm-800">{day.recipe?.name ?? day.fs_item?.name ?? "Menu item"}</p></div>
-                    <span className="text-xs tabular-nums text-warm-500">Qty {formatFoodServiceNumber(day.quantity)}</span>
-                  </div>
-                ))}
+                {viewingTemplate.days.length === 0 && <p className="py-6 text-center text-sm text-warm-500">This template has no planned items.</p>}
+                {renderWeekGrid(viewingTemplate)}
                 <Button type="button" variant="primary" onClick={() => loadTemplateIntoDraft(viewingTemplate.id)} loading={templatePickerLoading} className="w-full">Load this template</Button>
               </div>
             ) : templateOptions.length === 0 ? (
@@ -824,7 +849,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
               </div>
             )}
           </div>
-          {!viewingTemplate && <div className="border-t border-warm-100 px-4 py-2"><Pagination meta={templatePickerMeta} page={templatePickerPage} onPageChange={(page) => { void loadTemplatePage(page); }} /></div>}
+          {!viewingTemplate && !profileCell && <div className="border-t border-warm-100 px-4 py-2"><Pagination meta={templatePickerMeta} page={templatePickerPage} onPageChange={(page) => { void loadTemplatePage(page); }} /></div>}
         </section>
       </div>}
 

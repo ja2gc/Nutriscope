@@ -4,7 +4,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { instantiateTemplate, listCycles, getCycle, listTemplates, getTemplate, saveCycle, saveTemplate, type MenuCycle, type TemplateDetail, type CycleListItem, type TemplateListItem } from "@/services/menuCycleService";
+import { instantiateTemplate, listCycles, getCycle, listTemplates, getTemplate, saveCycle, saveTemplate, getRecipeProfile, getFsItemProfile, type MenuCycle, type TemplateDetail, type CycleListItem, type TemplateListItem } from "@/services/menuCycleService";
 import MenuCyclePage, { MenuTemplateDirectory } from "./page";
 
 vi.mock("next/navigation", () => ({
@@ -24,6 +24,8 @@ vi.mock("@/services/menuCycleService", async (importOriginal) => ({
   getTemplate: vi.fn(),
   saveTemplate: vi.fn(),
   instantiateTemplate: vi.fn(),
+  getRecipeProfile: vi.fn(),
+  getFsItemProfile: vi.fn(),
 }));
 vi.mock("@/services/consumptionService", () => ({ setServedPopulation: vi.fn(), listServiceLogs: vi.fn().mockResolvedValue([]) }));
 
@@ -65,6 +67,7 @@ describe("Menu Cycle template and name editing", () => {
     mockGetTemplate.mockResolvedValue(template);
     mockSaveCycle.mockImplementation(async (id, payload) => makeCycle(payload.name ?? "Lunch cycle"));
     mockSaveTemplate.mockResolvedValue(template);
+    vi.mocked(getFsItemProfile).mockResolvedValue({ id: 1, fs_item_id: 1, name: "Rice", kind: "ingredient", category: null, unit: "g", unit_cost: 1, quantity: 1, population: 1, servings: 1, total_quantity: 1, total_cost: 1, cost_per_head: 1, prep_notes: "Measured rice", formula: "", ingredient_usage: [{ fs_item_id: 1, name: "Rice", quantity: 1, unit: "g", cost: 1 }] });
   });
 
   afterEach(() => {
@@ -135,7 +138,11 @@ describe("Menu Cycle template and name editing", () => {
     const view = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
       .find((candidate) => candidate.textContent?.trim() === "View");
     await act(async () => { view?.click(); await Promise.resolve(); });
-    expect(container.textContent).toContain("Monday · Lunch");
+    const dialog = container.querySelector<HTMLElement>('[role="dialog"]')!;
+    expect(Array.from(dialog.querySelectorAll("thead th")).map((cell) => cell.textContent)).toEqual(["Meal", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
+    expect(dialog.querySelector("tbody tr:nth-child(2) td:nth-child(2)")?.textContent).toContain("Rice");
+    expect(dialog.textContent).not.toContain("add item");
+    expect(dialog.querySelector('button[aria-label="Remove Rice"]')).toBeNull();
     const load = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
       .find((candidate) => candidate.textContent?.trim() === "Load this template");
     await act(async () => { load?.click(); await Promise.resolve(); });
@@ -143,6 +150,65 @@ describe("Menu Cycle template and name editing", () => {
     expect(mockGetTemplate).toHaveBeenCalledWith("template-1");
     expect(mockInstantiateTemplate).not.toHaveBeenCalled();
     expect(container.textContent).toContain("Rice");
+  });
+
+  test("opens a read-only item profile from the template calendar and returns without saving", async () => {
+    await act(async () => { root.render(<MenuTemplateDirectory />); await Promise.resolve(); });
+    await act(async () => { container.querySelector<HTMLButtonElement>('button[aria-label="Edit Rice plan"]')?.click(); await Promise.resolve(); });
+    expect(container.querySelector('button[title^="Copy "]')).toBeNull();
+    const rice = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent?.trim() === "Rice");
+    expect(rice?.disabled).toBe(false);
+    await act(async () => { rice?.focus(); await userEvent.setup().keyboard("{Enter}"); await Promise.resolve(); });
+    expect(getFsItemProfile).toHaveBeenCalledWith("rice-id", 1, 1);
+    const dialog = container.querySelector<HTMLElement>('[role="dialog"]')!;
+    expect(dialog.textContent).toContain("Measured rice");
+    expect(dialog.querySelector("input,textarea")).toBeNull();
+    await act(async () => { dialog.querySelector<HTMLButtonElement>('button[aria-label="Back to template"]')?.click(); });
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.activeElement).toBe(rice);
+    expect(mockSaveTemplate).not.toHaveBeenCalled();
+    expect(mockSaveCycle).not.toHaveBeenCalled();
+  });
+
+  test("shows recipe profile from picker View, then returns to the same calendar", async () => {
+    const name = "Chicken with vegetables and a long descriptive Food Service recipe name";
+    mockGetTemplate.mockResolvedValue({ ...template, days: [{ day_of_week: "Monday", meal_type: "lunch", line_order: 1, recipe_id: "recipe-1", fs_item_id: null, quantity: 1, recipe: { id: "recipe-1", name } }] });
+    vi.mocked(getRecipeProfile).mockResolvedValue({ recipe_id: 1, name, prep_notes: "Steam before service", servings: 5, population: 1, total_cost: 20, cost_per_head: 20, ingredient_usage: [{ fs_item_id: 1, name: "Chicken", quantity: 100, unit: "g", cost: 20 }] });
+    await renderPage(); await openNewCycle();
+    await act(async () => { Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent?.trim() === "Templates")?.click(); await Promise.resolve(); });
+    await act(async () => { Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent?.trim() === "View")?.click(); await Promise.resolve(); });
+    await act(async () => { Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent?.trim() === name)?.click(); await Promise.resolve(); });
+    expect(getRecipeProfile).toHaveBeenCalledWith("recipe-1", 1);
+    expect(container.querySelector('[role="dialog"]')?.textContent).toContain("Steam before service");
+    await act(async () => { container.querySelector<HTMLButtonElement>('button[aria-label="Back to template"]')?.click(); });
+    expect(container.querySelector('[role="dialog"] table thead')?.textContent).toContain("Mon");
+    expect(container.querySelector('[role="dialog"]')?.textContent).toContain(name);
+    expect(mockSaveCycle).not.toHaveBeenCalled();
+  });
+
+  test("keeps replacement confirmation and removes copy-day controls from Menu Calendar", async () => {
+    const populated = { ...makeCycle(), days: [{ id: "line-1", day_of_week: "Monday" as const, meal_type: "lunch" as const, line_order: 1, recipe_id: null, fs_item_id: "existing", quantity: 1, servings_override: null, estimate_population: null, is_event: false, event_allocation: null, fs_item: { id: "existing", name: "Existing dish" } }] };
+    mockGetCycle.mockResolvedValue(populated);
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    await renderPage();
+    await act(async () => { container.querySelector<HTMLButtonElement>('button[title="Edit"]')?.click(); await Promise.resolve(); });
+    expect(container.querySelector('button[title^="Copy "]')).toBeNull();
+    await act(async () => { Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent?.trim() === "Templates")?.click(); await Promise.resolve(); });
+    await act(async () => { Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent?.trim() === "Load")?.click(); await Promise.resolve(); });
+    expect(confirm).toHaveBeenCalledWith("Load this template and replace the current Menu Plan?");
+    expect(container.textContent).toContain("Existing dish");
+    expect(mockSaveCycle).not.toHaveBeenCalled();
+    confirm.mockRestore();
+  });
+
+  test("keeps an empty template calendar readable", async () => {
+    mockGetTemplate.mockResolvedValue({ ...template, days: [] });
+    await renderPage(); await openNewCycle();
+    await act(async () => { Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent?.trim() === "Templates")?.click(); await Promise.resolve(); });
+    await act(async () => { Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent?.trim() === "View")?.click(); await Promise.resolve(); });
+    const dialog = container.querySelector<HTMLElement>('[role="dialog"]')!;
+    expect(dialog.textContent).toContain("This template has no planned items.");
+    expect(dialog.querySelectorAll("tbody tr")).toHaveLength(3);
   });
 
   test("keeps the menu name read-only in the list and edits it inside the calendar", async () => {

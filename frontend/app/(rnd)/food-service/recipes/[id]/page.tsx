@@ -324,7 +324,7 @@ function StandardEditFSSRecipePage({ id }: { id: string }) {
           <div className="grid grid-cols-[1fr_80px_72px_80px_28px] gap-2 text-xs font-extrabold text-warm-400 uppercase tracking-wider px-1">
             <span>Catalog ingredient</span>
             <span>Qty</span>
-            <span>Unit</span>
+            <span className="flex items-center">Unit<InfoHint label="About recipe units">Weight: g, kg, oz. Liquid: mL, L, cup, tbsp, tsp. pc, bundle, pack, tray, unit each match only themselves. Non-Auto Grocery can use a typed unit.</InfoHint></span>
             <span className="text-right">₱ Cost</span>
             <span />
           </div>
