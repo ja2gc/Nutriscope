@@ -14,16 +14,17 @@ vi.mock("@/services/backupService", () => ({
 }));
 
 vi.mock("@/components/backups/BackupList", () => ({
-  BackupList: ({ backups, section, onKeep }: { backups: BackupRunDto[]; section: string; onKeep: (backup: BackupRunDto) => void }) => (
+  BackupList: ({ backups, section, onKeep, onDelete }: { backups: BackupRunDto[]; section: string; onKeep: (backup: BackupRunDto) => void; onDelete: (backup: BackupRunDto) => void }) => (
     <div data-testid="backup-list">
       {backups.map((backup) => backup.id).join(",")}
       {section === "recently_deleted" && backups.map((backup) => <button key={backup.id} onClick={() => onKeep(backup)}>Keep backup</button>)}
+      {backups.filter((backup) => backup.actions?.can_delete).map((backup) => <button key={backup.id} onClick={() => onDelete(backup)}>Delete backup</button>)}
     </div>
   ),
 }));
 vi.mock("@/components/backups/BackupStatusSummary", () => ({ BackupStatusSummary: () => <div>Backup status</div> }));
 vi.mock("@/components/backups/BackupScheduleSettings", () => ({ BackupScheduleSettings: () => <div>Schedule settings</div> }));
-vi.mock("@/components/backups/BackupActionDialog", () => ({ BackupActionDialog: () => null }));
+vi.mock("@/components/backups/BackupActionDialog", () => ({ BackupActionDialog: ({ open, description }: { open: boolean; description: string }) => open ? <div role="dialog">{description}</div> : null }));
 vi.mock("@/components/backups/RecoveryRequestDialog", () => ({ RecoveryRequestDialog: () => null }));
 
 const list = {
@@ -46,9 +47,46 @@ afterEach(async () => {
   if (root) await act(async () => root.unmount());
   document.body.innerHTML = "";
   vi.clearAllMocks();
+  vi.useRealTimers();
 });
 
 describe("backup page loading", () => {
+  it.each([
+    [["daily", "weekly"], "Daily and Weekly"],
+    [["daily", "weekly", "monthly"], "Daily, Weekly, and Monthly"],
+  ])("names every affected category before deleting a shared backup (%s)", async (categories, labels) => {
+    vi.mocked(listBackups).mockImplementation(async (_page, section) => ({ ...list, data: section === "in_progress" ? [] : [{ id: "shared-point", state: "completed", source: "automatic", categories, actions: { can_delete: true } }] }) as never);
+    vi.mocked(getBackupSchedules).mockResolvedValue({
+      daily: { enabled: false, next_at: null }, weekly: { enabled: false, next_at: null },
+      monthly: { enabled: false, next_at: null }, message: null,
+    });
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    await act(async () => { root.render(<BackupsPage />); });
+    const button = Array.from(container.querySelectorAll("button")).find((item) => item.textContent === "Delete backup");
+    await act(async () => { button!.click(); });
+    expect(container.querySelector('[role="dialog"]')?.textContent).toContain(`This removes the same backup from ${labels}.`);
+    expect(container.querySelector('[role="dialog"]')?.textContent).toContain("Recently Deleted for 7 days");
+  });
+
+  it("refreshes idle categories and countdowns every minute", async () => {
+    vi.useFakeTimers();
+    vi.mocked(listBackups).mockImplementation(async (_page, section) => section === "in_progress" ? { ...list, data: [] } as never : list as never);
+    vi.mocked(getBackupSchedules).mockResolvedValue({
+      daily: { enabled: false, next_at: null }, weekly: { enabled: false, next_at: null },
+      monthly: { enabled: false, next_at: null }, message: null,
+    });
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    await act(async () => { root.render(<BackupsPage />); });
+    vi.mocked(listBackups).mockClear();
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+    expect(listBackups).toHaveBeenCalledWith(1, "available", "all");
+    expect(listBackups).toHaveBeenCalledWith(1, "in_progress", "all");
+  });
+
   it("loads all restore-point types on first visit", async () => {
     vi.mocked(listBackups).mockImplementation(async (_page, section) => section === "in_progress" ? { ...list, data: [] } as never : list as never);
     vi.mocked(getBackupSchedules).mockResolvedValue({

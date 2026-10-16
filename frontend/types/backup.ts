@@ -12,6 +12,7 @@ export interface BackupRunDto {
   state: BackupState;
   source: BackupSource;
   categories: BackupCategory[];
+  schedule_expirations?: { category: BackupRetentionTier; expires_at: string }[];
   size_bytes: number | null;
   encrypted: boolean;
   retention_tier: BackupRetentionTier | null;

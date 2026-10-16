@@ -34,6 +34,15 @@ const recoveryLabels: Record<RecoveryStatus, string> = {
 };
 const date = (value: string | null) => value ? new Intl.DateTimeFormat("en-PH", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Manila" }).format(new Date(value)) : "—";
 const size = (bytes: number | null) => bytes === null ? "—" : bytes < 1024 ** 2 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+const countdown = (value: string) => {
+  const minutes = Math.ceil((new Date(value).getTime() - Date.now()) / 60_000);
+  if (minutes <= 0) return "Expired";
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} left`;
+  const hours = Math.ceil(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} left`;
+  const days = Math.ceil(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} left`;
+};
 
 interface Props {
   backups: BackupRunDto[];
@@ -87,9 +96,16 @@ export function BackupList({ backups, busyId, onDelete, onKeep, onRecovery, onCa
                 <p className="mt-1 break-all text-xs text-warm-500">Backup reference: <span className="font-mono">{backup.id}</span></p>
                 <p className="mt-1 text-xs text-warm-500">
                   Size: {size(backup.size_bytes)}
-                  {backup.retention_expires_at && backup.source !== "safety" ? ` · Expires on ${date(backup.retention_expires_at)}` : ""}
                   {backup.recoverable_until ? ` · Recover before: ${date(backup.recoverable_until)}` : ""}
                 </p>
+                {section === "available" && backup.source === "automatic" && (
+                  <div className="mt-2 space-y-1 text-xs text-warm-600">
+                    {backup.schedule_expirations?.map(({ category, expires_at }) => (
+                      <p key={category}>{`${categoryLabels[category]}: ${countdown(expires_at)} · Expires on ${date(expires_at)}`}</p>
+                    ))}
+                    {backup.retention_expires_at && <p className="font-semibold text-warm-700">Final expiration: {date(backup.retention_expires_at)}</p>}
+                  </div>
+                )}
                 {preRestoreProtected && (
                   <p className="mt-2 flex items-center gap-2 text-sm font-semibold text-sky-800">
                     <ShieldCheck className="h-4 w-4" />

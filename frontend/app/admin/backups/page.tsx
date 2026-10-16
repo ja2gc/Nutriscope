@@ -133,12 +133,14 @@ export default function BackupsPage() {
   useEffect(() => { void load(); }, [load]);
 
   const activeRecovery = data?.summary.active_recovery ?? null;
+  const deletingTypes = new Intl.ListFormat("en", { style: "long", type: "conjunction" }).format(
+    categoryOptions.filter(([key]) => key !== "all" && deleting?.categories.includes(key)).map(([, label]) => label),
+  );
   const hasActive = activeBackups.length > 0
     || (activeRecovery !== null && activeRecoveryStates.has(activeRecovery.state));
 
   useEffect(() => {
-    if (!hasActive) return;
-    const timer = setInterval(() => void load(true), 5000);
+    const timer = setInterval(() => void load(true), hasActive ? 5000 : 60000);
     return () => clearInterval(timer);
   }, [hasActive, load]);
 
@@ -385,7 +387,7 @@ export default function BackupsPage() {
           ? "This removes the failed entry from this list. No usable backup archive exists. The audit event remains."
           : deleting?.state === "recently_deleted"
             ? "This permanently deletes the archive and its unreferenced protected-file copies. This cannot be undone."
-            : "This backup will move to Recently Deleted for 7 days. The latest verified backup and protected pre-restore backups cannot be deleted."}
+            : `Are you sure you want to delete this backup? ${deletingTypes ? `This removes the same backup from ${deletingTypes}. ` : ""}It will move to Recently Deleted for 7 days, where you can keep it before permanent deletion.`}
         confirmLabel={deleting?.state === "failed" ? "Delete failed record" : deleting?.state === "recently_deleted" ? "Delete permanently" : "Delete backup"}
         loading={busyId !== null}
         onClose={() => setDeleting(null)}

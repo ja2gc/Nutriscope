@@ -21,6 +21,7 @@ class BackupRunResource extends JsonResource
             'state' => $this->state->value,
             'source' => $this->source->value,
             'categories' => $this->categories(),
+            'schedule_expirations' => $this->scheduleExpirations(),
             'size_bytes' => $this->bytes,
             'encrypted' => $this->encrypted,
             'retention_tier' => $this->retention_tier?->value,
@@ -75,5 +76,29 @@ class BackupRunResource extends JsonResource
         }
 
         return $this->retention_tier === null ? [] : [$this->retention_tier->value];
+    }
+
+    /** @return array<int, array{category: string, expires_at: string}> */
+    private function scheduleExpirations(): array
+    {
+        if ($this->source->value !== 'automatic') {
+            return [];
+        }
+
+        if ($this->resource->relationLoaded('schedulePeriods') && $this->schedulePeriods->isNotEmpty()) {
+            return $this->schedulePeriods
+                ->filter(fn ($period): bool => $this->state !== BackupState::Completed || $period->expires_at->isFuture())
+                ->sortBy('category.value')
+                ->map(fn ($period): array => [
+                    'category' => $period->category->value,
+                    'expires_at' => $period->expires_at->toIso8601String(),
+                ])
+                ->values()
+                ->all();
+        }
+
+        return $this->retention_tier !== null && $this->retention_expires_at !== null
+            ? [['category' => $this->retention_tier->value, 'expires_at' => $this->retention_expires_at->toIso8601String()]]
+            : [];
     }
 }
