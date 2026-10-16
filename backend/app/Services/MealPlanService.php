@@ -963,18 +963,7 @@ class MealPlanService
             'food_item_id' => null,
             'quantity' => $quantity,
             'unit' => $candidate->serving_unit,
-            'nutrient_snapshot' => json_encode([
-                'name' => $candidate->name,
-                'calories' => (float) $candidate->total_calories,
-                'protein' => (float) $candidate->total_protein,
-                'carbs' => (float) $candidate->total_carbs,
-                'fat' => (float) $candidate->total_fat,
-                'water_g' => (float) ($candidate->total_water ?? 0),
-                'micronutrients' => $candidate->micronutrients ?? [],
-                'serving_size' => (float) $candidate->reference_amount,
-                'serving_unit' => $candidate->serving_unit,
-                'source' => $candidate->source,
-            ]),
+            'nutrient_snapshot' => json_encode([...$candidate->plan_snapshot, 'source' => $candidate->source]),
             'ai_suggested' => false,
             'created_at' => $now,
             'updated_at' => $now,
@@ -986,7 +975,7 @@ class MealPlanService
      */
     private function recipeToCandidate(Recipe $recipe): object
     {
-        $servings = (float) $recipe->servings;
+        $snapshot = $recipe->planSnapshot();
 
         return (object) [
             'uid' => 'recipe:'.$recipe->id,
@@ -994,13 +983,13 @@ class MealPlanService
             'source_id' => $recipe->id,
             'name' => $recipe->name,
             'category' => $recipe->category,
-            'total_calories' => (float) $recipe->total_calories / $servings,
-            'total_protein' => (float) $recipe->total_protein / $servings,
-            'total_carbs' => (float) $recipe->total_carbs / $servings,
-            'total_fat' => (float) $recipe->total_fat / $servings,
-            'total_water' => (float) ($recipe->total_water ?? 0) / $servings,
-            'micronutrients' => collect(is_array($recipe->micronutrients) ? $recipe->micronutrients : [])
-                ->map(fn ($value): float => (float) $value / $servings)->all(),
+            'total_calories' => $snapshot['calories'],
+            'total_protein' => $snapshot['protein'],
+            'total_carbs' => $snapshot['carbs'],
+            'total_fat' => $snapshot['fat'],
+            'total_water' => $snapshot['water_g'],
+            'micronutrients' => $snapshot['micronutrients'],
+            'plan_snapshot' => $snapshot,
             'reference_amount' => 1.0,
             'serving_unit' => 'serving',
             'meal_types' => $recipe->meal_types,

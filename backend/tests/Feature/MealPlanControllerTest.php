@@ -117,6 +117,26 @@ class MealPlanControllerTest extends TestCase
         $this->assertSame($before, $intervention->fresh()->getAttributes());
     }
 
+    public function test_template_load_freezes_and_labels_current_recipe_fallback_for_legacy_snapshots(): void
+    {
+        [$ncp, $intervention] = $this->makeInterventionWithNcpRecord();
+        [$template, $source, $recipe] = $this->measuredTemplate();
+        $response = $this->actingAs($this->rnd)->postJson("/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/from-template", [
+            'template_id' => $template->uuid, 'intervention_plan_id' => $intervention->uuid,
+            'week_start_date' => '2026-10-12',
+        ])->assertCreated();
+        $response->assertJsonPath('items.0.nutrient_snapshot.recipe_yield', 2)
+            ->assertJsonPath('items.0.nutrient_snapshot.recipe_ingredients.0.quantity', 100)
+            ->assertJsonPath('items.0.nutrient_snapshot.recipe_snapshot_source', 'current_recipe_fallback')
+            ->assertJsonPath('items.0.nutrient_snapshot.calories', 200)
+            ->assertJsonPath('items.0.nutrient_snapshot.name', 'Frozen measured Snack');
+        $before = MealPlanItem::sole()->nutrient_snapshot;
+        $recipe->update(['servings' => 8]);
+        $recipe->ingredients()->update(['quantity' => 999]);
+        $this->assertSame($before, MealPlanItem::sole()->fresh()->nutrient_snapshot);
+        $this->assertArrayNotHasKey('recipe_yield', $source->fresh()->nutrient_snapshot);
+    }
+
     public function test_template_load_rejects_missing_or_incompatible_prepared_portion_bases(): void
     {
         [$ncp, $intervention] = $this->makeInterventionWithNcpRecord();
@@ -151,7 +171,9 @@ class MealPlanControllerTest extends TestCase
         $items = $plan->fresh('days.items')->days->flatMap->items;
         $this->assertCount(1, $items);
         $this->assertSame('1.20', $items->sole()->quantity);
-        $this->assertSame($line->fresh()->nutrient_snapshot, $items->sole()->nutrient_snapshot);
+        $sourceSnapshot = $line->fresh()->nutrient_snapshot;
+        $this->assertSame($sourceSnapshot, array_intersect_key($items->sole()->nutrient_snapshot, $sourceSnapshot));
+        $this->assertSame('current_recipe_fallback', $items->sole()->nutrient_snapshot['recipe_snapshot_source']);
         $this->assertTrue($plan->fresh()->needs_rescaling);
     }
 
@@ -220,6 +242,7 @@ class MealPlanControllerTest extends TestCase
             ]],
         ])->assertOk()->assertJsonPath('items.0.nutrient_snapshot.calories', 400)
             ->assertJsonPath('items.0.nutrient_snapshot.name', 'Frozen measured Snack')
+            ->assertJsonPath('items.0.nutrient_snapshot.recipe_snapshot_source', 'current_recipe_fallback')
             ->assertJsonPath('items.0.nutrient_snapshot.recipe_yield', 2)
             ->assertJsonPath('items.0.nutrient_snapshot.recipe_ingredients.0.quantity', 200);
         $this->assertSame('100.000000', $ingredient->fresh()->quantity);
@@ -313,6 +336,11 @@ class MealPlanControllerTest extends TestCase
                 $this->assertCount(2, $items);
                 $this->assertCount(1, $items->where('recipe_id', $carb->id));
                 $this->assertGreaterThan(0, (float) $items->firstWhere('recipe_id', $carb->id)->quantity);
+                foreach ($items as $item) {
+                    $this->assertGreaterThan(0, $item->nutrient_snapshot['recipe_yield'] ?? 0);
+                    $this->assertNotEmpty($item->nutrient_snapshot['recipe_original_ingredients'] ?? []);
+                    $this->assertNotEmpty($item->nutrient_snapshot['recipe_ingredients'] ?? []);
+                }
             }
         }
     }

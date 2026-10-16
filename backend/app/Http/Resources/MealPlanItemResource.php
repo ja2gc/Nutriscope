@@ -25,7 +25,7 @@ class MealPlanItemResource extends JsonResource
             'unit' => $this->unit,
             'nutrient_snapshot' => $this->nutrient_snapshot,
             'recipe_portion' => $this->whenLoaded('recipe', fn () => $this->recipe ? [
-                'yield' => $this->recipe->servings,
+                'yield' => $this->nutrient_snapshot['recipe_yield'] ?? $this->recipe->servings,
                 'ingredients' => $this->nutrient_snapshot['recipe_ingredients']
                     ?? $this->recipe->ingredients->map(fn ($ingredient) => [
                         'name' => $ingredient->foodItem?->name,

@@ -769,7 +769,7 @@ class ReportController extends Controller
         $planIdentifier = $parameters['intervention_plan_id'] ?? null;
         if ($planIdentifier !== null) {
             $plan = Intervention::query()
-                ->with('ncpRecord.patient')
+                ->with(['ncpRecord.patient', 'mealPlan'])
                 ->when(
                     is_int($planIdentifier) || ctype_digit((string) $planIdentifier),
                     fn ($query) => $query->whereKey((int) $planIdentifier),
@@ -777,6 +777,11 @@ class ReportController extends Controller
                 )
                 ->first();
             abort_unless($plan?->ncpRecord !== null, 404);
+            abort_if(
+                isset($parameters['meal_plan_id'])
+                && ($plan->mealPlan === null || ! $this->identifierMatches($parameters['meal_plan_id'], $plan->mealPlan)),
+                403,
+            );
             abort_if(
                 isset($parameters['ncp_record_id'])
                 && ! $this->identifierMatches($parameters['ncp_record_id'], $plan->ncpRecord),
@@ -804,10 +809,11 @@ class ReportController extends Controller
         $context = $mealPlan === null ? null : $this->auditContextResolver->resolve($mealPlan);
 
         abort_unless($mealPlan !== null && $context instanceof NcpRecord, 403);
-        abort_if(isset($parameters['ncp_record_id']) && (int) $parameters['ncp_record_id'] !== (int) $context->getKey(), 403);
-        abort_if(isset($parameters['patient_id']) && (int) $parameters['patient_id'] !== (int) $mealPlan->patient_id, 403);
+        $context = NcpRecord::query()->findOrFail($context->getKey());
+        abort_if(isset($parameters['ncp_record_id']) && ! $this->identifierMatches($parameters['ncp_record_id'], $context), 403);
+        abort_if(isset($parameters['patient_id']) && ! $this->identifierMatches($parameters['patient_id'], $mealPlan->patient), 403);
 
-        return NcpRecord::query()->find($context->getKey());
+        return $context;
     }
 
     private function identifierMatches(mixed $identifier, Model $model): bool

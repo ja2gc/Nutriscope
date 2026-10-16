@@ -138,7 +138,8 @@ it("previews a template calendar and keeps the loaded baseline draft after a sav
     await act(async () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'Scale to prescription')!.click());
     expect(createPlanFromTemplate).toHaveBeenLastCalledWith('ncp-1', expect.objectContaining({ preview: true, scale: true }));
     expect(container.textContent).toContain('1.20serving');
-    vi.mocked(fetchRecipeById).mockResolvedValueOnce({ id: 'carb-1', rnd_user_id: 1, name: 'Oats', category: 'carb', servings: 1, meal_types: null, prep_notes: null, total_calories: '200', total_protein: '10', total_carbs: '20', total_fat: '5', prepared_portion_amount: null, prepared_portion_unit: null, micronutrients: {}, ingredients: [], created_at: '', updated_at: '' });
+    const measuredRecipe = { id: 'carb-1', rnd_user_id: 1, name: 'Oats', category: 'carb', servings: 4, meal_types: null, prep_notes: null, total_calories: '800', total_protein: '40', total_carbs: '80', total_fat: '20', prepared_portion_amount: null, prepared_portion_unit: null, micronutrients: {}, ingredients: [{ id: 1, food_item_id: 1, quantity: '0.4', unit: 'kg', food_item: { id: 'food-1', name: 'Oats', calories: '200', protein: '10', carbs: '20', fat: '5', water_g: '70', serving_size: '100', serving_unit: 'g', micronutrients: {} } }], created_at: '', updated_at: '' };
+    vi.mocked(fetchRecipeById).mockResolvedValueOnce(measuredRecipe);
     await act(async () => container.querySelector<HTMLButtonElement>('button[title="Edit"]')!.click());
     const quantity = container.querySelector<HTMLInputElement>('input[type="number"]')!;
     await act(async () => {
@@ -146,6 +147,12 @@ it("previews a template calendar and keeps the loaded baseline draft after a sav
       quantity.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await act(async () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'Save Changes')!.click());
+    vi.mocked(fetchRecipeById).mockResolvedValueOnce(measuredRecipe);
+    await act(async () => container.querySelector<HTMLButtonElement>('button[title="Edit"]')!.click());
+    await act(async () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'Ingredients')!.click());
+    await act(async () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'Save Changes')!.click());
+    expect(container.textContent).toContain('Fluid from planned foods, if this menu is followed: 98 mL');
+    expect(container.textContent).toContain('Per person: Oats 0.14 kg');
     expect(updateMealPlanItem).not.toHaveBeenCalled();
     expect(container.textContent).toContain('1.4serving');
     expect(createPlanFromTemplate).toHaveBeenCalledTimes(3);
@@ -349,4 +356,24 @@ it("shows scaled ingredient amounts per person and removes the generic scale sli
   expect(updateMealPlanItem).toHaveBeenCalledWith("ncp-1", "plan-1", "day-1", "item-1", { quantity: 1.5, ingredient_overrides: [{ id: 1, quantity: 0.4 }] });
 
   await act(async () => root.unmount());
+});
+
+it("edits saved ingredient amounts using the frozen nutrient basis without fetching the changed library recipe", async () => {
+  vi.mocked(fetchAllMealPlanItems).mockResolvedValueOnce([{
+    id: 'frozen-item', meal_plan_day_id: 'day-1', food_item_id: null, fdc_id: null, recipe_id: 'recipe-1', quantity: '1.2', unit: 'serving', ai_suggested: false, source: 'recipe',
+    nutrient_snapshot: {
+      name: 'Saved rice', calories: 80, protein: 1.6, carbs: 16, fat: 0.8, water_g: 56, micronutrients: {}, serving_size: 1, serving_unit: 'serving', recipe_yield: 5,
+      recipe_original_ingredients: [{ id: 1, food_item_id: 1, name: 'Rice', quantity: 500, unit: 'g', food_item: { id: 'food-1', name: 'Rice', calories: '100', protein: '2', carbs: '20', fat: '1', water_g: '70', serving_size: '100', serving_unit: 'g', micronutrients: {} } }],
+      recipe_ingredients: [{ id: 1, name: 'Rice', quantity: 400, unit: 'g' }],
+    },
+  }]);
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container);
+  await act(async () => root.render(<MealPlanSection ncpId="ncp-1" interventionPlanId="intervention-1" prescriptionTargets={{ energy: 2000, protein: 75, carbs: 250, fat: 65, fluid: 2000 }} />));
+  try {
+    await act(async () => container.querySelector<HTMLButtonElement>('button[title="Edit"]')!.click());
+    expect(fetchRecipeById).not.toHaveBeenCalled();
+    await act(async () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'Ingredients')!.click());
+    expect(container.querySelector<HTMLInputElement>('.fixed input[type="number"]')?.value).toBe('400');
+    expect(container.querySelector('.fixed')?.textContent).toContain('Energy80kcal');
+  } finally { await act(async () => root.unmount()); }
 });

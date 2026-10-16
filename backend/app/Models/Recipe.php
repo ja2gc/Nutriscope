@@ -102,45 +102,65 @@ class Recipe extends Model
     }
 
     /** Build a measured per-serving snapshot without changing the library Recipe. */
-    public function planSnapshot(array $overrides = []): array
+    public function planSnapshot(array $overrides = [], ?array $baseline = null): array
     {
-        if (! $this->hasValidPortionData()) {
-            throw new InvalidArgumentException('Correct the Menu Item yield and measured Ingredient units before using this portion.');
+        $originalIngredients = $baseline['recipe_original_ingredients'] ?? [];
+        $frozen = (float) ($baseline['recipe_yield'] ?? 0) > 0 && $originalIngredients !== []
+            && collect($originalIngredients)->every(fn ($ingredient) => isset($ingredient['id'], $ingredient['food_item']['serving_size'], $ingredient['food_item']['serving_unit']));
+        if (! $frozen) {
+            if ($baseline !== null) {
+                $baseline['recipe_snapshot_source'] = 'current_recipe_fallback';
+            }
+            if (! $this->hasValidPortionData()) {
+                throw new InvalidArgumentException('Correct the Menu Item yield and measured Ingredient units before using this portion.');
+            }
+            $originalIngredients = $this->ingredients->map(fn ($ingredient) => [
+                'id' => $ingredient->id,
+                'food_item_id' => $ingredient->food_item_id,
+                'name' => $ingredient->foodItem->name,
+                'quantity' => (float) $ingredient->quantity,
+                'unit' => $ingredient->unit,
+                'food_item' => [
+                    'id' => $ingredient->foodItem->uuid,
+                    'name' => $ingredient->foodItem->name,
+                    ...array_intersect_key($ingredient->foodItem->toArray(), array_flip([
+                        'calories', 'protein', 'carbs', 'fat', 'water_g', 'micronutrients', 'serving_size', 'serving_unit',
+                    ])),
+                ],
+            ])->all();
         }
-        $servings = (float) $this->servings;
+        $servings = (float) ($frozen ? $baseline['recipe_yield'] : $this->servings);
+        $planned = collect($baseline['recipe_ingredients'] ?? [])->keyBy('id');
         $overrideQty = collect($overrides)->keyBy('id');
-        if ($overrideQty->count() !== count($overrides) || $overrideQty->keys()->diff($this->ingredients->pluck('id'))->isNotEmpty()) {
+        if ($overrideQty->count() !== count($overrides) || $overrideQty->keys()->diff(array_column($originalIngredients, 'id'))->isNotEmpty()) {
             throw new InvalidArgumentException('Choose only ingredients belonging to this Menu Item.');
         }
         $cal = $prot = $carb = $fat = $water = 0.0;
         $micros = [];
         $planIngredients = [];
 
-        foreach ($this->ingredients as $ingredient) {
-            $food = $ingredient->foodItem;
-            if (! $food) {
-                continue;
-            }
-
-            $quantity = (float) ($overrideQty[$ingredient->id]['quantity'] ?? $ingredient->quantity);
+        foreach ($originalIngredients as $ingredient) {
+            $food = $ingredient['food_item'];
+            $quantity = (float) ($overrideQty[$ingredient['id']]['quantity'] ?? $planned[$ingredient['id']]['quantity'] ?? $ingredient['quantity']);
             $planIngredients[] = [
-                'name' => $food->name,
+                'id' => $ingredient['id'],
+                'name' => $ingredient['name'],
                 'quantity' => $quantity,
-                'unit' => $ingredient->unit,
+                'unit' => $ingredient['unit'],
             ];
-            $factor = UnitConverter::scalingFactor($quantity, (string) $ingredient->unit, (float) $food->serving_size, (string) $food->serving_unit);
-            $cal += (float) $food->calories * $factor;
-            $prot += (float) $food->protein * $factor;
-            $carb += (float) $food->carbs * $factor;
-            $fat += (float) $food->fat * $factor;
-            $water += (float) ($food->water_g ?? 0) * $factor;
-            foreach ((is_array($food->micronutrients) ? $food->micronutrients : []) as $key => $value) {
+            $factor = UnitConverter::scalingFactor($quantity, (string) $ingredient['unit'], (float) $food['serving_size'], (string) $food['serving_unit']);
+            $cal += (float) $food['calories'] * $factor;
+            $prot += (float) ($food['protein'] ?? 0) * $factor;
+            $carb += (float) ($food['carbs'] ?? 0) * $factor;
+            $fat += (float) ($food['fat'] ?? 0) * $factor;
+            $water += (float) ($food['water_g'] ?? 0) * $factor;
+            foreach (($food['micronutrients'] ?? []) as $key => $value) {
                 $micros[$key] = ($micros[$key] ?? 0) + (float) $value * $factor;
             }
         }
 
         return [
-            'name' => $this->name,
+            'name' => $baseline['name'] ?? $this->name,
             'calories' => round($cal / $servings, 2),
             'protein' => round($prot / $servings, 2),
             'carbs' => round($carb / $servings, 2),
@@ -150,7 +170,9 @@ class Recipe extends Model
             'serving_unit' => 'serving',
             'micronutrients' => array_map(fn ($value) => round($value / $servings, 3), $micros),
             'recipe_ingredients' => $planIngredients,
+            'recipe_original_ingredients' => $originalIngredients,
             'recipe_yield' => $servings,
+            ...(isset($baseline['recipe_snapshot_source']) ? ['recipe_snapshot_source' => $baseline['recipe_snapshot_source']] : []),
         ];
     }
 

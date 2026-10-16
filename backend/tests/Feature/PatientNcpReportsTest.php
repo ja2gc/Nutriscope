@@ -14,6 +14,18 @@ class PatientNcpReportsTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_patient_history_menu_reference_includes_its_public_intervention_identity(): void
+    {
+        $rnd = User::factory()->rnd()->create();
+        $patient = Patient::factory()->create();
+        $ncp = NcpRecord::factory()->create(['patient_id' => $patient->id, 'rnd_user_id' => $rnd->id]);
+        $intervention = Intervention::factory()->create(['ncp_record_id' => $ncp->id]);
+        $menu = MealPlan::factory()->create(['patient_id' => $patient->id, 'intervention_id' => $intervention->id]);
+        $this->actingAs($rnd, 'sanctum')->getJson("/api/rnd/patients/{$patient->uuid}/ncp-records")
+            ->assertOk()->assertJsonPath('data.0.intervention.meal_plans.0.id', $menu->uuid)
+            ->assertJsonPath('data.0.intervention.meal_plans.0.intervention_plan_id', $intervention->uuid);
+    }
+
     public function test_rnd_lists_one_patients_adime_cycles_newest_first_with_cycle_scoped_reports(): void
     {
         $rnd = User::factory()->rnd()->create();

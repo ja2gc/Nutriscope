@@ -33,6 +33,13 @@ describe("patient history cleanup", () => {
     expect(source).not.toContain("Week of {mp.week_start_date}");
   });
 
+  test("prepares the selected saved intervention report using its public intervention identity", () => {
+    const source = patientPage();
+    expect(source).toContain('intervention_plan_id: interventionPlanId');
+    expect(source).toContain('handleMealPlanPreview(mp.intervention_plan_id');
+    expect(source).not.toContain('prepareReport("patient_menu_plan", { meal_plan_id:');
+  });
+
   test("shows current cycle, always-visible paginated past records, and appointments", () => {
     const source = patientPage();
     expect(source).toContain('type TabKey = "overview" | "adime-records" | "appointments" | "attachments"');

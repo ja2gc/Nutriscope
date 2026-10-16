@@ -73,6 +73,7 @@ export interface NcpRecord {
     next_followup_date?: string | null;
     meal_plans?: Array<{
       id: string;
+      intervention_plan_id: string;
       week_start_date: string;
       generation_type?: string | null;
     }> | null;

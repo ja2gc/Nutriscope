@@ -169,6 +169,7 @@ class PatientController extends Controller
                 'goal_type' => $record->intervention->goal_type,
                 'meal_plans' => $record->intervention->mealPlans->map(fn ($mealPlan): array => [
                     'id' => $mealPlan->uuid,
+                    'intervention_plan_id' => $record->intervention->uuid,
                     'week_start_date' => $mealPlan->week_start_date?->toDateString(),
                     'generation_type' => $mealPlan->generation_type,
                 ])->values()->all(),

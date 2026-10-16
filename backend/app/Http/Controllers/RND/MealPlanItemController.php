@@ -231,12 +231,17 @@ class MealPlanItemController extends Controller
             return null;
         }
         $recipe = Recipe::with('ingredients.foodItem')->find($item->recipe_id);
-        if (! $recipe || ! $recipe->hasValidPortionData()) {
+        if (! $recipe) {
             throw ValidationException::withMessages(['ingredient_overrides' => 'Correct the Menu Item yield and measured Ingredient units before editing this portion.']);
         }
 
         try {
-            return [...$recipe->planSnapshot($overrides), 'name' => $item->nutrient_snapshot['name'] ?? $recipe->name];
+            $snapshot = $recipe->planSnapshot($overrides, $item->nutrient_snapshot);
+
+            return [
+                ...$snapshot,
+                'name' => $item->nutrient_snapshot['name'] ?? $recipe->name,
+            ];
         } catch (\InvalidArgumentException $exception) {
             throw ValidationException::withMessages(['ingredient_overrides' => $exception->getMessage()]);
         }
@@ -275,20 +280,7 @@ class MealPlanItemController extends Controller
     private function buildSnapshot(StoreMealPlanItemRequest $request): array
     {
         $recipe = Recipe::findOrFail($request->input('recipe_id'));
-        $servings = (float) $recipe->servings;
 
-        return [
-            'name' => $recipe->name,
-            'calories' => round((float) $recipe->total_calories / $servings, 2),
-            'protein' => round((float) $recipe->total_protein / $servings, 2),
-            'carbs' => round((float) $recipe->total_carbs / $servings, 2),
-            'fat' => round((float) $recipe->total_fat / $servings, 2),
-            'water_g' => round((float) ($recipe->total_water ?? 0) / $servings, 2),
-            'micronutrients' => collect($recipe->micronutrients ?? [])->map(
-                fn ($value): float => round((float) $value / $servings, 3)
-            )->all(),
-            'serving_size' => 1,
-            'serving_unit' => 'serving',
-        ];
+        return $recipe->planSnapshot();
     }
 }

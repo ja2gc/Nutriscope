@@ -35,6 +35,7 @@ export interface RecipeIngredient {
     protein: string | null;
     carbs: string | null;
     fat: string | null;
+    water_g?: number | string | null;
     serving_size: string | null;
     serving_unit: string | null;
     micronutrients: Record<string, number> | null;
@@ -53,6 +54,7 @@ export interface Recipe {
   total_protein: string | null;
   total_carbs: string | null;
   total_fat: string | null;
+  total_water_g?: number | string | null;
   prepared_portion_amount: string | null;
   prepared_portion_unit: string | null;
   micronutrients: Record<string, number>;

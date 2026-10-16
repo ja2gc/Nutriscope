@@ -246,7 +246,7 @@ class RecipeControllerTest extends TestCase
     public function test_rnd_can_view_recipe_with_ingredients(): void
     {
         $recipe = Recipe::factory()->create(['rnd_user_id' => $this->rnd->id]);
-        $food = FoodItem::factory()->create();
+        $food = FoodItem::factory()->create(['water_g' => 70]);
         RecipeIngredient::create([
             'recipe_id' => $recipe->id,
             'food_item_id' => $food->id,
@@ -259,6 +259,7 @@ class RecipeControllerTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('data.id', $recipe->uuid)
+            ->assertJsonPath('data.ingredients.0.food_item.water_g', 70)
             ->assertJsonStructure(['data' => ['id', 'name', 'ingredients']]);
     }
 

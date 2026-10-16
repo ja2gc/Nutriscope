@@ -42,6 +42,45 @@ class MealPlanItemControllerTest extends TestCase
         return $itemId ? "{$base}/{$itemId}" : $base;
     }
 
+    public function test_new_menu_item_freezes_original_and_planned_ingredients_and_yield(): void
+    {
+        $ctx = $this->setupPlan();
+        $food = FoodItem::factory()->create([
+            'name' => 'Measured rice', 'serving_size' => 100, 'serving_unit' => 'g',
+            'calories' => 100, 'protein' => 2, 'carbs' => 20, 'fat' => 1, 'water_g' => 70,
+        ]);
+        $recipe = Recipe::factory()->create(['name' => 'Five-serving rice', 'category' => 'meal', 'servings' => 5]);
+        $ingredient = RecipeIngredient::create(['recipe_id' => $recipe->id, 'food_item_id' => $food->id, 'quantity' => 500, 'unit' => 'g']);
+        $recipe->recalculateTotals();
+        $response = $this->actingAs($ctx['rnd'])->postJson($this->url($ctx), [
+            'recipe_id' => $recipe->uuid, 'quantity' => 1.2, 'unit' => 'serving',
+        ])->assertCreated();
+        $id = $response->json('data.id');
+        $response->assertJsonPath('data.nutrient_snapshot.recipe_yield', 5)
+            ->assertJsonPath('data.nutrient_snapshot.recipe_original_ingredients.0.quantity', 500)
+            ->assertJsonPath('data.nutrient_snapshot.recipe_ingredients.0.quantity', 500)
+            ->assertJsonPath('data.nutrient_snapshot.calories', 100);
+        $this->patchJson($this->url($ctx, $id), [
+            'quantity' => 1.2, 'ingredient_overrides' => [['id' => $ingredient->id, 'quantity' => 400]],
+        ])->assertOk()->assertJsonPath('data.nutrient_snapshot.recipe_original_ingredients.0.quantity', 500)
+            ->assertJsonPath('data.nutrient_snapshot.recipe_ingredients.0.quantity', 400)
+            ->assertJsonPath('data.nutrient_snapshot.calories', 80);
+        $recipe->update(['name' => 'Changed library title', 'servings' => 10]);
+        $ingredient->update(['quantity' => 999]);
+        $this->getJson($this->url($ctx))->assertOk()
+            ->assertJsonPath('data.0.nutrient_snapshot.name', 'Five-serving rice')
+            ->assertJsonPath('data.0.recipe_portion.yield', 5)
+            ->assertJsonPath('data.0.recipe_portion.ingredients.0.quantity', 400);
+        $food->update(['calories' => 999, 'water_g' => 99, 'name' => 'Changed library food']);
+        $this->patchJson($this->url($ctx, $id), [
+            'ingredient_overrides' => [['id' => $ingredient->id, 'quantity' => 300]],
+        ])->assertOk()->assertJsonPath('data.nutrient_snapshot.recipe_yield', 5)
+            ->assertJsonPath('data.nutrient_snapshot.calories', 60)
+            ->assertJsonPath('data.nutrient_snapshot.water_g', 42)
+            ->assertJsonPath('data.nutrient_snapshot.recipe_ingredients.0.name', 'Measured rice')
+            ->assertJsonPath('data.nutrient_snapshot.recipe_original_ingredients.0.quantity', 500);
+    }
+
     public function test_index_lists_items_for_a_day(): void
     {
         $ctx = $this->setupPlan();
@@ -51,6 +90,24 @@ class MealPlanItemControllerTest extends TestCase
             ->getJson($this->url($ctx))
             ->assertOk()
             ->assertJsonCount(3, 'data');
+    }
+
+    public function test_ingredient_override_accepts_six_decimal_json_floats_without_rounding_extra_precision(): void
+    {
+        $ctx = $this->setupPlan();
+        $recipe = Recipe::factory()->create(['servings' => 1]);
+        $food = FoodItem::factory()->create();
+        $ingredient = $recipe->ingredients()->create(['food_item_id' => $food->id, 'quantity' => 100, 'unit' => 'g']);
+        $recipe->recalculateTotals();
+        $id = $this->actingAs($ctx['rnd'])->postJson($this->url($ctx), [
+            'recipe_id' => $recipe->uuid, 'quantity' => 1, 'unit' => 'serving',
+        ])->assertCreated()->json('data.id');
+        $this->patchJson($this->url($ctx, $id), [
+            'ingredient_overrides' => [['id' => $ingredient->id, 'quantity' => 0.000001]],
+        ])->assertOk()->assertJsonPath('data.nutrient_snapshot.recipe_ingredients.0.quantity', 0.000001);
+        $this->patchJson($this->url($ctx, $id), [
+            'ingredient_overrides' => [['id' => $ingredient->id, 'quantity' => 0.0000001]],
+        ])->assertUnprocessable();
     }
 
     public function test_index_lists_items_for_an_older_intervention_plan_in_the_same_ncp(): void
@@ -142,7 +199,10 @@ class MealPlanItemControllerTest extends TestCase
             'prepared_portion_amount' => 125,
             'prepared_portion_unit' => 'g',
         ]);
-        $food = FoodItem::factory()->create();
+        $food = FoodItem::factory()->create([
+            'serving_size' => 100, 'serving_unit' => 'g',
+            'calories' => 210, 'protein' => 12.5, 'carbs' => 19, 'fat' => 8,
+        ]);
         RecipeIngredient::create([
             'recipe_id' => $recipe->id,
             'food_item_id' => $food->id,
@@ -455,7 +515,10 @@ class MealPlanItemControllerTest extends TestCase
             'prepared_portion_amount' => 1.5,
             'prepared_portion_unit' => 'cup',
         ]);
-        $food = FoodItem::factory()->create();
+        $food = FoodItem::factory()->create([
+            'serving_size' => 100, 'serving_unit' => 'g', 'water_g' => 100,
+            'calories' => 400, 'protein' => 20, 'carbs' => 40, 'fat' => 15,
+        ]);
         RecipeIngredient::create([
             'recipe_id' => $recipe->id,
             'food_item_id' => $food->id,

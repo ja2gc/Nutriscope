@@ -21,6 +21,7 @@ class RecipeResource extends JsonResource
             'total_protein' => $this->total_protein,
             'total_carbs' => $this->total_carbs,
             'total_fat' => $this->total_fat,
+            'total_water_g' => $this->total_water,
             'cost' => $this->cost,
             'micronutrients' => $this->micronutrients ?? [],
             'ingredients' => $this->whenLoaded('ingredients', fn () => $this->ingredients->map(fn ($ing) => [
@@ -35,6 +36,7 @@ class RecipeResource extends JsonResource
                     'protein' => $ing->foodItem->protein,
                     'carbs' => $ing->foodItem->carbs,
                     'fat' => $ing->foodItem->fat,
+                    'water_g' => $ing->foodItem->water_g,
                     'serving_size' => $ing->foodItem->serving_size,
                     'serving_unit' => $ing->foodItem->serving_unit,
                     'micronutrients' => $ing->foodItem->micronutrients ?? [],

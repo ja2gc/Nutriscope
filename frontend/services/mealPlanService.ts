@@ -1,5 +1,6 @@
 ﻿import { apiFetch } from "@/lib/apiFetch";
 import type { PaginationMeta } from "@/components/ui/Pagination";
+import type { RecipeIngredient } from "./foodLibraryService";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -14,6 +15,9 @@ export interface NutrientSnapshot {
   micronutrients: Record<string, number>;
   serving_size: number;
   serving_unit: string;
+  recipe_yield?: number;
+  recipe_original_ingredients?: Array<Omit<RecipeIngredient, 'quantity'> & { name: string; quantity: number | string }>;
+  recipe_ingredients?: { id?: number; name: string; quantity: number; unit: string }[];
 }
 
 export interface MealPlanItem {

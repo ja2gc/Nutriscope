@@ -6,6 +6,16 @@ use PHPUnit\Framework\TestCase;
 
 class PatientMenuPlanViewContractTest extends TestCase
 {
+    public function test_portion_cards_align_original_batch_and_patient_columns_and_label_legacy_fallback(): void
+    {
+        $source = file_get_contents(__DIR__.'/../../resources/views/reports/patient-menu-plan.blade.php');
+        $this->assertStringContainsString('Ingredient', $source);
+        $this->assertStringContainsString('Whole recipe', $source);
+        $this->assertStringContainsString('Patient portion', $source);
+        $this->assertStringContainsString('whole_quantity', $source);
+        $this->assertStringContainsString('Current recipe fallback', $source);
+    }
+
     public function test_patient_plan_uses_three_column_independent_rows_and_no_legacy_recipe_copy(): void
     {
         $source = file_get_contents(__DIR__.'/../../resources/views/reports/patient-menu-plan.blade.php');
@@ -15,7 +25,9 @@ class PatientMenuPlanViewContractTest extends TestCase
         $this->assertStringContainsString('array_chunk($portionPage, 3)', $source);
         $this->assertStringContainsString('class="portion-page', $source);
         $this->assertStringContainsString('class="portion-row"', $source);
+        $this->assertStringContainsString('class="portion-row-block"', $source);
         $layout = file_get_contents(__DIR__.'/../../resources/views/reports/layout.blade.php');
+        $this->assertStringContainsString('.portion-row-block { page-break-inside: avoid; }', $layout);
         $this->assertStringContainsString("(\$paper_orientation ?? 'portrait') === 'landscape'", $layout);
         $this->assertStringContainsString("'13in 8.5in'", $layout);
         $this->assertStringContainsString("'8.5in 13in'", $layout);

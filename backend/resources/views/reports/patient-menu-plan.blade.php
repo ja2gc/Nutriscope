@@ -73,6 +73,11 @@
     @endif
 
     @if(!empty($portion_details))
+        @php
+            $formatPortion = static fn ($amount) => abs((float) $amount) > 0 && abs((float) $amount) < 0.000001
+                ? sprintf('%.6g', $amount)
+                : rtrim(rtrim(number_format((float) $amount, 6, '.', ''), '0'), '.');
+        @endphp
         @foreach($portion_pages as $portionPage)
             <div class="portion-page">
                 <table class="portion-row-table portion-heading-table">
@@ -81,6 +86,7 @@
                     </tbody>
                 </table>
                 @foreach(array_chunk($portionPage, 3) as $portionRow)
+                    <div class="portion-row-block">
                     <table class="portion-row-table">
                         <tbody>
                             <tr class="portion-row">
@@ -88,14 +94,32 @@
                                     <td class="portion-cell">
                                         <p class="bold" style="font-size:7.5pt; margin:0 0 2px;">{{ $portion['dish'] }}</p>
                                         @foreach($portion['variants'] as $variant)
-                                            @foreach($variant['foods'] as $food)
-                                                <div style="font-size:7.25pt; margin-left:8px;">
-                                                    <span class="bold">[{{ $variant['id'] }}]</span>
-                                                    {{ $food['food'] }} -
-                                                    @if($food['household_measure']){{ $food['household_measure'] }} · @endif
-                                                    {{ rtrim(rtrim(number_format($food['metric_amount'], 1, '.', ''), '0'), '.') }} {{ $food['metric_unit'] }}
-                                                </div>
-                                            @endforeach
+                                            <p class="bold" style="font-size:7pt; margin:3px 0 2px;">[{{ $variant['id'] }}]</p>
+                                            @if(!empty($variant['legacy_fallback']))
+                                                <p class="muted" style="font-size:7pt; margin:0 0 2px;">Current recipe fallback; original batch unavailable.</p>
+                                            @endif
+                                            <table class="portion-amounts">
+                                                <thead><tr>
+                                                    <th style="width:56%;">Ingredient</th>
+                                                    <th style="width:22%;">Whole recipe
+                                                        @if(isset($variant['recipe_yield']))
+                                                            <br>({{ $formatPortion($variant['recipe_yield']) }} servings)
+                                                        @endif
+                                                    </th>
+                                                    <th style="width:22%;">Patient portion
+                                                        @if(isset($variant['patient_servings']))
+                                                            <br>({{ $formatPortion($variant['patient_servings']) }} servings)
+                                                        @endif
+                                                    </th>
+                                                </tr></thead>
+                                                <tbody>@foreach($variant['foods'] as $food)
+                                                    <tr>
+                                                        <td>{{ $food['food'] }}</td>
+                                                        <td>@if(isset($food['whole_quantity'])){{ $formatPortion($food['whole_quantity']) }} {{ $food['whole_unit'] }}@else<span class="muted">Unavailable</span>@endif</td>
+                                                        <td>{{ $formatPortion($food['metric_amount']) }} {{ $food['metric_unit'] }}</td>
+                                                    </tr>
+                                                @endforeach</tbody>
+                                            </table>
                                         @endforeach
                                     </td>
                                 @endforeach
@@ -105,6 +129,7 @@
                             </tr>
                         </tbody>
                     </table>
+                    </div>
                 @endforeach
             </div>
         @endforeach

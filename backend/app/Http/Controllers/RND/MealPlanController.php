@@ -652,13 +652,23 @@ class MealPlanController extends Controller
             }
             try {
                 $snapshot = ! empty($line['ingredient_overrides'])
-                    ? $recipe->planSnapshot($line['ingredient_overrides'])
+                    ? $recipe->planSnapshot($line['ingredient_overrides'], $source?->nutrient_snapshot)
                     : ($source?->nutrient_snapshot ?? $recipe->planSnapshot());
             } catch (\InvalidArgumentException $exception) {
                 throw ValidationException::withMessages(['template' => $exception->getMessage()]);
             }
             if (! is_array($snapshot) || (float) ($snapshot['serving_size'] ?? 0) <= 0 || ($snapshot['serving_unit'] ?? '') !== 'serving') {
                 throw ValidationException::withMessages(['template' => 'Correct this template snapshot to a measured serving basis in Food Library before loading.']);
+            }
+            if (empty($snapshot['recipe_ingredients']) || (float) ($snapshot['recipe_yield'] ?? 0) <= 0) {
+                $current = $recipe->planSnapshot();
+                $snapshot = [
+                    ...$snapshot,
+                    'recipe_ingredients' => $current['recipe_ingredients'],
+                    'recipe_original_ingredients' => $current['recipe_original_ingredients'],
+                    'recipe_yield' => $current['recipe_yield'],
+                    'recipe_snapshot_source' => 'current_recipe_fallback',
+                ];
             }
             if (! empty($line['ingredient_overrides']) && isset($source?->nutrient_snapshot['name'])) {
                 $snapshot['name'] = $source->nutrient_snapshot['name'];
@@ -813,18 +823,7 @@ class MealPlanController extends Controller
         }
 
         if ($recipeId !== null && ($recipe = Recipe::find($recipeId))) {
-            return [
-                'name' => $recipe->name,
-                'calories' => (float) $recipe->total_calories,
-                'protein' => (float) $recipe->total_protein,
-                'carbs' => (float) $recipe->total_carbs,
-                'fat' => (float) $recipe->total_fat,
-                'water_g' => (float) ($recipe->total_water_g ?? 0),
-                'micronutrients' => $recipe->micronutrients ?? [],
-                'serving_size' => (float) ($recipe->servings ?? 1),
-                'serving_unit' => 'serving',
-                'source' => 'recipe',
-            ];
+            return [...$recipe->planSnapshot(), 'source' => 'recipe'];
         }
 
         return null;

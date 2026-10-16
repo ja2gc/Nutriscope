@@ -136,7 +136,7 @@ export default function MealPlanSection({
   // Edit meal item
   const [editTarget, setEditTarget]           = useState<EditTarget | null>(null);
   const [editServings, setEditServings]       = useState<string>('1');
-  const [editRecipe, setEditRecipe]           = useState<Recipe | null>(null);
+  const [editRecipe, setEditRecipe]           = useState<Pick<Recipe, 'name' | 'servings' | 'ingredients'> | null>(null);
   const [editIngredients, setEditIngredients] = useState<{ id: number; qty: string; ing: RecipeIngredient }[]>([]);
   const [editLoadingRecipe, setEditLoadingRecipe] = useState(false);
   const [editSaving, setEditSaving]           = useState(false);
@@ -448,6 +448,16 @@ export default function MealPlanSection({
     setEditTab('scale');
     setEditRecipe(null);
     setEditIngredients([]);
+    const snapshot = item.nutrient_snapshot;
+    if (snapshot?.recipe_yield && snapshot.recipe_original_ingredients?.length && snapshot.recipe_original_ingredients.every((ingredient) => ingredient.id && ingredient.food_item)) {
+      const ingredients = snapshot.recipe_original_ingredients.map((ingredient) => ({
+        ...ingredient, quantity: String(snapshot.recipe_ingredients?.find((planned) => planned.id === ingredient.id)?.quantity ?? ingredient.quantity),
+      }));
+      setEditRecipe({ name: snapshot.name, servings: snapshot.recipe_yield, ingredients });
+      setEditIngredients(ingredients.map((ingredient) => ({ id: ingredient.id, qty: ingredient.quantity, ing: ingredient })));
+      setEditLoadingRecipe(false);
+      return;
+    }
     if (item.recipe_id) {
       setEditLoadingRecipe(true);
       fetchRecipeById(item.recipe_id).then((recipe) => {
@@ -462,7 +472,7 @@ export default function MealPlanSection({
   const recalcFromIngredients = (): Partial<NutrientSnapshot> => {
     if (!editRecipe) return {};
     const servings = editRecipe.servings ?? 1;
-    let cal = 0, prot = 0, carb = 0, fat = 0;
+    let cal = 0, prot = 0, carb = 0, fat = 0, water = 0;
     const micros: Record<string, number> = {};
     for (const { qty, ing } of editIngredients) {
       const food = ing.food_item;
@@ -473,6 +483,7 @@ export default function MealPlanSection({
       prot += parseFloat(food.protein ?? '0') * factor;
       carb += parseFloat(food.carbs ?? '0') * factor;
       fat += parseFloat(food.fat ?? '0') * factor;
+      water += Number(food.water_g ?? 0) * factor;
       for (const [key, value] of Object.entries(food.micronutrients ?? {})) {
         micros[key] = (micros[key] ?? 0) + value * factor;
       }
@@ -483,8 +494,13 @@ export default function MealPlanSection({
       protein: Math.round(prot / servings * 100) / 100,
       carbs: Math.round(carb / servings * 100) / 100,
       fat: Math.round(fat / servings * 100) / 100,
+      water_g: Math.round(water / servings * 100) / 100,
       serving_size: 1,
       serving_unit: 'serving',
+      recipe_yield: servings,
+      recipe_original_ingredients: editTarget?.item.nutrient_snapshot?.recipe_original_ingredients
+        ?? editRecipe.ingredients.map((ingredient) => ({ ...ingredient, name: ingredient.food_item?.name ?? 'Ingredient' })),
+      recipe_ingredients: editIngredients.map(({ id, qty, ing }) => ({ id, name: ing.food_item?.name ?? 'Ingredient', quantity: Number(qty), unit: ing.unit })),
       micronutrients: Object.fromEntries(Object.entries(micros).map(([key, value]) => [key, Math.round(value / servings * 1000) / 1000])),
     };
   };
@@ -501,10 +517,12 @@ export default function MealPlanSection({
         payload.quantity = Number(editServings);
       }
       if (templateDraft) {
+        const snapshot = payload.ingredient_overrides ? { ...editTarget.item.nutrient_snapshot!, ...recalcFromIngredients() } : editTarget.item.nutrient_snapshot;
         const updated: MealPlanItem = {
           ...editTarget.item, quantity: String(payload.quantity ?? editTarget.item.quantity),
           ingredient_overrides: payload.ingredient_overrides ?? editTarget.item.ingredient_overrides,
-          nutrient_snapshot: payload.ingredient_overrides ? { ...editTarget.item.nutrient_snapshot!, ...recalcFromIngredients() } : editTarget.item.nutrient_snapshot,
+          nutrient_snapshot: snapshot,
+          recipe_portion: snapshot?.recipe_yield && snapshot.recipe_ingredients ? { yield: snapshot.recipe_yield, ingredients: snapshot.recipe_ingredients } : editTarget.item.recipe_portion,
         };
         setItemsByKey((previous) => ({ ...previous, [editTarget.slotKey]: (previous[editTarget.slotKey] ?? []).map((item) => item.id === updated.id ? updated : item) }));
         markPlanNeedsScaling(activePlan.id); setEditTarget(null);
@@ -548,6 +566,7 @@ export default function MealPlanSection({
             name: recipe.name, calories: Number(recipe.total_calories) / yieldAmount,
             protein: Number(recipe.total_protein) / yieldAmount, carbs: Number(recipe.total_carbs) / yieldAmount,
             fat: Number(recipe.total_fat) / yieldAmount, serving_size: 1, serving_unit: 'serving',
+            water_g: Number(recipe.total_water_g ?? 0) / yieldAmount,
             micronutrients: Object.fromEntries(Object.entries(recipe.micronutrients ?? {}).map(([key, value]) => [key, Number(value) / yieldAmount])),
           },
         };

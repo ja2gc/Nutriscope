@@ -429,10 +429,10 @@ export default function PatientProfilePage({
     }
   }
 
-  async function handleMealPlanPreview(mealPlanId: number | string, title: string) {
+  async function handleMealPlanPreview(interventionPlanId: string, title: string) {
     setCycleError(null);
     try {
-      const report = await prepareReport("patient_menu_plan", { meal_plan_id: mealPlanId }, "rnd");
+      const report = await prepareReport("patient_menu_plan", { intervention_plan_id: interventionPlanId }, "rnd");
       setMealPlanPreview({ id: report.id, title });
     } catch (err: unknown) {
       setCycleError(err instanceof Error ? err.message : "Failed to prepare meal plan report.");
@@ -881,7 +881,7 @@ export default function PatientProfilePage({
                             <button
                               key={mp.id}
                               type="button"
-                              onClick={() => void handleMealPlanPreview(mp.id, `Meal Plan ${index + 1}`)}
+                              onClick={() => void handleMealPlanPreview(mp.intervention_plan_id, `Meal Plan ${index + 1}`)}
                               className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-warm-50 border border-warm-200 text-warm-700 hover:border-emerald-300 hover:text-emerald-700"
                             >
                               Meal Plan {index + 1}

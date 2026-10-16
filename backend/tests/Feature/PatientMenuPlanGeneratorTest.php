@@ -17,6 +17,9 @@ use App\Models\ReportBranding;
 use App\Models\User;
 use App\Services\Reports\Generators\PatientMenuPlanGenerator;
 use App\Services\Reports\ReportBrowser;
+use App\Services\Reports\ReportService;
+use Database\Seeders\FoodItemsSeeder;
+use Database\Seeders\RecipeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -65,12 +68,21 @@ class PatientMenuPlanGeneratorTest extends TestCase
     {
         $mealPlan = $this->makePlan();
         $savedPlan = $mealPlan->intervention;
-        Intervention::factory()->create([
+        $newerPlan = Intervention::factory()->create([
             'ncp_record_id' => $savedPlan->ncp_record_id,
             'energy_kcal' => 2400,
             'education_notes' => 'Later education that must not leak backward.',
             'created_at' => '2026-06-20 09:00:00',
         ]);
+        $newerMenu = MealPlan::factory()->create(['intervention_id' => $newerPlan->id, 'patient_id' => $mealPlan->patient_id]);
+        foreach ([[$mealPlan, 'First saved dish'], [$newerMenu, 'Second saved dish']] as [$menu, $name]) {
+            $recipe = Recipe::factory()->create(['name' => $name, 'servings' => 5]);
+            $food = FoodItem::factory()->create(['serving_size' => 100, 'serving_unit' => 'g']);
+            $recipe->ingredients()->create(['food_item_id' => $food->id, 'quantity' => 500, 'unit' => 'g']);
+            $recipe->recalculateTotals();
+            $day = MealPlanDay::create(['meal_plan_id' => $menu->id, 'day_of_week' => 'Monday', 'meal_type' => 'breakfast']);
+            MealPlanItem::create(['meal_plan_day_id' => $day->id, 'recipe_id' => $recipe->id, 'quantity' => 1.2, 'unit' => 'serving', 'nutrient_snapshot' => $recipe->planSnapshot()]);
+        }
 
         $report = new Report([
             'type' => 'patient_menu_plan',
@@ -82,7 +94,180 @@ class PatientMenuPlanGeneratorTest extends TestCase
         $this->assertSame('Choose lower-sodium foods.', $data['patient_guidance']['education']);
         $this->assertSame($savedPlan->uuid, $data['intervention_plan']->uuid);
         $this->assertSame($mealPlan->uuid, $data['meal_plan']->uuid);
+        $this->assertSame('First saved dish', $data['grid']['Breakfast']['Monday'][0]['name']);
         $this->assertArrayNotHasKey('revision', $data);
+        $newerData = app(PatientMenuPlanGenerator::class)->data(new Report([
+            'type' => 'patient_menu_plan', 'parameters' => ['intervention_plan_id' => $newerPlan->uuid],
+        ]));
+        $this->assertSame(2400.0, $newerData['prescription']['energy_kcal']);
+        $this->assertSame($newerMenu->uuid, $newerData['meal_plan']->uuid);
+        $this->assertSame('Second saved dish', $newerData['grid']['Breakfast']['Monday'][0]['name']);
+    }
+
+    public function test_saved_portions_use_frozen_batch_and_edited_amounts_after_library_changes(): void
+    {
+        $plan = $this->makePlan();
+        $recipe = Recipe::factory()->create(['name' => 'Changed library dish', 'servings' => 10]);
+        $food = FoodItem::factory()->create(['name' => 'Changed library ingredient']);
+        RecipeIngredient::create(['recipe_id' => $recipe->id, 'food_item_id' => $food->id, 'quantity' => 999, 'unit' => 'g']);
+        $day = MealPlanDay::factory()->create(['meal_plan_id' => $plan->id, 'day_of_week' => 'Monday', 'meal_type' => 'breakfast']);
+        MealPlanItem::factory()->create([
+            'meal_plan_day_id' => $day->id, 'recipe_id' => $recipe->id, 'food_item_id' => null,
+            'quantity' => 1.2, 'unit' => 'serving', 'nutrient_snapshot' => [
+                'name' => 'Saved rice dish', 'calories' => 80, 'water_g' => 56, 'serving_size' => 1, 'serving_unit' => 'serving',
+                'recipe_yield' => 5,
+                'recipe_original_ingredients' => [['name' => 'Saved rice', 'quantity' => 500, 'unit' => 'g']],
+                'recipe_ingredients' => [['name' => 'Saved rice', 'quantity' => 400, 'unit' => 'g']],
+            ],
+        ]);
+        $data = app(PatientMenuPlanGenerator::class)->data(new Report([
+            'type' => 'patient_menu_plan', 'parameters' => ['intervention_plan_id' => $plan->intervention->uuid],
+        ]));
+        $this->assertSame('Saved rice dish', $data['grid']['Breakfast']['Monday'][0]['name']);
+        $portion = $data['portion_details'][0]['variants'][0];
+        $this->assertSame(5.0, $portion['recipe_yield']);
+        $this->assertSame(1.2, $portion['patient_servings']);
+        $this->assertSame('Saved rice', $portion['foods'][0]['food']);
+        $this->assertSame(500.0, $portion['foods'][0]['whole_quantity']);
+        $this->assertSame('g', $portion['foods'][0]['whole_unit']);
+        $this->assertSame(96.0, $portion['foods'][0]['metric_amount']);
+        $this->assertSame('g', $portion['foods'][0]['metric_unit']);
+    }
+
+    public function test_legacy_saved_ingredient_amounts_survive_with_an_explicit_current_yield_fallback(): void
+    {
+        $plan = $this->makePlan();
+        $recipe = Recipe::factory()->create(['servings' => 5]);
+        $food = FoodItem::factory()->create(['name' => 'Current ingredient']);
+        $recipe->ingredients()->create(['food_item_id' => $food->id, 'quantity' => 500, 'unit' => 'g']);
+        $day = MealPlanDay::factory()->create(['meal_plan_id' => $plan->id]);
+        MealPlanItem::create([
+            'meal_plan_day_id' => $day->id, 'recipe_id' => $recipe->id, 'quantity' => 1.2, 'unit' => 'serving',
+            'nutrient_snapshot' => [
+                'name' => 'Saved dish', 'serving_size' => 1, 'serving_unit' => 'serving',
+                'recipe_ingredients' => [['name' => 'Saved ingredient', 'quantity' => 400, 'unit' => 'g']],
+            ],
+        ]);
+        $data = app(PatientMenuPlanGenerator::class)->data(new Report([
+            'type' => 'patient_menu_plan', 'parameters' => ['intervention_plan_id' => $plan->intervention->uuid],
+        ]));
+        $portion = $data['portion_details'][0]['variants'][0];
+        $this->assertSame('Saved ingredient', $portion['foods'][0]['food']);
+        $this->assertSame(96.0, $portion['foods'][0]['metric_amount']);
+        $this->assertNull($portion['foods'][0]['whole_quantity']);
+        $this->assertSame(5.0, $portion['recipe_yield']);
+        $this->assertTrue($portion['legacy_fallback']);
+    }
+
+    public function test_legacy_serving_snapshot_scales_current_batch_by_recipe_yield(): void
+    {
+        $plan = $this->makePlan();
+        $recipe = Recipe::factory()->create(['servings' => 5]);
+        $food = FoodItem::factory()->create();
+        $recipe->ingredients()->create(['food_item_id' => $food->id, 'quantity' => 500, 'unit' => 'g']);
+        $day = MealPlanDay::factory()->create(['meal_plan_id' => $plan->id]);
+        MealPlanItem::create([
+            'meal_plan_day_id' => $day->id, 'recipe_id' => $recipe->id, 'quantity' => 1.2, 'unit' => 'serving',
+            'nutrient_snapshot' => ['name' => 'Saved dish', 'serving_size' => 1, 'serving_unit' => 'serving'],
+        ]);
+        $data = app(PatientMenuPlanGenerator::class)->data(new Report([
+            'type' => 'patient_menu_plan', 'parameters' => ['intervention_plan_id' => $plan->intervention->uuid],
+        ]));
+        $portion = $data['portion_details'][0]['variants'][0];
+        $this->assertSame(120.0, $portion['foods'][0]['metric_amount']);
+        $this->assertSame(1.2, $portion['patient_servings']);
+        $this->assertTrue($portion['legacy_fallback']);
+    }
+
+    public function test_dense_frozen_portions_render_through_the_real_pdf_service(): void
+    {
+        $plan = $this->makePlan();
+        $recipes = [];
+        for ($dish = 1; $dish <= 10; $dish++) {
+            $recipe = Recipe::factory()->create(['name' => "Measured vegetable and rice dish {$dish} with a long descriptive name", 'servings' => 5]);
+            for ($line = 1; $line <= 8; $line++) {
+                $unit = $line === 8 ? 'piece' : 'g';
+                $food = FoodItem::factory()->create([
+                    'name' => "Ingredient {$line}: measured cooked vegetable with a long descriptive label",
+                    'serving_size' => $unit === 'piece' ? 1 : 100, 'serving_unit' => $unit,
+                    'calories' => 100, 'protein' => 2, 'carbs' => 20, 'fat' => 1, 'water_g' => 70,
+                ]);
+                $recipe->ingredients()->create(['food_item_id' => $food->id, 'quantity' => $unit === 'piece' ? 5 : 500, 'unit' => $unit]);
+            }
+            $recipe->recalculateTotals();
+            $recipes[] = $recipe;
+        }
+        foreach (['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as $index => $dayName) {
+            foreach (['breakfast', 'lunch', 'dinner'] as $slotIndex => $slot) {
+                $day = MealPlanDay::create(['meal_plan_id' => $plan->id, 'day_of_week' => $dayName, 'meal_type' => $slot]);
+                $recipe = $recipes[($index * 3 + $slotIndex) % count($recipes)];
+                MealPlanItem::create([
+                    'meal_plan_day_id' => $day->id, 'recipe_id' => $recipe->id, 'quantity' => 1.2, 'unit' => 'serving',
+                    'nutrient_snapshot' => $recipe->planSnapshot(),
+                ]);
+            }
+        }
+        Intervention::factory()->create(['ncp_record_id' => $plan->intervention->ncp_record_id, 'energy_kcal' => 2400]);
+        $report = new Report([
+            'title' => 'Nutrition Intervention Plan — Portion layout check', 'type' => 'patient_menu_plan',
+            'parameters' => ['intervention_plan_id' => $plan->intervention->uuid], 'created_at' => '2026-10-16 08:00:00',
+        ]);
+        $generator = app(PatientMenuPlanGenerator::class);
+        $data = $generator->data($report);
+        $this->assertSame(1800.0, $data['prescription']['energy_kcal']);
+        $this->assertSame(['Breakfast', 'Lunch', 'Dinner'], $data['meals']);
+        $this->assertCount(10, $data['portion_details']);
+        $this->assertSame(500.0, $data['portion_details'][0]['foods'][0]['whole_quantity']);
+        $this->assertSame(120.0, $data['portion_details'][0]['foods'][0]['metric_amount']);
+        $built = app(ReportService::class)->buildPdf($report);
+        $this->assertStringStartsWith('%PDF-', $built['bytes']);
+        $this->assertLessThan(5, preg_match_all('~/Type\s*/Page\b~', $built['bytes']), 'Compact the dense cards without shrinking their text.');
+        if ($artifact = getenv('NUTRISCOPE_PDF_QA_PATH')) {
+            $this->assertSame(strlen($built['bytes']), file_put_contents($artifact, $built['bytes']));
+        }
+    }
+
+    public function test_actual_catalog_recipes_render_as_compact_portion_cards(): void
+    {
+        $plan = $this->makePlan();
+        $this->seed([FoodItemsSeeder::class, RecipeSeeder::class]);
+        $recipes = Recipe::with('ingredients.foodItem')->where('category', 'meal')->orderBy('id')->limit(10)->get();
+        $this->assertCount(10, $recipes);
+        foreach (['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as $index => $dayName) {
+            foreach (['breakfast', 'lunch', 'dinner'] as $slotIndex => $slot) {
+                $recipe = $recipes[($index * 3 + $slotIndex) % $recipes->count()];
+                $day = MealPlanDay::create(['meal_plan_id' => $plan->id, 'day_of_week' => $dayName, 'meal_type' => $slot]);
+                MealPlanItem::create([
+                    'meal_plan_day_id' => $day->id, 'recipe_id' => $recipe->id, 'quantity' => 1.2, 'unit' => 'serving',
+                    'nutrient_snapshot' => $recipe->planSnapshot(),
+                ]);
+            }
+        }
+        $built = app(ReportService::class)->buildPdf(new Report([
+            'title' => 'Nutrition Intervention Plan — Catalog layout check', 'type' => 'patient_menu_plan',
+            'parameters' => ['intervention_plan_id' => $plan->intervention->uuid], 'created_at' => '2026-10-16 08:00:00',
+        ]));
+        $this->assertStringStartsWith('%PDF-', $built['bytes']);
+        $this->assertLessThanOrEqual(2, preg_match_all('~/Type\s*/Page\b~', $built['bytes']));
+        if ($artifact = getenv('NUTRISCOPE_PDF_QA_PATH')) {
+            $this->assertSame(strlen($built['bytes']), file_put_contents(substr($artifact, 0, -4).'-realistic.pdf', $built['bytes']));
+        }
+    }
+
+    public function test_legacy_count_portion_never_invents_a_gram_equivalent_from_a_mass_baseline(): void
+    {
+        $plan = $this->makePlan();
+        $food = FoodItem::factory()->create(['name' => 'Legacy count food', 'serving_size' => 100, 'serving_unit' => 'g']);
+        $day = MealPlanDay::factory()->create(['meal_plan_id' => $plan->id]);
+        MealPlanItem::create([
+            'meal_plan_day_id' => $day->id, 'food_item_id' => $food->id, 'quantity' => 2, 'unit' => 'piece',
+            'nutrient_snapshot' => ['name' => 'Saved count food', 'serving_size' => 100, 'serving_unit' => 'g'],
+        ]);
+        $data = app(PatientMenuPlanGenerator::class)->data(new Report([
+            'type' => 'patient_menu_plan', 'parameters' => ['intervention_plan_id' => $plan->intervention->uuid],
+        ]));
+        $this->assertSame(2.0, $data['portion_details'][0]['foods'][0]['metric_amount']);
+        $this->assertSame('piece', $data['portion_details'][0]['foods'][0]['metric_unit']);
     }
 
     public function test_report_uses_patient_title_complete_guidance_and_short_maternal_note(): void
@@ -451,6 +636,29 @@ class PatientMenuPlanGeneratorTest extends TestCase
         $this->actingAs($user, 'sanctum')
             ->getJson('/api/rnd/reports/patient_menu_plan/render?intervention_plan_id='.$plan->uuid.'&ncp_record_id='.$otherCycle->uuid)
             ->assertForbidden();
+    }
+
+    public function test_report_rejects_a_meal_plan_from_a_different_selected_intervention(): void
+    {
+        $firstMenu = $this->makePlan();
+        $second = Intervention::factory()->create(['ncp_record_id' => $firstMenu->intervention->ncp_record_id]);
+        $secondMenu = MealPlan::factory()->create(['intervention_id' => $second->id, 'patient_id' => $firstMenu->patient_id]);
+        $query = '?intervention_plan_id='.$firstMenu->intervention->uuid.'&meal_plan_id='.$secondMenu->uuid;
+        $this->actingAs($firstMenu->intervention->ncpRecord->rnd, 'sanctum')
+            ->getJson('/api/rnd/reports/patient_menu_plan/render'.$query)->assertForbidden();
+        $this->postJson('/api/rnd/reports/patient_menu_plan/prepare'.$query)->assertForbidden();
+    }
+
+    public function test_checked_legacy_report_context_accepts_matching_public_identities(): void
+    {
+        $menu = $this->makePlan();
+        $ncp = $menu->intervention->ncpRecord;
+        $this->actingAs($ncp->rnd, 'sanctum')->get('/api/rnd/reports/patient_menu_plan/render?'.http_build_query([
+            'meal_plan_id' => $menu->uuid, 'patient_id' => $menu->patient->uuid, 'ncp_record_id' => $ncp->uuid,
+        ]))->assertStatus(409)->assertJsonPath('code', 'preparation_required');
+        $this->postJson('/api/rnd/reports/patient_menu_plan/prepare?'.http_build_query([
+            'meal_plan_id' => $menu->uuid, 'patient_id' => $menu->patient->uuid, 'ncp_record_id' => $ncp->uuid,
+        ]))->assertOk();
     }
 
     public function test_patient_report_feed_lists_every_saved_plan_with_plan_uuid_and_disables_missing_menu(): void

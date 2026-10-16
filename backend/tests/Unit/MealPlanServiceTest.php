@@ -212,6 +212,7 @@ class MealPlanServiceTest extends TestCase
             $carb->update(['total_calories' => 0]);
         } else {
             $carb->update(['total_calories' => 99999]);
+            $carb->ingredients()->firstOrFail()->foodItem->update(['calories' => 99999]);
         }
         $result = (new MealPlanService)->generate($ncp, now()->startOfWeek()->toDateString(), carbMenuItemId: $carb->uuid);
         $this->assertIsArray($result);
