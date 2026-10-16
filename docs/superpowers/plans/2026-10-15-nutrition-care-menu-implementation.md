@@ -156,9 +156,9 @@ Three active catalog Recipe Ingredient rows currently conflict with their Ingred
 
 **Files:** Modify `frontend/app/(rnd)/ncp/[patientId]/intervention/[ncpId]/page.tsx`, `MealPlanSection.tsx`, and related frontend tests. Modify intervention save API only if current response does not already return the new plan UUID.
 
-- [ ] Write failing flow tests: new intervention displays Weekly Meal Plan and Create Menu/Load Template/Auto-Generate; choosing an action retains it through saving required intervention fields; save returns selected plan ID and resumes the chosen menu action; validation failure preserves intervention and menu draft inputs.
-- [ ] Render the planner during new-plan composition with a short save prerequisite at the action point. Keep previous interventions visible/read-only and do not attach the new menu to the prior plan. Preserve the latest-plan editing guard.
-- [ ] Confirm one saved intervention can have only one weekly menu and a patient can have several interventions, each with its own menu.
+- [x] Write failing flow tests: new intervention displays Weekly Meal Plan and Create Menu/Load Template/Auto-Generate; choosing an action retains it through saving required intervention fields; save returns selected plan ID and resumes the chosen menu action; validation failure preserves intervention and menu draft inputs.
+- [x] Render the planner during new-plan composition with a short save prerequisite at the action point. Keep previous interventions visible/read-only and do not attach the new menu to the prior plan. Preserve the latest-plan editing guard.
+- [x] Confirm one saved intervention can have only one weekly menu and a patient can have several interventions, each with its own menu.
 
 ## Task 8: Saved-intervention reports and compact portions
 

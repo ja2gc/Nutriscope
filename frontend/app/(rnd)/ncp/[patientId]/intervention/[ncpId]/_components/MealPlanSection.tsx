@@ -31,6 +31,8 @@ const MEAL_TYPES = MENU_SLOTS.map(([key]) => key);
 interface Props {
   ncpId: string;
   interventionPlanId: string;
+  onSaveIntervention?: () => Promise<string | null>;
+  newlySavedInterventionId?: string | null;
   readOnly?: boolean;
   prescriptionTargets: { energy: number; protein: number; carbs: number; fat: number; fluid: number };
   foodDislikes?: string[];
@@ -60,7 +62,7 @@ function groupWeekItems(plan: MealPlan, items: MealPlanItem[]): Record<string, M
 }
 
 export default function MealPlanSection({
-  ncpId, interventionPlanId, readOnly = false, prescriptionTargets, foodDislikes = [], allergens = [],
+  ncpId, interventionPlanId, onSaveIntervention, newlySavedInterventionId, readOnly = false, prescriptionTargets, foodDislikes = [], allergens = [],
   displayedMicros = [], micronutrientLimits = {},
 }: Props) {
   const [plans, setPlans]               = useState<MealPlan[]>([]);
@@ -124,6 +126,9 @@ export default function MealPlanSection({
   const [templateWarning, setTemplateWarning]                   = useState<string | null>(null);
   const [templateDraft, setTemplateDraft] = useState<{ templateId: string; replacePlanId?: string; originalPlan: MealPlan | null; originalItems: Record<string, MealPlanItem[]> } | null>(null);
   const [savingWeek, setSavingWeek] = useState(false);
+  const [pendingMenuAction, setPendingMenuAction] = useState<'create' | 'template' | 'generate' | null>(null);
+  const [savingIntervention, setSavingIntervention] = useState(false);
+  const [loadedInterventionId, setLoadedInterventionId] = useState('');
   const [confirmTemplateLoad, setConfirmTemplateLoad] = useState<string | null>(null);
   const [scalingPlan, setScalingPlan]                           = useState(false);
   const [scaleNotice, setScaleNotice]                           = useState<string | null>(null);
@@ -176,6 +181,10 @@ export default function MealPlanSection({
   };
 
   const loadPlans = useCallback(async () => {
+    if (!interventionPlanId) {
+      setPlans([]); setActivePlan(null); setLoadingPlans(false);
+      return;
+    }
     const version = scopeVersion.current;
     setLoadingPlans(true);
     try {
@@ -184,6 +193,7 @@ export default function MealPlanSection({
       const ownedPlans = data.filter((plan) => plan.intervention_plan_id === interventionPlanId);
       setPlans(ownedPlans);
       setActivePlan(ownedPlans[0] ?? null);
+      setLoadedInterventionId(interventionPlanId);
     } catch (error) {
       if (version === scopeVersion.current) setGenerateError(error instanceof Error ? error.message : 'Could not load this weekly plan.');
     } finally { if (version === scopeVersion.current) setLoadingPlans(false); }
@@ -195,9 +205,10 @@ export default function MealPlanSection({
     setItemsByKey({});
     setFromTemplateOpen(false); setConfirmTemplateLoad(null); setCarbChoiceOpen(false);
     setCreatingPlan(false); setSavingWeek(false); setScalingPlan(false);
+    if (interventionPlanId && newlySavedInterventionId !== interventionPlanId) setPendingMenuAction(null);
     void loadPlans();
     return () => { scopeVersion.current = version + 1; };
-  }, [loadPlans]);
+  }, [loadPlans, interventionPlanId, newlySavedInterventionId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -218,22 +229,24 @@ export default function MealPlanSection({
     return () => { cancelled = true; };
   }, [activePlan, ncpId, templateDraft]);
 
-  const handleCreatePlan = async () => {
+  const handleCreatePlan = useCallback(async (savedInterventionId = interventionPlanId) => {
+    if (!savedInterventionId) return;
     setCreatingPlan(true);
     try {
       const d = new Date(); const day = d.getDay();
       d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
       const plan = await createMealPlan(ncpId, {
-        intervention_plan_id: interventionPlanId,
+        intervention_plan_id: savedInterventionId,
         week_start_date: d.toISOString().split('T')[0],
         generation_type: 'manual',
       });
       setPlans([plan]);
       setActivePlan(plan);
     } finally { setCreatingPlan(false); }
-  };
+  }, [interventionPlanId, ncpId]);
 
-  const handleGenerate = async (carb?: Recipe) => {
+  const handleGenerate = useCallback(async (carb?: Recipe, savedInterventionId = interventionPlanId) => {
+    if (!savedInterventionId) return;
     const missingTargets = [
       ['energy', prescriptionTargets.energy],
       ['protein', prescriptionTargets.protein],
@@ -258,7 +271,7 @@ export default function MealPlanSection({
       const d = new Date(); const day = d.getDay();
       d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
       const result = await generateMealPlan(ncpId, {
-        intervention_plan_id: interventionPlanId,
+        intervention_plan_id: savedInterventionId,
         week_start_date: d.toISOString().split('T')[0],
         allergens: allergens.length > 0 ? allergens : undefined,
         exclude_snacks: excludeSnacks,
@@ -274,7 +287,7 @@ export default function MealPlanSection({
     } catch (err) {
       setGenerateError(err instanceof Error ? err.message : 'Failed to generate meal plan. Please try again.');
     } finally { setGenerating(false); }
-  };
+  }, [allergens, excludeCarbs, excludeSnacks, interventionPlanId, ncpId, prescriptionTargets]);
 
   const handleSaveTemplate = async () => {
     if (!activePlan || !templateName.trim()) return;
@@ -284,6 +297,33 @@ export default function MealPlanSection({
       setTemplates((prev) => [saved, ...prev]);
       setSaveTemplateOpen(false); setTemplateName('');
     } finally { setSavingTemplate(false); }
+  };
+
+  const performMenuAction = useCallback(async (action: 'create' | 'template' | 'generate', savedInterventionId = interventionPlanId) => {
+    if (!savedInterventionId) {
+      setPendingMenuAction(action);
+      return;
+    }
+    if (action === 'create') await handleCreatePlan(savedInterventionId);
+    else if (action === 'template') setFromTemplateOpen(true);
+    else await handleGenerate(undefined, savedInterventionId);
+  }, [handleCreatePlan, handleGenerate, interventionPlanId]);
+
+  useEffect(() => {
+    if (!pendingMenuAction || !interventionPlanId || newlySavedInterventionId !== interventionPlanId || loadedInterventionId !== interventionPlanId || readOnly) return;
+    setPendingMenuAction(null);
+    void performMenuAction(pendingMenuAction).catch((error) => setGenerateError(error instanceof Error ? error.message : 'Could not continue. Try again.'));
+  }, [pendingMenuAction, interventionPlanId, newlySavedInterventionId, loadedInterventionId, readOnly, performMenuAction]);
+
+  const saveInterventionAndContinue = async () => {
+    if (!pendingMenuAction || !onSaveIntervention) return;
+    setSavingIntervention(true); setGenerateError(null);
+    try {
+      const savedId = await onSaveIntervention();
+      if (!savedId) return;
+    } catch (error) {
+      setGenerateError(error instanceof Error ? error.message : 'Could not continue. Try again.');
+    } finally { setSavingIntervention(false); }
   };
 
   const templateRequest = (scale = false) => {
@@ -589,8 +629,8 @@ export default function MealPlanSection({
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Weekly Meal Plan</h3>
         <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-          {!readOnly && templates.length > 0 && (
-            <button onClick={() => setFromTemplateOpen(true)} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap">
+          {!readOnly && (
+            <button onClick={() => void performMenuAction('template')} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap">
               <LayoutTemplate className="h-3 w-3" /> Load Template
             </button>
           )}
@@ -610,14 +650,22 @@ export default function MealPlanSection({
               {activePlan.scale_status === 'already_scaled' ? 'Already scaled' : 'Scale to prescription'}
             </button>
           )}
-          {!readOnly && !activePlan && <button onClick={() => void handleGenerate()} disabled={generating} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
+          {!readOnly && !activePlan && <button onClick={() => void performMenuAction('generate')} disabled={generating} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
             {generating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />} Auto-Generate
           </button>}
-          {!readOnly && !activePlan && <button onClick={handleCreatePlan} disabled={creatingPlan} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
+          {!readOnly && !activePlan && <button onClick={() => void performMenuAction('create')} disabled={creatingPlan} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
             {creatingPlan ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />} Create Menu
           </button>}
         </div>
       </div>
+
+      {!readOnly && pendingMenuAction && <div role="status" className="space-y-2 rounded-xl border border-warm-200 p-3">
+        <p className="text-sm text-warm-700">Save the intervention before continuing with this menu action.</p>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={() => setPendingMenuAction(null)} disabled={savingIntervention}>Cancel menu action</Button>
+          <Button variant="primary" onClick={() => void saveInterventionAndContinue()} loading={savingIntervention}>Save intervention and continue</Button>
+        </div>
+      </div>}
 
       {!readOnly && !activePlan && <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-warm-100 bg-warm-50/60 px-3 py-1.5">
         <span className="text-xs font-bold uppercase tracking-wider text-warm-400">Auto-generate</span>

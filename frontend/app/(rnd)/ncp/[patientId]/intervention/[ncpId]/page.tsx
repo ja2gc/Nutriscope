@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, use, useEffect, useState, useCallback } from "react";
+import React, { Suspense, use, useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { User, Lock } from "lucide-react";
@@ -142,6 +142,10 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
   const { patientId, ncpId } = use(params);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const localNavigation = useRef<{ ncpId: string; query: string } | null>(null);
+  const markLocalNavigation = (query: string) => {
+    localNavigation.current = searchParams.toString() === query ? null : { ncpId, query };
+  };
   const isPlaceholder = patientId === "select-patient" || ncpId === "select-ncp";
 
   const [tab, setTab]                           = useState<Tab>("plans");
@@ -152,6 +156,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
   const [plansLoading, setPlansLoading]         = useState(false);
   const [plansError, setPlansError]             = useState<string | null>(null);
   const [selectedPlanId, setSelectedPlanId]     = useState<string | null>(null);
+  const [newlySavedInterventionId, setNewlySavedInterventionId] = useState<string | null>(null);
   const [latestPlanId, setLatestPlanId]         = useState<string | null>(null);
   const [editorMode, setEditorMode]             = useState<"edit" | "readonly">("readonly");
   const [editorError, setEditorError]           = useState<string | null>(null);
@@ -200,6 +205,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
 
   const prepareNewPlan = useCallback(async (latest: Intervention | null) => {
     const draft = newPlanDraft(latest);
+    setNewlySavedInterventionId(null);
     applyIntervention(draft);
     setSelectedPlanId(null);
     setEditorMode("edit");
@@ -346,11 +352,17 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
   }, [ncpId, patientId]);
 
   useEffect(() => {
-    if (!isPlaceholder) {
-      loadPlans();
-      loadMetrics();
+    if (isPlaceholder) return;
+    if (localNavigation.current?.ncpId === ncpId) {
+      if (localNavigation.current.query === searchParams.toString()) localNavigation.current = null;
+      return;
     }
-  }, [isPlaceholder, loadPlans, loadMetrics]);
+    void loadPlans();
+  }, [isPlaceholder, loadPlans, ncpId, searchParams]);
+
+  useEffect(() => {
+    if (!isPlaceholder) void loadMetrics();
+  }, [isPlaceholder, loadMetrics]);
 
   const canLeavePatient = () => !dirty || window.confirm("You have unsaved changes. Leave without saving?");
   const handleChangePatient = () => {
@@ -404,15 +416,15 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
     }
   };
 
-  const savePlan = async () => {
+  const savePlan = async (): Promise<string | null> => {
     if (!intervention?.goal_type) {
       setEditorError("Select an intervention goal before saving.");
       setTab("nd");
-      return;
+      return null;
     }
     if (guidanceCharacters > INTERVENTION_GUIDANCE_TOTAL_MAX) {
       setEditorError(`Shorten education and counseling guidance by ${guidanceCharacters - INTERVENTION_GUIDANCE_TOTAL_MAX} characters before saving.`);
-      return;
+      return null;
     }
 
     setEditorError(null);
@@ -435,21 +447,30 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
       } as Partial<Intervention>);
       applyIntervention(created);
       setSelectedPlanId(created.id);
+      setNewlySavedInterventionId(created.id);
       setLatestPlanId(created.id);
       setEditorMode("readonly");
+      markLocalNavigation(`plan=${created.id}`);
       router.replace(`?plan=${created.id}`);
       setPlansPage(1);
-      const refreshed = await fetchInterventionPlans(ncpId, 1);
-      setPlans(refreshed.data);
-      setPlansMeta(refreshed.meta);
+      try {
+        const refreshed = await fetchInterventionPlans(ncpId, 1);
+        setPlans(refreshed.data);
+        setPlansMeta(refreshed.meta);
+      } catch {
+        setPlansError("The intervention was saved. Reload the Plans list to refresh it.");
+      }
+      return created.id;
     } catch (err) {
       setEditorError(err instanceof Error ? err.message : "Failed to save intervention plan.");
+      return null;
     } finally { setSaving(false); }
   };
 
   const startNewPlan = async () => {
     if (dirty && !window.confirm("Discard unsaved changes?")) return;
     setTab("nd");
+    markLocalNavigation("mode=new");
     router.push("?mode=new");
     try {
       await prepareNewPlan(await fetchIntervention(ncpId));
@@ -467,6 +488,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
       setSelectedPlanId(planId);
       setEditorMode("readonly");
       setTab("nd");
+      markLocalNavigation(`plan=${planId}`);
       router.push(`?plan=${planId}`);
     } catch (error) {
       setPlansError(error instanceof Error ? error.message : "Failed to load intervention plan.");
@@ -477,6 +499,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
 
   const cancelNewPlan = async () => {
     setEditorError(null);
+    setNewlySavedInterventionId(null);
     try {
       const latest = await fetchIntervention(ncpId);
       if (latest) {
@@ -484,11 +507,13 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
         setSelectedPlanId(latest.id);
         setLatestPlanId(latest.id);
         setEditorMode("readonly");
+        markLocalNavigation(`plan=${latest.id}`);
         router.replace(`?plan=${latest.id}`);
       } else {
         applyIntervention(null);
         setSelectedPlanId(null);
         setTab("plans");
+        markLocalNavigation("");
         router.replace("?");
       }
     } catch (error) {
@@ -673,11 +698,12 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
             )}
 
             {/* [D] Meal Plan */}
-            {selectedPlanId && (
               <MealPlanSection
                 ncpId={ncpId}
-                interventionPlanId={selectedPlanId}
-                readOnly={selectedPlanId !== latestPlanId}
+                interventionPlanId={selectedPlanId ?? ""}
+                newlySavedInterventionId={newlySavedInterventionId}
+                readOnly={editorMode !== "edit" && selectedPlanId !== latestPlanId}
+                onSaveIntervention={editorMode === "edit" ? savePlan : undefined}
                 prescriptionTargets={{
                   energy:   parseFloat(prescription.energy_kcal) || 0,
                   protein:  parseFloat(prescription.protein_g)   || 0,
@@ -691,7 +717,6 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
                 micronutrientLimits={prescription.micronutrient_limits}
                 interventionGoal={intervention?.goal_type}
               />
-            )}
           </div>
         )}
 

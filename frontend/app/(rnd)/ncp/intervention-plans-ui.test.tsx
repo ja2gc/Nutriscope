@@ -7,7 +7,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const routerPush = vi.fn();
-const searchParams = new URLSearchParams();
+let searchParams = new URLSearchParams();
+const plannerUnmount = vi.fn();
+const pageParams = Promise.resolve({ patientId: "patient-uuid", ncpId: "ncp-uuid" });
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 vi.mock("next/navigation", () => ({
@@ -164,7 +166,12 @@ vi.mock("@/services/monitoringService", () => ({
 }));
 
 vi.mock("./[patientId]/intervention/[ncpId]/_components/MealPlanSection", () => ({
-  default: () => <div data-testid="meal-plan-section" />,
+  default: function Planner({ interventionPlanId, readOnly, onSaveIntervention }: { interventionPlanId: string; readOnly: boolean; onSaveIntervention?: () => Promise<string | null> }) {
+    React.useEffect(() => () => { plannerUnmount(); }, []);
+    return <div data-testid="meal-plan-section" data-plan={interventionPlanId} data-readonly={String(readOnly)}>
+      {!interventionPlanId && <button onClick={() => void onSaveIntervention?.()}>Save intervention for menu</button>}
+    </div>;
+  },
 }));
 
 vi.mock("./_components/NcpPatientHeader", () => ({
@@ -181,6 +188,7 @@ describe("intervention plans workspace", () => {
   let root: Root;
 
   beforeEach(() => {
+    searchParams = new URLSearchParams();
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
@@ -196,7 +204,7 @@ describe("intervention plans workspace", () => {
     await act(async () => {
       root.render(
         <Suspense fallback={<div>Loading</div>}>
-          <InterventionPage params={Promise.resolve({ patientId: "patient-uuid", ncpId: "ncp-uuid" })} />
+          <InterventionPage params={pageParams} />
         </Suspense>,
       );
     });
@@ -240,7 +248,10 @@ describe("intervention plans workspace", () => {
 
     expect(routerPush).toHaveBeenCalledWith("?mode=new");
     expect(container.textContent).toContain("New Intervention Plan");
-    expect(container.querySelector('[data-testid="meal-plan-section"]')).toBeNull();
+    const planner = container.querySelector('[data-testid="meal-plan-section"]');
+    expect(planner).not.toBeNull();
+    expect(planner?.getAttribute('data-plan')).toBe('');
+    expect(planner?.getAttribute('data-readonly')).toBe('false');
 
     await clickButton("Education");
     expect((container.querySelector('textarea[aria-label="Education notes"]') as HTMLTextAreaElement).value)
@@ -285,5 +296,37 @@ describe("intervention plans workspace", () => {
     expect(routerPush).toHaveBeenCalledWith("?plan=saved-plan");
     expect(container.textContent).not.toContain("Save Intervention Plan");
     expect(container.querySelector('[data-testid="meal-plan-section"]')).not.toBeNull();
+  });
+
+  it("saves a new intervention for the pending menu action and exposes its returned identity", async () => {
+    await renderPage();
+    await clickButton("Create New Intervention Plan");
+    await clickButton("Save intervention for menu");
+    expect(interventionService.createIntervention).toHaveBeenCalledTimes(1);
+    expect(container.querySelector('[data-testid="meal-plan-section"]')?.getAttribute('data-plan')).toBe('saved-plan');
+    expect(container.querySelector('[data-testid="meal-plan-section"]')?.getAttribute('data-readonly')).toBe('false');
+  });
+
+  it("retains the new intervention and its visible planner when saving fails validation", async () => {
+    vi.mocked(interventionService.createIntervention).mockRejectedValueOnce(new Error('Complete the prescription.'));
+    await renderPage();
+    await clickButton('Create New Intervention Plan');
+    await clickButton('Save intervention for menu');
+    expect(container.textContent).toContain('Complete the prescription.');
+    expect(container.textContent).toContain('New Intervention Plan');
+    expect(container.querySelector('[data-testid="meal-plan-section"]')?.getAttribute('data-plan')).toBe('');
+    await clickButton('Education');
+    expect((container.querySelector('textarea[aria-label="Education notes"]') as HTMLTextAreaElement).value).toBe('Meal timing');
+  });
+
+  it("keeps the planner mounted when the saved plan URL catches up with local state", async () => {
+    await renderPage();
+    await clickButton('Create New Intervention Plan');
+    await clickButton('Save intervention for menu');
+    plannerUnmount.mockClear();
+    searchParams = new URLSearchParams('plan=saved-plan');
+    await renderPage();
+    expect(plannerUnmount).not.toHaveBeenCalled();
+    expect(container.querySelector('[data-testid="meal-plan-section"]')?.getAttribute('data-plan')).toBe('saved-plan');
   });
 });

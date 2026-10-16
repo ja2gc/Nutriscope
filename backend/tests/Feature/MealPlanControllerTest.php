@@ -395,6 +395,26 @@ class MealPlanControllerTest extends TestCase
         $response->assertJsonMissingPath('data.revision');
     }
 
+    public function test_each_saved_intervention_retains_its_own_single_weekly_menu(): void
+    {
+        [$ncpRecord, $first] = $this->makeInterventionWithNcpRecord();
+        $url = "/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans";
+        $firstMenu = $this->actingAs($this->rnd)->postJson($url, [
+            'intervention_plan_id' => $first->uuid, 'week_start_date' => '2026-10-05',
+        ])->assertCreated()->json('data.id');
+        $second = Intervention::factory()->create(['ncp_record_id' => $ncpRecord->id]);
+        $secondMenu = $this->postJson($url, [
+            'intervention_plan_id' => $second->uuid, 'week_start_date' => '2026-10-12',
+        ])->assertCreated()->json('data.id');
+        $this->assertNotSame($firstMenu, $secondMenu);
+        $this->postJson($url, [
+            'intervention_plan_id' => $second->uuid, 'week_start_date' => '2026-10-19',
+        ])->assertConflict();
+        $this->getJson("{$url}/{$firstMenu}")->assertOk()->assertJsonPath('data.intervention_plan_id', $first->uuid);
+        $this->getJson("{$url}/{$secondMenu}")->assertOk()->assertJsonPath('data.intervention_plan_id', $second->uuid);
+        $this->assertDatabaseCount('meal_plans', 2);
+    }
+
     public function test_second_meal_plan_for_same_intervention_returns_conflict(): void
     {
         [$ncpRecord, $intervention] = $this->makeInterventionWithNcpRecord();

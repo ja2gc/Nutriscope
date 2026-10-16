@@ -5,7 +5,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
 import MealPlanSection from "./MealPlanSection";
 import { fetchFoodItems, fetchRecipes, fetchRecipeById, searchUsda } from "@/services/foodLibraryService";
-import { addMealPlanItem, createPlanFromTemplate, fetchAllMealPlanItems, fetchMealPlanTemplate, fetchMealPlanTemplates, fetchMealPlans, generateMealPlan, updateMealPlanItem } from "@/services/mealPlanService";
+import { addMealPlanItem, createMealPlan, createPlanFromTemplate, fetchAllMealPlanItems, fetchMealPlanTemplate, fetchMealPlanTemplates, fetchMealPlans, generateMealPlan, updateMealPlanItem } from "@/services/mealPlanService";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -19,6 +19,7 @@ vi.mock("@/services/mealPlanService", async (importOriginal) => ({
   fetchMealPlanTemplates: vi.fn(async () => ({ data: [], meta: null })),
   fetchMealPlanTemplate: vi.fn(),
   createPlanFromTemplate: vi.fn(),
+  createMealPlan: vi.fn(async () => ({ id: "new-menu", intervention_plan_id: "new-intervention", week_start_date: "2026-10-12", generation_type: "manual", scale_status: "available", scaled_at: null, status: "draft", days: [] })),
   fetchAllMealPlanItems: vi.fn(async () => []),
   addMealPlanItem: vi.fn(async () => ({ id: "item-new", meal_plan_day_id: "day-1", recipe_id: "snack-1", quantity: "1", unit: "serving", source: "recipe", nutrient_snapshot: { name: "Fruit cup", calories: 80, protein: 1, carbs: 20, fat: 0, serving_size: 1, serving_unit: "serving", micronutrients: {} } })),
   updateMealPlanItem: vi.fn(async () => ({ id: "item-1", meal_plan_day_id: "day-1", recipe_id: "recipe-1", quantity: "1.5", unit: "serving", source: "recipe", nutrient_snapshot: { name: "Rice bowl", calories: 200, protein: 8, carbs: 35, fat: 4, serving_size: 1, serving_unit: "serving", micronutrients: {} } })),
@@ -48,6 +49,60 @@ async function renderEmptyPlanner(goal: string | null = null) {
   await act(async () => root.render(<MealPlanSection ncpId="ncp-1" interventionPlanId="intervention-1" interventionGoal={goal} prescriptionTargets={{ energy: 2000, protein: 75, carbs: 250, fat: 65, fluid: 2000 }} />));
   return { container, root };
 }
+
+it.each(['Create Menu', 'Load Template', 'Auto-Generate'])("retains %s through intervention save failure and resumes with the new UUID", async (action) => {
+  vi.mocked(fetchMealPlans).mockResolvedValueOnce([]);
+  const save = vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce('new-intervention');
+  function NewIntervention() {
+    const [id, setId] = React.useState('');
+    return <MealPlanSection ncpId="ncp-new" interventionPlanId={id} newlySavedInterventionId={id} prescriptionTargets={{ energy: 2000, protein: 75, carbs: 250, fat: 65, fluid: 2000 }}
+      onSaveIntervention={async () => { const savedId = await save(); if (savedId) setId(savedId); return savedId; }} />;
+  }
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container);
+  const button = (label: string) => Array.from(container.querySelectorAll('button')).find((row) => row.textContent?.trim() === label)!;
+  await act(async () => root.render(<NewIntervention />));
+  try {
+    expect(container.textContent).toContain('Weekly Meal Plan');
+    for (const label of ['Create Menu', 'Load Template', 'Auto-Generate']) expect(button(label)).toBeDefined();
+    expect(fetchMealPlans).not.toHaveBeenCalled();
+    const excludeSnacks = Array.from(container.querySelectorAll('label')).find((row) => row.textContent?.includes('Exclude snacks'))!.querySelector('input')!;
+    await act(async () => excludeSnacks.click());
+    await act(async () => button(action).click());
+    expect(container.textContent).toContain('Save the intervention before continuing');
+    expect(createMealPlan).not.toHaveBeenCalled(); expect(generateMealPlan).not.toHaveBeenCalled();
+    await act(async () => button('Save intervention and continue').click());
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(button('Save intervention and continue')).toBeDefined();
+    expect(excludeSnacks.checked).toBe(true);
+    await act(async () => button('Save intervention and continue').click());
+    expect(save).toHaveBeenCalledTimes(2);
+    if (action === 'Create Menu') expect(createMealPlan).toHaveBeenCalledWith('ncp-new', expect.objectContaining({ intervention_plan_id: 'new-intervention' }));
+    if (action === 'Load Template') expect(container.textContent).toContain('No templates saved yet.');
+    if (action === 'Auto-Generate') {
+      expect(container.textContent).toContain('Choose Carb Menu Item');
+      expect(generateMealPlan).not.toHaveBeenCalled();
+      expect(excludeSnacks.checked).toBe(true);
+    }
+  } finally { await act(async () => root.unmount()); }
+});
+
+it.each([true, false])("resumes after a normal intervention save but never after canceling to an existing intervention (%s)", async (saved) => {
+  vi.mocked(fetchMealPlans).mockResolvedValueOnce([]);
+  function Workspace() {
+    const [id, setId] = React.useState('');
+    return <><button onClick={() => setId(saved ? 'new-intervention' : 'previous-intervention')}>Finish intervention</button>
+      <MealPlanSection ncpId="ncp-new" interventionPlanId={id} newlySavedInterventionId={saved ? id : null} prescriptionTargets={{ energy: 2000, protein: 75, carbs: 250, fat: 65, fluid: 2000 }} />
+    </>;
+  }
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container);
+  await act(async () => root.render(<Workspace />));
+  try {
+    await act(async () => Array.from(container.querySelectorAll('button')).find((row) => row.textContent?.trim() === 'Create Menu')!.click());
+    await act(async () => Array.from(container.querySelectorAll('button')).find((row) => row.textContent === 'Finish intervention')!.click());
+    if (saved) expect(createMealPlan).toHaveBeenCalledWith('ncp-new', expect.objectContaining({ intervention_plan_id: 'new-intervention' }));
+    else expect(createMealPlan).not.toHaveBeenCalled();
+  } finally { await act(async () => root.unmount()); }
+});
 
 it("previews a template calendar and keeps the loaded baseline draft after a save failure", async () => {
   const header = { id: "template-1", name: "Measured week", description: null, goal_type: null, disease_stage: null, maternal_status: null, created_at: "2026-10-15" };
