@@ -137,9 +137,9 @@ Use this as both the recording checklist and narration script. Record with demo 
 
 **Expected result:** Allowed reports can be browsed and managed, while patient-specific report types remain inaccessible.
 
-## Scene 6 — Inspect the Budget Without Editing RND Records
+## Scene 6 — Manage the Budget and Review the Ledger
 
-**Purpose:** Review fiscal-year allocation, ledger entries, and activity in read-only mode.
+**Purpose:** Review fiscal-year allocation and ledger entries, then demonstrate the same budget setup and manual adjustment controls available to RND.
 
 **Before this scene:** Use a fiscal year with demo budget activity.
 
@@ -147,14 +147,14 @@ Use this as both the recording checklist and narration script. Record with demo 
 
 1. Open **Budget**.
 2. Select a fiscal year and review allocation, spending, and remaining balance.
-3. Open ledger entries and budget activity.
-4. Point out the absence of create-budget and manual-adjustment actions.
+3. Review PO deduction dates against the purchase orders' recorded completion dates; manual adjustments show their entry dates.
+4. In an approved demo year, use **Fiscal Year Setup** and record a clearly labeled **Manual Adjustment**. Confirm the new ledger entry, balance, and actor attribution. Existing ledger entries remain immutable.
 
 **Narration**
 
-> Admin can inspect budget status and history for oversight. Creating a fiscal-year budget and making manual ledger adjustments remain RND responsibilities.
+> Admin and RND share fiscal-year setup and manual ledger adjustment controls. Budget mutations are audited. The ledger shows recorded PO completion dates for purchase deductions and entry dates for manual adjustments. Clustered completion dates can reflect batch processing; displaying them does not invent a different historical completion date.
 
-**Expected result:** Budget totals, ledger, and activity are visible without Admin mutation controls.
+**Expected result:** Admin can set up a fiscal year and add audited adjustments; displayed dates and balances agree with the recorded procurement and ledger history.
 
 ## Scene 7 — Investigate Audit Logs Safely
 

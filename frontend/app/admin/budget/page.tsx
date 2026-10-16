@@ -6,7 +6,7 @@ export default function AdminBudgetPage() {
   return (
     <BudgetPageShell
       apiPrefix="admin"
-      canMutate={false}
+      canMutate={true}
       crumbs={[["Admin", "/admin/dashboard"], ["Budget"]]}
       homeHref="/admin/dashboard"
     />

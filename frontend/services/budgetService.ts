@@ -26,6 +26,7 @@ export interface BudgetLedgerEntry {
   created_by: string | null;
   actor: { id: string | null; kind: "user" | "system"; name: string };
   created_at: string | null;
+  entry_date?: string | null;
 }
 
 /** Ledger filter by reason source: system (PO deductions) or manual. */

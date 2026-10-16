@@ -11,6 +11,7 @@ use App\Models\ShoppingList;
 use App\Models\User;
 use App\Services\FSS\PurchaseOrderLifecycleService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Event;
 use Tests\TestCase;
 
@@ -161,6 +162,33 @@ class BudgetLedgerTest extends TestCase
     }
 
     // ── Ledger query endpoint ────────────────────────────────────────────────
+
+    public function test_ledger_uses_po_completion_dates_for_display_and_order_without_rewriting_creation_times(): void
+    {
+        $this->freezeSecond();
+        $po = PurchaseOrder::factory()->create([
+            'lifecycle_status' => 'completed', 'completed_at' => now()->subDays(6),
+        ]);
+        $deduction = BudgetLedger::create([
+            'fiscal_year' => 2026, 'type' => 'po_deduction', 'source' => 'system',
+            'amount' => 1000, 'purchase_order_id' => $po->id,
+        ]);
+        $manual = BudgetLedger::create([
+            'fiscal_year' => 2026, 'type' => 'manual_addition', 'source' => 'manual', 'amount' => 100,
+        ]);
+        $manual->forceFill(['created_at' => now()->subDay()])->save();
+        $admin = User::factory()->admin()->create();
+
+        foreach ([[$this->fss, 'fss'], [$this->rnd, 'fss'], [$admin, 'admin']] as [$user, $prefix]) {
+            $rows = $this->actingAs($user, 'sanctum')->getJson("/api/{$prefix}/budgets/ledger?fiscal_year=2026")
+                ->assertOk()->assertJsonPath('data.0.id', $manual->id)->assertJsonPath('data.1.id', $deduction->id)
+                ->json('data');
+            $this->assertTrue(Carbon::parse($rows[0]['entry_date'])->equalTo(now()->subDay()));
+            $this->assertTrue(Carbon::parse($rows[1]['entry_date'])->equalTo(now()->subDays(6)));
+        }
+        $this->assertTrue($deduction->refresh()->created_at->equalTo(now()));
+        $this->assertTrue($po->refresh()->completed_at->equalTo(now()->subDays(6)));
+    }
 
     public function test_ledger_endpoint_filters_by_fiscal_year(): void
     {

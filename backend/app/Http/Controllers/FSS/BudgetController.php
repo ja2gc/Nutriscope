@@ -43,7 +43,7 @@ class BudgetController extends Controller
         return response()->json(['data' => new BudgetResource($budget)]);
     }
 
-    /** RND sets up a new fiscal year allocation. Unique per year — enforced in DB. */
+    /** RND or Admin sets up a new fiscal year allocation. Unique per year — enforced in DB. */
     public function store(StoreBudgetRequest $request): JsonResponse
     {
         $validated = $request->validated();
@@ -123,14 +123,17 @@ class BudgetController extends Controller
 
         $year = (int) ($data['fiscal_year'] ?? now()->year);
 
-        $query = BudgetLedger::where('fiscal_year', $year)
+        $query = BudgetLedger::query()->where('budget_ledger.fiscal_year', $year)
+            ->leftJoin('purchase_orders', 'purchase_orders.id', '=', 'budget_ledger.purchase_order_id')
+            ->select('budget_ledger.*')
+            ->selectRaw("CASE WHEN budget_ledger.type = 'po_deduction' THEN COALESCE(purchase_orders.completed_at, budget_ledger.created_at) ELSE budget_ledger.created_at END AS entry_date")
             ->with(['purchaseOrder:id,po_number', 'creator:id,uuid,name,first_name,last_name'])
-            ->orderByDesc('created_at')
-            ->orderByDesc('id');
+            ->orderByDesc('entry_date')
+            ->orderByDesc('budget_ledger.id');
 
         $filter = $data['source'] ?? null;
         if ($filter && $filter !== 'all') {
-            $query->where('source', $filter);
+            $query->where('budget_ledger.source', $filter);
         }
 
         $entries = $query->paginate((int) ($data['per_page'] ?? 10))->withQueryString();
@@ -156,6 +159,7 @@ class BudgetController extends Controller
                 'name' => 'Budget ledger',
             ],
             'created_at' => $e->created_at?->toDateTimeString(),
+            'entry_date' => $e->entry_date?->toIso8601String(),
         ]);
 
         return response()->json([
@@ -169,7 +173,7 @@ class BudgetController extends Controller
         ]);
     }
 
-    /** RND logs a manual addition or deduction. Entries are immutable once created. */
+    /** RND or Admin logs a manual addition or deduction. Entries are immutable once created. */
     public function manualAdjust(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -248,6 +252,7 @@ class BudgetController extends Controller
                 'name' => Auth::user()?->display_name,
             ],
             'created_at' => $entry->created_at?->toDateTimeString(),
+            'entry_date' => $entry->created_at?->toIso8601String(),
         ]], 201);
     }
 }

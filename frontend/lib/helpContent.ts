@@ -438,7 +438,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Procurement & Budget",
     question: "Who can change the fiscal-year budget?",
-    answer: "RND can use the editable food-service budget workflow. Admin has oversight access but the Admin Budget page is read-only.",
+    answer: "RND and Admin can set up a fiscal-year budget and add manual ledger adjustments. FSS can read the shared budget. PO deductions use the purchase order's recorded completion date; manual adjustments use their recorded entry date.",
     keywords: ["ledger", "adjustment", "Admin"],
   },
   {
@@ -563,8 +563,8 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "Admin",
     category: "Budget & Reports",
     question: "What is Admin's Budget access?",
-    answer: "Admin Budget is read-only oversight. RND owns the editable fiscal-year food-service budget workflow and ledger adjustments.",
-    keywords: ["read only", "fiscal year", "ledger"],
+    answer: "Admin has the same fiscal-year setup and manual adjustment controls as RND. Budget changes are audited. PO deductions use the purchase order's recorded completion date; manual adjustments use their recorded entry date. Existing ledger entries remain immutable.",
+    keywords: ["setup", "adjustment", "fiscal year", "ledger", "completion date"],
   },
   {
     id: "admin-reports",

@@ -159,7 +159,7 @@ function SummarySection({ summary, notice }: {
   );
 }
 
-// ───── Manual Adjustment (RND only) ───────────────────────────────────────────
+// ───── Manual Adjustment (RND and Admin) ──────────────────────────────────────
 function ManualAdjustSection({ fiscalYear, onAdjusted, apiPrefix }: {
   fiscalYear: number; onAdjusted: () => void;
   apiPrefix: BudgetApiPrefix;
@@ -271,18 +271,21 @@ function LedgerSection({ entries, loading, filter, onFilter, meta, page, onPage 
               </tr>
             </thead>
             <tbody>
-              {entries.map((e) => (
-                <tr key={e.id} className="border-b border-warm-100 hover:bg-warm-50">
-                  <td className="py-2 px-3 text-warm-500">{e.created_at ? e.created_at.slice(0, 10) : "-"}</td>
-                  <td className="py-2 px-3">{TYPE_LABELS[e.type] ?? e.type}</td>
-                  <td className={`py-2 px-3 text-right font-bold ${e.signed_amount >= 0 ? "text-emerald-600" : "text-red-500"}`}>
-                    {e.signed_amount >= 0 ? "+" : "-"}{peso(Math.abs(e.signed_amount))}
-                  </td>
-                  <td className="py-2 px-3 text-warm-500">{e.reason ?? "-"}</td>
-                  <td className="py-2 px-3 text-warm-500">{e.reference ?? e.po_number ?? "-"}</td>
-                  <td className="py-2 px-3 text-warm-500">{e.actor.name}</td>
-                </tr>
-              ))}
+              {entries.map((e) => {
+                const entryDate = e.entry_date ?? e.created_at;
+                return (
+                  <tr key={e.id} className="border-b border-warm-100 hover:bg-warm-50">
+                    <td className="py-2 px-3 text-warm-500">{entryDate ? <AuditTimestamp value={entryDate} layout="stacked" /> : "-"}</td>
+                    <td className="py-2 px-3">{TYPE_LABELS[e.type] ?? e.type}</td>
+                    <td className={`py-2 px-3 text-right font-bold ${e.signed_amount >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                      {e.signed_amount >= 0 ? "+" : "-"}{peso(Math.abs(e.signed_amount))}
+                    </td>
+                    <td className="py-2 px-3 text-warm-500">{e.reason ?? "-"}</td>
+                    <td className="py-2 px-3 text-warm-500">{e.reference ?? e.po_number ?? "-"}</td>
+                    <td className="py-2 px-3 text-warm-500">{e.actor.name}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -306,7 +309,6 @@ export function BudgetPageShell({ apiPrefix, canMutate, crumbs }: BudgetPageShel
   const [loading, setLoading] = useState(true);
 
   const years = budgets.map((b) => b.fiscal_year).sort((a, b) => b - a);
-  const selectedBudget = budgets.find((budget) => budget.fiscal_year === selectedYear) ?? null;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -361,7 +363,7 @@ export function BudgetPageShell({ apiPrefix, canMutate, crumbs }: BudgetPageShel
           <div className="text-base text-warm-400 py-12 text-center">Loading...</div>
         ) : (
           <>
-            {/* Fiscal Year Setup - top of page (RND only) */}
+            {/* Fiscal Year Setup - top of page (RND and Admin) */}
             {canMutate && (
               <FiscalYearSetupSection
                 apiPrefix={apiPrefix}
@@ -373,23 +375,7 @@ export function BudgetPageShell({ apiPrefix, canMutate, crumbs }: BudgetPageShel
             {/* Three summary cards */}
             <SummarySection summary={summary} notice={notice} />
 
-            {selectedBudget && (
-              <div className="rounded-2xl border border-warm-200 bg-white p-5 shadow-sm">
-                <h2 className="text-sm font-extrabold uppercase tracking-wider text-warm-500">Budget record</h2>
-                <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
-                  <div>
-                    <dt className="text-xs font-bold uppercase tracking-wider text-warm-400">Created by</dt>
-                    <dd className="mt-1 font-semibold text-warm-800">{selectedBudget.creator?.name ?? "System"}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs font-bold uppercase tracking-wider text-warm-400">Created</dt>
-                    <dd className="mt-1 text-warm-700"><AuditTimestamp value={selectedBudget.created_at} /></dd>
-                  </div>
-                </dl>
-              </div>
-            )}
-
-            {/* Manual Adjust (RND only, only when budget exists) */}
+            {/* Manual Adjust (RND and Admin, only when budget exists) */}
             {canMutate && summary && (
               <ManualAdjustSection apiPrefix={apiPrefix} fiscalYear={selectedYear} onAdjusted={refresh} />
             )}

@@ -17,6 +17,7 @@ class BudgetLedger extends Model
     protected $casts = [
         'fiscal_year' => 'integer',
         'amount' => 'decimal:2',
+        'entry_date' => 'datetime',
     ];
 
     public function purchaseOrder(): BelongsTo

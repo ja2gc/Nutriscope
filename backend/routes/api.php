@@ -400,7 +400,8 @@ Route::middleware(['auth:sanctum', 'active', 'role:Admin'])->prefix('admin')->gr
     Route::get('budgets/summary', [BudgetController::class, 'summary']);
     Route::get('budgets/ledger', [BudgetController::class, 'ledger']);
     Route::get('budgets/{budget}/activity', [ActivityController::class, 'budget']);
-    Route::apiResource('budgets', BudgetController::class)->only(['index', 'show'])->names('admin.budgets');
+    Route::post('budgets/adjust', [BudgetController::class, 'manualAdjust']);
+    Route::apiResource('budgets', BudgetController::class)->only(['index', 'show', 'store'])->names('admin.budgets');
     Route::get('report-branding', [ReportBrandingController::class, 'show']);
     Route::get('report-branding/history', [ReportBrandingController::class, 'history']);
     Route::get('report-branding/history/{revision}/logo/{side}', [ReportBrandingController::class, 'historyLogo'])
