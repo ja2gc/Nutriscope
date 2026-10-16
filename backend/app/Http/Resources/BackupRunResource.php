@@ -13,7 +13,8 @@ class BackupRunResource extends JsonResource
         $isLatest = (bool) ($this->resource->is_latest_verified ?? false);
         $hasRecoveryRequest = (int) ($this->resource->pending_recovery_requests_count ?? 0) > 0;
         $isProtectedSafetySnapshot = $this->source->value === 'safety'
-            && $this->retention_expires_at?->isFuture() === true;
+            && ($this->retention_expires_at?->isFuture() === true
+                || (int) ($this->resource->pending_safety_snapshot_recoveries_count ?? 0) > 0);
 
         return [
             'id' => $this->uuid,
@@ -63,16 +64,14 @@ class BackupRunResource extends JsonResource
             return [$this->source->value];
         }
 
-        if ($this->resource->relationLoaded('schedulePeriods')) {
-            $categories = $this->schedulePeriods
+        if ($this->resource->relationLoaded('schedulePeriods') && $this->schedulePeriods->isNotEmpty()) {
+            return $this->schedulePeriods
+                ->filter(fn ($period): bool => $this->state !== BackupState::Completed || $period->expires_at->isFuture())
                 ->pluck('category.value')
                 ->unique()
                 ->sort()
                 ->values()
                 ->all();
-            if ($categories !== []) {
-                return $categories;
-            }
         }
 
         return $this->retention_tier === null ? [] : [$this->retention_tier->value];

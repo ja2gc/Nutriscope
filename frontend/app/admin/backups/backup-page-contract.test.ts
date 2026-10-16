@@ -45,7 +45,6 @@ describe("admin backup page contract", () => {
     expect(page).toContain('"weekly"');
     expect(page).toContain('"monthly"');
     expect(page).toContain('"manual"');
-    expect(list).not.toContain("backup.categories.map");
     expect(list).not.toContain("Kept until you delete it.");
     expect(list).toContain("Expires on");
     expect(list).not.toContain('completed: "Completed"');

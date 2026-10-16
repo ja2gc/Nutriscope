@@ -78,6 +78,11 @@ class BackupRun extends Model
         return $this->hasOne(RecoveryRequest::class)->latestOfMany();
     }
 
+    public function safetySnapshotRecoveries(): HasMany
+    {
+        return $this->hasMany(RecoveryRequest::class, 'safety_snapshot_backup_run_id');
+    }
+
     public function schedulePeriods(): HasMany
     {
         return $this->hasMany(BackupSchedulePeriod::class);
@@ -119,6 +124,10 @@ class BackupRun extends Model
         }
 
         if ($this->recoveryRequests()->whereNotIn('state', ['completed', 'failed', 'rolled_back', 'cancelled'])->exists()) {
+            return true;
+        }
+
+        if ($this->safetySnapshotRecoveries()->whereNotIn('state', ['completed', 'failed', 'rolled_back', 'cancelled'])->exists()) {
             return true;
         }
 

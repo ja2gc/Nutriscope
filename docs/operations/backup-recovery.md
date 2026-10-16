@@ -6,13 +6,13 @@ This guide is for an Admin using NutriScope. Raw archives, storage keys, databas
 
 Open **Administration > Backup & Recovery**. Daily, weekly, and monthly schedules are independent and **disabled by default**, so demo deployments create no automatic backups. Admin may enable any combination after storage, encryption, queue, scheduler, and lock readiness checks pass.
 
-- Daily keeps the latest **3 daily** restore points.
-- Weekly keeps the latest **2 weekly** restore points.
-- Monthly keeps the latest **3 monthly** restore points.
+- Daily backup coverage expires after **4 days**.
+- Weekly backup coverage expires after **14 days**.
+- Monthly backup coverage expires after **3 calendar months**.
 
 The target time is 01:30 Asia/Manila. Enabling a schedule does not create an immediate backup; the page shows its next due time. A coordinator runs every ten minutes and catches up the latest missing due period after downtime. When categories coincide, one archive and manifest satisfy all due categories. Repeated checks do nothing after the current period is satisfied. Disabling a schedule stops future runs only; existing restore points keep assigned retention. Disabling the final active schedule requires confirmation and every setting change is audited. When all are off, the page displays **Automatic backups are disabled.**
 
-Manual backups use the same encryption, manifest, protected-file, and verification pipeline. They do not satisfy an automatic period and remain available until an Admin deletes them. Manual creation and recovery remain separate from schedule toggles.
+Manual backups use the same encryption, manifest, protected-file, and verification pipeline. They do not satisfy an automatic period and remain available until an Admin deletes them. Manual creation and recovery remain separate from schedule toggles. Expiration applies to backup copies, not application records. Manually deleting a scheduled backup does not create a replacement for that period. Actual counts can be lower after deletions or missed runs.
 
 ## What a restore point contains
 
@@ -30,9 +30,9 @@ At least every 30 days, NutriScope restores the latest verified point into a dis
 
 ## Restore points and Recently Deleted
 
-- Primary views separate Restore points, Failed, and Recently deleted. Backup activity appears only while work is Queued, Creating, or Verifying. Type filters separate daily, weekly, monthly, manual, and Pre-restore points; one shared automatic archive appears under every schedule filter it satisfies.
+- Primary views separate Restore points, Failed, and Recently deleted. Backup activity appears only while work is Queued, Creating, or Verifying. Type filters separate daily, weekly, monthly, manual, and Pre-restore points; one shared automatic archive appears under every unexpired schedule filter it satisfies and stays available until its final expiration date. Recently deleted and failed views preserve historical schedule categories. Each row shows its type and public reference to distinguish backups created on the same date.
 - **Create backup now** creates a manual restore point with no automatic expiry.
-- **Delete** moves an eligible restore point to Recently deleted and starts a 48-hour recovery window. The latest verified point, an active restoration reference, and an unexpired Pre-restore backup do not expose Delete.
+- **Delete** moves an eligible restore point to Recently deleted and starts a 7-day recovery window. The latest verified point, an active restoration reference (including its Pre-restore copy), and an unexpired Pre-restore backup do not expose Delete.
 - Failed entries have no usable restore archive. Admins can remove them from the list after confirmation; the destructive audit event remains.
 - **Keep backup** rescues the archive and matching manifest/files; it does not restore application data.
 - **Delete permanently** removes a Recently deleted archive immediately after confirmation. Otherwise, expired Recently deleted items are purged automatically. Both paths remove protected file copies only when no remaining restore point references them.
@@ -53,7 +53,7 @@ Laravel queues the workflow:
 
 Statuses are Requested, Preparing, Checking, Ready, Switching, Completed, Failed, Rolled Back, and Cancelled. Admin may cancel before Switching. The DigitalOcean single-Droplet switcher works only with MySQL, local private-upload storage, Redis-backed shared maintenance mode, and the explicit `BACKUP_RESTORE_ENABLED` guard. Otherwise recovery stops safely at Ready. Failures or required intervention notify the initiating Admin and all recovery actions are audited.
 
-Restoration activity shows Queued, Preparing safety checks, Validating restore point, Ready to switch, or Restoring system. Finished restore points show whether they were used successfully or whether the attempt failed, was cancelled, or rolled back. Each attempt creates its own Pre-restore backup, even if a later step fails. It remains protected until the workflow reaches a terminal status, then for 48 hours. During that window it can support automatic rollback or another Admin-initiated whole-system restoration. There is no Technical Operator website role, review database, individual-record merge, arbitrary-row recovery, or universal Record Trash.
+Restoration activity shows Queued, Preparing safety checks, Validating restore point, Ready to switch, or Restoring system. Finished restore points show whether they were used successfully or whether the attempt failed, was cancelled, or rolled back. Each attempt creates its own Pre-restore backup, even if a later step fails. It remains protected until the workflow reaches a terminal status, then for 7 days, followed by the 7-day Recently deleted window. During protection it can support automatic rollback or another Admin-initiated whole-system restoration. There is no Technical Operator website role, review database, individual-record merge, arbitrary-row recovery, or universal Record Trash.
 
 ## Saved reports
 

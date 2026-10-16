@@ -69,7 +69,7 @@ class RecoveryRequest extends Model
         }
         $values = ['state' => $status];
         if ($status->terminal()) {
-            $values += ['terminal_at' => now(), 'resolved_at' => now(), 'safety_snapshot_expires_at' => now()->addHours(48)];
+            $values += ['terminal_at' => now(), 'resolved_at' => now(), 'safety_snapshot_expires_at' => now()->addHours(config('nutriscope-backups.safety_snapshot_hours'))];
         }
         $this->update($values);
         if ($status->terminal() && $this->safetySnapshot !== null) {

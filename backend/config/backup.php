@@ -58,8 +58,8 @@ return [
     'cleanup' => [
         'strategy' => DefaultStrategy::class,
         'default_strategy' => [
-            'keep_all_backups_for_days' => 3,
-            'keep_daily_backups_for_days' => 3,
+            'keep_all_backups_for_days' => 4,
+            'keep_daily_backups_for_days' => 4,
             'keep_weekly_backups_for_weeks' => 2,
             'keep_monthly_backups_for_months' => 3,
             'keep_yearly_backups_for_years' => 0,

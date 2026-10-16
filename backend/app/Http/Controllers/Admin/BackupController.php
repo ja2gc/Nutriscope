@@ -41,7 +41,10 @@ class BackupController extends Controller
             $request->category(),
         )
             ->with(['manifest', 'latestRecoveryRequest', 'schedulePeriods'])
-            ->withCount(['recoveryRequests as pending_recovery_requests_count' => fn (Builder $query) => $query->whereNotIn('state', ['completed', 'failed', 'rolled_back', 'cancelled'])])
+            ->withCount([
+                'recoveryRequests as pending_recovery_requests_count' => fn (Builder $query) => $query->whereNotIn('state', ['completed', 'failed', 'rolled_back', 'cancelled']),
+                'safetySnapshotRecoveries as pending_safety_snapshot_recoveries_count' => fn (Builder $query) => $query->whereNotIn('state', ['completed', 'failed', 'rolled_back', 'cancelled']),
+            ])
             ->latest('id')
             ->paginate($request->perPage())
             ->withQueryString()
@@ -109,7 +112,7 @@ class BackupController extends Controller
             'recoverable_until' => null,
             'retention_expires_at' => match ($backupRun->source) {
                 BackupSource::Manual => null,
-                BackupSource::Safety => now()->addHours(48),
+                BackupSource::Safety => now()->addHours(config('nutriscope-backups.safety_snapshot_hours')),
                 BackupSource::Automatic => $backupRun->schedulePeriods()->max('expires_at'),
             },
         ]);
@@ -189,8 +192,14 @@ class BackupController extends Controller
         $tier = BackupRetentionTier::from($category);
 
         return $query->where('source', BackupSource::Automatic)->where(function (Builder $query) use ($tier): void {
-            $query->whereHas('schedulePeriods', fn (Builder $periods): Builder => $periods->where('category', $tier))
-                ->orWhere('retention_tier', $tier);
+            $query->whereHas('schedulePeriods', fn (Builder $periods): Builder => $periods
+                ->where('category', $tier)
+                ->where(fn (Builder $periods): Builder => $periods
+                    ->where('expires_at', '>', now())
+                    ->orWhere('backup_runs.state', '!=', BackupState::Completed)))
+                ->orWhere(fn (Builder $legacy): Builder => $legacy
+                    ->whereDoesntHave('schedulePeriods')
+                    ->where('retention_tier', $tier));
         });
     }
 

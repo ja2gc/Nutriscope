@@ -20,8 +20,8 @@ Use this as both the recording checklist and narration script. Record with demo 
 - **RND:** Registered Nutritionist-Dietitian role responsible for clinical nutrition care and food-service planning.
 - **FSS:** Food Service Staff role responsible for mobile food-service execution.
 - **Restore point:** Verified whole-system backup listed on **Backup & Recovery**.
-- **Recently deleted:** Recoverable backup archive awaiting permanent deletion after 48 hours.
-- **Pre-restore backup:** Protected whole-system safety snapshot created before each restoration attempt, retained for rollback and for 48 hours after the attempt finishes.
+- **Recently deleted:** Recoverable backup archive awaiting permanent deletion after 7 days.
+- **Pre-restore backup:** Protected whole-system safety snapshot created before each restoration attempt, retained for rollback and for 7 days after the attempt finishes, followed by the 7-day Recently deleted window.
 
 ## Recording Setup
 
@@ -189,14 +189,14 @@ Use this as both the recording checklist and narration script. Record with demo 
 2. Point out the independent Daily, Weekly, and Monthly toggles, fixed retention counts, and next Asia/Manila run for each enabled schedule.
 3. Use **Restore points**, **Failed**, and **Recently deleted** to show the primary views. Use **All** to include failed attempts whose schedule period was cleared for retry, then use the wrapping Daily, Weekly, Monthly, Manual, and Pre-restore filters and pagination. Explain that one automatic archive may appear under several schedule filters when it satisfies coinciding schedules.
 4. In configured staging, select **Create backup now**, then show the conditional **Backup activity** panel moving through Queued, Creating, and Verifying before the result appears in Restore points. Confirm the Manual filter shows the point without an automatic expiry date.
-5. Show an automatic point's **Expires on** date. Show that a protected Pre-restore row has no Delete action. Move an older eligible demo point with **Delete**, show its 48-hour Recently deleted deadline, then select **Keep backup**.
+5. Show an automatic point's type, backup reference, and **Expires on** date. The schedule cards show expiration after 4 days for Daily, 14 days for Weekly, and 3 calendar months for Monthly; only unexpired schedule memberships count in Restore points. Show that a protected Pre-restore row has no Delete action. Move an older eligible demo point with **Delete**, show its 7-day Recently deleted deadline, then select **Keep backup**. An intentional deletion does not create a replacement for the same scheduled period.
 6. Open one failed attempt, review its safe message, open the delete confirmation, and cancel. If the staging record is disposable, remove it and confirm the audit event remains.
 7. Open **Restore** for an eligible backup and review the newer-data loss warning, fresh-authentication requirement, and exact confirmation phrase. Cancel before switching unless this is an approved recovery drill.
 8. Explain that **Restoration activity** shows the current stage and that a real restoration creates one Pre-restore backup, restores one temporary MySQL database, verifies matching uploaded files, enters shared maintenance mode only when ready and explicitly enabled, performs health checks, and automatically restores the Pre-restore backup on failure. Separate attempts create separate protected copies.
 
 **Narration**
 
-> Automatic schedules are off by default. Daily, weekly, and monthly schedules can be enabled independently only after readiness checks pass. One archive can satisfy coinciding schedule categories, and current-period idempotency prevents repeated scheduler checks from creating duplicates. Manual backups use the same encrypted, verified pipeline and have no automatic expiry. Delete moves an eligible point to Recently deleted for 48 hours. Whole-system recovery is staged outside the browser request, validates one temporary database and matching files first, and keeps a Pre-restore backup for rollback. On the selected single-Droplet deployment, switching remains gated by Redis maintenance mode, storage, recovery-test, and explicit restore-enable checks. Backup archives and credentials are never sent to the browser.
+> Automatic schedules are off by default. Daily, weekly, and monthly schedules can be enabled independently only after readiness checks pass. One archive can satisfy coinciding schedule categories and stays available until its last expiration date; current-period idempotency prevents repeated scheduler checks from creating duplicates. Manual backups use the same encrypted, verified pipeline and have no automatic expiry. Expiration concerns backup copies, not application records. Delete moves an eligible point to Recently deleted for 7 days. Whole-system recovery is staged outside the browser request, validates one temporary database and matching files first, and protects a Pre-restore backup throughout processing and for 7 days afterward. On the selected single-Droplet deployment, switching remains gated by Redis maintenance mode, storage, recovery-test, and explicit restore-enable checks. Backup archives and credentials are never sent to the browser.
 
 **Expected result:** Admin understands schedule state, primary views, type filters, conditional activity, expiry, pagination, failure cleanup, Recently deleted, idempotency, and guarded whole-system recovery without exposing secrets or changing production.
 

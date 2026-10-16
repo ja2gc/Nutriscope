@@ -6,7 +6,8 @@ return [
     'timezone' => env('BACKUP_TIMEZONE', 'Asia/Manila'),
     'scheduler_heartbeat_key' => 'nutriscope:backups:scheduler-heartbeat',
     'multiple_instances' => (bool) env('APP_MULTIPLE_INSTANCES', false),
-    'recoverable_hours' => 48,
+    'recoverable_hours' => 168,
+    'safety_snapshot_hours' => 168,
     'manual_rate_limit_per_hour' => 2,
     'alert_email' => env('BACKUP_ALERT_EMAIL'),
     'mysql_binary' => env('MYSQL_BINARY', 'mysql'),
@@ -27,7 +28,7 @@ return [
         'recovery_tests',
     ],
     'retention' => [
-        'daily' => 3,
+        'daily' => 4,
         'weekly' => 2,
         'monthly' => 3,
     ],

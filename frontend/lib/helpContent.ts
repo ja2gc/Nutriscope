@@ -595,7 +595,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "Admin",
     category: "Backup & Recovery",
     question: "How long are restore points kept, and what does Delete do?",
-    answer: "Automatic retention keeps the latest 3 daily, 2 weekly, and 3 monthly restore points. Manual points have no automatic expiry. Delete first moves an eligible point to Recently deleted for 48 hours. Keep backup returns it to Restore points; Delete permanently or expiry removes the archive when no active restoration protects it. Pre-restore backups remain protected for 48 hours after restoration finishes.",
+    answer: "Daily backup coverage expires after 4 days, Weekly after 14 days, and Monthly after 3 calendar months. One automatic backup can cover several schedules and stays available until its last expiration date; only unexpired schedules count in Restore points. Manual backups have no automatic expiration. Expiration applies to backup copies, not application records, and deleting a scheduled backup does not create a replacement. Delete first moves an eligible backup to Recently deleted for 7 days. Keep backup returns it to Restore points with its original expiration; Delete permanently or expiry removes the archive when no active restoration protects it. Pre-restore backups remain protected throughout restoration and for 7 days after it finishes, followed by the 7-day Recently deleted window.",
     keywords: ["expires", "recently deleted", "keep backup", "delete permanently", "manual", "pre-restore", "safety snapshot"],
   },
   {
@@ -603,7 +603,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "Admin",
     category: "Backup & Recovery",
     question: "What do the backup views, activity stages, and types mean?",
-    answer: "Restore points contains verified backups that can be used for restoration. Failed contains attempts that produced no usable backup. Recently deleted holds eligible deleted backups for 48 hours. Backup activity appears only while work is Queued, Creating, or Verifying. Daily, Weekly, and Monthly identify automatic retention schedules; Manual identifies Admin-created backups; Pre-restore identifies a protected backup made immediately before each restoration attempt. Restoration activity can show Queued, Preparing safety checks, Validating restore point, Ready to switch, or Restoring system. Restoration history explains whether a restore completed, failed, was cancelled, or rolled back.",
+    answer: "Restore points contains verified backups that can be used for restoration. Failed contains attempts that produced no usable backup. Recently deleted holds eligible deleted backups for 7 days. Backup activity appears only while work is Queued, Creating, or Verifying. Daily, Weekly, and Monthly identify automatic schedules that can share one backup; Manual identifies a separate Admin-created backup; Pre-restore identifies a protected backup made immediately before each restoration attempt. Type labels and backup references distinguish records created on the same date. Restoration activity can show Queued, Preparing safety checks, Validating restore point, Ready to switch, or Restoring system. Restoration history explains whether a restore completed, failed, was cancelled, or rolled back.",
     keywords: ["status", "queued", "creating", "verifying", "preparing", "validating", "ready to switch", "restoring system", "restore points", "failed", "recently deleted", "daily", "weekly", "monthly", "manual", "pre-restore", "safety snapshot", "rolled back"],
   },
   {
@@ -611,7 +611,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "Admin",
     category: "Backup & Recovery",
     question: "What happens when Admin restores the whole system?",
-    answer: "Restore requires the current password and exact confirmation phrase. A queued job creates and verifies a pre-restore backup (the recovery safety snapshot), restores the selected archive into one temporary MySQL database, validates the database and matching private files, and only then enters maintenance mode to switch application data. Newer records are replaced rather than merged. A successful switch signs users out, removes the temporary database, preserves backup and audit history, and keeps the pre-restore backup for 48 hours. A failure leaves production unchanged or automatically rolls it back.",
+    answer: "Restore requires the current password and exact confirmation phrase. A queued job creates and verifies a pre-restore backup (the recovery safety snapshot), restores the selected archive into one temporary MySQL database, validates the database and matching private files, and only then enters maintenance mode to switch application data. Newer records are replaced rather than merged. A successful switch signs users out, removes the temporary database, preserves backup and audit history, and protects the pre-restore backup for 7 days after restoration finishes. A failure leaves production unchanged or automatically rolls it back.",
     keywords: ["whole system", "temporary database", "pre-restore", "safety snapshot", "signed out", "rollback", "maintenance"],
   },
 ];

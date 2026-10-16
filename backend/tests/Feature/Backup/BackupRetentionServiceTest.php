@@ -20,11 +20,11 @@ class BackupRetentionServiceTest extends TestCase
     use RefreshDatabase;
 
     #[Test]
-    public function it_keeps_three_days_two_weeks_and_three_months_without_duplicate_objects(): void
+    public function it_keeps_four_days_two_weeks_and_three_months_without_duplicate_objects(): void
     {
         Carbon::setTestNow('2026-07-31 03:00:00');
         $dates = [
-            '2026-07-31', '2026-07-30', '2026-07-29',
+            '2026-07-31', '2026-07-30', '2026-07-29', '2026-07-28',
             '2026-07-20', '2026-07-13',
             '2026-06-20', '2026-05-20', '2026-04-20',
             '2026-03-20',
@@ -39,11 +39,11 @@ class BackupRetentionServiceTest extends TestCase
 
         app(BackupRetentionService::class)->apply();
 
-        $this->assertSame(3, BackupRun::where('retention_tier', BackupRetentionTier::Daily)->count());
+        $this->assertSame(4, BackupRun::where('retention_tier', BackupRetentionTier::Daily)->count());
         $this->assertSame(2, BackupRun::where('retention_tier', BackupRetentionTier::Weekly)->count());
         $this->assertSame(3, BackupRun::where('retention_tier', BackupRetentionTier::Monthly)->count());
         $this->assertSame(1, BackupRun::where('state', BackupState::RecentlyDeleted)->count());
-        $this->assertSame(8, BackupRun::where('state', BackupState::Completed)->distinct('object_key')->count());
+        $this->assertSame(9, BackupRun::where('state', BackupState::Completed)->distinct('object_key')->count());
     }
 
     #[Test]

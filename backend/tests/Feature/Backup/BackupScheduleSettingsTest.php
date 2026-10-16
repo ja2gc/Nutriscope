@@ -210,6 +210,51 @@ class BackupScheduleSettingsTest extends TestCase
         Queue::assertPushed(CreateDatabaseBackup::class, 1);
     }
 
+    #[Test]
+    public function schedule_expirations_use_four_days_two_weeks_and_three_months_in_manila(): void
+    {
+        Queue::fake();
+        config(['app.timezone' => 'UTC']);
+        $previousTimezone = date_default_timezone_get();
+        date_default_timezone_set('UTC');
+        Carbon::setTestNow(Carbon::parse('2027-08-01 02:00:00', 'Asia/Manila'));
+        BackupScheduleSetting::current()->update(['daily' => true, 'weekly' => true, 'monthly' => true]);
+
+        try {
+            $backup = app(DispatchDueBackups::class)->handle(now('Asia/Manila')->toImmutable());
+            $periods = $backup->schedulePeriods()->get()->keyBy(fn ($period) => $period->category->value);
+
+            $this->assertTrue($periods['daily']->expires_at->equalTo(Carbon::parse('2027-08-05 01:30:00', 'Asia/Manila')));
+            $this->assertTrue($periods['weekly']->expires_at->equalTo(Carbon::parse('2027-08-15 01:30:00', 'Asia/Manila')));
+            $this->assertTrue($periods['monthly']->expires_at->equalTo(Carbon::parse('2027-11-01 01:30:00', 'Asia/Manila')));
+        } finally {
+            date_default_timezone_set($previousTimezone);
+        }
+    }
+
+    #[Test]
+    public function intentionally_deleted_scheduled_backups_are_not_regenerated_for_the_same_period(): void
+    {
+        Queue::fake();
+        Carbon::setTestNow(Carbon::parse('2027-08-01 02:00:00', 'Asia/Manila'));
+        BackupScheduleSetting::current()->update(['daily' => true]);
+        $admin = User::factory()->admin()->create();
+        $backup = BackupRun::factory()->completed()->create(['verified_at' => now()->subHour()]);
+        $backup->schedulePeriods()->create([
+            'category' => 'daily', 'period_key' => '2027-08-01', 'expires_at' => now()->addDays(4),
+        ]);
+        BackupRun::factory()->completed()->create(['source' => BackupSource::Manual]);
+
+        $this->actingAs($admin, 'sanctum')->deleteJson("/api/admin/backups/{$backup->uuid}")->assertOk();
+        $this->assertNull(app(DispatchDueBackups::class)->handle(now('Asia/Manila')->toImmutable()));
+        $this->deleteJson("/api/admin/backups/{$backup->uuid}")->assertOk();
+
+        $this->assertNull(app(DispatchDueBackups::class)->handle(now('Asia/Manila')->toImmutable()));
+        $this->assertSame(2, BackupRun::query()->count());
+        $this->assertDatabaseHas('backup_schedule_periods', ['backup_run_id' => $backup->id, 'period_key' => '2027-08-01']);
+        Queue::assertNotPushed(CreateDatabaseBackup::class);
+    }
+
     private function ready(): void
     {
         $this->mock(BackupReadiness::class, function (MockInterface $mock): void {

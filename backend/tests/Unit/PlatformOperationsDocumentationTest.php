@@ -18,7 +18,7 @@ class PlatformOperationsDocumentationTest extends TestCase
             $this->assertStringContainsString($requirement, $requirements);
         }
 
-        foreach (['disabled by default', '3 daily', '2 weekly', '3 monthly', '48 hours', 'Recently Deleted', 'temporary MySQL', 'non-mutating', 'safety snapshot', 'prepared bytes'] as $requirement) {
+        foreach (['disabled by default', '4 days', '14 days', '3 calendar months', '7-day', 'Recently Deleted', 'temporary MySQL', 'non-mutating', 'safety snapshot', 'prepared bytes'] as $requirement) {
             $this->assertStringContainsString($requirement, $recovery);
         }
 

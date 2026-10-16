@@ -4,7 +4,8 @@ import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import BackupsPage from "./page";
-import { getBackupSchedules, listBackups } from "@/services/backupService";
+import { getBackupSchedules, keepBackup, listBackups } from "@/services/backupService";
+import type { BackupRunDto } from "@/types/backup";
 
 vi.mock("@/services/backupService", () => ({
   listBackups: vi.fn(), getBackupSchedules: vi.fn(), createBackup: vi.fn(),
@@ -13,7 +14,12 @@ vi.mock("@/services/backupService", () => ({
 }));
 
 vi.mock("@/components/backups/BackupList", () => ({
-  BackupList: ({ backups }: { backups: Array<{ id: string }> }) => <div data-testid="backup-list">{backups.map((backup) => backup.id).join(",")}</div>,
+  BackupList: ({ backups, section, onKeep }: { backups: BackupRunDto[]; section: string; onKeep: (backup: BackupRunDto) => void }) => (
+    <div data-testid="backup-list">
+      {backups.map((backup) => backup.id).join(",")}
+      {section === "recently_deleted" && backups.map((backup) => <button key={backup.id} onClick={() => onKeep(backup)}>Keep backup</button>)}
+    </div>
+  ),
 }));
 vi.mock("@/components/backups/BackupStatusSummary", () => ({ BackupStatusSummary: () => <div>Backup status</div> }));
 vi.mock("@/components/backups/BackupScheduleSettings", () => ({ BackupScheduleSettings: () => <div>Schedule settings</div> }));
@@ -132,5 +138,49 @@ describe("backup page loading", () => {
     await act(async () => { await Promise.resolve(); });
 
     expect(container.textContent).toContain("failed-without-period");
+  });
+
+  it("keeps the current type filter when an earlier Keep backup action finishes", async () => {
+    const deleted: BackupRunDto = {
+      id: "deleted-manual", state: "recently_deleted", source: "manual", categories: ["manual"],
+      size_bytes: 1024, encrypted: true, retention_tier: null, retention_expires_at: null,
+      retention_is_active: false, queued_at: "2026-10-10T03:23:50Z", started_at: "2026-10-10T03:23:51Z",
+      verified_at: "2026-10-10T03:24:22Z", recoverable_until: "2026-10-18T00:00:00Z", failure: null,
+      recovery: null, actions: { can_delete: false, can_purge: true, can_keep: true, can_request_recovery: false },
+    };
+    const daily: BackupRunDto = { ...deleted, id: "daily-point", state: "completed", source: "automatic", categories: ["daily"], recoverable_until: null };
+    let finishKeep!: (value: BackupRunDto) => void;
+    const keepRequest = new Promise<BackupRunDto>((resolve) => { finishKeep = resolve; });
+    let kept = false;
+    vi.mocked(keepBackup).mockReturnValue(keepRequest);
+    vi.mocked(listBackups).mockImplementation(async (_page, section, category) => ({
+      ...list,
+      data: section === "in_progress" ? [] : section === "recently_deleted" ? (kept ? [] : [deleted]) : category === "daily" ? [daily] : [daily, deleted],
+    }) as never);
+    vi.mocked(getBackupSchedules).mockResolvedValue({
+      daily: { enabled: false, next_at: null }, weekly: { enabled: false, next_at: null },
+      monthly: { enabled: false, next_at: null }, message: null,
+    });
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    await act(async () => { root.render(<BackupsPage />); });
+    const click = async (label: string) => {
+      const button = Array.from(container.querySelectorAll("button")).find((item) => item.textContent?.startsWith(label));
+      expect(button).toBeDefined();
+      await act(async () => { button!.click(); });
+    };
+
+    await click("Recently deleted (");
+    await click("Keep backup");
+    await click("Restore points (");
+    await click("Daily (");
+    expect(container.querySelector('[data-testid="backup-list"]')?.textContent).toBe("daily-point");
+
+    kept = true;
+    await act(async () => { finishKeep({ ...deleted, state: "completed", recoverable_until: null }); });
+
+    expect(container.querySelector('[aria-pressed="true"]')?.textContent).toMatch(/^Daily /);
+    expect(container.querySelector('[data-testid="backup-list"]')?.textContent).toBe("daily-point");
   });
 });

@@ -36,10 +36,7 @@ class DispatchDueBackups
                 BackupSchedulePeriod::query()
                     ->where('category', $category)
                     ->where('period_key', $this->periodKey(BackupRetentionTier::from($category), $target))
-                    ->whereHas('backupRun', fn ($query) => $query->whereIn('state', [
-                        BackupState::Failed,
-                        BackupState::Purged,
-                    ]))
+                    ->whereHas('backupRun', fn ($query) => $query->where('state', BackupState::Failed))
                     ->delete();
             });
             $missing = $due->reject(fn (CarbonImmutable $target, string $category): bool => BackupSchedulePeriod::query()

@@ -128,6 +128,8 @@ export default function BackupsPage() {
     }
   }, [category, page, section]);
 
+  const currentLoad = useRef(load);
+  useEffect(() => { currentLoad.current = load; }, [load]);
   useEffect(() => { void load(); }, [load]);
 
   const activeRecovery = data?.summary.active_recovery ?? null;
@@ -142,7 +144,7 @@ export default function BackupsPage() {
 
   const refreshAfter = async (success: string) => {
     setMessage(success);
-    await load(true);
+    await currentLoad.current(true);
   };
 
   const create = async () => {
@@ -152,7 +154,7 @@ export default function BackupsPage() {
       const queued = await createBackup();
       setActiveBackups([queued]);
       setMessage("Backup queued. Status will update automatically.");
-      void load(true);
+      void currentLoad.current(true);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Backup could not be queued.");
     } finally {
@@ -172,7 +174,7 @@ export default function BackupsPage() {
         ? "Backup permanently deleted."
         : failed
           ? "Failed backup record deleted."
-          : "Backup moved to Recently Deleted. You have 48 hours to keep it.");
+          : "Backup moved to Recently Deleted. You have 7 days to keep it.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Backup could not be deleted.");
     } finally {
@@ -210,7 +212,7 @@ export default function BackupsPage() {
     setBusyId(recoveryId);
     try {
       await cancelRecovery(recoveryId);
-      await refreshAfter("Restoration cancelled. Its pre-restore backup remains protected for 48 hours.");
+      await refreshAfter("Restoration cancelled. Its pre-restore backup remains protected for 7 days.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Restoration could not be cancelled.");
     } finally {
@@ -383,7 +385,7 @@ export default function BackupsPage() {
           ? "This removes the failed entry from this list. No usable backup archive exists. The audit event remains."
           : deleting?.state === "recently_deleted"
             ? "This permanently deletes the archive and its unreferenced protected-file copies. This cannot be undone."
-            : "This backup will move to Recently Deleted for 48 hours. The latest verified backup and protected pre-restore backups cannot be deleted."}
+            : "This backup will move to Recently Deleted for 7 days. The latest verified backup and protected pre-restore backups cannot be deleted."}
         confirmLabel={deleting?.state === "failed" ? "Delete failed record" : deleting?.state === "recently_deleted" ? "Delete permanently" : "Delete backup"}
         loading={busyId !== null}
         onClose={() => setDeleting(null)}

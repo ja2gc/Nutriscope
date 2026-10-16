@@ -136,9 +136,9 @@ class BackupRetentionService
     {
         $backups->each(function (BackupRun $backup) use ($tier): void {
             $expiresAt = match ($tier) {
-                BackupRetentionTier::Daily => $backup->verified_at->copy()->addDays(3),
-                BackupRetentionTier::Weekly => $backup->verified_at->copy()->addWeeks(2),
-                BackupRetentionTier::Monthly => $backup->verified_at->copy()->addMonthsNoOverflow(3),
+                BackupRetentionTier::Daily => $backup->verified_at->copy()->addDays(config('nutriscope-backups.retention.daily')),
+                BackupRetentionTier::Weekly => $backup->verified_at->copy()->addWeeks(config('nutriscope-backups.retention.weekly')),
+                BackupRetentionTier::Monthly => $backup->verified_at->copy()->addMonthsNoOverflow(config('nutriscope-backups.retention.monthly')),
             };
 
             $backup->update([

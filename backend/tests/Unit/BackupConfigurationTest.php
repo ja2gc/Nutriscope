@@ -23,10 +23,11 @@ class BackupConfigurationTest extends TestCase
         $this->assertSame(['backups'], config('backup.backup.destination.disks'));
         $this->assertSame('aes256', config('backup.backup.encryption'));
         $this->assertNotEmpty(config('backup.backup.password'));
-        $this->assertSame(3, config('nutriscope-backups.retention.daily'));
+        $this->assertSame(4, config('nutriscope-backups.retention.daily'));
         $this->assertSame(2, config('nutriscope-backups.retention.weekly'));
         $this->assertSame(3, config('nutriscope-backups.retention.monthly'));
-        $this->assertSame(48, config('nutriscope-backups.recoverable_hours'));
+        $this->assertSame(168, config('nutriscope-backups.recoverable_hours'));
+        $this->assertSame(168, config('nutriscope-backups.safety_snapshot_hours'));
     }
 
     #[Test]

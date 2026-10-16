@@ -3,7 +3,11 @@ import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
-import type { BackupRunDto, BackupSection, BackupState, RecoveryStatus } from "@/types/backup";
+import type { BackupCategory, BackupRunDto, BackupSection, BackupState, RecoveryStatus } from "@/types/backup";
+
+const categoryLabels: Record<BackupCategory, string> = {
+  daily: "Daily", weekly: "Weekly", monthly: "Monthly", manual: "Manual", safety: "Pre-restore",
+};
 
 const activityLabels: Partial<Record<BackupState, string>> = {
   queued: "Queued",
@@ -45,7 +49,7 @@ const emptyCopy: Record<BackupSection, [string, string]> = {
   available: ["No restore points", "Create a backup now or wait for the next automatic schedule."],
   in_progress: ["No backup activity", "Queued, creating, and verifying work will appear here."],
   failed: ["No failed backups", "Failed backup attempts will appear here for review."],
-  recently_deleted: ["Recently deleted is empty", "Deleted backups remain here for 48 hours unless permanently deleted."],
+  recently_deleted: ["Recently deleted is empty", "Deleted backups remain here for 7 days unless permanently deleted."],
 };
 
 export function BackupList({ backups, busyId, onDelete, onKeep, onRecovery, onCancelRecovery, section }: Props) {
@@ -70,11 +74,17 @@ export function BackupList({ backups, busyId, onDelete, onKeep, onRecovery, onCa
           <Card padded key={backup.id}>
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0">
-                {activityLabel && <Badge tone={activityTones[backup.state] ?? "zinc"}>{activityLabel}</Badge>}
-                <p className={`${activityLabel ? "mt-2" : ""} flex items-center gap-2 text-sm font-semibold text-warm-900`}>
+                <div className="flex flex-wrap gap-2">
+                  {backup.categories.length > 0
+                    ? backup.categories.map((category) => <Badge key={category}>{categoryLabels[category]}</Badge>)
+                    : <Badge>{backup.source === "automatic" ? "Automatic" : categoryLabels[backup.source]}</Badge>}
+                  {activityLabel && <Badge tone={activityTones[backup.state] ?? "zinc"}>{activityLabel}</Badge>}
+                </div>
+                <p className="mt-2 flex items-center gap-2 text-sm font-semibold text-warm-900">
                   <Clock3 className="h-4 w-4 text-warm-400" />
                   {date(backup.verified_at || backup.queued_at)}
                 </p>
+                <p className="mt-1 break-all text-xs text-warm-500">Backup reference: <span className="font-mono">{backup.id}</span></p>
                 <p className="mt-1 text-xs text-warm-500">
                   Size: {size(backup.size_bytes)}
                   {backup.retention_expires_at && backup.source !== "safety" ? ` · Expires on ${date(backup.retention_expires_at)}` : ""}

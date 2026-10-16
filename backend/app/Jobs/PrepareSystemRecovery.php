@@ -160,7 +160,7 @@ class PrepareSystemRecovery implements ShouldQueue
             return false;
         }
         if ($recovery->safetySnapshot !== null) {
-            $recovery->safetySnapshot->update(['retention_expires_at' => $recovery->safety_snapshot_expires_at ?? now()->addHours(48)]);
+            $recovery->safetySnapshot->update(['retention_expires_at' => $recovery->safety_snapshot_expires_at ?? now()->addHours(config('nutriscope-backups.safety_snapshot_hours'))]);
         }
         if ($candidate !== null) {
             $databases->dropTemporary($candidate['name']);
