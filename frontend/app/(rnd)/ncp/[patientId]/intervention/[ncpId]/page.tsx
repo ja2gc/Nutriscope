@@ -220,8 +220,10 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
         source_monitoring_id: filled.source_monitoring_id ?? null,
         source_monitoring_date: filled.source_monitoring_date ?? null,
       } : current);
-      setPrescription(buildGoalPrescriptionForm(draft.goal_type, filled));
-      setPrescNote(prescriptionNote(filled));
+      if (!latest) {
+        setPrescription(buildGoalPrescriptionForm(draft.goal_type, filled));
+        setPrescNote(prescriptionNote(filled));
+      }
     } catch (error) {
       const missing = error instanceof AutofillError ? error.missingFields : [];
       const missingText = missing.length ? ` Missing: ${missing.map(formatMissingField).join(", ")}.` : "";

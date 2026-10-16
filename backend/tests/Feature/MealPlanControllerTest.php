@@ -100,6 +100,103 @@ class MealPlanControllerTest extends TestCase
         return [$template, $line, $recipe];
     }
 
+    private function carryForwardMenu(): array
+    {
+        [$ncp, $previous, $patient] = $this->makeInterventionWithNcpRecord();
+        [, , $recipe] = $this->measuredTemplate();
+        $source = MealPlan::factory()->create(['intervention_id' => $previous->id, 'patient_id' => $patient->id]);
+        $day = MealPlanDay::factory()->create(['meal_plan_id' => $source->id, 'day_of_week' => 'Monday', 'meal_type' => 'lunch']);
+        $item = MealPlanItem::factory()->create([
+            'meal_plan_day_id' => $day->id, 'recipe_id' => $recipe->id, 'food_item_id' => null,
+            'quantity' => 1.2, 'unit' => 'serving', 'nutrient_snapshot' => $recipe->planSnapshot(),
+        ]);
+        $target = Intervention::factory()->create(['ncp_record_id' => $ncp->id, 'goal_type' => 'custom']);
+
+        return [$ncp, $source, $target, $recipe, $item];
+    }
+
+    public function test_previous_menu_is_read_only_until_explicit_draft_save_and_keeps_its_frozen_snapshot(): void
+    {
+        [$ncp, $source, $target, $recipe, $item] = $this->carryForwardMenu();
+        $snapshot = $item->nutrient_snapshot;
+        $second = MealPlanItem::factory()->create([
+            'meal_plan_day_id' => $item->meal_plan_day_id, 'recipe_id' => $recipe->id, 'food_item_id' => null,
+            'quantity' => 0.8, 'unit' => 'serving', 'nutrient_snapshot' => [...$snapshot, 'name' => 'Second saved line'],
+        ]);
+        $recipe->update(['servings' => 20]);
+        $payload = ['source_meal_plan_id' => $source->uuid, 'intervention_plan_id' => $target->uuid, 'week_start_date' => '2026-10-12'];
+        $this->actingAs($this->rnd)->postJson("/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/from-template", [...$payload, 'preview' => true])
+            ->assertOk()->assertJsonPath('items.0.source_meal_plan_item_id', $item->uuid)
+            ->assertJsonPath('items.0.nutrient_snapshot.recipe_yield', 2)
+            ->assertJsonPath('items.1.source_meal_plan_item_id', $second->uuid);
+        $this->assertDatabaseCount('meal_plans', 1);
+        $this->assertDatabaseCount('meal_plan_items', 2);
+        $saved = $this->actingAs($this->rnd)->postJson("/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/from-template", [...$payload, 'lines' => [[
+            'source_meal_plan_item_id' => $item->uuid, 'recipe_id' => $recipe->uuid,
+            'day_of_week' => 'Tuesday', 'meal_type' => 'dinner', 'quantity' => 1.5, 'unit' => 'serving',
+        ], [
+            'source_meal_plan_item_id' => $second->uuid, 'recipe_id' => $recipe->uuid,
+            'day_of_week' => 'Tuesday', 'meal_type' => 'dinner', 'quantity' => 0.8, 'unit' => 'serving',
+        ]]])->assertCreated()->assertJsonPath('data.intervention_plan_id', $target->uuid);
+        $this->assertNotSame($source->uuid, $saved->json('data.id'));
+        $this->assertNotSame($item->uuid, $saved->json('items.0.id'));
+        $this->assertEquals($snapshot, $saved->json('items.0.nutrient_snapshot'));
+        $this->assertSame('Second saved line', $saved->json('items.1.nutrient_snapshot.name'));
+        $this->assertSame('1.20', $item->fresh()->quantity);
+        $this->assertEquals($snapshot, $item->fresh()->nutrient_snapshot);
+        $this->assertDatabaseCount('meal_plans', 2);
+        $this->assertDatabaseCount('meal_plan_items', 4);
+        $this->actingAs($this->rnd)->postJson("/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/from-template", $payload)->assertConflict();
+        $this->assertDatabaseCount('meal_plan_items', 4);
+    }
+
+    public function test_menu_prefill_source_and_item_must_belong_to_the_authorized_care_cycle(): void
+    {
+        [$ncp, $source, $target, $recipe, $item] = $this->carryForwardMenu();
+        [$otherNcp, $otherSource, , , $otherItem] = $this->carryForwardMenu();
+        $payload = ['source_meal_plan_id' => $source->uuid, 'intervention_plan_id' => $target->uuid, 'week_start_date' => '2026-10-12'];
+        $url = "/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/from-template";
+        $this->actingAs($this->rnd)->postJson($url, [...$payload, 'source_meal_plan_id' => $otherSource->uuid])->assertNotFound();
+        $this->actingAs($this->rnd)->postJson($url, [...$payload, 'lines' => [[
+            'source_meal_plan_item_id' => $otherItem->uuid, 'recipe_id' => $recipe->uuid,
+            'day_of_week' => 'Monday', 'meal_type' => 'lunch', 'quantity' => 1, 'unit' => 'serving',
+        ]]])->assertUnprocessable();
+        $this->actingAs(User::factory()->create(['role' => 'FSS']))->postJson($url, $payload)->assertForbidden();
+        $this->assertDatabaseCount('meal_plans', 2);
+    }
+
+    public function test_menu_prefill_rejects_client_nutrients_and_legacy_direct_food_without_partial_copy(): void
+    {
+        [$ncp, $source, $target, $recipe, $item] = $this->carryForwardMenu();
+        $payload = ['source_meal_plan_id' => $source->uuid, 'intervention_plan_id' => $target->uuid, 'week_start_date' => '2026-10-12'];
+        $url = "/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/from-template";
+        $this->actingAs($this->rnd)->postJson($url, [...$payload, 'lines' => [[
+            'source_meal_plan_item_id' => $item->uuid, 'recipe_id' => $recipe->uuid,
+            'day_of_week' => 'Monday', 'meal_type' => 'lunch', 'quantity' => 1, 'unit' => 'serving',
+            'nutrient_snapshot' => ['calories' => 0],
+        ]]])->assertUnprocessable();
+        $item->update(['recipe_id' => null, 'food_item_id' => FoodItem::factory()->create()->id]);
+        $this->actingAs($this->rnd)->postJson($url, $payload)->assertUnprocessable();
+        $this->assertDatabaseCount('meal_plans', 1);
+        $this->assertDatabaseCount('meal_plan_items', 1);
+    }
+
+    public function test_menu_prefill_scaling_failure_rolls_back_the_new_menu_and_preserves_the_source(): void
+    {
+        [$ncp, $source, $target, , $item] = $this->carryForwardMenu();
+        $this->partialMock(MealPlanService::class, function ($mock): void {
+            $mock->shouldReceive('scaleToPrescription')->once()->andThrow(new \RuntimeException('Injected copy failure.'));
+        });
+        $this->actingAs($this->rnd)->postJson("/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/from-template", [
+            'source_meal_plan_id' => $source->uuid, 'intervention_plan_id' => $target->uuid,
+            'week_start_date' => '2026-10-12', 'scale' => true,
+        ])->assertStatus(500);
+        $this->assertDatabaseCount('meal_plans', 1);
+        $this->assertDatabaseCount('meal_plan_days', 1);
+        $this->assertDatabaseCount('meal_plan_items', 1);
+        $this->assertSame('1.20', $item->fresh()->quantity);
+    }
+
     public function test_template_preview_converts_measured_legacy_portions_without_persisting_a_plan(): void
     {
         [$ncp, $intervention] = $this->makeInterventionWithNcpRecord();

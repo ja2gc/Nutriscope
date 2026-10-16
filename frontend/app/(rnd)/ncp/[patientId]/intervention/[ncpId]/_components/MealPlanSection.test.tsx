@@ -6,6 +6,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import MealPlanSection from "./MealPlanSection";
 import { fetchFoodItems, fetchRecipes, fetchRecipeById, searchUsda } from "@/services/foodLibraryService";
 import { addMealPlanItem, createMealPlan, createPlanFromTemplate, fetchAllMealPlanItems, fetchMealPlanTemplate, fetchMealPlanTemplates, fetchMealPlans, generateMealPlan, updateMealPlanItem } from "@/services/mealPlanService";
+import type { MealPlan, MealPlanItem } from "@/services/mealPlanService";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -50,6 +51,91 @@ async function renderEmptyPlanner(goal: string | null = null) {
   return { container, root };
 }
 
+it("prefills the previous menu, retains edits through intervention save, and saves only an independent week", async () => {
+  const previous: MealPlan = { id: 'previous-menu', intervention_plan_id: 'previous-intervention', week_start_date: '2026-10-12', generation_type: 'manual', scale_status: 'already_scaled', scaled_at: '2026-10-12', status: 'draft', days: [{ id: 'previous-day', day_of_week: 'Monday', meal_type: 'breakfast', flagged: false }] };
+  const sourceItem: MealPlanItem = { id: 'previous-item', meal_plan_day_id: 'previous-day', recipe_id: 'recipe-1', food_item_id: null, fdc_id: null, source: 'recipe', ai_suggested: false, quantity: '1.2', unit: 'serving', nutrient_snapshot: { name: 'Previous rice bowl', calories: 200, protein: 8, carbs: 35, fat: 4, serving_size: 1, serving_unit: 'serving', micronutrients: {} } };
+  sourceItem.nutrient_snapshot = {
+    ...sourceItem.nutrient_snapshot!, recipe_yield: 5,
+    recipe_original_ingredients: [{ id: 1, food_item_id: 1, name: 'Rice', quantity: 500, unit: 'g', food_item: { id: 'food-1', name: 'Rice', calories: '200', protein: '8', carbs: '35', fat: '4', serving_size: '100', serving_unit: 'g', micronutrients: {} } }],
+    recipe_ingredients: [{ id: 1, name: 'Rice', quantity: 500, unit: 'g' }],
+  };
+  vi.mocked(fetchMealPlans).mockResolvedValueOnce([previous]).mockResolvedValueOnce([previous]);
+  vi.mocked(fetchAllMealPlanItems).mockResolvedValueOnce([sourceItem]);
+  vi.mocked(createPlanFromTemplate).mockRejectedValueOnce(new Error('Week save failed.'))
+    .mockResolvedValueOnce({ plan: { ...previous, id: 'new-menu', intervention_plan_id: 'new-intervention' }, items: [{ ...sourceItem, id: 'new-item', quantity: '1.5' }], preview: false, compatibility: { goal_matches: true, disease_stage_matches: true, maternal_status_matches: true, warning: null } });
+  const save = vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce('new-intervention');
+  function Workspace() {
+    const [id, setId] = React.useState('');
+    return <MealPlanSection ncpId="ncp-1" interventionPlanId={id} newlySavedInterventionId={id} prescriptionTargets={{ energy: 1800, protein: 70, carbs: 250, fat: 55, fluid: 2000 }} onSaveIntervention={async () => { const saved = await save(); if (saved) setId(saved); return saved; }} />;
+  }
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container);
+  const button = (label: string) => Array.from(container.querySelectorAll('button')).find((row) => row.textContent?.trim() === label)!;
+  await act(async () => root.render(<Workspace />));
+  try {
+    expect(container.textContent).toContain('Previous rice bowl');
+    expect(createPlanFromTemplate).not.toHaveBeenCalled();
+    expect(createMealPlan).not.toHaveBeenCalled();
+    await act(async () => container.querySelector<HTMLButtonElement>('button[title="Edit"]')!.click());
+    const quantity = container.querySelector<HTMLInputElement>('input[type="number"]')!;
+    await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(quantity, '1.5'); quantity.dispatchEvent(new Event('input', { bubbles: true })); });
+    await act(async () => button('Save Changes').click());
+    expect(updateMealPlanItem).not.toHaveBeenCalled();
+    await act(async () => button('Save week').click());
+    await act(async () => button('Save intervention and continue').click());
+    expect(createPlanFromTemplate).not.toHaveBeenCalled();
+    expect(container.textContent).toContain('1.5serving');
+    await act(async () => button('Save intervention and continue').click());
+    expect(container.textContent).toContain('Week save failed.');
+    expect(container.textContent).toContain('1.5serving');
+    expect(createPlanFromTemplate).toHaveBeenCalledWith('ncp-1', expect.objectContaining({
+      intervention_plan_id: 'new-intervention', source_meal_plan_id: 'previous-menu', preview: false,
+      lines: [expect.objectContaining({ source_meal_plan_item_id: 'previous-item', recipe_id: 'recipe-1', quantity: 1.5 })],
+    }));
+    expect(JSON.stringify(vi.mocked(createPlanFromTemplate).mock.calls[0][1])).not.toContain('nutrient_snapshot');
+    await act(async () => button('Save week').click());
+    expect(button('Save week')).toBeUndefined();
+    expect(sourceItem.quantity).toBe('1.2');
+    expect(fetchAllMealPlanItems).not.toHaveBeenCalledWith('ncp-1', expect.stringContaining('draft'));
+  } finally { await act(async () => root.unmount()); }
+});
+
+it("keeps the prefilled menu unsaved after normal intervention save and discards it on cancel to history", async () => {
+  const previous: MealPlan = { id: 'previous-menu', intervention_plan_id: 'previous-intervention', week_start_date: '2026-10-12', generation_type: 'manual', scale_status: 'available', scaled_at: null, status: 'draft', days: [{ id: 'previous-day', day_of_week: 'Monday', meal_type: 'breakfast', flagged: false }] };
+  const sourceItem: MealPlanItem = { id: 'previous-item', meal_plan_day_id: 'previous-day', recipe_id: 'recipe-1', food_item_id: null, fdc_id: null, source: 'recipe', ai_suggested: false, quantity: '1.2', unit: 'serving', nutrient_snapshot: { name: 'Previous breakfast', calories: 200, protein: 8, carbs: 35, fat: 4, serving_size: 1, serving_unit: 'serving', micronutrients: {} } };
+  vi.mocked(fetchMealPlans).mockResolvedValueOnce([previous]).mockResolvedValueOnce([previous]).mockResolvedValueOnce([previous]);
+  vi.mocked(fetchAllMealPlanItems).mockResolvedValueOnce([sourceItem]).mockResolvedValueOnce([sourceItem]);
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container);
+  const targets = { energy: 1800, protein: 70, carbs: 250, fat: 55, fluid: 2000 };
+  await act(async () => root.render(<MealPlanSection ncpId="ncp-1" interventionPlanId="" prescriptionTargets={targets} />));
+  try {
+    expect(container.textContent).toContain('Previous breakfast');
+    await act(async () => root.render(<MealPlanSection ncpId="ncp-1" interventionPlanId="new-intervention" newlySavedInterventionId="new-intervention" prescriptionTargets={targets} />));
+    expect(container.textContent).toContain('Previous breakfast');
+    expect(Array.from(container.querySelectorAll('button')).some((button) => button.textContent === 'Save week')).toBe(true);
+    expect(createPlanFromTemplate).not.toHaveBeenCalled();
+    await act(async () => root.render(<MealPlanSection ncpId="ncp-1" interventionPlanId="previous-intervention" readOnly prescriptionTargets={targets} />));
+    expect(container.textContent).toContain('Previous breakfast');
+    expect(Array.from(container.querySelectorAll('button')).some((button) => button.textContent === 'Save week')).toBe(false);
+    expect(createPlanFromTemplate).not.toHaveBeenCalled();
+  } finally { await act(async () => root.unmount()); }
+});
+
+it("ignores a late previous-menu lookup after switching care cycles", async () => {
+  const previous: MealPlan = { id: 'previous-menu', intervention_plan_id: 'previous-intervention', week_start_date: '2026-10-12', generation_type: 'manual', scale_status: 'available', scaled_at: null, status: 'draft', days: [{ id: 'previous-day', day_of_week: 'Monday', meal_type: 'breakfast', flagged: false }] };
+  vi.mocked(fetchMealPlans).mockResolvedValueOnce([previous]).mockResolvedValueOnce([]);
+  let finish!: (items: MealPlanItem[]) => void;
+  vi.mocked(fetchAllMealPlanItems).mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container);
+  const targets = { energy: 1800, protein: 70, carbs: 250, fat: 55, fluid: 2000 };
+  await act(async () => root.render(<MealPlanSection ncpId="old-cycle" interventionPlanId="" prescriptionTargets={targets} />));
+  try {
+    await act(async () => root.render(<MealPlanSection ncpId="new-cycle" interventionPlanId="" prescriptionTargets={targets} />));
+    await act(async () => finish([{ id: 'previous-item', meal_plan_day_id: 'previous-day', recipe_id: 'recipe-1', food_item_id: null, fdc_id: null, source: 'recipe', ai_suggested: false, quantity: '1', unit: 'serving', nutrient_snapshot: { name: 'Wrong cycle breakfast', calories: 200, protein: 8, carbs: 35, fat: 4, serving_size: 1, serving_unit: 'serving', micronutrients: {} } }]));
+    expect(container.textContent).not.toContain('Wrong cycle breakfast');
+    expect(createPlanFromTemplate).not.toHaveBeenCalled();
+  } finally { await act(async () => root.unmount()); }
+});
+
 it.each(['Create Menu', 'Load Template', 'Auto-Generate'])("retains %s through intervention save failure and resumes with the new UUID", async (action) => {
   vi.mocked(fetchMealPlans).mockResolvedValueOnce([]);
   const save = vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce('new-intervention');
@@ -64,7 +150,7 @@ it.each(['Create Menu', 'Load Template', 'Auto-Generate'])("retains %s through i
   try {
     expect(container.textContent).toContain('Weekly Meal Plan');
     for (const label of ['Create Menu', 'Load Template', 'Auto-Generate']) expect(button(label)).toBeDefined();
-    expect(fetchMealPlans).not.toHaveBeenCalled();
+    expect(fetchMealPlans).toHaveBeenCalledWith('ncp-new');
     const excludeSnacks = Array.from(container.querySelectorAll('label')).find((row) => row.textContent?.includes('Exclude snacks'))!.querySelector('input')!;
     await act(async () => excludeSnacks.click());
     await act(async () => button(action).click());

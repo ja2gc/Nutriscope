@@ -482,7 +482,8 @@ class MealPlanController extends Controller
     {
         $this->authorizeNcp($ncpRecord);
         $validated = $request->validate([
-            'template_id' => ['required', 'uuid'],
+            'template_id' => ['required_without:source_meal_plan_id', 'prohibits:source_meal_plan_id', 'uuid'],
+            'source_meal_plan_id' => ['required_without:template_id', 'prohibits:template_id', 'uuid'],
             'intervention_plan_id' => ['required', 'uuid'],
             'meal_plan_id' => ['nullable', 'uuid'],
             'week_start_date' => ['required', 'date'],
@@ -490,6 +491,7 @@ class MealPlanController extends Controller
             'scale' => ['sometimes', 'boolean'],
             'lines' => ['sometimes', 'array'],
             'lines.*.source_template_item_id' => ['nullable', 'uuid'],
+            'lines.*.source_meal_plan_item_id' => ['nullable', 'uuid'],
             'lines.*.recipe_id' => ['required', 'uuid'],
             'lines.*.food_item_id' => ['prohibited'],
             'lines.*.fdc_id' => ['prohibited'],
@@ -504,8 +506,13 @@ class MealPlanController extends Controller
         ]);
         $intervention = $this->resolveInterventionPlan($ncpRecord, $validated['intervention_plan_id']);
         $this->assertInterventionEditable($ncpRecord, $intervention->id);
-        $template = MealPlanTemplate::with('days.items.recipe.ingredients.foodItem')
-            ->where('uuid', $validated['template_id'])->where('rnd_user_id', $request->user()->id)->firstOrFail();
+        $template = isset($validated['source_meal_plan_id'])
+            ? MealPlan::with(['intervention', 'days.items.recipe.ingredients.foodItem'])
+                ->where('uuid', $validated['source_meal_plan_id'])
+                ->whereHas('intervention', fn ($query) => $query->where('ncp_record_id', $ncpRecord->id))
+                ->where('intervention_id', '!=', $intervention->id)->firstOrFail()
+            : MealPlanTemplate::with('days.items.recipe.ingredients.foodItem')
+                ->where('uuid', $validated['template_id'])->where('rnd_user_id', $request->user()->id)->firstOrFail();
         $preview = $request->boolean('preview');
         $lines = $this->resolvedTemplateLines($template, $validated['lines'] ?? null);
         $build = function () use ($intervention, $ncpRecord, $validated, $lines, $preview, $request): ?MealPlan {
@@ -556,7 +563,7 @@ class MealPlanController extends Controller
                             $item->save();
                         }
                         $item->setRelation('mealPlanDay', $day)->setRelation('recipe', $line['recipe'])->setRelation('foodItem', null);
-                        $item->setRelation('templateOrigin', $line['source']);
+                        $item->setRelation($line['source'] instanceof MealPlanItem ? 'mealPlanOrigin' : 'templateOrigin', $line['source']);
                         $item->setRelation('draftOverrides', $line['ingredient_overrides'] ?? []);
                         $items->push($item);
                     }
@@ -584,8 +591,9 @@ class MealPlanController extends Controller
             return $this->mealPlanConflict();
         }
 
-        $goalMatches = $template->goal_type === null || $template->goal_type === $intervention->goal_type;
-        $stageMatches = $template->disease_stage === null || $template->disease_stage === $intervention->disease_stage;
+        $context = $template instanceof MealPlan ? $template->intervention : $template;
+        $goalMatches = $context->goal_type === null || $context->goal_type === $intervention->goal_type;
+        $stageMatches = $context->disease_stage === null || $context->disease_stage === $intervention->disease_stage;
         $patientMaternalStatus = $ncpRecord->assessment?->pregnancy_lactation_status;
         $maternalMatches = $this->maternalTemplateMatches($template->maternal_status, $patientMaternalStatus);
         $requiresGoalReview = $template->maternal_status !== null
@@ -613,8 +621,10 @@ class MealPlanController extends Controller
     }
 
     /** Resolve draft source identities and quantities; never trust client nutrient values. */
-    private function resolvedTemplateLines(MealPlanTemplate $template, ?array $draftLines): array
+    private function resolvedTemplateLines(MealPlanTemplate|MealPlan $template, ?array $draftLines): array
     {
+        $sourceKey = $template instanceof MealPlan ? 'source_meal_plan_item_id' : 'source_template_item_id';
+        $otherSourceKey = $template instanceof MealPlan ? 'source_template_item_id' : 'source_meal_plan_item_id';
         $sources = $template->days->flatMap->items->keyBy('uuid');
         if ($draftLines === null) {
             $draftLines = [];
@@ -624,7 +634,7 @@ class MealPlanController extends Controller
                 }
                 foreach ($day->items as $item) {
                     $draftLines[] = [
-                        'source_template_item_id' => $item->uuid, 'recipe_id' => $item->recipe?->uuid,
+                        $sourceKey => $item->uuid, 'recipe_id' => $item->recipe?->uuid,
                         'day_of_week' => $day->day_of_week, 'meal_type' => $day->meal_type,
                         'quantity' => $item->quantity, 'unit' => $item->unit,
                     ];
@@ -633,10 +643,14 @@ class MealPlanController extends Controller
         }
         $lines = [];
         foreach ($draftLines as $line) {
-            $source = isset($line['source_template_item_id']) ? $sources->get($line['source_template_item_id']) : null;
+            $source = isset($line[$sourceKey]) ? $sources->get($line[$sourceKey]) : null;
             $recipe = Recipe::with('ingredients.foodItem')->where('uuid', $line['recipe_id'])->first();
-            if (! $recipe || ! in_array($recipe->category, ['meal', 'carb', 'snack'], true) || ! $recipe->hasValidPortionData()
-                || (isset($line['source_template_item_id']) && (! $source || $source->recipe_id !== $recipe->id || $source->food_item_id || $source->fdc_id))) {
+            $frozenSource = $template instanceof MealPlan && $source
+                && ! empty($source->nutrient_snapshot['recipe_original_ingredients'])
+                && (float) ($source->nutrient_snapshot['recipe_yield'] ?? 0) > 0;
+            if (! $recipe || ! in_array($recipe->category, ['meal', 'carb', 'snack'], true) || (! $recipe->hasValidPortionData()
+                && ! $frozenSource) || isset($line[$otherSourceKey])
+                || (isset($line[$sourceKey]) && (! $source || $source->recipe_id !== $recipe->id || $source->food_item_id || $source->fdc_id))) {
                 throw ValidationException::withMessages(['template' => 'Choose valid measured Menu Items belonging to this template, or correct the template in Food Library.']);
             }
             $quantity = (float) $line['quantity'];
@@ -664,9 +678,9 @@ class MealPlanController extends Controller
                 $current = $recipe->planSnapshot();
                 $snapshot = [
                     ...$snapshot,
-                    'recipe_ingredients' => $current['recipe_ingredients'],
-                    'recipe_original_ingredients' => $current['recipe_original_ingredients'],
-                    'recipe_yield' => $current['recipe_yield'],
+                    'recipe_ingredients' => ! empty($snapshot['recipe_ingredients']) ? $snapshot['recipe_ingredients'] : $current['recipe_ingredients'],
+                    'recipe_original_ingredients' => ! empty($snapshot['recipe_original_ingredients']) ? $snapshot['recipe_original_ingredients'] : $current['recipe_original_ingredients'],
+                    'recipe_yield' => (float) ($snapshot['recipe_yield'] ?? 0) > 0 ? $snapshot['recipe_yield'] : $current['recipe_yield'],
                     'recipe_snapshot_source' => 'current_recipe_fallback',
                 ];
             }

@@ -241,7 +241,7 @@ describe("intervention plans workspace", () => {
     expect(container.querySelector('[data-testid="meal-plan-section"]')).not.toBeNull();
   });
 
-  it("prefills a new plan without copying its menu and cancel persists nothing", async () => {
+  it("prefills a new plan without reusing the previous saved identity and cancel persists nothing", async () => {
     await renderPage();
     await clickButton("Plans");
     await clickButton("Create New Intervention Plan");
@@ -280,6 +280,7 @@ describe("intervention plans workspace", () => {
   });
 
   it("posts one complete plan then selects its returned UUID read-only", async () => {
+    vi.mocked(interventionService.autofillIntervention).mockResolvedValueOnce({ energy_kcal: 2200, protein_g: 90, carbs_g: 300, fat_g: 70, fluid_ml: 2400, source_type: "monitoring", source_monitoring_id: "monitoring-uuid", source_monitoring_date: "2026-09-28" });
     await renderPage();
     await clickButton("Plans");
     await clickButton("Create New Intervention Plan");
@@ -288,6 +289,7 @@ describe("intervention plans workspace", () => {
     expect(interventionService.createIntervention).toHaveBeenCalledTimes(1);
     expect(interventionService.createIntervention).toHaveBeenCalledWith("ncp-uuid", expect.objectContaining({
       goal_type: "custom",
+      energy_kcal: 1900,
       education_notes: "Meal timing",
       counseling_goals: "Follow meal schedule",
       barriers: "Shift work",

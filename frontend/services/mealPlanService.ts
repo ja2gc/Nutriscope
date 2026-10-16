@@ -27,6 +27,7 @@ export interface MealPlanItem {
   fdc_id: string | null;
   recipe_id: string | null;
   source_template_item_id?: string | null;
+  source_meal_plan_item_id?: string | null;
   ingredient_overrides?: { id: number; quantity: number }[];
   quantity: string;
   unit: string;
@@ -300,9 +301,9 @@ export async function saveMealPlanAsTemplate(
 export async function createPlanFromTemplate(
   ncpId: string,
   payload: {
-    intervention_plan_id: string; template_id: string; week_start_date: string;
+    intervention_plan_id: string; template_id?: string; source_meal_plan_id?: string; week_start_date: string;
     meal_plan_id?: string; preview?: boolean; scale?: boolean;
-    lines?: (LibraryTemplateLine & { source_template_item_id?: string | null; ingredient_overrides?: { id: number; quantity: number }[] })[];
+    lines?: (LibraryTemplateLine & { source_template_item_id?: string | null; source_meal_plan_item_id?: string | null; ingredient_overrides?: { id: number; quantity: number }[] })[];
   }
 ): Promise<{
   plan: MealPlan;

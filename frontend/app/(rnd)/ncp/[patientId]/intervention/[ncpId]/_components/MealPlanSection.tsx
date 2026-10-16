@@ -124,9 +124,11 @@ export default function MealPlanSection({
   const [confirmDeleteTemplateId, setConfirmDeleteTemplateId]   = useState<string | null>(null);
   const [deletingTemplate, setDeletingTemplate]                 = useState(false);
   const [templateWarning, setTemplateWarning]                   = useState<string | null>(null);
-  const [templateDraft, setTemplateDraft] = useState<{ templateId: string; replacePlanId?: string; originalPlan: MealPlan | null; originalItems: Record<string, MealPlanItem[]> } | null>(null);
+  const [templateDraft, setTemplateDraft] = useState<{ templateId?: string; sourceMealPlanId?: string; replacePlanId?: string; originalPlan: MealPlan | null; originalItems: Record<string, MealPlanItem[]> } | null>(null);
+  const draftRef = useRef(templateDraft);
+  useEffect(() => { draftRef.current = templateDraft; }, [templateDraft]);
   const [savingWeek, setSavingWeek] = useState(false);
-  const [pendingMenuAction, setPendingMenuAction] = useState<'create' | 'template' | 'generate' | null>(null);
+  const [pendingMenuAction, setPendingMenuAction] = useState<'create' | 'template' | 'generate' | 'save-week' | 'scale' | null>(null);
   const [savingIntervention, setSavingIntervention] = useState(false);
   const [loadedInterventionId, setLoadedInterventionId] = useState('');
   const [confirmTemplateLoad, setConfirmTemplateLoad] = useState<string | null>(null);
@@ -181,28 +183,49 @@ export default function MealPlanSection({
   };
 
   const loadPlans = useCallback(async () => {
-    if (!interventionPlanId) {
-      setPlans([]); setActivePlan(null); setLoadingPlans(false);
-      return;
-    }
     const version = scopeVersion.current;
     setLoadingPlans(true);
     try {
       const data = await fetchMealPlans(ncpId);
       if (version !== scopeVersion.current) return;
+      if (!interventionPlanId) {
+        setPlans([]); setLoadedInterventionId('');
+        const source = data[0];
+        if (!source) { setActivePlan(null); return; }
+        const sourceItems = await fetchAllMealPlanItems(ncpId, source.id);
+        if (version !== scopeVersion.current) return;
+        const dayIds = new Map(source.days.map((day) => [day.id, crypto.randomUUID()]));
+        const draft: MealPlan = {
+          ...source, id: crypto.randomUUID(), intervention_plan_id: '', status: 'draft',
+          scale_status: 'available', scaled_at: null,
+          days: source.days.map((day) => ({ ...day, id: dayIds.get(day.id)! })),
+        };
+        const items = sourceItems.map((item) => ({
+          ...item, id: crypto.randomUUID(), meal_plan_day_id: dayIds.get(item.meal_plan_day_id)!,
+          source_meal_plan_item_id: item.id,
+        }));
+        setTemplateDraft({ sourceMealPlanId: source.id, originalPlan: null, originalItems: {} });
+        setActivePlan(draft); setItemsByKey(groupWeekItems(draft, items));
+        return;
+      }
       const ownedPlans = data.filter((plan) => plan.intervention_plan_id === interventionPlanId);
       setPlans(ownedPlans);
-      setActivePlan(ownedPlans[0] ?? null);
+      if (newlySavedInterventionId === interventionPlanId && draftRef.current) {
+        setActivePlan((current) => current ? { ...current, intervention_plan_id: interventionPlanId } : current);
+      } else {
+        setActivePlan(ownedPlans[0] ?? null);
+      }
       setLoadedInterventionId(interventionPlanId);
     } catch (error) {
       if (version === scopeVersion.current) setGenerateError(error instanceof Error ? error.message : 'Could not load this weekly plan.');
     } finally { if (version === scopeVersion.current) setLoadingPlans(false); }
-  }, [interventionPlanId, ncpId]);
+  }, [interventionPlanId, ncpId, newlySavedInterventionId]);
 
   useEffect(() => {
     const version = ++scopeVersion.current;
-    setTemplateDraft(null);
-    setItemsByKey({});
+    if (!interventionPlanId || newlySavedInterventionId !== interventionPlanId || !draftRef.current) {
+      setTemplateDraft(null); setActivePlan(null); setItemsByKey({});
+    }
     setFromTemplateOpen(false); setConfirmTemplateLoad(null); setCarbChoiceOpen(false);
     setCreatingPlan(false); setSavingWeek(false); setScalingPlan(false);
     if (interventionPlanId && newlySavedInterventionId !== interventionPlanId) setPendingMenuAction(null);
@@ -299,15 +322,70 @@ export default function MealPlanSection({
     } finally { setSavingTemplate(false); }
   };
 
-  const performMenuAction = useCallback(async (action: 'create' | 'template' | 'generate', savedInterventionId = interventionPlanId) => {
+  const templateRequest = useCallback((scale = false, savedInterventionId = interventionPlanId) => {
+    if (!templateDraft || !activePlan) throw new Error('Load a template before saving this draft.');
+    return {
+      intervention_plan_id: savedInterventionId, template_id: templateDraft.templateId, source_meal_plan_id: templateDraft.sourceMealPlanId,
+      meal_plan_id: templateDraft.replacePlanId, week_start_date: activePlan.week_start_date, scale,
+      lines: activePlan.days.flatMap((day) => (itemsByKey[slotKey(day.day_of_week, day.meal_type)] ?? []).map((item) => ({
+        source_template_item_id: item.source_template_item_id, source_meal_plan_item_id: item.source_meal_plan_item_id, recipe_id: item.recipe_id,
+        day_of_week: day.day_of_week, meal_type: day.meal_type, quantity: Number(item.quantity), unit: item.unit,
+        ingredient_overrides: item.ingredient_overrides,
+      }))),
+    };
+  }, [templateDraft, activePlan, itemsByKey, interventionPlanId]);
+
+  const handleSaveWeek = useCallback(async (savedInterventionId = interventionPlanId) => {
+    if (!templateDraft || !activePlan) return;
+    if (!savedInterventionId) { setPendingMenuAction('save-week'); return; }
+    const version = scopeVersion.current;
+    setSavingWeek(true); setGenerateError(null);
+    try {
+      const result = await createPlanFromTemplate(ncpId, { ...templateRequest(activePlan.scale_status === 'already_scaled', savedInterventionId), preview: false });
+      if (version !== scopeVersion.current) return;
+      setTemplateDraft(null); setPlans([result.plan]); setActivePlan(result.plan);
+      setItemsByKey(groupWeekItems(result.plan, result.items));
+    } catch (error) {
+      if (version === scopeVersion.current) setGenerateError(error instanceof Error ? error.message : 'Could not save week. Try again.');
+    } finally { if (version === scopeVersion.current) setSavingWeek(false); }
+  }, [templateDraft, activePlan, interventionPlanId, ncpId, templateRequest]);
+
+  const handleScaleToPrescription = useCallback(async () => {
+    if (!activePlan || activePlan.scale_status === 'already_scaled') return;
+    if (!interventionPlanId) { setPendingMenuAction('scale'); return; }
+    const version = scopeVersion.current;
+    setScalingPlan(true); setScaleNotice(null);
+    try {
+      if (templateDraft) {
+        const result = await createPlanFromTemplate(ncpId, { ...templateRequest(true), preview: true });
+        if (version !== scopeVersion.current) return;
+        setActivePlan(result.plan); setItemsByKey(groupWeekItems(result.plan, result.items));
+        setScaleNotice('Draft quantities scaled. Review the week and save to apply them.');
+        return;
+      }
+      const { plan, scaling } = await scaleMealPlanToPrescription(ncpId, activePlan.id);
+      if (version !== scopeVersion.current) return;
+      setPlans((current) => current.map((item) => item.id === plan.id ? plan : item));
+      setActivePlan(plan);
+      setScaleNotice(scaling.problem_days.length > 0
+        ? `Quantities were scaled. Review unresolved tolerances for: ${scaling.problem_days.join(', ')}.`
+        : `Scaled ${scaling.changed_items} item quantities to the current prescription.`);
+    } catch (err) {
+      if (version === scopeVersion.current) setScaleNotice(err instanceof Error ? err.message : 'Failed to scale meal plan.');
+    } finally { if (version === scopeVersion.current) setScalingPlan(false); }
+  }, [activePlan, templateDraft, interventionPlanId, ncpId, templateRequest]);
+
+  const performMenuAction = useCallback(async (action: 'create' | 'template' | 'generate' | 'save-week' | 'scale', savedInterventionId = interventionPlanId) => {
     if (!savedInterventionId) {
       setPendingMenuAction(action);
       return;
     }
     if (action === 'create') await handleCreatePlan(savedInterventionId);
     else if (action === 'template') setFromTemplateOpen(true);
+    else if (action === 'save-week') await handleSaveWeek(savedInterventionId);
+    else if (action === 'scale') await handleScaleToPrescription();
     else await handleGenerate(undefined, savedInterventionId);
-  }, [handleCreatePlan, handleGenerate, interventionPlanId]);
+  }, [handleCreatePlan, handleGenerate, handleSaveWeek, handleScaleToPrescription, interventionPlanId]);
 
   useEffect(() => {
     if (!pendingMenuAction || !interventionPlanId || newlySavedInterventionId !== interventionPlanId || loadedInterventionId !== interventionPlanId || readOnly) return;
@@ -326,18 +404,6 @@ export default function MealPlanSection({
     } finally { setSavingIntervention(false); }
   };
 
-  const templateRequest = (scale = false) => {
-    if (!templateDraft || !activePlan) throw new Error('Load a template before saving this draft.');
-    return {
-      intervention_plan_id: interventionPlanId, template_id: templateDraft.templateId,
-      meal_plan_id: templateDraft.replacePlanId, week_start_date: activePlan.week_start_date, scale,
-      lines: activePlan.days.flatMap((day) => (itemsByKey[slotKey(day.day_of_week, day.meal_type)] ?? []).map((item) => ({
-        source_template_item_id: item.source_template_item_id, recipe_id: item.recipe_id,
-        day_of_week: day.day_of_week, meal_type: day.meal_type, quantity: Number(item.quantity), unit: item.unit,
-        ingredient_overrides: item.ingredient_overrides,
-      }))),
-    };
-  };
 
   const handleFromTemplate = async (templateId: string, confirmed = false) => {
     const version = scopeVersion.current;
@@ -355,7 +421,7 @@ export default function MealPlanSection({
         meal_plan_id: templateDraft?.replacePlanId ?? (templateDraft ? undefined : activePlan?.id),
       });
       if (version !== scopeVersion.current) return;
-      setTemplateDraft(templateDraft ? { ...templateDraft, templateId } : {
+      setTemplateDraft(templateDraft ? { ...templateDraft, templateId, sourceMealPlanId: undefined } : {
         templateId, replacePlanId: activePlan?.id, originalPlan: activePlan, originalItems: itemsByKey,
       });
       setActivePlan(result.plan); setItemsByKey(groupWeekItems(result.plan, result.items));
@@ -366,19 +432,6 @@ export default function MealPlanSection({
     } finally { if (version === scopeVersion.current) setCreatingPlan(false); }
   };
 
-  const handleSaveWeek = async () => {
-    if (!templateDraft || !activePlan) return;
-    const version = scopeVersion.current;
-    setSavingWeek(true); setGenerateError(null);
-    try {
-      const result = await createPlanFromTemplate(ncpId, { ...templateRequest(activePlan.scale_status === 'already_scaled'), preview: false });
-      if (version !== scopeVersion.current) return;
-      setTemplateDraft(null); setPlans([result.plan]); setActivePlan(result.plan);
-      setItemsByKey(groupWeekItems(result.plan, result.items));
-    } catch (error) {
-      if (version === scopeVersion.current) setGenerateError(error instanceof Error ? error.message : 'Could not save week. Try again.');
-    } finally { if (version === scopeVersion.current) setSavingWeek(false); }
-  };
 
   const discardTemplateDraft = () => {
     if (!templateDraft) return;
@@ -416,29 +469,6 @@ export default function MealPlanSection({
     } finally { setDeleting(false); }
   };
 
-  const handleScaleToPrescription = async () => {
-    if (!activePlan || activePlan.scale_status === 'already_scaled') return;
-    const version = scopeVersion.current;
-    setScalingPlan(true); setScaleNotice(null);
-    try {
-      if (templateDraft) {
-        const result = await createPlanFromTemplate(ncpId, { ...templateRequest(true), preview: true });
-        if (version !== scopeVersion.current) return;
-        setActivePlan(result.plan); setItemsByKey(groupWeekItems(result.plan, result.items));
-        setScaleNotice('Draft quantities scaled. Review the week and save to apply them.');
-        return;
-      }
-      const { plan, scaling } = await scaleMealPlanToPrescription(ncpId, activePlan.id);
-      if (version !== scopeVersion.current) return;
-      setPlans((current) => current.map((item) => item.id === plan.id ? plan : item));
-      setActivePlan(plan);
-      setScaleNotice(scaling.problem_days.length > 0
-        ? `Quantities were scaled. Review unresolved tolerances for: ${scaling.problem_days.join(', ')}.`
-        : `Scaled ${scaling.changed_items} item quantities to the current prescription.`);
-    } catch (err) {
-      if (version === scopeVersion.current) setScaleNotice(err instanceof Error ? err.message : 'Failed to scale meal plan.');
-    } finally { if (version === scopeVersion.current) setScalingPlan(false); }
-  };
 
   // ── Edit modal ─────────────────────────────────────────────────────────────
 
