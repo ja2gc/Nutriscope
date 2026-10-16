@@ -5,7 +5,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
 import MealPlanSection from "./MealPlanSection";
 import { fetchFoodItems, fetchRecipes, fetchRecipeById, searchUsda } from "@/services/foodLibraryService";
-import { addMealPlanItem, fetchAllMealPlanItems, fetchMealPlans, generateMealPlan, updateMealPlanItem } from "@/services/mealPlanService";
+import { addMealPlanItem, createPlanFromTemplate, fetchAllMealPlanItems, fetchMealPlanTemplate, fetchMealPlanTemplates, fetchMealPlans, generateMealPlan, updateMealPlanItem } from "@/services/mealPlanService";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -17,6 +17,8 @@ vi.mock("@/services/mealPlanService", async (importOriginal) => ({
     days: [{ id: "day-1", day_of_week: "Monday", meal_type: "breakfast", flagged: false }],
   }]),
   fetchMealPlanTemplates: vi.fn(async () => ({ data: [], meta: null })),
+  fetchMealPlanTemplate: vi.fn(),
+  createPlanFromTemplate: vi.fn(),
   fetchAllMealPlanItems: vi.fn(async () => []),
   addMealPlanItem: vi.fn(async () => ({ id: "item-new", meal_plan_day_id: "day-1", recipe_id: "snack-1", quantity: "1", unit: "serving", source: "recipe", nutrient_snapshot: { name: "Fruit cup", calories: 80, protein: 1, carbs: 20, fat: 0, serving_size: 1, serving_unit: "serving", micronutrients: {} } })),
   updateMealPlanItem: vi.fn(async () => ({ id: "item-1", meal_plan_day_id: "day-1", recipe_id: "recipe-1", quantity: "1.5", unit: "serving", source: "recipe", nutrient_snapshot: { name: "Rice bowl", calories: 200, protein: 8, carbs: 35, fat: 4, serving_size: 1, serving_unit: "serving", micronutrients: {} } })),
@@ -34,6 +36,8 @@ vi.mock("@/services/foodLibraryService", () => ({
 afterEach(() => {
   document.body.innerHTML = "";
   vi.clearAllMocks();
+  vi.mocked(createPlanFromTemplate).mockReset();
+  vi.mocked(fetchMealPlanTemplate).mockReset();
 });
 
 async function renderEmptyPlanner(goal: string | null = null) {
@@ -45,11 +49,120 @@ async function renderEmptyPlanner(goal: string | null = null) {
   return { container, root };
 }
 
+it("previews a template calendar and keeps the loaded baseline draft after a save failure", async () => {
+  const header = { id: "template-1", name: "Measured week", description: null, goal_type: null, disease_stage: null, maternal_status: null, created_at: "2026-10-15" };
+  vi.mocked(fetchMealPlanTemplates).mockResolvedValueOnce({ data: [header], meta: { current_page: 1, per_page: 10, total: 1, last_page: 1 } });
+  vi.mocked(fetchMealPlanTemplate).mockResolvedValueOnce({ ...header, days: [{ id: 1, day_of_week: "Monday", meal_type: "breakfast", quantity: "2.00", unit: "serving", food_name: "Oats", calories: 200, items: [
+    { id: "template-line-1", recipe_id: "carb-1", food_item_id: null, quantity: "2.00", unit: "serving", food_name: "Oats", nutrient_snapshot: null, line_order: 0 },
+  ] }] });
+  vi.mocked(createPlanFromTemplate).mockResolvedValueOnce({
+    plan: { id: "draft-week", intervention_plan_id: "intervention-1", week_start_date: "2026-10-12", generation_type: "manual", scale_status: "available", scaled_at: null, status: "draft", days: [{ id: "draft-day", day_of_week: "Monday", meal_type: "breakfast", flagged: false }] },
+    items: [{ id: "draft-item", meal_plan_day_id: "draft-day", recipe_id: "carb-1", food_item_id: null, fdc_id: null, source: "recipe", ai_suggested: false, source_template_item_id: "template-line-1", quantity: "2.00", unit: "serving", nutrient_snapshot: { name: "Oats", calories: 200, protein: 10, carbs: 20, fat: 5, serving_size: 1, serving_unit: "serving", micronutrients: {} } }],
+    preview: true, compatibility: { goal_matches: true, disease_stage_matches: true, maternal_status_matches: true, warning: null },
+  }).mockRejectedValueOnce(new Error("Save failed. Try again."));
+  const { container, root } = await renderEmptyPlanner();
+  try {
+    await act(async () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('Load Template'))!.click());
+    await act(async () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent === 'View')!.click());
+    expect(container.querySelector('table[aria-label="Weekly menu calendar"]')).not.toBeNull();
+    await act(async () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('Use This Template'))!.click());
+    expect(createPlanFromTemplate).toHaveBeenCalledTimes(1);
+    expect(createPlanFromTemplate).toHaveBeenLastCalledWith('ncp-1', expect.objectContaining({ preview: true, template_id: 'template-1' }));
+    expect(fetchAllMealPlanItems).not.toHaveBeenCalledWith('ncp-1', 'draft-week');
+    expect(container.textContent).toContain('2.00serving');
+    const save = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'Save week')!;
+    expect(save).toBeDefined();
+    await act(async () => save.click());
+    expect(container.textContent).toContain('Save failed. Try again.');
+    expect(container.textContent).toContain('2.00serving');
+    expect(createPlanFromTemplate).toHaveBeenLastCalledWith('ncp-1', expect.objectContaining({
+      preview: false, lines: [expect.objectContaining({ source_template_item_id: 'template-line-1', recipe_id: 'carb-1', quantity: 2, unit: 'serving' })],
+    }));
+    const loaded: Awaited<ReturnType<typeof createPlanFromTemplate>> = await vi.mocked(createPlanFromTemplate).mock.results[0].value;
+    vi.mocked(createPlanFromTemplate).mockResolvedValueOnce({ ...loaded, plan: { ...loaded.plan, scale_status: 'already_scaled' }, items: loaded.items.map((item) => ({ ...item, quantity: '1.20' })) });
+    await act(async () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'Scale to prescription')!.click());
+    expect(createPlanFromTemplate).toHaveBeenLastCalledWith('ncp-1', expect.objectContaining({ preview: true, scale: true }));
+    expect(container.textContent).toContain('1.20serving');
+    vi.mocked(fetchRecipeById).mockResolvedValueOnce({ id: 'carb-1', rnd_user_id: 1, name: 'Oats', category: 'carb', servings: 1, meal_types: null, prep_notes: null, total_calories: '200', total_protein: '10', total_carbs: '20', total_fat: '5', prepared_portion_amount: null, prepared_portion_unit: null, micronutrients: {}, ingredients: [], created_at: '', updated_at: '' });
+    await act(async () => container.querySelector<HTMLButtonElement>('button[title="Edit"]')!.click());
+    const quantity = container.querySelector<HTMLInputElement>('input[type="number"]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(quantity, '1.4');
+      quantity.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'Save Changes')!.click());
+    expect(updateMealPlanItem).not.toHaveBeenCalled();
+    expect(container.textContent).toContain('1.4serving');
+    expect(createPlanFromTemplate).toHaveBeenCalledTimes(3);
+    await act(async () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent === 'Discard draft')!.click());
+    expect(Array.from(container.querySelectorAll('button')).some((button) => button.textContent === 'Save week')).toBe(false);
+  } finally { await act(async () => root.unmount()); }
+});
+
 it("allows Exclude snacks for liver disease", async () => {
   const { container, root } = await renderEmptyPlanner("liver_disease");
   try {
     const label = Array.from(container.querySelectorAll("label")).find((element) => element.textContent?.includes("Exclude snacks"))!;
     expect(label.querySelector("input")?.disabled).toBe(false);
+  } finally { await act(async () => root.unmount()); }
+});
+
+it("asks before replacing a nonempty saved week and keeps it after cancel or load failure", async () => {
+  vi.mocked(fetchMealPlanTemplates).mockResolvedValueOnce({ data: [{ id: "template-1", name: "Measured week", description: null, goal_type: null, disease_stage: null, maternal_status: null, created_at: "2026-10-15" }], meta: { current_page: 1, per_page: 10, total: 1, last_page: 1 } });
+  vi.mocked(fetchAllMealPlanItems).mockResolvedValueOnce([{ id: "saved-item", meal_plan_day_id: "day-1", recipe_id: "meal-1", food_item_id: null, fdc_id: null, source: "recipe", ai_suggested: false, quantity: "1.50", unit: "serving", nutrient_snapshot: { name: "Original breakfast", calories: 200, protein: 10, carbs: 20, fat: 5, serving_size: 1, serving_unit: "serving", micronutrients: {} } }]);
+  vi.mocked(createPlanFromTemplate).mockRejectedValueOnce(new Error('Could not load this template.'));
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container);
+  await act(async () => root.render(<MealPlanSection ncpId="ncp-1" interventionPlanId="intervention-1" prescriptionTargets={{ energy: 2000, protein: 75, carbs: 250, fat: 65, fluid: 2000 }} />));
+  try {
+    expect(container.textContent).toContain('Original breakfast');
+    await act(async () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('Load Template'))!.click());
+    const use = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'Use')!;
+    await act(async () => use.click());
+    let confirmation = container.querySelector('[aria-label="Replace weekly menu draft"]')!;
+    expect(confirmation).not.toBeNull();
+    expect(createPlanFromTemplate).not.toHaveBeenCalled();
+    await act(async () => Array.from(confirmation.querySelectorAll('button')).find((button) => button.textContent === 'Cancel')!.click());
+    expect(container.textContent).toContain('Original breakfast');
+    expect(createPlanFromTemplate).not.toHaveBeenCalled();
+    await act(async () => use.click());
+    confirmation = container.querySelector('[aria-label="Replace weekly menu draft"]')!;
+    await act(async () => Array.from(confirmation.querySelectorAll('button')).find((button) => button.textContent === 'Replace draft')!.click());
+    expect(createPlanFromTemplate).toHaveBeenCalledWith('ncp-1', expect.objectContaining({ meal_plan_id: 'plan-1', preview: true }));
+    expect(container.textContent).toContain('Original breakfast');
+    expect(container.textContent).toContain('Could not load this template.');
+    expect(Array.from(container.querySelectorAll('button')).some((button) => button.textContent === 'Save week')).toBe(false);
+  } finally { await act(async () => root.unmount()); }
+});
+
+it("ignores a late template response after changing intervention scope", async () => {
+  vi.mocked(fetchMealPlanTemplates).mockResolvedValueOnce({ data: [{ id: "template-1", name: "Measured week", description: null, goal_type: null, disease_stage: null, maternal_status: null, created_at: "2026-10-15" }], meta: { current_page: 1, per_page: 10, total: 1, last_page: 1 } });
+  let finishPreview!: (value: Awaited<ReturnType<typeof createPlanFromTemplate>>) => void;
+  vi.mocked(createPlanFromTemplate).mockImplementationOnce(() => new Promise((resolve) => { finishPreview = resolve; }));
+  const { container, root } = await renderEmptyPlanner();
+  try {
+    await act(async () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('Load Template'))!.click());
+    await act(async () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'Use')!.click());
+    await act(async () => root.render(<MealPlanSection ncpId="ncp-1" interventionPlanId="intervention-2" prescriptionTargets={{ energy: 1800, protein: 70, carbs: 250, fat: 55, fluid: 2000 }} />));
+    await act(async () => finishPreview({
+      plan: { id: 'old-draft', intervention_plan_id: 'intervention-1', week_start_date: '2026-10-12', generation_type: 'manual', scale_status: 'available', scaled_at: null, status: 'draft', days: [] },
+      items: [], preview: true, compatibility: { goal_matches: true, disease_stage_matches: true, maternal_status_matches: true, warning: null },
+    }));
+    expect(Array.from(container.querySelectorAll('button')).some((button) => button.textContent === 'Save week')).toBe(false);
+  } finally { await act(async () => root.unmount()); }
+});
+
+it("keeps a historical week readable without template loading or edit actions", async () => {
+  vi.mocked(fetchMealPlanTemplates).mockResolvedValueOnce({ data: [{ id: 'template-1', name: 'Measured week', description: null, goal_type: null, disease_stage: null, maternal_status: null, created_at: '2026-10-15' }], meta: { current_page: 1, per_page: 10, total: 1, last_page: 1 } });
+  vi.mocked(fetchAllMealPlanItems).mockResolvedValueOnce([{ id: 'saved-item', meal_plan_day_id: 'day-1', recipe_id: 'meal-1', food_item_id: null, fdc_id: null, source: 'recipe', ai_suggested: false, quantity: '1.50', unit: 'serving', nutrient_snapshot: { name: 'Historical breakfast', calories: 200, protein: 10, carbs: 20, fat: 5, serving_size: 1, serving_unit: 'serving', micronutrients: {} } }]);
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container);
+  await act(async () => root.render(<MealPlanSection ncpId="ncp-1" interventionPlanId="intervention-1" readOnly prescriptionTargets={{ energy: 2000, protein: 75, carbs: 250, fat: 65, fluid: 2000 }} />));
+  try {
+    expect(container.textContent).toContain('Historical breakfast');
+    expect(container.querySelector('table[aria-label="Weekly menu calendar"]')).not.toBeNull();
+    expect(container.querySelector('a')?.getAttribute('href')).toBe('/food-library/recipes/meal-1');
+    expect(container.querySelector('button[title="Edit"]')).toBeNull();
+    expect(Array.from(container.querySelectorAll('button')).some((button) => /Load Template|Save week|Save Template|Auto-Generate|Create Menu|^Add$/.test(button.textContent ?? ''))).toBe(false);
+    expect(createPlanFromTemplate).not.toHaveBeenCalled();
   } finally { await act(async () => root.unmount()); }
 });
 
@@ -95,6 +208,10 @@ it("offers Menu Items only and allows a Snack in a manually planned main slot", 
       prescriptionTargets={{ energy: 2000, protein: 75, carbs: 250, fat: 65, fluid: 2000 }} />);
   });
   await act(async () => { await Promise.resolve(); });
+
+  const calendar = container.querySelector('table[aria-label="Weekly menu calendar"]');
+  expect(calendar).not.toBeNull();
+  expect(calendar!.querySelectorAll('td[data-day]')).toHaveLength(35);
 
   const add = Array.from(container.querySelectorAll("button")).find((button) => button.textContent?.trim() === "Add");
   expect(add).toBeDefined();

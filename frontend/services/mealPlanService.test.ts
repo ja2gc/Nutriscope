@@ -63,6 +63,17 @@ describe("createPlanFromTemplate", () => {
     vi.unstubAllGlobals();
   });
 
+  test("keeps preview items and surfaces an actionable load error", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: 'draft-week' }, items: [{ id: 'draft-item', quantity: '2.00' }], meta: { preview: true } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ message: 'Correct the legacy serving measure before loading.' }), { status: 422 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const result = await createPlanFromTemplate('ncp-uuid', { intervention_plan_id: 'plan-uuid', template_id: 'template-uuid', week_start_date: '2026-10-12' });
+    expect(result).toEqual(expect.objectContaining({ items: [{ id: 'draft-item', quantity: '2.00' }], preview: true }));
+    await expect(createPlanFromTemplate('ncp-uuid', { intervention_plan_id: 'plan-uuid', template_id: 'template-uuid', week_start_date: '2026-10-12' }))
+      .rejects.toThrow('Correct the legacy serving measure before loading.');
+  });
+
   test("returns the backend compatibility warning with the loaded plan", async () => {
     vi.stubGlobal(
       "fetch",

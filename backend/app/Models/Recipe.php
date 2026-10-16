@@ -101,6 +101,59 @@ class Recipe extends Model
         return (float) ($this->total_water_g ?? 0);
     }
 
+    /** Build a measured per-serving snapshot without changing the library Recipe. */
+    public function planSnapshot(array $overrides = []): array
+    {
+        if (! $this->hasValidPortionData()) {
+            throw new InvalidArgumentException('Correct the Menu Item yield and measured Ingredient units before using this portion.');
+        }
+        $servings = (float) $this->servings;
+        $overrideQty = collect($overrides)->keyBy('id');
+        if ($overrideQty->count() !== count($overrides) || $overrideQty->keys()->diff($this->ingredients->pluck('id'))->isNotEmpty()) {
+            throw new InvalidArgumentException('Choose only ingredients belonging to this Menu Item.');
+        }
+        $cal = $prot = $carb = $fat = $water = 0.0;
+        $micros = [];
+        $planIngredients = [];
+
+        foreach ($this->ingredients as $ingredient) {
+            $food = $ingredient->foodItem;
+            if (! $food) {
+                continue;
+            }
+
+            $quantity = (float) ($overrideQty[$ingredient->id]['quantity'] ?? $ingredient->quantity);
+            $planIngredients[] = [
+                'name' => $food->name,
+                'quantity' => $quantity,
+                'unit' => $ingredient->unit,
+            ];
+            $factor = UnitConverter::scalingFactor($quantity, (string) $ingredient->unit, (float) $food->serving_size, (string) $food->serving_unit);
+            $cal += (float) $food->calories * $factor;
+            $prot += (float) $food->protein * $factor;
+            $carb += (float) $food->carbs * $factor;
+            $fat += (float) $food->fat * $factor;
+            $water += (float) ($food->water_g ?? 0) * $factor;
+            foreach ((is_array($food->micronutrients) ? $food->micronutrients : []) as $key => $value) {
+                $micros[$key] = ($micros[$key] ?? 0) + (float) $value * $factor;
+            }
+        }
+
+        return [
+            'name' => $this->name,
+            'calories' => round($cal / $servings, 2),
+            'protein' => round($prot / $servings, 2),
+            'carbs' => round($carb / $servings, 2),
+            'fat' => round($fat / $servings, 2),
+            'water_g' => round($water / $servings, 2),
+            'serving_size' => 1,
+            'serving_unit' => 'serving',
+            'micronutrients' => array_map(fn ($value) => round($value / $servings, 3), $micros),
+            'recipe_ingredients' => $planIngredients,
+            'recipe_yield' => $servings,
+        ];
+    }
+
     /**
      * Recalculate and persist nutrient totals from ingredients, including water.
      */

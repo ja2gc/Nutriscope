@@ -22,6 +22,8 @@ export interface MealPlanItem {
   food_item_id: string | null;
   fdc_id: string | null;
   recipe_id: string | null;
+  source_template_item_id?: string | null;
+  ingredient_overrides?: { id: number; quantity: number }[];
   quantity: string;
   unit: string;
   nutrient_snapshot: NutrientSnapshot | null;
@@ -293,9 +295,15 @@ export async function saveMealPlanAsTemplate(
 
 export async function createPlanFromTemplate(
   ncpId: string,
-  payload: { intervention_plan_id: string; template_id: string; week_start_date: string }
+  payload: {
+    intervention_plan_id: string; template_id: string; week_start_date: string;
+    meal_plan_id?: string; preview?: boolean; scale?: boolean;
+    lines?: (LibraryTemplateLine & { source_template_item_id?: string | null; ingredient_overrides?: { id: number; quantity: number }[] })[];
+  }
 ): Promise<{
   plan: MealPlan;
+  items: MealPlanItem[];
+  preview: boolean;
   compatibility: {
     goal_matches: boolean;
     disease_stage_matches: boolean;
@@ -308,14 +316,21 @@ export async function createPlanFromTemplate(
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error('Failed to create plan from template.');
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    throw new Error(error.message || 'Failed to load template.');
+  }
   const body = await res.json();
   return {
     plan: body.data,
-    compatibility: body.meta?.template_compatibility ?? {
+    items: body.items ?? [],
+    preview: body.meta?.preview === true,
+    compatibility: {
       goal_matches: true,
       disease_stage_matches: true,
+      maternal_status_matches: true,
       warning: null,
+      ...body.meta?.template_compatibility,
     },
   };
 }

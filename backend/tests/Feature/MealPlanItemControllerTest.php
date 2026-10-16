@@ -375,7 +375,11 @@ class MealPlanItemControllerTest extends TestCase
     public function test_cannot_delete_item_via_wrong_day(): void
     {
         $a = $this->setupPlan();
-        $otherDay = MealPlanDay::factory()->create(['meal_plan_id' => $a['plan']->id]);
+        $otherDay = MealPlanDay::factory()->create([
+            'meal_plan_id' => $a['plan']->id,
+            'day_of_week' => $a['day']->day_of_week,
+            'meal_type' => $a['day']->meal_type === 'breakfast' ? 'dinner' : 'breakfast',
+        ]);
         $item = MealPlanItem::factory()->create(['meal_plan_day_id' => $a['day']->id]);
 
         // item belongs to $a['day'], not $otherDay → 404.

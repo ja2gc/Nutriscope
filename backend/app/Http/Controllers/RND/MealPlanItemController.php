@@ -16,7 +16,6 @@ use App\Models\NcpRecord;
 use App\Models\Recipe;
 use App\Policies\AuditPolicy;
 use App\Services\Audit\AuditLogger;
-use App\Support\UnitConverter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -46,6 +45,10 @@ class MealPlanItemController extends Controller
         }
         if ($item && $day && $item->meal_plan_day_id !== $day->id) {
             abort(404);
+        }
+        if (! request()->isMethodSafe()) {
+            abort_unless((int) $ncpRecord->latestIntervention()->value('id') === $mealPlan->intervention_id, 403, 'Historical intervention menus are read-only.');
+            abort_if($mealPlan->status === 'completed', 403, 'Completed menus are read-only.');
         }
     }
 
@@ -232,50 +235,11 @@ class MealPlanItemController extends Controller
             throw ValidationException::withMessages(['ingredient_overrides' => 'Correct the Menu Item yield and measured Ingredient units before editing this portion.']);
         }
 
-        $servings = (float) $recipe->servings;
-        $overrideQty = collect($overrides)->keyBy('id');
-        if ($overrideQty->count() !== count($overrides) || $overrideQty->keys()->diff($recipe->ingredients->pluck('id'))->isNotEmpty()) {
-            throw ValidationException::withMessages(['ingredient_overrides' => 'Choose only ingredients belonging to this Menu Item.']);
+        try {
+            return [...$recipe->planSnapshot($overrides), 'name' => $item->nutrient_snapshot['name'] ?? $recipe->name];
+        } catch (\InvalidArgumentException $exception) {
+            throw ValidationException::withMessages(['ingredient_overrides' => $exception->getMessage()]);
         }
-        $cal = $prot = $carb = $fat = $water = 0.0;
-        $micros = [];
-        $planIngredients = [];
-
-        foreach ($recipe->ingredients as $ingredient) {
-            $food = $ingredient->foodItem;
-            if (! $food) {
-                continue;
-            }
-
-            $quantity = (float) ($overrideQty[$ingredient->id]['quantity'] ?? $ingredient->quantity);
-            $planIngredients[] = [
-                'name' => $food->name,
-                'quantity' => $quantity,
-                'unit' => $ingredient->unit,
-            ];
-            $factor = UnitConverter::scalingFactor($quantity, (string) $ingredient->unit, (float) $food->serving_size, (string) $food->serving_unit);
-            $cal += (float) $food->calories * $factor;
-            $prot += (float) $food->protein * $factor;
-            $carb += (float) $food->carbs * $factor;
-            $fat += (float) $food->fat * $factor;
-            $water += (float) ($food->water_g ?? 0) * $factor;
-            foreach ((is_array($food->micronutrients) ? $food->micronutrients : []) as $key => $value) {
-                $micros[$key] = ($micros[$key] ?? 0) + (float) $value * $factor;
-            }
-        }
-
-        return [
-            'name' => $item->nutrient_snapshot['name'] ?? $recipe->name,
-            'calories' => round($cal / $servings, 2),
-            'protein' => round($prot / $servings, 2),
-            'carbs' => round($carb / $servings, 2),
-            'fat' => round($fat / $servings, 2),
-            'water_g' => round($water / $servings, 2),
-            'serving_size' => 1,
-            'serving_unit' => 'serving',
-            'micronutrients' => array_map(fn ($value) => round($value / $servings, 3), $micros),
-            'recipe_ingredients' => $planIngredients,
-        ];
     }
 
     public function destroy(NcpRecord $ncpRecord, MealPlan $mealPlan, MealPlanDay $day, MealPlanItem $item): JsonResponse

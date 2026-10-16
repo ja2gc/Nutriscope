@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   Plus, X, Search, Loader2, Trash2, BookmarkPlus,
   Wand2, AlertTriangle, LayoutTemplate, Edit2,
@@ -20,15 +20,13 @@ import {
   Recipe, RecipeIngredient,
 } from "@/services/foodLibraryService";
 import MacroTrackerBar from "./MacroTrackerBar";
+import { WeeklyMenuCalendar, MENU_DAYS, MENU_SLOTS } from "@/components/ncp/WeeklyMenuCalendar";
 import { ALL_MICROS } from "@/lib/nutritionCalculations";
 import { foodFluidBalance } from "@/lib/mealPlanNutrition";
 import { clinicalIngredientFactor } from "@/lib/clinicalUnits";
 
-const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'] as const;
-const MEAL_TYPES = ['breakfast','am_snack','lunch','pm_snack','dinner'] as const;
-const MEAL_LABELS: Record<string, string> = {
-  breakfast: 'Breakfast', am_snack: 'AM Snack', lunch: 'Lunch', pm_snack: 'PM Snack', dinner: 'Dinner',
-};
+const DAYS = MENU_DAYS;
+const MEAL_TYPES = MENU_SLOTS.map(([key]) => key);
 
 interface Props {
   ncpId: string;
@@ -48,11 +46,25 @@ interface EditTarget {
   slotKey: string;
 }
 
+const slotKey = (day: string, meal: string) => `${day}-${meal}`;
+
+function groupWeekItems(plan: MealPlan, items: MealPlanItem[]): Record<string, MealPlanItem[]> {
+  const result: Record<string, MealPlanItem[]> = {};
+  for (const item of items) {
+    const day = plan.days.find((slot) => slot.id === item.meal_plan_day_id);
+    if (!day) continue;
+    const key = slotKey(day.day_of_week, day.meal_type);
+    (result[key] ??= []).push(item);
+  }
+  return result;
+}
+
 export default function MealPlanSection({
   ncpId, interventionPlanId, readOnly = false, prescriptionTargets, foodDislikes = [], allergens = [],
   displayedMicros = [], micronutrientLimits = {},
 }: Props) {
   const [plans, setPlans]               = useState<MealPlan[]>([]);
+  const scopeVersion = useRef(0);
   const [activePlan, setActivePlan]     = useState<MealPlan | null>(null);
   const [selectedDay, setSelectedDay]   = useState<string>(DAYS[0]);
   const [itemsByKey, setItemsByKey]     = useState<Record<string, MealPlanItem[]>>({});
@@ -110,6 +122,9 @@ export default function MealPlanSection({
   const [confirmDeleteTemplateId, setConfirmDeleteTemplateId]   = useState<string | null>(null);
   const [deletingTemplate, setDeletingTemplate]                 = useState(false);
   const [templateWarning, setTemplateWarning]                   = useState<string | null>(null);
+  const [templateDraft, setTemplateDraft] = useState<{ templateId: string; replacePlanId?: string; originalPlan: MealPlan | null; originalItems: Record<string, MealPlanItem[]> } | null>(null);
+  const [savingWeek, setSavingWeek] = useState(false);
+  const [confirmTemplateLoad, setConfirmTemplateLoad] = useState<string | null>(null);
   const [scalingPlan, setScalingPlan]                           = useState(false);
   const [scaleNotice, setScaleNotice]                           = useState<string | null>(null);
 
@@ -151,7 +166,6 @@ export default function MealPlanSection({
     return () => { cancelled = true; clearTimeout(timer); };
   }, [pickerOpen, recipePage, recipeQuery]);
 
-  const slotKey = (day: string, mt: string) => `${day}-${mt}`;
   const markPlanNeedsScaling = (planId: string) => {
     setPlans((current) => current.map((plan) => plan.id === planId
       ? { ...plan, scale_status: 'available', scaled_at: null }
@@ -162,40 +176,47 @@ export default function MealPlanSection({
   };
 
   const loadPlans = useCallback(async () => {
+    const version = scopeVersion.current;
     setLoadingPlans(true);
     try {
       const data = await fetchMealPlans(ncpId);
+      if (version !== scopeVersion.current) return;
       const ownedPlans = data.filter((plan) => plan.intervention_plan_id === interventionPlanId);
       setPlans(ownedPlans);
       setActivePlan(ownedPlans[0] ?? null);
-    } finally { setLoadingPlans(false); }
+    } catch (error) {
+      if (version === scopeVersion.current) setGenerateError(error instanceof Error ? error.message : 'Could not load this weekly plan.');
+    } finally { if (version === scopeVersion.current) setLoadingPlans(false); }
   }, [interventionPlanId, ncpId]);
 
   useEffect(() => {
-    loadPlans();
-    fetchMealPlanTemplates(templatePage).then((result) => { setTemplates(result.data); setTemplateMeta(result.meta); });
-  }, [loadPlans, templatePage]);
+    const version = ++scopeVersion.current;
+    setTemplateDraft(null);
+    setItemsByKey({});
+    setFromTemplateOpen(false); setConfirmTemplateLoad(null); setCarbChoiceOpen(false);
+    setCreatingPlan(false); setSavingWeek(false); setScalingPlan(false);
+    void loadPlans();
+    return () => { scopeVersion.current = version + 1; };
+  }, [loadPlans]);
 
-  const loadItems = useCallback(async (plan: MealPlan) => {
-    try {
-      const allItems = await fetchAllMealPlanItems(ncpId, plan.id);
-      const dayLookup = new Map((plan.days ?? []).map(d => [d.id, d]));
-      const map: Record<string, MealPlanItem[]> = {};
-      for (const item of allItems) {
-        const day = dayLookup.get(item.meal_plan_day_id);
-        if (!day) continue;
-        const key = slotKey(day.day_of_week, day.meal_type);
-        if (!map[key]) map[key] = [];
-        map[key].push(item);
-      }
-      setItemsByKey(map);
-    } catch (err) {
-      console.error('loadItems failed:', err);
-      setGenerateError(err instanceof Error ? err.message : 'Failed to load meal items. Please refresh.');
-    }
-  }, [ncpId]);
+  useEffect(() => {
+    let cancelled = false;
+    fetchMealPlanTemplates(templatePage).then((result) => {
+      if (!cancelled) { setTemplates(result.data); setTemplateMeta(result.meta); }
+    }).catch((error) => { if (!cancelled) setGenerateError(error instanceof Error ? error.message : 'Could not load templates.'); });
+    return () => { cancelled = true; };
+  }, [templatePage]);
 
-  useEffect(() => { if (activePlan) loadItems(activePlan); }, [activePlan, loadItems]);
+  useEffect(() => {
+    if (!activePlan || templateDraft) return;
+    let cancelled = false;
+    fetchAllMealPlanItems(ncpId, activePlan.id).then((items) => {
+      if (!cancelled) setItemsByKey(groupWeekItems(activePlan, items));
+    }).catch((error) => {
+      if (!cancelled) setGenerateError(error instanceof Error ? error.message : 'Failed to load meal items. Please refresh.');
+    });
+    return () => { cancelled = true; };
+  }, [activePlan, ncpId, templateDraft]);
 
   const handleCreatePlan = async () => {
     setCreatingPlan(true);
@@ -265,18 +286,64 @@ export default function MealPlanSection({
     } finally { setSavingTemplate(false); }
   };
 
-  const handleFromTemplate = async (templateId: string) => {
-    setFromTemplateOpen(false); setViewingTemplate(null); setCreatingPlan(true);
+  const templateRequest = (scale = false) => {
+    if (!templateDraft || !activePlan) throw new Error('Load a template before saving this draft.');
+    return {
+      intervention_plan_id: interventionPlanId, template_id: templateDraft.templateId,
+      meal_plan_id: templateDraft.replacePlanId, week_start_date: activePlan.week_start_date, scale,
+      lines: activePlan.days.flatMap((day) => (itemsByKey[slotKey(day.day_of_week, day.meal_type)] ?? []).map((item) => ({
+        source_template_item_id: item.source_template_item_id, recipe_id: item.recipe_id,
+        day_of_week: day.day_of_week, meal_type: day.meal_type, quantity: Number(item.quantity), unit: item.unit,
+        ingredient_overrides: item.ingredient_overrides,
+      }))),
+    };
+  };
+
+  const handleFromTemplate = async (templateId: string, confirmed = false) => {
+    const version = scopeVersion.current;
+    if (!confirmed && Object.values(itemsByKey).some((items) => items.length > 0)) {
+      setConfirmTemplateLoad(templateId);
+      return;
+    }
+    setConfirmTemplateLoad(null);
+    setCreatingPlan(true); setGenerateError(null);
     try {
       const d = new Date(); d.setDate(d.getDate() + (d.getDay() === 0 ? -6 : 1 - d.getDay()));
-      const { plan, compatibility } = await createPlanFromTemplate(ncpId, {
-        intervention_plan_id: interventionPlanId,
-        template_id: templateId,
-        week_start_date: d.toISOString().split('T')[0],
+      const result = await createPlanFromTemplate(ncpId, {
+        intervention_plan_id: interventionPlanId, template_id: templateId,
+        week_start_date: activePlan?.week_start_date ?? d.toISOString().split('T')[0], preview: true,
+        meal_plan_id: templateDraft?.replacePlanId ?? (templateDraft ? undefined : activePlan?.id),
       });
-      setPlans([plan]); setActivePlan(plan);
-      setTemplateWarning(compatibility.warning);
-    } finally { setCreatingPlan(false); }
+      if (version !== scopeVersion.current) return;
+      setTemplateDraft(templateDraft ? { ...templateDraft, templateId } : {
+        templateId, replacePlanId: activePlan?.id, originalPlan: activePlan, originalItems: itemsByKey,
+      });
+      setActivePlan(result.plan); setItemsByKey(groupWeekItems(result.plan, result.items));
+      setTemplateWarning(result.compatibility.warning);
+      setFromTemplateOpen(false); setViewingTemplate(null); setScaleNotice(null);
+    } catch (error) {
+      if (version === scopeVersion.current) setGenerateError(error instanceof Error ? error.message : 'Could not load template. Try again.');
+    } finally { if (version === scopeVersion.current) setCreatingPlan(false); }
+  };
+
+  const handleSaveWeek = async () => {
+    if (!templateDraft || !activePlan) return;
+    const version = scopeVersion.current;
+    setSavingWeek(true); setGenerateError(null);
+    try {
+      const result = await createPlanFromTemplate(ncpId, { ...templateRequest(activePlan.scale_status === 'already_scaled'), preview: false });
+      if (version !== scopeVersion.current) return;
+      setTemplateDraft(null); setPlans([result.plan]); setActivePlan(result.plan);
+      setItemsByKey(groupWeekItems(result.plan, result.items));
+    } catch (error) {
+      if (version === scopeVersion.current) setGenerateError(error instanceof Error ? error.message : 'Could not save week. Try again.');
+    } finally { if (version === scopeVersion.current) setSavingWeek(false); }
+  };
+
+  const discardTemplateDraft = () => {
+    if (!templateDraft) return;
+    setActivePlan(templateDraft.originalPlan); setItemsByKey(templateDraft.originalItems);
+    setTemplateDraft(null); setGenerateError(null); setScaleNotice(null); setTemplateWarning(null);
   };
 
   const handleViewTemplate = async (templateId: string) => {
@@ -311,17 +378,26 @@ export default function MealPlanSection({
 
   const handleScaleToPrescription = async () => {
     if (!activePlan || activePlan.scale_status === 'already_scaled') return;
+    const version = scopeVersion.current;
     setScalingPlan(true); setScaleNotice(null);
     try {
+      if (templateDraft) {
+        const result = await createPlanFromTemplate(ncpId, { ...templateRequest(true), preview: true });
+        if (version !== scopeVersion.current) return;
+        setActivePlan(result.plan); setItemsByKey(groupWeekItems(result.plan, result.items));
+        setScaleNotice('Draft quantities scaled. Review the week and save to apply them.');
+        return;
+      }
       const { plan, scaling } = await scaleMealPlanToPrescription(ncpId, activePlan.id);
+      if (version !== scopeVersion.current) return;
       setPlans((current) => current.map((item) => item.id === plan.id ? plan : item));
       setActivePlan(plan);
       setScaleNotice(scaling.problem_days.length > 0
         ? `Quantities were scaled. Review unresolved tolerances for: ${scaling.problem_days.join(', ')}.`
         : `Scaled ${scaling.changed_items} item quantities to the current prescription.`);
     } catch (err) {
-      setScaleNotice(err instanceof Error ? err.message : 'Failed to scale meal plan.');
-    } finally { setScalingPlan(false); }
+      if (version === scopeVersion.current) setScaleNotice(err instanceof Error ? err.message : 'Failed to scale meal plan.');
+    } finally { if (version === scopeVersion.current) setScalingPlan(false); }
   };
 
   // ── Edit modal ─────────────────────────────────────────────────────────────
@@ -337,7 +413,7 @@ export default function MealPlanSection({
       fetchRecipeById(item.recipe_id).then((recipe) => {
         setEditRecipe(recipe);
         setEditIngredients(recipe.ingredients.map((ingredient) => ({
-          id: ingredient.id, qty: String(ingredient.quantity), ing: ingredient,
+          id: ingredient.id, qty: String(item.ingredient_overrides?.find((row) => row.id === ingredient.id)?.quantity ?? ingredient.quantity), ing: ingredient,
         })));
       }).finally(() => setEditLoadingRecipe(false));
     }
@@ -384,6 +460,16 @@ export default function MealPlanSection({
         payload.ingredient_overrides = editIngredients.map(({ id, qty }) => ({ id, quantity: Number(qty || 0) }));
         payload.quantity = Number(editServings);
       }
+      if (templateDraft) {
+        const updated: MealPlanItem = {
+          ...editTarget.item, quantity: String(payload.quantity ?? editTarget.item.quantity),
+          ingredient_overrides: payload.ingredient_overrides ?? editTarget.item.ingredient_overrides,
+          nutrient_snapshot: payload.ingredient_overrides ? { ...editTarget.item.nutrient_snapshot!, ...recalcFromIngredients() } : editTarget.item.nutrient_snapshot,
+        };
+        setItemsByKey((previous) => ({ ...previous, [editTarget.slotKey]: (previous[editTarget.slotKey] ?? []).map((item) => item.id === updated.id ? updated : item) }));
+        markPlanNeedsScaling(activePlan.id); setEditTarget(null);
+        return;
+      }
       const updated = await updateMealPlanItem(ncpId, activePlan.id, editTarget.dayId, editTarget.item.id, payload);
       setItemsByKey((prev) => ({
         ...prev,
@@ -412,6 +498,22 @@ export default function MealPlanSection({
     if (!pickerTarget || !activePlan) return;
     setAdding(`recipe-${recipe.id}`); setPickerError(null);
     try {
+      if (templateDraft) {
+        const yieldAmount = Number(recipe.servings);
+        if (!(yieldAmount > 0)) throw new Error('Correct the Menu Item yield before adding it.');
+        const item: MealPlanItem = {
+          id: crypto.randomUUID(), meal_plan_day_id: pickerTarget.dayId, recipe_id: recipe.id,
+          food_item_id: null, fdc_id: null, quantity: '1.00', unit: 'serving', source: 'recipe', ai_suggested: false,
+          nutrient_snapshot: {
+            name: recipe.name, calories: Number(recipe.total_calories) / yieldAmount,
+            protein: Number(recipe.total_protein) / yieldAmount, carbs: Number(recipe.total_carbs) / yieldAmount,
+            fat: Number(recipe.total_fat) / yieldAmount, serving_size: 1, serving_unit: 'serving',
+            micronutrients: Object.fromEntries(Object.entries(recipe.micronutrients ?? {}).map(([key, value]) => [key, Number(value) / yieldAmount])),
+          },
+        };
+        appendItem(item, activePlan, pickerTarget.dayId);
+        return;
+      }
       appendItem(await addMealPlanItem(ncpId, activePlan.id, pickerTarget.dayId, {
         recipe_id: recipe.id,
         quantity: 1,
@@ -423,7 +525,7 @@ export default function MealPlanSection({
   };
   const removeItem = async (key: string, dayId: string, itemId: string) => {
     if (!activePlan) return;
-    await removeMealPlanItem(ncpId, activePlan.id, dayId, itemId);
+    if (!templateDraft) await removeMealPlanItem(ncpId, activePlan.id, dayId, itemId);
     setItemsByKey((prev) => ({ ...prev, [key]: (prev[key] ?? []).filter((i) => i.id !== itemId) }));
     markPlanNeedsScaling(activePlan.id);
   };
@@ -486,17 +588,21 @@ export default function MealPlanSection({
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Weekly Meal Plan</h3>
-        <div className="flex items-center gap-1 shrink-0">
-          {!readOnly && !activePlan && templates.length > 0 && (
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+          {!readOnly && templates.length > 0 && (
             <button onClick={() => setFromTemplateOpen(true)} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap">
-              <LayoutTemplate className="h-3 w-3" /> From Template
+              <LayoutTemplate className="h-3 w-3" /> Load Template
             </button>
           )}
-          {!readOnly && activePlan && (
+          {!readOnly && activePlan && !templateDraft && (
             <button onClick={() => setSaveTemplateOpen(true)} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap">
               <BookmarkPlus className="h-3 w-3" /> Save Template
             </button>
           )}
+          {!readOnly && templateDraft && <>
+            <Button variant="secondary" onClick={discardTemplateDraft} disabled={savingWeek}>Discard draft</Button>
+            <Button variant="primary" onClick={() => void handleSaveWeek()} loading={savingWeek}>Save week</Button>
+          </>}
           {!readOnly && activePlan && (
             <button onClick={handleScaleToPrescription} disabled={scalingPlan || activePlan.scale_status === 'already_scaled'}
               className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed">
@@ -637,16 +743,15 @@ export default function MealPlanSection({
           </div>
 
           {/* Meal slots */}
-          <div className="space-y-2.5">
-            {MEAL_TYPES.map((mt) => {
-              const day = activePlan.days.find((d) => d.day_of_week === selectedDay && d.meal_type === mt);
+          <WeeklyMenuCalendar renderCell={(dayName, mt) => {
+              const day = activePlan.days.find((d) => d.day_of_week === dayName && d.meal_type === mt);
               if (!day) return null;
-              const key = slotKey(selectedDay, mt);
+              const key = slotKey(dayName, mt);
               const items = itemsByKey[key] ?? [];
               return (
-                <div key={mt} className="border border-warm-100 rounded-xl p-3.5 space-y-2">
+                <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">{MEAL_LABELS[mt]}</h4>
+
                     {!readOnly && <button onClick={() => openPicker(day.id, mt)}
                       className="flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-800 cursor-pointer">
                       <Plus className="h-3 w-3" /> Add
@@ -669,7 +774,7 @@ export default function MealPlanSection({
                         <div className="flex items-center justify-between py-1 px-1.5 rounded-lg hover:bg-warm-50 group">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5">
-                              <span className="text-sm font-medium text-warm-800 truncate">{s?.name ?? '—'}</span>
+                              {item.recipe_id ? <a href={`/food-library/recipes/${item.recipe_id}`} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-warm-800 underline">{s?.name ?? 'Menu Item'}</a> : <span className="text-sm font-medium text-warm-800">{s?.name ?? '—'}</span>}
                               {item.source === 'usda' && <span className="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 rounded-full uppercase">USDA</span>}
                               {isDisliked && (
                                 <InfoHint label={`Patient dislikes ${s?.name ?? "this food"}`} title="Patient food dislike">
@@ -686,7 +791,7 @@ export default function MealPlanSection({
                                 : "Per-person quantities unavailable. Check recipe yield and ingredient units."}
                             </p>}
                           </div>
-                          {!readOnly && <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {!readOnly && <div className="flex flex-wrap gap-1">
                             <Button variant="icon" onClick={() => openEdit(item, day.id, key)} title="Edit"
                               className="hover:text-sky-600 hover:bg-sky-50">
                               <Edit2 className="h-3 w-3" />
@@ -710,8 +815,7 @@ export default function MealPlanSection({
                   })}
                 </div>
               );
-            })}
-          </div>
+            }} />
         </>
       )}
 
@@ -929,7 +1033,7 @@ export default function MealPlanSection({
       {/* ── Template Manager Modal ──────────────────────────────────────────── */}
       {!readOnly && fromTemplateOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 flex flex-col max-h-[80vh]">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl mx-4 flex flex-col max-h-[80vh]">
             <div className="flex items-center justify-between px-6 py-4 border-b border-warm-100">
               {viewingTemplate ? (
                 <div className="flex items-center gap-2">
@@ -942,6 +1046,7 @@ export default function MealPlanSection({
               <button onClick={() => { setFromTemplateOpen(false); setViewingTemplate(null); }} className="text-warm-400 hover:text-warm-700 cursor-pointer"><X className="h-4 w-4" /></button>
             </div>
             <div className="overflow-y-auto flex-1 p-4">
+              {generateError && <p role="alert" className="mb-3 text-sm text-red-700">{generateError}</p>}
               {!viewingTemplate && (templates.length === 0 ? (
                 <p className="text-sm text-warm-400 text-center py-8">No templates saved yet.</p>
               ) : (
@@ -970,28 +1075,12 @@ export default function MealPlanSection({
               {viewingTemplate && (
                 <div className="space-y-3">
                   {(viewingTemplate.goal_type || viewingTemplate.maternal_status) && <p className="text-xs text-warm-400 capitalize">{viewingTemplate.goal_type?.replace(/_/g, ' ') ?? 'Maternal'}{viewingTemplate.disease_stage ? ` · ${viewingTemplate.disease_stage.replace(/_/g, ' ')}` : ''}</p>}
-                  {(['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'] as const).map((day) => {
-                    const daySlots = viewingTemplate.days.filter((d) => d.day_of_week === day);
-                    if (daySlots.length === 0) return null;
-                    return (
-                      <div key={day} className="border border-warm-100 rounded-xl overflow-hidden">
-                        <div className="px-3 py-2 bg-warm-50 border-b border-warm-100"><p className="text-xs font-bold text-warm-500 uppercase tracking-wider">{day}</p></div>
-                        <div className="divide-y divide-zinc-50">
-                          {daySlots.map((slot) => (
-                            <div key={slot.id} className="flex items-center justify-between px-3 py-2">
-                              <div>
-                                <p className="text-xs font-semibold text-warm-500 capitalize">{slot.meal_type.replace('_', ' ')}</p>
-                                {(slot.items?.length ? slot.items : [{ id: `legacy-${slot.id}`, food_name: slot.food_name }]).map((item) => (
-                                  <p key={item.id} className="text-sm text-warm-800">{item.food_name ?? '—'}</p>
-                                ))}
-                              </div>
-                              {slot.calories != null && <p className="text-xs text-warm-400">{Math.round(slot.calories)} kcal</p>}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
+                  <WeeklyMenuCalendar renderCell={(day, meal) => <div className="space-y-2">
+                    {viewingTemplate.days.filter((slot) => slot.day_of_week === day && slot.meal_type === meal).flatMap((slot) => slot.items).map((item) => <div key={item.id} className="rounded-lg border border-warm-100 p-2">
+                      {item.recipe_id ? <a href={`/food-library/recipes/${item.recipe_id}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-warm-800 underline">{item.food_name}</a> : <p>{item.food_name ?? 'Legacy item'}</p>}
+                      <p className="text-xs text-warm-500">{item.quantity} {item.unit}</p>
+                    </div>)}
+                  </div>} />
                   <button onClick={() => handleFromTemplate(viewingTemplate.id)}
                     className="w-full py-2.5 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors cursor-pointer mt-2">
                     Use This Template
@@ -1002,6 +1091,17 @@ export default function MealPlanSection({
           </div>
         </div>
       )}
+
+      {!readOnly && confirmTemplateLoad && <div role="dialog" aria-modal="true" aria-label="Replace weekly menu draft" className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+        <div className="w-full max-w-md space-y-4 rounded-2xl bg-white p-6">
+          <h3 className="font-bold text-warm-900">Replace current week?</h3>
+          <p className="text-sm text-warm-600">Load this template into a draft. Your saved week changes only after Save week.</p>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setConfirmTemplateLoad(null)}>Cancel</Button>
+            <Button variant="primary" onClick={() => void handleFromTemplate(confirmTemplateLoad, true)}>Replace draft</Button>
+          </div>
+        </div>
+      </div>}
 
       {/* ── Delete Template Confirm ─────────────────────────────────────────── */}
       {!readOnly && confirmDeleteTemplateId && (

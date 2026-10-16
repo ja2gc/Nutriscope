@@ -15,6 +15,7 @@ use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\Recipe;
 use App\Models\User;
+use App\Services\MealPlanService;
 use Database\Seeders\FoodItemsSeeder;
 use Database\Seeders\InterventionMealPlanTemplateSeeder;
 use Database\Seeders\RecipeSeeder;
@@ -77,6 +78,175 @@ class MealPlanControllerTest extends TestCase
             $snack->ingredients()->create(['food_item_id' => $food->id, 'quantity' => 100, 'unit' => 'g']);
             $snack->recalculateTotals();
         }
+    }
+
+    private function measuredTemplate(string $unit = 'serving'): array
+    {
+        $food = FoodItem::factory()->create(['calories' => 400, 'protein' => 20, 'carbs' => 40, 'fat' => 10, 'allergens' => []]);
+        $recipe = Recipe::factory()->create([
+            'rnd_user_id' => $this->rnd->id, 'category' => 'snack', 'servings' => 2,
+            'prepared_portion_amount' => 1, 'prepared_portion_unit' => 'cup',
+        ]);
+        $recipe->ingredients()->create(['food_item_id' => $food->id, 'quantity' => 100, 'unit' => 'g']);
+        $recipe->recalculateTotals();
+        $template = MealPlanTemplate::forceCreate(['rnd_user_id' => $this->rnd->id, 'name' => 'Measured template']);
+        $day = MealPlanTemplateDay::forceCreate(['template_id' => $template->id, 'day_of_week' => 'Monday', 'meal_type' => 'breakfast']);
+        $line = MealPlanTemplateItem::forceCreate([
+            'template_day_id' => $day->id, 'recipe_id' => $recipe->id, 'quantity' => 2, 'unit' => $unit,
+            'nutrient_snapshot' => ['name' => 'Frozen measured Snack', 'calories' => 200, 'protein' => 10, 'carbs' => 20, 'fat' => 5, 'serving_size' => 1, 'serving_unit' => 'serving', 'micronutrients' => []],
+            'line_order' => 0,
+        ]);
+
+        return [$template, $line, $recipe];
+    }
+
+    public function test_template_preview_converts_measured_legacy_portions_without_persisting_a_plan(): void
+    {
+        [$ncp, $intervention] = $this->makeInterventionWithNcpRecord();
+        [$template] = $this->measuredTemplate('cup');
+        $before = $intervention->fresh()->getAttributes();
+        $this->actingAs($this->rnd)->postJson("/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/from-template", [
+            'template_id' => $template->uuid, 'intervention_plan_id' => $intervention->uuid,
+            'week_start_date' => '2026-10-12', 'preview' => true,
+        ])->assertOk()->assertJsonPath('meta.preview', true)->assertJsonCount(35, 'data.days')
+            ->assertJsonPath('items.0.quantity', '2.00')->assertJsonPath('items.0.unit', 'serving')
+            ->assertJsonPath('items.0.nutrient_snapshot.name', 'Frozen measured Snack');
+        $this->assertDatabaseCount('meal_plans', 0);
+        $this->assertDatabaseCount('meal_plan_days', 0);
+        $this->assertDatabaseCount('meal_plan_items', 0);
+        $this->assertSame($before, $intervention->fresh()->getAttributes());
+    }
+
+    public function test_template_load_rejects_missing_or_incompatible_prepared_portion_bases(): void
+    {
+        [$ncp, $intervention] = $this->makeInterventionWithNcpRecord();
+        [$template, , $recipe] = $this->measuredTemplate('cup');
+        $recipe->update(['prepared_portion_amount' => null, 'prepared_portion_unit' => null]);
+        $this->actingAs($this->rnd)->postJson("/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/from-template", [
+            'template_id' => $template->uuid, 'intervention_plan_id' => $intervention->uuid,
+            'week_start_date' => '2026-10-12', 'preview' => true,
+        ])->assertUnprocessable()->assertJsonValidationErrors('template');
+        $recipe->update(['prepared_portion_amount' => 100, 'prepared_portion_unit' => 'g']);
+        $this->postJson("/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/from-template", [
+            'template_id' => $template->uuid, 'intervention_plan_id' => $intervention->uuid,
+            'week_start_date' => '2026-10-12', 'preview' => true,
+        ])->assertUnprocessable()->assertJsonValidationErrors('template');
+        $this->assertDatabaseCount('meal_plans', 0);
+    }
+
+    public function test_template_save_replaces_the_existing_week_atomically_without_a_second_plan(): void
+    {
+        [$ncp, $intervention, $patient] = $this->makeInterventionWithNcpRecord();
+        [$template, $line, $recipe] = $this->measuredTemplate();
+        $plan = MealPlan::factory()->create(['intervention_id' => $intervention->id, 'patient_id' => $patient->id]);
+        $oldDay = MealPlanDay::factory()->create(['meal_plan_id' => $plan->id]);
+        MealPlanItem::factory()->create(['meal_plan_day_id' => $oldDay->id]);
+        $this->actingAs($this->rnd)->postJson("/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/from-template", [
+            'template_id' => $template->uuid, 'intervention_plan_id' => $intervention->uuid,
+            'meal_plan_id' => $plan->uuid, 'week_start_date' => '2026-10-12',
+            'lines' => [['source_template_item_id' => $line->uuid, 'recipe_id' => $recipe->uuid, 'day_of_week' => 'Monday', 'meal_type' => 'breakfast', 'quantity' => 1.2, 'unit' => 'serving']],
+        ])->assertOk()->assertJsonPath('data.id', $plan->uuid);
+        $this->assertDatabaseCount('meal_plans', 1);
+        $this->assertCount(35, $plan->fresh()->days);
+        $items = $plan->fresh('days.items')->days->flatMap->items;
+        $this->assertCount(1, $items);
+        $this->assertSame('1.20', $items->sole()->quantity);
+        $this->assertSame($line->fresh()->nutrient_snapshot, $items->sole()->nutrient_snapshot);
+        $this->assertTrue($plan->fresh()->needs_rescaling);
+    }
+
+    public function test_template_replacement_rejects_a_historical_intervention_week(): void
+    {
+        [$ncp, $intervention, $patient] = $this->makeInterventionWithNcpRecord();
+        [$template] = $this->measuredTemplate();
+        $plan = MealPlan::factory()->create(['intervention_id' => $intervention->id, 'patient_id' => $patient->id]);
+        Intervention::factory()->create(['ncp_record_id' => $ncp->id, 'created_at' => now()->addMinute()]);
+        $this->actingAs($this->rnd)->postJson("/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/from-template", [
+            'template_id' => $template->uuid, 'intervention_plan_id' => $intervention->uuid,
+            'meal_plan_id' => $plan->uuid, 'week_start_date' => '2026-10-12',
+        ])->assertForbidden();
+        $this->assertDatabaseCount('meal_plans', 1);
+    }
+
+    public function test_historical_week_rejects_all_plan_and_item_mutations(): void
+    {
+        [$ncp, $intervention, $patient] = $this->makeInterventionWithNcpRecord();
+        [, , $recipe] = $this->measuredTemplate();
+        $plan = MealPlan::factory()->create(['intervention_id' => $intervention->id, 'patient_id' => $patient->id, 'status' => 'draft', 'needs_rescaling' => true]);
+        $day = MealPlanDay::factory()->create(['meal_plan_id' => $plan->id]);
+        $item = MealPlanItem::factory()->create(['meal_plan_day_id' => $day->id, 'recipe_id' => $recipe->id, 'quantity' => 1.5, 'unit' => 'serving']);
+        Intervention::factory()->create(['ncp_record_id' => $ncp->id, 'created_at' => now()->addMinute()]);
+        $base = "/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/{$plan->uuid}";
+        $this->actingAs($this->rnd)->patchJson($base, ['status' => 'active'])->assertForbidden();
+        $this->postJson($base.'/scale-to-prescription')->assertForbidden();
+        $this->postJson($base."/days/{$day->uuid}/items", ['recipe_id' => $recipe->uuid, 'quantity' => 1, 'unit' => 'serving'])->assertForbidden();
+        $this->patchJson($base."/days/{$day->uuid}/items/{$item->uuid}", ['quantity' => 2])->assertForbidden();
+        $this->deleteJson($base."/days/{$day->uuid}/items/{$item->uuid}")->assertForbidden();
+        $this->deleteJson($base)->assertForbidden();
+        $this->assertSame('draft', $plan->fresh()->status);
+        $this->assertSame('1.50', $item->fresh()->quantity);
+        $this->assertDatabaseCount('meal_plans', 1);
+        $this->assertDatabaseCount('meal_plan_items', 1);
+    }
+
+    public function test_template_preview_scaling_uses_the_existing_algorithm_without_saving_rows(): void
+    {
+        [$ncp, $intervention] = $this->makeInterventionWithNcpRecord([
+            'energy_kcal' => 240, 'protein_g' => 12, 'carbs_g' => 24, 'fat_g' => 6,
+        ]);
+        [$template] = $this->measuredTemplate();
+        $this->actingAs($this->rnd)->postJson("/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/from-template", [
+            'template_id' => $template->uuid, 'intervention_plan_id' => $intervention->uuid,
+            'week_start_date' => '2026-10-12', 'preview' => true, 'scale' => true,
+        ])->assertOk()->assertJsonPath('data.scale_status', 'already_scaled')->assertJsonPath('items.0.quantity', '1.20');
+        $this->assertDatabaseCount('meal_plans', 0);
+        $this->assertDatabaseCount('meal_plan_days', 0);
+        $this->assertDatabaseCount('meal_plan_items', 0);
+        $this->assertSame('240.00', $intervention->fresh()->energy_kcal);
+    }
+
+    public function test_template_draft_ingredient_edits_use_measured_units_without_mutating_the_library(): void
+    {
+        [$ncp, $intervention] = $this->makeInterventionWithNcpRecord();
+        [$template, $line, $recipe] = $this->measuredTemplate();
+        $ingredient = $recipe->ingredients()->firstOrFail();
+        $this->actingAs($this->rnd)->postJson("/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/from-template", [
+            'template_id' => $template->uuid, 'intervention_plan_id' => $intervention->uuid,
+            'week_start_date' => '2026-10-12', 'preview' => true,
+            'lines' => [[
+                'source_template_item_id' => $line->uuid, 'recipe_id' => $recipe->uuid,
+                'day_of_week' => 'Monday', 'meal_type' => 'breakfast', 'quantity' => 1.2, 'unit' => 'serving',
+                'ingredient_overrides' => [['id' => $ingredient->id, 'quantity' => 200]],
+            ]],
+        ])->assertOk()->assertJsonPath('items.0.nutrient_snapshot.calories', 400)
+            ->assertJsonPath('items.0.nutrient_snapshot.name', 'Frozen measured Snack')
+            ->assertJsonPath('items.0.nutrient_snapshot.recipe_yield', 2)
+            ->assertJsonPath('items.0.nutrient_snapshot.recipe_ingredients.0.quantity', 200);
+        $this->assertSame('100.000000', $ingredient->fresh()->quantity);
+        $this->assertSame(200, $line->fresh()->nutrient_snapshot['calories']);
+        $this->assertDatabaseCount('meal_plans', 0);
+        $this->assertDatabaseCount('meal_plan_items', 0);
+    }
+
+    public function test_failed_template_replacement_restores_the_original_week_and_items(): void
+    {
+        [$ncp, $intervention, $patient] = $this->makeInterventionWithNcpRecord();
+        [$template] = $this->measuredTemplate();
+        $plan = MealPlan::factory()->create(['intervention_id' => $intervention->id, 'patient_id' => $patient->id]);
+        $day = MealPlanDay::factory()->create(['meal_plan_id' => $plan->id]);
+        $item = MealPlanItem::factory()->create(['meal_plan_day_id' => $day->id, 'quantity' => 1.5]);
+        $this->partialMock(MealPlanService::class, function ($mock): void {
+            $mock->shouldReceive('scaleToPrescription')->once()->andThrow(new \RuntimeException('Injected replacement failure.'));
+        });
+        $this->actingAs($this->rnd)->postJson("/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/from-template", [
+            'template_id' => $template->uuid, 'intervention_plan_id' => $intervention->uuid,
+            'meal_plan_id' => $plan->uuid, 'week_start_date' => '2026-10-12', 'scale' => true,
+        ])->assertStatus(500);
+        $this->assertDatabaseCount('meal_plans', 1);
+        $this->assertDatabaseCount('meal_plan_days', 1);
+        $this->assertDatabaseCount('meal_plan_items', 1);
+        $this->assertSame($day->id, $item->fresh()->meal_plan_day_id);
+        $this->assertSame('1.50', $item->fresh()->quantity);
     }
 
     // --- MealPlan CRUD ---
@@ -665,7 +835,7 @@ class MealPlanControllerTest extends TestCase
             ->assertJsonPath('message', 'This Intervention Plan already has a menu plan.');
 
         $this->assertSame(1, MealPlan::where('intervention_id', $intervention->id)->count());
-        $this->assertSame(1, MealPlanDay::whereHas('mealPlan', fn ($query) => $query->where('intervention_id', $intervention->id))->count());
+        $this->assertSame(35, MealPlanDay::whereHas('mealPlan', fn ($query) => $query->where('intervention_id', $intervention->id))->count());
     }
 
     public function test_generation_validates_the_explicit_plan_instead_of_the_latest_plan(): void
@@ -736,18 +906,28 @@ class MealPlanControllerTest extends TestCase
             'day_of_week' => 'Monday',
             'meal_type' => 'lunch',
         ]);
+        $recipes = Recipe::factory()->count(2)->create([
+            'rnd_user_id' => $this->rnd->id, 'servings' => 1, 'category' => 'meal',
+            'prepared_portion_amount' => 1, 'prepared_portion_unit' => 'cup',
+        ]);
+        foreach ($recipes as $recipe) {
+            $food = FoodItem::factory()->create(['allergens' => []]);
+            $recipe->ingredients()->create(['food_item_id' => $food->id, 'quantity' => 100, 'unit' => 'g']);
+        }
         MealPlanTemplateItem::forceCreate([
             'template_day_id' => $templateDay->id,
+            'recipe_id' => $recipes[0]->id,
             'quantity' => 1.5,
             'unit' => 'cup',
-            'nutrient_snapshot' => ['name' => 'Cooked rice', 'calories' => 205.0],
+            'nutrient_snapshot' => ['name' => 'Cooked rice', 'calories' => 205.0, 'protein' => 4, 'carbs' => 44, 'fat' => 0.5, 'serving_size' => 1, 'serving_unit' => 'serving', 'micronutrients' => []],
             'line_order' => 1,
         ]);
         MealPlanTemplateItem::forceCreate([
             'template_day_id' => $templateDay->id,
+            'recipe_id' => $recipes[1]->id,
             'quantity' => 1,
             'unit' => 'serving',
-            'nutrient_snapshot' => ['name' => 'Fish', 'calories' => 220.0],
+            'nutrient_snapshot' => ['name' => 'Fish', 'calories' => 220.0, 'protein' => 27, 'carbs' => 0, 'fat' => 10, 'serving_size' => 1, 'serving_unit' => 'serving', 'micronutrients' => []],
             'line_order' => 2,
         ]);
 

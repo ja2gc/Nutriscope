@@ -74,7 +74,7 @@ class MealPlanService
      *
      * @return array{changed_items:int,inserted_items:int,substituted_items:int,problem_days:list<string>,variance:array<string,array<string,mixed>>}
      */
-    public function scaleToPrescription(MealPlan $mealPlan, Intervention $intervention): array
+    public function scaleToPrescription(MealPlan $mealPlan, Intervention $intervention, bool $persist = true): array
     {
         $targets = array_filter([
             'energy' => (float) $intervention->energy_kcal,
@@ -84,8 +84,10 @@ class MealPlanService
         ], fn (float $value): bool => $value > 0);
         $microLimits = is_array($intervention->micronutrient_limits) ? $intervention->micronutrient_limits : [];
 
-        return DB::transaction(function () use ($mealPlan, $targets, $microLimits): array {
-            $mealPlan->load('days.items');
+        return DB::transaction(function () use ($mealPlan, $targets, $microLimits, $persist): array {
+            if ($persist) {
+                $mealPlan->load('days.items');
+            }
             $changed = 0;
             $problemDays = [];
             $varianceByDay = [];
@@ -134,17 +136,25 @@ class MealPlanService
                     foreach ($items as $item) {
                         $next = $overrides[$item->id];
                         if (abs((float) $item->quantity - $next) > 0.0001) {
-                            $item->updateQuietly(['quantity' => $next]);
+                            $item->fill(['quantity' => $next]);
+                            if ($persist) {
+                                $item->saveQuietly();
+                            }
                             $changed++;
                         }
                     }
                 }
 
-                $slots->each->load('items');
+                if ($persist) {
+                    $slots->each->load('items');
+                }
                 $variance = $this->computeDayVariance($slots, $targets, $microLimits);
                 $flagged = $this->isFlagged($variance);
                 foreach ($slots as $slot) {
-                    $slot->updateQuietly(['flagged' => $flagged, 'variance' => $variance]);
+                    $slot->fill(['flagged' => $flagged, 'variance' => $variance]);
+                    if ($persist) {
+                        $slot->saveQuietly();
+                    }
                 }
                 $varianceByDay[$dayName] = $variance;
                 if ($flagged) {
@@ -152,7 +162,10 @@ class MealPlanService
                 }
             }
 
-            $mealPlan->updateQuietly(['needs_rescaling' => false, 'scaled_at' => now()]);
+            $mealPlan->fill(['needs_rescaling' => false, 'scaled_at' => now()]);
+            if ($persist) {
+                $mealPlan->saveQuietly();
+            }
 
             return [
                 'changed_items' => $changed,

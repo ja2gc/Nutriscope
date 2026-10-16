@@ -19,6 +19,8 @@ class MealPlanItemResource extends JsonResource
             'food_item_id' => $this->foodItem?->uuid ?? $this->food_item_id,
             'fdc_id' => $this->fdc_id,
             'recipe_id' => $this->recipe?->uuid ?? $this->recipe_id,
+            'source_template_item_id' => $this->whenLoaded('templateOrigin', fn () => $this->templateOrigin?->uuid),
+            'ingredient_overrides' => $this->whenLoaded('draftOverrides', fn () => $this->draftOverrides),
             'quantity' => $this->quantity,
             'unit' => $this->unit,
             'nutrient_snapshot' => $this->nutrient_snapshot,
