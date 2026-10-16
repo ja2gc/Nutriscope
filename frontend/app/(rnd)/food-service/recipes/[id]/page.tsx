@@ -51,7 +51,7 @@ async function loadRecipe(id: string): Promise<FSSRecipe> {
 }
 
 const FSS_CATEGORIES = [
-  "beverage", "breakfast", "lunch", "snack", "dinner",
+  "meal", "snack", "beverage",
 ];
 
 const inputCls = "w-full px-3 py-2 text-base border border-warm-200 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all";
@@ -181,7 +181,7 @@ function StandardEditFSSRecipePage({ id }: { id: string }) {
           throw new Error(d.message ?? "Failed to save.");
         }
       });
-      router.push("/food-service/foods");
+      router.push("/food-service/inventory?tab=menu-items");
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to save.");
     } finally {
@@ -205,14 +205,14 @@ function StandardEditFSSRecipePage({ id }: { id: string }) {
       <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
         <Link href="/dashboard" className="hover:text-emerald-700 transition-colors">Home</Link>
         <span>/</span>
-        <Link href="/food-service/foods" className="hover:text-emerald-700 transition-colors">Foods</Link>
+        <Link href="/food-service/inventory?tab=menu-items" className="hover:text-emerald-700 transition-colors">Menu Items</Link>
         <span>/</span>
         <span className="text-zinc-650 font-bold truncate max-w-40">{recipe?.name}</span>
       </div>
 
       {/* Page header */}
       <div className="border-b border-warm-200 pb-5 flex items-center gap-4">
-        <Link href="/food-service/foods"
+        <Link href="/food-service/inventory?tab=menu-items"
           className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 transition-colors">
           <ArrowLeft className="h-4 w-4" />
         </Link>
@@ -238,8 +238,8 @@ function StandardEditFSSRecipePage({ id }: { id: string }) {
               <input type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputCls} required />
             </div>
             <div>
-              <Label>Category</Label>
-              <select value={category} onChange={(e) => setCategory(e.target.value)} className={inputCls}>
+              <Label>Category <Required /></Label>
+              <select value={category} onChange={(e) => setCategory(e.target.value)} className={inputCls} required>
                 <option value="">Select...</option>
                 {FSS_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
@@ -270,10 +270,6 @@ function StandardEditFSSRecipePage({ id }: { id: string }) {
                 </span>
               )}
             </div>
-          </div>
-          <div className="text-sm text-warm-400 text-right max-w-48">
-            <span className="font-bold text-warm-500">Cost formula:</span><br />
-            Σ qty × ₱/unit
           </div>
         </div>
 
@@ -400,7 +396,7 @@ function StandardEditFSSRecipePage({ id }: { id: string }) {
 
         {/* Actions */}
         <div className="flex gap-3 justify-end pb-4">
-          <Link href="/food-service/foods">
+          <Link href="/food-service/inventory?tab=menu-items">
             <Button variant="secondary" className="w-auto px-6 py-2.5">Cancel</Button>
           </Link>
           <Button type="submit" variant="primary" loading={saving} className="w-auto px-6 py-2.5">

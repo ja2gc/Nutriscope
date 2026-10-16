@@ -11,11 +11,68 @@ use Database\Seeders\FoodItemsSeeder;
 use Database\Seeders\InterventionMealPlanTemplateSeeder;
 use Database\Seeders\RecipeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class InterventionMealPlanTemplateSeederTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_existing_canonical_template_carb_repair_preserves_other_lines_and_identities(): void
+    {
+        $this->seed([AdminUserSeeder::class, FoodItemsSeeder::class, RecipeSeeder::class, InterventionMealPlanTemplateSeeder::class]);
+        $template = MealPlanTemplate::with('days.items.recipe')->orderBy('id')->firstOrFail();
+        $slot = $template->days->first(fn ($day) => $day->day_of_week === 'Tuesday' && $day->meal_type === 'breakfast');
+        $slot->items->first(fn ($item) => $item->recipe->category === 'carb')->delete();
+        $lunch = $template->days->first(fn ($day) => $day->day_of_week === 'Tuesday' && $day->meal_type === 'lunch');
+        $line = $lunch->items->first(fn ($item) => $item->recipe->category === 'carb');
+        $other = Recipe::where('category', 'carb')->where('id', '!=', $line->recipe_id)->firstOrFail();
+        $line->update(['recipe_id' => $other->id, 'nutrient_snapshot' => $other->planSnapshot()]);
+        $lineId = $line->id;
+        $otherLines = DB::table('meal_plan_template_items')->whereNotIn('recipe_id', Recipe::where('category', 'carb')->pluck('id'))->orderBy('id')->get()->toJson();
+        $parents = DB::table('meal_plan_templates')->orderBy('id')->get()->toJson();
+        $slots = DB::table('meal_plan_template_days')->orderBy('id')->get()->toJson();
+        $migration = require database_path('migrations/2026_10_16_214009_align_canonical_clinical_template_carbs.php');
+        $migration->up();
+        $template->refresh()->load('days.items.recipe');
+        $carbs = $template->days->whereIn('meal_type', ['breakfast', 'lunch', 'dinner'])->flatMap->items->filter(fn ($item) => $item->recipe->category === 'carb');
+        $this->assertCount(21, $carbs);
+        $this->assertCount(1, $carbs->pluck('recipe_id')->unique());
+        $this->assertDatabaseHas('meal_plan_template_items', ['id' => $lineId, 'recipe_id' => $carbs->first()->recipe_id]);
+        $this->assertSame($otherLines, DB::table('meal_plan_template_items')->whereNotIn('recipe_id', Recipe::where('category', 'carb')->pluck('id'))->orderBy('id')->get()->toJson());
+        $this->assertSame($parents, DB::table('meal_plan_templates')->orderBy('id')->get()->toJson());
+        $this->assertSame($slots, DB::table('meal_plan_template_days')->orderBy('id')->get()->toJson());
+        $first = DB::table('meal_plan_template_items')->orderBy('id')->get()->toJson();
+        $migration->up();
+        $this->assertSame($first, DB::table('meal_plan_template_items')->orderBy('id')->get()->toJson());
+    }
+
+    public function test_legacy_liver_template_remains_while_the_missing_no_snacks_variant_is_added(): void
+    {
+        $this->seed([AdminUserSeeder::class, FoodItemsSeeder::class, RecipeSeeder::class, InterventionMealPlanTemplateSeeder::class]);
+        $legacy = MealPlanTemplate::where('name', 'Demo — Liver Disease — No Snacks')->firstOrFail();
+        $legacy->update(['name' => 'Demo — Liver Disease — Soft Frequent Meals']);
+        $standard = MealPlanTemplate::with('days.items')->where('name', 'Demo — Liver Disease — Frequent Meals')->firstOrFail();
+        foreach ($legacy->days()->whereIn('meal_type', ['am_snack', 'pm_snack'])->get() as $day) {
+            $source = $standard->days->first(fn ($slot) => $slot->day_of_week === $day->day_of_week && $slot->meal_type === $day->meal_type)->items->first();
+            $day->items()->create($source->only(['food_item_id', 'recipe_id', 'quantity', 'unit', 'nutrient_snapshot', 'line_order']));
+        }
+        $before = $legacy->getRawOriginal();
+        $snackIds = $legacy->days()->whereIn('meal_type', ['am_snack', 'pm_snack'])->pluck('id');
+        $snacks = DB::table('meal_plan_template_items')->whereIn('template_day_id', $snackIds)->orderBy('id')->get()->toJson();
+        $migration = require database_path('migrations/2026_10_16_214009_align_canonical_clinical_template_carbs.php');
+        $migration->up();
+        $this->assertSame($before, $legacy->fresh()->getRawOriginal());
+        $this->assertSame($snacks, DB::table('meal_plan_template_items')->whereIn('template_day_id', $snackIds)->orderBy('id')->get()->toJson());
+        $this->assertDatabaseHas('meal_plan_templates', ['name' => 'Demo — Liver Disease — No Snacks']);
+        $new = MealPlanTemplate::with('days.items.recipe')->where('name', 'Demo — Liver Disease — No Snacks')->firstOrFail();
+        $this->assertSame(0, $new->days->whereIn('meal_type', ['am_snack', 'pm_snack'])->flatMap->items->count());
+        $this->assertCount(21, $new->days->flatMap->items->filter(fn ($item) => $item->recipe?->category === 'carb'));
+        $this->assertCount(21, $legacy->fresh()->load('days.items.recipe')->days->flatMap->items->filter(fn ($item) => $item->recipe?->category === 'carb'));
+        $this->assertSame(23, MealPlanTemplate::count());
+        $migration->up();
+        $this->assertSame(23, MealPlanTemplate::count());
+    }
 
     public function test_recipe_seeder_uses_menu_taxonomy_and_preserves_existing_recipe_ids(): void
     {
@@ -67,7 +124,7 @@ class InterventionMealPlanTemplateSeederTest extends TestCase
 
             $this->assertCount(1, $menuItem->ingredients, $name);
             $this->assertSame($source->serving_unit, $menuItem->ingredients->first()->unit, $name);
-            $this->assertEquals((float) $source->serving_size, (float) $menuItem->ingredients->first()->quantity, $name);
+            $this->assertEquals((float) $source->serving_size * $menuItem->servings, (float) $menuItem->ingredients->first()->quantity, $name);
             $this->assertEquals((float) $source->serving_size, (float) $menuItem->prepared_portion_amount, $name);
             $this->assertSame($source->serving_unit, $menuItem->prepared_portion_unit, $name);
         }
@@ -120,6 +177,9 @@ class InterventionMealPlanTemplateSeederTest extends TestCase
             $this->assertCount(35, $template->days, $template->name);
             $this->assertTrue($template->days->every(
                 fn ($day): bool => $day->items->every(fn ($item): bool => $item->nutrient_snapshot !== null
+                    && ! empty($item->nutrient_snapshot['recipe_original_ingredients'])
+                    && ! empty($item->nutrient_snapshot['recipe_ingredients'])
+                    && (float) ($item->nutrient_snapshot['recipe_yield'] ?? 0) > 0
                     && $item->recipe_id !== null
                     && $item->food_item_id === null
                     && $item->unit === 'serving'
@@ -136,10 +196,13 @@ class InterventionMealPlanTemplateSeederTest extends TestCase
                 $this->assertGreaterThan(0, $snackItems, $template->name);
             }
 
-            foreach ($template->days->whereIn('meal_type', ['lunch', 'dinner']) as $mainMeal) {
+            $carbIds = [];
+            foreach ($template->days->whereIn('meal_type', ['breakfast', 'lunch', 'dinner']) as $mainMeal) {
                 $carbItems = $mainMeal->items->filter(fn ($item): bool => $item->recipe?->category === 'carb');
                 $this->assertCount(1, $carbItems, $template->name.' '.$mainMeal->day_of_week.' '.$mainMeal->meal_type);
+                $carbIds[] = $carbItems->sole()->recipe_id;
             }
+            $this->assertCount(1, array_unique($carbIds), $template->name.' must use one Carb throughout its main slots.');
         }
 
         $this->assertTrue($templates->flatMap->days->flatMap->items->contains(

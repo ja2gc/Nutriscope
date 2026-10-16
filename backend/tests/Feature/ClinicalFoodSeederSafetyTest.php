@@ -72,7 +72,20 @@ class ClinicalFoodSeederSafetyTest extends TestCase
             $this->assertGreaterThan(0, (float) $recipe->prepared_portion_amount);
             $this->assertNotSame('', trim((string) $recipe->prepared_portion_unit));
             $this->assertGreaterThan(0, $recipe->servings);
+            $this->assertSame($recipe->category === 'meal' ? 5 : 1, (int) $recipe->servings);
         }
+        $meal = Recipe::where('name', 'Lugaw with Egg (Soft Diet)')->firstOrFail();
+        $first = $meal->planSnapshot();
+        $this->assertSame(1500.0, (float) $first['recipe_ingredients'][0]['quantity']);
+        $this->seed(RecipeSeeder::class);
+        $second = $meal->fresh()->planSnapshot();
+        foreach (['recipe_ingredients', 'recipe_original_ingredients'] as $key) {
+            foreach ([$first[$key], $second[$key]] as $rows) {
+                $this->assertSame([1500.0, 250.0], array_column($rows, 'quantity'));
+            }
+            unset($first[$key], $second[$key]);
+        }
+        $this->assertSame($first, $second);
     }
 
     public function test_side_rice_is_removed_from_dishes_but_retained_in_true_rice_based_meals(): void

@@ -10,7 +10,8 @@ import { correctionKey, readCorrectionDraft, writeCorrectionDraft } from "@/lib/
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 
-vi.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ user: { role: "RND" } }) }));
+const role = vi.hoisted(() => ({ current: "RND" }));
+vi.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ user: { role: role.current } }) }));
 vi.mock("@/hooks/useDebouncedValue", () => ({ useDebouncedValue: (value: string) => value }));
 vi.mock("@/services/fsCatalogService", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/services/fsCatalogService")>(),
@@ -33,6 +34,7 @@ describe("Food Service inventory controls", () => {
   let root: Root;
 
   beforeEach(() => {
+    role.current = "RND";
     (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     container = document.createElement("div");
     document.body.append(container);
@@ -46,6 +48,33 @@ describe("Food Service inventory controls", () => {
     act(() => root.unmount());
     container.remove();
     vi.clearAllMocks();
+    vi.restoreAllMocks();
+  });
+
+  test("opens existing Food Service recipes under Menu Items while templates stay in Menu Calendar", async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ data: [], meta }), { status: 200 }));
+    await act(async () => { root.render(<InventoryCatalogPage />); await Promise.resolve(); });
+    const tabs = container.querySelector('[role="tablist"][aria-label="Inventory sections"]')!;
+    expect(Array.from(tabs.querySelectorAll('button')).map((button) => button.textContent)).toEqual(['Ingredients', 'Menu Items', 'Supplies']);
+    await act(async () => { Array.from(tabs.querySelectorAll('button')).find((button) => button.textContent === 'Menu Items')!.click(); });
+    expect(container.textContent).toContain('Single food item');
+    expect(container.textContent).toContain('Search Menu Items');
+    const controls = container.querySelector('[aria-label="Menu Item filters"]');
+    expect(controls).not.toBeNull();
+    expect(controls?.querySelector('input[type="search"]')).not.toBeNull();
+    expect(controls?.querySelector('[aria-label="Menu Item categories"]')).not.toBeNull();
+    expect(container.querySelector('[role="group"][aria-label="Shopping list behavior filter"]')).toBeNull();
+    expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining('/api/fss/food-service-recipes?'));
+  });
+
+  test("Food Service staff can browse Menu Items without recipe mutation controls", async () => {
+    role.current = 'FSS';
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ data: [{ id: 'food-1', name: 'Soup', category: 'meal', servings: 50 }], meta }), { status: 200 }));
+    window.history.replaceState(null, '', '/food-service/inventory?tab=menu-items');
+    await act(async () => { root.render(<InventoryCatalogPage />); await Promise.resolve(); });
+    expect(container.textContent).toContain('Soup');
+    expect(container.textContent).not.toContain('Single food item');
+    expect(container.querySelector('a[href="/food-service/foods/food-1"]')).toBeNull();
   });
 
   test("shows shopping-list behavior in separate column", async () => {
@@ -72,9 +101,11 @@ describe("Food Service inventory controls", () => {
 
   test("filters ingredients by grocery behavior and explains it with help", async () => {
     await act(async () => { root.render(<InventoryCatalogPage />); await Promise.resolve(); });
-    const filter = container.querySelector<HTMLSelectElement>('select[aria-label="Shopping list behavior filter"]');
-    expect(filter).not.toBeNull();
-    await act(async () => { if (filter) { filter.value = "non_auto"; filter.dispatchEvent(new Event("change", { bubbles: true })); } });
+    expect(container.querySelector('[role="tablist"][aria-label="Inventory sections"]')).not.toBeNull();
+    const filters = container.querySelector('[role="group"][aria-label="Shopping list behavior filter"]');
+    expect(filters).not.toBeNull();
+    expect(Array.from(filters!.querySelectorAll('button')).map((button) => button.textContent)).toEqual(['All', 'Non-Auto Grocery', 'Auto Grocery']);
+    await act(async () => { Array.from(filters!.querySelectorAll('button')).find((button) => button.textContent === 'Non-Auto Grocery')!.click(); });
     expect(mockListCatalog).toHaveBeenCalledWith("ingredient", 1, "", "non_auto");
     expect(container.querySelector('button[aria-label="About Auto Grocery"]')).not.toBeNull();
   });

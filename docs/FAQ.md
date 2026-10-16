@@ -184,7 +184,7 @@ The **Plans** tab lists complete dated plans newest first. Older plans open read
 
 Yes. Use Menu Items from Food Library to create a week manually, generate it, or load a template. Preview and edit templates in the weekly calendar, review goal/stage/maternal compatibility, optionally **Scale to prescription**, then **Save week**. Replacing nonempty cells requires confirmation. Failed saves retain the draft. Manual menus and templates may place a Snack Menu Item in any meal slot, including milk and fruit in main meals of maternal no-snack patterns.
 
-For **Auto-Generate**, choose one Carb Menu Item for all 21 main-meal slots, or select **Exclude carbs** to omit that separate side. The chosen Carb accompanies a Meal even when the Meal already contains carbohydrates. Included Snacks fill only AM and PM Snack slots. **Exclude snacks** works for every goal, including liver disease, and redistributes targets across main meals. Patient allergies block incompatible Carb choices; staff assess free-text restrictions themselves. An unusable portion blocks generation with an explanation rather than silently replacing or omitting the Carb. Review portions, totals, and patient suitability. Fluid guidance stays outside food scaling and target-match success. Empty snack rows are omitted from the PDF.
+For **Auto-Generate**, review the preselected available Carb Menu Item, change it if needed, then confirm it for all 21 main-meal slots. Select **Exclude carbs** to omit that separate side. The chosen Carb accompanies a Meal even when the Meal already contains carbohydrates. Included Snacks fill only AM and PM Snack slots. **Exclude snacks** works for every goal, including liver disease, and redistributes targets across main meals. Patient allergies block incompatible Carb choices; staff assess free-text restrictions themselves. An unusable portion blocks generation with an explanation rather than silently replacing or omitting the Carb. Review portions, totals, and patient suitability. Fluid guidance stays outside food scaling and target-match success. Empty snack rows are omitted from the PDF.
 
 ### What can I record in Monitoring?
 
@@ -200,11 +200,10 @@ Upload them from the cycle's Assessment page. The patient profile **Attachments*
 
 ## RND: Food Library and Food-Service Questions
 
-### What is the difference between Food Library, Inventory, and Foods?
+### What is the difference between Food Library and Inventory?
 
 - **Food Library:** clinical **Ingredients**, **Menu Items**, and **Templates**, with nutrient values, allergens, and optional USDA source data. Menu Items contain one or more measured Ingredients and use exactly Meal, Carb, or Snack categories; Ingredient food-group filters remain separate.
-- **Inventory:** food-service reference catalog for ingredients and supplies, vendor, unit, and purchase cost. It is not a live stock-count workflow.
-- **Foods:** food-service recipes and single-ingredient items used in menu cycles.
+- **Inventory:** Food Service **Ingredients**, **Menu Items**, and **Supplies**. Ingredients and Supplies store vendor, unit, and purchase cost; Menu Items contain recipes and single food items categorized as Meal, Snack, or Beverage for menu cycles. This is not a live stock-count workflow. Menu templates remain under **Menu Calendar**.
 
 ### How do I import food nutrient data?
 
@@ -224,7 +223,7 @@ Auto Grocery items use a measured recipe unit that converts to the Inventory uni
 
 ### How do I build a Menu Calendar week?
 
-Prepare Inventory and Foods first. Open **Food Service → Menu Calendar** and fill a Monday–Sunday week, or load a template into its draft and save after review. Picker **View** shows the weekly grid; open a cell item to inspect its read-only profile and return to the same template. Loading over planned cells requires confirmation. **Templates** uses the same calendar for editing, including three-meal templates without snacks. There is no copy-day-to-all-days action. A blank menu name is generated from its dates; bulk rice is added later in the shopping list. Food Service recipe unit help retains the Non-Auto Grocery typed-unit exception.
+Prepare **Inventory → Ingredients**, **Menu Items**, and **Supplies** first. Menu Items use **Meal**, **Snack**, or **Beverage**; **Single food item** creates a menu item with one ingredient. Inventory search sits beside **All**, **Non-Auto Grocery**, and **Auto Grocery** filter buttons. Open **Food Service → Menu Calendar** and fill a Monday–Sunday week, or load a template into its draft and save after review. Picker **View** shows the weekly grid; open a cell item to inspect its read-only profile and return to the same template. Loading over planned cells requires confirmation. **Templates** remains under Menu Calendar and uses the same calendar for editing, including three-meal templates without snacks. There is no copy-day-to-all-days action. A blank menu name is generated from its dates; bulk rice is added later in the shopping list. Food Service recipe unit help retains the Non-Auto Grocery typed-unit exception.
 
 ### What is a Menu Calendar template?
 
@@ -286,7 +285,7 @@ Preparing an active report refreshes its current source and template, except com
 
 ### Which reports can RND access?
 
-Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment Report, Nutrition Intervention Plan, and NCP Summary are PDF reports. Each Nutrition Intervention Plan uses the selected saved intervention and its own menu. Its compact cards compare whole-recipe and patient ingredient amounts using saved recipe yield and snapshots; unavailable historical batch data is explicitly labelled rather than invented. NCP Summary remains one per cycle and uses its latest saved intervention at preparation. Archived bytes stay frozen. Demographic Census is a year/month screen with direct selected-view PDF download. The internal compatibility identifier for Nutrition Intervention Plan remains `patient_menu_plan`.
+Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment Report, Nutrition Intervention Plan, and NCP Summary are PDF reports. Each Nutrition Intervention Plan uses the selected saved intervention and its own menu. Four compact cards per row list each recipe's ingredients once, show **Recipe makes: X servings**, and match **Your servings: P1 - Y; P2 - Z** to the weekly menu. Amounts show at most one decimal. Use **listed ingredient amount × your servings ÷ servings the recipe makes**. Saved ingredient edits are included in the listed recipe amounts; direct foods show their recorded portions directly. Incomplete legacy recipe data is repaired against verified catalog measurements before new report use. NCP Summary remains one per cycle and uses its latest saved intervention at preparation. Archived bytes stay frozen. Demographic Census is a year/month screen with direct selected-view PDF download. The internal compatibility identifier for Nutrition Intervention Plan remains `patient_menu_plan`.
 
 ### Which reports can Admin access?
 

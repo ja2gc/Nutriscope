@@ -93,7 +93,7 @@ class MealPlanControllerTest extends TestCase
         $day = MealPlanTemplateDay::forceCreate(['template_id' => $template->id, 'day_of_week' => 'Monday', 'meal_type' => 'breakfast']);
         $line = MealPlanTemplateItem::forceCreate([
             'template_day_id' => $day->id, 'recipe_id' => $recipe->id, 'quantity' => 2, 'unit' => $unit,
-            'nutrient_snapshot' => ['name' => 'Frozen measured Snack', 'calories' => 200, 'protein' => 10, 'carbs' => 20, 'fat' => 5, 'serving_size' => 1, 'serving_unit' => 'serving', 'micronutrients' => []],
+            'nutrient_snapshot' => [...$recipe->planSnapshot(), 'name' => 'Frozen measured Snack', 'calories' => 200, 'protein' => 10, 'carbs' => 20, 'fat' => 5, 'serving_size' => 1, 'serving_unit' => 'serving', 'micronutrients' => []],
             'line_order' => 0,
         ]);
 
@@ -214,23 +214,18 @@ class MealPlanControllerTest extends TestCase
         $this->assertSame($before, $intervention->fresh()->getAttributes());
     }
 
-    public function test_template_load_freezes_and_labels_current_recipe_fallback_for_legacy_snapshots(): void
+    public function test_template_load_requires_incomplete_recipe_data_to_be_repaired_first(): void
     {
         [$ncp, $intervention] = $this->makeInterventionWithNcpRecord();
         [$template, $source, $recipe] = $this->measuredTemplate();
+        $snapshot = $source->nutrient_snapshot;
+        unset($snapshot['recipe_yield'], $snapshot['recipe_original_ingredients'], $snapshot['recipe_ingredients']);
+        $source->update(['nutrient_snapshot' => $snapshot]);
         $response = $this->actingAs($this->rnd)->postJson("/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/from-template", [
             'template_id' => $template->uuid, 'intervention_plan_id' => $intervention->uuid,
             'week_start_date' => '2026-10-12',
-        ])->assertCreated();
-        $response->assertJsonPath('items.0.nutrient_snapshot.recipe_yield', 2)
-            ->assertJsonPath('items.0.nutrient_snapshot.recipe_ingredients.0.quantity', 100)
-            ->assertJsonPath('items.0.nutrient_snapshot.recipe_snapshot_source', 'current_recipe_fallback')
-            ->assertJsonPath('items.0.nutrient_snapshot.calories', 200)
-            ->assertJsonPath('items.0.nutrient_snapshot.name', 'Frozen measured Snack');
-        $before = MealPlanItem::sole()->nutrient_snapshot;
-        $recipe->update(['servings' => 8]);
-        $recipe->ingredients()->update(['quantity' => 999]);
-        $this->assertSame($before, MealPlanItem::sole()->fresh()->nutrient_snapshot);
+        ])->assertUnprocessable()->assertJsonValidationErrors('template');
+        $this->assertDatabaseCount('meal_plans', 0);
         $this->assertArrayNotHasKey('recipe_yield', $source->fresh()->nutrient_snapshot);
     }
 
@@ -270,7 +265,7 @@ class MealPlanControllerTest extends TestCase
         $this->assertSame('1.20', $items->sole()->quantity);
         $sourceSnapshot = $line->fresh()->nutrient_snapshot;
         $this->assertSame($sourceSnapshot, array_intersect_key($items->sole()->nutrient_snapshot, $sourceSnapshot));
-        $this->assertSame('current_recipe_fallback', $items->sole()->nutrient_snapshot['recipe_snapshot_source']);
+        $this->assertArrayNotHasKey('recipe_snapshot_source', $items->sole()->nutrient_snapshot);
         $this->assertTrue($plan->fresh()->needs_rescaling);
     }
 
@@ -339,7 +334,7 @@ class MealPlanControllerTest extends TestCase
             ]],
         ])->assertOk()->assertJsonPath('items.0.nutrient_snapshot.calories', 400)
             ->assertJsonPath('items.0.nutrient_snapshot.name', 'Frozen measured Snack')
-            ->assertJsonPath('items.0.nutrient_snapshot.recipe_snapshot_source', 'current_recipe_fallback')
+            ->assertJsonMissingPath('items.0.nutrient_snapshot.recipe_snapshot_source')
             ->assertJsonPath('items.0.nutrient_snapshot.recipe_yield', 2)
             ->assertJsonPath('items.0.nutrient_snapshot.recipe_ingredients.0.quantity', 200);
         $this->assertSame('100.000000', $ingredient->fresh()->quantity);
@@ -1064,7 +1059,7 @@ class MealPlanControllerTest extends TestCase
             'recipe_id' => $recipes[0]->id,
             'quantity' => 1.5,
             'unit' => 'cup',
-            'nutrient_snapshot' => ['name' => 'Cooked rice', 'calories' => 205.0, 'protein' => 4, 'carbs' => 44, 'fat' => 0.5, 'serving_size' => 1, 'serving_unit' => 'serving', 'micronutrients' => []],
+            'nutrient_snapshot' => [...$recipes[0]->planSnapshot(), 'name' => 'Cooked rice', 'calories' => 205.0, 'protein' => 4, 'carbs' => 44, 'fat' => 0.5, 'serving_size' => 1, 'serving_unit' => 'serving', 'micronutrients' => []],
             'line_order' => 1,
         ]);
         MealPlanTemplateItem::forceCreate([
@@ -1072,7 +1067,7 @@ class MealPlanControllerTest extends TestCase
             'recipe_id' => $recipes[1]->id,
             'quantity' => 1,
             'unit' => 'serving',
-            'nutrient_snapshot' => ['name' => 'Fish', 'calories' => 220.0, 'protein' => 27, 'carbs' => 0, 'fat' => 10, 'serving_size' => 1, 'serving_unit' => 'serving', 'micronutrients' => []],
+            'nutrient_snapshot' => [...$recipes[1]->planSnapshot(), 'name' => 'Fish', 'calories' => 220.0, 'protein' => 27, 'carbs' => 0, 'fat' => 10, 'serving_size' => 1, 'serving_unit' => 'serving', 'micronutrients' => []],
             'line_order' => 2,
         ]);
 

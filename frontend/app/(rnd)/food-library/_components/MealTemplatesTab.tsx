@@ -3,16 +3,15 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Eye, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { WeeklyMenuCalendar, MENU_DAYS, MENU_SLOTS } from "@/components/ncp/WeeklyMenuCalendar";
+import { WeeklyMenuCalendar, MENU_SLOTS } from "@/components/ncp/WeeklyMenuCalendar";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import SearchInput from "@/components/ui/SearchInput";
-import { fetchRecipes, type Recipe } from "@/services/foodLibraryService";
+import { fetchRecipeById, fetchRecipes, type Recipe } from "@/services/foodLibraryService";
 import {
   deleteMealPlanTemplate, fetchMealPlanTemplate, fetchMealPlanTemplates,
   saveLibraryMealPlanTemplate, type LibraryTemplateLine, type MealPlanTemplate,
 } from "@/services/mealPlanService";
 
-const DAYS = MENU_DAYS;
 const MEALS = MENU_SLOTS;
 
 type EditorLine = LibraryTemplateLine & { key: number; itemName: string };
@@ -28,33 +27,65 @@ function TemplateEditor({ initial, onClose, onSaved }: {
   const [day, setDay] = useState("Monday");
   const [meal, setMeal] = useState("breakfast");
   const [query, setQuery] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState<PaginationMeta | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [matches, setMatches] = useState<Recipe[]>([]);
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const searchId = useRef(0);
   const searchInputId = useId();
+  const pickerTrigger = useRef<HTMLButtonElement | null>(null);
+  const profileTrigger = useRef<HTMLButtonElement | null>(null);
+  const profileRequest = useRef(0);
+  const [profile, setProfile] = useState<{ name: string; recipe?: Recipe; error?: string } | null>(null);
+
+  function closeProfile() {
+    profileRequest.current++;
+    setProfile(null);
+    profileTrigger.current?.focus();
+  }
+
+  async function openProfile(line: EditorLine, trigger: HTMLButtonElement) {
+    if (!line.recipe_id) return;
+    profileTrigger.current = trigger;
+    const request = ++profileRequest.current;
+    setProfile({ name: line.itemName });
+    try {
+      const recipe = await fetchRecipeById(line.recipe_id);
+      if (profileRequest.current === request) setProfile({ name: line.itemName, recipe });
+    } catch (cause) {
+      if (profileRequest.current === request) setProfile({ name: line.itemName, error: cause instanceof Error ? cause.message : 'Could not load Menu Item. Try again.' });
+    }
+  }
 
   useEffect(() => {
-    const id = ++searchId.current;
-    if (!query.trim()) {
-      setMatches([]);
-      setSearching(false);
-      return;
-    }
+    if (pickerOpen) document.getElementById(searchInputId)?.focus();
+  }, [pickerOpen, searchInputId]);
+
+  useEffect(() => {
+    if (!pickerOpen) return;
+    let cancelled = false;
     setSearching(true);
+    setSearchError(null);
     const timer = window.setTimeout(async () => {
       try {
-        const result = await fetchRecipes(query.trim(), "all", 1, 10);
-        if (id === searchId.current) setMatches(result.data);
+        const result = await fetchRecipes(query.trim(), "all", page, 10);
+        if (!cancelled) { setMatches(result.data); setMeta(result.meta ?? null); }
       } catch (cause) {
-        if (id === searchId.current) setError(cause instanceof Error ? cause.message : "Search failed.");
+        if (!cancelled) setSearchError(cause instanceof Error ? cause.message : "Search failed. Try again.");
       } finally {
-        if (id === searchId.current) setSearching(false);
+        if (!cancelled) setSearching(false);
       }
     }, 200);
-    return () => window.clearTimeout(timer);
-  }, [query]);
+    return () => { window.clearTimeout(timer); cancelled = true; };
+  }, [query, page, pickerOpen]);
+
+  function closePicker() {
+    setPickerOpen(false);
+    pickerTrigger.current?.focus();
+  }
 
   function addItem(item: Recipe) {
     const line: EditorLine = {
@@ -70,6 +101,7 @@ function TemplateEditor({ initial, onClose, onSaved }: {
     setDraft((current) => ({ ...current, lines: [...current.lines, line] }));
     setQuery("");
     setMatches([]);
+    closePicker();
   }
 
   async function save() {
@@ -104,8 +136,12 @@ function TemplateEditor({ initial, onClose, onSaved }: {
       <div className="w-full rounded-2xl border border-warm-200 bg-white p-4 sm:p-6">
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-lg font-bold text-warm-900">{draft.readOnly ? "View meal template" : draft.id ? "Edit meal template" : "Create meal template"}</h3>
-          <button onClick={onClose} className="rounded-lg px-2 py-1 text-sm text-warm-500 hover:bg-warm-100">Close</button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={onClose}>Back to templates</Button>
+            {!draft.readOnly && <Button variant="primary" onClick={() => void save()} disabled={saving}>{saving ? "Saving…" : "Save template"}</Button>}
+          </div>
         </div>
+        {error && <p role="alert" className="mt-4 text-sm text-red-700">{error}</p>}
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <label className="text-sm font-semibold text-warm-700">Template name
             <input readOnly={draft.readOnly} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} className="mt-1 w-full rounded-lg border border-warm-200 px-3 py-2" maxLength={255} />
@@ -115,40 +151,44 @@ function TemplateEditor({ initial, onClose, onSaved }: {
           </label>
         </div>
 
-        {!draft.readOnly && <div className="mt-5 border-t border-warm-100 pt-4">
-          <h4 className="text-sm font-bold text-warm-800">Add Menu Items</h4>
-          <div className="mt-2 grid gap-2 sm:grid-cols-2">
-            <label className="text-xs font-semibold text-warm-600">Day
-              <select value={day} onChange={(event) => setDay(event.target.value)} className="mt-1 w-full rounded-lg border border-warm-200 px-2 py-2">{DAYS.map((value) => <option key={value}>{value}</option>)}</select>
-            </label>
-            <label className="text-xs font-semibold text-warm-600">Meal
-              <select value={meal} onChange={(event) => setMeal(event.target.value)} className="mt-1 w-full rounded-lg border border-warm-200 px-2 py-2">{MEALS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
-            </label>
-          </div>
-          <div className="mt-3"><SearchInput id={searchInputId} label="Search Menu Items to add" value={query} onChange={setQuery} loading={searching} /></div>
-          {matches.length > 0 && <div className="mt-2 max-h-40 overflow-y-auto rounded-lg border border-warm-200">
-            {matches.map((item) => <button key={item.id} onClick={() => addItem(item)} className="block w-full border-b border-warm-100 px-3 py-2 text-left text-sm hover:bg-emerald-50">{item.name}</button>)}
-          </div>}
-        </div>}
-
         <div className="mt-5 space-y-2">
           <WeeklyMenuCalendar renderCell={(cellDay, cellMeal) => <div className="space-y-2">
             {draft.lines.filter((line) => line.day_of_week === cellDay && line.meal_type === cellMeal).map((line) => <div key={line.key} className="space-y-2 rounded-lg border border-warm-200 p-2">
-              {line.recipe_id ? <a href={`/food-library/recipes/${line.recipe_id}`} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-warm-800 underline">{line.itemName}</a> : <p className="text-sm font-semibold text-warm-800">{line.itemName}</p>}
+              {line.recipe_id ? <button type="button" aria-label={`View ${line.itemName}`} onClick={(event) => void openProfile(line, event.currentTarget)} className="min-h-11 w-full break-words text-left text-sm font-semibold text-warm-800 hover:text-emerald-700">{line.itemName}</button> : <p className="text-sm font-semibold text-warm-800">{line.itemName}</p>}
               {draft.readOnly ? <p className="text-xs text-warm-600">{line.quantity} {line.unit}</p> : <>
                 <label className="block text-xs text-warm-600">Quantity<input aria-label={`Servings of ${line.itemName}`} type="number" min="0.01" step="0.01" value={line.quantity} onChange={(event) => setDraft((current) => ({ ...current, lines: current.lines.map((row) => row.key === line.key ? { ...row, quantity: Number(event.target.value) } : row) }))} className="mt-1 w-full rounded-lg border border-warm-200 px-2 py-1.5" /></label>
                 <label className="block text-xs text-warm-600">Unit<select value={line.unit} onChange={(event) => setDraft((current) => ({ ...current, lines: current.lines.map((row) => row.key === line.key ? { ...row, unit: event.target.value } : row) }))} className="mt-1 w-full rounded-lg border border-warm-200 px-2 py-1.5">{line.unit !== "serving" && <option value={line.unit} disabled>{line.unit} (legacy)</option>}<option value="serving">serving</option></select></label>
                 <button onClick={() => setDraft((current) => ({ ...current, lines: current.lines.filter((row) => row.key !== line.key) }))} aria-label={`Remove ${line.itemName}`} className="rounded-lg p-1.5 text-red-600 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button>
               </>}
             </div>)}
-            {!draft.readOnly && <button type="button" onClick={() => { setDay(cellDay); setMeal(cellMeal); document.getElementById(searchInputId)?.focus(); }} className="rounded-lg px-2 py-1 text-xs font-semibold text-emerald-700">Add to {cellDay} {MEALS.find(([key]) => key === cellMeal)?.[1]}</button>}
+            {!draft.readOnly && <button type="button" onClick={(event) => { pickerTrigger.current = event.currentTarget; setDay(cellDay); setMeal(cellMeal); setQuery(""); setPage(1); setMatches([]); setPickerOpen(true); }} className="min-h-11 rounded-lg border border-dashed border-warm-200 px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50">Add to {cellDay} {MEALS.find(([key]) => key === cellMeal)?.[1]}</button>}
           </div>} />
         </div>
-        {error && <p role="alert" className="mt-4 text-sm text-red-700">{error}</p>}
-        <div className="mt-5 flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          {!draft.readOnly && <Button variant="primary" onClick={() => void save()} disabled={saving}>{saving ? "Saving…" : "Save template"}</Button>}
-        </div>
+        {profile && <div role="dialog" aria-modal="true" aria-label="Menu Item profile" onKeyDown={(event) => { if (event.key === 'Escape') closeProfile(); }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="flex max-h-[80vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-xl">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-warm-100 p-4"><h3 className="break-words font-bold text-warm-900">{profile.name}</h3><Button variant="secondary" onClick={closeProfile}>Back to template</Button></div>
+            <div className="space-y-3 overflow-y-auto p-4">
+              {profile.error ? <p role="alert" className="text-sm text-red-700">{profile.error}</p> : !profile.recipe ? <p role="status" className="text-sm text-warm-500">Loading Menu Item…</p> : <>
+                <p className="text-sm text-warm-600">Recipe makes: {profile.recipe.servings} servings</p>
+                <table className="w-full text-left text-sm"><thead><tr><th className="p-2">Ingredient</th><th className="p-2">Amount</th></tr></thead><tbody>{profile.recipe.ingredients.map((ingredient) => <tr key={ingredient.id} className="border-t border-warm-100"><td className="break-words p-2">{ingredient.food_item?.name ?? '—'}</td><td className="whitespace-nowrap p-2">{ingredient.quantity} {ingredient.unit}</td></tr>)}</tbody></table>
+                {profile.recipe.prep_notes && <p className="whitespace-pre-wrap text-sm text-warm-600">{profile.recipe.prep_notes}</p>}
+                <a href={`/food-library/recipes/${profile.recipe.id}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-sm font-semibold text-emerald-700 underline">Open Menu Item</a>
+              </>}
+            </div>
+          </div>
+        </div>}
+        {pickerOpen && <div role="dialog" aria-modal="true" aria-label="Add Menu Item" onKeyDown={(event) => { if (event.key === 'Escape') closePicker(); }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="flex max-h-[80vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-warm-100 p-4"><h3 className="font-bold text-warm-900">{day} {MEALS.find(([key]) => key === meal)?.[1]}</h3><Button variant="secondary" onClick={closePicker}>Close</Button></div>
+            <div className="space-y-3 overflow-y-auto p-4">
+              <SearchInput id={searchInputId} label="Search Menu Items to add" value={query} onChange={(value) => { setQuery(value); setPage(1); setMatches([]); }} loading={searching} />
+              {searchError && <p role="alert" className="text-sm text-red-700">{searchError}</p>}
+              {!searching && !searchError && matches.length === 0 && <p className="text-sm text-warm-500">No Menu Items found.</p>}
+              {matches.map((item) => <button key={item.id} onClick={() => addItem(item)} className="block min-h-11 w-full rounded-lg border border-warm-200 px-3 py-2 text-left text-sm hover:bg-emerald-50"><span className="block break-words font-semibold">{item.name}</span><span className="text-xs capitalize text-warm-500">{item.category} · Recipe makes {item.servings} servings</span></button>)}
+              <Pagination meta={meta} page={page} onPageChange={setPage} />
+            </div>
+          </div>
+        </div>}
       </div>
     </section>
   );

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Boxes, Plus, Pencil, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Tabs } from "@/components/ui/Tabs";
+import { FoodServiceMenuItems } from "./_components/FoodServiceMenuItems";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import SearchInput from "@/components/ui/SearchInput";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
@@ -241,6 +243,10 @@ export default function InventoryCatalogPage() {
   const { user } = useAuth();
   const isRnd = user?.role === "RND";
   const [tab, setTab] = useState<FsItemKind>("ingredient");
+  const [menuItemsOpen, setMenuItemsOpen] = useState(false);
+  useEffect(() => {
+    setMenuItemsOpen(new URLSearchParams(window.location.search).get('tab') === 'menu-items');
+  }, []);
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
@@ -304,7 +310,7 @@ export default function InventoryCatalogPage() {
           </h2>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          {isRnd && (
+          {isRnd && !menuItemsOpen && (
             <Button variant="primary" onClick={() => { setEditing(null); setModalOpen(true); }} className="px-4 py-2.5 flex items-center gap-2">
               <Plus className="h-4 w-4" /> New {TABS.find((t) => t.key === tab)?.label.replace(/s$/, "")}
             </Button>
@@ -312,19 +318,23 @@ export default function InventoryCatalogPage() {
         </div>
       </div>
 
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex gap-2">
-          {TABS.map((t) => (
-            <button key={t.key} onClick={() => setTab(t.key)}
-              className={`px-3 py-1.5 text-sm font-semibold border-b-2 ${tab === t.key ? "border-emerald-600 text-emerald-700" : "border-transparent text-warm-500 hover:text-warm-800"}`}>
-              {t.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {!isSupply && <><select aria-label="Shopping list behavior filter" value={grocery} onChange={(event) => setGrocery(event.target.value as "auto" | "non_auto" | "")} className={`${inputCls} w-auto bg-white`}><option value="">All grocery behavior</option><option value="auto">Auto Grocery</option><option value="non_auto">Non-Auto Grocery</option></select><InfoHint label="About Auto Grocery">Auto Grocery items need a measured recipe amount in a matching unit. Other items stay in recipes and can be added to a shopping list by hand.</InfoHint></>}
-          <SearchInput className="w-64" label="Search inventory" value={search} onChange={setSearch} loading={loading && search !== debouncedSearch} />
-        </div>
+      <Tabs<FsItemKind | 'menu_items'> ariaLabel="Inventory sections" items={[TABS[0], { key: 'menu_items', label: 'Menu Items' }, TABS[1]]} value={menuItemsOpen ? 'menu_items' : tab} onChange={(value) => {
+        setMenuItemsOpen(value === 'menu_items');
+        if (value !== 'menu_items') setTab(value);
+        const url = new URL(window.location.href);
+        if (value === 'menu_items') url.searchParams.set('tab', 'menu-items');
+        else url.searchParams.delete('tab');
+        window.history.replaceState(window.history.state, '', url.pathname + url.search);
+      }} fill />
+      {menuItemsOpen ? <FoodServiceMenuItems canManage={isRnd} /> : <>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <SearchInput className="w-full sm:flex-1" label="Search inventory" value={search} onChange={setSearch} loading={loading && search !== debouncedSearch} />
+        {!isSupply && <div className="flex flex-wrap items-center gap-2">
+          <div role="group" aria-label="Shopping list behavior filter" className="flex flex-wrap gap-1.5">
+            {([{ value: "", label: "All" }, { value: "non_auto", label: "Non-Auto Grocery" }, { value: "auto", label: "Auto Grocery" }] as const).map((filter) => <button key={filter.value} type="button" aria-pressed={grocery === filter.value} onClick={() => setGrocery(filter.value)} className={`min-h-11 rounded-lg border px-3 py-1.5 text-xs font-bold uppercase tracking-wide ${grocery === filter.value ? "border-forest-line bg-forest-900 text-white" : "border-warm-200 bg-white text-warm-500 hover:border-warm-300"}`}>{filter.label}</button>)}
+          </div>
+          <InfoHint label="About Auto Grocery">Auto Grocery items need a measured recipe amount in a matching unit. Other items stay in recipes and can be added to a shopping list by hand.</InfoHint>
+        </div>}
       </div>
 
       <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
@@ -384,6 +394,7 @@ export default function InventoryCatalogPage() {
           onSaved={() => { closeModal(); load(); }}
         />
       )}
+      </>}
     </div>
   );
 }

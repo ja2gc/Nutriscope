@@ -22,6 +22,7 @@ use Database\Seeders\FoodItemsSeeder;
 use Database\Seeders\RecipeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 class PatientMenuPlanGeneratorTest extends TestCase
@@ -129,12 +130,56 @@ class PatientMenuPlanGeneratorTest extends TestCase
         $this->assertSame(1.2, $portion['patient_servings']);
         $this->assertSame('Saved rice', $portion['foods'][0]['food']);
         $this->assertSame(500.0, $portion['foods'][0]['whole_quantity']);
+        $this->assertSame(400.0, $portion['foods'][0]['recipe_quantity']);
         $this->assertSame('g', $portion['foods'][0]['whole_unit']);
         $this->assertSame(96.0, $portion['foods'][0]['metric_amount']);
         $this->assertSame('g', $portion['foods'][0]['metric_unit']);
     }
 
-    public function test_legacy_saved_ingredient_amounts_survive_with_an_explicit_current_yield_fallback(): void
+    public function test_compact_recipe_guide_lists_ingredients_once_with_rounded_serving_references(): void
+    {
+        $plan = $this->makePlan();
+        $recipe = Recipe::factory()->create(['name' => 'Lugaw with Egg', 'servings' => 1]);
+        foreach (['Rice porridge' => 300, 'Egg' => 50] as $name => $amount) {
+            $food = FoodItem::factory()->create(['name' => $name, 'serving_size' => 100, 'serving_unit' => 'g']);
+            $recipe->ingredients()->create(['food_item_id' => $food->id, 'quantity' => $amount, 'unit' => 'g']);
+        }
+        foreach (['Monday' => 2.67, 'Tuesday' => 2, 'Wednesday' => 2.67] as $dayName => $quantity) {
+            $day = MealPlanDay::factory()->create(['meal_plan_id' => $plan->id, 'day_of_week' => $dayName, 'meal_type' => 'breakfast']);
+            MealPlanItem::create(['meal_plan_day_id' => $day->id, 'recipe_id' => $recipe->id, 'quantity' => $quantity, 'unit' => 'serving', 'nutrient_snapshot' => $recipe->planSnapshot()]);
+        }
+        $report = new Report(['type' => 'patient_menu_plan', 'parameters' => ['intervention_plan_id' => $plan->intervention->uuid]]);
+        $generator = app(PatientMenuPlanGenerator::class);
+        $data = $generator->data($report);
+        $this->assertCount(1, $data['portion_details']);
+        $this->assertCount(2, $data['portion_details'][0]['variants']);
+        $this->assertSame($data['grid']['Breakfast']['Monday'][0]['portion_id'], $data['grid']['Breakfast']['Wednesday'][0]['portion_id']);
+        $html = view($generator->view(), [...$data, 'branding' => ReportBranding::singleton(), 'signatories' => [], 'generated_at' => now(), 'report' => $report])->render();
+        $text = preg_replace('/\s+/', ' ', strip_tags($html));
+        $this->assertSame(1, substr_count($html, '>Rice porridge</span>'));
+        $this->assertSame(1, substr_count($html, '>Egg</span>'));
+        $this->assertStringContainsString('Recipe makes: 1 serving', $text);
+        $this->assertStringContainsString('P1 - 2.7 servings', $text);
+        $this->assertStringContainsString('P2 - 2 servings', $text);
+        $this->assertStringNotContainsString('2.67', $text);
+        $this->assertStringContainsString('Amount to use = listed ingredient amount × your servings ÷ servings the recipe makes.', $text);
+    }
+
+    public function test_same_named_recipes_keep_separate_recipe_guides(): void
+    {
+        $plan = $this->makePlan();
+        $day = MealPlanDay::factory()->create(['meal_plan_id' => $plan->id]);
+        foreach ([100, 200] as $amount) {
+            $recipe = Recipe::factory()->create(['name' => 'Same dish', 'servings' => 1]);
+            $food = FoodItem::factory()->create(['serving_size' => 100, 'serving_unit' => 'g']);
+            $recipe->ingredients()->create(['food_item_id' => $food->id, 'quantity' => $amount, 'unit' => 'g']);
+            MealPlanItem::create(['meal_plan_day_id' => $day->id, 'recipe_id' => $recipe->id, 'quantity' => 1, 'unit' => 'serving', 'nutrient_snapshot' => $recipe->planSnapshot()]);
+        }
+        $data = app(PatientMenuPlanGenerator::class)->data(new Report(['type' => 'patient_menu_plan', 'parameters' => ['intervention_plan_id' => $plan->intervention->uuid]]));
+        $this->assertCount(2, $data['portion_details']);
+    }
+
+    public function test_incomplete_recipe_data_is_rejected_instead_of_silently_using_current_library_values(): void
     {
         $plan = $this->makePlan();
         $recipe = Recipe::factory()->create(['servings' => 5]);
@@ -148,18 +193,13 @@ class PatientMenuPlanGeneratorTest extends TestCase
                 'recipe_ingredients' => [['name' => 'Saved ingredient', 'quantity' => 400, 'unit' => 'g']],
             ],
         ]);
-        $data = app(PatientMenuPlanGenerator::class)->data(new Report([
+        $this->expectException(ValidationException::class);
+        app(PatientMenuPlanGenerator::class)->data(new Report([
             'type' => 'patient_menu_plan', 'parameters' => ['intervention_plan_id' => $plan->intervention->uuid],
         ]));
-        $portion = $data['portion_details'][0]['variants'][0];
-        $this->assertSame('Saved ingredient', $portion['foods'][0]['food']);
-        $this->assertSame(96.0, $portion['foods'][0]['metric_amount']);
-        $this->assertNull($portion['foods'][0]['whole_quantity']);
-        $this->assertSame(5.0, $portion['recipe_yield']);
-        $this->assertTrue($portion['legacy_fallback']);
     }
 
-    public function test_legacy_serving_snapshot_scales_current_batch_by_recipe_yield(): void
+    public function test_repaired_serving_snapshot_uses_saved_batch_without_a_runtime_fallback(): void
     {
         $plan = $this->makePlan();
         $recipe = Recipe::factory()->create(['servings' => 5]);
@@ -170,13 +210,14 @@ class PatientMenuPlanGeneratorTest extends TestCase
             'meal_plan_day_id' => $day->id, 'recipe_id' => $recipe->id, 'quantity' => 1.2, 'unit' => 'serving',
             'nutrient_snapshot' => ['name' => 'Saved dish', 'serving_size' => 1, 'serving_unit' => 'serving'],
         ]);
+        (require database_path('migrations/2026_10_16_111556_repair_verified_menu_recipe_snapshots.php'))->up();
         $data = app(PatientMenuPlanGenerator::class)->data(new Report([
             'type' => 'patient_menu_plan', 'parameters' => ['intervention_plan_id' => $plan->intervention->uuid],
         ]));
         $portion = $data['portion_details'][0]['variants'][0];
         $this->assertSame(120.0, $portion['foods'][0]['metric_amount']);
         $this->assertSame(1.2, $portion['patient_servings']);
-        $this->assertTrue($portion['legacy_fallback']);
+        $this->assertArrayNotHasKey('legacy_fallback', $portion);
     }
 
     public function test_dense_frozen_portions_render_through_the_real_pdf_service(): void
@@ -202,7 +243,7 @@ class PatientMenuPlanGeneratorTest extends TestCase
                 $day = MealPlanDay::create(['meal_plan_id' => $plan->id, 'day_of_week' => $dayName, 'meal_type' => $slot]);
                 $recipe = $recipes[($index * 3 + $slotIndex) % count($recipes)];
                 MealPlanItem::create([
-                    'meal_plan_day_id' => $day->id, 'recipe_id' => $recipe->id, 'quantity' => 1.2, 'unit' => 'serving',
+                    'meal_plan_day_id' => $day->id, 'recipe_id' => $recipe->id, 'quantity' => $index % 2 === 0 ? 1.2 : 2.67, 'unit' => 'serving',
                     'nutrient_snapshot' => $recipe->planSnapshot(),
                 ]);
             }
@@ -217,6 +258,7 @@ class PatientMenuPlanGeneratorTest extends TestCase
         $this->assertSame(1800.0, $data['prescription']['energy_kcal']);
         $this->assertSame(['Breakfast', 'Lunch', 'Dinner'], $data['meals']);
         $this->assertCount(10, $data['portion_details']);
+        $this->assertCount(2, $data['portion_details'][0]['variants']);
         $this->assertSame(500.0, $data['portion_details'][0]['foods'][0]['whole_quantity']);
         $this->assertSame(120.0, $data['portion_details'][0]['foods'][0]['metric_amount']);
         $built = app(ReportService::class)->buildPdf($report);
@@ -238,7 +280,7 @@ class PatientMenuPlanGeneratorTest extends TestCase
                 $recipe = $recipes[($index * 3 + $slotIndex) % $recipes->count()];
                 $day = MealPlanDay::create(['meal_plan_id' => $plan->id, 'day_of_week' => $dayName, 'meal_type' => $slot]);
                 MealPlanItem::create([
-                    'meal_plan_day_id' => $day->id, 'recipe_id' => $recipe->id, 'quantity' => 1.2, 'unit' => 'serving',
+                    'meal_plan_day_id' => $day->id, 'recipe_id' => $recipe->id, 'quantity' => $index % 2 === 0 ? 1.2 : 2.67, 'unit' => 'serving',
                     'nutrient_snapshot' => $recipe->planSnapshot(),
                 ]);
             }
@@ -387,11 +429,7 @@ class PatientMenuPlanGeneratorTest extends TestCase
                 'recipe_id' => $recipe->id,
                 'quantity' => 1,
                 'unit' => 'serving',
-                'nutrient_snapshot' => [
-                    'name' => 'Rice bowl',
-                    'serving_size' => 1,
-                    'serving_unit' => 'medium piece',
-                ],
+                'nutrient_snapshot' => $recipe->planSnapshot(),
             ]);
         }
 
@@ -446,6 +484,7 @@ class PatientMenuPlanGeneratorTest extends TestCase
             ],
         ]);
 
+        (require database_path('migrations/2026_10_16_111556_repair_verified_menu_recipe_snapshots.php'))->up();
         $report = new Report(['type' => 'patient_menu_plan', 'parameters' => ['meal_plan_id' => $plan->id]]);
         $data = app(PatientMenuPlanGenerator::class)->data($report);
 
@@ -461,7 +500,7 @@ class PatientMenuPlanGeneratorTest extends TestCase
             'serving_unit' => 'g',
         ]);
 
-        foreach ([['Monday', 250], ['Tuesday', 275]] as [$dayName, $quantity]) {
+        foreach ([['Monday', 250], ['Tuesday', 275], ['Wednesday', 0.04]] as [$dayName, $quantity]) {
             $day = MealPlanDay::create([
                 'meal_plan_id' => $plan->id,
                 'day_of_week' => $dayName,
@@ -482,7 +521,7 @@ class PatientMenuPlanGeneratorTest extends TestCase
 
         $this->assertCount(1, $data['portion_details']);
         $this->assertSame('Guava', $data['portion_details'][0]['dish']);
-        $this->assertCount(2, $data['portion_details'][0]['variants']);
+        $this->assertCount(3, $data['portion_details'][0]['variants']);
         $this->assertNotSame(
             $data['grid']['AM Snack']['Monday'][0]['portion_id'],
             $data['grid']['AM Snack']['Tuesday'][0]['portion_id'],
@@ -496,6 +535,9 @@ class PatientMenuPlanGeneratorTest extends TestCase
             'report' => $report,
         ])->render();
         $this->assertSame(1, substr_count($html, '>Guava</p>'));
+        $this->assertStringNotContainsString('Unavailable', $html);
+        $this->assertStringNotContainsString('class="portion-amounts"', $html);
+        $this->assertStringContainsString('&lt;0.1', $html);
     }
 
     public function test_usda_item_appears_in_the_grid(): void
@@ -827,7 +869,7 @@ class PatientMenuPlanGeneratorTest extends TestCase
         $this->assertStringNotContainsString('recipe-ingredients', $source);
     }
 
-    public function test_portion_details_render_three_cards_per_independent_row(): void
+    public function test_portion_details_render_four_cards_per_independent_row(): void
     {
         $plan = $this->makePlan();
         $day = MealPlanDay::create([
@@ -874,10 +916,10 @@ class PatientMenuPlanGeneratorTest extends TestCase
         $menuGrid = $xpath->query('//table[contains(concat(" ", normalize-space(@class), " "), " menu-grid ")]');
 
         $this->assertCount(1, $menuGrid);
-        $this->assertCount(2, $rows);
+        $this->assertCount(1, $rows);
         foreach ($rows as $row) {
             $this->assertCount(
-                3,
+                4,
                 $xpath->query('./td[contains(concat(" ", normalize-space(@class), " "), " portion-cell ")]', $row),
             );
         }

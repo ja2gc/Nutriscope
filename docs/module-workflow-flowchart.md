@@ -28,7 +28,7 @@ flowchart TD
     G -->|"Single item"| I["Use directly in Food Service menu"]
     G -->|"Supply"| J["Use in shopping list / procurement"]
 
-    H --> K["Create recipe"]
+    H --> K["Inventory / Menu Items: create recipe or Single food item"]
     K --> K1["Add ingredient, quantity, unit, servings, prep notes"]
     K1 --> K2{"Units compatible?"}
     K2 -->|"No"| K3["Show validation error"]
@@ -169,7 +169,7 @@ Page inventory: Home, Announcement, Menu, Meal Prep, Accomplish, Purchase, food 
 
 ```mermaid
 flowchart TD
-    A["Maintain ingredient/supply reference catalog"] --> B["Create recipes with baseline servings and exact measurements"]
+    A["Inventory / Ingredients and Supplies: maintain reference catalog"] --> B["Inventory / Menu Items: create Meal, Snack, or Beverage with baseline servings and exact measurements"]
     B --> C["Create date-named menu cycle or load template copy"]
     C --> D["Assign recipes/items and activate"]
     D --> E{"Shopping-list path"}

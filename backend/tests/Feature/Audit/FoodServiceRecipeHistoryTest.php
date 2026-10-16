@@ -38,7 +38,7 @@ class FoodServiceRecipeHistoryTest extends TestCase
 
         $this->actingAs($this->rnd)->postJson('/api/fss/food-service-recipes', [
             'name' => 'Hospital Rice Bowl',
-            'category' => 'Main dish',
+            'category' => 'meal',
             'prep_notes' => 'Steam and portion.',
             'servings' => 20,
             'ingredients' => [[
@@ -163,6 +163,22 @@ class FoodServiceRecipeHistoryTest extends TestCase
         $this->assertSame(0, AuditActivity::query()->where('subject_type', FoodServiceRecipe::class)->count());
     }
 
+    public function test_food_categories_require_a_canonical_choice_and_partial_updates_preserve_it(): void
+    {
+        $item = $this->item('Measured ingredient', 100);
+        $payload = ['name' => 'Category check', 'servings' => 1, 'ingredients' => [['fs_item_id' => $item->uuid, 'quantity' => 100, 'unit' => 'g']]];
+        foreach ([null, '', 'breakfast', 'lunch', 'dinner', 'Main dish'] as $category) {
+            $this->actingAs($this->rnd)->postJson('/api/fss/food-service-recipes', [...$payload, 'category' => $category])->assertUnprocessable()->assertJsonValidationErrors('category');
+        }
+        foreach (['meal', 'snack', 'beverage'] as $category) {
+            $this->postJson('/api/fss/food-service-recipes', [...$payload, 'name' => 'Category '.$category, 'category' => $category])->assertCreated();
+        }
+        $recipe = FoodServiceRecipe::where('name', 'Category meal')->firstOrFail();
+        $this->patchJson('/api/fss/food-service-recipes/'.$recipe->uuid, ['category' => ''])->assertUnprocessable();
+        $this->patchJson('/api/fss/food-service-recipes/'.$recipe->uuid, ['servings' => 2])->assertOk();
+        $this->assertSame('meal', $recipe->fresh()->category);
+    }
+
     private function item(string $name, float $purchasePrice): FsItem
     {
         return FsItem::factory()->create([
@@ -178,7 +194,7 @@ class FoodServiceRecipeHistoryTest extends TestCase
         $recipe = FoodServiceRecipe::create([
             'rnd_user_id' => $this->rnd->id,
             'name' => $name,
-            'category' => 'Main dish',
+            'category' => 'meal',
             'servings' => 20,
             'cost' => $quantity * $item->unit_cost,
         ]);

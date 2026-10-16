@@ -337,7 +337,7 @@ class FoodServiceDemoSeeder extends Seeder
     // ── FS recipes (cost-only), themed to the PPA menu ──────────────────────
     private function seedRecipes(int $rnd): void
     {
-        // FS recipes carry no category — name => [servings, [[fs_item, qty], ...]].
+        // These canonical recipes are used in main-meal slots; all are Meals.
         $defs = [
             'Cheezwhiz Sandwich' => [50, [['Loaf bread', 100], ['Cheez Whiz', 750]]],
             'Pandesal with Boiled Egg' => [50, [['Pandesal', 100], ['Egg', 50]]],
@@ -358,7 +358,7 @@ class FoodServiceDemoSeeder extends Seeder
         foreach ($defs as $name => [$servings, $lines]) {
             $recipe = FoodServiceRecipe::query()->updateOrCreate(
                 ['name' => $name],
-                ['rnd_user_id' => $rnd, 'servings' => $servings],
+                ['rnd_user_id' => $rnd, 'servings' => $servings, 'category' => 'meal'],
             );
             $recipe->ingredients()->delete();
             foreach ($lines as [$itemName, $qty]) {

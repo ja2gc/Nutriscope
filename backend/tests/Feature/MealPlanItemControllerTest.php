@@ -335,7 +335,7 @@ class MealPlanItemControllerTest extends TestCase
         $item = MealPlanItem::factory()->create([
             'meal_plan_day_id' => $ctx['day']->id,
             'recipe_id' => $recipe->id,
-            'nutrient_snapshot' => ['name' => 'Soup', 'calories' => 100, 'protein' => 10, 'carbs' => 20, 'fat' => 5, 'micronutrients' => ['sodium' => 50]],
+            'nutrient_snapshot' => $recipe->planSnapshot(),
         ]);
 
         // Double the ingredient quantity → all nutrients double (servings = 1).
@@ -364,7 +364,7 @@ class MealPlanItemControllerTest extends TestCase
         $ingredient = $recipe->ingredients()->create(['food_item_id' => $food->id, 'quantity' => 0.5, 'unit' => 'kg']);
         $item = MealPlanItem::factory()->create([
             'meal_plan_day_id' => $ctx['day']->id, 'recipe_id' => $recipe->id,
-            'nutrient_snapshot' => ['name' => 'Measured batch', 'calories' => 100, 'water_g' => 80],
+            'nutrient_snapshot' => $recipe->planSnapshot(),
         ]);
         $this->actingAs($ctx['rnd'])->patchJson($this->url($ctx, $item->uuid), [
             'ingredient_overrides' => [['id' => $ingredient->id, 'quantity' => 1]],

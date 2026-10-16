@@ -98,7 +98,11 @@ export default function MealPlanSection({
       setLoadingCarbs(true);
       try {
         const result = await fetchRecipes(carbQuery, 'carb', carbPage);
-        if (!cancelled) { setCarbChoices(result.data); setCarbMeta(result.meta ?? null); }
+        if (!cancelled) {
+          setCarbChoices(result.data);
+          setCarbMeta(result.meta ?? null);
+          setSelectedCarb((current) => current ?? result.data[0] ?? null);
+        }
       } catch (error) {
         if (!cancelled) setGenerateError(error instanceof Error ? error.message : 'Could not load Carb Menu Items. Try again.');
       } finally {

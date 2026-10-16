@@ -16,14 +16,35 @@ class InterventionMealPlanTemplateSeeder extends Seeder
 
     public function run(): void
     {
+        $this->seedTemplates();
+    }
+
+    public function seedMissingTemplates(): void
+    {
+        $rnd = User::where('role', 'RND')->first();
+        if (! $rnd) {
+            return;
+        }
+        $legacy = MealPlanTemplate::where('rnd_user_id', $rnd->id)->where('name', 'Demo — Liver Disease — Soft Frequent Meals')->first();
+        if (! $legacy) {
+            return;
+        }
+        if ($legacy->goal_type !== 'liver_disease' || $legacy->disease_stage !== $this->profiles()['liver_disease']['stage'] || $legacy->maternal_status !== null) {
+            throw new RuntimeException('Verify the legacy liver template metadata before adding its No Snacks variant.');
+        }
+        $this->seedTemplates(true, 'Demo — Liver Disease — No Snacks');
+    }
+
+    private function seedTemplates(bool $missingOnly = false, ?string $onlyName = null): void
+    {
         $rnd = User::query()->where('role', 'RND')->first();
         if (! $rnd) {
             throw new RuntimeException('Intervention templates require a seeded RND user.');
         }
 
-        $recipes = Recipe::query()->where('rnd_user_id', $rnd->id)->get()->keyBy('name');
+        $recipes = Recipe::query()->with('ingredients.foodItem')->where('rnd_user_id', $rnd->id)->get()->keyBy('name');
 
-        DB::transaction(function () use ($rnd, $recipes): void {
+        DB::transaction(function () use ($rnd, $recipes, $missingOnly, $onlyName): void {
             foreach ($this->profiles() as $profileKey => $profile) {
                 $goal = array_key_exists('goal_type', $profile) ? $profile['goal_type'] : $profileKey;
                 $withSnacksName = in_array($profileKey, ['custom', 'pregnant', 'lactating'], true)
@@ -35,6 +56,10 @@ class InterventionMealPlanTemplateSeeder extends Seeder
 
                 foreach ($variants as [$variantName, $excludeSnacks, $offset]) {
                     $name = "Demo — {$profile['label']} — {$variantName}";
+                    if (($onlyName !== null && $name !== $onlyName)
+                        || ($missingOnly && MealPlanTemplate::where('rnd_user_id', $rnd->id)->where('name', $name)->exists())) {
+                        continue;
+                    }
                     $template = MealPlanTemplate::updateOrCreate(
                         ['rnd_user_id' => $rnd->id, 'name' => $name],
                         [
@@ -50,15 +75,15 @@ class InterventionMealPlanTemplateSeeder extends Seeder
                     );
                     $template->days()->delete();
 
+                    $carb = $this->rotate($profile['carbs'], $offset);
                     foreach (self::DAYS as $dayIndex => $dayName) {
-                        $carb = $this->rotate($profile['carbs'], $dayIndex + $offset);
                         $vegetable = isset($profile['vegetables'])
                             ? $this->rotate($profile['vegetables'], $dayIndex + $offset)
                             : null;
                         $foldMaternalSnacksIntoMeals = $excludeSnacks && isset($profile['maternal_status']);
                         $slotItems = [
                             'breakfast' => array_merge(
-                                [$this->rotate($profile['breakfasts'], $dayIndex + $offset)],
+                                [$this->rotate($profile['breakfasts'], $dayIndex + $offset), $carb],
                                 $foldMaternalSnacksIntoMeals
                                     ? $this->snackItems($profile, 'am_snack', $dayIndex + $offset)
                                     : [],
@@ -77,7 +102,7 @@ class InterventionMealPlanTemplateSeeder extends Seeder
                             'dinner' => array_merge(
                                 array_values(array_filter([
                                     $this->rotate($profile['mains'], $dayIndex + $offset + 1),
-                                    $this->rotate($profile['carbs'], $dayIndex + $offset + 1),
+                                    $carb,
                                     isset($profile['vegetables'])
                                         ? $this->rotate($profile['vegetables'], $dayIndex + $offset + 1)
                                         : null,
@@ -117,6 +142,62 @@ class InterventionMealPlanTemplateSeeder extends Seeder
                                     'line_order' => $lineIndex + 1,
                                 ]);
                             }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    public function repairCanonicalCarbSlots(): void
+    {
+        $rnd = User::where('role', 'RND')->first();
+        if (! $rnd) {
+            return;
+        }
+        DB::transaction(function () use ($rnd): void {
+            $recipes = Recipe::with('ingredients.foodItem')->where('rnd_user_id', $rnd->id)->get()->keyBy('name');
+            foreach ($this->profiles() as $profileKey => $profile) {
+                $goal = array_key_exists('goal_type', $profile) ? $profile['goal_type'] : $profileKey;
+                $standard = $goal === 'liver_disease' ? 'Frequent Meals' : (in_array($profileKey, ['custom', 'pregnant', 'lactating'], true) ? 'Balanced' : 'Standard');
+                $variants = [[$standard, false, 0], ['No Snacks', true, 1]];
+                if ($goal === 'liver_disease') {
+                    $variants[] = ['Soft Frequent Meals', false, 1];
+                }
+                foreach ($variants as [$variant, $excludeSnacks, $offset]) {
+                    $name = "Demo — {$profile['label']} — {$variant}";
+                    $template = MealPlanTemplate::where('rnd_user_id', $rnd->id)->where('name', $name)->lockForUpdate()->first();
+                    if (! $template) {
+                        continue;
+                    }
+                    if ($template->goal_type !== $goal || (string) $template->disease_stage !== (string) $profile['stage']
+                        || (string) $template->maternal_status !== (string) ($profile['maternal_status'] ?? '')) {
+                        throw new RuntimeException('Canonical template metadata changed; verify it before correcting Carbs.');
+                    }
+                    $carb = $recipes->get($this->rotate($profile['carbs'], $offset));
+                    if (! $carb || $carb->category !== 'carb' || ! $carb->hasValidPortionData()) {
+                        throw new RuntimeException('Canonical template correction requires its measured Carb Menu Item.');
+                    }
+                    $days = $template->days()->whereIn('meal_type', ['breakfast', 'lunch', 'dinner'])->lockForUpdate()->get();
+                    if ($days->count() !== 21 || $days->map(fn ($day) => $day->day_of_week.'|'.$day->meal_type)->unique()->count() !== 21
+                        || ! $days->every(fn ($day) => in_array($day->day_of_week, self::DAYS, true))) {
+                        throw new RuntimeException('Canonical template correction requires all 21 distinct main slots.');
+                    }
+                    foreach ($days as $day) {
+                        $items = $day->items()->with('recipe')->orderBy('line_order')->lockForUpdate()->get();
+                        $carbs = $items->filter(fn ($item) => $item->recipe?->category === 'carb');
+                        if ($carbs->count() > 1) {
+                            throw new RuntimeException('Verify duplicate Carb lines before correcting this canonical template.');
+                        }
+                        $line = $carbs->first();
+                        $snapshot = $line?->recipe_id === $carb->id ? $line->nutrient_snapshot : $this->recipeSnapshot($carb);
+                        $values = ['food_item_id' => null, 'recipe_id' => $carb->id,
+                            'quantity' => $this->templateQuantity($carb, $profile, $excludeSnacks && in_array($day->meal_type, ['lunch', 'dinner'], true)),
+                            'unit' => 'serving', 'nutrient_snapshot' => $snapshot];
+                        if ($line) {
+                            DB::table('meal_plan_template_items')->where('id', $line->id)->update([...$values, 'nutrient_snapshot' => json_encode($snapshot, JSON_THROW_ON_ERROR)]);
+                        } else {
+                            $day->items()->create([...$values, 'line_order' => ($items->max('line_order') ?? 0) + 1]);
                         }
                     }
                 }
@@ -202,22 +283,7 @@ class InterventionMealPlanTemplateSeeder extends Seeder
     /** @return array<string,mixed> */
     private function recipeSnapshot(Recipe $recipe): array
     {
-        $servings = max(1.0, (float) $recipe->servings);
-
-        return [
-            'name' => $recipe->name,
-            'calories' => round((float) $recipe->total_calories / $servings, 2),
-            'protein' => round((float) $recipe->total_protein / $servings, 2),
-            'carbs' => round((float) $recipe->total_carbs / $servings, 2),
-            'fat' => round((float) $recipe->total_fat / $servings, 2),
-            'water_g' => round((float) $recipe->total_water / $servings, 2),
-            'micronutrients' => collect($recipe->micronutrients ?? [])->map(
-                fn ($value): float => round((float) $value / $servings, 3)
-            )->all(),
-            'serving_size' => 1,
-            'serving_unit' => 'serving',
-            'source' => 'recipe',
-        ];
+        return ['source' => 'recipe', ...$recipe->planSnapshot()];
     }
 
     /** @return array<string,array<string,mixed>> */

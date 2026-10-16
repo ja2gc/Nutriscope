@@ -319,9 +319,10 @@ it("keeps a historical week readable without template loading or edit actions", 
   } finally { await act(async () => root.unmount()); }
 });
 
-it("requires exactly one Carb Menu Item before sending generation", async () => {
+it("preselects an available Carb before generation and allows changing it", async () => {
   const { container, root } = await renderEmptyPlanner();
-  vi.mocked(fetchRecipes).mockResolvedValueOnce({ data: [{ id: "carb-1", rnd_user_id: 1, name: "Oats", category: "carb", meal_types: null, prep_notes: null, servings: 1, total_calories: "150", total_protein: "5", total_carbs: "25", total_fat: "2", prepared_portion_amount: null, prepared_portion_unit: null, micronutrients: {}, ingredients: [], created_at: "", updated_at: "" }] });
+  const carb = { id: "carb-1", rnd_user_id: 1, name: "Oats", category: "carb", meal_types: null, prep_notes: null, servings: 1, total_calories: "150", total_protein: "5", total_carbs: "25", total_fat: "2", prepared_portion_amount: null, prepared_portion_unit: null, micronutrients: {}, ingredients: [], created_at: "", updated_at: "" };
+  vi.mocked(fetchRecipes).mockResolvedValueOnce({ data: [carb, { ...carb, id: "carb-2", name: "Sweet potato" }] });
   try {
     const generate = Array.from(container.querySelectorAll("button")).find((button) => button.textContent?.includes("Auto-Generate"))!;
     await act(async () => generate.click());
@@ -331,11 +332,12 @@ it("requires exactly one Carb Menu Item before sending generation", async () => 
     expect(dialog).not.toBeNull();
     expect(fetchRecipes).toHaveBeenCalledWith("", "carb", 1);
     const confirm = Array.from(dialog.querySelectorAll("button")).find((button) => button.textContent?.trim() === "Generate week")!;
-    expect(confirm.disabled).toBe(true);
-    const choice = dialog.querySelector('input[type="radio"]')!;
-    await act(async () => (choice as HTMLInputElement).click());
+    expect(confirm.disabled).toBe(false);
+    const choices = dialog.querySelectorAll<HTMLInputElement>('input[type="radio"]');
+    expect(choices[0].checked).toBe(true);
+    await act(async () => choices[1].click());
     await act(async () => confirm.click());
-    expect(generateMealPlan).toHaveBeenCalledWith("ncp-1", expect.objectContaining({ exclude_carbs: false, carb_menu_item_id: "carb-1" }));
+    expect(generateMealPlan).toHaveBeenCalledWith("ncp-1", expect.objectContaining({ exclude_carbs: false, carb_menu_item_id: "carb-2" }));
   } finally { await act(async () => root.unmount()); }
 });
 

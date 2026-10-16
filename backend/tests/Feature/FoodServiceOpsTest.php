@@ -2355,12 +2355,12 @@ class FoodServiceOpsTest extends TestCase
     {
         $salt = $this->makeFsItem(['name' => 'Salt', 'base_unit' => 'kg', 'include_in_generated_lists' => false]);
         $this->actingAs($this->rnd)->postJson('/api/fss/food-service-recipes', [
-            'name' => 'Unmeasured soup', 'servings' => 10,
+            'name' => 'Unmeasured soup', 'servings' => 10, 'category' => 'meal',
             'ingredients' => [['fs_item_id' => $salt->uuid, 'quantity' => null, 'unit' => 'to taste']],
         ])->assertStatus(422);
 
         $food = $this->actingAs($this->rnd)->postJson('/api/fss/food-service-recipes', [
-            'name' => 'Soup', 'servings' => 10,
+            'name' => 'Soup', 'servings' => 10, 'category' => 'meal',
             'ingredients' => [['fs_item_id' => $salt->uuid, 'quantity' => 2, 'unit' => 'tbsp', 'adjust_to_taste' => true]],
         ])->assertCreated()->json('data');
         $this->assertEquals(2, $food['ingredients'][0]['quantity']);
@@ -2370,7 +2370,7 @@ class FoodServiceOpsTest extends TestCase
 
         $rice = $this->makeFsItem(['name' => 'Rice', 'base_unit' => 'kg', 'include_in_generated_lists' => true]);
         $this->actingAs($this->rnd)->postJson('/api/fss/food-service-recipes', [
-            'name' => 'Rice soup', 'servings' => 10,
+            'name' => 'Rice soup', 'servings' => 10, 'category' => 'meal',
             'ingredients' => [['fs_item_id' => $rice->uuid, 'quantity' => null, 'unit' => 'to taste']],
         ])->assertStatus(422);
     }

@@ -10,6 +10,18 @@ use Tests\TestCase;
 
 class RecipeIngredientUnitTest extends TestCase
 {
+    public function test_editing_an_incomplete_saved_snapshot_requires_repair_instead_of_current_recipe_fallback(): void
+    {
+        $food = new FoodItem(['name' => 'Rice', 'serving_size' => 100, 'serving_unit' => 'g', 'calories' => 80]);
+        $ingredient = new RecipeIngredient(['quantity' => 100, 'unit' => 'g']);
+        $ingredient->forceFill(['id' => 1]);
+        $ingredient->setRelation('foodItem', $food);
+        $recipe = new Recipe(['servings' => 1]);
+        $recipe->setRelation('ingredients', collect([$ingredient]));
+        $this->expectException(\InvalidArgumentException::class);
+        $recipe->planSnapshot([], ['name' => 'Saved recipe', 'calories' => 80, 'serving_size' => 1, 'serving_unit' => 'serving']);
+    }
+
     public function test_same_dimension_is_compatible(): void
     {
         $this->assertTrue(FoodServiceRecipeController::unitCompatible('g', 'g'));

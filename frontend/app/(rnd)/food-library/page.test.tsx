@@ -72,6 +72,9 @@ describe("Food Library USDA search", () => {
     root = createRoot(container);
     await act(async () => { root.render(<FoodLibraryPage />); });
     const tabs = Array.from(container.querySelectorAll('[aria-label="Food Library sections"] button'));
+    expect(container.querySelector('[role="tablist"][aria-label="Food Library sections"]')).not.toBeNull();
+    expect(tabs[0].getAttribute('aria-selected')).toBe('true');
+    expect(container.querySelector('[aria-label="Food Library sections"]')?.className).not.toContain('overflow-x-auto');
     expect(tabs.map((tab) => tab.textContent)).toEqual(["Ingredients", "Menu Items", "Templates"]);
     const ingredientFilters = container.querySelector('[aria-label="Ingredient groups"]')!;
     expect(Array.from(ingredientFilters.querySelectorAll("button")).map((button) => button.textContent)).toEqual(["All", "protein", "carbs", "vegetable", "fat", "dairy", "fruit"]);
@@ -125,7 +128,7 @@ describe("Food Library meal templates", () => {
     expect(create).toBeDefined();
     await act(async () => { create!.click(); });
     expect(container.textContent).toContain("Create meal template");
-    expect(container.textContent).toContain("Add Menu Items");
+    expect(container.textContent).toContain("Add to Monday Breakfast");
     expect(container.textContent).not.toContain("Item type");
   });
 });

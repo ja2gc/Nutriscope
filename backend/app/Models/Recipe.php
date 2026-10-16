@@ -109,7 +109,7 @@ class Recipe extends Model
             && collect($originalIngredients)->every(fn ($ingredient) => isset($ingredient['id'], $ingredient['food_item']['serving_size'], $ingredient['food_item']['serving_unit']));
         if (! $frozen) {
             if ($baseline !== null) {
-                $baseline['recipe_snapshot_source'] = 'current_recipe_fallback';
+                throw new InvalidArgumentException('Repair the saved recipe details before editing this portion.');
             }
             if (! $this->hasValidPortionData()) {
                 throw new InvalidArgumentException('Correct the Menu Item yield and measured Ingredient units before using this portion.');

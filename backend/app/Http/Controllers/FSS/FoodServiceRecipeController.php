@@ -165,7 +165,7 @@ class FoodServiceRecipeController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255', 'unique:food_service_recipes,name'],
-            'category' => ['nullable', 'string', 'max:100'],
+            'category' => ['required', 'string', 'in:meal,snack,beverage'],
             'prep_notes' => ['nullable', 'string', 'max:2000'],
             'servings' => ['nullable', 'integer', 'between:1,10000'],
             'portion_label' => ['nullable', 'string', 'max:100'],
@@ -235,7 +235,7 @@ class FoodServiceRecipeController extends Controller
     {
         $data = $request->validate([
             'name' => ['sometimes', 'string', 'max:255', 'unique:food_service_recipes,name,'.$foodServiceRecipe->id],
-            'category' => ['nullable', 'string', 'max:100'],
+            'category' => ['sometimes', 'required', 'string', 'in:meal,snack,beverage'],
             'prep_notes' => ['nullable', 'string', 'max:2000'],
             'servings' => ['nullable', 'integer', 'between:1,10000'],
             'portion_label' => ['nullable', 'string', 'max:100'],
@@ -262,7 +262,7 @@ class FoodServiceRecipeController extends Controller
             $after = $this->auditLogger->withoutModelEvents(function () use ($data, $foodServiceRecipe, $structural): FoodServiceRecipe {
                 $foodServiceRecipe->update(array_filter([
                     'name' => $data['name'] ?? null,
-                    'category' => $data['category'] ?? null,
+                    'category' => $data['category'] ?? $foodServiceRecipe->category,
                     'prep_notes' => $data['prep_notes'] ?? null,
                     'servings' => $data['servings'] ?? null,
                     'portion_label' => $data['portion_label'] ?? null,

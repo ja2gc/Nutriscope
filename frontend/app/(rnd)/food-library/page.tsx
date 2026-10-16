@@ -8,6 +8,7 @@ import {
   FlaskConical, TriangleAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Tabs } from "@/components/ui/Tabs";
 import { Pagination } from "@/components/ui/Pagination";
 import SearchInput from "@/components/ui/SearchInput";
 import { MealTemplatesTab } from "./_components/MealTemplatesTab";
@@ -450,18 +451,9 @@ export default function FoodLibraryPage() {
       </div>
 
       {/* Tabs */}
-      <div aria-label="Food Library sections" role="group" className="flex overflow-x-auto border-b border-warm-200">
-        {(["foods", "recipes", "templates"] as Tab[]).map((tab) => (
-          <button key={tab} onClick={() => setActiveTab(tab)} aria-pressed={activeTab === tab}
-            className={`px-5 py-2.5 text-sm font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer -mb-px ${
-              activeTab === tab
-                ? "border-emerald-600 text-emerald-700"
-                : "border-transparent text-warm-400 hover:text-warm-700 hover:border-warm-300"
-            }`}>
-            {tab === "foods" ? "Ingredients" : tab === "recipes" ? "Menu Items" : "Templates"}
-          </button>
-        ))}
-      </div>
+      <Tabs<Tab> ariaLabel="Food Library sections" value={activeTab} onChange={setActiveTab} fill items={[
+        { key: "foods", label: "Ingredients" }, { key: "recipes", label: "Menu Items" }, { key: "templates", label: "Templates" },
+      ]} />
 
       {activeTab === "templates" && <MealTemplatesTab />}
 

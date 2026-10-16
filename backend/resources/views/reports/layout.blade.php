@@ -24,14 +24,14 @@
         .intervention-guidance { page-break-inside: avoid; }
         table.portion-heading-table { margin-top: 4px; page-break-after: avoid; }
         table.portion-row-table.portion-heading-table td.portion-heading { border: 0; border-bottom: 1px solid #e5e7eb; font-size: 8pt; padding: 0 4px 3px; width: 100%; }
-        table.portion-row-table { border-collapse: separate; border-spacing: 4px; margin: 0; table-layout: fixed; width: 100%; page-break-inside: avoid; }
-        table.portion-row-table tr { page-break-inside: avoid; }
+        table.portion-row-table { border-collapse: separate; border-spacing: 4px; margin: 0; table-layout: fixed; width: 100%; }
         .portion-row-block { page-break-inside: avoid; }
-        table.portion-row-table td { border: 1px solid #e5e7eb; padding: 4px 6px; vertical-align: top; width: 33.333%; }
+        table.portion-row-table td { border: 1px solid #e5e7eb; padding: 4px 6px; vertical-align: top; width: 25%; }
         table.portion-row-table td.portion-cell-empty { border: 0; }
-        .portion-row-table table.portion-amounts { border-collapse: collapse; border-spacing: 0; table-layout: fixed; width: 100%; }
-        .portion-row-table table.portion-amounts th, .portion-row-table table.portion-amounts td { border: 0; border-bottom: 1px solid #eee; font-size: 7pt; line-height: 1.15; padding: 1px 0; text-align: left; vertical-align: top; width: auto; overflow-wrap: break-word; }
-        .portion-row-table table.portion-amounts th + th, .portion-row-table table.portion-amounts td + td { padding-left: 2px; }
+        .portion-ingredient-row { border-bottom: 1px solid #eee; font-size: 7pt; line-height: 1.15; padding: 1px 0; }
+        .portion-ingredient-name, .portion-ingredient-amount { display: inline-block; vertical-align: top; overflow-wrap: break-word; }
+        .portion-ingredient-name { width: 69%; }
+        .portion-ingredient-amount { width: 30%; padding-left: 2px; }
         .title { font-size: 14px; font-weight: bold; text-align: center; margin: 10px 0 2px; text-transform: uppercase; }
         .subtitle { font-size: 11px; text-align: center; margin-bottom: 8px; }
         .sigs { width: 100%; margin-top: 28px; table-layout: fixed; }

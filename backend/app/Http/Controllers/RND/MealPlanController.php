@@ -674,15 +674,9 @@ class MealPlanController extends Controller
             if (! is_array($snapshot) || (float) ($snapshot['serving_size'] ?? 0) <= 0 || ($snapshot['serving_unit'] ?? '') !== 'serving') {
                 throw ValidationException::withMessages(['template' => 'Correct this template snapshot to a measured serving basis in Food Library before loading.']);
             }
-            if (empty($snapshot['recipe_ingredients']) || (float) ($snapshot['recipe_yield'] ?? 0) <= 0) {
-                $current = $recipe->planSnapshot();
-                $snapshot = [
-                    ...$snapshot,
-                    'recipe_ingredients' => ! empty($snapshot['recipe_ingredients']) ? $snapshot['recipe_ingredients'] : $current['recipe_ingredients'],
-                    'recipe_original_ingredients' => ! empty($snapshot['recipe_original_ingredients']) ? $snapshot['recipe_original_ingredients'] : $current['recipe_original_ingredients'],
-                    'recipe_yield' => (float) ($snapshot['recipe_yield'] ?? 0) > 0 ? $snapshot['recipe_yield'] : $current['recipe_yield'],
-                    'recipe_snapshot_source' => 'current_recipe_fallback',
-                ];
+            if (empty($snapshot['recipe_ingredients']) || empty($snapshot['recipe_original_ingredients'])
+                || (float) ($snapshot['recipe_yield'] ?? 0) <= 0 || ($snapshot['recipe_snapshot_source'] ?? '') === 'current_recipe_fallback') {
+                throw ValidationException::withMessages(['template' => 'Repair this template\'s saved recipe details in Food Library before loading.']);
             }
             if (! empty($line['ingredient_overrides']) && isset($source?->nutrient_snapshot['name'])) {
                 $snapshot['name'] = $source->nutrient_snapshot['name'];

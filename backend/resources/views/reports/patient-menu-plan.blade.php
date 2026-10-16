@@ -74,9 +74,9 @@
 
     @if(!empty($portion_details))
         @php
-            $formatPortion = static fn ($amount) => abs((float) $amount) > 0 && abs((float) $amount) < 0.000001
-                ? sprintf('%.6g', $amount)
-                : rtrim(rtrim(number_format((float) $amount, 6, '.', ''), '0'), '.');
+            $formatPortion = static fn ($amount) => (float) $amount > 0 && (float) $amount < 0.1
+                ? '<0.1'
+                : rtrim(rtrim(number_format((float) $amount, 1, '.', ''), '0'), '.');
         @endphp
         @foreach($portion_pages as $portionPage)
             <div class="portion-page">
@@ -85,7 +85,8 @@
                         <tr><td class="portion-heading bold">Portion details</td></tr>
                     </tbody>
                 </table>
-                @foreach(array_chunk($portionPage, 3) as $portionRow)
+                <p style="font-size:7pt; margin:2px 4px 4px;">Amount to use = listed ingredient amount × your servings ÷ servings the recipe makes.</p>
+                @foreach(array_chunk($portionPage, 4) as $portionRow)
                     <div class="portion-row-block">
                     <table class="portion-row-table">
                         <tbody>
@@ -93,37 +94,31 @@
                                 @foreach($portionRow as $portion)
                                     <td class="portion-cell">
                                         <p class="bold" style="font-size:7.5pt; margin:0 0 2px;">{{ $portion['dish'] }}</p>
-                                        @foreach($portion['variants'] as $variant)
-                                            <p class="bold" style="font-size:7pt; margin:3px 0 2px;">[{{ $variant['id'] }}]</p>
-                                            @if(!empty($variant['legacy_fallback']))
-                                                <p class="muted" style="font-size:7pt; margin:0 0 2px;">Current recipe fallback; original batch unavailable.</p>
-                                            @endif
-                                            <table class="portion-amounts">
-                                                <thead><tr>
-                                                    <th style="width:56%;">Ingredient</th>
-                                                    <th style="width:22%;">Whole recipe
-                                                        @if(isset($variant['recipe_yield']))
-                                                            <br>({{ $formatPortion($variant['recipe_yield']) }} servings)
-                                                        @endif
-                                                    </th>
-                                                    <th style="width:22%;">Patient portion
-                                                        @if(isset($variant['patient_servings']))
-                                                            <br>({{ $formatPortion($variant['patient_servings']) }} servings)
-                                                        @endif
-                                                    </th>
-                                                </tr></thead>
-                                                <tbody>@foreach($variant['foods'] as $food)
-                                                    <tr>
-                                                        <td>{{ $food['food'] }}</td>
-                                                        <td>@if(isset($food['whole_quantity'])){{ $formatPortion($food['whole_quantity']) }} {{ $food['whole_unit'] }}@else<span class="muted">Unavailable</span>@endif</td>
-                                                        <td>{{ $formatPortion($food['metric_amount']) }} {{ $food['metric_unit'] }}</td>
-                                                    </tr>
-                                                @endforeach</tbody>
-                                            </table>
-                                        @endforeach
+                                        @if(isset($portion['recipe_yield']))
+                                            <p style="font-size:7pt; margin:0 0 2px;">Recipe makes: {{ $formatPortion($portion['recipe_yield']) }} {{ $portion['recipe_yield'] == 1 ? 'serving' : 'servings' }}</p>
+                                        @endif
+                                        <p style="font-size:7pt; margin:0 0 3px;"><span class="bold">{{ isset($portion['recipe_yield']) ? 'Your servings:' : 'Your portions:' }}</span>
+                                            @foreach($portion['variants'] as $variant)
+                                                {{ $variant['id'] }} -
+                                                @if(isset($variant['patient_servings']))
+                                                    {{ $formatPortion($variant['patient_servings']) }} {{ $variant['patient_servings'] == 1 ? 'serving' : 'servings' }}
+                                                @else
+                                                    {{ $formatPortion($variant['foods'][0]['metric_amount']) }} {{ $variant['foods'][0]['metric_unit'] }}
+                                                @endif
+                                                {{ $loop->last ? '' : '; ' }}
+                                            @endforeach
+                                        </p>
+                                        @if(isset($portion['recipe_yield']))
+                                            <div class="portion-amounts" role="table" aria-label="Recipe ingredients">
+                                                <div class="portion-ingredient-row bold" role="row"><span class="portion-ingredient-name" role="columnheader">Ingredient</span><span class="portion-ingredient-amount" role="columnheader">Whole recipe</span></div>
+                                                @foreach($portion['foods'] as $food)
+                                                    <div class="portion-ingredient-row" role="row"><span class="portion-ingredient-name" role="cell">{{ $food['food'] }}</span><span class="portion-ingredient-amount" role="cell">{{ $formatPortion($food['recipe_quantity']) }} {{ $food['recipe_unit'] }}</span></div>
+                                                @endforeach
+                                            </div>
+                                        @endif
                                     </td>
                                 @endforeach
-                                @for($emptyCell = count($portionRow); $emptyCell < 3; $emptyCell++)
+                                @for($emptyCell = count($portionRow); $emptyCell < 4; $emptyCell++)
                                     <td class="portion-cell portion-cell-empty"></td>
                                 @endfor
                             </tr>

@@ -6,23 +6,33 @@ use PHPUnit\Framework\TestCase;
 
 class PatientMenuPlanViewContractTest extends TestCase
 {
-    public function test_portion_cards_align_original_batch_and_patient_columns_and_label_legacy_fallback(): void
+    public function test_ingredient_rows_avoid_nested_tables_that_lose_content_during_page_reflow(): void
+    {
+        $source = file_get_contents(__DIR__.'/../../resources/views/reports/patient-menu-plan.blade.php');
+        $this->assertStringNotContainsString('<table class="portion-amounts">', $source);
+        $this->assertStringContainsString('class="portion-ingredient-row"', $source);
+    }
+
+    public function test_portion_cards_use_one_recipe_list_and_a_plain_serving_guide_without_fallback_prose(): void
     {
         $source = file_get_contents(__DIR__.'/../../resources/views/reports/patient-menu-plan.blade.php');
         $this->assertStringContainsString('Ingredient', $source);
         $this->assertStringContainsString('Whole recipe', $source);
-        $this->assertStringContainsString('Patient portion', $source);
-        $this->assertStringContainsString('whole_quantity', $source);
-        $this->assertStringContainsString('Current recipe fallback', $source);
+        $this->assertStringContainsString('Recipe makes:', $source);
+        $this->assertStringContainsString('Your servings:', $source);
+        $this->assertStringContainsString('recipe_quantity', $source);
+        $this->assertStringContainsString('Amount to use = listed ingredient amount', $source);
+        $this->assertStringNotContainsString('fallback', $source);
+        $this->assertStringNotContainsString('Unavailable', $source);
     }
 
-    public function test_patient_plan_uses_three_column_independent_rows_and_no_legacy_recipe_copy(): void
+    public function test_patient_plan_uses_four_card_independent_rows_and_no_legacy_recipe_copy(): void
     {
         $source = file_get_contents(__DIR__.'/../../resources/views/reports/patient-menu-plan.blade.php');
 
         $this->assertStringContainsString('NUTRITION INTERVENTION PLAN', $source);
         $this->assertStringContainsString('class="portion-row-table"', $source);
-        $this->assertStringContainsString('array_chunk($portionPage, 3)', $source);
+        $this->assertStringContainsString('array_chunk($portionPage, 4)', $source);
         $this->assertStringContainsString('class="portion-page', $source);
         $this->assertStringContainsString('class="portion-row"', $source);
         $this->assertStringContainsString('class="portion-row-block"', $source);

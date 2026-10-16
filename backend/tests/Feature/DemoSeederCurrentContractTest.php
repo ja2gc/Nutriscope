@@ -291,6 +291,7 @@ class DemoSeederCurrentContractTest extends TestCase
         $this->assertSame(3, $second['menu_cycles']);
         $this->assertSame(4, $second['menu_cycle_templates']);
         $this->assertGreaterThan(0, $second['recipes']);
+        $this->assertSame(['meal'], FoodServiceRecipe::query()->distinct()->pluck('category')->all());
         $this->assertGreaterThan(0, $second['suppliers']);
         $this->assertGreaterThan(0, $second['shopping_lists']);
         $this->assertGreaterThan(0, $second['purchase_orders']);

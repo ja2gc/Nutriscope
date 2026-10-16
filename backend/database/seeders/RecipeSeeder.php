@@ -498,6 +498,8 @@ class RecipeSeeder extends Seeder
 
         foreach ($recipes as $recipeData) {
             $ingredientRows = [];
+            $batchServings = $recipeData['category'] === 'meal' ? 5 : ($recipeData['servings'] ?? 1);
+            $batchFactor = $batchServings / ($recipeData['servings'] ?? 1);
 
             foreach ($recipeData['ingredients'] as [$foodName, $qty, $unit]) {
                 $food = FoodItem::query()
@@ -510,14 +512,14 @@ class RecipeSeeder extends Seeder
                     continue;
                 }
 
-                $ingredientRows[] = ['food' => $food, 'qty' => $qty, 'unit' => $unit];
+                $ingredientRows[] = ['food' => $food, 'qty' => $qty * $batchFactor, 'unit' => $unit];
             }
 
             if (empty($ingredientRows)) {
                 continue;
             }
 
-            $created = DB::transaction(function () use ($recipeData, $rnd, $ingredientRows): bool {
+            $created = DB::transaction(function () use ($recipeData, $rnd, $ingredientRows, $batchServings): bool {
                 // Update only this canonical demo recipe; unrelated RND recipes survive reruns.
                 $recipe = Recipe::updateOrCreate(
                     ['rnd_user_id' => $rnd->id, 'name' => $recipeData['name']],
@@ -527,7 +529,7 @@ class RecipeSeeder extends Seeder
                         'meal_types' => $this->mealTypes($recipeData),
                         'component_type' => $this->componentType($recipeData),
                         'prep_notes' => $recipeData['prep_notes'],
-                        'servings' => $recipeData['servings'] ?? 1,
+                        'servings' => $batchServings,
                         'prepared_portion_amount' => $this->preparedPortion($recipeData)['amount'],
                         'prepared_portion_unit' => $this->preparedPortion($recipeData)['unit'],
                     ],

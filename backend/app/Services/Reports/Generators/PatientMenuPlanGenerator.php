@@ -9,6 +9,7 @@ use App\Models\Report;
 use App\Services\Reports\Contracts\ReportGenerator;
 use App\Support\ReportPaper;
 use App\Support\UnitConverter;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Nutrition Intervention Plan — internal patient_menu_plan generator for a Mon→Sun ADIME menu PDF.
@@ -81,23 +82,30 @@ class PatientMenuPlanGenerator implements ReportGenerator
                     ?? ($item->nutrient_snapshot['name'] ?? null);
                 if ($name && isset($grid[$label][$day->day_of_week])) {
                     $portion = $this->portionFor($item, $name);
-                    $portionKey = hash('sha256', json_encode($portion, JSON_THROW_ON_ERROR));
+                    $sourceKey = $item->recipe_id ? 'recipe:'.$item->recipe_id
+                        : ($item->food_item_id ? 'food:'.$item->food_item_id : ($item->fdc_id ? 'usda:'.$item->fdc_id : 'item:'.$item->id));
+                    $portionKey = hash('sha256', json_encode([$sourceKey, $portion], JSON_THROW_ON_ERROR));
                     if (! isset($portionIds[$portionKey])) {
                         $portionIds[$portionKey] = 'P'.(count($portionIds) + 1);
-                        $dishKey = mb_strtolower(trim($portion['dish']));
+                        $dishKey = hash('sha256', json_encode([
+                            $sourceKey, $portion['dish'], $portion['recipe_yield'] ?? null,
+                            $itemSnapshot['recipe_original_ingredients'] ?? null,
+                            array_map(fn (array $food): array => array_intersect_key($food, array_flip(['food', 'recipe_quantity', 'recipe_unit'])), $portion['foods']),
+                        ], JSON_THROW_ON_ERROR));
                         if (! isset($portionGroupIndexes[$dishKey])) {
                             $portionGroupIndexes[$dishKey] = count($portionDetails);
                             $portionDetails[] = [
                                 'id' => $portionIds[$portionKey],
                                 'dish' => $portion['dish'],
                                 'foods' => $portion['foods'],
+                                ...array_intersect_key($portion, array_flip(['recipe_yield'])),
                                 'variants' => [],
                             ];
                         }
                         $portionDetails[$portionGroupIndexes[$dishKey]]['variants'][] = [
                             'id' => $portionIds[$portionKey],
                             'foods' => $portion['foods'],
-                            ...array_intersect_key($portion, array_flip(['recipe_yield', 'patient_servings', 'legacy_fallback'])),
+                            ...array_intersect_key($portion, array_flip(['recipe_yield', 'patient_servings'])),
                         ];
                     }
                     $grid[$label][$day->day_of_week][] = [
@@ -155,20 +163,22 @@ class PatientMenuPlanGenerator implements ReportGenerator
     private function portionFor(MealPlanItem $item, string $name): array
     {
         $snapshot = $item->nutrient_snapshot ?? [];
-        $yield = (float) ($snapshot['recipe_yield'] ?? 0);
-        $currentYieldFallback = $yield <= 0;
-        if ($currentYieldFallback) {
-            $yield = (float) ($item->recipe?->servings ?? 0);
-        }
-        if ($yield > 0 && ! empty($snapshot['recipe_ingredients']) && $item->unit === 'serving') {
+        if ($item->recipe_id !== null || ! empty($snapshot['recipe_ingredients'])) {
+            $yield = (float) ($snapshot['recipe_yield'] ?? 0);
+            if ($item->unit !== 'serving' || $yield <= 0 || empty($snapshot['recipe_original_ingredients'])
+                || empty($snapshot['recipe_ingredients']) || ($snapshot['recipe_snapshot_source'] ?? '') === 'current_recipe_fallback') {
+                throw ValidationException::withMessages([
+                    'meal_plan' => 'Repair this menu\'s saved recipe details before preparing a new report.',
+                ]);
+            }
             $foods = [];
             foreach ($snapshot['recipe_ingredients'] as $index => $ingredient) {
                 $original = $snapshot['recipe_original_ingredients'][$index] ?? null;
                 $foods[] = [
-                    'food' => $ingredient['name'],
-                    'household_measure' => null,
-                    'whole_quantity' => $original === null || $currentYieldFallback ? null : (float) $original['quantity'],
+                    'food' => $ingredient['name'], 'household_measure' => null,
+                    'whole_quantity' => $original === null ? null : (float) $original['quantity'],
                     'whole_unit' => $original['unit'] ?? $ingredient['unit'],
+                    'recipe_quantity' => (float) $ingredient['quantity'], 'recipe_unit' => $ingredient['unit'],
                     'metric_amount' => (float) $ingredient['quantity'] * (float) $item->quantity / $yield,
                     'metric_unit' => $ingredient['unit'],
                 ];
@@ -177,82 +187,27 @@ class PatientMenuPlanGenerator implements ReportGenerator
             return [
                 'dish' => $name, 'foods' => $foods, 'recipe_yield' => $yield,
                 'patient_servings' => (float) $item->quantity,
-                'legacy_fallback' => $currentYieldFallback || ($snapshot['recipe_snapshot_source'] ?? null) === 'current_recipe_fallback',
             ];
         }
-        if ($item->recipe) {
-            $foods = [];
-            $scale = $this->recipeIngredientScale($item);
-            foreach ($item->recipe->ingredients as $ingredient) {
-                $amount = (float) $ingredient->quantity * $scale;
-                $metric = $this->metricAmount(
-                    $amount,
-                    (string) $ingredient->unit,
-                );
-                if ($metric !== null) {
-                    $foods[] = [
-                        'food' => $ingredient->foodItem?->name ?? 'Ingredient',
-                        'household_measure' => $this->householdMeasure($amount, (string) $ingredient->unit),
-                        'whole_quantity' => (float) $ingredient->quantity,
-                        'whole_unit' => (string) $ingredient->unit,
-                        ...$metric,
-                    ];
-                }
-            }
-
-            if ($foods !== []) {
-                return [
-                    'dish' => $name, 'foods' => $foods, 'legacy_fallback' => true,
-                    'recipe_yield' => (float) $item->recipe->servings,
-                    'patient_servings' => $scale * (float) $item->recipe->servings,
-                ];
-            }
-        }
-
-        $snapshot = $item->nutrient_snapshot ?? [];
-        $metric = $this->metricAmount(
-            (float) $item->quantity,
-            (string) $item->unit,
-        );
 
         return [
             'dish' => $name,
             'foods' => [[
                 'food' => $item->foodItem?->name ?? $name,
                 'household_measure' => $this->householdMeasure((float) $item->quantity, (string) $item->unit),
-                ...$metric,
+                ...$this->metricAmount((float) $item->quantity, (string) $item->unit),
             ]],
         ];
-    }
-
-    private function recipeIngredientScale(MealPlanItem $item): float
-    {
-        if ($item->unit === 'serving') {
-            return (float) $item->quantity / max((float) ($item->recipe->servings ?? 1), 1);
-        }
-        $snapshot = $item->nutrient_snapshot ?? [];
-        $referenceAmount = (float) ($snapshot['serving_size'] ?? 0);
-        $itemUnit = UnitConverter::normalize((string) $item->unit);
-        $referenceUnit = UnitConverter::normalize((string) ($snapshot['serving_unit'] ?? ''));
-        $compatibleUnits = $itemUnit === $referenceUnit
-            || (UnitConverter::isMass($itemUnit) && UnitConverter::isMass($referenceUnit))
-            || (UnitConverter::isVolume($itemUnit) && UnitConverter::isVolume($referenceUnit));
-
-        if ($referenceAmount > 0 && $compatibleUnits) {
-            return (float) $item->quantity / $referenceAmount;
-        }
-
-        return (float) $item->quantity / max((float) ($item->recipe->servings ?? 1), 1);
     }
 
     /** @return array{metric_amount:float,metric_unit:string} */
     private function metricAmount(float $amount, string $unit): array
     {
         if (UnitConverter::isMass($unit)) {
-            return ['metric_amount' => round(UnitConverter::convert($amount, $unit, 'g'), 1), 'metric_unit' => 'g'];
+            return ['metric_amount' => UnitConverter::convert($amount, $unit, 'g'), 'metric_unit' => 'g'];
         }
         if (UnitConverter::isVolume($unit)) {
-            return ['metric_amount' => round(UnitConverter::convert($amount, $unit, 'ml'), 1), 'metric_unit' => 'mL'];
+            return ['metric_amount' => UnitConverter::convert($amount, $unit, 'ml'), 'metric_unit' => 'mL'];
         }
 
         return ['metric_amount' => $amount, 'metric_unit' => $unit];
