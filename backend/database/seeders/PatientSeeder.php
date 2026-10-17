@@ -221,13 +221,9 @@ class PatientSeeder extends Seeder
             'religion' => 'Roman Catholic',
             // Dietary
             'dietary_intake_method' => '24_hour_recall',
-            'dietary_intake' => 'Breakfast: 2 cups steamed white rice, 1 fried egg, instant coffee with sugar. '
-                                               .'Lunch: 2 cups white rice, pork adobo (150 g), softdrink. '
-                                               .'Dinner: 1.5 cups rice, beef sinigang, rice crackers. '
-                                               .'Snacks: pandesal ×2, sweetened condensed milk beverage. '
-                                               .'Estimated total: ~2,400 kcal, ~280 g carbs, high glycemic load.',
+            'dietary_intake' => 'Breakfast: 2 cups rice, egg, sweet coffee. Lunch: 2 cups rice, 150 g adobo, soda. Dinner: 1.5 cups rice, sinigang, crackers. Snacks: 2 pandesal, milk drink. ~2,400 kcal, 280 g carbs; high glycemic load.',
             'appetite_changes' => 'No significant changes in appetite. Patient reports feeling hungry frequently.',
-            'dietary_restrictions' => 'Patient is aware of diabetic diet but not consistently following. Reports difficulty avoiding sweet foods and white rice.',
+            'dietary_restrictions' => 'Diabetic diet inconsistently followed; difficulty limiting sweets and white rice.',
             'supplements' => 'Metformin 500 mg BID (prescribed). No nutritional supplements currently.',
             'knowledge_notes' => 'Patient has basic awareness of carbohydrate counting but lacks understanding of glycemic index. Motivated to change diet after recent HbA1c result of 8.4%.',
             'nutrient_drug_interaction' => null,
@@ -262,7 +258,7 @@ class PatientSeeder extends Seeder
             'lifestyle' => null,
             'allergies' => ['shellfish'],
             'food_dislikes' => ['bitter melon', 'sardines'],
-            'medications' => ['Metformin 500 mg BID', 'Amlodipine 5 mg OD'],
+            'medications' => ['Metformin 500 mg BID, Amlodipine 5 mg OD'],
             'chewing_swallowing_difficulties' => null,
             'constipation' => null,
             'diarrhea_notes' => null,
@@ -496,13 +492,9 @@ class PatientSeeder extends Seeder
             'ncp_record_id' => $record->id,
             'religion' => 'Roman Catholic',
             'dietary_intake_method' => '24_hour_recall',
-            'dietary_intake' => 'Breakfast: 1 cup lugaw (plain, no toppings). '
-                                               .'Lunch: ½ cup white rice, ½ cup monggo soup — patient reports nausea, ate only half. '
-                                               .'Dinner: Refused dinner — fatigue and decreased appetite. '
-                                               .'Estimated total: ~550 kcal, ~18 g protein. '
-                                               .'Pre-admission: irregular meals, skipping lunch and dinner for 3 weeks due to work stress.',
+            'dietary_intake' => 'Breakfast: 1 cup plain lugaw. Lunch: half of 1/2 cup rice and 1/2 cup monggo due to nausea. Refused dinner: fatigue, poor appetite. ~550 kcal, 18 g protein. Skipped lunch/dinner for 3 weeks before admission due to work stress.',
             'appetite_changes' => 'Markedly decreased appetite for 3 weeks prior to admission. Nausea present especially in the morning. Reports eating only 1–2 small meals per day.',
-            'dietary_restrictions' => 'No known food restrictions. Reports avoiding meat due to perceived expense. Diet predominantly rice and instant noodles.',
+            'dietary_restrictions' => 'No restrictions; avoids meat due to cost. Mainly rice and instant noodles.',
             'supplements' => 'None. Prescribed: Thiamine 100 mg OD (pre-refeeding protocol), Multivitamin OD.',
             'knowledge_notes' => 'Patient has minimal nutrition knowledge. Unaware of protein and energy requirements. Receptive to education — expressed willingness to change.',
             'nutrient_drug_interaction' => 'Thiamine supplementation prescribed before refeeding to prevent refeeding syndrome.',
@@ -537,7 +529,7 @@ class PatientSeeder extends Seeder
                                                .'Limited cooking facilities — relies on turo-turo (carinderias) for food.',
             'allergies' => [],
             'food_dislikes' => ['liver', 'malunggay'],
-            'medications' => ['Thiamine 100 mg OD', 'Multivitamin OD', 'ORS PRN'],
+            'medications' => ['Thiamine 100 mg OD, Multivitamin OD, ORS PRN'],
             'chewing_swallowing_difficulties' => null,
             'constipation' => null,
             'diarrhea_notes' => 'Loose stools 3–4×/day for 2 weeks prior to admission. Now resolving on Day 3. Monitor for electrolyte losses (K+, Mg2+, phosphate).',

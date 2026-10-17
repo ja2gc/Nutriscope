@@ -306,8 +306,8 @@ class NcpAssessmentTest extends TestCase
         ];
 
         foreach ([
-            [['dietary_intake' => str_repeat('x', 401)], 'dietary_intake'],
-            [['rnd_summary' => str_repeat('x', 3001)], 'rnd_summary'],
+            [['dietary_intake' => str_repeat('x', 251)], 'dietary_intake'],
+            [['rnd_summary' => str_repeat('x', 3501)], 'rnd_summary'],
             [['weight' => 70.123], 'weight'],
             [['muac_mm' => 600.01], 'muac_mm'],
             [['waist_cm' => 250.01], 'waist_cm'],
@@ -338,9 +338,46 @@ class NcpAssessmentTest extends TestCase
 
         $this->actingAs($rnd, 'sanctum')
             ->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment", [
-                'rnd_summary' => str_repeat('x', 3001),
+                'rnd_summary' => str_repeat('x', 3501),
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('rnd_summary');
+    }
+
+    public function test_assessment_persists_revised_limits_on_create_and_update(): void
+    {
+        $rnd = $this->rnd();
+        $ncp = $this->ncpRecord($this->patient(), $rnd);
+        $url = "/api/rnd/ncp-records/{$ncp->uuid}/assessment";
+        $payload = [
+            'weight' => 70, 'usual_weight' => 70, 'height' => 170,
+            'physical_activity_level' => 'sedentary',
+            'primary_diagnosis_category' => 'Other',
+            'primary_diagnosis_other' => str_repeat('x', 150),
+            'rnd_summary' => str_repeat('x', 3500),
+            'chewing_swallowing_difficulties' => 'Yes',
+            'chewing_swallowing_details' => str_repeat('x', 150),
+            'constipation' => 'Yes', 'constipation_details' => str_repeat('x', 150),
+            'diarrhea_notes' => 'Yes', 'diarrhea_details' => str_repeat('x', 150),
+            'food_dislikes' => array_fill(0, 5, str_repeat('x', 50)),
+            'medications' => [str_repeat('x', 100)],
+            'biochemical_data' => ['abg' => '7.45'],
+        ];
+
+        $this->actingAs($rnd, 'sanctum')->postJson($url, $payload)
+            ->assertCreated()
+            ->assertJsonPath('data.rnd_summary', $payload['rnd_summary'])
+            ->assertJsonPath('data.chewing_swallowing_details', $payload['chewing_swallowing_details'])
+            ->assertJsonPath('data.constipation_details', $payload['constipation_details'])
+            ->assertJsonPath('data.diarrhea_details', $payload['diarrhea_details'])
+            ->assertJsonPath('data.food_dislikes', $payload['food_dislikes'])
+            ->assertJsonPath('data.medications', $payload['medications']);
+
+        $this->actingAs($rnd, 'sanctum')->patchJson($url, [
+            'rnd_summary' => str_repeat('y', 3500),
+            'diarrhea_details' => str_repeat('y', 150),
+        ])->assertOk()
+            ->assertJsonPath('data.rnd_summary', str_repeat('y', 3500))
+            ->assertJsonPath('data.diarrhea_details', str_repeat('y', 150));
     }
 }

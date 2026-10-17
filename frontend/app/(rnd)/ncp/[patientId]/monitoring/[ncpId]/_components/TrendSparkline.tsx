@@ -5,19 +5,23 @@ interface TrendSparklineProps {
   width?: number;
   height?: number;
   lowerIsBetter?: boolean; // true = declining is good (HbA1c, LDL); false = rising is good (albumin, weight)
+  target?: number | null;
+  reference?: { min?: number | null; max?: number | null } | null;
 }
 
 export default function TrendSparkline({
   values,
   width = 72,
   height = 26,
-  lowerIsBetter = false,
+  target,
+  reference,
 }: TrendSparklineProps) {
   if (!values || values.length < 2) return null;
 
   const pad = 3;
-  const minVal = Math.min(...values);
-  const maxVal = Math.max(...values);
+  const guides = [target, reference?.min, reference?.max].filter((value): value is number => value != null && Number.isFinite(value));
+  const minVal = Math.min(...values, ...guides);
+  const maxVal = Math.max(...values, ...guides);
   const range = maxVal - minVal || 1;
 
   const points = values.map((v, i) => {
@@ -29,12 +33,7 @@ export default function TrendSparkline({
 
   const polyline = points.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
 
-  const first = values[0];
-  const last = values[values.length - 1];
-  const improving = lowerIsBetter ? last < first : last > first;
-  // flat line (no change) → neutral amber
-  const isFlat = last === first;
-  const stroke = isFlat ? '#f59e0b' : improving ? '#10b981' : '#f43f5e';
+  const stroke = '#2563eb';
 
   const lastPoint = points[points.length - 1];
 
@@ -44,8 +43,13 @@ export default function TrendSparkline({
       height={height}
       viewBox={`0 0 ${width} ${height}`}
       className="overflow-visible shrink-0"
-      aria-hidden="true"
+      role="img"
+      aria-label={`Measurement trend${target != null ? `; Target: ${Number(target.toFixed(2))}` : ""}${reference?.min != null ? `; Reference minimum: ${Number(reference.min.toFixed(2))}` : ""}${reference?.max != null ? `; Reference maximum: ${Number(reference.max.toFixed(2))}` : ""}`}
     >
+      {guides.map((guide, index) => {
+        const y = pad + ((maxVal - guide) / range) * (height - pad * 2);
+        return <line key={index} x1={pad} x2={width - pad} y1={y} y2={y} stroke={guide === target ? "#059669" : "#d97706"} strokeDasharray="3 2" />;
+      })}
       <polyline
         points={polyline}
         fill="none"

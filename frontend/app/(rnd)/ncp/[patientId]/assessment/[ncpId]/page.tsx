@@ -30,10 +30,12 @@ import NcpPatientHeader from "../../../_components/NcpPatientHeader";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { DatePicker, DateTimePicker } from "@/components/ui/DatePicker";
 import { CharacterCountTextarea } from "@/components/ui/CharacterCountTextarea";
+import { CharacterCountListInput } from "@/components/ui/CharacterCountListInput";
 import { FittedImageFrame } from "@/components/ui/ImageUploadGallery";
 import { InfoHint } from "@/components/ui/InfoHint";
 import { NcpBreadcrumb } from "@/components/ncp/NcpBreadcrumb";
 import { validateUploadFile } from "@/lib/uploadValidation";
+import { ASSESSMENT_TEXT_LIMITS, FOOD_DISLIKE_LIMIT, FOOD_DISLIKE_MAX_ENTRIES, MEDICATION_LIMIT, ABG_LIMIT, assessmentTextError } from "@/lib/assessmentValidation";
 
 // ─── Constants ───────────────────────────────────────────────────────────
 const COMMON_ALLERGENS = ["milk", "eggs", "fish", "shellfish", "tree nuts", "peanuts", "wheat", "soybeans"];
@@ -48,10 +50,9 @@ const ASSESSMENT_FIELD_LABELS: Record<string, string> = {
 };
 
 function formatAssessmentValidationError(error: AssessmentValidationError): string {
-  const fields = Object.keys(error.errors).map((field) => ASSESSMENT_FIELD_LABELS[field] ?? field.replace(/_/g, " "));
-  return fields.length > 0
-    ? `Complete required calculation fields before saving: ${fields.join(", ")}.`
-    : error.message;
+  return Object.entries(error.errors).map(([field, messages]) =>
+    `${ASSESSMENT_FIELD_LABELS[field] ?? field.replace(/_/g, " ")}: ${messages.join(" ")}`,
+  ).join(" ") || error.message;
 }
 
 export type ScreeningDraft = {
@@ -288,15 +289,17 @@ function TextInput({ value, onChange, type, disabled, min, max, id, className, a
   );
 }
 
-function TextArea({ value, onChange, rows }: {
-  value: string; onChange: (v: string) => void; rows?: number;
+function TextArea({ value, onChange, rows, maxLength = 250, ariaLabel, id }: {
+  value: string; onChange: (v: string) => void; rows?: number; maxLength?: number; ariaLabel?: string; id?: string;
 }) {
   return (
     <CharacterCountTextarea
+      id={id}
       value={value}
       onChange={onChange}
       rows={rows ?? 3}
-      maxLength={250}
+      maxLength={maxLength}
+      aria-label={ariaLabel}
       autoGrow
       className="w-full resize-none overflow-hidden rounded-lg border border-warm-200 bg-white px-3 py-2 text-sm text-warm-900 transition-colors placeholder:text-warm-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
     />
@@ -318,45 +321,6 @@ function SelectInput({ value, onChange, options }: {
   );
 }
 
-function TagInput({ tags, onChange }: {
-  tags: string[]; onChange: (t: string[]) => void;
-}) {
-  const [input, setInput] = useState("");
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if ((e.key === "Enter" || e.key === ",") && input.trim()) {
-      e.preventDefault();
-      if (!tags.includes(input.trim())) {
-        onChange([...tags, input.trim()]);
-      }
-      setInput("");
-    } else if (e.key === "Backspace" && !input && tags.length) {
-      onChange(tags.slice(0, -1));
-    }
-  };
-  return (
-    <div className="flex min-h-11 flex-wrap items-center gap-1.5 rounded-lg border border-warm-200 bg-white px-3 py-2">
-      {tags.map((tag, i) => (
-        <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-warm-100 border border-warm-200 rounded text-xs font-bold text-warm-700">
-          {tag}
-          <button
-            type="button"
-            aria-label={`Remove ${tag}`}
-            onClick={() => onChange(tags.filter((_, j) => j !== i))}
-            className="ml-0.5 inline-flex min-h-6 min-w-6 cursor-pointer items-center justify-center text-warm-400 hover:text-red-500"
-          >
-            ×
-          </button>
-        </span>
-      ))}
-      <input
-        value={input}
-        onChange={e => setInput(e.target.value)}
-        onKeyDown={handleKeyDown}
-        className="flex-1 min-w-[80px] text-sm bg-transparent outline-none text-warm-900 placeholder:text-warm-400"
-      />
-    </div>
-  );
-}
 
 function DropZone({ label, onUpload, uploading }: {
   label: string; onUpload: (file: File) => void; uploading: boolean;
@@ -1010,6 +974,12 @@ export default function NcpAssessmentPage({
 
   // ─── Save ───────────────────────────────────────────────────────────
   const handleSave = async () => {
+    const validationError = assessmentTextError(assessment);
+    if (validationError) {
+      setError(validationError);
+      setSuccess(null);
+      return;
+    }
     try {
       setSaving(true);
       setError(null);
@@ -1029,6 +999,8 @@ export default function NcpAssessmentPage({
 
       const toSave: Partial<Assessment> = {
         ...assessment,
+        medications: assessment.medications?.length ? [assessment.medications.join(", ")] : [],
+        food_dislikes: (assessment.food_dislikes ?? []).map(value => value.trim()).filter(Boolean),
         // Auto-computed fields — override stored value with live computation when available
         bmi: computedBmi,
         ibw_percentage: computedPercentIBW ?? assessment.ibw_percentage,
@@ -1106,8 +1078,8 @@ export default function NcpAssessmentPage({
     <div className="space-y-4">
       <AssessmentSection legend="Diet and intake">
         <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <Field label="Present Diet" className="md:col-span-2 xl:col-span-2">
-        <TextArea value={s("present_diet")} onChange={v => updateField("present_diet", v)} rows={2} />
+      <Field label="Present Diet" htmlFor="present_diet" className="md:col-span-2 xl:col-span-2">
+        <TextArea id="present_diet" value={s("present_diet")} onChange={v => updateField("present_diet", v)} rows={2} maxLength={ASSESSMENT_TEXT_LIMITS.present_diet} />
       </Field>
       <Field label="Energy Intake Status">
         <SelectInput
@@ -1123,8 +1095,8 @@ export default function NcpAssessmentPage({
           options={DIETARY_METHOD_OPTIONS}
         />
       </Field>
-      <Field label="Dietary Intake" className="md:col-span-2 xl:col-span-2">
-        <TextArea value={s("dietary_intake")} onChange={v => updateField("dietary_intake", v)} rows={2} />
+      <Field label="Dietary Intake" htmlFor="dietary_intake" className="md:col-span-2 xl:col-span-2">
+        <TextArea id="dietary_intake" value={s("dietary_intake")} onChange={v => updateField("dietary_intake", v)} rows={2} maxLength={ASSESSMENT_TEXT_LIMITS.dietary_intake} />
       </Field>
       <Field label="Appetite Changes">
         <SelectInput
@@ -1141,28 +1113,28 @@ export default function NcpAssessmentPage({
           ]}
         />
       </Field>
-      <Field label="Dietary Restrictions">
-        <TextArea value={s("dietary_restrictions")} onChange={v => updateField("dietary_restrictions", v)} rows={2} />
+      <Field label="Dietary Restrictions" htmlFor="dietary_restrictions">
+        <TextArea id="dietary_restrictions" value={s("dietary_restrictions")} onChange={v => updateField("dietary_restrictions", v)} rows={2} maxLength={ASSESSMENT_TEXT_LIMITS.dietary_restrictions} />
       </Field>
         </div>
       </AssessmentSection>
 
       <AssessmentSection legend="Dietary modifiers">
         <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-3">
-      <Field label="Supplements">
-        <TextInput value={s("supplements")} onChange={v => updateField("supplements", v)} />
+      <Field label="Supplements" htmlFor="supplements">
+        <TextArea id="supplements" value={s("supplements")} onChange={v => updateField("supplements", v)} rows={1} maxLength={ASSESSMENT_TEXT_LIMITS.supplements} />
       </Field>
-      <Field label="Knowledge / Beliefs Notes">
-        <TextArea value={s("knowledge_notes")} onChange={v => updateField("knowledge_notes", v)} rows={2} />
+      <Field label="Knowledge / Beliefs Notes" htmlFor="knowledge_notes">
+        <TextArea id="knowledge_notes" value={s("knowledge_notes")} onChange={v => updateField("knowledge_notes", v)} rows={2} maxLength={ASSESSMENT_TEXT_LIMITS.knowledge_notes} />
       </Field>
-      <Field label="Nutrient-Drug Interaction">
-        <TextArea value={s("nutrient_drug_interaction")} onChange={v => updateField("nutrient_drug_interaction", v)} rows={2} />
+      <Field label="Nutrient-Drug Interaction" htmlFor="nutrient_drug_interaction">
+        <TextArea id="nutrient_drug_interaction" value={s("nutrient_drug_interaction")} onChange={v => updateField("nutrient_drug_interaction", v)} rows={2} maxLength={ASSESSMENT_TEXT_LIMITS.nutrient_drug_interaction} />
       </Field>
         </div>
       </AssessmentSection>
       {/* GI / Tolerance — moved from Anthropometrics tab */}
       <AssessmentSection legend="GI / tolerance">
-        <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-3">
+        <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-4">
           <Field label="Chewing / Swallowing Difficulties">
             <SelectInput
               value={["Yes", "No"].includes(s("chewing_swallowing_difficulties")) ? s("chewing_swallowing_difficulties") : ""}
@@ -1176,7 +1148,9 @@ export default function NcpAssessmentPage({
               options={[{ value: "Yes", label: "Yes" }, { value: "No", label: "No" }]}
             />
             {(s("chewing_swallowing_difficulties") === "Yes" || (!s("chewing_swallowing_details") && !!s("chewing_swallowing_difficulties") && !["Yes", "No"].includes(s("chewing_swallowing_difficulties")))) && (
-              <TextInput ariaLabel="Chewing or swallowing details (optional)" maxLength={125} value={s("chewing_swallowing_details") || (!["Yes", "No"].includes(s("chewing_swallowing_difficulties")) ? s("chewing_swallowing_difficulties") : "")} onChange={v => updateField("chewing_swallowing_details", v)} />
+              <Field label="Details (optional)" htmlFor="chewing_swallowing_details">
+                <TextArea id="chewing_swallowing_details" ariaLabel="Chewing or swallowing details (optional)" rows={1} maxLength={ASSESSMENT_TEXT_LIMITS.chewing_swallowing_details} value={s("chewing_swallowing_details") || (!["Yes", "No"].includes(s("chewing_swallowing_difficulties")) ? s("chewing_swallowing_difficulties") : "")} onChange={v => updateField("chewing_swallowing_details", v)} />
+              </Field>
             )}
           </Field>
           <Field label="Constipation">
@@ -1192,7 +1166,9 @@ export default function NcpAssessmentPage({
               options={[{ value: "Yes", label: "Yes" }, { value: "No", label: "No" }]}
             />
             {(s("constipation") === "Yes" || (!s("constipation_details") && !!s("constipation") && !["Yes", "No"].includes(s("constipation")))) && (
-              <TextInput ariaLabel="Constipation details (optional)" maxLength={125} value={s("constipation_details") || (!["Yes", "No"].includes(s("constipation")) ? s("constipation") : "")} onChange={v => updateField("constipation_details", v)} />
+              <Field label="Details (optional)" htmlFor="constipation_details">
+                <TextArea id="constipation_details" ariaLabel="Constipation details (optional)" rows={1} maxLength={ASSESSMENT_TEXT_LIMITS.constipation_details} value={s("constipation_details") || (!["Yes", "No"].includes(s("constipation")) ? s("constipation") : "")} onChange={v => updateField("constipation_details", v)} />
+              </Field>
             )}
           </Field>
           <Field label="Diarrhea">
@@ -1208,8 +1184,13 @@ export default function NcpAssessmentPage({
               options={[{ value: "Yes", label: "Yes" }, { value: "No", label: "No" }]}
             />
             {(s("diarrhea_notes") === "Yes" || (!s("diarrhea_details") && !!s("diarrhea_notes") && !["Yes", "No"].includes(s("diarrhea_notes")))) && (
-              <TextInput ariaLabel="Diarrhea details (optional)" maxLength={125} value={s("diarrhea_details") || (!["Yes", "No"].includes(s("diarrhea_notes")) ? s("diarrhea_notes") : "")} onChange={v => updateField("diarrhea_details", v)} />
+              <Field label="Details (optional)" htmlFor="diarrhea_details">
+                <TextArea id="diarrhea_details" ariaLabel="Diarrhea details (optional)" rows={1} maxLength={ASSESSMENT_TEXT_LIMITS.diarrhea_details} value={s("diarrhea_details") || (!["Yes", "No"].includes(s("diarrhea_notes")) ? s("diarrhea_notes") : "")} onChange={v => updateField("diarrhea_details", v)} />
+              </Field>
             )}
+          </Field>
+          <Field label="Food Intolerance" htmlFor="food_intolerance">
+            <TextArea id="food_intolerance" value={s("food_intolerance")} onChange={v => updateField("food_intolerance", v)} rows={1} maxLength={ASSESSMENT_TEXT_LIMITS.food_intolerance} />
           </Field>
         </div>
       </AssessmentSection>
@@ -1367,23 +1348,29 @@ export default function NcpAssessmentPage({
         />
       </Field>
       {assessment.primary_diagnosis_category === "Other" && (
-        <Field label="Specify category" required>
-          <TextInput
+        <Field label="Specify category" htmlFor="primary_diagnosis_other" required>
+          <TextArea
+            id="primary_diagnosis_other"
             value={assessment.primary_diagnosis_other ?? ""}
             onChange={v => updateField("primary_diagnosis_other", v || null)}
+            rows={1}
+            maxLength={ASSESSMENT_TEXT_LIMITS.primary_diagnosis_other}
           />
         </Field>
       )}
-      <Field label="Medical History" className="md:col-span-2">
-        <TextArea value={s("medical_history")} onChange={v => updateField("medical_history", v)} rows={3} />
+      <Field label="Medical History" htmlFor="medical_history" className="md:col-span-2">
+        <TextArea id="medical_history" value={s("medical_history")} onChange={v => updateField("medical_history", v)} rows={3} maxLength={ASSESSMENT_TEXT_LIMITS.medical_history} />
       </Field>
-      <Field label="Social History">
-        <TextArea value={s("social_history")} onChange={v => updateField("social_history", v)} rows={3} />
+      <Field label="Social History" htmlFor="social_history">
+        <TextArea id="social_history" value={s("social_history")} onChange={v => updateField("social_history", v)} rows={3} maxLength={ASSESSMENT_TEXT_LIMITS.social_history} />
       </Field>
-      <Field label="Religion / Dietary Practices">
-        <TextInput
+      <Field label="Religion / Dietary Practices" htmlFor="religion">
+        <TextArea
+          id="religion"
           value={s("religion") ?? ""}
           onChange={v => updateField("religion", v || null)}
+          rows={1}
+          maxLength={ASSESSMENT_TEXT_LIMITS.religion}
         />
       </Field>
         </div>
@@ -1471,11 +1458,11 @@ export default function NcpAssessmentPage({
           Recorded allergens are excluded from auto-generated meal recommendations. Review the final plan before use.
         </InfoHint>
       </Field>
-      <Field label="Food Dislikes (Soft Filter — warnings only)">
-        <TagInput tags={assessment.food_dislikes ?? []} onChange={v => updateField("food_dislikes", v)} />
+      <Field label="Food Dislikes (Soft Filter — warnings only)" htmlFor="food_dislikes">
+        <CharacterCountListInput value={assessment.food_dislikes ?? []} onChange={v => updateField("food_dislikes", v)} maxLength={FOOD_DISLIKE_LIMIT} maxEntries={FOOD_DISLIKE_MAX_ENTRIES} label="Food dislike" />
       </Field>
-      <Field label="Medications">
-        <TagInput tags={assessment.medications ?? []} onChange={v => updateField("medications", v)} />
+      <Field label="Medications" htmlFor="medications">
+        <TextArea id="medications" value={assessment.medications?.join(", ") ?? ""} onChange={v => updateField("medications", v ? [v] : [])} rows={1} maxLength={MEDICATION_LIMIT} />
       </Field>
         </div>
       </AssessmentSection>
@@ -1519,10 +1506,16 @@ export default function NcpAssessmentPage({
                     type="number"
                     id={`lab-${field.key}`}
                     value={rawValue}
-                    onChange={e => updateField("biochemical_data", {
-                      ...assessment.biochemical_data,
-                      [field.key]: coerceBiochemicalValue(field.key, e.target.value),
-                    })}
+                    step="any"
+                    onChange={e => {
+                      const value = e.target.value;
+                      if (field.key === "abg" && value.length >= String(rawValue).length
+                        && (value.length > ABG_LIMIT || !/^[+-]?\d*\.?\d{0,2}$/.test(value))) return;
+                      updateField("biochemical_data", {
+                        ...assessment.biochemical_data,
+                        [field.key]: coerceBiochemicalValue(field.key, value),
+                      });
+                    }}
                     className={`min-h-11 w-full rounded-lg border bg-white px-3 py-2 text-sm text-warm-900 transition-all placeholder:text-warm-400 focus:outline-none focus:ring-2 ${isAbnormal
                         ? "border-red-300 focus:ring-red-400/20 focus:border-red-400"
                         : "border-warm-200 focus:ring-emerald-500/20 focus:border-emerald-500"
@@ -1887,11 +1880,13 @@ export default function NcpAssessmentPage({
                   : "Generate a draft after entering assessment details.")}
         </div>
 
-        <Field label="RND Summary (Clinical Observations)">
+        <Field label="RND Summary (Clinical Observations)" htmlFor="rnd_summary">
           <TextArea
+            id="rnd_summary"
             value={s("rnd_summary")}
             onChange={handleSummaryChange}
             rows={4}
+            maxLength={ASSESSMENT_TEXT_LIMITS.rnd_summary}
           />
         </Field>
       </div>

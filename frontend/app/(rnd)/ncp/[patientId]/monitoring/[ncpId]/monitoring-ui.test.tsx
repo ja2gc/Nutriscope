@@ -54,6 +54,16 @@ const entry: MonitoringEntry = {
 };
 
 describe("monitoring workflow UI", () => {
+  it("shows compact counters and reuses non-sticky tabs", () => {
+    const html = renderToStaticMarkup(<LogVisitForm context={context} intervention={null} onSubmit={async () => undefined} onCancel={() => undefined} />);
+    expect(html).toContain("10/100");
+    expect(html).toContain("0/400");
+    expect(html).toContain("0/3000");
+    const page = readFileSync(join(process.cwd(), "app/(rnd)/ncp/[patientId]/monitoring/[ncpId]/page.tsx"), "utf8");
+    expect(page).toContain("<Tabs");
+    expect(page).not.toContain("sticky top-0");
+    expect(page).toContain("Anthropometric");
+  });
   it("presents monitoring sources as plain targets without decorative card-title icons", () => {
     const html = renderToStaticMarkup(<CarePlanHeader plan={{
       visits: [],

@@ -38,6 +38,7 @@ export default function ButtonFilterGroup({
         <button
           key={opt.value}
           type="button"
+          aria-pressed={value === opt.value}
           onClick={() => onChange(opt.value)}
           className={`${sizeClass} font-bold uppercase tracking-wider rounded-lg border transition-all cursor-pointer ${
             value === opt.value

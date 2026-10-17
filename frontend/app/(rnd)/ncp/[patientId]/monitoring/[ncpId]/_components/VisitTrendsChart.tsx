@@ -21,13 +21,14 @@ import {
 } from "@/services/monitoringService";
 import type { Intervention } from "@/services/interventionService";
 import { GOAL_MICRO_FLAGS, ALL_MICROS } from "@/lib/nutritionCalculations";
-import type { MonitoringPlan, PlanIndicator } from "@/services/monitoringPlan";
+import type { IndicatorCategory, MonitoringPlan, PlanIndicator } from "@/services/monitoringPlan";
 import { planToChartSeries } from "@/services/monitoringPlan";
 import { InfoHint } from "@/components/ui/InfoHint";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface VisitTrendsChartProps {
+  category?: IndicatorCategory | "all";
   plan?: MonitoringPlan | null;
   entries: MonitoringEntry[];
   intervention: Intervention | null;
@@ -36,9 +37,9 @@ interface VisitTrendsChartProps {
 // ─── Plan-driven indicator chart (Visit 1 baseline → follow-ups) ───────────────
 
 const PLAN_COLORS: Record<string, string> = {
-  lab: "#059669",
+  lab: "#2563eb",
   anthro: "#2563eb",
-  intake: "#d97706",
+  intake: "#2563eb",
 };
 
 function PlanIndicatorChart({ indicator }: { indicator: PlanIndicator }) {
@@ -46,8 +47,14 @@ function PlanIndicatorChart({ indicator }: { indicator: PlanIndicator }) {
   const hasData = points.some((p) => p.value !== null);
   if (!hasData) return null;
 
-  const color = PLAN_COLORS[indicator.category] ?? "#059669";
+  const color = PLAN_COLORS[indicator.category] ?? "#2563eb";
   const ref = indicator.reference;
+  const format = (value: number) => Number(value.toFixed(2));
+  let guide = "No target or reference recorded";
+  if (indicator.target != null) guide = `Target: ${format(indicator.target)} ${indicator.unit}`;
+  else if (ref?.min != null && ref.max != null) guide = `Reference: ${format(ref.min)}–${format(ref.max)} ${indicator.unit}`;
+  else if (ref?.min != null) guide = `Reference: ${format(ref.min)} ${indicator.unit} or higher`;
+  else if (ref?.max != null) guide = `Reference: up to ${format(ref.max)} ${indicator.unit}`;
 
   return (
     <div>
@@ -55,17 +62,20 @@ function PlanIndicatorChart({ indicator }: { indicator: PlanIndicator }) {
         {indicator.label}{" "}
         <span className="normal-case font-normal text-warm-300">({indicator.unit})</span>
       </p>
+      <p className="mb-2 text-xs text-warm-500">
+        {guide}
+      </p>
       <ResponsiveContainer width="100%" height={120}>
         <LineChart data={points} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f4f4f5" />
           <XAxis dataKey="visit" tick={tickStyle} tickLine={false} axisLine={false} />
           <YAxis tick={tickStyle} tickLine={false} axisLine={false} domain={["auto", "auto"]} />
           <Tooltip content={<ChartTooltip />} />
-          {ref?.min != null && <ReferenceLine y={ref.min} stroke="#fbbf24" strokeDasharray="4 3" strokeWidth={1} />}
-          {ref?.max != null && <ReferenceLine y={ref.max} stroke="#fbbf24" strokeDasharray="4 3" strokeWidth={1} />}
+          {ref?.min != null && <ReferenceLine ifOverflow="extendDomain" y={ref.min} stroke="#fbbf24" strokeDasharray="4 3" strokeWidth={1} />}
+          {ref?.max != null && <ReferenceLine ifOverflow="extendDomain" y={ref.max} stroke="#fbbf24" strokeDasharray="4 3" strokeWidth={1} />}
           {indicator.target != null && (
-            <ReferenceLine y={indicator.target} stroke="#059669" strokeDasharray="5 3" strokeWidth={1.5}
-              label={{ value: "Target", position: "right", style: { fontSize: 8, fill: "#6b7280" } }} />
+            <ReferenceLine ifOverflow="extendDomain" y={indicator.target} stroke="#059669" strokeDasharray="5 3" strokeWidth={1.5}
+              label={{ value: `Target ${Number(indicator.target.toFixed(2))}`, position: "insideTopRight", style: { fontSize: 8, fill: "#6b7280" } }} />
           )}
           <Line type="monotone" dataKey="value" name={indicator.label} stroke={color} strokeWidth={2}
             dot={{ r: 3, fill: color, strokeWidth: 0 }} activeDot={{ r: 5 }} connectNulls={false} />
@@ -75,7 +85,7 @@ function PlanIndicatorChart({ indicator }: { indicator: PlanIndicator }) {
   );
 }
 
-function PlanTrendCharts({ plan }: { plan: MonitoringPlan }) {
+function PlanTrendCharts({ plan, category }: { plan: MonitoringPlan; category: IndicatorCategory | "all" }) {
   const groups: Array<{ title: string; category: PlanIndicator["category"] }> = [
     { title: "Anthropometric Trends", category: "anthro" },
     { title: "Clinical Lab Trends", category: "lab" },
@@ -84,12 +94,12 @@ function PlanTrendCharts({ plan }: { plan: MonitoringPlan }) {
 
   const sections = groups
     .map((g) => ({ ...g, items: plan.indicators.filter((i) => i.category === g.category) }))
-    .filter((g) => g.items.length > 0);
+    .filter((g) => g.items.length > 0 && (category === "all" || g.category === category));
 
   if (sections.length === 0) {
     return (
       <div className="bg-white border border-warm-200 rounded-2xl p-8 text-center shadow-sm">
-        <p className="text-sm font-semibold text-warm-400">No tracked indicators yet for this care plan.</p>
+        <p className="text-sm font-semibold text-warm-400">{category === "all" ? "No tracked indicators yet for this care plan." : "No tracked indicators in this category."}</p>
       </div>
     );
   }
@@ -235,8 +245,8 @@ function WeightBmiChart({ entries }: { entries: MonitoringEntry[] }) {
                 <YAxis tick={tickStyle} tickLine={false} axisLine={false} domain={["auto", "auto"]} />
                 <Tooltip content={<ChartTooltip />} />
                 {/* WHO normal range: 18.5–24.9 */}
-                <ReferenceLine y={18.5} stroke="#fbbf24" strokeDasharray="4 3" strokeWidth={1} />
-                <ReferenceLine y={24.9} stroke="#fbbf24" strokeDasharray="4 3" strokeWidth={1} />
+                <ReferenceLine ifOverflow="extendDomain" y={18.5} stroke="#fbbf24" strokeDasharray="4 3" strokeWidth={1} />
+                <ReferenceLine ifOverflow="extendDomain" y={24.9} stroke="#fbbf24" strokeDasharray="4 3" strokeWidth={1} />
                 <Line
                   type="monotone"
                   dataKey="bmi"
@@ -343,7 +353,7 @@ function MacroTrendsChart({
               />
               <Tooltip content={<ChartTooltip />} />
               {hasAnyTarget && (
-                <ReferenceLine
+                <ReferenceLine ifOverflow="extendDomain"
                   y={100}
                   stroke="#059669"
                   strokeDasharray="5 3"
@@ -474,7 +484,7 @@ function LabTrendsChart({
                   <Tooltip content={<ChartTooltip />} />
                   {/* Reference range lines */}
                   {ref?.min !== undefined && (
-                    <ReferenceLine
+                    <ReferenceLine ifOverflow="extendDomain"
                       y={ref.min}
                       stroke="#fbbf24"
                       strokeDasharray="4 3"
@@ -482,7 +492,7 @@ function LabTrendsChart({
                     />
                   )}
                   {ref?.max !== undefined && (
-                    <ReferenceLine
+                    <ReferenceLine ifOverflow="extendDomain"
                       y={ref.max}
                       stroke="#fbbf24"
                       strokeDasharray="4 3"
@@ -586,7 +596,7 @@ function MicroTrendsChart({
                   />
                   <Tooltip content={<ChartTooltip />} />
                   {limits?.min !== undefined && (
-                    <ReferenceLine
+                    <ReferenceLine ifOverflow="extendDomain"
                       y={limits.min}
                       stroke="#fbbf24"
                       strokeDasharray="4 3"
@@ -594,7 +604,7 @@ function MicroTrendsChart({
                     />
                   )}
                   {limits?.max !== undefined && (
-                    <ReferenceLine
+                    <ReferenceLine ifOverflow="extendDomain"
                       y={limits.max}
                       stroke="#fbbf24"
                       strokeDasharray="4 3"
@@ -627,20 +637,23 @@ export default function VisitTrendsChart({
   plan,
   entries,
   intervention,
+  category = "all",
 }: VisitTrendsChartProps) {
   // Plan-driven rendering: patient-specific tracked set, seeded at Visit 1.
   if (plan && plan.indicators.length > 0) {
-    return <PlanTrendCharts plan={plan} />;
+    return <PlanTrendCharts plan={plan} category={category} />;
   }
-  return <LegacyVisitTrendsChart entries={entries} intervention={intervention} />;
+  return <LegacyVisitTrendsChart entries={entries} intervention={intervention} category={category} />;
 }
 
 function LegacyVisitTrendsChart({
   entries,
   intervention,
+  category,
 }: {
   entries: MonitoringEntry[];
   intervention: Intervention | null;
+  category: IndicatorCategory | "all";
 }) {
   // Sorted chronologically
   const sorted = useMemo(
@@ -676,20 +689,20 @@ function LegacyVisitTrendsChart({
   return (
     <div className="space-y-4">
       {/* Weight & BMI */}
-      <WeightBmiChart entries={sorted} />
+      {(category === "all" || category === "anthro") && <WeightBmiChart entries={sorted} />}
 
       {/* Macro intake vs targets */}
-      {intervention && (
+      {intervention && (category === "all" || category === "intake") && (
         <MacroTrendsChart entries={sorted} intervention={intervention} />
       )}
 
       {/* Lab trends */}
-      {labKeys.length > 0 && (
+      {labKeys.length > 0 && (category === "all" || category === "lab") && (
         <LabTrendsChart entries={sorted} labKeys={labKeys} />
       )}
 
       {/* Micro intake trends */}
-      {microKeys.length > 0 && (
+      {microKeys.length > 0 && (category === "all" || category === "intake") && (
         <MicroTrendsChart
           entries={sorted}
           microKeys={microKeys}

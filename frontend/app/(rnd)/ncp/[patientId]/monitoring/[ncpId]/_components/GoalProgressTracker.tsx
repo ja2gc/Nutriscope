@@ -10,7 +10,7 @@ import {
   getWeightStatus,
   GoalStatus,
 } from "@/services/monitoringService";
-import type { MonitoringPlan } from "@/services/monitoringPlan";
+import type { IndicatorCategory, MonitoringPlan } from "@/services/monitoringPlan";
 
 interface BiochemicalBaseline {
   albumin?: number | null;
@@ -26,6 +26,7 @@ interface BiochemicalBaseline {
 }
 
 interface GoalProgressTrackerProps {
+  category?: IndicatorCategory | "all";
   plan?: MonitoringPlan | null;
   entries: MonitoringEntry[];
   baselineWeight: number | null;
@@ -63,6 +64,7 @@ function GoalProgressHeading() {
 
 /** Plan-driven tracker: one row per patient-specific tracked indicator (Visit 1 → latest). */
 function PlanProgressTable({ plan }: { plan: MonitoringPlan }) {
+  if (plan.indicators.length === 0) return <p className="rounded-2xl border border-warm-200 bg-white p-5 text-sm text-warm-500">No tracked indicators in this category.</p>;
   return (
     <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-hidden">
       <div className="px-5 py-4 border-b border-warm-100">
@@ -91,6 +93,8 @@ function PlanProgressTable({ plan }: { plan: MonitoringPlan }) {
                   status={ind.latest_status}
                   sparkValues={values}
                   lowerIsBetter={ind.reference?.lowerIsBetter ?? false}
+                  target={ind.target}
+                  reference={ind.reference}
                 />
               );
             })}
@@ -122,6 +126,7 @@ const LAB_KEYS: LabKey[] = [
 ];
 
 export default function GoalProgressTracker({
+  category = "all",
   plan,
   entries,
   baselineWeight,
@@ -131,8 +136,9 @@ export default function GoalProgressTracker({
 }: GoalProgressTrackerProps) {
   // Plan-driven: render the patient-specific tracked set when available.
   if (plan && plan.indicators.length > 0) {
-    return <PlanProgressTable plan={plan} />;
+    return <PlanProgressTable plan={{ ...plan, indicators: plan.indicators.filter((indicator) => category === "all" || indicator.category === category) }} />;
   }
+  if (category === "intake") return null;
 
   // Sort oldest-first for sparklines
   const sorted = [...entries].sort(
@@ -164,9 +170,9 @@ export default function GoalProgressTracker({
   const currentWeight = latestEntry?.weight ? Number(latestEntry.weight) : null;
   const currentBmi = latestEntry?.bmi ? Number(latestEntry.bmi) : null;
 
-  const hasAnyData =
-    baselineWeight !== null || baselineBmi !== null ||
-    currentWeight !== null || labRows.length > 0;
+  const hasAnthropometricData = baselineWeight !== null || baselineBmi !== null || currentWeight !== null;
+  const hasAnyData = category === "lab" ? labRows.length > 0
+    : category === "anthro" ? hasAnthropometricData : hasAnthropometricData || labRows.length > 0;
 
   if (!hasAnyData) {
     return (
@@ -175,7 +181,7 @@ export default function GoalProgressTracker({
           <GoalProgressHeading />
         </div>
         <div className="p-10 text-center">
-          <p className="text-sm font-semibold text-warm-500">No assessment baseline found.</p>
+          <p className="text-sm font-semibold text-warm-500">{category === "all" ? "No assessment baseline found." : "No tracked data in this category."}</p>
           <p className="text-xs text-warm-400 mt-1">
             Complete the assessment step to enable goal tracking.
           </p>
@@ -202,13 +208,13 @@ export default function GoalProgressTracker({
 
           <div className="divide-y divide-zinc-100">
             {/* Weight row */}
-            {(baselineWeight !== null || currentWeight !== null) && (
+            {(category === "all" || category === "anthro") && (baselineWeight !== null || currentWeight !== null) && (
               <TrackerRow
                 label="Weight"
                 unit="kg"
                 baseline={baselineWeight}
                 current={currentWeight}
-                referenceLabel="IBW target"
+                referenceLabel="—"
                 status={
                   currentWeight !== null
                     ? getWeightStatus(currentWeight, baselineWeight, nutritionalStatus)
@@ -220,7 +226,7 @@ export default function GoalProgressTracker({
             )}
 
             {/* BMI row */}
-            {(baselineBmi !== null || currentBmi !== null) && (
+            {(category === "all" || category === "anthro") && (baselineBmi !== null || currentBmi !== null) && (
               <TrackerRow
                 label="BMI"
                 unit="kg/m²"
@@ -237,12 +243,13 @@ export default function GoalProgressTracker({
                     : 'no_data'
                 }
                 sparkValues={bmiValues}
+                reference={{ min: 18.5, max: 24.9 }}
                 lowerIsBetter={false}
               />
             )}
 
             {/* Lab rows — only rendered when baseline or monitoring data exists */}
-            {labRows.map(({ key, baseline, current, allValues }) => {
+            {(category === "all" || category === "lab") && labRows.map(({ key, baseline, current, allValues }) => {
               const ref = LAB_REFERENCE_RANGES[key];
               const refLabel =
                 ref.min !== undefined && ref.max !== undefined
@@ -263,6 +270,7 @@ export default function GoalProgressTracker({
                   referenceLabel={refLabel}
                   status={current !== null ? getLabStatus(key, current, baseline) : 'no_data'}
                   sparkValues={allValues}
+                  reference={ref}
                   lowerIsBetter={ref.lowerIsBetter ?? false}
                 />
               );
@@ -277,6 +285,8 @@ export default function GoalProgressTracker({
 // ─── Tracker Row ──────────────────────────────────────────────────────────────
 
 interface TrackerRowProps {
+  target?: number | null;
+  reference?: { min?: number | null; max?: number | null } | null;
   label: string;
   unit: string;
   baseline: number | null;
@@ -289,7 +299,7 @@ interface TrackerRowProps {
 
 function TrackerRow({
   label, unit, baseline, current,
-  referenceLabel, status, sparkValues, lowerIsBetter,
+  referenceLabel, status, sparkValues, target, reference,
 }: TrackerRowProps) {
   return (
     <div className="grid grid-cols-[1.4fr_72px_72px_90px_90px_80px] gap-2 items-center px-5 py-3">
@@ -310,7 +320,7 @@ function TrackerRow({
       </p>
 
       {/* Reference range */}
-      <p className="text-xs text-warm-400 truncate">{referenceLabel}</p>
+      <p className="text-xs text-warm-400 break-words">{referenceLabel}</p>
 
       {/* Status chip */}
       <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${STATUS_STYLES[status]}`}>
@@ -320,7 +330,7 @@ function TrackerRow({
       {/* Sparkline */}
       <div className="flex items-center">
         {sparkValues.length >= 2
-          ? <TrendSparkline values={sparkValues} lowerIsBetter={lowerIsBetter} />
+          ? <TrendSparkline values={sparkValues} target={target} reference={reference} />
           : <span className="text-warm-300 text-xs">—</span>
         }
       </div>

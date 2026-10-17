@@ -126,6 +126,11 @@ class DemoSeederCurrentContractTest extends TestCase
                 $this->assertContains($record->type, ['new', 'continuing']);
                 $this->assertContains($record->status, ['draft', 'active', 'completed', 'discontinued', 'discharged']);
                 $this->assertNotNull($record->assessment);
+                foreach (['dietary_intake' => 250, 'dietary_restrictions' => 100, 'medical_history' => 250, 'social_history' => 250, 'present_diet' => 250, 'rnd_summary' => 3500] as $field => $limit) {
+                    $this->assertLessThanOrEqual($limit, mb_strlen((string) $record->assessment->{$field}), $field);
+                }
+                $this->assertLessThanOrEqual(1, count($record->assessment->medications ?? []));
+                $this->assertLessThanOrEqual(100, mb_strlen(implode(', ', $record->assessment->medications ?? [])));
                 $this->assertCount(1, $record->interventions);
                 $this->assertNotEmpty($record->diagnoses);
                 $intervention = $record->interventions->sole();

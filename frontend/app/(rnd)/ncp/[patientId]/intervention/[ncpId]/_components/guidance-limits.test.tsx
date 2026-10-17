@@ -3,6 +3,7 @@
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
 import CounselingTab from "./CounselingTab";
 import EducationTab from "./EducationTab";
 
@@ -23,11 +24,12 @@ describe("intervention guidance limits", () => {
     container.remove();
   });
 
-  it("limits education and reports the shared guidance budget", () => {
+  it("limits education and reports the shared guidance budget", async () => {
+    const onChange = vi.fn();
     act(() => root.render(
       <EducationTab
         value="Education"
-        onChange={vi.fn()}
+        onChange={onChange}
         onSave={vi.fn()}
         saving={false}
         totalCharacters={2050}
@@ -35,8 +37,14 @@ describe("intervention guidance limits", () => {
       />,
     ));
 
-    expect(container.querySelector("textarea")?.maxLength).toBe(1200);
+    expect(container.textContent).toContain("9/1200");
     expect(container.textContent).toContain("2,050 / 2,200 characters");
+    const user = userEvent.setup();
+    await act(async () => {
+      await user.click(container.querySelector("textarea")!);
+      await user.paste("x".repeat(1201));
+    });
+    expect(onChange).toHaveBeenLastCalledWith(`Education${"x".repeat(1191)}`);
   });
 
   it("limits every counseling field and marks an exceeded shared budget", () => {
@@ -53,7 +61,7 @@ describe("intervention guidance limits", () => {
       />,
     ));
 
-    expect(Array.from(container.querySelectorAll("textarea")).map((area) => area.maxLength)).toEqual([1200, 1200, 1200]);
+    for (const counter of ["4/1200", "7/1200", "8/1200"]) expect(container.textContent).toContain(counter);
     expect(container.querySelector('[role="alert"]')?.textContent).toContain("1 character over");
   });
 });

@@ -12,6 +12,8 @@ type CharacterCountTextareaProps = {
   autoGrow?: boolean;
   className?: string;
   "aria-label"?: string;
+  onKeyDown?: React.KeyboardEventHandler<HTMLTextAreaElement>;
+  onBlur?: React.FocusEventHandler<HTMLTextAreaElement>;
 };
 
 export function CharacterCountTextarea({
@@ -24,9 +26,12 @@ export function CharacterCountTextarea({
   autoGrow = false,
   className = "",
   "aria-label": ariaLabel,
+  onKeyDown,
+  onBlur,
 }: CharacterCountTextareaProps) {
   const countId = useId();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const characterCount = Array.from(value).length;
 
   useLayoutEffect(() => {
     if (!autoGrow || !textareaRef.current) return;
@@ -40,19 +45,27 @@ export function CharacterCountTextarea({
         id={id}
         ref={textareaRef}
         value={value}
-        onChange={(event) => onChange(event.target.value)}
-        maxLength={maxLength}
+        onChange={(event) => {
+          const next = Array.from(event.target.value);
+          if (characterCount > maxLength && next.length >= characterCount) return;
+          onChange(next.length > maxLength && characterCount <= maxLength
+            ? next.slice(0, maxLength).join("")
+            : event.target.value);
+        }}
+        onKeyDown={onKeyDown}
+        onBlur={onBlur}
         rows={rows}
         disabled={disabled}
         aria-label={ariaLabel}
         aria-describedby={countId}
+        aria-invalid={characterCount > maxLength || undefined}
         className={`${className} pb-7`}
       />
       <span
         id={countId}
         className="pointer-events-none absolute bottom-2.5 right-3 text-xs font-normal leading-none text-warm-400"
       >
-        {value.length}/{maxLength}
+        {characterCount}/{maxLength}
       </span>
     </div>
   );

@@ -26,6 +26,9 @@ import { fetchPatientById, type Patient } from "@/services/patientService";
 import NcpPatientHeader from "../../../_components/NcpPatientHeader";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { NcpBreadcrumb } from "@/components/ncp/NcpBreadcrumb";
+import { Tabs } from "@/components/ui/Tabs";
+import ButtonFilterGroup from "@/components/ui/ButtonFilterGroup";
+import type { IndicatorCategory } from "@/services/monitoringPlan";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -78,6 +81,7 @@ export default function NcpMonitoringPage({
   const [loading, setLoading]               = useState(true);
   const [showForm, setShowForm]             = useState(false);
   const [activeTab, setActiveTab]           = useState<Tab>("log");
+  const [category, setCategory] = useState<IndicatorCategory | "all">("all");
   const [error, setError]                   = useState<string | null>(null);
   const [workflowBlock, setWorkflowBlock]   = useState<string | null>(null);
   const [historyPage, setHistoryPage]       = useState(1);
@@ -214,13 +218,6 @@ export default function NcpMonitoringPage({
   }
 
   // Tab button class helper
-  const tabCls = (tab: Tab) =>
-    `px-4 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 whitespace-nowrap transition-colors cursor-pointer ${
-      activeTab === tab
-        ? "border-emerald-600 text-emerald-700"
-        : "border-transparent text-warm-400 hover:text-warm-600"
-    }`;
-
   return (
     <div className="space-y-6 font-sans">
       <Breadcrumb />
@@ -271,15 +268,7 @@ export default function NcpMonitoringPage({
           {/* ── Main column (2/3 on lg+) ───────────────────────────────────── */}
           <div className="lg:col-span-2 space-y-0">
 
-            {/* ── Sticky tab bar ─────────────────────────────────────────── */}
-            <div className="flex border-b border-warm-200 sticky top-0 z-20 bg-white -mx-6 px-6 lg:-mx-8 lg:px-8 mb-6">
-              <button className={tabCls("log")} onClick={() => setActiveTab("log")}>
-                Visit Log
-              </button>
-              <button className={tabCls("progress")} onClick={() => setActiveTab("progress")}>
-                Progress Trends
-              </button>
-            </div>
+            <Tabs items={[{ key: "log", label: "Visit Log" }, { key: "progress", label: "Progress Trends" }]} value={activeTab} onChange={setActiveTab} ariaLabel="Monitoring views" fill className="mb-6 w-full max-w-sm sm:w-fit" />
 
             {/* ── Visit Log tab ─────────────────────────────────────────── */}
             {activeTab === "log" && (
@@ -308,7 +297,12 @@ export default function NcpMonitoringPage({
               <div className="space-y-6">
                 <CarePlanHeader plan={plan} />
                 <MonitoringSummaryCard ncpId={ncpId} visitCount={historyMeta?.total ?? entries.length} />
+                <div className="[&_button]:min-h-11"><ButtonFilterGroup label="Category" value={category} onChange={(value) => setCategory(value as IndicatorCategory | "all")} options={[
+                  { value: "all", label: "All" }, { value: "anthro", label: "Anthropometric" },
+                  { value: "lab", label: "Clinical Labs" }, { value: "intake", label: "Intake" },
+                ]} /></div>
                 <GoalProgressTracker
+                  category={category}
                   plan={plan}
                   entries={entries}
                   baselineWeight={assessment?.weight ? Number(assessment.weight) : null}
@@ -316,7 +310,7 @@ export default function NcpMonitoringPage({
                   baselineLabs={biochemicalData}
                   nutritionalStatus={assessment?.nutritional_status ?? null}
                 />
-                <VisitTrendsChart plan={plan} entries={entries} intervention={intervention} />
+                <VisitTrendsChart plan={plan} entries={entries} intervention={intervention} category={category} />
               </div>
             )}
           </div>

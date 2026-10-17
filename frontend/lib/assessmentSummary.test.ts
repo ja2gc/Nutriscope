@@ -1,5 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { buildAssessmentSummary, type AssessmentSummaryInput } from "./assessmentSummary";
+import { assessmentTextError, ASSESSMENT_TEXT_LIMITS } from "./assessmentValidation";
+import { RISK_FACTORS, scoreRiskFactors } from "./assessmentRiskScoring";
 
 function input(overrides: Partial<AssessmentSummaryInput> = {}): AssessmentSummaryInput {
   return {
@@ -12,6 +14,44 @@ function input(overrides: Partial<AssessmentSummaryInput> = {}): AssessmentSumma
 }
 
 describe("buildAssessmentSummary", () => {
+  test("a fully populated summary with maximum source notes fits the editable summary limit", () => {
+    const assessment = {
+      present_diet: "x".repeat(250), dietary_intake: "x".repeat(250),
+      dietary_restrictions: "x".repeat(100), supplements: "x".repeat(100),
+      nutrient_drug_interaction: "x".repeat(100), food_intolerance: "x".repeat(100),
+      medical_history: "x".repeat(250), appetite_changes: "nausea_vomiting",
+      energy_intake_status: "Poor intake prior to admission" as const, dietary_intake_method: "other" as const,
+      chewing_swallowing_difficulties: "Yes", constipation: "Yes", diarrhea_notes: "Yes",
+      weight: 399.99, dry_weight_kg: 399.99, edema_present: true,
+      weight_change_period_value: 104, weight_change_period_unit: "months" as const,
+      functional_assessment: "Needs assistance", pregnancy_lactation_status: "pregnant_unspecified" as const,
+      allergies: ["milk", "eggs", "fish", "shellfish", "tree nuts", "peanuts", "wheat", "soybeans"],
+      food_dislikes: Array(5).fill("x".repeat(50)), medications: ["x".repeat(100)],
+    };
+    const labs = [
+      ["Albumin", 9.99, "g/dL"], ["Hemoglobin", 24.99, "g/dL"], ["Hematocrit", 74.99, "%"],
+      ["Fasting Blood Sugar", 1999.99, "mg/dL"], ["HbA1c", 24.99, "%"], ["BUN", 299.99, "mg/dL"],
+      ["Creatinine", 29.99, "mg/dL"], ["Sodium", 199.99, "mEq/L"], ["Potassium", 14.99, "mEq/L"],
+      ["Calcium", 29.99, "mg/dL"], ["Phosphate", 19.99, "mg/dL"], ["Total Cholesterol", 4999.99, "mg/dL"],
+      ["LDL", 4999.99, "mg/dL"], ["HDL", 4999.99, "mg/dL"], ["Triglycerides", 4999.99, "mg/dL"],
+      ["URR", 0.01, "%"], ["ABG (pH)", 999.99, ""],
+    ] as const;
+    const result = buildAssessmentSummary(input({
+      assessment,
+      anthropometrics: {
+        bmi: 4444.33, percentIbw: 1333, weightChangePercent: 39114.7, weightChangeDirection: "gain",
+        nutritionalStatus: "Obese Class II (Severe)", muacClassification: "Moderate Malnutrition",
+        whr: 12.49, whrRisk: "High Risk",
+      },
+      labs: labs.map(([label, value, unit]) => ({ label, value, unit, status: label === "URR" ? "low" : "high" })),
+      risk: { label: "High Risk", score: scoreRiskFactors(RISK_FACTORS.map(f => f.key)), mode: "manual", factors: RISK_FACTORS.map(f => f.label) },
+    }));
+    expect(result.length).toBeGreaterThan(250);
+    expect(result.length).toBeLessThanOrEqual(ASSESSMENT_TEXT_LIMITS.rnd_summary);
+    expect(assessmentTextError({ ...assessment, rnd_summary: result })).toBeNull();
+    expect(result).toContain("+4 more");
+  });
+
   test("returns an empty draft when no meaningful assessment data exists", () => {
     expect(buildAssessmentSummary(input())).toBe("");
   });

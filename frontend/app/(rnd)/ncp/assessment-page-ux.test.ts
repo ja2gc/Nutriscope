@@ -8,6 +8,10 @@ const page = readFileSync(
 );
 
 describe("Assessment page UX", () => {
+  test("reuses the same counted list input as Monitoring", () => {
+    expect(page).toContain("<CharacterCountListInput");
+    expect(page).not.toContain("function TagInput");
+  });
   test("uses compact responsive grids without reducing field text size", () => {
     expect(page).toContain("xl:grid-cols-6");
     expect(page).toContain("xl:grid-cols-4");
@@ -36,7 +40,8 @@ describe("Assessment page UX", () => {
   test("keeps agreed symptom, function, and referral choices concise", () => {
     expect(page).toContain('const FUNCTIONAL_OPTIONS = ["Independent", "Needs assistance", "Bedridden"]');
     expect(page).toContain('options={[{ value: "Yes", label: "Yes" }, { value: "No", label: "No" }]}');
-    expect(page).toContain('maxLength={125}');
+    expect(page).toContain('maxLength={ASSESSMENT_TEXT_LIMITS.chewing_swallowing_details}');
+    expect(page.match(/label="Details \(optional\)"/g)).toHaveLength(3);
     expect(page).not.toContain('label="Age Group Category"');
     expect(page).not.toContain('label="Ward / Bed"');
     expect(page).not.toContain('label="Hospital Number"');
@@ -66,7 +71,7 @@ describe("Assessment page UX", () => {
     expect(page).toContain("items-start");
     expect(page).not.toContain("resize-y");
     expect(page).toContain("CharacterCountTextarea");
-    expect(page).toContain("maxLength={250}");
+    expect(page).toContain("maxLength={ASSESSMENT_TEXT_LIMITS.rnd_summary}");
   });
 
   test("puts explicit save above tabs and removes cycle merge copy", () => {
@@ -107,7 +112,7 @@ describe("Assessment page UX", () => {
     expect(page).toContain('<Field label="Nutrition care category" required>');
     expect(page).not.toContain('label="Primary Diagnosis Category"');
     expect(page).toContain('primary_diagnosis_category');
-    expect(page).toContain('<Field label="Specify category" required>');
+    expect(page).toContain('<Field label="Specify category" htmlFor="primary_diagnosis_other" required>');
     expect(page).toContain('assessment.primary_diagnosis_category === "Other"');
   });
 

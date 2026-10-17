@@ -628,7 +628,7 @@ export default function RndDashboardPage() {
       )}
 
       <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,13rem),1fr))] gap-4">
-        <div className="bg-white border border-warm-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
+        <Link href="/ncp/patients" aria-label="Open patients in care" className="bg-white border border-warm-200 rounded-2xl p-4 flex items-center justify-between shadow-sm transition-colors hover:border-brand-green-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green-600">
           <div>
             <span className="text-xs font-extrabold text-warm-400 uppercase tracking-wider block">
               Patients in Care
@@ -637,9 +637,9 @@ export default function RndDashboardPage() {
               {patientCountLabel}
             </span>
           </div>
-        </div>
+        </Link>
 
-        <div className="bg-white border border-warm-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
+        <Link href="/calendar" aria-label="Open scheduled visits" className="bg-white border border-warm-200 rounded-2xl p-4 flex items-center justify-between shadow-sm transition-colors hover:border-brand-green-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green-600">
           <div>
             <span className="text-xs font-extrabold text-warm-400 uppercase tracking-wider block">
               Scheduled Visits
@@ -648,16 +648,16 @@ export default function RndDashboardPage() {
               {upcomingFollowUpLabel}
             </span>
           </div>
-        </div>
+        </Link>
 
-        <div className="bg-white border border-warm-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
+        <Link href="/food-service/procurement" aria-label="Open pending purchase orders" className="bg-white border border-warm-200 rounded-2xl p-4 flex items-center justify-between shadow-sm transition-colors hover:border-brand-green-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green-600">
           <div>
-            <Link href="/food-service/procurement" className="text-xs font-extrabold text-[#EA580C] uppercase tracking-wider block hover:underline">
+            <span className="text-xs font-extrabold text-warm-400 uppercase tracking-wider block">
               Pending POs
-            </Link>
+            </span>
             <span className="text-lg font-extrabold text-warm-900 mt-1 block">{pendingKpi}</span>
           </div>
-        </div>
+        </Link>
       </div>
 
       <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,24rem),1fr))] gap-6 items-start">

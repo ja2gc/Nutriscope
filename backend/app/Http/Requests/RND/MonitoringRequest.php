@@ -30,9 +30,9 @@ abstract class MonitoringRequest extends FormRequest
             'pregnancy_lactation_status' => ['required', 'string', Rule::in(['none', 'pregnant_t1', 'pregnant_t2', 'pregnant_t3', 'pregnant_unspecified', 'lactating'])],
             'allergies' => ['present', 'array'],
             'allergies.*' => ['string', 'max:160'],
-            'dietary_restrictions' => ['present', 'nullable', 'string'],
-            'food_dislikes' => ['present', 'array'],
-            'food_dislikes.*' => ['string', 'max:160'],
+            'dietary_restrictions' => ['present', 'nullable', 'string', 'max:100'],
+            'food_dislikes' => ['present', 'array', 'max:5'],
+            'food_dislikes.*' => ['string', 'max:50'],
             'lab_values' => ['nullable', 'array', 'max:40'],
             'intake_notes' => ['nullable', 'string', 'max:400'],
             'symptoms' => ['nullable', 'string', 'max:400'],
@@ -69,7 +69,8 @@ abstract class MonitoringRequest extends FormRequest
                 ];
                 $valid = match ($key) {
                     'bp' => is_string($value) && mb_strlen($value) <= 20,
-                    'abg' => is_string($value) && mb_strlen($value) <= 100,
+                    'abg' => is_string($value) && mb_strlen($value) <= 6
+                        && preg_match('/^[+-]?(?:\d+(?:\.\d{0,2})?|\.\d{1,2})$/D', $value) === 1,
                     default => (isset($limits[$key]) || preg_match('/^micro_[a-z0-9_]{1,80}$/D', (string) $key) === 1)
                         && is_numeric($value)
                         && (isset($limits[$key])

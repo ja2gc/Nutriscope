@@ -3,6 +3,10 @@
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
+import { CharacterCountTextarea } from "@/components/ui/CharacterCountTextarea";
+import { CharacterCountListInput } from "@/components/ui/CharacterCountListInput";
+import { ASSESSMENT_TEXT_LIMITS, FOOD_DISLIKE_LIMIT, FOOD_DISLIKE_MAX_ENTRIES } from "@/lib/assessmentValidation";
+import { ALLERGY_ENTRY_LIMIT, MONITORING_TEXT_LIMITS, monitoringTextError } from "@/lib/monitoringValidation";
 import { InfoHint } from "@/components/ui/InfoHint";
 import { GOAL_MICRO_FLAGS, ALL_MICROS } from "@/lib/nutritionCalculations";
 import type { Intervention } from "@/services/interventionService";
@@ -93,9 +97,8 @@ function fieldValue(value: string | number | null | undefined): string {
   return value == null ? "" : String(value);
 }
 
-function parseList(value: string): string[] {
+function parseList(value: string[]): string[] {
   return value
-    .split(/[,\n]/)
     .map((item) => item.trim())
     .filter(Boolean);
 }
@@ -202,9 +205,9 @@ export default function LogVisitForm({ plan, context, intervention, onSubmit, on
   const [dryWeight, setDryWeight] = useState(fieldValue(context.dry_weight_kg));
   const [activityLevel, setActivityLevel] = useState(context.physical_activity_level ?? "");
   const [maternalStatus, setMaternalStatus] = useState<PregnancyLactationStatus>(context.pregnancy_lactation_status ?? "none");
-  const [allergies, setAllergies] = useState((context.allergies ?? []).join(", "));
+  const [allergies, setAllergies] = useState(context.allergies ?? []);
   const [dietaryRestrictions, setDietaryRestrictions] = useState(context.dietary_restrictions ?? "");
-  const [foodDislikes, setFoodDislikes] = useState((context.food_dislikes ?? []).join(", "));
+  const [foodDislikes, setFoodDislikes] = useState(context.food_dislikes ?? []);
   const [compliance, setCompliance] = useState<ComplianceStatus | null>(null);
   const [giTolerance, setGiTolerance] = useState<GiToleranceStatus | null>(null);
   const [decision, setDecision] = useState<ContinuationDecision>(null);
@@ -227,7 +230,7 @@ export default function LogVisitForm({ plan, context, intervention, onSubmit, on
     labKeys.forEach((key) => {
       const value = labs[key]?.trim();
       if (value && key === "bp") {
-        labValues.bp = value;
+        labValues[key] = value;
       } else if (value) {
         labValues[key] = Number(value);
       }
@@ -270,9 +273,12 @@ export default function LogVisitForm({ plan, context, intervention, onSubmit, on
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
+    const payload = buildPayload();
+    const validationError = monitoringTextError(payload);
+    if (validationError) { setError(validationError); return; }
     setSubmitting(true);
     try {
-      await onSubmit(buildPayload());
+      await onSubmit(payload);
     } catch (submissionError) {
       setError(submissionError instanceof Error ? submissionError.message : "Failed to save visit.");
     } finally {
@@ -338,7 +344,7 @@ export default function LogVisitForm({ plan, context, intervention, onSubmit, on
               return meta.type === "text" ? (
                 <label key={key}>
                   <FieldLabel>{meta.label}</FieldLabel>
-                  <input type="text" value={labs[key]} onChange={(event) => setLabs((current) => ({ ...current, [key]: event.target.value }))} className="w-full rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
+                  <input type="text" maxLength={20} value={labs[key]} onChange={(event) => setLabs((current) => ({ ...current, [key]: event.target.value }))} className="w-full rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
                 </label>
               ) : (
                 <NumberField key={key} label={meta.label} unit={meta.unit} value={labs[key]} onChange={(value) => setLabs((current) => ({ ...current, [key]: value }))} />
@@ -349,21 +355,21 @@ export default function LogVisitForm({ plan, context, intervention, onSubmit, on
 
         <Section title="Meal Safety, Intake, and Tolerance">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <label>
+            <div>
               <span className="mb-1.5 flex items-center gap-1.5">
                 <span className="text-xs font-bold uppercase tracking-widest text-warm-500">Allergies</span>
                 <InfoHint label="How allergies affect meal plans" title="Allergy exclusions">Allergies are hard exclusions in generated meal plans. Confirm this list before saving.</InfoHint>
               </span>
-              <textarea value={allergies} onChange={(event) => setAllergies(event.target.value)} rows={2} className="w-full resize-y rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
-            </label>
+              <CharacterCountListInput value={allergies} onChange={setAllergies} maxLength={ALLERGY_ENTRY_LIMIT} label="Allergy" />
+            </div>
             <label>
               <FieldLabel>Dietary Restrictions</FieldLabel>
-              <textarea value={dietaryRestrictions} onChange={(event) => setDietaryRestrictions(event.target.value)} rows={2} className="w-full resize-y rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
+              <CharacterCountTextarea value={dietaryRestrictions} onChange={setDietaryRestrictions} maxLength={ASSESSMENT_TEXT_LIMITS.dietary_restrictions} rows={2} className="w-full resize-y rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
             </label>
-            <label>
+            <div>
               <FieldLabel>Food Dislikes</FieldLabel>
-              <textarea value={foodDislikes} onChange={(event) => setFoodDislikes(event.target.value)} rows={2} className="w-full resize-y rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
-            </label>
+              <CharacterCountListInput value={foodDislikes} onChange={setFoodDislikes} maxLength={FOOD_DISLIKE_LIMIT} maxEntries={FOOD_DISLIKE_MAX_ENTRIES} label="Food dislike" />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -383,11 +389,11 @@ export default function LogVisitForm({ plan, context, intervention, onSubmit, on
             <ToggleGroup label="GI Tolerance" options={GI_OPTIONS} value={giTolerance} onChange={setGiTolerance} />
             <label>
               <FieldLabel>Intake Notes</FieldLabel>
-              <textarea value={intakeNotes} onChange={(event) => setIntakeNotes(event.target.value)} rows={3} className="w-full resize-y rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
+              <CharacterCountTextarea value={intakeNotes} onChange={setIntakeNotes} maxLength={MONITORING_TEXT_LIMITS.intake_notes} rows={3} className="w-full resize-y rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
             </label>
             <label>
               <FieldLabel>Symptoms and Tolerance</FieldLabel>
-              <textarea value={symptoms} onChange={(event) => setSymptoms(event.target.value)} rows={3} className="w-full resize-y rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
+              <CharacterCountTextarea value={symptoms} onChange={setSymptoms} maxLength={MONITORING_TEXT_LIMITS.symptoms} rows={3} className="w-full resize-y rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
             </label>
           </div>
         </Section>
@@ -395,7 +401,7 @@ export default function LogVisitForm({ plan, context, intervention, onSubmit, on
         <Section title="Clinical Progress and Decision">
           <label>
             <FieldLabel>Progress Assessment</FieldLabel>
-            <textarea value={clinicalSummary} onChange={(event) => setClinicalSummary(event.target.value)} rows={3} className="w-full resize-y rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
+            <CharacterCountTextarea value={clinicalSummary} onChange={setClinicalSummary} maxLength={MONITORING_TEXT_LIMITS.clinical_summary} rows={3} className="w-full resize-y rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
           </label>
           <ToggleGroup<NonNullDecision> label="Care Decision" options={DECISION_OPTIONS} value={decision} onChange={setDecision} />
         </Section>
