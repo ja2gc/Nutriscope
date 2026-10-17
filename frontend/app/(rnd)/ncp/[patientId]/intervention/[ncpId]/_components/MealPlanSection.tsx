@@ -873,7 +873,7 @@ export default function MealPlanSection({
                           </div>}
                           <p className="truncate text-xs text-warm-500">{item.quantity} {item.unit}</p>
                         </div>;
-                  })} addLabel={`Add item to ${dayName} ${mt.replaceAll('_', ' ')}`} readOnly={readOnly} emptyLabel="Empty" onAdd={() => openPicker(day.id, mt)} />
+                  })} addLabel="Add item" addAriaLabel={`Add item to ${dayName} ${mt.replaceAll('_', ' ')}`} readOnly={readOnly} emptyLabel="Empty" onAdd={() => openPicker(day.id, mt)} />
               );
             }} />
         </>

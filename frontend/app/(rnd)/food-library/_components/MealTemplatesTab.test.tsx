@@ -47,7 +47,8 @@ it("edits ordered Menu Items in the same full-week calendar with controlled serv
   expect(breakfast.querySelector('[data-menu-editor-add]')?.previousElementSibling).toBe(breakfast.querySelectorAll('[data-menu-editor-item]')[1]);
   expect(Array.from(breakfast.querySelectorAll('select')).map((select) => Array.from(select.options).map((option) => option.value))).toEqual([["serving"], ["serving"]]);
   expect(container.querySelector('[role="dialog"][aria-label="Meal template editor"]')).toBeNull();
-  const addToLunch = Array.from(calendar!.querySelectorAll('button')).find((button) => button.textContent === 'Add to Tuesday Lunch')!;
+  const addToLunch = calendar!.querySelector<HTMLButtonElement>('[data-menu-editor-add][aria-label="Add item to Tuesday Lunch"]')!;
+  expect(addToLunch.textContent?.trim()).toBe('Add item');
   await act(async () => addToLunch.click());
   expect(document.activeElement).toBe(container.querySelector('input[type="search"]'));
   const close = Array.from(container.querySelectorAll('[role="dialog"] button')).find((button) => button.textContent === 'Close')!;
@@ -88,7 +89,8 @@ it("opens item search from a calendar cell with initial results instead of separ
   await act(async () => root.render(<MealTemplatesTab />));
   await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Edit Measured week"]')!.click());
   expect(container.querySelector('input[type="search"]')).toBeNull();
-  const add = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === 'Add to Tuesday Lunch')!;
+  const add = container.querySelector<HTMLButtonElement>('[data-menu-editor-add][aria-label="Add item to Tuesday Lunch"]')!;
+  expect(add.textContent?.trim()).toBe('Add item');
   await act(async () => add.click());
   const picker = container.querySelector('[role="dialog"][aria-label="Add Menu Item"]');
   expect(picker).not.toBeNull();
@@ -115,7 +117,7 @@ it("paginates item choices and adds to the selected cell without replacing other
   const container = document.createElement('div'); document.body.append(container); root = createRoot(container);
   await act(async () => root.render(<MealTemplatesTab />));
   await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Edit Measured week"]')!.click());
-  await act(async () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent === 'Add to Tuesday Lunch')!.click());
+  await act(async () => container.querySelector<HTMLButtonElement>('[data-menu-editor-add][aria-label="Add item to Tuesday Lunch"]')!.click());
   await act(async () => { await new Promise((resolve) => setTimeout(resolve, 250)); });
   const picker = container.querySelector('[aria-label="Add Menu Item"]')!;
   await act(async () => picker.querySelector<HTMLButtonElement>('[aria-label="Next page"]')!.click());
@@ -131,7 +133,7 @@ it("keeps the target cell and query when item search fails and recovers on anoth
   const container = document.createElement('div'); document.body.append(container); root = createRoot(container);
   await act(async () => root.render(<MealTemplatesTab />));
   await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Edit Measured week"]')!.click());
-  await act(async () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent === 'Add to Wednesday Dinner')!.click());
+  await act(async () => container.querySelector<HTMLButtonElement>('[data-menu-editor-add][aria-label="Add item to Wednesday Dinner"]')!.click());
   await act(async () => { await new Promise((resolve) => setTimeout(resolve, 250)); });
   const picker = container.querySelector('[aria-label="Add Menu Item"]')!;
   expect(picker.querySelector('[role="alert"]')?.textContent).toContain('Search failed. Try again.');

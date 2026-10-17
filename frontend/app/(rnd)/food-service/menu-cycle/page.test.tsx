@@ -236,7 +236,7 @@ describe("Menu Cycle template and name editing", () => {
       id: "line-1", day_of_week: "Monday", meal_type: "lunch", line_order: 1,
       recipe_id: null, fs_item_id: "rice-id", quantity: 1, servings_override: null,
       estimate_population: null, is_event: false, event_allocation: null,
-      fs_item: { id: "rice-id", name: "Rice" }, po_snapshot: { name: "Rice" },
+      fs_item: { id: "rice-id", name: "Rice" }, po_snapshot: { name: "Rice" }, po_snapshot_locked: true,
     }] });
     await renderPage();
     await act(async () => { container.querySelector<HTMLButtonElement>('button[title="Edit"]')?.click(); await Promise.resolve(); });
@@ -245,6 +245,28 @@ describe("Menu Cycle template and name editing", () => {
     expect(Array.from(container.querySelectorAll("button")).some((button) => button.textContent?.trim() === "Save")).toBe(false);
     expect(container.querySelector<HTMLButtonElement>('button[aria-label="Remove Rice"]')).toBeNull();
     expect(container.querySelector<HTMLButtonElement>('button[title="Edit Monday served population"]')).not.toBeNull();
+  });
+
+  test("hides the whole-menu read-only label while any purchased menu item remains unlocked", async () => {
+    mockGetCycle.mockResolvedValue({ ...makeCycle(), week_start_date: "2026-10-05", days: [
+      {
+        id: "line-locked", day_of_week: "Monday", meal_type: "lunch", line_order: 1,
+        recipe_id: null, fs_item_id: "rice-id", quantity: 1, servings_override: null,
+        estimate_population: null, is_event: false, event_allocation: null,
+        fs_item: { id: "rice-id", name: "Rice" }, po_snapshot: { name: "Rice" }, po_snapshot_locked: true,
+      },
+      {
+        id: "line-editable", day_of_week: "Monday", meal_type: "lunch", line_order: 2,
+        recipe_id: null, fs_item_id: "beans-id", quantity: 1, servings_override: null,
+        estimate_population: null, is_event: false, event_allocation: null,
+        fs_item: { id: "beans-id", name: "Beans" }, po_snapshot: null, po_snapshot_locked: false,
+      },
+    ] });
+    await renderPage();
+    await act(async () => { container.querySelector<HTMLButtonElement>('button[title="Edit"]')?.click(); await Promise.resolve(); });
+    expect(container.textContent).not.toContain("Purchasing started · View only");
+    expect(container.querySelector<HTMLButtonElement>('button[aria-label="Remove Beans"]')).toBeNull();
+    expect(container.querySelector<HTMLButtonElement>('button[aria-label="Remove Rice"]')).toBeNull();
   });
 
   test("template editor hides snack rows and saves three-meal templates", async () => {
@@ -256,6 +278,8 @@ describe("Menu Cycle template and name editing", () => {
     const lunch = container.querySelector('[data-day="Monday"][data-meal="lunch"]')!;
     expect(lunch.querySelectorAll('[data-menu-editor-item]')).toHaveLength(1);
     expect(lunch.querySelectorAll('[data-menu-editor-add]')).toHaveLength(1);
+    expect(lunch.querySelector('[data-menu-editor-add]')?.textContent?.trim()).toBe("Add item");
+    expect(lunch.querySelector('[data-menu-editor-add]')?.getAttribute("aria-label")).toBe("Add item to Monday Lunch");
     expect(Array.from(lunch.querySelectorAll<HTMLElement>('[data-menu-editor-item], [data-menu-editor-add]')).every((slot) => slot.className.includes('h-28'))).toBe(true);
     expect(lunch.querySelector('[data-menu-editor-add]')?.previousElementSibling).toBe(lunch.querySelector('[data-menu-editor-item]'));
     expect(container.textContent).not.toContain("AM Snack");
@@ -272,7 +296,9 @@ describe("Menu Cycle template and name editing", () => {
 
   test("provides an explicit return from Templates to Menu Calendar", async () => {
     await act(async () => { root.render(<MenuTemplateDirectory />); await Promise.resolve(); });
-    const back = Array.from(container.querySelectorAll<HTMLAnchorElement>('a')).find((link) => link.textContent?.trim() === "Back to Menu Calendar");
+    const back = container.querySelector<HTMLAnchorElement>('a[aria-label="Back to Menu Calendar"]');
     expect(back?.getAttribute("href")).toBe("/food-service/menu-cycle");
+    expect(back?.className).toContain("rounded-lg border border-warm-200");
+    expect(back?.querySelector("svg")).not.toBeNull();
   });
 });

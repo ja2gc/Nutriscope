@@ -1,9 +1,10 @@
 import { Children, isValidElement, type MouseEvent, type ReactNode } from "react";
 import { Plus } from "lucide-react";
 
-export function MenuEditorSlots({ items, addLabel, onAdd, readOnly = false, emptyLabel = "—" }: {
+export function MenuEditorSlots({ items, addLabel, addAriaLabel, onAdd, readOnly = false, emptyLabel = "—" }: {
   items: ReactNode[];
   addLabel: string;
+  addAriaLabel?: string;
   onAdd?: (event: MouseEvent<HTMLButtonElement>) => void;
   readOnly?: boolean;
   emptyLabel?: string;
@@ -16,7 +17,7 @@ export function MenuEditorSlots({ items, addLabel, onAdd, readOnly = false, empt
         </div>
       ))}
       {!readOnly && onAdd ? (
-        <button type="button" data-menu-editor-add aria-label={addLabel} onClick={onAdd}
+        <button type="button" data-menu-editor-add aria-label={addAriaLabel ?? addLabel} onClick={onAdd}
           className="flex h-28 w-full items-center justify-center gap-1 rounded-lg border border-dashed border-warm-300 px-2 text-xs font-semibold text-warm-500 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700">
           <Plus className="h-3.5 w-3.5" />{addLabel}
         </button>

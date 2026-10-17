@@ -33,6 +33,8 @@ describe("InfoHint", () => {
     expect(trigger).not.toBeNull();
 
     expect(trigger?.className).not.toContain("hover:bg-");
+    expect(trigger?.className).toContain("h-6 w-6");
+    expect(trigger?.className).not.toContain("min-h-11");
 
     await act(async () => trigger?.dispatchEvent(new MouseEvent("pointerover", { bubbles: true })));
     expect(document.body.textContent).toContain("Input tokens ÷ 1,000,000 × configured input rate.");

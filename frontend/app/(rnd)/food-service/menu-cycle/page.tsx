@@ -63,6 +63,7 @@ interface Cell {
   quantity: number;
   estimate_population: number | null;
   po_snapshot: MenuSnapshot | null;
+  po_snapshot_locked?: boolean;
   hasRecipeOverride: boolean;
 }
 type Grid = Record<string, Cell[]>;
@@ -141,15 +142,17 @@ function CycleList({ readOnly, mode = "cycles", onOpen, onNew, onOpenTemplate, o
   return (
     <Shell templates={mode === "templates"}>
       <div className="border-b border-warm-200 pb-5 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <div>
+        <div className="flex items-start gap-3">
+          {mode === "templates" && <Link href="/food-service/menu-cycle" aria-label="Back to Menu Calendar" className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 cursor-pointer mt-0.5"><ChevronLeft className="h-4 w-4" /></Link>}
+          <div>
           <h2 className="text-xl font-extrabold text-warm-900 tracking-tight flex items-center gap-2.5">
             <CalendarDays className="h-5 w-5 text-emerald-600" /> {mode === "templates" ? "Menu Templates" : "Menu Calendar"}
             {mode === "cycles" && <InfoHint label="About menu population">Suggested lists use estimated population to scale planned food. Served population records actual attendance.</InfoHint>}
           </h2>
+          </div>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {mode === "cycles" && <Link href="/food-service/menu-cycle/templates" className="inline-flex min-h-10 items-center rounded-lg border border-warm-200 px-3 text-sm font-semibold text-warm-700 hover:bg-warm-50">Templates</Link>}
-          {mode === "templates" && <Link href="/food-service/menu-cycle" className="inline-flex min-h-10 items-center rounded-lg border border-warm-200 px-3 text-sm font-semibold text-warm-700 hover:bg-warm-50">Back to Menu Calendar</Link>}
           {!readOnly && mode === "cycles" && (
             <Button variant="primary" onClick={onNew} className="px-4 py-2.5 flex items-center gap-2">
               <Plus className="h-4 w-4" /> Add week
@@ -281,7 +284,10 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
   const [templateNameDialogOpen, setTemplateNameDialogOpen] = useState(false);
   const [templateNameDraft, setTemplateNameDraft] = useState("");
   const [templateSaveError, setTemplateSaveError] = useState("");
-  const purchasingStarted = !isTemplate && Object.values(grid).some((lines) => lines.some((cell) => Boolean(cell.po_snapshot)));
+  const menuItems = Object.values(grid).flat();
+  const purchasingStarted = !isTemplate && menuItems.some((cell) => Boolean(cell.po_snapshot));
+  const allMenuItemsLocked = menuItems.length > 0 && menuItems.every((cell) => Boolean(cell.po_snapshot_locked));
+  const showReadOnlyStatus = readOnly || (purchasingStarted && allMenuItemsLocked);
   const planReadOnly = readOnly || purchasingStarted;
 
   useEffect(() => {
@@ -370,6 +376,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
           servings_override: d.servings_override ?? null,
           quantity: d.quantity ?? 1, estimate_population: d.estimate_population ?? null,
           po_snapshot: d.po_snapshot ?? null,
+          po_snapshot_locked: d.po_snapshot_locked ?? false,
           hasRecipeOverride: d.has_recipe_override ?? false,
         });
         else if (d.fs_item_id && d.fs_item) existing.push({
@@ -377,6 +384,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
           servings_override: d.servings_override ?? null,
           quantity: d.quantity ?? 1, estimate_population: d.estimate_population ?? null,
           po_snapshot: d.po_snapshot ?? null,
+          po_snapshot_locked: d.po_snapshot_locked ?? false,
           hasRecipeOverride: false,
         });
         g[k] = existing.sort((a, b) => a.line_order - b.line_order);
@@ -493,11 +501,13 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
           id: day.id, line_order: day.line_order, recipe_id: day.recipe_id, fs_item_id: null,
           recipe_name: day.recipe.name, portion_label: day.recipe.portion_label, servings: day.recipe.servings, servings_override: day.servings_override,
           quantity: day.quantity, estimate_population: day.estimate_population, po_snapshot: day.po_snapshot ?? null,
+          po_snapshot_locked: day.po_snapshot_locked ?? false,
           hasRecipeOverride: day.has_recipe_override ?? false,
         } : day.fs_item_id && day.fs_item ? {
           id: day.id, line_order: day.line_order, recipe_id: null, fs_item_id: day.fs_item_id,
           recipe_name: day.fs_item.name, servings: 0, servings_override: day.servings_override,
           quantity: day.quantity, estimate_population: day.estimate_population, po_snapshot: day.po_snapshot ?? null,
+          po_snapshot_locked: day.po_snapshot_locked ?? false,
           hasRecipeOverride: false,
         } : null;
         if (line) (refreshed[key] ??= []).push(line);
@@ -685,7 +695,8 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
                             {(cell.portion_label || cell.hasRecipeOverride) && <div className="truncate text-xs font-medium text-emerald-700">{cell.hasRecipeOverride ? "Customized item" : cell.portion_label}</div>}
                           </div>
                         ))}
-                        addLabel={`Add item to ${d} ${MEAL_LABELS[m]}`}
+                        addLabel="Add item"
+                        addAriaLabel={`Add item to ${d} ${MEAL_LABELS[m]}`}
                         readOnly={displayReadOnly}
                         onAdd={() => { setActiveCell(isPicking ? null : key); setPickerSearch(""); }}
                       />
@@ -758,9 +769,10 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
             </div>
           </div>
         </div>
-        {planReadOnly ? (
+        {showReadOnlyStatus && (
           <span className="text-xs font-bold uppercase tracking-wider text-warm-400 border border-warm-200 rounded-lg px-3 py-2 shrink-0">{purchasingStarted ? "Purchasing started · View only" : "View only"}</span>
-        ) : (
+        )}
+        {!planReadOnly && (
           <div className="flex flex-wrap items-center gap-2 shrink-0">
             {!isTemplate && <button onClick={openSaveTemplateDialog} disabled={busy} className="flex items-center gap-1.5 text-sm font-semibold text-warm-600 border border-warm-200 rounded-lg px-3 py-2 hover:bg-warm-50 cursor-pointer disabled:opacity-50"><BookmarkPlus className="h-3.5 w-3.5" /> Save as Template</button>}
             {!isTemplate && <button onClick={openTemplates} className="flex items-center gap-1.5 text-sm font-semibold text-warm-600 border border-warm-200 rounded-lg px-3 py-2 hover:bg-warm-50 cursor-pointer"><LayoutTemplate className="h-3.5 w-3.5" /> Templates</button>}

@@ -164,7 +164,8 @@ function TemplateEditor({ initial, onClose, onSaved }: {
                 <label className="min-w-0 flex-1 text-xs leading-3 text-warm-600">Unit<select aria-label={`Unit for ${line.itemName}`} value={line.unit} onChange={(event) => setDraft((current) => ({ ...current, lines: current.lines.map((row) => row.key === line.key ? { ...row, unit: event.target.value } : row) }))} className="mt-0.5 h-7 w-full rounded border border-warm-200 px-1 text-xs">{line.unit !== "serving" && <option value={line.unit} disabled>{line.unit} (legacy)</option>}<option value="serving">serving</option></select></label>
               </div>}
             </div>)}
-            addLabel={`Add to ${cellDay} ${MEALS.find(([key]) => key === cellMeal)?.[1]}`}
+            addLabel="Add item"
+            addAriaLabel={`Add item to ${cellDay} ${MEALS.find(([key]) => key === cellMeal)?.[1]}`}
             readOnly={draft.readOnly}
             onAdd={(event) => { pickerTrigger.current = event.currentTarget; setDay(cellDay); setMeal(cellMeal); setQuery(""); setPage(1); setMatches([]); setPickerOpen(true); }}
           />} />

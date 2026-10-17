@@ -122,7 +122,9 @@ The category-removal clarification applies to Food Service Foods, not clinical I
 
 Keep Intervention menu cards compact: show the Menu Item name and its actual scaled serving amount, with serving/edit controls. Remove the expanded per-item nutrient and `Per person` ingredient description lines from the calendar. Editing the portion must continue to scale saved ingredient quantities and nutrient totals proportionally; retain full details in the editor and PDF. Live checks already verified both mass/count ingredient scaling and nutrient scaling.
 
-Add an explicit **Back to Menu Calendar** control to the Food Service Templates list. Keep template-editor return navigation to its template list and keep templates under Menu Calendar.
+Add a top-left arrow back control to the Food Service Templates list using the same visual treatment as the menu editor back arrow. Keep its accessible name **Back to Menu Calendar**, keep template-editor return navigation to its template list, and keep templates under Menu Calendar.
+
+Use uniform menu slots in Food Service cycles/templates and NCP interventions/templates. Each item gets its own equal-sized slot, followed by a persistent equal-sized add slot in editable cells. Show only **Add item** visibly while keeping the accessible name specific to the day/meal. Align the Food alerts tooltip beside its label in the selected-patient ADIME header. Hide the cycle-wide **Purchasing started · View only** status when any populated item remains unlocked; show it only when all populated items are locked, preserving item-level lock details and edits on unlocked items.
 
 The patient profile's ADIME Records page may keep only the latest intervention's menu link. This does not change report identity: each Nutrition Intervention Plan report uses its own saved intervention/menu; Reports → Patient → ADIME cycle lists separate intervention reports; NCP Summary uses the latest intervention in that cycle. Live PDFs verified 2,250 versus 2,300 kcal and the latest summary at 2,300 kcal.
 

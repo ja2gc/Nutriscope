@@ -128,7 +128,8 @@ describe("Food Library meal templates", () => {
     expect(create).toBeDefined();
     await act(async () => { create!.click(); });
     expect(container.textContent).toContain("Create meal template");
-    expect(container.textContent).toContain("Add to Monday Breakfast");
+    const addBreakfast = container.querySelector<HTMLButtonElement>('[data-menu-editor-add][aria-label="Add item to Monday Breakfast"]');
+    expect(addBreakfast?.textContent?.trim()).toBe("Add item");
     expect(container.textContent).not.toContain("Item type");
   });
 });

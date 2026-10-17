@@ -370,6 +370,7 @@ it("offers Menu Items only and allows a Snack in a manually planned main slot", 
 
   const add = container.querySelector<HTMLButtonElement>('[data-menu-editor-add][aria-label^="Add item to Monday"]');
   expect(add).toBeDefined();
+  expect(add?.textContent?.trim()).toBe("Add item");
   await act(async () => { add!.click(); });
   const input = container.querySelector<HTMLInputElement>('[aria-label="Search Menu Items"]');
   expect(input).not.toBeNull();
