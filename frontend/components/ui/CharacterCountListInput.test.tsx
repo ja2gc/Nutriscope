@@ -9,4 +9,5 @@ it("shows per-entry counts, preserves legacy text, and limits new entry slots", 
   expect(html).toContain("5/5 entries");
   expect(html).not.toContain("Add food dislike");
   expect(html).toContain("aria-invalid=\"true\"");
+  expect(html).toContain("resize-none overflow-hidden");
 });

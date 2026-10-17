@@ -35,8 +35,22 @@ export function CharacterCountTextarea({
 
   useLayoutEffect(() => {
     if (!autoGrow || !textareaRef.current) return;
-    textareaRef.current.style.height = "auto";
-    textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    const textarea = textareaRef.current;
+    const resize = () => {
+      textarea.style.height = "auto";
+      const borders = textarea.offsetHeight - textarea.clientHeight;
+      textarea.style.height = `${textarea.scrollHeight + borders}px`;
+    };
+    resize();
+    if (typeof ResizeObserver === "undefined") return;
+    let width = textarea.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (textarea.clientWidth === width) return;
+      width = textarea.clientWidth;
+      resize();
+    });
+    observer.observe(textarea);
+    return () => observer.disconnect();
   }, [autoGrow, rows, value]);
 
   return (
