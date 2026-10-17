@@ -108,6 +108,8 @@ Admin's server-allowed report types are:
 
 Menu Calendar PDF shows the hospital header, saved weekly meal grid, and configured signatories without population or cost figures. Empty week-long AM Snack and PM Snack rows are omitted.
 
+**Reports → Accomplishment Report** first lists Food Service Staff, with name search and pagination. Select a staff member to browse their approved reports by month/year and open a PDF. Admin has no Approved Reports/To Review tabs or approval controls.
+
 Admin is blocked from:
 
 - Nutrition Intervention Plan

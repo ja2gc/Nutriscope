@@ -89,7 +89,8 @@ Use this as both the recording checklist and narration script. Create every name
 4. Open one slot before generating a shopping list. Show **Purchase estimate: Not set**, baseline quantities, and preparation notes.
 5. Save the Menu Plan. Return to the list and confirm its Monday–Sunday dates. The menu becomes current automatically when that week arrives.
 6. Use the pencil beside the menu name, edit it, and leave the field to show the saved name updates.
-7. Reopen the original template and confirm it still contains its original meal. Show that both calendar and template editor omit the copy-day-to-all-days action.
+7. Turn off **Show snack slots** to hide the AM/PM rows, then turn it on again. Explain that this browser remembers the view choice; saved snack items and purchasing remain unchanged.
+8. Reopen the original template and confirm it still contains its original meal. Show that both calendar and template editor omit the copy-day-to-all-days action.
 
 **Narration**
 

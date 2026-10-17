@@ -366,6 +366,7 @@ Route::middleware(['auth:sanctum', 'active', 'role:FSS,RND'])->prefix('fss')->gr
 });
 
 Route::middleware(['auth:sanctum', 'active', 'role:Admin'])->prefix('admin')->group(function () {
+    Route::get('accomplishment-periods/staff', [AccomplishmentPeriodController::class, 'staff']);
     Route::get('announcements', [AdminAnnouncementController::class, 'index']);
     Route::middleware('throttle:10,1')->group(function () {
         Route::post('announcements', [AdminAnnouncementController::class, 'store']);

@@ -382,7 +382,8 @@ export function getWeightStatus(
 // Keys must match MonitoringLabValues clinical fields.
 
 export type ClinicalLabKey = 'albumin' | 'hba1c' | 'ldl' | 'cholesterol' |
-  'creatinine' | 'potassium' | 'phosphate' | 'magnesium' | 'hemoglobin' | 'glucose' | 'bp';
+  'creatinine' | 'potassium' | 'phosphate' | 'magnesium' | 'hemoglobin' | 'glucose' | 'bp' |
+  'hematocrit' | 'calcium' | 'sodium' | 'bun' | 'hdl' | 'triglycerides';
 
 export const GOAL_LAB_FLAGS: Record<string, ClinicalLabKey[]> = {
   renal_diet:       ['albumin', 'creatinine', 'potassium', 'phosphate', 'hemoglobin'],
@@ -408,5 +409,11 @@ export const CLINICAL_LAB_META: Record<ClinicalLabKey, { label: string; unit: st
   magnesium:   { label: 'Magnesium',     unit: 'mg/dL',  type: 'number' },
   hemoglobin:  { label: 'Hemoglobin',    unit: 'g/dL',   type: 'number' },
   glucose:     { label: 'Glucose',       unit: 'mg/dL',  type: 'number' },
+  hematocrit:  { label: 'Hematocrit',    unit: '%',      type: 'number' },
+  calcium:     { label: 'Calcium',       unit: 'mg/dL',  type: 'number' },
+  sodium:      { label: 'Sodium',        unit: 'mEq/L',  type: 'number' },
+  bun:         { label: 'BUN',           unit: 'mg/dL',  type: 'number' },
+  hdl:         { label: 'HDL',           unit: 'mg/dL',  type: 'number' },
+  triglycerides: { label: 'Triglycerides', unit: 'mg/dL', type: 'number' },
   bp:          { label: 'Blood Pressure', unit: 'mmHg',  type: 'text'   },
 };

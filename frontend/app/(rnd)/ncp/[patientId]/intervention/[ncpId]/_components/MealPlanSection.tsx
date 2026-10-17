@@ -23,7 +23,7 @@ import MacroTrackerBar from "./MacroTrackerBar";
 import { WeeklyMenuCalendar, MENU_DAYS, MENU_SLOTS } from "@/components/ncp/WeeklyMenuCalendar";
 import { MenuEditorSlots } from "@/components/ncp/MenuEditorSlots";
 import { ALL_MICROS } from "@/lib/nutritionCalculations";
-import { foodFluidBalance } from "@/lib/mealPlanNutrition";
+import { foodFluidBalance, formatMealPlanAmount } from "@/lib/mealPlanNutrition";
 import { clinicalIngredientFactor } from "@/lib/clinicalUnits";
 
 const DAYS = MENU_DAYS;
@@ -855,6 +855,11 @@ export default function MealPlanSection({
                     const s = item.nutrient_snapshot;
                     const isDisliked = foodDislikes.some((d) => s?.name?.toLowerCase().includes(d));
                     return <div key={item.id} className="flex h-full flex-col justify-between gap-1">
+                          {!readOnly && <div data-menu-editor-actions className="flex shrink-0 justify-start gap-1">
+                            <Button variant="icon" onClick={() => openEdit(item, day.id, key)} title="Edit" aria-label={`Edit ${s?.name ?? 'Menu Item'}`} className="h-8 w-8 hover:text-sky-600 hover:bg-sky-50"><Edit2 className="h-3 w-3" /></Button>
+                            {item.source === 'usda' && <Button variant="icon" onClick={() => { if (item.fdc_id) { setSavingToLibrary(item.fdc_id); importUsdaFood(parseInt(item.fdc_id)).finally(() => setSavingToLibrary(null)); } }} disabled={savingToLibrary === item.fdc_id} title="Save to Library" aria-label={`Save ${s?.name ?? 'food'} to Library`} className="h-8 w-8 hover:text-emerald-600 hover:bg-emerald-50">{savingToLibrary === item.fdc_id ? <Loader2 className="h-3 w-3 animate-spin" /> : <BookmarkPlus className="h-3 w-3" />}</Button>}
+                            <Button variant="icon" onClick={() => removeItem(key, day.id, item.id)} aria-label={`Remove ${s?.name ?? 'Menu Item'}`} className="h-8 w-8 hover:text-red-600"><Trash2 className="h-3 w-3" /></Button>
+                          </div>}
                           <div className="flex min-h-0 items-start justify-between gap-1">
                             <div className="flex min-w-0 flex-1 items-center gap-1.5">
                               {item.recipe_id ? <a href={`/food-library/recipes/${item.recipe_id}`} target="_blank" rel="noopener noreferrer" title={s?.name ?? 'Menu Item'} className="line-clamp-2 min-w-0 overflow-hidden break-words text-xs font-semibold leading-4 text-warm-800 underline">{s?.name ?? 'Menu Item'}</a> : <span title={s?.name ?? '—'} className="line-clamp-2 min-w-0 overflow-hidden break-words text-xs font-semibold leading-4 text-warm-800">{s?.name ?? '—'}</span>}
@@ -866,12 +871,7 @@ export default function MealPlanSection({
                               )}
                             </div>
                           </div>
-                          {!readOnly && <div className="flex shrink-0 gap-1">
-                            <Button variant="icon" onClick={() => openEdit(item, day.id, key)} title="Edit" aria-label={`Edit ${s?.name ?? 'Menu Item'}`} className="h-8 w-8 hover:text-sky-600 hover:bg-sky-50"><Edit2 className="h-3 w-3" /></Button>
-                            {item.source === 'usda' && <Button variant="icon" onClick={() => { if (item.fdc_id) { setSavingToLibrary(item.fdc_id); importUsdaFood(parseInt(item.fdc_id)).finally(() => setSavingToLibrary(null)); } }} disabled={savingToLibrary === item.fdc_id} title="Save to Library" aria-label={`Save ${s?.name ?? 'food'} to Library`} className="h-8 w-8 hover:text-emerald-600 hover:bg-emerald-50">{savingToLibrary === item.fdc_id ? <Loader2 className="h-3 w-3 animate-spin" /> : <BookmarkPlus className="h-3 w-3" />}</Button>}
-                            <Button variant="icon" onClick={() => removeItem(key, day.id, item.id)} aria-label={`Remove ${s?.name ?? 'Menu Item'}`} className="h-8 w-8 hover:text-red-600"><Trash2 className="h-3 w-3" /></Button>
-                          </div>}
-                          <p className="truncate text-xs text-warm-500">{item.quantity} {item.unit}</p>
+                          <p className="truncate text-xs text-warm-500">{formatMealPlanAmount(item.quantity)} {item.unit}</p>
                         </div>;
                   })} addLabel="Add item" addAriaLabel={`Add item to ${dayName} ${mt.replaceAll('_', ' ')}`} readOnly={readOnly} emptyLabel="Empty" onAdd={() => openPicker(day.id, mt)} />
               );
@@ -1137,7 +1137,7 @@ export default function MealPlanSection({
                   {(viewingTemplate.goal_type || viewingTemplate.maternal_status) && <p className="text-xs text-warm-400 capitalize">{viewingTemplate.goal_type?.replace(/_/g, ' ') ?? 'Maternal'}{viewingTemplate.disease_stage ? ` · ${viewingTemplate.disease_stage.replace(/_/g, ' ')}` : ''}</p>}
                   <WeeklyMenuCalendar renderCell={(day, meal) => <MenuEditorSlots items={viewingTemplate.days.filter((slot) => slot.day_of_week === day && slot.meal_type === meal).flatMap((slot) => slot.items).map((item) => <div key={item.id} className="flex h-full flex-col justify-between gap-1">
                     {item.recipe_id ? <a href={`/food-library/recipes/${item.recipe_id}`} title={item.food_name ?? 'Menu Item'} target="_blank" rel="noopener noreferrer" className="line-clamp-2 overflow-hidden break-words text-xs font-semibold text-warm-800 underline">{item.food_name}</a> : <p className="line-clamp-2 overflow-hidden break-words text-xs font-semibold">{item.food_name ?? 'Legacy item'}</p>}
-                    <p className="text-xs text-warm-500">{item.quantity} {item.unit}</p>
+                    <p className="text-xs text-warm-500">{formatMealPlanAmount(item.quantity)} {item.unit}</p>
                   </div>)} addLabel="Add item" readOnly />} />
                   <button onClick={() => handleFromTemplate(viewingTemplate.id)}
                     className="w-full py-2.5 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors cursor-pointer mt-2">

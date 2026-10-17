@@ -42,8 +42,8 @@ export interface AccomplishmentStaff {
   display_name: string;
 }
 
-export async function listAccomplishmentStaff(page = 1, search = ''): Promise<{ data: AccomplishmentStaff[]; meta: PaginationMeta }> {
-  const res = await apiFetch(`/api/rnd/accomplishment-periods/staff${toQuery({ page, search })}`);
+export async function listAccomplishmentStaff(page = 1, search = '', apiPrefix: 'rnd' | 'admin' = 'rnd'): Promise<{ data: AccomplishmentStaff[]; meta: PaginationMeta }> {
+  const res = await apiFetch(`/api/${apiPrefix}/accomplishment-periods/staff${toQuery({ page, search })}`);
   const json = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(json.message ?? 'Could not load Food Service Staff.');
   return { data: json.data ?? [], meta: json.meta };

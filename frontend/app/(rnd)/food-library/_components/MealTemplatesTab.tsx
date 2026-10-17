@@ -7,6 +7,7 @@ import { WeeklyMenuCalendar, MENU_SLOTS } from "@/components/ncp/WeeklyMenuCalen
 import { MenuEditorSlots } from "@/components/ncp/MenuEditorSlots";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import SearchInput from "@/components/ui/SearchInput";
+import { formatMealPlanAmount as formatTemplateDisplayNumber } from "@/lib/mealPlanNutrition";
 import { fetchRecipeById, fetchRecipes, type Recipe } from "@/services/foodLibraryService";
 import {
   deleteMealPlanTemplate, fetchMealPlanTemplate, fetchMealPlanTemplates,
@@ -18,13 +19,6 @@ const MEALS = MENU_SLOTS;
 type EditorLine = LibraryTemplateLine & { key: number; itemName: string };
 type EditorState = { id?: string; name: string; description: string; lines: EditorLine[]; readOnly?: boolean };
 let nextLineKey = 0;
-
-function formatTemplateDisplayNumber(value: number | string | null | undefined): string {
-  const numeric = typeof value === "string" ? Number(value) : value ?? 0;
-  if (!Number.isFinite(numeric)) return "0";
-  if (numeric > 0 && numeric < 0.1) return "<0.1";
-  return new Intl.NumberFormat("en-PH", { maximumFractionDigits: 1, useGrouping: false }).format(numeric);
-}
 
 function TemplateEditor({ initial, onClose, onSaved }: {
   initial: EditorState;
@@ -162,9 +156,9 @@ function TemplateEditor({ initial, onClose, onSaved }: {
         <div className="mt-5 space-y-2">
           <WeeklyMenuCalendar renderCell={(cellDay, cellMeal) => <MenuEditorSlots
             items={draft.lines.filter((line) => line.day_of_week === cellDay && line.meal_type === cellMeal).map((line) => <div key={line.key} className="flex h-full flex-col justify-between gap-1">
+              {!draft.readOnly && <div data-menu-editor-actions className="flex shrink-0 justify-start"><button onClick={() => setDraft((current) => ({ ...current, lines: current.lines.filter((row) => row.key !== line.key) }))} aria-label={`Remove ${line.itemName}`} className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-red-600 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button></div>}
               <div className="flex min-h-0 items-start gap-1">
                 {line.recipe_id ? <button type="button" title={line.itemName} aria-label={`View ${line.itemName}`} onClick={(event) => void openProfile(line, event.currentTarget)} className="line-clamp-2 min-h-0 flex-1 overflow-hidden break-words text-left text-xs font-semibold leading-4 text-warm-800 hover:text-emerald-700">{line.itemName}</button> : <p className="line-clamp-2 text-xs font-semibold text-warm-800">{line.itemName}</p>}
-                {!draft.readOnly && <button onClick={() => setDraft((current) => ({ ...current, lines: current.lines.filter((row) => row.key !== line.key) }))} aria-label={`Remove ${line.itemName}`} className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-red-600 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button>}
               </div>
               {draft.readOnly ? <p className="text-xs text-warm-600">{formatTemplateDisplayNumber(line.quantity)} {line.unit === "serving" && Number(line.quantity) !== 1 ? "servings" : line.unit}</p> : <div className="flex items-end gap-1">
                 <label className="min-w-0 flex-1 text-xs leading-3 text-warm-600">Qty<input aria-label={`Servings of ${line.itemName}`} type="number" min="0.01" step="0.01" value={line.quantity} onChange={(event) => setDraft((current) => ({ ...current, lines: current.lines.map((row) => row.key === line.key ? { ...row, quantity: Number(event.target.value) } : row) }))} className="mt-0.5 h-7 w-full rounded border border-warm-200 px-1 text-xs" /></label>

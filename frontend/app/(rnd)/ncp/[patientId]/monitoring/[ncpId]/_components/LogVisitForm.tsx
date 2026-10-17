@@ -290,7 +290,9 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel 
       const result = await requestMonitoringAiReview(ncpId, { ...payload, entry_key: budget.entry_key });
       setBudget({ ...budget, remaining: result.remaining });
       if (latestInputs.current !== comparisonInputs) {
-        setAiError("Entry values changed during generation. Generate again using the current values.");
+        setAiError(result.remaining > 0
+          ? "Entry values changed during generation. Generate again using the current values."
+          : "Entry values changed during generation. Write or review your summary manually; this entry has no generations left.");
       } else if (latestText.current.trim()) {
         setSuggestion({ text: result.narrative, inputs: comparisonInputs });
       } else {
@@ -400,7 +402,7 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel 
             </div>
             <label>
               <FieldLabel>Dietary Restrictions</FieldLabel>
-              <CharacterCountTextarea aria-label="Dietary Restrictions" value={dietaryRestrictions} onChange={setDietaryRestrictions} maxLength={ASSESSMENT_TEXT_LIMITS.dietary_restrictions} rows={2} className="w-full resize-y rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
+              <CharacterCountTextarea aria-label="Dietary Restrictions" autoGrow value={dietaryRestrictions} onChange={setDietaryRestrictions} maxLength={ASSESSMENT_TEXT_LIMITS.dietary_restrictions} rows={2} className="w-full resize-none overflow-hidden rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
             </label>
             <div>
               <FieldLabel>Food Dislikes</FieldLabel>
@@ -419,11 +421,11 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel 
             <ToggleGroup label="GI Tolerance" options={GI_OPTIONS} value={giTolerance} onChange={setGiTolerance} />
             <label>
               <FieldLabel>Intake Notes</FieldLabel>
-              <CharacterCountTextarea aria-label="Intake Notes" value={intakeNotes} onChange={setIntakeNotes} maxLength={MONITORING_TEXT_LIMITS.intake_notes} rows={3} className="w-full resize-y rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
+              <CharacterCountTextarea aria-label="Intake Notes" autoGrow value={intakeNotes} onChange={setIntakeNotes} maxLength={MONITORING_TEXT_LIMITS.intake_notes} rows={3} className="w-full resize-none overflow-hidden rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
             </label>
             <label>
               <FieldLabel>Symptoms and Tolerance</FieldLabel>
-              <CharacterCountTextarea aria-label="Symptoms and Tolerance" value={symptoms} onChange={setSymptoms} maxLength={MONITORING_TEXT_LIMITS.symptoms} rows={3} className="w-full resize-y rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
+              <CharacterCountTextarea aria-label="Symptoms and Tolerance" autoGrow value={symptoms} onChange={setSymptoms} maxLength={MONITORING_TEXT_LIMITS.symptoms} rows={3} className="w-full resize-none overflow-hidden rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
             </label>
           </div>
         </Section>
@@ -431,7 +433,7 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel 
         <Section title="Clinical Progress and Decision">
           <label>
             <FieldLabel>Progress Assessment *</FieldLabel>
-            <CharacterCountTextarea aria-label="Progress Assessment" required value={clinicalSummary} onChange={setClinicalSummary} maxLength={MONITORING_TEXT_LIMITS.clinical_summary} rows={3} className="w-full resize-y rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
+            <CharacterCountTextarea aria-label="Progress Assessment" autoGrow required value={clinicalSummary} onChange={setClinicalSummary} maxLength={MONITORING_TEXT_LIMITS.clinical_summary} rows={3} className="w-full resize-none overflow-hidden rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
           </label>
           <div className="flex flex-wrap items-center gap-3">
             <Button type="button" variant="ghost" disabled={!budget || budget.remaining <= 0 || submitting} loading={aiLoading} onClick={generateSummary}>Generate AI Summary</Button>

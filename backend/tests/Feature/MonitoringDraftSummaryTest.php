@@ -60,6 +60,15 @@ class MonitoringDraftSummaryTest extends TestCase
         });
     }
 
+    public function test_summary_prompt_prioritizes_two_sentences_and_excludes_recommendations(): void
+    {
+        [$ncp, $url, $draft] = $this->context();
+        $this->postJson($url, $draft)->assertOk();
+        Http::assertSent(fn ($request) => str_contains($request['system'], 'Write two sentences')
+            && str_contains($request['system'], 'Do not add a closing recommendation')
+            && str_contains($request['system'], 'Do not repeat a value for each indicator'));
+    }
+
     public function test_three_generations_are_shared_across_refreshes_and_changed_values(): void
     {
         [$ncp, $url, $draft] = $this->context();

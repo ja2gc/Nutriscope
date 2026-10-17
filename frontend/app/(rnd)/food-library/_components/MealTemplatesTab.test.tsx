@@ -45,6 +45,7 @@ it("edits ordered Menu Items in the same full-week calendar with controlled serv
   const breakfast = calendar!.querySelector('[data-day="Monday"][data-meal="breakfast"]')!;
   expect(Array.from(breakfast.querySelectorAll('button[aria-label^="View "]')).map((button) => button.textContent)).toEqual(["Fruit cup", "Oats"]);
   expect(breakfast.querySelectorAll('[data-menu-editor-item]')).toHaveLength(2);
+  expect(breakfast.querySelector('[data-menu-editor-item] > div > :first-child')?.hasAttribute('data-menu-editor-actions')).toBe(true);
   expect(breakfast.querySelectorAll('[data-menu-editor-add]')).toHaveLength(1);
   expect(Array.from(breakfast.querySelectorAll<HTMLElement>('[data-menu-editor-item], [data-menu-editor-add]')).every((slot) => slot.className.includes('h-28'))).toBe(true);
   expect(breakfast.querySelector('[data-menu-editor-add]')?.previousElementSibling).toBe(breakfast.querySelectorAll('[data-menu-editor-item]')[1]);

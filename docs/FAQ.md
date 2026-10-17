@@ -289,7 +289,7 @@ Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment Report
 
 ### Which reports can Admin access?
 
-Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment Report, and the aggregate Demographic Census screen. Admin cannot access Nutrition Intervention Plan or NCP Summary.
+Program Project Activity, Menu Calendar, Procurement Pack, Accomplishment Report, and the aggregate Demographic Census screen. For accomplishment reports, select Food Service Staff first, then browse that person's approved reports; Admin has no review tabs. Admin cannot access Nutrition Intervention Plan or NCP Summary.
 
 Admin also has **Reports → Template Edit** for shared header branding and non-clinical report signatories. Patient-report signatories remain controlled by clinical records.
 

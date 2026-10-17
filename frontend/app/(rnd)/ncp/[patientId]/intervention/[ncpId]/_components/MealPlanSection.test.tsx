@@ -51,6 +51,22 @@ async function renderEmptyPlanner(goal: string | null = null) {
   return { container, root };
 }
 
+it("shows at most one decimal on menu cards while preserving exact editable servings", async () => {
+  vi.mocked(fetchAllMealPlanItems).mockResolvedValueOnce([{
+    id: "precision-item", meal_plan_day_id: "day-1", recipe_id: "recipe-1", quantity: "1.67", unit: "serving", ai_suggested: false, source: "recipe",
+    nutrient_snapshot: { name: "Rice bowl", calories: 200, protein: 8, carbs: 35, fat: 4, serving_size: 1, serving_unit: "serving", micronutrients: {} },
+  } as MealPlanItem]);
+  vi.mocked(fetchRecipeById).mockResolvedValueOnce({ id: "recipe-1", name: "Rice bowl", servings: 1, ingredients: [] } as never);
+  const container = document.createElement("div"); document.body.append(container); const root = createRoot(container);
+  await act(async () => root.render(<MealPlanSection ncpId="ncp-1" interventionPlanId="intervention-1" prescriptionTargets={{ energy: 2000, protein: 75, carbs: 250, fat: 65, fluid: 2000 }} />));
+  try {
+    expect(container.textContent).toContain("1.7 serving");
+    expect(container.textContent).not.toContain("1.67 serving");
+    await act(async () => container.querySelector<HTMLButtonElement>('button[title="Edit"]')!.click());
+    expect(container.querySelector<HTMLInputElement>('.fixed input[type="number"]')?.value).toBe("1.67");
+  } finally { await act(async () => root.unmount()); }
+});
+
 it("prefills the previous menu, retains edits through intervention save, and saves only an independent week", async () => {
   const previous: MealPlan = { id: 'previous-menu', intervention_plan_id: 'previous-intervention', week_start_date: '2026-10-12', generation_type: 'manual', scale_status: 'already_scaled', scaled_at: '2026-10-12', status: 'draft', days: [{ id: 'previous-day', day_of_week: 'Monday', meal_type: 'breakfast', flagged: false }] };
   const sourceItem: MealPlanItem = { id: 'previous-item', meal_plan_day_id: 'previous-day', recipe_id: 'recipe-1', food_item_id: null, fdc_id: null, source: 'recipe', ai_suggested: false, quantity: '1.2', unit: 'serving', nutrient_snapshot: { name: 'Previous rice bowl', calories: 200, protein: 8, carbs: 35, fat: 4, serving_size: 1, serving_unit: 'serving', micronutrients: {} } };
@@ -210,12 +226,12 @@ it("previews a template calendar and keeps the loaded baseline draft after a sav
     expect(createPlanFromTemplate).toHaveBeenCalledTimes(1);
     expect(createPlanFromTemplate).toHaveBeenLastCalledWith('ncp-1', expect.objectContaining({ preview: true, template_id: 'template-1' }));
     expect(fetchAllMealPlanItems).not.toHaveBeenCalledWith('ncp-1', 'draft-week');
-    expect(container.textContent).toContain('2.00 serving');
+    expect(container.textContent).toContain('2 serving');
     const save = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'Save week')!;
     expect(save).toBeDefined();
     await act(async () => save.click());
     expect(container.textContent).toContain('Save failed. Try again.');
-    expect(container.textContent).toContain('2.00 serving');
+    expect(container.textContent).toContain('2 serving');
     expect(createPlanFromTemplate).toHaveBeenLastCalledWith('ncp-1', expect.objectContaining({
       preview: false, lines: [expect.objectContaining({ source_template_item_id: 'template-line-1', recipe_id: 'carb-1', quantity: 2, unit: 'serving' })],
     }));
@@ -223,7 +239,7 @@ it("previews a template calendar and keeps the loaded baseline draft after a sav
     vi.mocked(createPlanFromTemplate).mockResolvedValueOnce({ ...loaded, plan: { ...loaded.plan, scale_status: 'already_scaled' }, items: loaded.items.map((item) => ({ ...item, quantity: '1.20' })) });
     await act(async () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'Scale to prescription')!.click());
     expect(createPlanFromTemplate).toHaveBeenLastCalledWith('ncp-1', expect.objectContaining({ preview: true, scale: true }));
-    expect(container.textContent).toContain('1.20 serving');
+    expect(container.textContent).toContain('1.2 serving');
     vi.mocked(createPlanFromTemplate).mockRejectedValueOnce(new Error('Retry save.'));
     await act(async () => save.click());
     expect(createPlanFromTemplate).toHaveBeenLastCalledWith('ncp-1', expect.objectContaining({
@@ -439,6 +455,7 @@ it("shows scaled ingredient amounts per person and removes the generic scale sli
   const breakfast = container.querySelector('[data-day="Monday"][data-meal="breakfast"]')!;
   expect(breakfast.textContent).not.toContain("kcal");
   expect(breakfast.querySelectorAll('[data-menu-editor-item]')).toHaveLength(1);
+  expect(breakfast.querySelector('[data-menu-editor-item] > div > :first-child')?.hasAttribute('data-menu-editor-actions')).toBe(true);
   expect(breakfast.querySelectorAll('[data-menu-editor-add]')).toHaveLength(1);
   expect(Array.from(breakfast.querySelectorAll<HTMLElement>('[data-menu-editor-item], [data-menu-editor-add]')).every((slot) => slot.className.includes('h-28'))).toBe(true);
   expect(breakfast.querySelector('[data-menu-editor-add]')?.previousElementSibling).toBe(breakfast.querySelector('[data-menu-editor-item]'));

@@ -57,6 +57,7 @@ describe("Menu Cycle template and name editing", () => {
   let root: Root;
 
   beforeEach(() => {
+    localStorage.clear();
     (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     container = document.createElement("div");
     document.body.append(container);
@@ -98,6 +99,21 @@ describe("Menu Cycle template and name editing", () => {
     expect(cycleRows[0].textContent).not.toContain("Rice plan");
     expect(container.querySelector("thead")?.textContent).not.toContain("Per-day plan");
     expect(cycleRows[0].textContent).not.toContain("planned");
+  });
+
+  test("hides snack rows without removing saved menu lines and remembers the browser preference", async () => {
+    const snack = { id: "snack-line", day_of_week: "Monday", meal_type: "am_snack", line_order: 1, recipe_id: null, fs_item_id: "snack-id", quantity: 1, fs_item: { id: "snack-id", name: "Banana snack" } };
+    mockGetCycle.mockResolvedValue({ ...makeCycle(), days: [snack] } as MenuCycle);
+    await renderPage();
+    await act(async () => { container.querySelector<HTMLButtonElement>('button[title="Edit"]')!.click(); });
+    const toggle = container.querySelector<HTMLInputElement>('input[aria-label="Show snack slots"]');
+    expect(toggle).not.toBeNull();
+    await act(async () => { toggle!.click(); });
+    expect(container.textContent).not.toContain("AM Snack");
+    expect(container.textContent).not.toContain("PM Snack");
+    await act(async () => { Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent?.trim() === "Save")!.click(); });
+    expect(mockSaveCycle).toHaveBeenCalledWith("cycle-1", expect.objectContaining({ days: [expect.objectContaining({ meal_type: "am_snack", fs_item_id: "snack-id" })] }));
+    expect(localStorage.getItem("nutriscope.food-service.show-snacks")).toBe("false");
   });
 
   test("explains the difference between estimated and served population accessibly", async () => {
@@ -278,6 +294,7 @@ describe("Menu Cycle template and name editing", () => {
     const lunch = container.querySelector('[data-day="Monday"][data-meal="lunch"]')!;
     expect(lunch.querySelectorAll('[data-menu-editor-item]')).toHaveLength(1);
     expect(lunch.querySelectorAll('[data-menu-editor-add]')).toHaveLength(1);
+    expect(lunch.querySelector('[data-menu-editor-item] > div > :first-child')?.hasAttribute('data-menu-editor-actions')).toBe(true);
     expect(lunch.querySelector('[data-menu-editor-add]')?.textContent?.trim()).toBe("Add item");
     expect(lunch.querySelector('[data-menu-editor-add]')?.getAttribute("aria-label")).toBe("Add item to Monday Lunch");
     expect(Array.from(lunch.querySelectorAll<HTMLElement>('[data-menu-editor-item], [data-menu-editor-add]')).every((slot) => slot.className.includes('h-28'))).toBe(true);

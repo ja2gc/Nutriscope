@@ -239,6 +239,7 @@ function BrowseTab({
 }
 
 function AccomplishmentReportsPanel({ apiPrefix, onFlash }: { apiPrefix: ApiPrefix; onFlash: (ok: boolean, msg: string) => void }) {
+  const browseStaff = apiPrefix === "rnd" || apiPrefix === "admin";
   const [view, setView] = useState<"reports" | "review">("reports");
   const [staff, setStaff] = useState<AccomplishmentStaff[]>([]);
   const [staffMeta, setStaffMeta] = useState<PaginationMeta | null>(null);
@@ -266,8 +267,10 @@ function AccomplishmentReportsPanel({ apiPrefix, onFlash }: { apiPrefix: ApiPref
     setLoading(true);
     setLoadError("");
     try {
-      if (apiPrefix === "rnd" && !selectedStaff) {
-        const result = await listAccomplishmentStaff(staffPage, debouncedStaffSearch);
+      if (browseStaff && !selectedStaff) {
+        const result = apiPrefix === "admin"
+          ? await listAccomplishmentStaff(staffPage, debouncedStaffSearch, "admin")
+          : await listAccomplishmentStaff(staffPage, debouncedStaffSearch);
         setStaff(result.data);
         setStaffMeta(result.meta);
         return;
@@ -282,7 +285,7 @@ function AccomplishmentReportsPanel({ apiPrefix, onFlash }: { apiPrefix: ApiPref
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : "Could not load reports.");
     } finally { setLoading(false); }
-  }, [apiPrefix, coveredMonth, debouncedStaffSearch, page, selectedStaff, staffPage, view]);
+  }, [apiPrefix, browseStaff, coveredMonth, debouncedStaffSearch, page, selectedStaff, staffPage, view]);
   useEffect(() => { void load(); }, [load]);
 
   async function decide(decision: "approve" | "reject") {
@@ -307,7 +310,7 @@ function AccomplishmentReportsPanel({ apiPrefix, onFlash }: { apiPrefix: ApiPref
         {(["reports", "review"] as const).map((key) => <button key={key} type="button" onClick={() => { setView(key); setSelected(null); setPage(1); }} aria-current={view === key} className={`min-h-11 rounded-lg px-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-emerald-600 ${view === key ? "bg-emerald-700 text-white" : "bg-warm-50 text-warm-700"}`}>{key === "review" ? "To Review" : "Approved Reports"}</button>)}
       </div>}
     </div>
-    {apiPrefix === "rnd" && !selectedStaff ? <>
+    {browseStaff && !selectedStaff ? <>
       <div className="border-b border-warm-100 px-4 py-3 sm:px-5"><SearchInput label="Search Food Service Staff" value={staffSearch} onChange={(value) => { setStaffSearch(value); setStaffPage(1); }} /></div>
       {loadError ? <div className="p-5" role="alert"><p className="text-sm text-red-700">{loadError}</p><button type="button" onClick={() => void load()} className="mt-2 min-h-11 font-semibold text-emerald-700">Retry</button></div> : loading ? <p className="px-5 py-10 text-sm text-warm-500">Loading staff…</p> : staff.length === 0 ? <div className="p-6"><EmptyState title="No Food Service Staff found" message="Try another name." /></div> : <ul className="divide-y divide-warm-100">{staff.map((user) => <li key={user.id}><button type="button" onClick={() => { setSelectedStaff(user); setView("reports"); setPage(1); setCoveredMonth(""); }} className="min-h-14 w-full px-4 py-3 text-left font-semibold text-warm-800 hover:bg-warm-50 focus-visible:outline-2 focus-visible:outline-emerald-600 sm:px-5">{user.display_name}</button></li>)}</ul>}
       {!loading && !loadError && <Pagination meta={staffMeta} page={staffPage} onPageChange={setStaffPage} />}

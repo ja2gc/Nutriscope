@@ -17,6 +17,25 @@ vi.mock("@/services/reportService", async (importOriginal) => ({
 
 afterEach(() => { document.body.innerHTML = ""; vi.clearAllMocks(); });
 
+test("Admin selects staff and opens approved reports without review tabs", async () => {
+  vi.mocked(listAccomplishmentStaff).mockResolvedValue({ data: [{ id: "staff-uuid", display_name: "Ada Santos" }], meta: { current_page: 1, last_page: 1, per_page: 10, total: 1 } });
+  vi.mocked(listReports).mockResolvedValue({ data: [{ id: "approved", title: "Approved period", report_covered_from: "2026-07-01", report_covered_until: "2026-07-15" }] as never, meta: { current_page: 1, last_page: 1, per_page: 10, total: 1 } });
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  await act(async () => { root.render(<ReportsBrowser catalog={[{ type: "accomplishment_report", name: "Accomplishment Report", desc: "Periods", icon: () => null, group: "Food Service" }]} apiPrefix="admin" />); });
+  expect(listAccomplishmentStaff).toHaveBeenCalledWith(1, "", "admin");
+  expect(listReports).not.toHaveBeenCalled();
+  await act(async () => { Array.from(container.querySelectorAll("button")).find((button) => button.textContent === "Ada Santos")!.click(); });
+  expect(listReports).toHaveBeenCalledWith("admin", 1, { type: "accomplishment_report", fss_user_id: "staff-uuid" });
+  expect(container.querySelector("h2")?.textContent).toBe("Ada Santos");
+  expect(container.querySelector('[aria-label="Accomplishment views"]')).toBeNull();
+  expect(container.textContent).not.toContain("To Review");
+  expect(listAccomplishmentsToReview).not.toHaveBeenCalled();
+  expect(container.querySelector('button[aria-label="Open report: Approved period"]')).not.toBeNull();
+  await act(async () => root.unmount());
+});
+
 test("RND selects an FSS name before viewing that user's approved and pending periods", async () => {
   vi.mocked(listAccomplishmentStaff).mockResolvedValue({
     data: [{ id: "staff-uuid", display_name: "Ada Santos" }],

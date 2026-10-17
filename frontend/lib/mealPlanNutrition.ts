@@ -6,6 +6,13 @@ type FoodFluidItem = {
   } | null;
 };
 
+export function formatMealPlanAmount(value: number | string | null | undefined): string {
+  const numeric = typeof value === "string" ? Number(value) : value ?? 0;
+  if (!Number.isFinite(numeric)) return "0";
+  if (numeric > 0 && numeric < 0.1) return "<0.1";
+  return new Intl.NumberFormat("en-PH", { maximumFractionDigits: 1, useGrouping: false }).format(numeric);
+}
+
 export function foodFluidBalance(items: FoodFluidItem[], targetMl: number) {
   const foodFluidMl = Math.round(items.reduce((total, item) => {
     const snapshot = item.nutrient_snapshot;

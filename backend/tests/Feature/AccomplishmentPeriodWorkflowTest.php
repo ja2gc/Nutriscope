@@ -16,6 +16,22 @@ class AccomplishmentPeriodWorkflowTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_admin_browses_staff_and_only_their_approved_reports_without_review_access(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $ada = User::factory()->fss()->create(['first_name' => 'Ada', 'last_name' => 'Santos']);
+        $bea = User::factory()->fss()->create();
+        $approved = Report::factory()->create(['user_id' => $ada->id, 'type' => 'accomplishment_report', 'review_state' => 'approved']);
+        Report::factory()->create(['user_id' => $ada->id, 'type' => 'accomplishment_report', 'review_state' => 'pending']);
+        Report::factory()->create(['user_id' => $bea->id, 'type' => 'accomplishment_report', 'review_state' => 'approved']);
+        $this->actingAs($admin)->getJson('/api/admin/accomplishment-periods/staff?search=Ada%20Santos')
+            ->assertOk()->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.id', $ada->uuid);
+        $this->getJson("/api/admin/reports?type=accomplishment_report&fss_user_id={$ada->uuid}")
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $approved->uuid);
+        $this->getJson('/api/rnd/accomplishment-periods/to-review')->assertForbidden();
+        $this->actingAs($bea)->getJson('/api/admin/accomplishment-periods/staff')->assertForbidden();
+    }
+
     public function test_rnd_selects_fss_by_name_before_filtering_the_review_queue_by_user_and_month(): void
     {
         $rnd = User::factory()->rnd()->create();

@@ -34,14 +34,31 @@ const plan: MonitoringPlan = {
   indicators: [{ key: "protein_g", label: "Protein intake", unit: "g", category: "intake", sources: [], reference: null, target: 80, series: [], latest_status: "no_data" },
     { key: "micro_fiber", label: "Fiber intake", unit: "g", category: "intake", sources: [], reference: { min: 25, max: 35 }, target: null, series: [], latest_status: "no_data" }],
 };
-async function open(remaining = 3) {
+async function open(remaining = 3, monitoringPlan = plan) {
   vi.mocked(fetchMonitoringAiBudget).mockResolvedValue({ entry_key: "entry", remaining });
   const save = vi.fn();
-  await act(async () => { root.render(<LogVisitForm ncpId="ncp" plan={plan} context={context} intervention={null} onSubmit={save} onCancel={() => undefined} />); });
+  await act(async () => { root.render(<LogVisitForm ncpId="ncp" plan={monitoringPlan} context={context} intervention={null} onSubmit={save} onCancel={() => undefined} />); });
   return save;
 }
 
 describe("draft monitoring summary", () => {
+  it("expands every narrative field like Assessment without an inner scrollbar", async () => {
+    await open();
+    for (const name of ["Dietary Restrictions", "Intake Notes", "Symptoms and Tolerance", "Progress Assessment"]) {
+      const field = screen.getByRole("textbox", { name }) as HTMLTextAreaElement;
+      expect(field.classList.contains("overflow-hidden")).toBe(true);
+      expect(field.classList.contains("resize-none")).toBe(true);
+      expect(field.style.height).not.toBe("");
+    }
+  });
+
+  it("shows every relevant numeric lab from the shared plan, including previously omitted labs", async () => {
+    const labs = [["hematocrit", "Hematocrit", "%"], ["calcium", "Calcium", "mg/dL"], ["sodium", "Sodium", "mEq/L"], ["bun", "BUN", "mg/dL"], ["hdl", "HDL", "mg/dL"], ["triglycerides", "Triglycerides", "mg/dL"]];
+    await open(3, { ...plan, indicators: labs.map(([key, label, unit]) => ({ key, label, unit, category: "lab", sources: [], reference: null, target: null, series: [], latest_status: "no_data" })) });
+    for (const [, label] of labs) expect(screen.getByRole("spinbutton", { name: new RegExp(label) })).toBeTruthy();
+    expect(screen.queryByRole("spinbutton", { name: /Albumin/ })).toBeNull();
+  });
+
   it("sends current unsaved intake, preserves manual text, and applies an editable suggestion", async () => {
     const save = await open();
     vi.mocked(requestMonitoringAiReview).mockResolvedValue({ narrative: "Intake improved; protein remains below target.", remaining: 2 });
@@ -82,5 +99,15 @@ describe("draft monitoring summary", () => {
     await screen.findByText("0 generations left for this entry");
     expect((screen.getByRole("button", { name: "Generate AI Summary" }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole("textbox", { name: "Progress Assessment" }) as HTMLTextAreaElement).disabled).toBe(false);
+  });
+
+  it("offers manual recovery when the final generation becomes stale", async () => {
+    await open(1);
+    let resolve!: (value: { narrative: string; remaining: number }) => void;
+    vi.mocked(requestMonitoringAiReview).mockReturnValue(new Promise((done) => { resolve = done; }));
+    fireEvent.click(screen.getByRole("button", { name: "Generate AI Summary" }));
+    fireEvent.change(screen.getByRole("spinbutton", { name: /Protein intake/ }), { target: { value: "70" } });
+    await act(async () => { resolve({ narrative: "Outdated summary.", remaining: 0 }); });
+    expect(await screen.findByText(/Entry values changed during generation.*Write or review your summary manually/)).toBeTruthy();
   });
 });

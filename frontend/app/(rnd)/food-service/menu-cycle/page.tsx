@@ -250,6 +250,16 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
   const [description, setDescription] = useState("");
   const [weekStart, setWeekStart] = useState("");
   const [includeSnacks, setIncludeSnacks] = useState(true);
+  const [showSnackSlots, setShowSnackSlots] = useState(true);
+
+  useEffect(() => {
+    try { setShowSnackSlots(localStorage.getItem("nutriscope.food-service.show-snacks") !== "false"); } catch { /* Keep snack slots visible when browser storage is unavailable. */ }
+  }, []);
+
+  function changeSnackVisibility(visible: boolean) {
+    setShowSnackSlots(visible);
+    try { localStorage.setItem("nutriscope.food-service.show-snacks", String(visible)); } catch { /* The toggle still works for this editor session. */ }
+  }
 
   const [grid, setGrid] = useState<Grid>({});
   // Served (actual) population per weekday for the active week — logged by FSS/RND,
@@ -596,7 +606,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
     const displayTemplate = isTemplate || Boolean(preview);
     const displayReadOnly = planReadOnly || Boolean(preview);
     const displayGrid = preview ? gridFromTemplate(preview) : grid;
-    const displaySnacks = preview ? preview.days.some((day) => day.meal_type === "am_snack" || day.meal_type === "pm_snack") : includeSnacks;
+    const displaySnacks = preview ? preview.days.some((day) => day.meal_type === "am_snack" || day.meal_type === "pm_snack") : isTemplate ? includeSnacks : showSnackSlots;
     return (
       <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
         <table className="w-full text-sm border-collapse">
@@ -668,7 +678,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
             </tr>
           </thead>
           <tbody>
-            {MEALS.filter((meal) => !displayTemplate || displaySnacks || (meal !== "am_snack" && meal !== "pm_snack")).map((m) => (
+            {MEALS.filter((meal) => displaySnacks || (meal !== "am_snack" && meal !== "pm_snack")).map((m) => (
               <tr key={m} className="border-b border-warm-100 last:border-0">
                 <td className="px-3 py-3 font-bold text-warm-600 sticky left-0 bg-white whitespace-nowrap">{MEAL_LABELS[m]}</td>
                 {DAYS.map((d) => {
@@ -680,6 +690,9 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
                       <MenuEditorSlots
                         items={lines.map((cell, lineIndex) => (
                           <div key={cell.id ?? `${key}-${lineIndex}`} className="flex h-full flex-col justify-between gap-1 text-left">
+                            {!displayReadOnly && <div data-menu-editor-actions className="flex shrink-0 justify-start">
+                              <button onClick={() => clearLine(key, lineIndex)} aria-label={`Remove ${cell.recipe_name}`} className="h-7 w-7 text-emerald-400 hover:text-red-500 cursor-pointer shrink-0 flex items-center justify-center"><X className="h-3 w-3" /></button>
+                            </div>}
                             <div className="flex min-h-0 items-start justify-between gap-1">
                               <button
                                 id={`menu-item-${Boolean(preview)}-${d}-${m}-${lineIndex}`}
@@ -688,9 +701,6 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
                                 className="line-clamp-2 min-h-0 flex-1 overflow-hidden break-words text-xs font-semibold leading-tight text-left text-emerald-800 enabled:hover:underline enabled:cursor-pointer">
                                 {cell.recipe_name}
                               </button>
-                              {!displayReadOnly && (
-                                <button onClick={() => clearLine(key, lineIndex)} aria-label={`Remove ${cell.recipe_name}`} className="h-7 w-7 text-emerald-400 hover:text-red-500 cursor-pointer shrink-0 flex items-center justify-center"><X className="h-3 w-3" /></button>
-                              )}
                             </div>
                             {(cell.portion_label || cell.hasRecipeOverride) && <div className="truncate text-xs font-medium text-emerald-700">{cell.hasRecipeOverride ? "Customized item" : cell.portion_label}</div>}
                           </div>
@@ -785,6 +795,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
       {templateNotice && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">{templateNotice}</div>}
 
       {isTemplate && !readOnly && <label className="flex min-h-11 items-center gap-3 text-sm font-semibold text-warm-700"><input type="checkbox" aria-label="Include snacks" checked={includeSnacks} onChange={(event) => setIncludeSnacks(event.target.checked)} className="h-4 w-4 accent-emerald-600" /> Include AM and PM snacks</label>}
+      {!isTemplate && <label className="flex min-h-11 items-center gap-3 text-sm font-semibold text-warm-700"><input type="checkbox" aria-label="Show snack slots" checked={showSnackSlots} onChange={(event) => changeSnackVisibility(event.target.checked)} className="h-4 w-4 accent-emerald-600" /> Show snack slots</label>}
 
       {/* Settings */}
       <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm grid grid-cols-1 sm:grid-cols-2 gap-4">
