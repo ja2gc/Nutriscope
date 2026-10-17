@@ -5,6 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import NewRecipePage from "./page";
+import { createRecipe } from "@/services/foodLibraryService";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("@/services/foodLibraryService", () => ({
@@ -45,4 +46,32 @@ test("Menu Item editor uses canonical categories, measured units, and converted 
   expect(quantity.getAttribute("step")).toBe("0.000001");
   await act(async () => user.type(quantity, "0.5"));
   expect(container.textContent).toContain("500.0");
+});
+
+test("Create Menu Item accepts branded nutrition facts in the same form", async () => {
+  container = document.createElement("div");
+  document.body.append(container);
+  root = createRoot(container);
+  await act(async () => root.render(<NewRecipePage />));
+  const source = container.querySelector('[aria-label="Nutrition source"]');
+  expect(source).not.toBeNull();
+  const user = userEvent.setup();
+  await act(async () => user.selectOptions(source!, "label"));
+  await act(async () => user.type(container.querySelector('[aria-label="Menu Item Name"]')!, "Demo branded drink"));
+  await act(async () => user.selectOptions(container.querySelector('[aria-label="Category"]')!, "snack"));
+  await act(async () => user.type(container.querySelector('[aria-label="Recipe yield (servings)"]')!, "6"));
+  const amount = container.querySelector('[aria-label="Label serving amount"]')!;
+  await act(async () => { await user.clear(amount); await user.type(amount, "250"); });
+  await act(async () => user.selectOptions(container.querySelector('[aria-label="Label serving unit"]')!, "mL"));
+  await act(async () => user.type(container.querySelector('[aria-label="Calories (kcal)"]')!, "120"));
+  await act(async () => user.type(container.querySelector('[aria-label="Calcium (mg)"]')!, "300"));
+  await act(async () => user.click(container.querySelector('[aria-label="Contains milk"]')!));
+  const submit = container.querySelector('button[type="submit"]')!;
+  await act(async () => user.click(submit));
+  expect(createRecipe).toHaveBeenCalledWith(expect.objectContaining({
+    name: "Demo branded drink", category: "snack", servings: 6,
+    nutrition_label: expect.objectContaining({ serving_size: 250, serving_unit: "mL", calories: 120, micronutrients: { calcium: 300 }, allergens: ["milk"] }),
+  }));
+  expect(vi.mocked(createRecipe).mock.calls[0][0]).not.toHaveProperty("ingredients");
+  expect(container.textContent).not.toContain("Single Item");
 });

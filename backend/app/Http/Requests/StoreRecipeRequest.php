@@ -31,16 +31,38 @@ class StoreRecipeRequest extends FormRequest
                 ? 'required|integer|between:1,10000'
                 : 'sometimes|integer|between:1,10000',
             'ingredients' => $isPost
-                ? 'required|array|min:1'
+                ? 'required_without:nutrition_label|prohibits:nutrition_label|array|min:1'
                 : 'sometimes|array|min:1',
             'ingredients.*.food_item_id' => 'required_with:ingredients.*|string|exists:food_items,uuid',
             'ingredients.*.quantity' => 'required_with:ingredients.*|numeric|between:0.000001,100000|decimal:0,6',
             'ingredients.*.unit' => 'required_with:ingredients.*|string|max:50',
+            'nutrition_label' => $isPost ? 'sometimes|array:serving_size,serving_unit,calories,protein,carbs,fat,water_g,micronutrients,allergens' : 'prohibited',
+            'nutrition_label.serving_size' => 'required_with:nutrition_label|numeric|between:0.000001,10000|decimal:0,6',
+            'nutrition_label.serving_unit' => 'required_with:nutrition_label|string|max:50',
+            'nutrition_label.calories' => 'required_with:nutrition_label|numeric|between:0,10000|decimal:0,2',
+            'nutrition_label.protein' => 'sometimes|nullable|numeric|between:0,1000|decimal:0,2',
+            'nutrition_label.carbs' => 'sometimes|nullable|numeric|between:0,1000|decimal:0,2',
+            'nutrition_label.fat' => 'sometimes|nullable|numeric|between:0,1000|decimal:0,2',
+            'nutrition_label.water_g' => 'sometimes|nullable|numeric|min:0|decimal:0,2',
+            'nutrition_label.micronutrients' => 'sometimes|array:sodium,potassium,phosphate,calcium,iron,magnesium,zinc,fiber,free_sugars,cholesterol,vitamin_a,vitamin_c,vitamin_d,vitamin_b12,folate,omega3',
+            'nutrition_label.micronutrients.*' => 'numeric|min:0|decimal:0,2',
+            'nutrition_label.allergens' => 'sometimes|array',
+            'nutrition_label.allergens.*' => 'string|max:100',
         ];
     }
 
     protected function prepareForValidation(): void
     {
+        if (is_array($this->input('nutrition_label'))) {
+            $label = $this->input('nutrition_label');
+            if (is_string($label['serving_unit'] ?? null)) {
+                $label['serving_unit'] = UnitConverter::canonical($label['serving_unit']);
+            }
+            if (is_float($label['serving_size'] ?? null) && round($label['serving_size'], 6) === $label['serving_size']) {
+                $label['serving_size'] = number_format($label['serving_size'], 6, '.', '');
+            }
+            $this->merge(['nutrition_label' => $label]);
+        }
         if (is_array($this->input('ingredients'))) {
             $this->merge(['ingredients' => array_map(function ($ingredient) {
                 if (is_array($ingredient) && is_string($ingredient['unit'] ?? null)) {
@@ -58,7 +80,25 @@ class StoreRecipeRequest extends FormRequest
     public function after(): array
     {
         return [function (Validator $validator): void {
-            if ($validator->errors()->isNotEmpty() || ! $this->has('ingredients')) {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+            if ($this->has('nutrition_label')) {
+                $unit = $this->input('nutrition_label.serving_unit');
+                $size = (float) $this->input('nutrition_label.serving_size');
+                if (! UnitConverter::isKnown($unit) && $unit !== 'piece') {
+                    $validator->errors()->add('nutrition_label.serving_unit', 'Choose a mass, volume, or measured piece unit.');
+                }
+                if ($unit === 'piece' && $size !== 1.0) {
+                    $validator->errors()->add('nutrition_label.serving_size', 'Enter the measured nutrients for one piece and use a baseline of 1 piece.');
+                }
+                if ($size * (int) $this->input('servings') > 100000) {
+                    $validator->errors()->add('nutrition_label.serving_size', 'The full batch amount must not exceed 100,000 in the selected unit.');
+                }
+
+                return;
+            }
+            if (! $this->has('ingredients')) {
                 return;
             }
             $foods = FoodItem::query()->whereIn('uuid', array_column($this->input('ingredients'), 'food_item_id'))->get()->keyBy('uuid');

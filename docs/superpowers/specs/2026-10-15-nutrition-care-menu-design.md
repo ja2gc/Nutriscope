@@ -140,6 +140,15 @@ Allow at most three successful generations per pending entry, enforced server-si
 
 NCP Summary retains each saved Monitoring Progress Assessment as Evaluation / Summary. Its Intervention section spells out Carbohydrate and Protein and lists all micronutrient minimum/maximum targets from the latest saved plan. Signature labels retain adequate writing space above their name lines.
 
+### Approved menu/profile refinements — 2026-10-17
+
+- Keep one **Create Menu Item** form. Its Nutrition source can use measured Ingredients or a nutrition facts label, including branded/packaged products. Label values use a measured serving amount/unit, calories, optional macros/water/micronutrients and allergens. Save a reusable Ingredient and the existing Menu Item atomically; the full-batch ingredient amount equals the label serving amount multiplied by the recorded yield. Existing unit conversion, allergen, scaling and frozen-snapshot paths remain authoritative. There is no separate Single Item button or subsystem.
+- Use shared 128px item/add slots throughout web menu editors. Center item names. Clicking the card opens its profile; the only slot action is a compact X at the top right. Template lists have one Edit opening action and no separate eye action. Existing delete actions remain available.
+- Food Library Templates hide Qty/Unit editing while preserving saved baseline quantities. Their cards open the same read-only full-page Menu Item profile used elsewhere, including yield, ingredients, preparation notes, macros and micronutrients. Returning preserves the template draft. Food Service profiles share the layout without adding clinical nutrient fields to its separate costing domain.
+- Intervention cards open a full-page portion profile. Display nutrients and ingredient amounts for the planned servings, using frozen nutrient bases where present. Editing a displayed ingredient amount maps it back to the existing whole-batch override contract. Changes affect only that plan. New snapshots retain preparation notes; historical snapshots without notes remain without recorded notes.
+- Every Food Service and NCP template/planning calendar has **Show snack slots**, including template previews. This browser preference hides AM/PM rows without deleting items, filtering saved payloads, or changing purchasing. It is distinct from Auto-Generate's **Exclude snacks**, which controls generated composition.
+- Preserve historical direct-food report layouts and frozen report bytes. New label-based Menu Items use the existing recipe-yield portion cards. Do not promise that copying a legacy direct-food line can never reproduce its older layout.
+
 ## Outside scope
 
 No Food Service nutrition engine merge; no new clinical advice engine, density database, ready-to-eat selection, direct Ingredient/USDA selection for new weekly menus, bulk copy-day action, report type, or change to historical archived report bytes. Do not add user-facing technical flags or identifiers.

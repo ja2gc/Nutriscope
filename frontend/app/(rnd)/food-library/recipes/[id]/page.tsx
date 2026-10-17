@@ -2,7 +2,8 @@
 
 import React, { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { MenuItemProfile, MENU_ITEM_NUTRIENT_UNITS as NUTRIENT_UNITS } from "@/components/ncp/MenuItemProfile";
 import { CookingPot, ArrowLeft, Search, Plus, X, Loader2, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { InfoHint } from "@/components/ui/InfoHint";
@@ -24,16 +25,8 @@ interface IngredientRow {
 const NUTRIENT_GROUPS = {
   Minerals: ["sodium","potassium","phosphate","calcium","iron","magnesium","zinc","copper","manganese","selenium","iodine"],
   Vitamins: ["vitamin_a","vitamin_c","vitamin_d","vitamin_e","vitamin_k","vitamin_b1","vitamin_b2","vitamin_b3","vitamin_b6","vitamin_b12","folate"],
-  "Fatty Acids & Other": ["fiber","cholesterol","omega3"],
+  "Fatty Acids & Other": ["fiber","free_sugars","cholesterol","omega3"],
 } as const;
-
-const NUTRIENT_UNITS: Record<string, string> = {
-  sodium:"mg", potassium:"mg", phosphate:"mg", calcium:"mg", iron:"mg",
-  magnesium:"mg", zinc:"mg", copper:"mg", manganese:"mg", selenium:"mcg", iodine:"mcg",
-  vitamin_a:"mcg", vitamin_c:"mg", vitamin_d:"mcg", vitamin_e:"mg", vitamin_k:"mcg",
-  vitamin_b1:"mg", vitamin_b2:"mg", vitamin_b3:"mg", vitamin_b6:"mg", vitamin_b12:"mcg", folate:"mcg",
-  fiber:"g", cholesterol:"mg", omega3:"g",
-};
 
 function calcMacros(rows: IngredientRow[]) {
   let cal = 0, pro = 0, carb = 0, fat = 0;
@@ -69,6 +62,7 @@ let rowKey = 2000;
 export default function EditRecipePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
+  const readOnly = useSearchParams().get("view") === "1";
 
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [loading, setLoading] = useState(true);
@@ -126,6 +120,7 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (readOnly) return;
     if (!name.trim()) { setError("Menu Item name is required."); return; }
     if (!category || ingredients.some((row) => !row.food || clinicalIngredientFactor(Number(row.quantity), row.unit, Number(row.food.serving_size), row.food.serving_unit ?? "") === null)) {
       setError("Choose a category and measured Ingredients with positive quantities in compatible units."); return;
@@ -147,6 +142,12 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
 
   if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="h-6 w-6 animate-spin text-emerald-600" /></div>;
   if (!recipe && error) return <div className="p-6 bg-red-50 border border-red-100 rounded-2xl text-sm text-red-700 font-bold">{error}</div>;
+  if (readOnly && recipe) return <MenuItemProfile
+    name={recipe.name} servings={recipe.servings} prepNotes={recipe.prep_notes}
+    nutrients={{ calories: recipe.total_calories, protein: recipe.total_protein, carbs: recipe.total_carbs, fat: recipe.total_fat, water_g: recipe.total_water_g, micronutrients: recipe.micronutrients }}
+    ingredients={recipe.ingredients.map((ingredient) => ({ id: ingredient.id, name: ingredient.food_item?.name ?? 'Ingredient', quantity: ingredient.quantity, unit: ingredient.unit }))}
+    onBack={() => router.back()} backLabel="Back"
+  />;
 
   return (
     <div className="space-y-6 font-sans max-w-3xl mx-auto">

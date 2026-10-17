@@ -5,10 +5,11 @@ import { createRoot } from "react-dom/client";
 import { expect, test, vi } from "vitest";
 import EditRecipePage from "./page";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+const { profileParams } = vi.hoisted(() => ({ profileParams: new URLSearchParams() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }), useSearchParams: () => profileParams }));
 vi.mock("@/services/foodLibraryService", () => ({
   updateRecipe: vi.fn(), fetchFoodItems: vi.fn(),
-  fetchRecipeById: vi.fn(async () => ({ id: "recipe-1", name: "Measured Meal", category: "meal", servings: 5, ingredients: [{ quantity: "0.5", unit: "kg", food_item: { id: "food-1", name: "Measured Ingredient", serving_size: "100", serving_unit: "g", calories: "100", protein: "10", carbs: "20", fat: "2", micronutrients: { iron: 2 } } }] })),
+  fetchRecipeById: vi.fn(async () => ({ id: "recipe-1", name: "Measured Meal", category: "meal", servings: 5, total_calories: '500', total_protein: '50', total_carbs: '100', total_fat: '10', micronutrients: { iron: 10 }, ingredients: [{ id: 1, quantity: "0.5", unit: "kg", food_item: { id: "food-1", name: "Measured Ingredient", serving_size: "100", serving_unit: "g", calories: "100", protein: "10", carbs: "20", fat: "2", micronutrients: { iron: 2 } } }] })),
 }));
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -33,4 +34,19 @@ test("existing Menu Item keeps batch amounts and converts macro and micro previe
     await act(async () => root.unmount());
     container.remove();
   }
+});
+
+test("recipe profile view displays the same complete profile without editing controls", async () => {
+  profileParams.set("view", "1");
+  const container = document.createElement("div"); document.body.append(container);
+  const root = createRoot(container);
+  const params = Promise.resolve({ id: "recipe-1" });
+  try {
+    await act(async () => root.render(<Suspense fallback={null}><EditRecipePage params={params} /></Suspense>));
+    expect(container.querySelector('[aria-label="Menu Item profile"]')).not.toBeNull();
+    expect(container.textContent).toContain("Recipe makes: 5 servings");
+    expect(container.textContent).toContain("Measured Ingredient");
+    expect(container.textContent).toContain("Iron");
+    expect(container.querySelectorAll("input, select, textarea, button[type=submit]")).toHaveLength(0);
+  } finally { profileParams.delete("view"); await act(async () => root.unmount()); container.remove(); }
 });

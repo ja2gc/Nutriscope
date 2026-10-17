@@ -79,6 +79,12 @@ describe("monitoring workflow UI", () => {
     expect(html).not.toMatch(/lucide-(clipboard-list|target|stethoscope|flask-conical)/);
   });
 
+  it("shows recorded micronutrient intake with the same units as logging and graphs", () => {
+    const html = renderToStaticMarkup(<MonitoringVisitDetails entry={{ ...entry, lab_values: { micro_fiber: 22, micro_sodium: 2300 } }} mode="full" />);
+    expect(html).toContain("22 g");
+    expect(html).toContain("2300 mg");
+  });
+
   it("orders complete effective reassessment fields without intervention actions", () => {
     const html = renderToStaticMarkup(<LogVisitForm
       plan={null}

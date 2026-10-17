@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   Plus, X, Search, Loader2, Trash2, BookmarkPlus,
-  Wand2, AlertTriangle, LayoutTemplate, Edit2,
+  Wand2, AlertTriangle, LayoutTemplate,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
@@ -21,7 +21,8 @@ import {
 } from "@/services/foodLibraryService";
 import MacroTrackerBar from "./MacroTrackerBar";
 import { WeeklyMenuCalendar, MENU_DAYS, MENU_SLOTS } from "@/components/ncp/WeeklyMenuCalendar";
-import { MenuEditorSlots } from "@/components/ncp/MenuEditorSlots";
+import { MenuEditorSlots, MenuEditorActions, MenuEditorAction } from "@/components/ncp/MenuEditorSlots";
+import { MenuItemProfile, RecipeMenuItemProfile } from "@/components/ncp/MenuItemProfile";
 import { ALL_MICROS } from "@/lib/nutritionCalculations";
 import { foodFluidBalance, formatMealPlanAmount } from "@/lib/mealPlanNutrition";
 import { clinicalIngredientFactor } from "@/lib/clinicalUnits";
@@ -142,11 +143,14 @@ export default function MealPlanSection({
 
   // Edit meal item
   const [editTarget, setEditTarget]           = useState<EditTarget | null>(null);
+  const editRequest = useRef(0);
   const [editServings, setEditServings]       = useState<string>('1');
   const [editRecipe, setEditRecipe]           = useState<Pick<Recipe, 'name' | 'servings' | 'ingredients'> | null>(null);
   const [editIngredients, setEditIngredients] = useState<{ id: number; qty: string; ing: RecipeIngredient }[]>([]);
+  const [editAmountDrafts, setEditAmountDrafts] = useState<Record<number, string>>({});
   const [editLoadingRecipe, setEditLoadingRecipe] = useState(false);
   const [editSaving, setEditSaving]           = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
   const [editTab, setEditTab]                 = useState<'scale' | 'ingredients'>('scale');
 
   // Food picker
@@ -160,6 +164,7 @@ export default function MealPlanSection({
   const [adding, setAdding]                   = useState<number | string | null>(null);
   const [pickerError, setPickerError]         = useState<string | null>(null);
   const [savingToLibrary, setSavingToLibrary] = useState<string | null>(null);
+  const [templateProfile, setTemplateProfile] = useState<{ id: string; name: string } | null>(null);
   useEffect(() => {
     if (!pickerOpen) return;
     let cancelled = false;
@@ -478,11 +483,14 @@ export default function MealPlanSection({
   // ── Edit modal ─────────────────────────────────────────────────────────────
 
   const openEdit = (item: MealPlanItem, dayId: string, key: string) => {
+    const request = ++editRequest.current;
     setEditTarget({ item, dayId, slotKey: key });
+    setEditError(null);
     setEditServings(item.quantity ?? '1');
     setEditTab('scale');
     setEditRecipe(null);
     setEditIngredients([]);
+    setEditAmountDrafts({});
     const snapshot = item.nutrient_snapshot;
     if (snapshot?.recipe_yield && snapshot.recipe_original_ingredients?.length && snapshot.recipe_original_ingredients.every((ingredient) => ingredient.id && ingredient.food_item)) {
       const ingredients = snapshot.recipe_original_ingredients.map((ingredient) => ({
@@ -493,14 +501,19 @@ export default function MealPlanSection({
       setEditLoadingRecipe(false);
       return;
     }
+    if (readOnly) {
+      setEditLoadingRecipe(false);
+      return;
+    }
     if (item.recipe_id) {
       setEditLoadingRecipe(true);
       fetchRecipeById(item.recipe_id).then((recipe) => {
+        if (request !== editRequest.current) return;
         setEditRecipe(recipe);
         setEditIngredients(recipe.ingredients.map((ingredient) => ({
           id: ingredient.id, qty: String(item.ingredient_overrides?.find((row) => row.id === ingredient.id)?.quantity ?? ingredient.quantity), ing: ingredient,
         })));
-      }).finally(() => setEditLoadingRecipe(false));
+      }).catch((cause) => { if (request === editRequest.current) setEditError(cause instanceof Error ? cause.message : 'Could not load ingredients. Try again.'); }).finally(() => { if (request === editRequest.current) setEditLoadingRecipe(false); });
     }
   };
 
@@ -547,7 +560,8 @@ export default function MealPlanSection({
       const payload: { quantity?: number; ingredient_overrides?: { id: number; quantity: number }[] } = {};
       if (editTab === 'scale') {
         payload.quantity = Number(editServings);
-      } else {
+      }
+      if (editTab === 'ingredients' || editIngredients.some((row) => Number(row.qty) !== Number(row.ing.quantity))) {
         payload.ingredient_overrides = editIngredients.map(({ id, qty }) => ({ id, quantity: Number(qty || 0) }));
         payload.quantity = Number(editServings);
       }
@@ -570,6 +584,8 @@ export default function MealPlanSection({
       }));
       markPlanNeedsScaling(activePlan.id);
       setEditTarget(null);
+    } catch (cause) {
+      setEditError(cause instanceof Error ? cause.message : 'Could not save this portion. Try again.');
     } finally { setEditSaving(false); }
   };
 
@@ -664,18 +680,46 @@ export default function MealPlanSection({
     { label: 'Fat',     current: selectedTotals.fat,   target: t.fat,           unit: 'g'    },
   ];
 
-  const editScaledSnap = (() => {
-    const snapshot = editTarget?.item.nutrient_snapshot;
-    if (!snapshot) return null;
-    const amount = Number(editServings) || 1;
-    const scale = snapshot.serving_size > 0 ? amount / snapshot.serving_size : amount;
-    return {
-      cal: Math.round(snapshot.calories * scale),
-      prot: Math.round(snapshot.protein * scale),
-      carb: Math.round(snapshot.carbs * scale),
-      fat: Math.round(snapshot.fat * scale),
-    };
-  })();
+  if (templateProfile) return <RecipeMenuItemProfile id={templateProfile.id} name={templateProfile.name} onBack={() => setTemplateProfile(null)} />;
+
+  if (editTarget) {
+    const snapshot = editRecipe && editIngredients.length > 0 ? recalcFromIngredients() : editTarget.item.nutrient_snapshot;
+    const portion = Number(editServings);
+    const factor = portion / (Number(editRecipe?.servings) || 1);
+    const nutrientFactor = portion / (Number(snapshot?.serving_size) || 1);
+    return <MenuItemProfile
+      name={editTarget.item.nutrient_snapshot?.name ?? 'Menu Item'}
+      servings={editRecipe?.servings}
+      prepNotes={editTarget.item.nutrient_snapshot?.prep_notes ?? (editRecipe && 'prep_notes' in editRecipe ? String(editRecipe.prep_notes ?? '') : null)}
+      onBack={() => setEditTarget(null)} backLabel="Back to menu plan" nutritionBasis="Planned portion"
+      ingredients={editIngredients.map((row) => ({ id: row.id, name: row.ing.food_item?.name ?? 'Ingredient', quantity: Number(row.qty) * factor, unit: row.ing.unit }))}
+      nutrients={{
+        calories: Number(snapshot?.calories ?? 0) * nutrientFactor,
+        protein: Number(snapshot?.protein ?? 0) * nutrientFactor,
+        carbs: Number(snapshot?.carbs ?? 0) * nutrientFactor,
+        fat: Number(snapshot?.fat ?? 0) * nutrientFactor,
+        water_g: Number(snapshot?.water_g ?? 0) * nutrientFactor,
+        micronutrients: Object.fromEntries(Object.entries(snapshot?.micronutrients ?? {}).map(([key, value]) => [key, value * nutrientFactor])),
+      }}
+      controls={<div className="space-y-3">
+        <p className="text-xs text-warm-500">Changes affect this plan only. Ingredient amounts and nutrients below are for the planned portion.</p>
+        <label className="block text-sm font-semibold text-warm-700">Planned portion <input aria-label="Planned portion" type="number" min="0.01" max="100000" step="0.01" value={editServings} onChange={(event) => { setEditServings(event.target.value); setEditAmountDrafts({}); }} disabled={readOnly} className="ml-2 w-28 rounded-lg border border-warm-200 px-3 py-2 text-base" /> {editTarget.item.unit}</label>
+        {!readOnly && <div className="flex gap-2"><Button variant={editTab === 'scale' ? 'secondary' : 'ghost'} size="sm" onClick={() => setEditTab('scale')}>Portion</Button><Button variant={editTab === 'ingredients' ? 'secondary' : 'ghost'} size="sm" onClick={() => setEditTab('ingredients')}>Ingredients</Button></div>}
+        {editLoadingRecipe && <p role="status" className="text-sm text-warm-500">Loading ingredients…</p>}
+        {editError && <p role="alert" className="text-sm text-red-700">{editError}</p>}
+      </div>}
+      renderIngredientAmount={!readOnly && editTab === 'ingredients' ? (ingredient) => <label className="flex items-center gap-2 text-sm text-warm-600"><input aria-label={`Amount of ${ingredient.name}`} type="number" min="0.000001" step="0.000001" value={editAmountDrafts[ingredient.id] ?? Number(Number(ingredient.quantity).toPrecision(12))} onChange={(event) => {
+        if (!(factor > 0)) return;
+        setEditAmountDrafts((previous) => ({ ...previous, [ingredient.id]: event.target.value }));
+        const amount = event.target.value === '' ? '' : String(Number((Number(event.target.value) / factor).toFixed(6)));
+        setEditIngredients((previous) => previous.map((row) => row.id === ingredient.id ? { ...row, qty: amount } : row));
+      }} className="w-28 rounded-lg border border-warm-200 px-2 py-2 text-right text-base" /> {ingredient.unit}</label> : undefined}
+      actions={!readOnly ? <>
+        {editTarget.item.source === 'usda' && editTarget.item.fdc_id && <Button variant="secondary" loading={savingToLibrary === editTarget.item.fdc_id} onClick={() => { const fdcId = editTarget.item.fdc_id!; setSavingToLibrary(fdcId); importUsdaFood(Number(fdcId)).catch((cause) => setEditError(cause instanceof Error ? cause.message : 'Could not save to library.')).finally(() => setSavingToLibrary(null)); }}>Save to Library</Button>}
+        <Button variant="secondary" onClick={() => setEditTarget(null)}>Cancel</Button><Button variant="primary" loading={editSaving} disabled={editLoadingRecipe || !(portion >= 0.01) || portion > 100000 || editIngredients.some((row) => !(Number(row.qty) > 0) || Number(row.qty) > 100000)} onClick={() => void handleSaveEdit()}>Save Changes</Button>
+      </> : undefined}
+    />;
+  }
 
   return (
     <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm space-y-4">
@@ -851,23 +895,21 @@ export default function MealPlanSection({
               const key = slotKey(dayName, mt);
               const items = itemsByKey[key] ?? [];
               return (
-                <MenuEditorSlots items={items.map((item) => {
+                <MenuEditorSlots itemActions={items.map((item) => ({ label: `${readOnly ? 'View' : 'Edit'} ${item.nutrient_snapshot?.name ?? 'Menu Item'}`, onOpen: () => openEdit(item, day.id, key) }))} items={items.map((item) => {
                     const s = item.nutrient_snapshot;
                     const isDisliked = foodDislikes.some((d) => s?.name?.toLowerCase().includes(d));
                     return <div key={item.id} className="flex h-full flex-col justify-between gap-1">
-                          {!readOnly && <div data-menu-editor-actions className="flex shrink-0 justify-start gap-1">
-                            <Button variant="icon" onClick={() => openEdit(item, day.id, key)} title="Edit" aria-label={`Edit ${s?.name ?? 'Menu Item'}`} className="h-8 w-8 hover:text-sky-600 hover:bg-sky-50"><Edit2 className="h-3 w-3" /></Button>
-                            {item.source === 'usda' && <Button variant="icon" onClick={() => { if (item.fdc_id) { setSavingToLibrary(item.fdc_id); importUsdaFood(parseInt(item.fdc_id)).finally(() => setSavingToLibrary(null)); } }} disabled={savingToLibrary === item.fdc_id} title="Save to Library" aria-label={`Save ${s?.name ?? 'food'} to Library`} className="h-8 w-8 hover:text-emerald-600 hover:bg-emerald-50">{savingToLibrary === item.fdc_id ? <Loader2 className="h-3 w-3 animate-spin" /> : <BookmarkPlus className="h-3 w-3" />}</Button>}
-                            <Button variant="icon" onClick={() => removeItem(key, day.id, item.id)} aria-label={`Remove ${s?.name ?? 'Menu Item'}`} className="h-8 w-8 hover:text-red-600"><Trash2 className="h-3 w-3" /></Button>
-                          </div>}
+                          <MenuEditorActions>
+                            {!readOnly && <MenuEditorAction kind="remove" onClick={() => void removeItem(key, day.id, item.id)} label={`Remove ${s?.name ?? 'Menu Item'}`} />}
+                          </MenuEditorActions>
                           <div className="flex min-h-0 items-start justify-between gap-1">
                             <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                              {item.recipe_id ? <a href={`/food-library/recipes/${item.recipe_id}`} target="_blank" rel="noopener noreferrer" title={s?.name ?? 'Menu Item'} className="line-clamp-2 min-w-0 overflow-hidden break-words text-xs font-semibold leading-4 text-warm-800 underline">{s?.name ?? 'Menu Item'}</a> : <span title={s?.name ?? '—'} className="line-clamp-2 min-w-0 overflow-hidden break-words text-xs font-semibold leading-4 text-warm-800">{s?.name ?? '—'}</span>}
+                              <p className="line-clamp-2 w-full min-w-0 overflow-hidden break-words text-center text-xs font-semibold leading-4 text-warm-800">{s?.name ?? 'Menu Item'}</p>
                               {item.source === 'usda' && <span className="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 rounded-full uppercase">USDA</span>}
                               {isDisliked && (
-                                <InfoHint label={`Patient dislikes ${s?.name ?? "this food"}`} title="Patient food dislike">
+                                <span className="pointer-events-auto relative z-10"><InfoHint label={`Patient dislikes ${s?.name ?? "this food"}`} title="Patient food dislike">
                                   Patient marked this food as disliked. Review the item before using this plan.
-                                </InfoHint>
+                                </InfoHint></span>
                               )}
                             </div>
                           </div>
@@ -908,117 +950,6 @@ export default function MealPlanSection({
         </div>
       </div>}
 
-      {!readOnly && editTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 flex flex-col max-h-[85vh]">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-warm-100">
-              <div>
-                <h3 className="text-base font-extrabold text-warm-900">{editTarget.item.nutrient_snapshot?.name ?? 'Edit Meal'}</h3>
-                <p className="text-xs text-warm-400">Changes only affect this plan — not the recipe library.</p>
-              </div>
-              <button onClick={() => setEditTarget(null)} className="text-warm-400 hover:text-warm-700 cursor-pointer"><X className="h-4 w-4" /></button>
-            </div>
-
-            {/* Tabs */}
-            <div className="flex border-b border-warm-100 px-6">
-              {(['scale', 'ingredients'] as const).map((tab) => (
-                <button key={tab} onClick={() => setEditTab(tab)}
-                  className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors cursor-pointer ${editTab === tab ? 'border-sky-600 text-sky-700' : 'border-transparent text-warm-400 hover:text-warm-600'}`}>
-                  {tab === 'scale' ? 'Portion' : 'Ingredients'}
-                </button>
-              ))}
-            </div>
-
-            <div className="overflow-y-auto flex-1 p-6 space-y-4">
-              {/* Master scale tab */}
-              {editTab === 'scale' && (
-                <div className="space-y-4">
-                  <p className="text-xs text-warm-400">Adjust the planned portion. Nutrients and recipe ingredients scale proportionally.</p>
-                  <div className="space-y-2">
-                    <label className="block text-xs font-bold text-warm-400 uppercase tracking-widest">Planned Portion</label>
-                    <div className="flex items-center gap-3">
-                      <input type="number" min="0.01" step="any"
-                        value={editServings}
-                        onChange={(e) => setEditServings(e.target.value)}
-                        className="w-28 px-3 py-2 text-base font-mono border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500" />
-                      <span className="text-sm text-warm-400">{editTarget.item.unit}</span>
-                    </div>
-                  </div>
-                  {editScaledSnap && (
-                    <div className="grid grid-cols-4 gap-2 pt-2">
-                      {[['Energy', editScaledSnap.cal, 'kcal'], ['Protein', editScaledSnap.prot, 'g'], ['Carbs', editScaledSnap.carb, 'g'], ['Fat', editScaledSnap.fat, 'g']].map(([label, val, unit]) => (
-                        <div key={String(label)} className="bg-sky-50 border border-sky-100 rounded-xl p-2.5 text-center">
-                          <p className="text-xs font-bold text-sky-500 uppercase">{label}</p>
-                          <p className="text-base font-extrabold font-mono text-warm-900">{val}<span className="text-xs font-normal text-warm-400 ml-0.5">{unit}</span></p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Ingredients tab */}
-              {editTab === 'ingredients' && (
-                <div className="space-y-3">
-                  {!editTarget.item.recipe_id && (
-                    <p className="text-sm text-warm-400 italic">Ingredient editing is only available for recipe-based items.</p>
-                  )}
-                  {editLoadingRecipe && <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-warm-400" /></div>}
-                  {editRecipe && editIngredients.length > 0 && (
-                    <>
-                      <p className="text-xs text-warm-400">
-                        Modify ingredient quantities. &ldquo;Recalculate&rdquo; updates the nutrition for this plan item only.
-                        Recipe makes <strong>{editRecipe.servings ?? 1} serving(s)</strong>.
-                      </p>
-                      <div className="space-y-2">
-                        {editIngredients.map((row, i) => (
-                          <div key={row.id} className="flex items-center gap-3 p-2.5 border border-warm-100 rounded-xl">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-warm-800 truncate">{row.ing.food_item?.name ?? '—'}</p>
-                              <p className="text-xs text-warm-400">{row.ing.unit} · {row.ing.food_item?.calories ?? 0} kcal per {row.ing.food_item?.serving_size ?? 100}{row.ing.food_item?.serving_unit ?? 'g'}</p>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <input type="number" min="0.000001" max="100000" step="0.000001"
-                                value={row.qty}
-                                onChange={(e) => {
-                                  setEditIngredients((prev) => prev.map((r, idx) => idx === i ? { ...r, qty: e.target.value } : r));
-                                }}
-                                className="w-16 px-2 py-1.5 text-base font-mono border border-warm-200 rounded-lg focus:outline-none focus:border-sky-500 text-right" />
-                              <span className="text-xs text-warm-400 w-6">{row.ing.unit}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      {/* Preview recalculated totals */}
-                      {(() => {
-                        const r = recalcFromIngredients();
-                        return (
-                          <div className="grid grid-cols-4 gap-2 pt-1">
-                            {[['Energy', r.calories, 'kcal'], ['Protein', r.protein, 'g'], ['Carbs', r.carbs, 'g'], ['Fat', r.fat, 'g']].map(([label, val, unit]) => (
-                              <div key={String(label)} className="bg-sky-50 border border-sky-100 rounded-xl p-2.5 text-center">
-                                <p className="text-xs font-bold text-sky-500 uppercase">{label}</p>
-                                <p className="text-base font-extrabold font-mono text-warm-900">{Math.round(Number(val) || 0)}<span className="text-xs font-normal text-warm-400 ml-0.5">{unit}</span></p>
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      })()}
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-warm-100">
-              <Button variant="ghost" onClick={() => setEditTarget(null)}>Cancel</Button>
-              <button onClick={handleSaveEdit} disabled={editSaving}
-                className="px-5 py-2 text-sm font-bold bg-sky-600 hover:bg-sky-700 text-white rounded-lg transition-colors disabled:opacity-50 cursor-pointer">
-                {editSaving ? 'Saving…' : 'Save Changes'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── Delete Plan Confirm ─────────────────────────────────────────────── */}
       {!readOnly && confirmDeleteId && (
@@ -1135,10 +1066,12 @@ export default function MealPlanSection({
               {viewingTemplate && (
                 <div className="space-y-3">
                   {(viewingTemplate.goal_type || viewingTemplate.maternal_status) && <p className="text-xs text-warm-400 capitalize">{viewingTemplate.goal_type?.replace(/_/g, ' ') ?? 'Maternal'}{viewingTemplate.disease_stage ? ` · ${viewingTemplate.disease_stage.replace(/_/g, ' ')}` : ''}</p>}
-                  <WeeklyMenuCalendar renderCell={(day, meal) => <MenuEditorSlots items={viewingTemplate.days.filter((slot) => slot.day_of_week === day && slot.meal_type === meal).flatMap((slot) => slot.items).map((item) => <div key={item.id} className="flex h-full flex-col justify-between gap-1">
-                    {item.recipe_id ? <a href={`/food-library/recipes/${item.recipe_id}`} title={item.food_name ?? 'Menu Item'} target="_blank" rel="noopener noreferrer" className="line-clamp-2 overflow-hidden break-words text-xs font-semibold text-warm-800 underline">{item.food_name}</a> : <p className="line-clamp-2 overflow-hidden break-words text-xs font-semibold">{item.food_name ?? 'Legacy item'}</p>}
+                  <WeeklyMenuCalendar renderCell={(day, meal) => {
+                    const items = viewingTemplate.days.filter((slot) => slot.day_of_week === day && slot.meal_type === meal).flatMap((slot) => slot.items);
+                    return <MenuEditorSlots itemActions={items.map((item) => item.recipe_id ? { label: `View ${item.food_name ?? 'Menu Item'}`, onOpen: () => setTemplateProfile({ id: item.recipe_id!, name: item.food_name ?? 'Menu Item' }) } : undefined)} items={items.map((item) => <div key={item.id} className="flex h-full flex-col justify-between gap-1">
+                    <p className="line-clamp-2 overflow-hidden break-words text-center text-xs font-semibold text-warm-800">{item.food_name ?? 'Legacy item'}</p>
                     <p className="text-xs text-warm-500">{formatMealPlanAmount(item.quantity)} {item.unit}</p>
-                  </div>)} addLabel="Add item" readOnly />} />
+                  </div>)} addLabel="Add item" readOnly />; }} />
                   <button onClick={() => handleFromTemplate(viewingTemplate.id)}
                     className="w-full py-2.5 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors cursor-pointer mt-2">
                     Use This Template

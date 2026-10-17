@@ -18,6 +18,56 @@ class RecipeControllerTest extends TestCase
 
     private User $rnd;
 
+    public function test_menu_item_can_save_label_nutrients_with_a_measured_reusable_ingredient(): void
+    {
+        $response = $this->actingAs($this->rnd)->postJson('/api/rnd/recipes', [
+            'name' => 'Demo branded drink', 'category' => 'snack', 'servings' => 6, 'prep_notes' => 'Shake before serving.',
+            'nutrition_label' => [
+                'serving_size' => 250, 'serving_unit' => 'mL', 'calories' => 120,
+                'protein' => 8, 'carbs' => 12, 'fat' => 4, 'water_g' => 220,
+                'micronutrients' => ['calcium' => 300, 'sodium' => 90], 'allergens' => ['milk'],
+            ],
+        ])->assertCreated();
+        $recipe = Recipe::where('uuid', $response->json('data.id'))->firstOrFail()->load('ingredients.foodItem');
+        $ingredient = $recipe->ingredients->sole();
+        $this->assertEquals(1500, $ingredient->quantity);
+        $this->assertSame('mL', $ingredient->unit);
+        $this->assertEquals(250, $ingredient->foodItem->serving_size);
+        $this->assertSame(['milk'], $ingredient->foodItem->allergens);
+        $this->assertEquals(720, $recipe->total_calories);
+        $snapshot = $recipe->planSnapshot();
+        $this->assertEquals(120, $snapshot['calories']);
+        $this->assertEquals(300, $snapshot['micronutrients']['calcium']);
+        $this->assertEquals(6, $snapshot['recipe_yield']);
+        $this->assertSame('Shake before serving.', $snapshot['prep_notes']);
+        $recipe->update(['prep_notes' => 'New library notes']);
+        $this->assertSame('Shake before serving.', $recipe->planSnapshot([], $snapshot)['prep_notes']);
+        $this->assertEquals(250, $snapshot['recipe_original_ingredients'][0]['food_item']['serving_size']);
+        $this->assertTrue(AuditActivity::where('subject_type', FoodItem::class)->where('subject_id', $ingredient->foodItem->id)->where('event', 'created')->exists());
+    }
+
+    public function test_label_nutrients_reject_ambiguous_or_invalid_input_without_partial_records(): void
+    {
+        $label = ['serving_size' => 30, 'serving_unit' => 'g', 'calories' => 100];
+        $food = FoodItem::factory()->create();
+        $cases = [
+            [['nutrition_label' => array_replace($label, ['serving_size' => 0])], 'nutrition_label.serving_size'],
+            [['nutrition_label' => array_replace($label, ['serving_unit' => 'pack'])], 'nutrition_label.serving_unit'],
+            [['nutrition_label' => array_replace($label, ['serving_unit' => 'piece'])], 'nutrition_label.serving_size'],
+            [['nutrition_label' => array_replace($label, ['calories' => -1])], 'nutrition_label.calories'],
+            [['nutrition_label' => array_replace($label, ['micronutrients' => ['sodium' => -1]])], 'nutrition_label.micronutrients.sodium'],
+            [['nutrition_label' => $label, 'ingredients' => [['food_item_id' => $food->uuid, 'quantity' => 100, 'unit' => 'g']]], 'ingredients'],
+            [['nutrition_label' => array_replace($label, ['serving_size' => 10000]), 'servings' => 10000], 'nutrition_label.serving_size'],
+        ];
+        foreach ($cases as [$payload, $field]) {
+            $this->actingAs($this->rnd)->postJson('/api/rnd/recipes', array_replace([
+                'name' => 'Invalid branded item', 'category' => 'snack', 'servings' => 1,
+            ], $payload))->assertUnprocessable()->assertJsonValidationErrors($field);
+        }
+        $this->assertDatabaseCount('food_items', 1);
+        $this->assertDatabaseCount('recipes', 0);
+    }
+
     public function test_clinical_recipe_converts_all_nutrients_from_the_measured_baseline(): void
     {
         $food = FoodItem::factory()->create([

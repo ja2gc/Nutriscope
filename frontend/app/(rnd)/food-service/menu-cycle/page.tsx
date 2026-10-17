@@ -8,10 +8,11 @@ import {
   LayoutTemplate, ChevronLeft, AlertTriangle, Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { MenuEditorSlots } from "@/components/ncp/MenuEditorSlots";
+import { MenuEditorSlots, MenuEditorActions, MenuEditorAction } from "@/components/ncp/MenuEditorSlots";
+import { MenuSnackVisibility, useMenuSnackVisibility } from "@/components/ncp/MenuSnackVisibility";
+import { MenuItemProfile } from "@/components/ncp/MenuItemProfile";
 import { InfoHint } from "@/components/ui/InfoHint";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
-import { formatFoodServiceNumber } from "@/lib/foodServiceFormat";
 import { addCalendarDays, manilaCalendarToday } from "@/lib/calendarDate";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -229,7 +230,7 @@ function CycleList({ readOnly, mode = "cycles", onOpen, onNew, onOpenTemplate, o
                     <div className="text-xs text-warm-400">{t.days_count} slots · {t.cycle_days} days</div>
                   </div>
                   {!readOnly && (
-                    <div className="flex items-center gap-1"><button onClick={() => onOpenTemplate(t.id)} aria-label={`Edit ${t.name}`} className="p-1 rounded text-warm-400 hover:text-emerald-600 cursor-pointer"><Pencil className="h-3.5 w-3.5" /></button><button onClick={() => removeTemplate(t.id)} aria-label={`Delete ${t.name}`} className="p-1 rounded text-warm-400 hover:text-red-500 cursor-pointer"><Trash2 className="h-3.5 w-3.5" /></button></div>
+                    <div className="flex items-center gap-0.5"><MenuEditorAction kind="view" label={`Edit ${t.name}`} onClick={() => onOpenTemplate(t.id)} /><MenuEditorAction kind="remove" label={`Delete ${t.name}`} onClick={() => void removeTemplate(t.id)} /></div>
                   )}
                 </div>
               </div>
@@ -249,17 +250,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [weekStart, setWeekStart] = useState("");
-  const [includeSnacks, setIncludeSnacks] = useState(true);
-  const [showSnackSlots, setShowSnackSlots] = useState(true);
-
-  useEffect(() => {
-    try { setShowSnackSlots(localStorage.getItem("nutriscope.food-service.show-snacks") !== "false"); } catch { /* Keep snack slots visible when browser storage is unavailable. */ }
-  }, []);
-
-  function changeSnackVisibility(visible: boolean) {
-    setShowSnackSlots(visible);
-    try { localStorage.setItem("nutriscope.food-service.show-snacks", String(visible)); } catch { /* The toggle still works for this editor session. */ }
-  }
+  const [showSnackSlots, changeSnackVisibility] = useMenuSnackVisibility("nutriscope.food-service.show-snacks");
 
   const [grid, setGrid] = useState<Grid>({});
   // Served (actual) population per weekday for the active week — logged by FSS/RND,
@@ -370,7 +361,6 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
         setName(template.name);
         setDescription(template.description ?? "");
         setGrid(gridFromTemplate(template));
-        setIncludeSnacks(template.days.some((day) => day.meal_type === "am_snack" || day.meal_type === "pm_snack"));
       }).catch(() => setErr("Failed to load template.")).finally(() => setLoading(false));
       return;
     }
@@ -487,7 +477,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
         if (!name.trim()) throw new Error("Template name is required.");
         const savedTemplate = await saveTemplate(savedId, {
           name: name.trim(), description: description.trim() || null, cycle_days: 7,
-          days: daysPayload().filter((day) => includeSnacks || (day.meal_type !== "am_snack" && day.meal_type !== "pm_snack")).map(({ day_of_week, meal_type, line_order, recipe_id, fs_item_id, quantity }) => ({
+          days: daysPayload().map(({ day_of_week, meal_type, line_order, recipe_id, fs_item_id, quantity }) => ({
             day_of_week, meal_type, line_order, recipe_id, fs_item_id, quantity,
           })),
         });
@@ -606,9 +596,9 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
     const displayTemplate = isTemplate || Boolean(preview);
     const displayReadOnly = planReadOnly || Boolean(preview);
     const displayGrid = preview ? gridFromTemplate(preview) : grid;
-    const displaySnacks = preview ? preview.days.some((day) => day.meal_type === "am_snack" || day.meal_type === "pm_snack") : isTemplate ? includeSnacks : showSnackSlots;
+    const displaySnacks = showSnackSlots;
     return (
-      <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
+      <div className="space-y-1"><MenuSnackVisibility visible={showSnackSlots} onChange={changeSnackVisibility} /><div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="bg-warm-50 border-b border-warm-100">
@@ -688,19 +678,16 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
                   return (
                     <td key={key} data-day={d} data-meal={m} className="px-2 py-2 align-top relative">
                       <MenuEditorSlots
+                        itemActions={lines.map((cell, lineIndex) => ({ id: `menu-item-${Boolean(preview)}-${d}-${m}-${lineIndex}`, label: `View ${cell.recipe_name}`, onOpen: (trigger) => displayTemplate ? void openTemplateProfile(cell, trigger.id) : void openSlot(d, m, cell, lineIndex) }))}
                         items={lines.map((cell, lineIndex) => (
                           <div key={cell.id ?? `${key}-${lineIndex}`} className="flex h-full flex-col justify-between gap-1 text-left">
-                            {!displayReadOnly && <div data-menu-editor-actions className="flex shrink-0 justify-start">
-                              <button onClick={() => clearLine(key, lineIndex)} aria-label={`Remove ${cell.recipe_name}`} className="h-7 w-7 text-emerald-400 hover:text-red-500 cursor-pointer shrink-0 flex items-center justify-center"><X className="h-3 w-3" /></button>
-                            </div>}
+                            <MenuEditorActions>
+                              {!displayReadOnly && <MenuEditorAction kind="remove" label={`Remove ${cell.recipe_name}`} onClick={() => clearLine(key, lineIndex)} />}
+                            </MenuEditorActions>
                             <div className="flex min-h-0 items-start justify-between gap-1">
-                              <button
-                                id={`menu-item-${Boolean(preview)}-${d}-${m}-${lineIndex}`}
-                                onClick={(event) => displayTemplate ? openTemplateProfile(cell, event.currentTarget.id) : openSlot(d, m, cell, lineIndex)}
-                                title="Open menu item details"
-                                className="line-clamp-2 min-h-0 flex-1 overflow-hidden break-words text-xs font-semibold leading-tight text-left text-emerald-800 enabled:hover:underline enabled:cursor-pointer">
+                              <p className="line-clamp-2 min-h-0 flex-1 overflow-hidden break-words text-xs font-semibold leading-tight text-center text-warm-800">
                                 {cell.recipe_name}
-                              </button>
+                              </p>
                             </div>
                             {(cell.portion_label || cell.hasRecipeOverride) && <div className="truncate text-xs font-medium text-emerald-700">{cell.hasRecipeOverride ? "Customized item" : cell.portion_label}</div>}
                           </div>
@@ -759,11 +746,21 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
             ))}
           </tbody>
         </table>
-      </div>
+      </div></div>
     );
   }
 
   if (loading) return <Shell><div className="py-16 text-center text-sm text-warm-400">Loading…</div></Shell>;
+  if (profileCell) {
+    const backToTemplate = () => { setProfileCell(null); if (!viewingTemplate) setTemplatePickerOpen(false); };
+    return <Shell templates={isTemplate}>
+      {profileError ? <><p role="alert" className="text-sm text-red-700">{profileError}</p><Button variant="secondary" onClick={backToTemplate}>Back to template</Button></> : !profile ? <p role="status" className="text-sm text-warm-500">Loading item profile…</p> : <MenuItemProfile
+        name={profile.name} servings={profile.servings} prepNotes={profile.prep_notes} onBack={backToTemplate}
+        ingredients={profile.ingredient_usage.map((ingredient, index) => ({ id: index, name: ingredient.name, quantity: ingredient.quantity, unit: ingredient.unit }))}
+        controls={<p className="text-sm font-semibold text-warm-600">Per person · ₱{profile.cost_per_head.toFixed(2)}</p>}
+      />}
+    </Shell>;
+  }
 
   return (
     <Shell templates={isTemplate}>
@@ -794,8 +791,6 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
       {err && <div className="bg-red-50 border border-red-100 p-3 rounded-xl text-sm text-red-700 font-bold flex items-center gap-2"><AlertTriangle className="h-3.5 w-3.5" /> {err}</div>}
       {templateNotice && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">{templateNotice}</div>}
 
-      {isTemplate && !readOnly && <label className="flex min-h-11 items-center gap-3 text-sm font-semibold text-warm-700"><input type="checkbox" aria-label="Include snacks" checked={includeSnacks} onChange={(event) => setIncludeSnacks(event.target.checked)} className="h-4 w-4 accent-emerald-600" /> Include AM and PM snacks</label>}
-      {!isTemplate && <label className="flex min-h-11 items-center gap-3 text-sm font-semibold text-warm-700"><input type="checkbox" aria-label="Show snack slots" checked={showSnackSlots} onChange={(event) => changeSnackVisibility(event.target.checked)} className="h-4 w-4 accent-emerald-600" /> Show snack slots</label>}
 
       {/* Settings */}
       <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -834,23 +829,17 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
       </div>}
 
       {templatePickerOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeTemplates(); }}>
-        <section role="dialog" aria-modal="true" aria-labelledby="menu-cycle-template-picker-title" onKeyDown={(event) => { if (event.key === "Escape") closeTemplates(); }} className={`flex max-h-[85vh] w-full ${viewingTemplate && !profileCell ? "max-w-7xl" : "max-w-xl"} flex-col overflow-hidden rounded-2xl bg-white shadow-2xl`}>
+        <section role="dialog" aria-modal="true" aria-labelledby="menu-cycle-template-picker-title" onKeyDown={(event) => { if (event.key === "Escape") closeTemplates(); }} className={`flex max-h-[85vh] w-full ${viewingTemplate ? "max-w-7xl" : "max-w-xl"} flex-col overflow-hidden rounded-2xl bg-white shadow-2xl`}>
           <header className="flex items-center justify-between border-b border-warm-100 px-5 py-4">
             <div className="flex min-w-0 items-center gap-2">
-              {profileCell ? <button type="button" autoFocus onClick={() => { setProfileCell(null); if (!viewingTemplate) setTemplatePickerOpen(false); }} aria-label="Back to template" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-warm-500 hover:bg-warm-50"><ChevronLeft className="h-4 w-4" /></button> : viewingTemplate && <button type="button" onClick={() => setViewingTemplate(null)} aria-label="Back to templates" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-warm-500 hover:bg-warm-50"><ChevronLeft className="h-4 w-4" /></button>}
-              <h2 id="menu-cycle-template-picker-title" className="text-base font-extrabold text-warm-900 break-words">{profileCell?.recipe_name ?? viewingTemplate?.name ?? "Menu Plan Templates"}</h2>
+              {viewingTemplate && <button type="button" onClick={() => setViewingTemplate(null)} aria-label="Back to templates" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-warm-500 hover:bg-warm-50"><ChevronLeft className="h-4 w-4" /></button>}
+              <h2 id="menu-cycle-template-picker-title" className="text-base font-extrabold text-warm-900 break-words">{viewingTemplate?.name ?? "Menu Plan Templates"}</h2>
             </div>
             <button type="button" onClick={closeTemplates} aria-label="Close templates" className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-warm-400 hover:bg-warm-50 hover:text-warm-700"><X className="h-4 w-4" /></button>
           </header>
           {templatePickerError && <p role="alert" className="px-5 pt-3 text-sm font-semibold text-red-600">{templatePickerError}</p>}
           <div className="min-h-0 flex-1 overflow-y-auto p-4">
-            {profileCell ? (
-              profileError ? <p role="alert" className="text-sm font-semibold text-red-600">{profileError}</p> : !profile ? <p role="status" className="py-8 text-center text-sm text-warm-500">Loading item profile…</p> : <div className="space-y-4">
-                <p className="text-sm font-semibold text-warm-600">Per person · ₱{profile.cost_per_head.toFixed(2)}</p>
-                <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th className="p-2">Ingredient</th><th className="p-2">Amount</th></tr></thead><tbody>{profile.ingredient_usage.map((ingredient, index) => <tr key={index} className="border-t border-warm-100"><td className="p-2 break-words">{ingredient.name}</td><td className="p-2 whitespace-nowrap">{formatFoodServiceNumber(ingredient.quantity)} {ingredient.unit}</td></tr>)}</tbody></table></div>
-                {profile.prep_notes && <div><h3 className="text-sm font-bold text-warm-700">Preparation notes</h3><p className="mt-1 whitespace-pre-wrap break-words text-sm text-warm-600">{profile.prep_notes}</p></div>}
-              </div>
-            ) : templatePickerLoading ? <p className="py-8 text-center text-sm text-warm-500">Loading templates…</p> : viewingTemplate ? (
+            {templatePickerLoading ? <p className="py-8 text-center text-sm text-warm-500">Loading templates…</p> : viewingTemplate ? (
               <div className="space-y-3">
                 {viewingTemplate.days.length === 0 && <p className="py-6 text-center text-sm text-warm-500">This template has no planned items.</p>}
                 {renderWeekGrid(viewingTemplate)}

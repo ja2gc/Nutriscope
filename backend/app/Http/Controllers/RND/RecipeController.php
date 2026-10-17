@@ -8,9 +8,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\PaginatedRequest;
 use App\Http\Requests\StoreRecipeRequest;
 use App\Http\Resources\RecipeResource;
+use App\Models\FoodItem;
 use App\Models\Recipe;
 use App\Models\RecipeIngredient;
 use App\Services\Audit\AuditLogger;
+use App\Services\Audit\FoodItemAuditValues;
 use App\Services\Audit\Revisions\AuditRevisionRegistry;
 use App\Services\Audit\Revisions\AuditRevisionWriter;
 use App\Support\Search\RankedSearch;
@@ -44,6 +46,25 @@ class RecipeController extends Controller
     {
         $data = $request->validated();
         $recipe = $this->audited(function () use ($request, $data): Recipe {
+            if (isset($data['nutrition_label'])) {
+                $food = FoodItem::create(['name' => $data['name'], ...$data['nutrition_label']]);
+                $auditValues = app(FoodItemAuditValues::class);
+                $values = $auditValues->values($food);
+                $this->auditLogger->recordMutation(
+                    AuditAction::Created,
+                    AuditDomain::NutritionLibrary,
+                    $food,
+                    array_keys(array_filter($values, fn (mixed $value): bool => $value !== null)),
+                    ['source' => $auditValues->source($food), 'entity_name' => $food->name],
+                    oldValues: array_fill_keys(array_keys($values), null),
+                    newValues: $values,
+                );
+                $data['ingredients'] = [[
+                    'food_item_id' => $food->id,
+                    'quantity' => round((float) $food->serving_size * (int) $data['servings'], 6),
+                    'unit' => $food->serving_unit,
+                ]];
+            }
             $recipe = Recipe::create([
                 'rnd_user_id' => $request->user()->id,
                 'name' => $data['name'],

@@ -5,6 +5,7 @@ import {
   type MonitoringVisitType,
   type PregnancyLactationStatus,
 } from "@/services/monitoringService";
+import { ALL_MICROS } from "@/lib/nutritionCalculations";
 
 interface MonitoringVisitDetailsProps {
   entry: MonitoringEntry;
@@ -33,6 +34,7 @@ const INTAKE_META: Record<string, { label: string; unit: string }> = {
   carbs_g: { label: "Carbohydrate intake", unit: "g" },
   fat_g: { label: "Fat intake", unit: "g" },
   fluid_ml: { label: "Fluid intake", unit: "mL" },
+  ...Object.fromEntries(ALL_MICROS.map(({ key, label, unit }) => [`micro_${key}`, { label: `${label} intake`, unit }])),
 };
 
 function visitLabel(value: MonitoringVisitType | null): string {

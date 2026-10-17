@@ -161,6 +161,7 @@ class Recipe extends Model
 
         return [
             'name' => $baseline['name'] ?? $this->name,
+            'prep_notes' => $frozen ? ($baseline['prep_notes'] ?? null) : $this->prep_notes,
             'calories' => round($cal / $servings, 2),
             'protein' => round($prot / $servings, 2),
             'carbs' => round($carb / $servings, 2),

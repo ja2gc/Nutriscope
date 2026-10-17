@@ -128,7 +128,8 @@ export type RecipePayload = {
   meal_types?: string[] | null;
   prep_notes?: string | null;
   servings?: number | null;
-  ingredients: RecipeIngredientPayload[];
+  ingredients?: RecipeIngredientPayload[];
+  nutrition_label?: Pick<FoodItemPayload, "calories" | "protein" | "carbs" | "fat" | "serving_size" | "serving_unit" | "allergens" | "micronutrients"> & { water_g?: number | null };
 };
 
 // ─── Food Item API ────────────────────────────────────────────────────────────

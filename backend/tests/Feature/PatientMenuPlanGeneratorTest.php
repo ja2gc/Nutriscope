@@ -29,6 +29,30 @@ class PatientMenuPlanGeneratorTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_label_based_menu_item_retains_recipe_yield_and_measured_portions_in_reports(): void
+    {
+        $plan = $this->makePlan();
+        $response = $this->actingAs($plan->intervention->ncpRecord->rnd)->postJson('/api/rnd/recipes', [
+            'name' => 'Fictional label drink', 'category' => 'snack', 'servings' => 6,
+            'nutrition_label' => ['serving_size' => 250, 'serving_unit' => 'mL', 'calories' => 120, 'protein' => 8, 'carbs' => 12, 'fat' => 4, 'micronutrients' => ['calcium' => 300]],
+        ])->assertCreated();
+        $recipe = Recipe::where('uuid', $response->json('data.id'))->firstOrFail()->load('ingredients.foodItem');
+        $day = MealPlanDay::factory()->create(['meal_plan_id' => $plan->id, 'day_of_week' => 'Monday', 'meal_type' => 'am_snack']);
+        MealPlanItem::create(['meal_plan_day_id' => $day->id, 'recipe_id' => $recipe->id, 'quantity' => 1.5, 'unit' => 'serving', 'nutrient_snapshot' => $recipe->planSnapshot()]);
+        $report = new Report(['title' => 'Nutrition Intervention Plan — Label serving check', 'type' => 'patient_menu_plan', 'parameters' => ['intervention_plan_id' => $plan->intervention->uuid]]);
+        $data = app(PatientMenuPlanGenerator::class)->data($report);
+        $portion = $data['portion_details'][0];
+        $this->assertSame(6.0, $portion['recipe_yield']);
+        $this->assertSame(1500.0, $portion['foods'][0]['whole_quantity']);
+        $this->assertSame(375.0, $portion['foods'][0]['metric_amount']);
+        $this->assertSame('mL', $portion['foods'][0]['metric_unit']);
+        $built = app(ReportService::class)->buildPdf($report);
+        $this->assertStringStartsWith('%PDF-', $built['bytes']);
+        if ($artifact = getenv('NUTRISCOPE_LABEL_PDF_QA_PATH')) {
+            $this->assertSame(strlen($built['bytes']), file_put_contents($artifact, $built['bytes']));
+        }
+    }
+
     private function makePlan(?string $createdAt = null): MealPlan
     {
         $rnd = User::factory()->create(['role' => 'RND']);

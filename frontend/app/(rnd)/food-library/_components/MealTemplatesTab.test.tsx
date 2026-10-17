@@ -35,7 +35,7 @@ const recipeChoice: Recipe = {
 };
 afterEach(async () => { if (root) await act(async () => root.unmount()); document.body.innerHTML = ""; vi.clearAllMocks(); });
 
-it("edits ordered Menu Items in the same full-week calendar with controlled serving units and profile links", async () => {
+it("edits ordered Menu Items without quantity controls and opens profiles from clickable slots", async () => {
   const container = document.createElement("div"); document.body.append(container); root = createRoot(container);
   await act(async () => root.render(<MealTemplatesTab />));
   await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Edit Measured week"]')!.click());
@@ -43,13 +43,15 @@ it("edits ordered Menu Items in the same full-week calendar with controlled serv
   expect(calendar).not.toBeNull();
   expect(calendar!.querySelectorAll('td[data-day]')).toHaveLength(35);
   const breakfast = calendar!.querySelector('[data-day="Monday"][data-meal="breakfast"]')!;
-  expect(Array.from(breakfast.querySelectorAll('button[aria-label^="View "]')).map((button) => button.textContent)).toEqual(["Fruit cup", "Oats"]);
+  expect(Array.from(breakfast.querySelectorAll('button[aria-label^="View "]')).map((button) => button.getAttribute('aria-label'))).toEqual(["View Fruit cup", "View Oats"]);
   expect(breakfast.querySelectorAll('[data-menu-editor-item]')).toHaveLength(2);
   expect(breakfast.querySelector('[data-menu-editor-item] > div > :first-child')?.hasAttribute('data-menu-editor-actions')).toBe(true);
   expect(breakfast.querySelectorAll('[data-menu-editor-add]')).toHaveLength(1);
   expect(Array.from(breakfast.querySelectorAll<HTMLElement>('[data-menu-editor-item], [data-menu-editor-add]')).every((slot) => slot.className.includes('h-32'))).toBe(true);
   expect(breakfast.querySelector('[data-menu-editor-add]')?.previousElementSibling).toBe(breakfast.querySelectorAll('[data-menu-editor-item]')[1]);
-  expect(Array.from(breakfast.querySelectorAll('select')).map((select) => Array.from(select.options).map((option) => option.value))).toEqual([["serving"], ["serving"]]);
+  expect(breakfast.querySelectorAll('input, select')).toHaveLength(0);
+  expect(breakfast.querySelector('[data-menu-editor-actions]')?.className).toContain('justify-end');
+  expect(breakfast.querySelector('[data-menu-editor-action="remove"] svg')).not.toBeNull();
   expect(container.querySelector('[role="dialog"][aria-label="Meal template editor"]')).toBeNull();
   const addToLunch = calendar!.querySelector<HTMLButtonElement>('[data-menu-editor-add][aria-label="Add item to Tuesday Lunch"]')!;
   expect(addToLunch.textContent?.trim()).toBe('Add item');
@@ -70,22 +72,25 @@ it("edits ordered Menu Items in the same full-week calendar with controlled serv
   ] }), 'template-1');
 });
 
-it("previews the same calendar without editing or saving controls", async () => {
+it("opens a complete read-only profile from the editable template and returns without losing lines", async () => {
   const container = document.createElement('div'); document.body.append(container); root = createRoot(container);
   await act(async () => root.render(<MealTemplatesTab />));
-  await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="View Measured week"]')!.click());
+  expect(container.querySelector('[aria-label="View Measured week"]')).toBeNull();
+  await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Edit Measured week"]')!.click());
   expect(container.querySelector('table[aria-label="Weekly menu calendar"]')).not.toBeNull();
   expect(container.querySelectorAll('td[data-day]')).toHaveLength(35);
   expect(container.querySelector('[data-day="Monday"][data-meal="breakfast"]')?.textContent).toContain('1.3 servings');
-  expect(container.querySelectorAll('td input, td select, td button:not([aria-label^="View "])')).toHaveLength(0);
+  expect(container.querySelectorAll('td input, td select')).toHaveLength(0);
   await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="View Fruit cup"]')!.click());
-  const profile = container.querySelector('[role="dialog"][aria-label="Menu Item profile"]')!;
+  const profile = container.querySelector('[aria-label="Menu Item profile"]')!;
+  expect(profile.getAttribute('role')).not.toBe('dialog');
+  expect(container.querySelector('table[aria-label="Weekly menu calendar"]')).toBeNull();
   expect(profile.textContent).toContain('Papaya');
   expect(profile.textContent).toContain('Recipe makes: 5.6 servings');
   expect(profile.textContent).toContain('750 g');
   expect(profile.textContent).toContain('<0.1 g');
   expect(profile.textContent).not.toContain('750.000000');
-  const back = Array.from(profile.querySelectorAll('button')).find((button) => button.textContent === 'Back to template')!;
+  const back = profile.querySelector<HTMLButtonElement>('[aria-label="Back to template"]')!;
   await act(async () => back.click());
   expect(container.querySelector('[aria-label="Menu Item profile"]')).toBeNull();
   expect(document.activeElement).toBe(container.querySelector('[aria-label="View Fruit cup"]'));

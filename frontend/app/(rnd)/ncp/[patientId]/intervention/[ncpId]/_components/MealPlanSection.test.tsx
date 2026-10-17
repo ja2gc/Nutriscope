@@ -63,7 +63,7 @@ it("shows at most one decimal on menu cards while preserving exact editable serv
     expect(container.textContent).toContain("1.7 serving");
     expect(container.textContent).not.toContain("1.67 serving");
     await act(async () => container.querySelector<HTMLButtonElement>('button[title="Edit"]')!.click());
-    expect(container.querySelector<HTMLInputElement>('.fixed input[type="number"]')?.value).toBe("1.67");
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Menu Item profile"] input[aria-label="Planned portion"]')?.value).toBe("1.67");
   } finally { await act(async () => root.unmount()); }
 });
 
@@ -328,7 +328,7 @@ it("keeps a historical week readable without template loading or edit actions", 
   try {
     expect(container.textContent).toContain('Historical breakfast');
     expect(container.querySelector('table[aria-label="Weekly menu calendar"]')).not.toBeNull();
-    expect(container.querySelector('a')?.getAttribute('href')).toBe('/food-library/recipes/meal-1');
+    expect(container.querySelector('[aria-label="View Historical breakfast"]')).not.toBeNull();
     expect(container.querySelector('button[title="Edit"]')).toBeNull();
     expect(Array.from(container.querySelectorAll('button')).some((button) => /Load Template|Save week|Save Template|Auto-Generate|Create Menu|^Add$/.test(button.textContent ?? ''))).toBe(false);
     expect(createPlanFromTemplate).not.toHaveBeenCalled();
@@ -466,9 +466,10 @@ it("shows scaled ingredient amounts per person and removes the generic scale sli
   expect(container.querySelector('input[type="range"]')).toBeNull();
   const ingredientTab = Array.from(container.querySelectorAll("button")).find((button) => button.textContent?.trim() === "Ingredients")!;
   await act(async () => ingredientTab.click());
-  const editor = container.querySelector('.fixed')!;
-  expect(editor.textContent).toContain("Energy200kcal");
-  expect(editor.querySelector('input[type="number"]')?.getAttribute("step")).toBe("0.000001");
+  const editor = container.querySelector('[aria-label="Menu Item profile"]')!;
+  expect(editor.className).not.toContain('fixed');
+  expect(editor.textContent).toContain("Energy300 kcal");
+  expect(editor.querySelector('input[aria-label^="Amount of"]')?.getAttribute("step")).toBe("0.000001");
   const save = Array.from(editor.querySelectorAll("button")).find((button) => button.textContent?.trim() === "Save Changes")!;
   await act(async () => save.click());
   expect(updateMealPlanItem).toHaveBeenCalledWith("ncp-1", "plan-1", "day-1", "item-1", { quantity: 1.5, ingredient_overrides: [{ id: 1, quantity: 0.4 }] });
@@ -490,14 +491,14 @@ it("scales the nutrient preview and saved request when portion changes", async (
   await act(async () => root.render(<MealPlanSection ncpId="ncp-1" interventionPlanId="intervention-1" prescriptionTargets={{ energy: 2000, protein: 75, carbs: 250, fat: 65, fluid: 2000 }} />));
   try {
     await act(async () => container.querySelector<HTMLButtonElement>('button[title="Edit"]')!.click());
-    const portion = container.querySelector<HTMLInputElement>('.fixed input[type="number"]')!;
+    const portion = container.querySelector<HTMLInputElement>('[aria-label="Menu Item profile"] input[aria-label="Planned portion"]')!;
     await act(async () => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(portion, "2");
       portion.dispatchEvent(new Event("input", { bubbles: true }));
       portion.dispatchEvent(new Event("change", { bubbles: true }));
     });
-    expect(container.querySelector('.fixed')?.textContent).toContain("Energy400kcal");
-    await act(async () => Array.from(container.querySelectorAll<HTMLButtonElement>('.fixed button')).find((button) => button.textContent?.trim() === "Save Changes")!.click());
+    expect(container.querySelector('[aria-label="Menu Item profile"]')?.textContent).toContain("Energy400 kcal");
+    await act(async () => Array.from(container.querySelectorAll<HTMLButtonElement>('[aria-label="Menu Item profile"] button')).find((button) => button.textContent?.trim() === "Save Changes")!.click());
     expect(updateMealPlanItem).toHaveBeenCalledWith("ncp-1", "plan-1", "day-1", "scaled-item", { quantity: 2 });
   } finally { await act(async () => root.unmount()); }
 });
@@ -517,7 +518,15 @@ it("edits saved ingredient amounts using the frozen nutrient basis without fetch
     await act(async () => container.querySelector<HTMLButtonElement>('button[title="Edit"]')!.click());
     expect(fetchRecipeById).not.toHaveBeenCalled();
     await act(async () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'Ingredients')!.click());
-    expect(container.querySelector<HTMLInputElement>('.fixed input[type="number"]')?.value).toBe('400');
-    expect(container.querySelector('.fixed')?.textContent).toContain('Energy80kcal');
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Menu Item profile"] input[aria-label="Amount of Rice"]')?.value).toBe('96');
+    expect(container.querySelector('[aria-label="Menu Item profile"]')?.textContent).toContain('Energy96 kcal');
+    const amount = container.querySelector<HTMLInputElement>('[aria-label="Amount of Rice"]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(amount, '120');
+      amount.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(container.querySelector('[aria-label="Menu Item profile"]')?.textContent).toContain('Energy120 kcal');
+    await act(async () => Array.from(container.querySelectorAll<HTMLButtonElement>('[aria-label="Menu Item profile"] button')).find((button) => button.textContent?.trim() === 'Save Changes')!.click());
+    expect(updateMealPlanItem).toHaveBeenCalledWith('ncp-1', 'plan-1', 'day-1', 'frozen-item', { quantity: 1.2, ingredient_overrides: [{ id: 1, quantity: 500 }] });
   } finally { await act(async () => root.unmount()); }
 });

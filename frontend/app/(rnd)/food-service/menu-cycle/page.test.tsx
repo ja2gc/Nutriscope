@@ -156,7 +156,7 @@ describe("Menu Cycle template and name editing", () => {
     await act(async () => { view?.click(); await Promise.resolve(); });
     const dialog = container.querySelector<HTMLElement>('[role="dialog"]')!;
     expect(Array.from(dialog.querySelectorAll("thead th")).map((cell) => cell.textContent)).toEqual(["Meal", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
-    expect(dialog.querySelector("tbody tr:nth-child(2) td:nth-child(2)")?.textContent).toContain("Rice");
+    expect(dialog.querySelector('[data-day="Monday"][data-meal="lunch"]')?.textContent).toContain("Rice");
     expect(dialog.textContent).not.toContain("add item");
     expect(dialog.querySelector('button[aria-label="Remove Rice"]')).toBeNull();
     const load = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
@@ -172,16 +172,17 @@ describe("Menu Cycle template and name editing", () => {
     await act(async () => { root.render(<MenuTemplateDirectory />); await Promise.resolve(); });
     await act(async () => { container.querySelector<HTMLButtonElement>('button[aria-label="Edit Rice plan"]')?.click(); await Promise.resolve(); });
     expect(container.querySelector('button[title^="Copy "]')).toBeNull();
-    const rice = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent?.trim() === "Rice");
+    const rice = container.querySelector<HTMLButtonElement>('[data-menu-editor-open][aria-label="View Rice"]');
     expect(rice?.disabled).toBe(false);
     await act(async () => { rice?.focus(); await userEvent.setup().keyboard("{Enter}"); await Promise.resolve(); });
     expect(getFsItemProfile).toHaveBeenCalledWith("rice-id", 1, 1);
-    const dialog = container.querySelector<HTMLElement>('[role="dialog"]')!;
+    const dialog = container.querySelector<HTMLElement>('[aria-label="Menu Item profile"]')!;
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
     expect(dialog.textContent).toContain("Measured rice");
     expect(dialog.querySelector("input,textarea")).toBeNull();
     await act(async () => { dialog.querySelector<HTMLButtonElement>('button[aria-label="Back to template"]')?.click(); });
     expect(container.querySelector('[role="dialog"]')).toBeNull();
-    expect(document.activeElement).toBe(rice);
+    expect(document.activeElement?.getAttribute('aria-label')).toBe('View Rice');
     expect(mockSaveTemplate).not.toHaveBeenCalled();
     expect(mockSaveCycle).not.toHaveBeenCalled();
   });
@@ -193,9 +194,9 @@ describe("Menu Cycle template and name editing", () => {
     await renderPage(); await openNewCycle();
     await act(async () => { Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent?.trim() === "Templates")?.click(); await Promise.resolve(); });
     await act(async () => { Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent?.trim() === "View")?.click(); await Promise.resolve(); });
-    await act(async () => { Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent?.trim() === name)?.click(); await Promise.resolve(); });
+    await act(async () => { container.querySelector<HTMLButtonElement>(`[data-menu-editor-open][aria-label="View ${name}"]`)?.click(); await Promise.resolve(); });
     expect(getRecipeProfile).toHaveBeenCalledWith("recipe-1", 1);
-    expect(container.querySelector('[role="dialog"]')?.textContent).toContain("Steam before service");
+    expect(container.querySelector('[aria-label="Menu Item profile"]')?.textContent).toContain("Steam before service");
     await act(async () => { container.querySelector<HTMLButtonElement>('button[aria-label="Back to template"]')?.click(); });
     expect(container.querySelector('[role="dialog"] table thead')?.textContent).toContain("Mon");
     expect(container.querySelector('[role="dialog"]')?.textContent).toContain(name);
@@ -224,7 +225,8 @@ describe("Menu Cycle template and name editing", () => {
     await act(async () => { Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent?.trim() === "View")?.click(); await Promise.resolve(); });
     const dialog = container.querySelector<HTMLElement>('[role="dialog"]')!;
     expect(dialog.textContent).toContain("This template has no planned items.");
-    expect(dialog.querySelectorAll("tbody tr")).toHaveLength(3);
+    expect(dialog.querySelectorAll("tbody tr")).toHaveLength(5);
+    expect(dialog.querySelector('[aria-label="Show snack slots"]')).not.toBeNull();
   });
 
   test("keeps the menu name read-only in the list and edits it inside the calendar", async () => {
@@ -299,10 +301,11 @@ describe("Menu Cycle template and name editing", () => {
     expect(lunch.querySelector('[data-menu-editor-add]')?.getAttribute("aria-label")).toBe("Add item to Monday Lunch");
     expect(Array.from(lunch.querySelectorAll<HTMLElement>('[data-menu-editor-item], [data-menu-editor-add]')).every((slot) => slot.className.includes('h-32'))).toBe(true);
     expect(lunch.querySelector('[data-menu-editor-add]')?.previousElementSibling).toBe(lunch.querySelector('[data-menu-editor-item]'));
+    const toggle = container.querySelector<HTMLInputElement>('input[aria-label="Show snack slots"]')!;
+    expect(toggle.checked).toBe(true);
+    await act(async () => toggle.click());
     expect(container.textContent).not.toContain("AM Snack");
     expect(container.textContent).not.toContain("PM Snack");
-    const toggle = container.querySelector<HTMLInputElement>('input[aria-label="Include snacks"]');
-    expect(toggle?.checked).toBe(false);
     const save = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
       .find((candidate) => candidate.textContent?.trim() === "Save");
     await act(async () => { save?.click(); await Promise.resolve(); });
