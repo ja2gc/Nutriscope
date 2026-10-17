@@ -1,6 +1,6 @@
 # RND Nutrition Care Process Video Storyboard
 
-Live workflow and rendered-report verification: **2026-09-28**. Assessment wording checked against current code on **2026-10-17** and meal-plan wording on **2026-10-13**; not live re-tested.
+Full workflow and rendered-report verification: **2026-09-28**. Assessment and Monitoring validation, text counters, dashboard card navigation, and PO/Budget Activity removal checked against the deployed UI on **2026-10-17**. Meal-plan wording checked against code on **2026-10-13**; not live re-tested in this pass.
 
 Use this as the recording checklist and narration script for a future **Help → Guides** video. Record in a disposable demo database. Do not show real patient information.
 

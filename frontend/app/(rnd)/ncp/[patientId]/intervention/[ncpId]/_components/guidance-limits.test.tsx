@@ -62,6 +62,7 @@ describe("intervention guidance limits", () => {
     ));
 
     for (const counter of ["4/1200", "7/1200", "8/1200"]) expect(container.textContent).toContain(counter);
+    expect(Array.from(container.querySelectorAll("textarea")).map(el => el.getAttribute("aria-label"))).toEqual(["Behavioral Goals", "Identified Barriers", "Strategies"]);
     expect(container.querySelector('[role="alert"]')?.textContent).toContain("1 character over");
   });
 });

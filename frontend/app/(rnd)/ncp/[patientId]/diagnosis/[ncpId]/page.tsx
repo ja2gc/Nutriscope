@@ -834,6 +834,7 @@ export default function NcpDiagnosisPage({
         <SectionLabel>Extra Notes (optional)</SectionLabel>
         <CharacterCountTextarea
           value={builder.extraNotes}
+          aria-label="Extra Notes (optional)"
           onChange={value => updateBuilder({ extraNotes: value })}
           rows={2}
           maxLength={125}
@@ -881,6 +882,7 @@ export default function NcpDiagnosisPage({
         <SectionLabel>Additional Etiology Notes (free text)</SectionLabel>
         <CharacterCountTextarea
           value={builder.etiologyNotes}
+          aria-label="Additional Etiology Notes"
           onChange={value => updateBuilder({ etiologyNotes: value })}
           rows={3}
           maxLength={125}
@@ -925,6 +927,7 @@ export default function NcpDiagnosisPage({
         <SectionLabel>Additional Signs & Symptoms Notes (free text)</SectionLabel>
         <CharacterCountTextarea
           value={builder.signNotes}
+          aria-label="Additional Signs and Symptoms Notes"
           onChange={value => updateBuilder({ signNotes: value })}
           rows={3}
           maxLength={125}
@@ -974,6 +977,7 @@ export default function NcpDiagnosisPage({
             <SectionLabel>PES Statement (Auto-Generated — Editable)</SectionLabel>
             <CharacterCountTextarea
               value={builder.pesOverride}
+              aria-label="PES statement"
               onChange={value => updateBuilder({ pesOverride: value })}
               rows={4}
               maxLength={500}

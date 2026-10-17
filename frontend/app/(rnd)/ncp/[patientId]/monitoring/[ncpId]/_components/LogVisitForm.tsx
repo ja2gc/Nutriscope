@@ -364,7 +364,7 @@ export default function LogVisitForm({ plan, context, intervention, onSubmit, on
             </div>
             <label>
               <FieldLabel>Dietary Restrictions</FieldLabel>
-              <CharacterCountTextarea value={dietaryRestrictions} onChange={setDietaryRestrictions} maxLength={ASSESSMENT_TEXT_LIMITS.dietary_restrictions} rows={2} className="w-full resize-y rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
+              <CharacterCountTextarea aria-label="Dietary Restrictions" value={dietaryRestrictions} onChange={setDietaryRestrictions} maxLength={ASSESSMENT_TEXT_LIMITS.dietary_restrictions} rows={2} className="w-full resize-y rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
             </label>
             <div>
               <FieldLabel>Food Dislikes</FieldLabel>
@@ -389,11 +389,11 @@ export default function LogVisitForm({ plan, context, intervention, onSubmit, on
             <ToggleGroup label="GI Tolerance" options={GI_OPTIONS} value={giTolerance} onChange={setGiTolerance} />
             <label>
               <FieldLabel>Intake Notes</FieldLabel>
-              <CharacterCountTextarea value={intakeNotes} onChange={setIntakeNotes} maxLength={MONITORING_TEXT_LIMITS.intake_notes} rows={3} className="w-full resize-y rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
+              <CharacterCountTextarea aria-label="Intake Notes" value={intakeNotes} onChange={setIntakeNotes} maxLength={MONITORING_TEXT_LIMITS.intake_notes} rows={3} className="w-full resize-y rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
             </label>
             <label>
               <FieldLabel>Symptoms and Tolerance</FieldLabel>
-              <CharacterCountTextarea value={symptoms} onChange={setSymptoms} maxLength={MONITORING_TEXT_LIMITS.symptoms} rows={3} className="w-full resize-y rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
+              <CharacterCountTextarea aria-label="Symptoms and Tolerance" value={symptoms} onChange={setSymptoms} maxLength={MONITORING_TEXT_LIMITS.symptoms} rows={3} className="w-full resize-y rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
             </label>
           </div>
         </Section>
@@ -401,7 +401,7 @@ export default function LogVisitForm({ plan, context, intervention, onSubmit, on
         <Section title="Clinical Progress and Decision">
           <label>
             <FieldLabel>Progress Assessment</FieldLabel>
-            <CharacterCountTextarea value={clinicalSummary} onChange={setClinicalSummary} maxLength={MONITORING_TEXT_LIMITS.clinical_summary} rows={3} className="w-full resize-y rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
+            <CharacterCountTextarea aria-label="Progress Assessment" value={clinicalSummary} onChange={setClinicalSummary} maxLength={MONITORING_TEXT_LIMITS.clinical_summary} rows={3} className="w-full resize-y rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
           </label>
           <ToggleGroup<NonNullDecision> label="Care Decision" options={DECISION_OPTIONS} value={decision} onChange={setDecision} />
         </Section>

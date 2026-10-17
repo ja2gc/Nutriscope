@@ -93,13 +93,13 @@ function PlanTrendCharts({ plan, category }: { plan: MonitoringPlan; category: I
   ];
 
   const sections = groups
-    .map((g) => ({ ...g, items: plan.indicators.filter((i) => i.category === g.category) }))
+    .map((g) => ({ ...g, items: plan.indicators.filter((i) => i.category === g.category && i.series.some((point) => point.value !== null)) }))
     .filter((g) => g.items.length > 0 && (category === "all" || g.category === category));
 
   if (sections.length === 0) {
     return (
       <div className="bg-white border border-warm-200 rounded-2xl p-8 text-center shadow-sm">
-        <p className="text-sm font-semibold text-warm-400">{category === "all" ? "No tracked indicators yet for this care plan." : "No tracked indicators in this category."}</p>
+        <p className="text-sm font-semibold text-warm-400">{category === "all" ? "No recorded values to graph yet." : "No recorded values in this category yet."}</p>
       </div>
     );
   }

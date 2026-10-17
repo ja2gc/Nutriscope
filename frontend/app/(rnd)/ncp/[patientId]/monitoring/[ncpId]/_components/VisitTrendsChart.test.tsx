@@ -13,6 +13,13 @@ const plan: MonitoringPlan = {
   ],
 };
 
+it("shows an empty state rather than an empty chart card for unrecorded intake", () => {
+  const noValues: MonitoringPlan = { ...plan, indicators: [{ ...plan.indicators[0], key: "energy_kcal", label: "Energy", category: "intake", series: [{ visit: "Visit 1", value: null, status: "no_data" }] }] };
+  const html = renderToStaticMarkup(<VisitTrendsChart plan={noValues} entries={[]} intervention={null} category="intake" />);
+  expect(html).toContain("No recorded values in this category yet.");
+  expect(html).not.toContain("Intake vs Prescription");
+});
+
 it("filters existing categories and labels the recorded target/reference", () => {
   const html = renderToStaticMarkup(<VisitTrendsChart plan={plan} entries={[]} intervention={null} category="lab" />);
   expect(html).toContain("Glucose");

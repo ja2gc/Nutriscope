@@ -59,6 +59,7 @@ describe("monitoring workflow UI", () => {
     expect(html).toContain("10/100");
     expect(html).toContain("0/400");
     expect(html).toContain("0/3000");
+    for (const label of ["Dietary Restrictions", "Intake Notes", "Symptoms and Tolerance", "Progress Assessment"]) expect(html).toContain(`aria-label="${label}"`);
     const page = readFileSync(join(process.cwd(), "app/(rnd)/ncp/[patientId]/monitoring/[ncpId]/page.tsx"), "utf8");
     expect(page).toContain("<Tabs");
     expect(page).not.toContain("sticky top-0");

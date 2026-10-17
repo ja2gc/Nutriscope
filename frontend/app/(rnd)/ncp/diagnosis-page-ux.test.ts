@@ -26,6 +26,7 @@ describe("NCP explicit save and diagnosis UX", () => {
     expect(page).toContain("CharacterCountTextarea");
     expect(page.match(/maxLength=\{125\}/g)).toHaveLength(3);
     expect(page).toContain("maxLength={500}");
+    for (const label of ["Extra Notes (optional)", "Additional Etiology Notes", "Additional Signs and Symptoms Notes", "PES statement"]) expect(page).toContain(`aria-label="${label}"`);
   });
 
   test("uses bounded assessment-based drafts with evidence, cache, and persisted dismissal", () => {
