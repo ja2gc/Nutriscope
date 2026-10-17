@@ -47,7 +47,7 @@ it("edits ordered Menu Items in the same full-week calendar with controlled serv
   expect(breakfast.querySelectorAll('[data-menu-editor-item]')).toHaveLength(2);
   expect(breakfast.querySelector('[data-menu-editor-item] > div > :first-child')?.hasAttribute('data-menu-editor-actions')).toBe(true);
   expect(breakfast.querySelectorAll('[data-menu-editor-add]')).toHaveLength(1);
-  expect(Array.from(breakfast.querySelectorAll<HTMLElement>('[data-menu-editor-item], [data-menu-editor-add]')).every((slot) => slot.className.includes('h-28'))).toBe(true);
+  expect(Array.from(breakfast.querySelectorAll<HTMLElement>('[data-menu-editor-item], [data-menu-editor-add]')).every((slot) => slot.className.includes('h-32'))).toBe(true);
   expect(breakfast.querySelector('[data-menu-editor-add]')?.previousElementSibling).toBe(breakfast.querySelectorAll('[data-menu-editor-item]')[1]);
   expect(Array.from(breakfast.querySelectorAll('select')).map((select) => Array.from(select.options).map((option) => option.value))).toEqual([["serving"], ["serving"]]);
   expect(container.querySelector('[role="dialog"][aria-label="Meal template editor"]')).toBeNull();

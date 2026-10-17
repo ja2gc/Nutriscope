@@ -457,7 +457,7 @@ it("shows scaled ingredient amounts per person and removes the generic scale sli
   expect(breakfast.querySelectorAll('[data-menu-editor-item]')).toHaveLength(1);
   expect(breakfast.querySelector('[data-menu-editor-item] > div > :first-child')?.hasAttribute('data-menu-editor-actions')).toBe(true);
   expect(breakfast.querySelectorAll('[data-menu-editor-add]')).toHaveLength(1);
-  expect(Array.from(breakfast.querySelectorAll<HTMLElement>('[data-menu-editor-item], [data-menu-editor-add]')).every((slot) => slot.className.includes('h-28'))).toBe(true);
+  expect(Array.from(breakfast.querySelectorAll<HTMLElement>('[data-menu-editor-item], [data-menu-editor-add]')).every((slot) => slot.className.includes('h-32'))).toBe(true);
   expect(breakfast.querySelector('[data-menu-editor-add]')?.previousElementSibling).toBe(breakfast.querySelector('[data-menu-editor-item]'));
   const edit = Array.from(container.querySelectorAll("button")).find((button) => button.title === "Edit");
   expect(edit).toBeDefined();

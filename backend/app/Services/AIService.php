@@ -140,7 +140,8 @@ YAML;
             ])->post('https://api.anthropic.com/v1/messages', [
                 'model' => $model,
                 'max_tokens' => 220,
-                'system' => 'Draft the dietitian\'s monitoring Progress Assessment. Write two sentences (at most three), aiming for 250–400 characters; maximum 600 characters. '
+                'system' => 'Draft the dietitian\'s monitoring Progress Assessment. Write two sentences. Use at most 60 words total, aiming for 250–400 characters; maximum 600 characters. '
+                    .'Select only the most meaningful trend and two unresolved concerns. Prioritize abnormal results and missed targets. '
                     .'First summarize the most meaningful measured change or stability; then state the remaining concerns and relevant reported symptoms/intake. '
                     .'Do not repeat a value for each indicator. Combine related findings and omit minor changes. '
                     .'Previous is the last earlier recorded value (or assessment baseline); current is the unsaved visit. Compare with the supplied target/range, never invent an ideal. '
@@ -170,7 +171,16 @@ YAML;
 
                 $text = trim($body['content'][0]['text'] ?? '');
 
-                return $text !== '' && mb_strlen($text) <= 600 && ($body['stop_reason'] ?? null) !== 'max_tokens' ? $text : null;
+                if ($text === '' || mb_strlen($text) > 600 || ($body['stop_reason'] ?? null) === 'max_tokens') {
+                    Log::warning('AIService monitoring narrative rejected', [
+                        'characters' => mb_strlen($text),
+                        'truncated' => ($body['stop_reason'] ?? null) === 'max_tokens',
+                    ]);
+
+                    return null;
+                }
+
+                return $text;
             }
 
             Log::error('AIService monitoring narrative failed', [

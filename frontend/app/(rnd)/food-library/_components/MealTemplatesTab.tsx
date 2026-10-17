@@ -157,7 +157,7 @@ function TemplateEditor({ initial, onClose, onSaved }: {
           <WeeklyMenuCalendar renderCell={(cellDay, cellMeal) => <MenuEditorSlots
             items={draft.lines.filter((line) => line.day_of_week === cellDay && line.meal_type === cellMeal).map((line) => <div key={line.key} className="flex h-full flex-col justify-between gap-1">
               {!draft.readOnly && <div data-menu-editor-actions className="flex shrink-0 justify-start"><button onClick={() => setDraft((current) => ({ ...current, lines: current.lines.filter((row) => row.key !== line.key) }))} aria-label={`Remove ${line.itemName}`} className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-red-600 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button></div>}
-              <div className="flex min-h-0 items-start gap-1">
+              <div className="flex shrink-0 items-start gap-1">
                 {line.recipe_id ? <button type="button" title={line.itemName} aria-label={`View ${line.itemName}`} onClick={(event) => void openProfile(line, event.currentTarget)} className="line-clamp-2 min-h-0 flex-1 overflow-hidden break-words text-left text-xs font-semibold leading-4 text-warm-800 hover:text-emerald-700">{line.itemName}</button> : <p className="line-clamp-2 text-xs font-semibold text-warm-800">{line.itemName}</p>}
               </div>
               {draft.readOnly ? <p className="text-xs text-warm-600">{formatTemplateDisplayNumber(line.quantity)} {line.unit === "serving" && Number(line.quantity) !== 1 ? "servings" : line.unit}</p> : <div className="flex items-end gap-1">

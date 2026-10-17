@@ -65,6 +65,7 @@ class MonitoringDraftSummaryTest extends TestCase
         [$ncp, $url, $draft] = $this->context();
         $this->postJson($url, $draft)->assertOk();
         Http::assertSent(fn ($request) => str_contains($request['system'], 'Write two sentences')
+            && str_contains($request['system'], 'Use at most 60 words')
             && str_contains($request['system'], 'Do not add a closing recommendation')
             && str_contains($request['system'], 'Do not repeat a value for each indicator'));
     }
