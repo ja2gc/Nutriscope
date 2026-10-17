@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Monitoring;
 use App\Models\NcpRecord;
 
 /**
@@ -16,6 +17,23 @@ use App\Models\NcpRecord;
  */
 class MonitoringPlanService
 {
+    private const GOAL_MICROS = [
+        'renal_diet' => ['potassium', 'phosphate', 'sodium'],
+        'diabetic_control' => ['fiber', 'sodium', 'free_sugars'],
+        'cardiac_diet' => ['sodium', 'cholesterol', 'potassium'],
+        'weight_loss' => ['fiber'], 'liver_disease' => ['sodium'],
+    ];
+
+    private const MICROS = [
+        'sodium' => ['Sodium', 'mg'], 'potassium' => ['Potassium', 'mg'],
+        'phosphate' => ['Phosphorus', 'mg'], 'calcium' => ['Calcium', 'mg'],
+        'iron' => ['Iron', 'mg'], 'magnesium' => ['Magnesium', 'mg'], 'zinc' => ['Zinc', 'mg'],
+        'fiber' => ['Fiber', 'g'], 'free_sugars' => ['Free Sugars', 'g'], 'cholesterol' => ['Cholesterol', 'mg'],
+        'vitamin_a' => ['Vitamin A', 'mcg'], 'vitamin_c' => ['Vitamin C', 'mg'],
+        'vitamin_d' => ['Vitamin D', 'mcg'], 'vitamin_b12' => ['Vitamin B12', 'mcg'],
+        'folate' => ['Folate', 'mcg'], 'omega3' => ['Omega-3', 'g'],
+    ];
+
     /** Labs surfaced per intervention goal (mirrors frontend GOAL_LAB_FLAGS; bp excluded — non-numeric). */
     private const GOAL_LAB_FLAGS = [
         'renal_diet' => ['albumin', 'creatinine', 'potassium', 'phosphate', 'hemoglobin'],
@@ -54,7 +72,7 @@ class MonitoringPlanService
     private const INTAKE_NUTRIENTS = [
         'energy_kcal' => ['label' => 'Energy intake',  'unit' => 'kcal'],
         'protein_g' => ['label' => 'Protein intake', 'unit' => 'g'],
-        'carbs_g' => ['label' => 'Carbs intake',   'unit' => 'g'],
+        'carbs_g' => ['label' => 'Carbohydrate intake', 'unit' => 'g'],
         'fat_g' => ['label' => 'Fat intake',     'unit' => 'g'],
         'fluid_ml' => ['label' => 'Fluid intake',   'unit' => 'mL'],
     ];
@@ -86,7 +104,7 @@ class MonitoringPlanService
     /**
      * @return array<string,mixed>
      */
-    public function build(NcpRecord $ncpRecord): array
+    public function build(NcpRecord $ncpRecord, ?Monitoring $draft = null): array
     {
         $ncpRecord->loadMissing([
             'patient',
@@ -103,11 +121,17 @@ class MonitoringPlanService
         $goalType = $ncpRecord->intervention?->goal_type;
         $goalStage = $ncpRecord->intervention?->disease_stage;
 
-        $monitorings = $ncpRecord->monitorings->sortBy([['created_at', 'asc'], ['id', 'asc']])->values();
+        $monitorings = $ncpRecord->monitorings
+            ->filter(fn ($m) => ! $draft || ($m->observed_at ?? $m->created_at)->toDateString() <= $draft->observed_at->toDateString())
+            ->sort(fn ($a, $b) => [($a->observed_at ?? $a->created_at)->toDateString(), (string) $a->created_at, $a->id]
+                <=> [($b->observed_at ?? $b->created_at)->toDateString(), (string) $b->created_at, $b->id])->values();
+        if ($draft) {
+            $monitorings->push($draft);
+        }
 
         $visits = [['label' => 'Visit 1', 'type' => 'assessment', 'date' => optional($assessment?->created_at)->toDateString()]];
         foreach ($monitorings as $i => $m) {
-            $visits[] = ['label' => 'Follow-up '.($i + 1), 'type' => 'monitoring', 'id' => $m->id, 'date' => optional($m->created_at)->toDateString()];
+            $visits[] = ['label' => 'Follow-up '.($i + 1), 'type' => 'monitoring', 'id' => $m->id, 'date' => optional($m->observed_at ?? $m->created_at)->toDateString()];
         }
 
         $pesStatements = $ncpRecord->diagnoses
@@ -121,6 +145,7 @@ class MonitoringPlanService
             $this->labIndicators($biochem, $sex, $goalType, $goalStage, $pesStatements, $monitorings),
             $this->anthroIndicators($assessment, $sex, $monitorings),
             $this->intakeIndicators($ncpRecord->intervention, $monitorings),
+            $this->microIndicators($ncpRecord->intervention, $monitorings),
         );
 
         return [
@@ -129,6 +154,49 @@ class MonitoringPlanService
             'goal_type' => $goalType,
             'nutritional_status' => $assessment?->nutritional_status,
             'indicators' => $indicators,
+        ];
+    }
+
+    /** Only populated draft indicators and their last earlier readings leave the application. */
+    public function draftComparison(NcpRecord $ncpRecord, array $data): array
+    {
+        $draft = new Monitoring($data);
+        $draft->bmi = round((float) $draft->weight / (((float) $draft->height / 100) ** 2), 2);
+        $plan = $this->build($ncpRecord, $draft);
+        $included = array_merge(['weight', 'bmi'], array_keys($data['lab_values'] ?? []));
+        $indicators = [];
+        foreach ($plan['indicators'] as $indicator) {
+            $series = $indicator['series'];
+            $current = array_pop($series);
+            if (! in_array($indicator['key'], $included, true) || $current['value'] === null) {
+                continue;
+            }
+            $previous = collect($series)->reverse()->first(fn ($point) => $point['value'] !== null);
+            $distance = function (?float $value) use ($indicator): ?float {
+                if ($value === null) {
+                    return null;
+                }
+                if ($indicator['target'] !== null) {
+                    return round(abs($value - $indicator['target']), 2);
+                }
+                if ($indicator['reference'] === null) {
+                    return null;
+                }
+
+                return round(max(0, ($indicator['reference']['min'] ?? $value) - $value, $value - ($indicator['reference']['max'] ?? $value)), 2);
+            };
+            $indicators[] = array_merge(array_intersect_key($indicator, array_flip(['key', 'label', 'unit', 'target', 'reference'])), [
+                'previous' => $previous['value'] ?? null,
+                'previous_visit' => $previous['visit'] ?? null,
+                'current' => $current['value'],
+                'gap_before' => $distance($previous['value'] ?? null), 'gap_now' => $distance($current['value']),
+            ]);
+        }
+
+        return [
+            'goal' => $plan['goal_type'], 'indicators' => $indicators,
+            'intake_notes' => $data['intake_notes'] ?? null, 'symptoms' => $data['symptoms'] ?? null,
+            'observations' => $data['goal_achievement'] ?? [],
         ];
     }
 
@@ -156,6 +224,13 @@ class MonitoringPlanService
         }
         foreach ($this->pesLabs($pesStatements) as $key) {
             $sources[$key][] = 'pes';
+        }
+        foreach ($monitorings as $monitoring) {
+            foreach (array_keys($monitoring->lab_values ?? []) as $key) {
+                if (isset(self::LAB_META[$key])) {
+                    $sources[$key][] = 'recorded';
+                }
+            }
         }
 
         $indicators = [];
@@ -233,11 +308,12 @@ class MonitoringPlanService
         $indicators = [];
         foreach (self::INTAKE_NUTRIENTS as $key => $meta) {
             $target = $intervention->{$key} !== null ? (float) $intervention->{$key} : null;
-            if ($target === null) {
+            $recorded = $monitorings->contains(fn ($m) => isset($m->lab_values[$key]));
+            if ($target === null && ! $recorded) {
                 continue;
             }
 
-            $points = [];
+            $points = [['visit' => 'Visit 1', 'value' => null]];
             foreach ($monitorings as $i => $m) {
                 $labs = is_array($m->lab_values) ? $m->lab_values : [];
                 $v = isset($labs[$key]) && is_numeric($labs[$key]) ? (float) $labs[$key] : null;
@@ -246,6 +322,34 @@ class MonitoringPlanService
 
             $indicators[] = $this->finishIndicator($key, $meta, 'intake', ['prescription'], null, $target, $points,
                 fn ($curr) => $this->intakeStatus($curr, $target));
+        }
+
+        return $indicators;
+    }
+
+    private function microIndicators($intervention, $monitorings): array
+    {
+        $keys = array_merge($intervention?->displayed_nutrients ?? [], array_keys($intervention?->micronutrient_limits ?? []), self::GOAL_MICROS[$intervention?->goal_type] ?? []);
+        foreach ($monitorings as $monitoring) {
+            foreach (array_keys($monitoring->lab_values ?? []) as $key) {
+                if (str_starts_with($key, 'micro_')) {
+                    $keys[] = substr($key, 6);
+                }
+            }
+        }
+        $indicators = [];
+        foreach (array_unique($keys) as $key) {
+            if (! isset(self::MICROS[$key])) {
+                continue;
+            }
+            [$label, $unit] = self::MICROS[$key];
+            $limit = $intervention?->micronutrient_limits[$key] ?? [];
+            $min = isset($limit['min']) ? (float) $limit['min'] : null;
+            $max = isset($limit['max']) ? (float) $limit['max'] : null;
+            $reference = $min !== null || $max !== null ? ['min' => $min, 'max' => $max] : null;
+            $points = array_merge([['visit' => 'Visit 1', 'value' => null]], $monitorings->map(fn ($m, $i) => ['visit' => 'Follow-up '.($i + 1), 'value' => isset($m->lab_values['micro_'.$key]) ? (float) $m->lab_values['micro_'.$key] : null])->all());
+            $indicators[] = $this->finishIndicator('micro_'.$key, ['label' => $label.' intake', 'unit' => $unit], 'intake', ['prescription'], $reference, null, $points,
+                fn ($curr, $prev) => $reference ? $this->labStatus($curr, $prev, ['low' => $min, 'high' => $max]) : 'no_data');
         }
 
         return $indicators;

@@ -82,6 +82,7 @@ class NcpVisitAttributionTest extends TestCase
         $this->assertSame([], NcpAppointment::where('uuid', $visitId)->firstOrFail()->worked_on ?? []);
 
         $monitoring = [
+            'clinical_summary' => 'Follow-up measurements reviewed.',
             'observed_at' => now()->toDateString(),
             'visit_type' => 'scheduled_follow_up',
             'weight' => 72,

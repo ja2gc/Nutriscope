@@ -276,12 +276,20 @@ export async function fetchMonitoringPlan(ncpRecordId: number | string): Promise
   return (await res.json()).data;
 }
 
-export interface AiReviewResult { narrative: string; cached: boolean; }
+export interface AiSummaryBudget { entry_key: string; remaining: number; }
+export interface AiReviewResult { narrative: string; remaining: number; }
 
-export async function requestMonitoringAiReview(ncpRecordId: number | string): Promise<AiReviewResult> {
+export async function fetchMonitoringAiBudget(ncpRecordId: number | string): Promise<AiSummaryBudget> {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/monitorings/ai-review`);
+  if (!res.ok) throw new Error("Could not load the AI generation allowance. Reload the form or write the summary manually.");
+  return (await res.json()).data;
+}
+
+export async function requestMonitoringAiReview(ncpRecordId: number | string, payload: Omit<MonitoringPayload, "clinical_summary"> & { entry_key: string }): Promise<AiReviewResult> {
   const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/monitorings/ai-review`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(payload),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

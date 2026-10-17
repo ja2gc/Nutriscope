@@ -313,7 +313,7 @@ The user authorized resolving all four minor observations and requested live QA 
 - [x] Add failing display-format, PDF-layout, and same-day-label regression tests.
 - [x] Implement the four fixes in the existing Food Library profile, report templates, and report instance labels.
 - [x] Run focused backend/frontend checks, frontend typecheck/lint/build, and inspect rendered report pages.
-- [ ] Correct only `QA 2026-10-17 Service Meal` Chicken fillet amount from 100 kg to 100 g before reusing it.
+- [x] Correct only `QA 2026-10-17 Service Meal` Chicken fillet amount from 100 kg to 100 g before reusing it. Strict root SSH verified recipe UUID `9d304fa6-b929-4586-9613-263867d6e69b`, its sole Chicken fillet line, and the original 100 kg state. A guarded transaction changed only the unit to g and recalculated this recipe's cached cost from 26,150.00 to 26.15. No QA fixture exists in normal seeders; no seeder edit is needed. All eight fixtures are retained.
 - [ ] Deploy task-only changes and run live QA for each original fix and each new correction using retained fictional fixtures; preserve unrelated data.
 
 The proposed ADIME-page change to list every menu was explicitly withdrawn: **keep the latest menu link there**. Each report still uses its own saved menu; NCP Summary still uses the latest intervention.
@@ -327,7 +327,25 @@ The exact fictional patient `aba6c088-5b1f-4fe7-b6af-1f295ab94ca7` and care cycl
 - Ingredients: `QA 2026-10-17 Measured Piece`, `QA 2026-10-17 Measured Liquid`.
 - Clinical Menu Items: `QA 2026-10-17 Mixed Snack`, `QA 2026-10-17 Wheat Carb`, `QA 2026-10-17 Volume Meal`.
 - Clinical template: `QA 2026-10-17 Clinical Template` (Mixed Snack in Monday Breakfast).
-- Food Service recipe: `QA 2026-10-17 Service Meal`. The QA input saved 100 kg Chicken fillet after selection switched its unit to kg; correct this fixture to the intended 100 g before reusing it. This is test-data cleanup, not a confirmed production recipe-scaling bug.
+- Food Service recipe: `QA 2026-10-17 Service Meal`. Corrected and verified through strict root SSH on 2026-10-17: 100 g Chicken fillet, cached recipe cost 26.15. This is test-data cleanup, not a production recipe-scaling bug.
 - Food Service week: `QA 2026-10-17 Service Week`, Monday `2027-02-01`, loaded from Three Meals Hospital Menu. No purchasing was initiated.
 
-Keep unrelated `mobile/package.json` changes intact. No follow-up product fixes have been written or pushed after `dbfa220b`; these handoff updates remain local for the next task commit.
+Keep unrelated `mobile/package.json` changes intact. Follow-up fixes shipped in `5fcc64a6` and `c5d1aa54`; the other session's clinical changes through `b0bd8dd3` are present locally and deployed.
+
+### Monitoring draft-summary continuation — 2026-10-17
+
+The user approved the in-chat monitoring design and 600-character required Progress Assessment, three successful generations per pending entry, shared patient-specific inputs/graphs/AI, and removal of the old Progress Trends evaluation/AI card. The concurrent session is finished. Retain its graph category filter and changes; keep `mobile/package.json` untouched.
+
+- [x] Share relevant lab/macro/micronutrient indicators and chronological comparisons, including limits-only and previously recorded nutrients.
+- [x] Validate unsaved generation inputs using the existing monitoring bounds; enforce role/public-UUID scope, per-entry quota, lock, minute/hour throttles and provider usage caps.
+- [x] Produce editable concise wording from bounded comparisons with patient identity fields omitted; no clinical save on generation; preserve manual wording and discard stale responses.
+- [x] Require Progress Assessment on save, maximum 600 characters; remove old trend evaluation/AI card and preserve filters.
+- [x] Spell out report nutrients, include every latest-plan micronutrient target, and increase signature space.
+- [x] Complete focused local regressions and PDF inspection: 56/56 backend, 28/28 affected frontend, build/lint/TypeScript, Pint, route cache/list/clear, and a one-page PDF with micronutrient targets and adequate signature space. Intake charts retain an empty Assessment point when no numeric intake was measured; both Food Service recipe header grids center the tooltip-bearing Unit label with the other columns.
+- [ ] Push main, verify release and live acceptance.
+
+Local evidence: focused backend 56/56 (350 assertions); affected frontend 28/28; full frontend 688/689 (existing `personNameStaleConsumer.test.ts` BudgetPageShell count mismatch), build/lint/TypeScript passed. Initial full backend: 1,785/1,796 passed; required-summary fixtures and PDF pagination failures were fixed and rechecked by the focused run. An isolated baseline run reconfirmed existing audit route inventory, accomplishment visibility and projected split-name failures; the final full suite is running with JUnit output under ignored `backend/tmp/`. SQLite is unsupported by existing MySQL-specific migrations, so authoritative checks use isolated MySQL schemas. Root SSH preflight verified deployed `b0bd8dd3`, healthy MySQL/Redis and backend HTTP 200. All eight named fixtures are retained and the exact Service Meal correction is complete. Release and final live acceptance are pending.
+
+### Queued follow-up — Admin accomplishment reports
+
+- [ ] Reuse the existing RND accomplishment-report design for Admin, grouping by staff. Opening a staff member shows their approved reports directly, without Approved/To Review tabs. The user requested adding this to the to-do list without interrupting the current monitoring/menu release and live QA.

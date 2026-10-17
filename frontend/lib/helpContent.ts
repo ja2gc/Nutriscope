@@ -301,7 +301,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Monitoring",
     question: "What can I record in Monitoring?",
-    answer: "Record the follow-up measurements and clinical context needed for later calculations, plus intake/tolerance, symptoms, progress, and next monitoring date. Saved visits are read-only in Visit Log; Progress Trends stays separate. Create a new dated plan from Intervention only when treatment changes. Manage attendance through Appointments and the shared visit bar.",
+    answer: "Record patient-specific follow-up measurements, intake/tolerance, symptoms, and next monitoring date. Progress Assessment is required, up to 600 characters. Write it manually or use Generate AI Summary, limited to three successful generations per entry. AI compares current unsaved values with earlier readings and available targets; review/edit before Save Visit. Saved visits are read-only in Visit Log; Progress Trends provides filtered graphs without a separate evaluation card. Create a new dated Intervention Plan when treatment changes.",
     keywords: ["visit log", "progress trend", "follow-up"],
   },
   {

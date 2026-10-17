@@ -6,7 +6,6 @@ import EncounterLog from "./_components/EncounterLog";
 import GoalProgressTracker from "./_components/GoalProgressTracker";
 import LogVisitForm from "./_components/LogVisitForm";
 import VisitTrendsChart from "./_components/VisitTrendsChart";
-import MonitoringSummaryCard from "./_components/MonitoringSummaryCard";
 import CarePlanHeader from "./_components/CarePlanHeader";
 import {
   MonitoringEntry,
@@ -98,7 +97,7 @@ export default function NcpMonitoringPage({
         fetchAssessment(ncpId),
         fetchDiagnoses(ncpId),
         fetchIntervention(ncpId),
-        fetchMonitoringPlan(ncpId).catch(() => null),
+        fetchMonitoringPlan(ncpId),
         fetchMonitoringContext(ncpId),
       ]);
       if (patientData.status === "fulfilled") setPatient(patientData.value);
@@ -124,9 +123,9 @@ export default function NcpMonitoringPage({
         setWorkflowBlock("Save at least one diagnosis before monitoring can begin.");
       } else if (!loadedIntervention) {
         setWorkflowBlock("Monitoring starts on follow-up or second visit after the care plan is saved.");
-      } else if (contextData.status === "rejected") {
+      } else if (contextData.status === "rejected" || planData.status === "rejected") {
         setWorkflowBlock(null);
-        setError(contextData.reason instanceof Error ? contextData.reason.message : "Failed to load monitoring context.");
+        setError("Failed to load monitoring context or patient indicators. Reload before logging a visit.");
       } else {
         setWorkflowBlock(null);
       }
@@ -280,8 +279,9 @@ export default function NcpMonitoringPage({
                 />
                 <Pagination meta={historyMeta} page={historyPage} onPageChange={setHistoryPage} />
 
-                {showForm && context && (
+                {showForm && context && plan && (
                   <LogVisitForm
+                    ncpId={ncpId}
                     plan={plan}
                     context={context}
                     intervention={intervention}
@@ -296,7 +296,6 @@ export default function NcpMonitoringPage({
             {activeTab === "progress" && (
               <div className="space-y-6">
                 <CarePlanHeader plan={plan} />
-                <MonitoringSummaryCard ncpId={ncpId} visitCount={historyMeta?.total ?? entries.length} />
                 <div className="[&_button]:min-h-11"><ButtonFilterGroup label="Category" value={category} onChange={(value) => setCategory(value as IndicatorCategory | "all")} options={[
                   { value: "all", label: "All" }, { value: "anthro", label: "Anthropometric" },
                   { value: "lab", label: "Clinical Labs" }, { value: "intake", label: "Intake" },

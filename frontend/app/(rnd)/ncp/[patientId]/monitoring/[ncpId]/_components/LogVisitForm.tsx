@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { CharacterCountTextarea } from "@/components/ui/CharacterCountTextarea";
@@ -8,12 +8,13 @@ import { CharacterCountListInput } from "@/components/ui/CharacterCountListInput
 import { ASSESSMENT_TEXT_LIMITS, FOOD_DISLIKE_LIMIT, FOOD_DISLIKE_MAX_ENTRIES } from "@/lib/assessmentValidation";
 import { ALLERGY_ENTRY_LIMIT, MONITORING_TEXT_LIMITS, monitoringTextError } from "@/lib/monitoringValidation";
 import { InfoHint } from "@/components/ui/InfoHint";
-import { GOAL_MICRO_FLAGS, ALL_MICROS } from "@/lib/nutritionCalculations";
 import type { Intervention } from "@/services/interventionService";
 import type { MonitoringPlan } from "@/services/monitoringPlan";
 import {
   CLINICAL_LAB_META,
-  GOAL_LAB_FLAGS,
+  fetchMonitoringAiBudget,
+  requestMonitoringAiReview,
+  type AiSummaryBudget,
   buildEffectiveMonitoringPayload,
   calculateBmi,
   type ClinicalLabKey,
@@ -28,6 +29,7 @@ import {
 } from "@/services/monitoringService";
 
 interface LogVisitFormProps {
+  ncpId?: string;
   plan?: MonitoringPlan | null;
   context: MonitoringContext;
   intervention: Intervention | null;
@@ -59,15 +61,6 @@ const MATERNAL_STATUSES: { value: PregnancyLactationStatus; label: string }[] = 
   { value: "lactating", label: "Lactating" },
 ];
 
-const MACRO_FIELDS = [
-  { key: "energy_kcal", label: "Energy", unit: "kcal" },
-  { key: "protein_g", label: "Protein", unit: "g" },
-  { key: "carbs_g", label: "Carbohydrate", unit: "g" },
-  { key: "fat_g", label: "Fat", unit: "g" },
-  { key: "fluid_ml", label: "Fluid", unit: "mL" },
-] as const;
-
-type MacroKey = typeof MACRO_FIELDS[number]["key"];
 type NonNullDecision = NonNullable<ContinuationDecision>;
 
 const COMPLIANCE_OPTIONS: { value: ComplianceStatus; label: string }[] = [
@@ -120,7 +113,7 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   return <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-warm-500">{children}</span>;
 }
 
-function NumberField({ label, unit, value, onChange, required = false, readOnly = false, target }: {
+function NumberField({ label, unit, value, onChange, required = false, readOnly = false, target, reference }: {
   label: string;
   unit: string;
   value: string;
@@ -128,12 +121,17 @@ function NumberField({ label, unit, value, onChange, required = false, readOnly 
   required?: boolean;
   readOnly?: boolean;
   target?: string | number | null;
+  reference?: { min?: number | null; max?: number | null } | null;
 }) {
+  const targetText = target != null && target !== "" ? `${target} ${unit}`
+    : reference?.min != null && reference?.max != null ? `${reference.min}–${reference.max} ${unit}`
+    : reference?.min != null ? `≥ ${reference.min} ${unit}`
+    : reference?.max != null ? `≤ ${reference.max} ${unit}` : null;
   return (
     <label>
-      <span className="mb-1.5 flex items-end justify-between gap-2">
+      <span className="mb-1.5 flex flex-wrap items-end justify-between gap-2">
         <span className="text-xs font-bold uppercase tracking-widest text-warm-500">{label}</span>
-        {target != null && target !== "" && <span className="text-xs font-semibold text-warm-500">Target {target} {unit}</span>}
+        {targetText && <span className="text-xs font-semibold text-warm-500">Target {targetText}</span>}
       </span>
       <span className="flex overflow-hidden rounded-lg border border-warm-200 bg-white focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-500/20">
         <input
@@ -182,20 +180,14 @@ function ToggleGroup<T extends string>({ label, options, value, onChange }: {
   );
 }
 
-export default function LogVisitForm({ plan, context, intervention, onSubmit, onCancel }: LogVisitFormProps) {
-  const goalType = intervention?.goal_type ?? null;
+export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel }: LogVisitFormProps) {
   const knownLabKeys = Object.keys(CLINICAL_LAB_META) as ClinicalLabKey[];
   const planLabKeys = plan
     ? (plan.indicators.filter((indicator) => indicator.category === "lab").map((indicator) => indicator.key) as ClinicalLabKey[])
         .filter((key) => knownLabKeys.includes(key))
     : [];
-  const labKeys = planLabKeys.length > 0 ? planLabKeys : goalType ? GOAL_LAB_FLAGS[goalType] ?? [] : knownLabKeys;
-
-  const microKeys = useMemo(() => {
-    const flagged = goalType ? GOAL_MICRO_FLAGS[goalType] ?? [] : [];
-    return Array.from(new Set([...(intervention?.displayed_nutrients ?? []), ...flagged]));
-  }, [goalType, intervention?.displayed_nutrients]);
-  const microMeta = Object.fromEntries(ALL_MICROS.map((item) => [item.key, item]));
+  const labKeys = planLabKeys;
+  const intakeFields = plan?.indicators.filter((indicator) => indicator.category === "intake") ?? [];
 
   const [observedAt, setObservedAt] = useState(todayValue);
   const [visitType, setVisitType] = useState<MonitoringVisitType>("scheduled_follow_up");
@@ -218,10 +210,24 @@ export default function LogVisitForm({ plan, context, intervention, onSubmit, on
   const [labs, setLabs] = useState<Record<ClinicalLabKey, string>>(
     Object.fromEntries(knownLabKeys.map((key) => [key, ""])) as Record<ClinicalLabKey, string>,
   );
-  const [macros, setMacros] = useState<Record<MacroKey, string>>({ energy_kcal: "", protein_g: "", carbs_g: "", fat_g: "", fluid_ml: "" });
-  const [micros, setMicros] = useState<Record<string, string>>(Object.fromEntries(microKeys.map((key) => [key, ""])));
+  const [intakes, setIntakes] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [budget, setBudget] = useState<AiSummaryBudget | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [suggestion, setSuggestion] = useState<{ text: string; inputs: string } | null>(null);
+  const [generatedFor, setGeneratedFor] = useState<string | null>(null);
+  const latestInputs = useRef("");
+  const latestText = useRef("");
+
+  useEffect(() => {
+    if (!ncpId) return;
+    let active = true;
+    fetchMonitoringAiBudget(ncpId).then((value) => { if (active) setBudget(value); })
+      .catch((err) => { if (active) setAiError(err instanceof Error ? err.message : "Could not load AI allowance."); });
+    return () => { active = false; };
+  }, [ncpId]);
 
   const bmi = Number(weight) > 0 && Number(height) > 0 ? String(calculateBmi(Number(weight), Number(height))) : "";
 
@@ -235,13 +241,9 @@ export default function LogVisitForm({ plan, context, intervention, onSubmit, on
         labValues[key] = Number(value);
       }
     });
-    MACRO_FIELDS.forEach(({ key }) => {
-      const value = macros[key].trim();
+    intakeFields.forEach(({ key }) => {
+      const value = intakes[key]?.trim();
       if (value) labValues[key] = Number(value);
-    });
-    microKeys.forEach((key) => {
-      const value = micros[key]?.trim();
-      if (value) labValues[`micro_${key}`] = Number(value);
     });
 
     const goalAchievement: Record<string, string> = {};
@@ -270,10 +272,44 @@ export default function LogVisitForm({ plan, context, intervention, onSubmit, on
     });
   }
 
+  const comparisonInputs = JSON.stringify({ ...buildPayload(), clinical_summary: undefined });
+  useEffect(() => {
+    latestInputs.current = comparisonInputs;
+    latestText.current = clinicalSummary;
+  }, [comparisonInputs, clinicalSummary]);
+
+  async function generateSummary() {
+    if (!ncpId || !budget || budget.remaining <= 0 || aiLoading) return;
+    const payload = JSON.parse(comparisonInputs) as Omit<MonitoringPayload, "clinical_summary">;
+    const validationError = monitoringTextError(payload);
+    if (validationError) { setAiError(validationError); return; }
+    setAiLoading(true);
+    setAiError(null);
+    setSuggestion(null);
+    try {
+      const result = await requestMonitoringAiReview(ncpId, { ...payload, entry_key: budget.entry_key });
+      setBudget({ ...budget, remaining: result.remaining });
+      if (latestInputs.current !== comparisonInputs) {
+        setAiError("Entry values changed during generation. Generate again using the current values.");
+      } else if (latestText.current.trim()) {
+        setSuggestion({ text: result.narrative, inputs: comparisonInputs });
+      } else {
+        setClinicalSummary(result.narrative);
+        setGeneratedFor(comparisonInputs);
+      }
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : "Summary generation failed. You can write it manually.");
+      fetchMonitoringAiBudget(ncpId).then(setBudget).catch(() => undefined);
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
     const payload = buildPayload();
+    if (!payload.clinical_summary?.trim()) { setError("Progress Assessment is required."); return; }
     const validationError = monitoringTextError(payload);
     if (validationError) { setError(validationError); return; }
     setSubmitting(true);
@@ -373,15 +409,9 @@ export default function LogVisitForm({ plan, context, intervention, onSubmit, on
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {MACRO_FIELDS.map(({ key, label, unit }) => (
-              <NumberField key={key} label={`${label} Intake`} unit={unit} value={macros[key]} onChange={(value) => setMacros((current) => ({ ...current, [key]: value }))} target={intervention?.[key] as string | number | null | undefined} />
+            {intakeFields.map(({ key, label, unit, target, reference }) => (
+              <NumberField key={key} label={label} unit={unit} value={intakes[key] ?? ""} onChange={(value) => setIntakes((current) => ({ ...current, [key]: value }))} target={target} reference={reference} />
             ))}
-            {microKeys.map((key) => {
-              const meta = microMeta[key];
-              if (!meta) return null;
-              const limit = intervention?.micronutrient_limits?.[key];
-              return <NumberField key={key} label={`${meta.label} Intake`} unit={meta.unit} value={micros[key] ?? ""} onChange={(value) => setMicros((current) => ({ ...current, [key]: value }))} target={limit?.max ?? limit?.min ?? null} />;
-            })}
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -400,9 +430,27 @@ export default function LogVisitForm({ plan, context, intervention, onSubmit, on
 
         <Section title="Clinical Progress and Decision">
           <label>
-            <FieldLabel>Progress Assessment</FieldLabel>
-            <CharacterCountTextarea aria-label="Progress Assessment" value={clinicalSummary} onChange={setClinicalSummary} maxLength={MONITORING_TEXT_LIMITS.clinical_summary} rows={3} className="w-full resize-y rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
+            <FieldLabel>Progress Assessment *</FieldLabel>
+            <CharacterCountTextarea aria-label="Progress Assessment" required value={clinicalSummary} onChange={setClinicalSummary} maxLength={MONITORING_TEXT_LIMITS.clinical_summary} rows={3} className="w-full resize-y rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
           </label>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="button" variant="ghost" disabled={!budget || budget.remaining <= 0 || submitting} loading={aiLoading} onClick={generateSummary}>Generate AI Summary</Button>
+            {budget && <span className="text-xs text-warm-500" role="status">{budget.remaining} generations left for this entry</span>}
+          </div>
+          {aiError && <p className="text-sm text-red-700" role="alert">{aiError}</p>}
+          {suggestion && (
+            <div className="space-y-3 rounded-lg border border-warm-200 p-3">
+              <p className="text-sm text-warm-800">{suggestion.text}</p>
+              <Button type="button" variant="ghost" disabled={suggestion.inputs !== comparisonInputs} onClick={() => { setClinicalSummary(suggestion.text); setGeneratedFor(suggestion.inputs); setSuggestion(null); }}>Use this summary</Button>
+              {suggestion.inputs !== comparisonInputs && <p className="text-xs text-amber-800">Entry values changed. Generate again or edit your summary manually.</p>}
+            </div>
+          )}
+          {generatedFor && generatedFor !== comparisonInputs && (
+            <div className="space-y-2 text-sm text-amber-800" role="status">
+              <p>Entry values changed. Review your summary or generate again.</p>
+              <Button type="button" variant="ghost" onClick={() => setGeneratedFor(comparisonInputs)}>Mark reviewed</Button>
+            </div>
+          )}
           <ToggleGroup<NonNullDecision> label="Care Decision" options={DECISION_OPTIONS} value={decision} onChange={setDecision} />
         </Section>
 
@@ -415,7 +463,7 @@ export default function LogVisitForm({ plan, context, intervention, onSubmit, on
 
         {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
         <div className="flex flex-col gap-3 sm:flex-row">
-          <Button type="submit" variant="primary" loading={submitting} className="sm:flex-1">Save Visit</Button>
+          <Button type="submit" variant="primary" loading={submitting} disabled={aiLoading} className="sm:flex-1">Save Visit</Button>
           <Button type="button" variant="ghost" onClick={onCancel} className="sm:!w-auto">Cancel</Button>
         </div>
       </form>

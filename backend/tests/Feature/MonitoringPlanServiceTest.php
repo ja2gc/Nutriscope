@@ -89,6 +89,8 @@ class MonitoringPlanServiceTest extends TestCase
         $this->assertNotNull($energy);
         $this->assertSame('intake', $energy['category']);
         $this->assertSame(1800.0, $energy['target']);
+        $this->assertSame('Visit 1', $energy['series'][0]['visit']);
+        $this->assertNull($energy['series'][0]['value'], 'Missing assessment intake must not be replaced by the first follow-up.');
     }
 
     public function test_weight_target_is_display_ready_and_progress_requires_target_attainment(): void
@@ -106,6 +108,24 @@ class MonitoringPlanServiceTest extends TestCase
         $plan = app(MonitoringPlanService::class)->build($this->makeNcp());
 
         $this->assertNotEmpty($plan['pes_statements']);
+    }
+
+    public function test_micronutrient_limits_and_previously_logged_indicators_share_the_plan(): void
+    {
+        $ncp = $this->makeNcp();
+        Intervention::create([
+            'ncp_record_id' => $ncp->id, 'goal_type' => 'custom',
+            'displayed_nutrients' => ['vitamin_c'],
+            'micronutrient_limits' => ['fiber' => ['min' => 25, 'max' => 35, 'unit' => 'g']],
+        ]);
+        Monitoring::create(['ncp_record_id' => $ncp->id, 'lab_values' => ['micro_fiber' => 20, 'glucose' => 110]]);
+        $plan = app(MonitoringPlanService::class)->build($ncp);
+        $fiber = $this->indicator($plan, 'micro_fiber');
+        $this->assertNotNull($fiber);
+        $this->assertSame(['min' => 25.0, 'max' => 35.0], $fiber['reference']);
+        $this->assertSame(20.0, collect($fiber['series'])->last()['value']);
+        $this->assertNotNull($this->indicator($plan, 'micro_vitamin_c'));
+        $this->assertNotNull($this->indicator($plan, 'glucose'));
     }
 
     /** @return array<string,mixed>|null */

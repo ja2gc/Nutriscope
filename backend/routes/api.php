@@ -222,6 +222,7 @@ Route::middleware(['auth:sanctum', 'active', 'role:RND'])->prefix('rnd')->group(
     // Phase 6 — evaluation summary (free) + optional AI narrative (declared before
     // the {monitoring} routes so the literal segments win the match).
     Route::get('ncp-records/{ncpRecord}/monitorings/summary', [MonitoringController::class, 'summary']);
+    Route::get('ncp-records/{ncpRecord}/monitorings/ai-review', [MonitoringController::class, 'aiReviewBudget']);
     Route::post('ncp-records/{ncpRecord}/monitorings/ai-review', [MonitoringController::class, 'aiReview'])->middleware('throttle:ai');
     Route::post('ncp-records/{ncpRecord}/monitorings', [MonitoringController::class, 'store']);
     Route::patch('ncp-records/{ncpRecord}/monitorings/{monitoring}', [MonitoringController::class, 'update']);

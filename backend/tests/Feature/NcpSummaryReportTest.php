@@ -61,6 +61,7 @@ class NcpSummaryReportTest extends TestCase
         Intervention::create([
             'ncp_record_id' => $ncp->id,
             'energy_kcal' => 1800, 'protein_g' => 70, 'carbs_g' => 250, 'fat_g' => 50, 'fluid_ml' => 2000,
+            'micronutrient_limits' => ['sodium' => ['max' => 2000, 'unit' => 'mg'], 'fiber' => ['min' => 25, 'unit' => 'g']],
             'education_notes' => 'Low-salt, high-protein diet education.',
         ]);
         Monitoring::create([
@@ -185,6 +186,27 @@ class NcpSummaryReportTest extends TestCase
             $this->assertSame(strlen($bytes), file_put_contents($artifact, $bytes));
         }
         $this->assertSame(1, count($pages[0]), 'An ordinary NCP Summary should keep its signatories on the first page.');
+    }
+
+    public function test_intervention_lists_latest_macro_and_all_micronutrient_targets_in_plain_language(): void
+    {
+        $ncp = $this->makeRecord();
+        Intervention::create([
+            'ncp_record_id' => $ncp->id, 'energy_kcal' => 1900, 'protein_g' => 75,
+            'micronutrient_limits' => ['sodium' => ['max' => 2000, 'unit' => 'mg'], 'fiber' => ['min' => 25, 'max' => 35, 'unit' => 'g']],
+        ]);
+        $data = app(NcpSummaryGenerator::class)->data(new Report(['type' => 'ncp_summary', 'parameters' => ['ncp_record_id' => $ncp->uuid]]));
+        $html = view('reports.ncp-summary', array_merge($data, ['branding' => new ReportBranding, 'report' => new Report, 'signatories' => []]))->render();
+        $this->assertStringContainsString('Carbohydrate', $html);
+        $this->assertStringContainsString('Protein', $html);
+        $this->assertStringNotContainsString('CHON', $html);
+        $this->assertStringContainsString('Sodium', $html);
+        $this->assertStringContainsString('2000', $html);
+        $this->assertStringContainsString('Fiber', $html);
+        $this->assertStringContainsString('25', $html);
+        $this->assertStringContainsString('35', $html);
+        $this->assertStringContainsString('1900', $html);
+        $this->assertStringNotContainsString('Nutrition Education:', $html);
     }
 
     public function test_clinical_report_signatories_use_cycle_rnd_and_patient_physician_not_filer(): void
@@ -374,6 +396,7 @@ class NcpSummaryReportTest extends TestCase
             'carbs_g' => 250,
             'fat_g' => 50,
             'fluid_ml' => 2000,
+            'education_notes' => 'Discuss consistent meal timing.',
             'counseling_goals' => 'Eat regular meals.',
             'barriers' => 'Irregular schedule.',
             'strategies' => 'Prepare meals ahead.',
@@ -398,7 +421,7 @@ class NcpSummaryReportTest extends TestCase
         $guidance = $xpath->query('//div[contains(concat(" ", normalize-space(@class), " "), " intervention-guidance ")]');
 
         $this->assertCount(1, $guidance);
-        $this->assertStringContainsString('Nutrition Education:', $guidance->item(0)->textContent);
+        $this->assertStringContainsString('Nutrition Education: Discuss consistent meal timing.', $guidance->item(0)->textContent);
         $this->assertStringContainsString('Behavioral Goals: Eat regular meals.', $guidance->item(0)->textContent);
         $this->assertStringContainsString('Identified Barriers: Irregular schedule.', $guidance->item(0)->textContent);
         $this->assertStringContainsString('Strategies: Prepare meals ahead.', $guidance->item(0)->textContent);

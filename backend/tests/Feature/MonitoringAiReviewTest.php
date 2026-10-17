@@ -17,7 +17,7 @@ class MonitoringAiReviewTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_ai_review_sends_only_tracked_indicators_and_returns_course_of_action(): void
+    public function test_ai_review_uses_unsaved_values_instead_of_saved_trajectory(): void
     {
         Http::preventStrayRequests();
         Http::fake([
@@ -35,8 +35,14 @@ class MonitoringAiReviewTest extends TestCase
         Intervention::create(['ncp_record_id' => $ncp->id, 'goal_type' => 'renal_diet', 'energy_kcal' => 1800]);
         Monitoring::create(['ncp_record_id' => $ncp->id, 'weight' => 52, 'bmi' => 18.0, 'lab_values' => ['albumin' => 3.0]]);
 
-        $res = $this->actingAs($rnd, 'sanctum')
-            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings/ai-review")
+        $url = "/api/rnd/ncp-records/{$ncp->uuid}/monitorings/ai-review";
+        $key = $this->actingAs($rnd, 'sanctum')->getJson($url)->assertOk()->json('data.entry_key');
+        $res = $this->postJson($url, [
+            'entry_key' => $key, 'observed_at' => now()->toDateString(), 'visit_type' => 'scheduled_follow_up',
+            'weight' => 53, 'height' => 170, 'edema_present' => false, 'physical_activity_level' => 'light',
+            'pregnancy_lactation_status' => 'none', 'allergies' => [], 'food_dislikes' => [], 'dietary_restrictions' => null,
+            'lab_values' => ['albumin' => 3.2],
+        ])
             ->assertOk();
 
         $this->assertNotEmpty($res->json('data.narrative'));
@@ -45,7 +51,7 @@ class MonitoringAiReviewTest extends TestCase
             $body = json_encode($request->data());
 
             return str_contains($body, 'Albumin')        // tracked (flagged + renal goal)
-                && str_contains($body, 'pes_statements')  // PES context included
+                && str_contains($body, '3.2')
                 && ! str_contains($body, 'Sodium');       // untracked lab excluded
         });
     }

@@ -58,7 +58,7 @@ describe("monitoring workflow UI", () => {
     const html = renderToStaticMarkup(<LogVisitForm context={context} intervention={null} onSubmit={async () => undefined} onCancel={() => undefined} />);
     expect(html).toContain("10/100");
     expect(html).toContain("0/400");
-    expect(html).toContain("0/3000");
+    expect(html).toContain("0/600");
     for (const label of ["Dietary Restrictions", "Intake Notes", "Symptoms and Tolerance", "Progress Assessment"]) expect(html).toContain(`aria-label="${label}"`);
     const page = readFileSync(join(process.cwd(), "app/(rnd)/ncp/[patientId]/monitoring/[ncpId]/page.tsx"), "utf8");
     expect(page).toContain("<Tabs");
@@ -234,12 +234,15 @@ describe("monitoring workflow UI", () => {
     expect(chartSource).toContain("How to read trend charts");
   });
 
-  it("keeps the AI review heading and button free of decorative star icons", () => {
+  it("places AI generation in the required progress assessment instead of the trend card", () => {
+    const html = renderToStaticMarkup(<LogVisitForm context={context} intervention={null} onSubmit={async () => undefined} onCancel={() => undefined} />);
+    expect(html).toContain("Generate AI Summary");
+    expect(html).toMatch(/<textarea[^>]*required=""[^>]*aria-label="Progress Assessment"/);
     const source = readFileSync(join(
       process.cwd(),
-      "app/(rnd)/ncp/[patientId]/monitoring/[ncpId]/_components/MonitoringSummaryCard.tsx",
+      "app/(rnd)/ncp/[patientId]/monitoring/[ncpId]/page.tsx",
     ), "utf8");
 
-    expect(source).not.toContain("Sparkles");
+    expect(source).not.toContain("MonitoringSummaryCard");
   });
 });

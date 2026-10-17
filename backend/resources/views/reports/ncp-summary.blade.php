@@ -10,8 +10,9 @@
         table.grid th, table.grid td { padding: 2px 4px; }
         table.meta td { padding: 1px 3px; }
         .section { margin: 6px 0 2px; padding: 2px 5px; }
-        .sigs { margin-top: 6px; }
-        .sig-label { margin-bottom: 8px; }
+        .sigs { margin-top: 16px; }
+        .sig-label { margin-bottom: 30px; }
+        .prescription-line { margin: 2px 0; }
     </style>
     @include('reports.partials.letterhead', [
         'title'    => 'Medical Nutrition Therapy (Nutrition Care Plan)',
@@ -129,24 +130,25 @@
 
     {{-- Intervention --}}
     <div class="section">Nutrition Intervention</div>
-    <table class="grid">
-        <tr>
-            <th>Energy (kcal)</th><th>CHO (g)</th><th>CHON (g)</th><th>Fat (g)</th><th>Fluid (mL)</th>
-        </tr>
-        <tr class="center">
-            <td>{{ $intervention?->energy_kcal }}</td>
-            <td>{{ $intervention?->carbs_g }}</td>
-            <td>{{ $intervention?->protein_g }}</td>
-            <td>{{ $intervention?->fat_g }}</td>
-            <td>{{ $intervention?->fluid_ml }}</td>
-        </tr>
-    </table>
+    <div class="prescription-line">
+        @foreach(['energy_kcal' => ['Energy', 'kcal'], 'carbs_g' => ['Carbohydrate', 'g'], 'protein_g' => ['Protein', 'g'], 'fat_g' => ['Fat', 'g'], 'fluid_ml' => ['Fluid', 'mL']] as $key => [$label, $unit])
+            @if(!$loop->first) · @endif<span class="bold">{{ $label }}:</span> {{ $intervention?->{$key} ?? '—' }} {{ $unit }}
+        @endforeach
+    </div>
+    @foreach($intervention?->micronutrient_limits ?? [] as $nutrient => $limit)
+        <div class="prescription-line"><span class="bold">{{ Illuminate\Support\Str::headline($nutrient) }}:</span>
+            @if(isset($limit['min']))min {{ $limit['min'] }}@endif
+            @if(isset($limit['min'], $limit['max'])) / @endif
+            @if(isset($limit['max']))max {{ $limit['max'] }}@endif
+            {{ $limit['unit'] ?? '' }}
+        </div>
+    @endforeach
     <div class="intervention-guidance">
-        <div style="margin-top:4px;"><span class="bold">Diet / Stage:</span> {{ $intervention?->disease_stage }}</div>
-        <div><span class="bold">Nutrition Education:</span> {{ $intervention?->education_notes }}</div>
-        <div><span class="bold">Behavioral Goals:</span> {{ $intervention?->counseling_goals }}</div>
-        <div><span class="bold">Identified Barriers:</span> {{ $intervention?->barriers }}</div>
-        <div><span class="bold">Strategies:</span> {{ $intervention?->strategies }}</div>
+        @foreach(['disease_stage' => 'Diet / Stage', 'education_notes' => 'Nutrition Education', 'counseling_goals' => 'Behavioral Goals', 'barriers' => 'Identified Barriers', 'strategies' => 'Strategies'] as $key => $label)
+            @if(filled($intervention?->{$key}))
+                <div><span class="bold">{{ $label }}:</span> {{ $intervention->{$key} }}</div>
+            @endif
+        @endforeach
         {{-- RP-03: reference the patient's meal plan for this cycle. --}}
         @if(!empty($meal_plan))
             <div><span class="bold">Meal Plan:</span> Week of {{ $meal_plan['week_start_date'] }} (#{{ $meal_plan['id'] }}, {{ ucfirst($meal_plan['status']) }})</div>

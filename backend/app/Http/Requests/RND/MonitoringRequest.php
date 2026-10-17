@@ -37,7 +37,7 @@ abstract class MonitoringRequest extends FormRequest
             'intake_notes' => ['nullable', 'string', 'max:400'],
             'symptoms' => ['nullable', 'string', 'max:400'],
             'goal_achievement' => ['nullable', 'array'],
-            'clinical_summary' => ['nullable', 'string', 'max:3000'],
+            'clinical_summary' => ['required', 'string', 'max:600'],
             'ai_decision' => ['nullable', 'string'],
             'next_monitoring_date' => ['nullable', 'date', 'after_or_equal:observed_at'],
             'intervention_revision' => ['prohibited'],

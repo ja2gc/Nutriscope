@@ -115,6 +115,7 @@ class SharedRndClinicalAccessTest extends TestCase
             'visit_type' => $monitoring->visit_type,
             'weight' => 61,
             'height' => 165,
+            'clinical_summary' => 'Measurements reviewed by the covering dietitian.',
             'edema_present' => false,
             'physical_activity_level' => 'light',
             'pregnancy_lactation_status' => 'none',

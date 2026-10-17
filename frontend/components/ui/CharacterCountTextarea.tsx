@@ -9,6 +9,7 @@ type CharacterCountTextareaProps = {
   maxLength: number;
   rows?: number;
   disabled?: boolean;
+  required?: boolean;
   autoGrow?: boolean;
   className?: string;
   "aria-label"?: string;
@@ -23,6 +24,7 @@ export function CharacterCountTextarea({
   maxLength,
   rows = 3,
   disabled = false,
+  required = false,
   autoGrow = false,
   className = "",
   "aria-label": ariaLabel,
@@ -70,6 +72,7 @@ export function CharacterCountTextarea({
         onBlur={onBlur}
         rows={rows}
         disabled={disabled}
+        required={required}
         aria-label={ariaLabel}
         aria-describedby={countId}
         aria-invalid={characterCount > maxLength || undefined}

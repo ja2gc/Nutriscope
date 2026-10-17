@@ -4,6 +4,7 @@ namespace App\Http\Controllers\RND;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PaginatedRequest;
+use App\Http\Requests\RND\MonitoringSummaryRequest;
 use App\Http\Requests\RND\StoreMonitoringRequest;
 use App\Http\Requests\RND\UpdateMonitoringRequest;
 use App\Http\Resources\MonitoringResource;
@@ -18,6 +19,7 @@ use App\Services\NcpAppointmentWorkflow;
 use App\Services\NotificationLifecycleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\RateLimiter;
 
 class MonitoringController extends Controller
@@ -39,66 +41,48 @@ class MonitoringController extends Controller
         return response()->json(['data' => $svc->summarize($ncpRecord)]);
     }
 
-    /**
-     * POST /api/rnd/ncp-records/{ncpRecord}/monitorings/ai-review
-     *
-     * Phase 6.3 — optional Haiku narrative over the compact delta object. Cached
-     * per visit-pair (re-used while the compared values are unchanged) and
-     * rate-limited so cost stays negligible.
-     */
-    public function aiReview(NcpRecord $ncpRecord, MonitoringPlanService $planSvc, AIService $ai): JsonResponse
+    public function aiReviewBudget(NcpRecord $ncpRecord): JsonResponse
     {
         $this->authorizeNcp($ncpRecord);
-        $plan = $planSvc->build($ncpRecord);
+        $key = $this->summaryEntryKey($ncpRecord);
 
-        $hasFollowup = collect($plan['visits'])->contains(fn ($v) => ($v['type'] ?? null) === 'monitoring');
-        if (! $hasFollowup) {
-            return response()->json(['message' => 'No follow-up visits to review yet.'], 422);
-        }
+        return response()->json(['data' => ['entry_key' => $key, 'remaining' => max(0, 3 - Cache::get('monitoring-summary:'.$key, 0))]]);
+    }
 
-        // Focused payload — tracked indicators' trajectory only (nothing else).
-        $payload = [
-            'pes_statements' => $plan['pes_statements'],
-            'goal_type' => $plan['goal_type'],
-            'nutritional_status' => $plan['nutritional_status'],
-            'visit_count' => count($plan['visits']),
-            'indicators' => array_map(fn ($i) => [
-                'label' => $i['label'],
-                'unit' => $i['unit'],
-                'category' => $i['category'],
-                'target' => $i['target'],
-                'reference' => $i['reference'],
-                'latest_status' => $i['latest_status'],
-                'trajectory' => array_map(fn ($s) => ['visit' => $s['visit'], 'value' => $s['value']], $i['series']),
-            ], $plan['indicators']),
-        ];
+    /** The allowance is tied to the pending visit, not a client-created/resettable token. */
+    private function summaryEntryKey(NcpRecord $ncpRecord): string
+    {
+        return hash('sha256', auth()->id().':'.$ncpRecord->id.':'.($ncpRecord->monitorings()->max('id') ?? 'initial'));
+    }
 
-        $latest = $ncpRecord->monitorings()->orderBy('created_at', 'desc')->orderBy('id', 'desc')->first();
-        $signature = md5(json_encode($payload['indicators']));
-
-        // Cache hit — same trajectory already narrated.
-        if ($latest && $latest->ai_review && $latest->ai_review_key === $signature) {
-            return response()->json(['data' => ['narrative' => $latest->ai_review, 'cached' => true]]);
-        }
-
-        // Rate-limit: 5 AI reviews per user per minute (per-user, not per-NCP —
-        // keying on the record let a user bypass the cap by switching NCPs).
+    public function aiReview(MonitoringSummaryRequest $request, NcpRecord $ncpRecord, MonitoringPlanService $planSvc, AIService $ai): JsonResponse
+    {
+        $this->authorizeNcp($ncpRecord);
+        abort_unless($ncpRecord->intervention()->exists(), 422, 'Save an intervention before monitoring.');
+        $key = $this->summaryEntryKey($ncpRecord);
+        abort_unless(hash_equals($key, $request->validated('entry_key')), 409, 'The visit history changed. Reload the form before generating.');
         $rlKey = 'ai-review:'.(auth()->id() ?? 'guest');
         if (RateLimiter::tooManyAttempts($rlKey, 5)) {
-            return response()->json(['message' => 'Too many AI reviews. Try again shortly.'], 429);
+            return response()->json(['message' => 'Too many generation requests. Try again shortly.'], 429);
         }
         RateLimiter::hit($rlKey, 60);
+        $cacheKey = 'monitoring-summary:'.$key;
+        $response = Cache::lock($cacheKey.':lock', 60)->get(function () use ($key, $cacheKey, $request, $ncpRecord, $planSvc, $ai) {
+            $used = Cache::get($cacheKey, 0);
+            if ($used >= 3) {
+                return response()->json(['message' => 'All three generations for this entry have been used. You can write or edit the summary.', 'remaining' => 0], 429);
+            }
+            $narrative = $ai->narrateMonitoring($planSvc->draftComparison($ncpRecord, $request->validated()));
+            if ($narrative === null) {
+                return response()->json(['message' => 'Summary generation is unavailable. Try again or write the summary manually.'], 503);
+            }
+            abort_unless(hash_equals($key, $this->summaryEntryKey($ncpRecord)), 409, 'The visit history changed during generation. Reload the form.');
+            Cache::forever($cacheKey, $used + 1);
 
-        $narrative = $ai->narrateMonitoring($payload);
-        if ($narrative === null) {
-            return response()->json(['message' => 'AI review is temporarily unavailable. The rule-based summary is still shown.'], 503);
-        }
+            return response()->json(['data' => ['narrative' => $narrative, 'remaining' => 2 - $used]]);
+        });
 
-        if ($latest) {
-            $this->audited(fn () => $latest->update(['ai_review' => $narrative, 'ai_review_key' => $signature]));
-        }
-
-        return response()->json(['data' => ['narrative' => $narrative, 'cached' => false]]);
+        return $response ?: response()->json(['message' => 'A summary is already being generated for this entry.'], 429);
     }
 
     /**

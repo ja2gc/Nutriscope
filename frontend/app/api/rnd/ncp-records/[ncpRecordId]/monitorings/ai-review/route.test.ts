@@ -17,12 +17,14 @@ describe("/api/rnd/ncp-records/[ncpRecordId]/monitorings/ai-review proxy route",
   });
 
   test("POST proxies to Laravel monitoring AI review endpoint", async () => {
-    await POST(new Request("http://localhost/api", { method: "POST" }) as never, {
+    const body = { entry_key: "draft", weight: 61, lab_values: { albumin: 3.1 } };
+    await POST(new Request("http://localhost/api", { method: "POST", body: JSON.stringify(body) }) as never, {
       params: Promise.resolve({ ncpRecordId: "42" }),
     });
 
     expect(proxyMock).toHaveBeenCalledWith("/rnd/ncp-records/42/monitorings/ai-review", {
       method: "POST",
+      body,
     });
   });
 });

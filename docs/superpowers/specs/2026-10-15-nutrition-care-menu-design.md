@@ -130,6 +130,16 @@ The patient profile's ADIME Records page may keep only the latest intervention's
 
 The user requested a findings handoff after the current live sweep, with fixes continued in another session. Do not repeat the entire live sweep for minor follow-up fixes; use local regression checks and deployment verification, adding live verification for major fixes. Keep the eight non-patient records named `QA 2026-10-17 …` for later testing. The fictional patient and its five interventions/menus were deleted; its three prepared QA reports were archived, with audit history retained. Do not delete the retained QA catalog/template/week fixtures without a new instruction.
 
+## Monitoring summary follow-up approved 2026-10-17
+
+Progress Assessment is required for new/updated Monitoring entries, up to 600 characters. Move optional AI assistance into that field as **Generate AI Summary** and remove the Progress Trends evaluation/AI card. Preserve the current graph category filter and the other session's graph/validation work. Logging, graphs and AI use the same patient-specific laboratory and intake indicators, including selected/limited/goal-related micronutrients and previously recorded indicators.
+
+Generation validates the current unsaved entry without saving it. Compare only populated current indicators with the most recent earlier value (Assessment baseline when no earlier reading exists) and the existing prescription target/reference range. No data means no invented value, trend or ideal. The server computes distances from the guide and sends only compact values and bounded current observations. AI produces 2–3 plain sentences summarizing meaningful progress and unresolved concerns, aims for 300–450 characters and never exceeds 600. It must not infer new diagnoses, causes or treatment changes, obey instructions embedded in notes, or force an action recommendation. Existing provider usage caps and request throttles remain.
+
+Allow at most three successful generations per pending entry, enforced server-side with an atomic lock and a counter bound to the authorized user, cycle and latest saved visit. Refresh, cancel/reopen, changed values and concurrent requests do not reset it. A saved new visit starts the next allowance. Provider failure does not consume the entry allowance. Generated wording is editable; existing text needs **Use this summary** to replace it. Responses for changed inputs are discarded; subsequent changes flag the text for review/regeneration. Only **Save Visit** persists the final clinical entry.
+
+NCP Summary retains each saved Monitoring Progress Assessment as Evaluation / Summary. Its Intervention section spells out Carbohydrate and Protein and lists all micronutrient minimum/maximum targets from the latest saved plan. Signature labels retain adequate writing space above their name lines.
+
 ## Outside scope
 
 No Food Service nutrition engine merge; no new clinical advice engine, density database, ready-to-eat selection, direct Ingredient/USDA selection for new weekly menus, bulk copy-day action, report type, or change to historical archived report bytes. Do not add user-facing technical flags or identifiers.
