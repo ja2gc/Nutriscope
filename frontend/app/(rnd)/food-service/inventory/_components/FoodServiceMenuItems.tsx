@@ -179,10 +179,11 @@ export function FoodServiceMenuItems({ canManage }: { canManage: boolean }) {
                   <td className="px-4 py-3.5 text-right">
                     {canManage && <div className="flex items-center justify-end gap-2">
                       <Link href={`/food-service/foods/${recipe.id}`}
+                        aria-label={`Edit ${recipe.name}`}
                         className="p-1.5 rounded-lg text-warm-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors">
                         <Pencil className="h-3.5 w-3.5" />
                       </Link>
-                      <button onClick={() => setDeleteId(recipe.id)}
+                      <button aria-label={`Delete ${recipe.name}`} onClick={() => setDeleteId(recipe.id)}
                         className="p-1.5 rounded-lg text-warm-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>

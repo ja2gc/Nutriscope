@@ -253,6 +253,11 @@ describe("Menu Cycle template and name editing", () => {
     expect(mockListCycles).not.toHaveBeenCalled();
     const edit = container.querySelector<HTMLButtonElement>('button[aria-label="Edit Rice plan"]');
     await act(async () => { edit?.click(); await Promise.resolve(); });
+    const lunch = container.querySelector('[data-day="Monday"][data-meal="lunch"]')!;
+    expect(lunch.querySelectorAll('[data-menu-editor-item]')).toHaveLength(1);
+    expect(lunch.querySelectorAll('[data-menu-editor-add]')).toHaveLength(1);
+    expect(Array.from(lunch.querySelectorAll<HTMLElement>('[data-menu-editor-item], [data-menu-editor-add]')).every((slot) => slot.className.includes('h-28'))).toBe(true);
+    expect(lunch.querySelector('[data-menu-editor-add]')?.previousElementSibling).toBe(lunch.querySelector('[data-menu-editor-item]'));
     expect(container.textContent).not.toContain("AM Snack");
     expect(container.textContent).not.toContain("PM Snack");
     const toggle = container.querySelector<HTMLInputElement>('input[aria-label="Include snacks"]');
@@ -263,5 +268,11 @@ describe("Menu Cycle template and name editing", () => {
     expect(mockSaveTemplate).toHaveBeenCalledWith("template-1", expect.objectContaining({
       days: [expect.objectContaining({ meal_type: "lunch" })],
     }));
+  });
+
+  test("provides an explicit return from Templates to Menu Calendar", async () => {
+    await act(async () => { root.render(<MenuTemplateDirectory />); await Promise.resolve(); });
+    const back = Array.from(container.querySelectorAll<HTMLAnchorElement>('a')).find((link) => link.textContent?.trim() === "Back to Menu Calendar");
+    expect(back?.getAttribute("href")).toBe("/food-service/menu-cycle");
   });
 });

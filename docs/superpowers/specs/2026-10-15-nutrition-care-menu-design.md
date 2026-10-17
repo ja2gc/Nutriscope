@@ -118,6 +118,16 @@ Food Library clinical template editing follows the Food Service template editor'
 
 The category-removal clarification applies to Food Service Foods, not clinical Ingredients. Food Service Foods retain exactly Meal, Snack, Beverage categories; replace breakfast/lunch/dinner categories with Meal and classify verified uncategorized existing recipes by their actual contents/use. Require a selected category on create/edit and update canonical seed definitions plus existing data through retained forward correction. Preserve existing recipe IDs, quantities, costs, menu slots, frozen procurement/report snapshots and history. Label the single-item action **Single food item** consistently. Clinical Ingredient food groups and Meal/Carb/Snack taxonomy remain unchanged.
 
+## Live QA decisions and follow-up (2026-10-17)
+
+Keep Intervention menu cards compact: show the Menu Item name and its actual scaled serving amount, with serving/edit controls. Remove the expanded per-item nutrient and `Per person` ingredient description lines from the calendar. Editing the portion must continue to scale saved ingredient quantities and nutrient totals proportionally; retain full details in the editor and PDF. Live checks already verified both mass/count ingredient scaling and nutrient scaling.
+
+Add an explicit **Back to Menu Calendar** control to the Food Service Templates list. Keep template-editor return navigation to its template list and keep templates under Menu Calendar.
+
+The patient profile's ADIME Records page may keep only the latest intervention's menu link. This does not change report identity: each Nutrition Intervention Plan report uses its own saved intervention/menu; Reports → Patient → ADIME cycle lists separate intervention reports; NCP Summary uses the latest intervention in that cycle. Live PDFs verified 2,250 versus 2,300 kcal and the latest summary at 2,300 kcal.
+
+The user requested a findings handoff after the current live sweep, with fixes continued in another session. Do not repeat the entire live sweep for minor follow-up fixes; use local regression checks and deployment verification, adding live verification for major fixes. Keep the eight non-patient records named `QA 2026-10-17 …` for later testing. The fictional patient and its five interventions/menus were deleted; its three prepared QA reports were archived, with audit history retained. Do not delete the retained QA catalog/template/week fixtures without a new instruction.
+
 ## Outside scope
 
 No Food Service nutrition engine merge; no new clinical advice engine, density database, ready-to-eat selection, direct Ingredient/USDA selection for new weekly menus, bulk copy-day action, report type, or change to historical archived report bytes. Do not add user-facing technical flags or identifiers.

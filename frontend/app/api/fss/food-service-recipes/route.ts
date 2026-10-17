@@ -8,11 +8,18 @@ async function getToken() {
   return cookieStore.get("nutriscope_token")?.value;
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const token = await getToken();
   if (!token) return NextResponse.json({ message: "Unauthenticated." }, { status: 401 });
 
-  const res = await fetch(`${LARAVEL_API}/fss/food-service-recipes`, {
+  const incoming = new URL(req.url).searchParams;
+  const query = new URLSearchParams();
+  for (const key of ["category", "search", "page", "per_page"]) {
+    const value = incoming.get(key);
+    if (value) query.set(key, value);
+  }
+  const suffix = query.size ? `?${query}` : "";
+  const res = await fetch(`${LARAVEL_API}/fss/food-service-recipes${suffix}`, {
     headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
   });
 

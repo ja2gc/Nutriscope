@@ -12,7 +12,7 @@ import {
   fetchMealPlans, createMealPlan, fetchAllMealPlanItems, addMealPlanItem,
   removeMealPlanItem, updateMealPlanItem, deleteMealPlan, generateMealPlan,
   fetchMealPlanTemplates, fetchMealPlanTemplate, deleteMealPlanTemplate,
-  saveMealPlanAsTemplate, createPlanFromTemplate, scaleMealPlanToPrescription, plannedRecipeIngredients,
+  saveMealPlanAsTemplate, createPlanFromTemplate, scaleMealPlanToPrescription,
   MealPlan, MealPlanItem, MealPlanTemplate, MealPlanTemplateDetail, NutrientSnapshot,
 } from "@/services/mealPlanService";
 import {
@@ -21,6 +21,7 @@ import {
 } from "@/services/foodLibraryService";
 import MacroTrackerBar from "./MacroTrackerBar";
 import { WeeklyMenuCalendar, MENU_DAYS, MENU_SLOTS } from "@/components/ncp/WeeklyMenuCalendar";
+import { MenuEditorSlots } from "@/components/ncp/MenuEditorSlots";
 import { ALL_MICROS } from "@/lib/nutritionCalculations";
 import { foodFluidBalance } from "@/lib/mealPlanNutrition";
 import { clinicalIngredientFactor } from "@/lib/clinicalUnits";
@@ -850,32 +851,13 @@ export default function MealPlanSection({
               const key = slotKey(dayName, mt);
               const items = itemsByKey[key] ?? [];
               return (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-
-                    {!readOnly && <button onClick={() => openPicker(day.id, mt)}
-                      className="flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-800 cursor-pointer">
-                      <Plus className="h-3 w-3" /> Add
-                    </button>}
-                  </div>
-                  {items.length === 0 && <p className="text-xs text-warm-300 italic">Empty</p>}
-                  {items.map((item) => {
+                <MenuEditorSlots items={items.map((item) => {
                     const s = item.nutrient_snapshot;
-                    const scale = s && s.serving_size > 0 ? parseFloat(item.quantity) / s.serving_size : 1;
-                    const plannedIngredients = item.recipe_id
-                      ? plannedRecipeIngredients(
-                        item.recipe_portion?.ingredients ?? [],
-                        item.recipe_portion?.yield ?? null,
-                        s && s.serving_size > 0 ? scale : Number.NaN,
-                      )
-                      : null;
                     const isDisliked = foodDislikes.some((d) => s?.name?.toLowerCase().includes(d));
-                    return (
-                      <div key={item.id}>
-                        <div className="flex items-center justify-between py-1 px-1.5 rounded-lg hover:bg-warm-50 group">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              {item.recipe_id ? <a href={`/food-library/recipes/${item.recipe_id}`} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-warm-800 underline">{s?.name ?? 'Menu Item'}</a> : <span className="text-sm font-medium text-warm-800">{s?.name ?? '—'}</span>}
+                    return <div key={item.id} className="flex h-full flex-col justify-between gap-1">
+                          <div className="flex min-h-0 items-start justify-between gap-1">
+                            <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                              {item.recipe_id ? <a href={`/food-library/recipes/${item.recipe_id}`} target="_blank" rel="noopener noreferrer" title={s?.name ?? 'Menu Item'} className="line-clamp-2 min-w-0 overflow-hidden break-words text-xs font-semibold leading-4 text-warm-800 underline">{s?.name ?? 'Menu Item'}</a> : <span title={s?.name ?? '—'} className="line-clamp-2 min-w-0 overflow-hidden break-words text-xs font-semibold leading-4 text-warm-800">{s?.name ?? '—'}</span>}
                               {item.source === 'usda' && <span className="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 rounded-full uppercase">USDA</span>}
                               {isDisliked && (
                                 <InfoHint label={`Patient dislikes ${s?.name ?? "this food"}`} title="Patient food dislike">
@@ -883,38 +865,15 @@ export default function MealPlanSection({
                                 </InfoHint>
                               )}
                             </div>
-                            {s && <p className="text-xs text-warm-400">{item.quantity}{item.unit} · {Math.round(s.calories*scale)}kcal · P{Math.round(s.protein*scale)}g · C{Math.round(s.carbs*scale)}g · F{Math.round(s.fat*scale)}g</p>}
-                            {item.recipe_id && <p className="text-xs text-warm-500">
-                              {plannedIngredients
-                                ? "Per person: " + plannedIngredients.map((ingredient) =>
-                                  ingredient.name + " " + Number(ingredient.quantity.toFixed(2)) + " " + ingredient.unit,
-                                ).join(" · ")
-                                : "Per-person quantities unavailable. Check recipe yield and ingredient units."}
-                            </p>}
                           </div>
-                          {!readOnly && <div className="flex flex-wrap gap-1">
-                            <Button variant="icon" onClick={() => openEdit(item, day.id, key)} title="Edit"
-                              className="hover:text-sky-600 hover:bg-sky-50">
-                              <Edit2 className="h-3 w-3" />
-                            </Button>
-                            {item.source === 'usda' && (
-                              <Button variant="icon"
-                                onClick={() => { if (item.fdc_id) { setSavingToLibrary(item.fdc_id); importUsdaFood(parseInt(item.fdc_id)).finally(() => setSavingToLibrary(null)); } }}
-                                disabled={savingToLibrary === item.fdc_id} title="Save to Library"
-                                className="hover:text-emerald-600 hover:bg-emerald-50">
-                                {savingToLibrary === item.fdc_id ? <Loader2 className="h-3 w-3 animate-spin" /> : <BookmarkPlus className="h-3 w-3" />}
-                              </Button>
-                            )}
-                            <Button variant="icon" onClick={() => removeItem(key, day.id, item.id)}
-                              className="hover:text-red-600 hover:bg-red-50">
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
+                          {!readOnly && <div className="flex shrink-0 gap-1">
+                            <Button variant="icon" onClick={() => openEdit(item, day.id, key)} title="Edit" aria-label={`Edit ${s?.name ?? 'Menu Item'}`} className="h-8 w-8 hover:text-sky-600 hover:bg-sky-50"><Edit2 className="h-3 w-3" /></Button>
+                            {item.source === 'usda' && <Button variant="icon" onClick={() => { if (item.fdc_id) { setSavingToLibrary(item.fdc_id); importUsdaFood(parseInt(item.fdc_id)).finally(() => setSavingToLibrary(null)); } }} disabled={savingToLibrary === item.fdc_id} title="Save to Library" aria-label={`Save ${s?.name ?? 'food'} to Library`} className="h-8 w-8 hover:text-emerald-600 hover:bg-emerald-50">{savingToLibrary === item.fdc_id ? <Loader2 className="h-3 w-3 animate-spin" /> : <BookmarkPlus className="h-3 w-3" />}</Button>}
+                            <Button variant="icon" onClick={() => removeItem(key, day.id, item.id)} aria-label={`Remove ${s?.name ?? 'Menu Item'}`} className="h-8 w-8 hover:text-red-600"><Trash2 className="h-3 w-3" /></Button>
                           </div>}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                          <p className="truncate text-xs text-warm-500">{item.quantity} {item.unit}</p>
+                        </div>;
+                  })} addLabel={`Add item to ${dayName} ${mt.replaceAll('_', ' ')}`} readOnly={readOnly} emptyLabel="Empty" onAdd={() => openPicker(day.id, mt)} />
               );
             }} />
         </>
@@ -1176,12 +1135,10 @@ export default function MealPlanSection({
               {viewingTemplate && (
                 <div className="space-y-3">
                   {(viewingTemplate.goal_type || viewingTemplate.maternal_status) && <p className="text-xs text-warm-400 capitalize">{viewingTemplate.goal_type?.replace(/_/g, ' ') ?? 'Maternal'}{viewingTemplate.disease_stage ? ` · ${viewingTemplate.disease_stage.replace(/_/g, ' ')}` : ''}</p>}
-                  <WeeklyMenuCalendar renderCell={(day, meal) => <div className="space-y-2">
-                    {viewingTemplate.days.filter((slot) => slot.day_of_week === day && slot.meal_type === meal).flatMap((slot) => slot.items).map((item) => <div key={item.id} className="rounded-lg border border-warm-100 p-2">
-                      {item.recipe_id ? <a href={`/food-library/recipes/${item.recipe_id}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-warm-800 underline">{item.food_name}</a> : <p>{item.food_name ?? 'Legacy item'}</p>}
-                      <p className="text-xs text-warm-500">{item.quantity} {item.unit}</p>
-                    </div>)}
-                  </div>} />
+                  <WeeklyMenuCalendar renderCell={(day, meal) => <MenuEditorSlots items={viewingTemplate.days.filter((slot) => slot.day_of_week === day && slot.meal_type === meal).flatMap((slot) => slot.items).map((item) => <div key={item.id} className="flex h-full flex-col justify-between gap-1">
+                    {item.recipe_id ? <a href={`/food-library/recipes/${item.recipe_id}`} title={item.food_name ?? 'Menu Item'} target="_blank" rel="noopener noreferrer" className="line-clamp-2 overflow-hidden break-words text-xs font-semibold text-warm-800 underline">{item.food_name}</a> : <p className="line-clamp-2 overflow-hidden break-words text-xs font-semibold">{item.food_name ?? 'Legacy item'}</p>}
+                    <p className="text-xs text-warm-500">{item.quantity} {item.unit}</p>
+                  </div>)} addLabel="Add item" readOnly />} />
                   <button onClick={() => handleFromTemplate(viewingTemplate.id)}
                     className="w-full py-2.5 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors cursor-pointer mt-2">
                     Use This Template

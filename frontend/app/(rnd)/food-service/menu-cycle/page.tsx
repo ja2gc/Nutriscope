@@ -8,6 +8,7 @@ import {
   LayoutTemplate, ChevronLeft, AlertTriangle, Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { MenuEditorSlots } from "@/components/ncp/MenuEditorSlots";
 import { InfoHint } from "@/components/ui/InfoHint";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { formatFoodServiceNumber } from "@/lib/foodServiceFormat";
@@ -148,6 +149,7 @@ function CycleList({ readOnly, mode = "cycles", onOpen, onNew, onOpenTemplate, o
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {mode === "cycles" && <Link href="/food-service/menu-cycle/templates" className="inline-flex min-h-10 items-center rounded-lg border border-warm-200 px-3 text-sm font-semibold text-warm-700 hover:bg-warm-50">Templates</Link>}
+          {mode === "templates" && <Link href="/food-service/menu-cycle" className="inline-flex min-h-10 items-center rounded-lg border border-warm-200 px-3 text-sm font-semibold text-warm-700 hover:bg-warm-50">Back to Menu Calendar</Link>}
           {!readOnly && mode === "cycles" && (
             <Button variant="primary" onClick={onNew} className="px-4 py-2.5 flex items-center gap-2">
               <Plus className="h-4 w-4" /> Add week
@@ -664,35 +666,29 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
                   const lines = displayGrid[key] ?? [];
                   const isPicking = activeCell === key;
                   return (
-                    <td key={key} className="px-2 py-2 align-top relative">
-                      <div className="space-y-2">
-                        {lines.map((cell, lineIndex) => (
-                          <div key={cell.id ?? `${key}-${lineIndex}`} className="bg-emerald-50/60 border border-emerald-100 rounded-lg p-2 group">
-                            <div className="flex items-start justify-between gap-1">
+                    <td key={key} data-day={d} data-meal={m} className="px-2 py-2 align-top relative">
+                      <MenuEditorSlots
+                        items={lines.map((cell, lineIndex) => (
+                          <div key={cell.id ?? `${key}-${lineIndex}`} className="flex h-full flex-col justify-between gap-1 text-left">
+                            <div className="flex min-h-0 items-start justify-between gap-1">
                               <button
                                 id={`menu-item-${Boolean(preview)}-${d}-${m}-${lineIndex}`}
                                 onClick={(event) => displayTemplate ? openTemplateProfile(cell, event.currentTarget.id) : openSlot(d, m, cell, lineIndex)}
                                 title="Open menu item details"
-                                className="min-h-11 flex-1 text-xs font-semibold text-emerald-800 leading-tight text-left enabled:hover:underline enabled:cursor-pointer">
+                                className="line-clamp-2 min-h-0 flex-1 overflow-hidden break-words text-xs font-semibold leading-tight text-left text-emerald-800 enabled:hover:underline enabled:cursor-pointer">
                                 {cell.recipe_name}
                               </button>
                               {!displayReadOnly && (
-                                <button onClick={() => clearLine(key, lineIndex)} aria-label={`Remove ${cell.recipe_name}`} className="min-h-11 min-w-11 text-emerald-400 hover:text-red-500 cursor-pointer shrink-0 flex items-center justify-center"><X className="h-3 w-3" /></button>
+                                <button onClick={() => clearLine(key, lineIndex)} aria-label={`Remove ${cell.recipe_name}`} className="h-7 w-7 text-emerald-400 hover:text-red-500 cursor-pointer shrink-0 flex items-center justify-center"><X className="h-3 w-3" /></button>
                               )}
                             </div>
-                            {cell.portion_label && <div className="text-xs font-medium text-emerald-700">{cell.portion_label}</div>}
-                            {cell.hasRecipeOverride && <span className="mt-1 inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800">Customized item</span>}
+                            {(cell.portion_label || cell.hasRecipeOverride) && <div className="truncate text-xs font-medium text-emerald-700">{cell.hasRecipeOverride ? "Customized item" : cell.portion_label}</div>}
                           </div>
                         ))}
-                        {displayReadOnly ? (
-                          lines.length === 0 && <div className="w-full text-center py-2 text-xs text-warm-300">—</div>
-                        ) : (
-                          <button onClick={() => { setActiveCell(isPicking ? null : key); setPickerSearch(""); }}
-                            className="min-h-11 w-full border border-dashed border-warm-200 rounded-lg py-2 text-xs text-warm-400 hover:border-emerald-300 hover:text-emerald-600 cursor-pointer flex items-center justify-center gap-1">
-                            <Plus className="h-3 w-3" /> add item
-                          </button>
-                        )}
-                      </div>
+                        addLabel={`Add item to ${d} ${MEAL_LABELS[m]}`}
+                        readOnly={displayReadOnly}
+                        onAdd={() => { setActiveCell(isPicking ? null : key); setPickerSearch(""); }}
+                      />
 
                       {isPicking && !displayReadOnly && (
                         <div className="absolute z-30 top-full left-0 mt-1 w-56 bg-white border border-warm-200 rounded-xl shadow-lg p-2">

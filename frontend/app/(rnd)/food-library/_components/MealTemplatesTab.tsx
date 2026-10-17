@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Eye, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { WeeklyMenuCalendar, MENU_SLOTS } from "@/components/ncp/WeeklyMenuCalendar";
+import { MenuEditorSlots } from "@/components/ncp/MenuEditorSlots";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import SearchInput from "@/components/ui/SearchInput";
 import { fetchRecipeById, fetchRecipes, type Recipe } from "@/services/foodLibraryService";
@@ -152,17 +153,21 @@ function TemplateEditor({ initial, onClose, onSaved }: {
         </div>
 
         <div className="mt-5 space-y-2">
-          <WeeklyMenuCalendar renderCell={(cellDay, cellMeal) => <div className="space-y-2">
-            {draft.lines.filter((line) => line.day_of_week === cellDay && line.meal_type === cellMeal).map((line) => <div key={line.key} className="space-y-2 rounded-lg border border-warm-200 p-2">
-              {line.recipe_id ? <button type="button" aria-label={`View ${line.itemName}`} onClick={(event) => void openProfile(line, event.currentTarget)} className="min-h-11 w-full break-words text-left text-sm font-semibold text-warm-800 hover:text-emerald-700">{line.itemName}</button> : <p className="text-sm font-semibold text-warm-800">{line.itemName}</p>}
-              {draft.readOnly ? <p className="text-xs text-warm-600">{line.quantity} {line.unit}</p> : <>
-                <label className="block text-xs text-warm-600">Quantity<input aria-label={`Servings of ${line.itemName}`} type="number" min="0.01" step="0.01" value={line.quantity} onChange={(event) => setDraft((current) => ({ ...current, lines: current.lines.map((row) => row.key === line.key ? { ...row, quantity: Number(event.target.value) } : row) }))} className="mt-1 w-full rounded-lg border border-warm-200 px-2 py-1.5" /></label>
-                <label className="block text-xs text-warm-600">Unit<select value={line.unit} onChange={(event) => setDraft((current) => ({ ...current, lines: current.lines.map((row) => row.key === line.key ? { ...row, unit: event.target.value } : row) }))} className="mt-1 w-full rounded-lg border border-warm-200 px-2 py-1.5">{line.unit !== "serving" && <option value={line.unit} disabled>{line.unit} (legacy)</option>}<option value="serving">serving</option></select></label>
-                <button onClick={() => setDraft((current) => ({ ...current, lines: current.lines.filter((row) => row.key !== line.key) }))} aria-label={`Remove ${line.itemName}`} className="rounded-lg p-1.5 text-red-600 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button>
-              </>}
+          <WeeklyMenuCalendar renderCell={(cellDay, cellMeal) => <MenuEditorSlots
+            items={draft.lines.filter((line) => line.day_of_week === cellDay && line.meal_type === cellMeal).map((line) => <div key={line.key} className="flex h-full flex-col justify-between gap-1">
+              <div className="flex min-h-0 items-start gap-1">
+                {line.recipe_id ? <button type="button" title={line.itemName} aria-label={`View ${line.itemName}`} onClick={(event) => void openProfile(line, event.currentTarget)} className="line-clamp-2 min-h-0 flex-1 overflow-hidden break-words text-left text-xs font-semibold leading-4 text-warm-800 hover:text-emerald-700">{line.itemName}</button> : <p className="line-clamp-2 text-xs font-semibold text-warm-800">{line.itemName}</p>}
+                {!draft.readOnly && <button onClick={() => setDraft((current) => ({ ...current, lines: current.lines.filter((row) => row.key !== line.key) }))} aria-label={`Remove ${line.itemName}`} className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-red-600 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button>}
+              </div>
+              {draft.readOnly ? <p className="text-xs text-warm-600">{line.quantity} {line.unit}</p> : <div className="flex items-end gap-1">
+                <label className="min-w-0 flex-1 text-xs leading-3 text-warm-600">Qty<input aria-label={`Servings of ${line.itemName}`} type="number" min="0.01" step="0.01" value={line.quantity} onChange={(event) => setDraft((current) => ({ ...current, lines: current.lines.map((row) => row.key === line.key ? { ...row, quantity: Number(event.target.value) } : row) }))} className="mt-0.5 h-7 w-full rounded border border-warm-200 px-1 text-xs" /></label>
+                <label className="min-w-0 flex-1 text-xs leading-3 text-warm-600">Unit<select aria-label={`Unit for ${line.itemName}`} value={line.unit} onChange={(event) => setDraft((current) => ({ ...current, lines: current.lines.map((row) => row.key === line.key ? { ...row, unit: event.target.value } : row) }))} className="mt-0.5 h-7 w-full rounded border border-warm-200 px-1 text-xs">{line.unit !== "serving" && <option value={line.unit} disabled>{line.unit} (legacy)</option>}<option value="serving">serving</option></select></label>
+              </div>}
             </div>)}
-            {!draft.readOnly && <button type="button" onClick={(event) => { pickerTrigger.current = event.currentTarget; setDay(cellDay); setMeal(cellMeal); setQuery(""); setPage(1); setMatches([]); setPickerOpen(true); }} className="min-h-11 rounded-lg border border-dashed border-warm-200 px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50">Add to {cellDay} {MEALS.find(([key]) => key === cellMeal)?.[1]}</button>}
-          </div>} />
+            addLabel={`Add to ${cellDay} ${MEALS.find(([key]) => key === cellMeal)?.[1]}`}
+            readOnly={draft.readOnly}
+            onAdd={(event) => { pickerTrigger.current = event.currentTarget; setDay(cellDay); setMeal(cellMeal); setQuery(""); setPage(1); setMatches([]); setPickerOpen(true); }}
+          />} />
         </div>
         {profile && <div role="dialog" aria-modal="true" aria-label="Menu Item profile" onKeyDown={(event) => { if (event.key === 'Escape') closeProfile(); }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
           <div className="flex max-h-[80vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-xl">

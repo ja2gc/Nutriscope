@@ -84,9 +84,9 @@ export default function NcpPatientHeader({
                 </div>
               ))}
               {foodAlerts.length > 0 && (
-                <div className="flex min-w-0 items-center text-warm-600">
+                <div data-food-alerts className="flex min-w-0 items-center gap-1 text-warm-600">
                   <dt className="font-extrabold text-warm-500">Food alerts</dt>
-                  <dd>
+                  <dd className="m-0 flex items-center">
                     <InfoHint label="Review food allergies, dislikes, and restrictions" title="Food alerts">
                       <ul className="list-disc space-y-1 pl-4">
                         {foodAlerts.map((detail) => <li key={detail}>{detail}</li>)}

@@ -41,6 +41,10 @@ it("edits ordered Menu Items in the same full-week calendar with controlled serv
   expect(calendar!.querySelectorAll('td[data-day]')).toHaveLength(35);
   const breakfast = calendar!.querySelector('[data-day="Monday"][data-meal="breakfast"]')!;
   expect(Array.from(breakfast.querySelectorAll('button[aria-label^="View "]')).map((button) => button.textContent)).toEqual(["Fruit cup", "Oats"]);
+  expect(breakfast.querySelectorAll('[data-menu-editor-item]')).toHaveLength(2);
+  expect(breakfast.querySelectorAll('[data-menu-editor-add]')).toHaveLength(1);
+  expect(Array.from(breakfast.querySelectorAll<HTMLElement>('[data-menu-editor-item], [data-menu-editor-add]')).every((slot) => slot.className.includes('h-28'))).toBe(true);
+  expect(breakfast.querySelector('[data-menu-editor-add]')?.previousElementSibling).toBe(breakfast.querySelectorAll('[data-menu-editor-item]')[1]);
   expect(Array.from(breakfast.querySelectorAll('select')).map((select) => Array.from(select.options).map((option) => option.value))).toEqual([["serving"], ["serving"]]);
   expect(container.querySelector('[role="dialog"][aria-label="Meal template editor"]')).toBeNull();
   const addToLunch = Array.from(calendar!.querySelectorAll('button')).find((button) => button.textContent === 'Add to Tuesday Lunch')!;

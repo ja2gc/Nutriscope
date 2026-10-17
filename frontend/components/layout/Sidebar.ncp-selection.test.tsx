@@ -77,4 +77,11 @@ describe("selected NCP patient navigation", () => {
     await renderSidebar();
     expect(stepHref("Assessment")).toBe("/ncp/select-patient/assessment/select-ncp");
   });
+
+  it("aligns the Food alerts help control with its label in the patient header", async () => {
+    await act(async () => root.render(<NcpPatientHeader patient={{ id: "patient-uuid", name: "Fictional Patient" } as never} foodDetails={["Peanuts"]} />));
+    const alerts = container.querySelector<HTMLElement>("[data-food-alerts]")!;
+    expect(alerts.className).toContain("items-center");
+    expect(alerts.querySelector("dd")?.className).toContain("flex items-center");
+  });
 });
