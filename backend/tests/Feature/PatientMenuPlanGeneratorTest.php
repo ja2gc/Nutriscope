@@ -642,7 +642,7 @@ class PatientMenuPlanGeneratorTest extends TestCase
         $firstPlan = $mealPlan->intervention;
         $latestPlan = Intervention::factory()->create([
             'ncp_record_id' => $firstPlan->ncp_record_id,
-            'created_at' => '2026-06-20 09:00:00',
+            'created_at' => '2026-06-14 10:00:00',
         ]);
         $user = $firstPlan->ncpRecord->rnd;
 
@@ -659,6 +659,8 @@ class PatientMenuPlanGeneratorTest extends TestCase
 
         $this->assertSame($latestPlan->uuid, $firstPage['intervention_plan_id']);
         $this->assertSame($firstPlan->uuid, $secondPage['intervention_plan_id']);
+        $this->assertStringEndsWith('· Plan 2', $firstPage['label']);
+        $this->assertStringEndsWith('· Plan 1', $secondPage['label']);
     }
 
     public function test_intervention_plan_context_rejects_mismatched_patient_or_cycle(): void
@@ -914,9 +916,14 @@ class PatientMenuPlanGeneratorTest extends TestCase
         $xpath = new \DOMXPath($document);
         $rows = $xpath->query('//tr[contains(concat(" ", normalize-space(@class), " "), " portion-row ")]');
         $menuGrid = $xpath->query('//table[contains(concat(" ", normalize-space(@class), " "), " menu-grid ")]');
+        $portionIntro = $xpath->query('//div[contains(concat(" ", normalize-space(@class), " "), " portion-intro-block ")]');
 
         $this->assertCount(1, $menuGrid);
         $this->assertCount(1, $rows);
+        $this->assertCount(1, $portionIntro);
+        $this->assertCount(1, $xpath->query('.//table[contains(concat(" ", normalize-space(@class), " "), " portion-heading-table ")]', $portionIntro->item(0)));
+        $this->assertCount(1, $xpath->query('.//p[contains(normalize-space(.), "Amount to use")]', $portionIntro->item(0)));
+        $this->assertCount(1, $xpath->query('.//tr[contains(concat(" ", normalize-space(@class), " "), " portion-row ")]', $portionIntro->item(0)));
         foreach ($rows as $row) {
             $this->assertCount(
                 4,

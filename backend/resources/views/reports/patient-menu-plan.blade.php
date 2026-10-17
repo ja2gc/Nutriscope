@@ -80,14 +80,18 @@
         @endphp
         @foreach($portion_pages as $portionPage)
             <div class="portion-page">
-                <table class="portion-row-table portion-heading-table">
-                    <tbody>
-                        <tr><td class="portion-heading bold">Portion details</td></tr>
-                    </tbody>
-                </table>
-                <p style="font-size:7pt; margin:2px 4px 4px;">Amount to use = listed ingredient amount × your servings ÷ servings the recipe makes.</p>
-                @foreach(array_chunk($portionPage, 4) as $portionRow)
+                @foreach(array_chunk($portionPage, 4) as $portionRowIndex => $portionRow)
+                    @if($portionRowIndex === 0)
+                        <div class="portion-intro-block portion-row-block">
+                            <table class="portion-row-table portion-heading-table">
+                                <tbody>
+                                    <tr><td class="portion-heading bold">Portion details</td></tr>
+                                </tbody>
+                            </table>
+                            <p style="font-size:7pt; margin:2px 4px 4px;">Amount to use = listed ingredient amount × your servings ÷ servings the recipe makes.</p>
+                    @else
                     <div class="portion-row-block">
+                    @endif
                     <table class="portion-row-table">
                         <tbody>
                             <tr class="portion-row">

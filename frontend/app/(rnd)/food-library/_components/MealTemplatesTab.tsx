@@ -19,6 +19,13 @@ type EditorLine = LibraryTemplateLine & { key: number; itemName: string };
 type EditorState = { id?: string; name: string; description: string; lines: EditorLine[]; readOnly?: boolean };
 let nextLineKey = 0;
 
+function formatTemplateDisplayNumber(value: number | string | null | undefined): string {
+  const numeric = typeof value === "string" ? Number(value) : value ?? 0;
+  if (!Number.isFinite(numeric)) return "0";
+  if (numeric > 0 && numeric < 0.1) return "<0.1";
+  return new Intl.NumberFormat("en-PH", { maximumFractionDigits: 1, useGrouping: false }).format(numeric);
+}
+
 function TemplateEditor({ initial, onClose, onSaved }: {
   initial: EditorState;
   onClose: () => void;
@@ -159,7 +166,7 @@ function TemplateEditor({ initial, onClose, onSaved }: {
                 {line.recipe_id ? <button type="button" title={line.itemName} aria-label={`View ${line.itemName}`} onClick={(event) => void openProfile(line, event.currentTarget)} className="line-clamp-2 min-h-0 flex-1 overflow-hidden break-words text-left text-xs font-semibold leading-4 text-warm-800 hover:text-emerald-700">{line.itemName}</button> : <p className="line-clamp-2 text-xs font-semibold text-warm-800">{line.itemName}</p>}
                 {!draft.readOnly && <button onClick={() => setDraft((current) => ({ ...current, lines: current.lines.filter((row) => row.key !== line.key) }))} aria-label={`Remove ${line.itemName}`} className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-red-600 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button>}
               </div>
-              {draft.readOnly ? <p className="text-xs text-warm-600">{line.quantity} {line.unit}</p> : <div className="flex items-end gap-1">
+              {draft.readOnly ? <p className="text-xs text-warm-600">{formatTemplateDisplayNumber(line.quantity)} {line.unit === "serving" && Number(line.quantity) !== 1 ? "servings" : line.unit}</p> : <div className="flex items-end gap-1">
                 <label className="min-w-0 flex-1 text-xs leading-3 text-warm-600">Qty<input aria-label={`Servings of ${line.itemName}`} type="number" min="0.01" step="0.01" value={line.quantity} onChange={(event) => setDraft((current) => ({ ...current, lines: current.lines.map((row) => row.key === line.key ? { ...row, quantity: Number(event.target.value) } : row) }))} className="mt-0.5 h-7 w-full rounded border border-warm-200 px-1 text-xs" /></label>
                 <label className="min-w-0 flex-1 text-xs leading-3 text-warm-600">Unit<select aria-label={`Unit for ${line.itemName}`} value={line.unit} onChange={(event) => setDraft((current) => ({ ...current, lines: current.lines.map((row) => row.key === line.key ? { ...row, unit: event.target.value } : row) }))} className="mt-0.5 h-7 w-full rounded border border-warm-200 px-1 text-xs">{line.unit !== "serving" && <option value={line.unit} disabled>{line.unit} (legacy)</option>}<option value="serving">serving</option></select></label>
               </div>}
@@ -175,8 +182,8 @@ function TemplateEditor({ initial, onClose, onSaved }: {
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-warm-100 p-4"><h3 className="break-words font-bold text-warm-900">{profile.name}</h3><Button variant="secondary" onClick={closeProfile}>Back to template</Button></div>
             <div className="space-y-3 overflow-y-auto p-4">
               {profile.error ? <p role="alert" className="text-sm text-red-700">{profile.error}</p> : !profile.recipe ? <p role="status" className="text-sm text-warm-500">Loading Menu Item…</p> : <>
-                <p className="text-sm text-warm-600">Recipe makes: {profile.recipe.servings} servings</p>
-                <table className="w-full text-left text-sm"><thead><tr><th className="p-2">Ingredient</th><th className="p-2">Amount</th></tr></thead><tbody>{profile.recipe.ingredients.map((ingredient) => <tr key={ingredient.id} className="border-t border-warm-100"><td className="break-words p-2">{ingredient.food_item?.name ?? '—'}</td><td className="whitespace-nowrap p-2">{ingredient.quantity} {ingredient.unit}</td></tr>)}</tbody></table>
+                <p className="text-sm text-warm-600">Recipe makes: {formatTemplateDisplayNumber(profile.recipe.servings)} servings</p>
+                <table className="w-full text-left text-sm"><thead><tr><th className="p-2">Ingredient</th><th className="p-2">Amount</th></tr></thead><tbody>{profile.recipe.ingredients.map((ingredient) => <tr key={ingredient.id} className="border-t border-warm-100"><td className="break-words p-2">{ingredient.food_item?.name ?? '—'}</td><td className="whitespace-nowrap p-2">{formatTemplateDisplayNumber(ingredient.quantity)} {ingredient.unit}</td></tr>)}</tbody></table>
                 {profile.recipe.prep_notes && <p className="whitespace-pre-wrap text-sm text-warm-600">{profile.recipe.prep_notes}</p>}
                 <a href={`/food-library/recipes/${profile.recipe.id}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-sm font-semibold text-emerald-700 underline">Open Menu Item</a>
               </>}
@@ -190,7 +197,7 @@ function TemplateEditor({ initial, onClose, onSaved }: {
               <SearchInput id={searchInputId} label="Search Menu Items to add" value={query} onChange={(value) => { setQuery(value); setPage(1); setMatches([]); }} loading={searching} />
               {searchError && <p role="alert" className="text-sm text-red-700">{searchError}</p>}
               {!searching && !searchError && matches.length === 0 && <p className="text-sm text-warm-500">No Menu Items found.</p>}
-              {matches.map((item) => <button key={item.id} onClick={() => addItem(item)} className="block min-h-11 w-full rounded-lg border border-warm-200 px-3 py-2 text-left text-sm hover:bg-emerald-50"><span className="block break-words font-semibold">{item.name}</span><span className="text-xs capitalize text-warm-500">{item.category} · Recipe makes {item.servings} servings</span></button>)}
+              {matches.map((item) => <button key={item.id} onClick={() => addItem(item)} className="block min-h-11 w-full rounded-lg border border-warm-200 px-3 py-2 text-left text-sm hover:bg-emerald-50"><span className="block break-words font-semibold">{item.name}</span><span className="text-xs capitalize text-warm-500">{item.category} · Recipe makes {formatTemplateDisplayNumber(item.servings)} servings</span></button>)}
               <Pagination meta={meta} page={page} onPageChange={setPage} />
             </div>
           </div>

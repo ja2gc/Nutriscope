@@ -51,4 +51,14 @@ class PatientMenuPlanViewContractTest extends TestCase
         $this->assertStringNotContainsString('class="page-break"', $source);
         $this->assertStringNotContainsString('count($portion_details) > 21', $source);
     }
+
+    public function test_portion_heading_and_formula_are_grouped_with_first_card_row(): void
+    {
+        $source = file_get_contents(__DIR__.'/../../resources/views/reports/patient-menu-plan.blade.php');
+        $layout = file_get_contents(__DIR__.'/../../resources/views/reports/layout.blade.php');
+
+        $this->assertStringContainsString('class="portion-intro-block portion-row-block"', $source);
+        $this->assertStringContainsString('class="portion-row-table portion-heading-table"', $source);
+        $this->assertStringContainsString('.portion-intro-block { page-break-inside: avoid; }', $layout);
+    }
 }

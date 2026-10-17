@@ -306,6 +306,16 @@ The user requested the findings list and continuation in another session. **Do n
 - In both live menu PDFs, the Portion details heading/formula ended page one while all recipe cards started page two. Four-column cards themselves were readable and unclipped.
 - NCP Summary placed signatories alone on page two. Same-day intervention report entries share identical date-only labels, although their identities and content are correct.
 
+#### Follow-up authorization (2026-10-17)
+
+The user authorized resolving all four minor observations and requested live QA for every fix in this handoff. Keep persisted quantities unchanged; display profile quantities and servings to at most one decimal, using `<0.1` for smaller positive measurements. Keep each menu PDF's portion heading/formula with its first card row. Tighten NCP Summary spacing so ordinary summaries do not leave signatures alone on page two; preserve intentional appendix pages. Add a chronological plan ordinal only when intervention reports from the same ADIME cycle share a date. Keep unrelated assessment/monitoring/validation changes and `mobile/package.json` out of this work.
+
+- [x] Add failing display-format, PDF-layout, and same-day-label regression tests.
+- [x] Implement the four fixes in the existing Food Library profile, report templates, and report instance labels.
+- [x] Run focused backend/frontend checks, frontend typecheck/lint/build, and inspect rendered report pages.
+- [ ] Correct only `QA 2026-10-17 Service Meal` Chicken fillet amount from 100 kg to 100 g before reusing it.
+- [ ] Deploy task-only changes and run live QA for each original fix and each new correction using retained fictional fixtures; preserve unrelated data.
+
 The proposed ADIME-page change to list every menu was explicitly withdrawn: **keep the latest menu link there**. Each report still uses its own saved menu; NCP Summary still uses the latest intervention.
 
 #### QA data and cleanup

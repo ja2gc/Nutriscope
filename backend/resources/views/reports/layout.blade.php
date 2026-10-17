@@ -26,6 +26,7 @@
         table.portion-row-table.portion-heading-table td.portion-heading { border: 0; border-bottom: 1px solid #e5e7eb; font-size: 8pt; padding: 0 4px 3px; width: 100%; }
         table.portion-row-table { border-collapse: separate; border-spacing: 4px; margin: 0; table-layout: fixed; width: 100%; }
         .portion-row-block { page-break-inside: avoid; }
+        .portion-intro-block { page-break-inside: avoid; }
         table.portion-row-table td { border: 1px solid #e5e7eb; padding: 4px 6px; vertical-align: top; width: 25%; }
         table.portion-row-table td.portion-cell-empty { border: 0; }
         .portion-ingredient-row { border-bottom: 1px solid #eee; font-size: 7pt; line-height: 1.15; padding: 1px 0; }

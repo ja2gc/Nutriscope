@@ -14,6 +14,7 @@ use App\Models\ReportBranding;
 use App\Models\ScreeningDocument;
 use App\Models\User;
 use App\Services\Reports\Generators\NcpSummaryGenerator;
+use App\Services\Reports\ReportService;
 use Carbon\Carbon;
 use Database\Seeders\ReportTemplateSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -139,6 +140,51 @@ class NcpSummaryReportTest extends TestCase
         $this->assertSame('application/pdf', $res->headers->get('Content-Type'));
         $this->assertStringStartsWith('%PDF', $res->streamedContent());
         $this->assertSame($before + 1, Report::count());
+    }
+
+    public function test_ncp_summary_keeps_signatories_with_ordinary_summary_content(): void
+    {
+        $ncp = $this->makeRecord();
+        $ncp->assessment->forceFill([
+            'present_diet' => 'Soft diet with high-protein oral supplements',
+            'energy_intake_status' => 'Sub-optimal',
+            'physical_activity_level' => 'moderate',
+            'functional_assessment' => 'Ambulatory with assistance',
+            'chewing_swallowing_difficulties' => 'No',
+            'constipation' => 'No',
+            'diarrhea_notes' => 'No',
+            'allergies' => ['fish', 'shellfish'],
+            'food_intolerance' => 'Lactose intolerance',
+            'nutrient_drug_interaction' => 'Monitor vitamin K intake while taking warfarin',
+        ])->save();
+        foreach (range(1, 2) as $number) {
+            Monitoring::create([
+                'ncp_record_id' => $ncp->id,
+                'observed_at' => '2026-10-'.sprintf('%02d', 10 + $number),
+                'weight' => 60 - ($number * 0.2),
+                'bmi' => 22 - ($number * 0.1),
+                'lab_values' => ['energy_kcal' => 1500 + ($number * 100), 'protein_g' => 60 + ($number * 5)],
+                'intake_notes' => 'Tolerating the planned meals and meeting most energy and protein targets.',
+                'symptoms' => 'Appetite improving; no nausea or swallowing concerns reported.',
+                'clinical_summary' => 'Weight remains stable and oral intake is improving with the current nutrition plan.',
+            ]);
+        }
+        $report = new Report([
+            'type' => 'ncp_summary',
+            'parameters' => ['ncp_record_id' => $ncp->uuid],
+        ]);
+        $report->snapshot = ['signatories' => [
+            ['label' => 'Prepared by:', 'name' => 'RESPONSIBLE CLINICAL NUTRITIONIST-DIETITIAN', 'title' => 'Nutritionist-Dietitian'],
+            ['label' => 'Conforme:', 'name' => 'ATTENDING PHYSICIAN', 'title' => 'Medical Doctor'],
+        ]];
+
+        $bytes = app(ReportService::class)->buildPdf($report)['bytes'];
+        preg_match_all('~/Type\\s*/Page\\b~', $bytes, $pages);
+
+        if ($artifact = getenv('NUTRISCOPE_PDF_QA_PATH')) {
+            $this->assertSame(strlen($bytes), file_put_contents($artifact, $bytes));
+        }
+        $this->assertSame(1, count($pages[0]), 'An ordinary NCP Summary should keep its signatories on the first page.');
     }
 
     public function test_clinical_report_signatories_use_cycle_rnd_and_patient_physician_not_filer(): void

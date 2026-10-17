@@ -9,15 +9,18 @@ import { fetchRecipes, type Recipe } from "@/services/foodLibraryService";
 
 vi.mock("@/services/foodLibraryService", () => ({
   fetchRecipes: vi.fn(async () => ({ data: [], meta: null })),
-  fetchRecipeById: vi.fn(async () => ({ id: 'snack-1', name: 'Fruit cup', servings: 1, prep_notes: null, ingredients: [{ id: 1, quantity: '150', unit: 'g', food_item: { name: 'Papaya' } }] })),
+  fetchRecipeById: vi.fn(async () => ({ id: 'snack-1', name: 'Fruit cup', servings: 5.55, prep_notes: null, ingredients: [
+    { id: 1, quantity: '750.000000', unit: 'g', food_item: { name: 'Papaya' } },
+    { id: 2, quantity: '0.05', unit: 'g', food_item: { name: 'Cinnamon' } },
+  ] })),
 }));
 vi.mock("@/services/mealPlanService", () => ({
   fetchMealPlanTemplates: vi.fn(async () => ({ data: [{ id: "template-1", name: "Measured week", created_at: "2026-10-15" }], meta: null })),
   fetchMealPlanTemplate: vi.fn(async () => ({
     id: "template-1", name: "Measured week", description: null,
     days: [{ day_of_week: "Monday", meal_type: "breakfast", items: [
-      { id: "line-1", recipe_id: "snack-1", food_item_id: null, food_name: "Fruit cup", quantity: "1.20", unit: "serving", line_order: 0 },
-      { id: "line-2", recipe_id: "carb-1", food_item_id: null, food_name: "Oats", quantity: "0.50", unit: "serving", line_order: 1 },
+      { id: "line-1", recipe_id: "snack-1", food_item_id: null, food_name: "Fruit cup", quantity: 1.25, unit: "serving", line_order: 0 },
+      { id: "line-2", recipe_id: "carb-1", food_item_id: null, food_name: "Oats", quantity: 0.5, unit: "serving", line_order: 1 },
     ] }],
   })),
   saveLibraryMealPlanTemplate: vi.fn(), deleteMealPlanTemplate: vi.fn(),
@@ -61,7 +64,7 @@ it("edits ordered Menu Items in the same full-week calendar with controlled serv
   expect(container.querySelector('[role="alert"]')!.compareDocumentPosition(calendar!) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
   expect(container.querySelectorAll('td[data-day="Monday"][data-meal="breakfast"] button[aria-label^="View "]')).toHaveLength(2);
   expect(saveLibraryMealPlanTemplate).toHaveBeenCalledWith(expect.objectContaining({ lines: [
-    expect.objectContaining({ recipe_id: 'snack-1', day_of_week: 'Monday', meal_type: 'breakfast', quantity: 1.2, unit: 'serving' }),
+    expect.objectContaining({ recipe_id: 'snack-1', day_of_week: 'Monday', meal_type: 'breakfast', quantity: 1.25, unit: 'serving' }),
     expect.objectContaining({ recipe_id: 'carb-1', quantity: 0.5, unit: 'serving' }),
   ] }), 'template-1');
 });
@@ -72,11 +75,15 @@ it("previews the same calendar without editing or saving controls", async () => 
   await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="View Measured week"]')!.click());
   expect(container.querySelector('table[aria-label="Weekly menu calendar"]')).not.toBeNull();
   expect(container.querySelectorAll('td[data-day]')).toHaveLength(35);
+  expect(container.querySelector('[data-day="Monday"][data-meal="breakfast"]')?.textContent).toContain('1.3 servings');
   expect(container.querySelectorAll('td input, td select, td button:not([aria-label^="View "])')).toHaveLength(0);
   await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="View Fruit cup"]')!.click());
   const profile = container.querySelector('[role="dialog"][aria-label="Menu Item profile"]')!;
   expect(profile.textContent).toContain('Papaya');
-  expect(profile.textContent).toContain('150 g');
+  expect(profile.textContent).toContain('Recipe makes: 5.6 servings');
+  expect(profile.textContent).toContain('750 g');
+  expect(profile.textContent).toContain('<0.1 g');
+  expect(profile.textContent).not.toContain('750.000000');
   const back = Array.from(profile.querySelectorAll('button')).find((button) => button.textContent === 'Back to template')!;
   await act(async () => back.click());
   expect(container.querySelector('[aria-label="Menu Item profile"]')).toBeNull();

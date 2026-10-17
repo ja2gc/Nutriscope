@@ -9,7 +9,9 @@
     <style>
         table.grid th, table.grid td { padding: 2px 4px; }
         table.meta td { padding: 1px 3px; }
-        .sigs { margin-top: 16px; }
+        .section { margin: 6px 0 2px; padding: 2px 5px; }
+        .sigs { margin-top: 6px; }
+        .sig-label { margin-bottom: 8px; }
     </style>
     @include('reports.partials.letterhead', [
         'title'    => 'Medical Nutrition Therapy (Nutrition Care Plan)',

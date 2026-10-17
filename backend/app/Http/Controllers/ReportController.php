@@ -28,6 +28,7 @@ use App\Services\Reports\ReportCoveredDate;
 use App\Services\Reports\ReportService;
 use App\Services\Reports\ReportSourceKey;
 use App\Services\StoredObjectStorage;
+use App\Support\Reports\InterventionPlanLabelOrdinals;
 use App\Support\Search\FuzzyText;
 use App\Support\Search\RankedSearch;
 use Illuminate\Database\Eloquent\Model;
@@ -320,13 +321,16 @@ class ReportController extends Controller
                     'available' => true,
                     'unavailable_reason' => null,
                 ]];
-                $plans = $record->interventions->map(function (Intervention $plan) use ($record): array {
+                $planOrdinals = InterventionPlanLabelOrdinals::sameDayOrdinals($record->interventions);
+                $plans = $record->interventions->map(function (Intervention $plan) use ($record, $planOrdinals): array {
                     $mealPlan = $plan->mealPlan;
+                    $planOrdinal = $planOrdinals[$plan->getKey()] ?? null;
+                    $displayDate = $plan->created_at?->copy()->timezone(config('nutriscope-reports.timezone'))->format('M j, Y');
 
                     return [
                         'key' => 'intervention-'.$plan->uuid,
                         'type' => 'patient_menu_plan',
-                        'label' => 'Nutrition Intervention Plan — '.$plan->created_at?->copy()->timezone(config('nutriscope-reports.timezone'))->format('M j, Y'),
+                        'label' => 'Nutrition Intervention Plan — '.$displayDate.($planOrdinal !== null ? ' · Plan '.$planOrdinal : ''),
                         'status' => $record->status,
                         'date' => $plan->created_at?->toIso8601String(),
                         'params' => ['intervention_plan_id' => $plan->uuid],

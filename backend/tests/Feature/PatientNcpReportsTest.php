@@ -69,6 +69,36 @@ class PatientNcpReportsTest extends TestCase
         $this->assertStringNotContainsString($otherNcp->uuid, $response->getContent());
     }
 
+    public function test_patient_cycle_feed_numbers_same_day_intervention_reports_chronologically(): void
+    {
+        $rnd = User::factory()->rnd()->create();
+        $patient = Patient::factory()->create();
+        $ncp = NcpRecord::factory()->create(['patient_id' => $patient->id, 'rnd_user_id' => $rnd->id]);
+        Intervention::factory()->create([
+            'ncp_record_id' => $ncp->id,
+            'created_at' => '2026-10-17 08:00:00',
+        ]);
+        Intervention::factory()->create([
+            'ncp_record_id' => $ncp->id,
+            'created_at' => '2026-10-17 12:00:00',
+        ]);
+
+        $plans = $this->actingAs($rnd, 'sanctum')
+            ->getJson("/api/rnd/reports/patients/{$patient->uuid}/instances")
+            ->assertOk()
+            ->json('data.0.reports');
+
+        $labels = collect($plans)
+            ->where('type', 'patient_menu_plan')
+            ->pluck('label')
+            ->all();
+
+        $this->assertSame([
+            'Nutrition Intervention Plan — Oct 17, 2026 · Plan 2',
+            'Nutrition Intervention Plan — Oct 17, 2026 · Plan 1',
+        ], $labels);
+    }
+
     public function test_fss_cannot_open_patient_ncp_reports_feed(): void
     {
         $fss = User::factory()->create(['role' => 'FSS']);

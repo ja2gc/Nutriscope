@@ -5,6 +5,7 @@ namespace App\Services\Reports\Instances;
 use App\Models\Intervention;
 use App\Models\MealPlan;
 use App\Services\Reports\Contracts\InstanceSource;
+use App\Support\Reports\InterventionPlanLabelOrdinals;
 use Illuminate\Database\Eloquent\Builder;
 
 class InterventionPlanInstanceSource implements InstanceSource
@@ -16,32 +17,35 @@ class InterventionPlanInstanceSource implements InstanceSource
 
     public function instances(array $filters): array
     {
-        return $this->query()
+        $plans = $this->query()
             ->when(! empty($filters['year']), fn (Builder $query) => $query->whereYear('created_at', (int) $filters['year']))
             ->when(! empty($filters['month']), fn (Builder $query) => $query->whereMonth('created_at', (int) $filters['month']))
             ->orderByDesc('created_at')
             ->orderByDesc('id')
-            ->get()
-            ->map(function (Intervention $plan): array {
-                $mealPlan = $plan->mealPlan;
-                $date = $plan->created_at?->toDateString();
-                $displayDate = $plan->created_at?->format('M j, Y') ?? 'Date unavailable';
+            ->get();
+        $planOrdinals = InterventionPlanLabelOrdinals::sameDayOrdinals($plans);
 
-                return [
-                    'key' => $plan->uuid,
-                    'label' => trim(($plan->ncpRecord?->patient?->display_name ?? 'Patient')
-                        .' — Nutrition Intervention Plan — '.$displayDate),
-                    'params' => ['intervention_plan_id' => $plan->uuid],
-                    'date' => $date,
-                    'intervention_plan_id' => $plan->uuid,
-                    'intervention_plan_date' => $date,
-                    'meal_plan_id' => $mealPlan?->uuid,
-                    'available' => $mealPlan !== null,
-                    'unavailable_reason' => $mealPlan === null
-                        ? 'Save a menu plan before preparing this report.'
-                        : null,
-                ];
-            })
+        return $plans->map(function (Intervention $plan) use ($planOrdinals): array {
+            $mealPlan = $plan->mealPlan;
+            $date = $plan->created_at?->toDateString();
+            $displayDate = $plan->created_at?->copy()->timezone(config('nutriscope-reports.timezone'))->format('M j, Y') ?? 'Date unavailable';
+            $planOrdinal = $planOrdinals[$plan->getKey()] ?? null;
+
+            return [
+                'key' => $plan->uuid,
+                'label' => trim(($plan->ncpRecord?->patient?->display_name ?? 'Patient')
+                    .' — Nutrition Intervention Plan — '.$displayDate.($planOrdinal !== null ? ' · Plan '.$planOrdinal : '')),
+                'params' => ['intervention_plan_id' => $plan->uuid],
+                'date' => $date,
+                'intervention_plan_id' => $plan->uuid,
+                'intervention_plan_date' => $date,
+                'meal_plan_id' => $mealPlan?->uuid,
+                'available' => $mealPlan !== null,
+                'unavailable_reason' => $mealPlan === null
+                    ? 'Save a menu plan before preparing this report.'
+                    : null,
+            ];
+        })
             ->all();
     }
 
