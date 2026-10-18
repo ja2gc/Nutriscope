@@ -1145,6 +1145,23 @@ class MealPlanControllerTest extends TestCase
             );
     }
 
+    public function test_scaling_respects_macro_and_micro_ceilings_without_chasing_them_as_targets(): void
+    {
+        [$ncp, $intervention, $patient] = $this->makeInterventionWithNcpRecord([
+            'energy_kcal' => 1000, 'protein_g' => 200, 'carbs_g' => 100, 'fat_g' => 20,
+            'micronutrient_limits' => ['sodium' => ['max' => 500, 'unit' => 'mg']],
+        ]);
+        $intervention->setAttribute('nutrient_operators', ['protein_g' => 'max']);
+        $plan = MealPlan::factory()->create(['intervention_id' => $intervention->id, 'patient_id' => $patient->id]);
+        $day = MealPlanDay::factory()->create(['meal_plan_id' => $plan->id, 'day_of_week' => 'Monday', 'meal_type' => 'lunch']);
+        $item = MealPlanItem::factory()->create(['meal_plan_day_id' => $day->id, 'quantity' => 100, 'unit' => 'g', 'nutrient_snapshot' => ['calories' => 500, 'protein' => 20, 'carbs' => 50, 'fat' => 10, 'serving_size' => 100, 'serving_unit' => 'g', 'micronutrients' => ['sodium' => 500]]]);
+        $result = app(MealPlanService::class)->scaleToPrescription($plan, $intervention);
+        $this->assertLessThanOrEqual(100, (float) $item->fresh()->quantity);
+        $this->assertEquals(0, $result['variance']['Monday']['protein']);
+        $this->assertEquals(0, $result['variance']['Monday']['sodium']);
+        $this->assertContains('Monday', $result['problem_days']);
+    }
+
     public function test_scale_to_prescription_changes_only_existing_quantities_using_practical_increments(): void
     {
         [$ncpRecord, $intervention, $patient] = $this->makeInterventionWithNcpRecord([

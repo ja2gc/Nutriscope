@@ -1,6 +1,6 @@
 import { FlaskConical } from "lucide-react";
 
-interface MacroTarget { label: string; current: number; target: number; unit: string }
+interface MacroTarget { label: string; current: number; target: number; unit: string; operator?: 'min' | 'max' }
 
 interface Props {
   targets: MacroTarget[];
@@ -10,7 +10,8 @@ interface Props {
   className?: string;
 }
 
-function statusColor(current: number, target: number): string {
+function statusColor(current: number, target: number, operator?: 'min' | 'max'): string {
+  if (operator) return (operator === 'max' ? current <= target : current >= target) ? "text-emerald-700" : "text-red-600";
   if (target <= 0) return "text-warm-400";
   const pct = Math.abs(current - target) / target;
   if (pct <= 0.10) return "text-emerald-700";
@@ -30,13 +31,13 @@ export default function MacroTrackerBar({
   return (
     <div className={`flex flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3 bg-white border border-warm-200 rounded-xl ${className}`}>
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1 flex-1 min-w-0">
-        {foodTargets.map(({ label, current, target, unit }) => (
+        {foodTargets.map(({ label, current, target, unit, operator }) => (
           <div key={label} className="flex items-baseline gap-1">
             <span className="text-xs font-bold text-warm-400 uppercase tracking-wider">{label}</span>
-            <span className={`text-base font-extrabold font-mono ${statusColor(current, target)}`}>
+            <span className={`text-base font-extrabold font-mono ${statusColor(current, target, operator)}`}>
               {Math.round(current)}
             </span>
-            <span className="text-xs text-warm-400">/ {Math.round(target)} {unit}</span>
+            <span className="text-xs text-warm-400">/ {operator === 'max' ? '≤' : operator === 'min' ? '≥' : ''}{Math.round(target)} {unit}</span>
           </div>
         ))}
       </div>

@@ -32,6 +32,7 @@ class PatientMenuPlanGeneratorTest extends TestCase
     public function test_label_based_menu_item_retains_recipe_yield_and_measured_portions_in_reports(): void
     {
         $plan = $this->makePlan();
+        $plan->intervention->forceFill(['nutrient_operators' => ['protein_g' => 'max'], 'weight_target' => ['min' => 58, 'max' => 62.5]])->saveQuietly();
         $response = $this->actingAs($plan->intervention->ncpRecord->rnd)->postJson('/api/rnd/recipes', [
             'name' => 'Fictional label drink', 'category' => 'snack', 'servings' => 6,
             'nutrition_label' => ['serving_size' => 250, 'serving_unit' => 'mL', 'calories' => 120, 'protein' => 8, 'carbs' => 12, 'fat' => 4, 'micronutrients' => ['calcium' => 300]],
@@ -41,6 +42,8 @@ class PatientMenuPlanGeneratorTest extends TestCase
         MealPlanItem::create(['meal_plan_day_id' => $day->id, 'recipe_id' => $recipe->id, 'quantity' => 1.5, 'unit' => 'serving', 'nutrient_snapshot' => $recipe->planSnapshot()]);
         $report = new Report(['title' => 'Nutrition Intervention Plan — Label serving check', 'type' => 'patient_menu_plan', 'parameters' => ['intervention_plan_id' => $plan->intervention->uuid]]);
         $data = app(PatientMenuPlanGenerator::class)->data($report);
+        $this->assertSame(['protein_g' => 'max'], $data['prescription']['nutrient_operators']);
+        $this->assertEquals(['min' => 58, 'max' => 62.5], $data['prescription']['weight_target']);
         $portion = $data['portion_details'][0];
         $this->assertSame(6.0, $portion['recipe_yield']);
         $this->assertSame(1500.0, $portion['foods'][0]['whole_quantity']);
@@ -813,12 +816,12 @@ class PatientMenuPlanGeneratorTest extends TestCase
         $this->assertSame(1800.0, $data['prescription']['energy_kcal']);
         $plainText = preg_replace('/\s+/', ' ', strip_tags($html));
         $this->assertStringContainsString('Energy: 1,800 kcal', $plainText);
-        $this->assertStringContainsString('Sodium: max 2,000 mg', $plainText);
-        $this->assertStringContainsString('Fiber: min 25 g', $plainText);
+        $this->assertStringContainsString('Sodium: ≤2000 mg', $plainText);
+        $this->assertStringContainsString('Fiber: ≥25 g', $plainText);
         $this->assertStringNotContainsString('Fluid guidance:', $plainText);
-        $this->assertStringContainsString('Required fluid:', $plainText);
-        $this->assertStringContainsString('Daily nutrient targets. These are not the nutrient totals of this menu.', $plainText);
-        $this->assertStringContainsString('Estimated fluid from this menu if followed. The remaining amount should come from drinks.', $plainText);
+        $this->assertStringContainsString('Fluid prescription:', $plainText);
+        $this->assertStringContainsString('unmarked amounts are targets. These are not the nutrient totals of this menu.', $plainText);
+        $this->assertStringContainsString('Remaining drinking fluid follows the same target or limit as the prescription.', $plainText);
         $this->assertStringContainsString('Remaining drinking fluid:', $plainText);
         $this->assertStringNotContainsString('Fluid is excluded from automatic food scaling', $plainText);
         $this->assertStringNotContainsString('not counted as satisfied by foods', $plainText);

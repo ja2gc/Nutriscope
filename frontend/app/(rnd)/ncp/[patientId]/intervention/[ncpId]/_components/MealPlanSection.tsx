@@ -40,7 +40,8 @@ interface Props {
   foodDislikes?: string[];
   allergens?: string[];
   displayedMicros?: string[];
-  micronutrientLimits?: Record<string, { max?: number; min?: number; unit: string }>;
+  micronutrientLimits?: Record<string, { target?: number; max?: number; min?: number; unit: string }>;
+  nutrientOperators?: Record<string, 'min' | 'max'> | null;
   interventionGoal?: string | null;
 }
 
@@ -65,7 +66,7 @@ function groupWeekItems(plan: MealPlan, items: MealPlanItem[]): Record<string, M
 
 export default function MealPlanSection({
   ncpId, interventionPlanId, onSaveIntervention, newlySavedInterventionId, readOnly = false, prescriptionTargets, foodDislikes = [], allergens = [],
-  displayedMicros = [], micronutrientLimits = {},
+  displayedMicros = [], micronutrientLimits = {}, nutrientOperators = {},
 }: Props) {
   const [plans, setPlans]               = useState<MealPlan[]>([]);
   const scopeVersion = useRef(0);
@@ -675,9 +676,9 @@ export default function MealPlanSection({
   const selectedFluid = foodFluidBalance(selectedItems, t.fluid);
   const trackerTargets = [
     { label: 'Energy',  current: selectedTotals.cal,   target: t.energy,        unit: 'kcal' },
-    { label: 'Protein', current: selectedTotals.prot,  target: t.protein,       unit: 'g'    },
-    { label: 'Carbs',   current: selectedTotals.carb,  target: t.carbs,         unit: 'g'    },
-    { label: 'Fat',     current: selectedTotals.fat,   target: t.fat,           unit: 'g'    },
+    { label: 'Protein', current: selectedTotals.prot,  target: t.protein,       unit: 'g', operator: nutrientOperators?.protein_g },
+    { label: 'Carbs',   current: selectedTotals.carb,  target: t.carbs,         unit: 'g', operator: nutrientOperators?.carbs_g },
+    { label: 'Fat',     current: selectedTotals.fat,   target: t.fat,           unit: 'g', operator: nutrientOperators?.fat_g },
   ];
 
   if (templateProfile) return <RecipeMenuItemProfile id={templateProfile.id} name={templateProfile.name} onBack={() => setTemplateProfile(null)} />;
@@ -837,7 +838,7 @@ export default function MealPlanSection({
 
           {t.fluid > 0 && (
             <div className="grid gap-2 rounded-xl border border-sky-100 bg-sky-50 p-3 text-sm text-sky-900 sm:grid-cols-3">
-              <p><span className="font-bold">Required fluid:</span> {selectedFluid.requiredFluidMl} mL</p>
+              <p><span className="font-bold">Fluid prescription:</span> {nutrientOperators?.fluid_ml === 'max' ? '≤' : nutrientOperators?.fluid_ml === 'min' ? '≥' : ''}{selectedFluid.requiredFluidMl} mL</p>
               <p><span className="font-bold">Fluid from planned foods, if this menu is followed:</span> {selectedFluid.foodFluidMl} mL</p>
               <p><span className="font-bold">Remaining drinking fluid, if this menu is followed:</span> {selectedFluid.remainingMl} mL</p>
             </div>
@@ -859,6 +860,7 @@ export default function MealPlanSection({
                       <span className="font-semibold text-warm-700">{meta?.label ?? key}</span>
                       <span className={`font-mono font-bold ${overLimit ? 'text-red-600' : underLimit ? 'text-amber-600' : 'text-warm-500'}`}>
                         {val}{meta?.unit}
+                        {limit?.target != null && <span className="font-normal text-warm-400"> / {limit.target}</span>}
                         {limit?.min != null && <span className="font-normal text-warm-400"> / ≥{limit.min}</span>}
                         {limit?.max != null && <span className="font-normal text-warm-400"> / ≤{limit.max}</span>}
                       </span>

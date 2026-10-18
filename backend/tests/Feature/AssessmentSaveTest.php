@@ -105,7 +105,7 @@ class AssessmentSaveTest extends TestCase
         $this->actingAs($rnd, 'sanctum')
             ->postJson($url, $this->validStorePayload([
                 'chewing_swallowing_difficulties' => 'Yes',
-                'chewing_swallowing_details' => str_repeat('a', 126),
+                'chewing_swallowing_details' => str_repeat('a', 151),
             ]))
             ->assertUnprocessable()
             ->assertJsonValidationErrors('chewing_swallowing_details');

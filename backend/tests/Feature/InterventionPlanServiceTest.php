@@ -3,12 +3,14 @@
 namespace Tests\Feature;
 
 use App\Exceptions\AuditLoggingUnavailable;
+use App\Models\Assessment;
 use App\Models\MealPlan;
 use App\Models\Monitoring;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\User;
 use App\Services\InterventionPlanService;
+use App\Services\NutritionPrescriptionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -22,6 +24,17 @@ class InterventionPlanServiceTest extends TestCase
     private User $rnd;
 
     private NcpRecord $ncpRecord;
+
+    public function test_weight_target_defaults_to_calculated_ibw_and_manual_ranges_are_preserved(): void
+    {
+        Assessment::factory()->create(['ncp_record_id' => $this->ncpRecord->id, 'height' => 170]);
+        $service = app(InterventionPlanService::class);
+        $plan = $service->create($this->ncpRecord, $this->attributes(), $this->rnd);
+        $expected = round(app(NutritionPrescriptionService::class)->ibw(170, $this->ncpRecord->patient->sex), 1);
+        $this->assertEquals(['target' => $expected], $plan->weight_target);
+        $range = $service->create($this->ncpRecord, [...$this->attributes(), 'weight_target' => ['min' => 58, 'max' => 62.5]], $this->rnd);
+        $this->assertEquals(['min' => 58, 'max' => 62.5], $range->fresh()->weight_target);
+    }
 
     protected function setUp(): void
     {

@@ -25,6 +25,7 @@ export interface PlanIndicator {
   sources: string[];
   reference: { min?: number | null; max?: number | null; lowerIsBetter?: boolean } | null;
   target: number | null;
+  guide_label?: string;
   series: PlanSeriesPoint[];
   latest_status: IndicatorStatus;
 }

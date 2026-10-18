@@ -12,6 +12,12 @@ const adultMetrics: PatientMetrics = {
 };
 
 describe("buildPrescriptionCalculationTrace", () => {
+  test('does not restore removed goal nutrients and shows manually chosen macro bounds', () => {
+    const trace = buildPrescriptionCalculationTrace({ goalType: 'cardiac_diet', stage: 'mild', metrics: adultMetrics,
+      prescription: { energy_kcal: '1800', protein_g: '60', carbs_g: '250', fat_g: '60', fluid_ml: '2000', nutrient_operators: { protein_g: 'max' }, displayed_nutrients: [], micronutrient_limits: {} } });
+    expect(trace.targets.find(row => row.key === 'sodium')).toBeUndefined();
+    expect(trace.targets.find(row => row.key === 'protein_g')?.value?.text).toBe('≤ 60 g');
+  });
   test("marks manually changed energy as modified while retaining calculated baseline", () => {
     const trace = buildPrescriptionCalculationTrace({
       goalType: "diabetic_control",

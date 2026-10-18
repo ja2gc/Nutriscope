@@ -50,11 +50,12 @@ function PlanIndicatorChart({ indicator }: { indicator: PlanIndicator }) {
   const color = PLAN_COLORS[indicator.category] ?? "#2563eb";
   const ref = indicator.reference;
   const format = (value: number) => Number(value.toFixed(2));
+  const guideLabel = indicator.guide_label ?? (indicator.target != null ? 'Target' : 'Reference');
   let guide = "No target or reference recorded";
-  if (indicator.target != null) guide = `Target: ${format(indicator.target)} ${indicator.unit}`;
-  else if (ref?.min != null && ref.max != null) guide = `Reference: ${format(ref.min)}–${format(ref.max)} ${indicator.unit}`;
-  else if (ref?.min != null) guide = `Reference: ${format(ref.min)} ${indicator.unit} or higher`;
-  else if (ref?.max != null) guide = `Reference: up to ${format(ref.max)} ${indicator.unit}`;
+  if (indicator.target != null) guide = `${guideLabel}: ${format(indicator.target)} ${indicator.unit}`;
+  else if (ref?.min != null && ref.max != null) guide = `${guideLabel}: ${format(ref.min)}–${format(ref.max)} ${indicator.unit}`;
+  else if (ref?.min != null) guide = `${guideLabel}: ≥${format(ref.min)} ${indicator.unit}`;
+  else if (ref?.max != null) guide = `${guideLabel}: ≤${format(ref.max)} ${indicator.unit}`;
 
   return (
     <div>

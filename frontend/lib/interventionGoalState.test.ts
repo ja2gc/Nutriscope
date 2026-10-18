@@ -1,5 +1,13 @@
 import { describe, expect, test } from "vitest";
-import { buildGoalPrescriptionForm, nutrientKeysWithValues } from "./interventionGoalState";
+import { buildGoalPrescriptionForm, nutrientKeysWithValues, weightTargetError } from "./interventionGoalState";
+
+test('weight targets accept one decimal and complete ordered ranges only', () => {
+  expect(weightTargetError({ target: '60.5' })).toBeNull();
+  expect(weightTargetError({ min: '58', max: '62.5' })).toBeNull();
+  for (const weight of [{ target: '60.55' }, { target: '401' }, { target: '0' }, { min: '60' }, { min: '62', max: '58' }]) {
+    expect(weightTargetError(weight)).not.toBeNull();
+  }
+});
 
 describe("buildGoalPrescriptionForm", () => {
   test("replaces the previous goal's targets with the new goal's targets", () => {

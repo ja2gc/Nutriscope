@@ -346,7 +346,7 @@ export default function NcpMonitoringPage({
                 )}
                 {assessment?.nutritional_status && (
                   <div className="flex justify-between py-2.5 gap-3">
-                    <span className="font-semibold text-warm-400 shrink-0">Baseline Status</span>
+                    <span className="font-semibold text-warm-400 shrink-0">Starting Status</span>
                     <span className="font-semibold text-warm-700 text-right leading-tight">
                       {assessment.nutritional_status}
                     </span>
@@ -354,7 +354,7 @@ export default function NcpMonitoringPage({
                 )}
                 {assessment?.weight && (
                   <div className="flex justify-between py-2.5">
-                    <span className="font-semibold text-warm-400">Baseline Weight</span>
+                    <span className="font-semibold text-warm-400">Starting Weight</span>
                     <span className="font-mono font-bold text-warm-900">
                       {assessment.weight} kg
                     </span>
@@ -362,7 +362,7 @@ export default function NcpMonitoringPage({
                 )}
                 {assessment?.bmi && (
                   <div className="flex justify-between py-2.5">
-                    <span className="font-semibold text-warm-400">Baseline BMI</span>
+                    <span className="font-semibold text-warm-400">Starting BMI</span>
                     <span className="font-mono font-bold text-warm-900">{assessment.bmi}</span>
                   </div>
                 )}
@@ -373,7 +373,7 @@ export default function NcpMonitoringPage({
             {intervention && (intervention.energy_kcal || intervention.protein_g) && (
               <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm">
                 <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider mb-4">
-                  Prescription Targets
+                  Prescription Targets / Limits
                 </h3>
                 <div className="space-y-0 text-sm divide-y divide-zinc-100">
                   {intervention.energy_kcal && (
@@ -388,7 +388,7 @@ export default function NcpMonitoringPage({
                     <div className="flex justify-between py-2.5">
                       <span className="font-semibold text-warm-400">Protein</span>
                       <span className="font-mono font-bold text-warm-900">
-                        {intervention.protein_g} g
+                        {intervention.nutrient_operators?.protein_g === 'max' ? '≤' : intervention.nutrient_operators?.protein_g === 'min' ? '≥' : ''}{intervention.protein_g} g
                       </span>
                     </div>
                   )}
@@ -396,7 +396,7 @@ export default function NcpMonitoringPage({
                     <div className="flex justify-between py-2.5">
                       <span className="font-semibold text-warm-400">Carbs</span>
                       <span className="font-mono font-bold text-warm-900">
-                        {intervention.carbs_g} g
+                        {intervention.nutrient_operators?.carbs_g === 'max' ? '≤' : intervention.nutrient_operators?.carbs_g === 'min' ? '≥' : ''}{intervention.carbs_g} g
                       </span>
                     </div>
                   )}
@@ -404,7 +404,7 @@ export default function NcpMonitoringPage({
                     <div className="flex justify-between py-2.5">
                       <span className="font-semibold text-warm-400">Fat</span>
                       <span className="font-mono font-bold text-warm-900">
-                        {intervention.fat_g} g
+                        {intervention.nutrient_operators?.fat_g === 'max' ? '≤' : intervention.nutrient_operators?.fat_g === 'min' ? '≥' : ''}{intervention.fat_g} g
                       </span>
                     </div>
                   )}
@@ -412,7 +412,7 @@ export default function NcpMonitoringPage({
                     <div className="flex justify-between py-2.5">
                       <span className="font-semibold text-warm-400">Fluid</span>
                       <span className="font-mono font-bold text-warm-900">
-                        {intervention.fluid_ml} mL
+                        {intervention.nutrient_operators?.fluid_ml === 'max' ? '≤' : intervention.nutrient_operators?.fluid_ml === 'min' ? '≥' : ''}{intervention.fluid_ml} mL
                       </span>
                     </div>
                   )}

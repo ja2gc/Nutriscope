@@ -307,6 +307,20 @@ return [
             'implementation_state' => 'implemented',
             'reason' => 'Withdrawal records the report review-state transition without daily-log values.',
         ],
+        'POST api/admin/budgets' => [
+            'classification' => 'explicit_event',
+            'source' => 'App\\Http\\Controllers\\FSS\\BudgetController@store',
+            'owner_task' => 7,
+            'implementation_state' => 'implemented',
+            'reason' => 'Admin budget setup uses the existing audited allocation command and immutable ledger history.',
+        ],
+        'POST api/admin/budgets/adjust' => [
+            'classification' => 'explicit_event',
+            'source' => 'App\\Http\\Controllers\\FSS\\BudgetController@manualAdjust',
+            'owner_task' => 7,
+            'implementation_state' => 'implemented',
+            'reason' => 'Admin adjustments use the existing audited budget command with an attributed reason and outcome.',
+        ],
         'POST api/fss/budgets' => [
             'classification' => 'explicit_event',
             'source' => 'App\\Http\\Controllers\\FSS\\BudgetController@store',

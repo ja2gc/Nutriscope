@@ -21,6 +21,46 @@ class NcpInterventionTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_zero_macro_ceiling_does_not_accept_positive_intake(): void
+    {
+        $plan = new Intervention(['protein_g' => 0, 'nutrient_operators' => ['protein_g' => 'max']]);
+        $this->assertFalse($plan->isWithinTarget('protein', 1));
+        $this->assertTrue($plan->isWithinTarget('protein', 0));
+    }
+
+    public function test_target_weight_and_nutrient_bounds_reject_invalid_shapes_without_saving(): void
+    {
+        $rnd = $this->rnd();
+        $ncp = $this->ncpRecord($this->patient(), $rnd);
+        $this->diagnosis($ncp);
+        $this->actingAs($rnd, 'sanctum');
+        $url = "/api/rnd/ncp-records/{$ncp->uuid}/interventions";
+        foreach ([['target' => 60.55], ['target' => '0060'], ['target' => '1e2'], ['target' => 401], ['target' => 0], ['min' => 60], ['min' => 62, 'max' => 58], ['target' => 60, 'max' => 65], []] as $weight) {
+            $this->postJson($url, ['weight_target' => $weight])->assertUnprocessable();
+        }
+        foreach ([['target' => 25, 'max' => 30], ['min' => 30, 'max' => 20], ['min' => -1]] as $limit) {
+            $this->postJson($url, ['micronutrient_limits' => ['fiber' => [...$limit, 'unit' => 'g']]])->assertUnprocessable();
+        }
+        $this->postJson($url, ['nutrient_operators' => ['energy_kcal' => 'max']])->assertUnprocessable();
+        $this->assertDatabaseCount('interventions', 0);
+        $this->postJson($url, ['weight_target' => ['min' => 58, 'max' => 62.5]])->assertCreated()
+            ->assertJsonPath('data.weight_target.max', 62.5);
+    }
+
+    public function test_prescription_operators_are_validated_and_saved_with_the_plan(): void
+    {
+        $rnd = $this->rnd();
+        $ncp = $this->ncpRecord($this->patient(), $rnd);
+        $this->diagnosis($ncp);
+        $url = "/api/rnd/ncp-records/{$ncp->uuid}/interventions";
+        $this->actingAs($rnd, 'sanctum')->postJson($url, ['nutrient_operators' => ['protein_g' => 'unknown']])
+            ->assertUnprocessable()->assertJsonValidationErrors('nutrient_operators.protein_g');
+        $this->postJson($url, ['protein_g' => 50, 'nutrient_operators' => ['protein_g' => 'max'], 'micronutrient_limits' => ['fiber' => ['target' => 25, 'unit' => 'g']]])
+            ->assertCreated()->assertJsonPath('data.nutrient_operators.protein_g', 'max')
+            ->assertJsonPath('data.micronutrient_limits.fiber.target', 25);
+        $this->assertSame(['protein_g' => 'max'], Intervention::sole()->nutrient_operators);
+    }
+
     private function rnd(): User
     {
         return User::forceCreate([
@@ -542,12 +582,12 @@ class NcpInterventionTest extends TestCase
 
         $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/interventions", [
-                'micronutrient_limits' => ['sodium' => 2000, 'potassium' => 4700],
-            ]);
+                'micronutrient_limits' => ['sodium' => ['max' => 2000, 'unit' => 'mg'], 'potassium' => ['target' => 4700, 'unit' => 'mg']],
+            ])->assertCreated();
 
         $intervention = Intervention::where('ncp_record_id', $ncp->id)->firstOrFail();
         $this->assertIsArray($intervention->micronutrient_limits);
-        $this->assertEquals(2000, $intervention->micronutrient_limits['sodium']);
+        $this->assertEquals(2000, $intervention->micronutrient_limits['sodium']['max']);
         $this->assertDatabaseCount('intervention_revisions', 0);
     }
 

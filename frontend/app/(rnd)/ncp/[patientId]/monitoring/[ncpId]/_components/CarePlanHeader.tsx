@@ -13,7 +13,7 @@ export default function CarePlanHeader({ plan }: { plan: MonitoringPlan | null }
   if (!plan) return null;
 
   const flagged = plan.indicators.filter((i) => i.sources.includes("flagged_abnormal"));
-  const intake = plan.indicators.filter((i) => i.category === "intake" && i.target !== null);
+  const intake = plan.indicators.filter((i) => (i.category === "intake" || i.key === 'weight') && (i.target !== null || i.reference !== null));
 
   return (
     <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm space-y-4">
@@ -53,7 +53,7 @@ export default function CarePlanHeader({ plan }: { plan: MonitoringPlan | null }
       {flagged.length > 0 && (
         <div className="space-y-1.5">
           <p className="text-xs font-bold text-warm-400 uppercase tracking-widest">
-            Baseline Assessment Findings
+            Starting Assessment Findings
           </p>
           <div className="flex flex-wrap gap-1.5">
             {flagged.map((i) => {
@@ -72,11 +72,11 @@ export default function CarePlanHeader({ plan }: { plan: MonitoringPlan | null }
       {/* Prescription targets */}
       {intake.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-xs font-bold text-warm-400 uppercase tracking-widest">Prescription Targets</p>
+          <p className="text-xs font-bold text-warm-400 uppercase tracking-widest">Prescription Targets / Limits</p>
           <div className="flex flex-wrap gap-1.5">
             {intake.map((i) => (
               <span key={i.key} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold bg-warm-50 text-warm-600 border border-warm-200">
-                {i.label.replace(/ intake$/i, "")} <span className="font-mono text-warm-900">{i.target}{i.unit}</span>
+                {i.key === 'weight' ? i.guide_label ?? 'Calculated IBW' : i.label.replace(/ intake$/i, "")} <span className="font-mono text-warm-900">{i.target ?? (i.reference?.min != null && i.reference?.max != null ? `${i.reference.min}–${i.reference.max}` : i.reference?.max != null ? `≤${i.reference.max}` : `≥${i.reference?.min}`)} {i.unit}</span>
               </span>
             ))}
           </div>

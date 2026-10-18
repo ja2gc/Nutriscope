@@ -143,7 +143,7 @@ class MonitoringPlanService
 
         $indicators = array_merge(
             $this->labIndicators($biochem, $sex, $goalType, $goalStage, $pesStatements, $monitorings),
-            $this->anthroIndicators($assessment, $sex, $monitorings),
+            $this->anthroIndicators($assessment, $sex, $monitorings, $ncpRecord->intervention),
             $this->intakeIndicators($ncpRecord->intervention, $monitorings),
             $this->microIndicators($ncpRecord->intervention, $monitorings),
         );
@@ -185,7 +185,7 @@ class MonitoringPlanService
 
                 return round(max(0, ($indicator['reference']['min'] ?? $value) - $value, $value - ($indicator['reference']['max'] ?? $value)), 2);
             };
-            $indicators[] = array_merge(array_intersect_key($indicator, array_flip(['key', 'label', 'unit', 'target', 'reference'])), [
+            $indicators[] = array_merge(array_intersect_key($indicator, array_flip(['key', 'label', 'unit', 'target', 'reference', 'guide_label'])), [
                 'previous' => $previous['value'] ?? null,
                 'previous_visit' => $previous['visit'] ?? null,
                 'current' => $current['value'],
@@ -260,7 +260,7 @@ class MonitoringPlanService
     /**
      * @return array<int,array<string,mixed>>
      */
-    private function anthroIndicators($assessment, string $sex, $monitorings): array
+    private function anthroIndicators($assessment, string $sex, $monitorings, $intervention = null): array
     {
         if (! $assessment) {
             return [];
@@ -273,8 +273,11 @@ class MonitoringPlanService
         foreach ($monitorings as $i => $m) {
             $weightPoints[] = ['visit' => 'Follow-up '.($i + 1), 'value' => $m->weight !== null ? (float) $m->weight : null];
         }
-        $weight = $this->finishIndicator('weight', ['label' => 'Weight', 'unit' => 'kg'], 'anthro', ['calculated'], null, $ibw, $weightPoints,
-            fn ($curr, $prev) => $this->targetStatus($curr, $prev, $ibw));
+        $weightGoal = $intervention?->weight_target ?? [];
+        $weightRange = isset($weightGoal['min'], $weightGoal['max']) ? ['min' => (float) $weightGoal['min'], 'max' => (float) $weightGoal['max']] : null;
+        $weightTarget = $weightRange ? null : (isset($weightGoal['target']) ? (float) $weightGoal['target'] : $ibw);
+        $weight = $this->finishIndicator('weight', ['label' => 'Weight', 'unit' => 'kg', 'guide_label' => $weightGoal ? 'Weight target' : 'Calculated IBW'], 'anthro', [$weightGoal ? 'prescription' : 'calculated'], $weightRange, $weightTarget, $weightPoints,
+            fn ($curr, $prev) => $weightRange ? $this->labStatus($curr, $prev, ['low' => $weightRange['min'], 'high' => $weightRange['max']]) : $this->targetStatus($curr, $prev, $weightTarget));
 
         // BMI — trended; WHO normal band.
         $bmiPoints = [['visit' => 'Visit 1', 'value' => $assessment->bmi !== null ? (float) $assessment->bmi : null]];
@@ -320,8 +323,10 @@ class MonitoringPlanService
                 $points[] = ['visit' => 'Follow-up '.($i + 1), 'value' => $v];
             }
 
-            $indicators[] = $this->finishIndicator($key, $meta, 'intake', ['prescription'], null, $target, $points,
-                fn ($curr) => $this->intakeStatus($curr, $target));
+            $operator = $intervention->nutrient_operators[$key] ?? null;
+            $reference = $operator && $target !== null ? ['min' => $operator === 'min' ? $target : null, 'max' => $operator === 'max' ? $target : null] : null;
+            $indicators[] = $this->finishIndicator($key, $meta, 'intake', ['prescription'], $reference, $reference ? null : $target, $points,
+                fn ($curr, $prev) => $reference ? $this->labStatus($curr, $prev, ['low' => $reference['min'], 'high' => $reference['max']]) : $this->intakeStatus($curr, $target));
         }
 
         return $indicators;
@@ -329,7 +334,7 @@ class MonitoringPlanService
 
     private function microIndicators($intervention, $monitorings): array
     {
-        $keys = array_merge($intervention?->displayed_nutrients ?? [], array_keys($intervention?->micronutrient_limits ?? []), self::GOAL_MICROS[$intervention?->goal_type] ?? []);
+        $keys = array_merge($intervention?->displayed_nutrients ?? [], array_keys($intervention?->micronutrient_limits ?? []), $intervention?->displayed_nutrients === null ? (self::GOAL_MICROS[$intervention?->goal_type] ?? []) : []);
         foreach ($monitorings as $monitoring) {
             foreach (array_keys($monitoring->lab_values ?? []) as $key) {
                 if (str_starts_with($key, 'micro_')) {
@@ -348,8 +353,9 @@ class MonitoringPlanService
             $max = isset($limit['max']) ? (float) $limit['max'] : null;
             $reference = $min !== null || $max !== null ? ['min' => $min, 'max' => $max] : null;
             $points = array_merge([['visit' => 'Visit 1', 'value' => null]], $monitorings->map(fn ($m, $i) => ['visit' => 'Follow-up '.($i + 1), 'value' => isset($m->lab_values['micro_'.$key]) ? (float) $m->lab_values['micro_'.$key] : null])->all());
-            $indicators[] = $this->finishIndicator('micro_'.$key, ['label' => $label.' intake', 'unit' => $unit], 'intake', ['prescription'], $reference, null, $points,
-                fn ($curr, $prev) => $reference ? $this->labStatus($curr, $prev, ['low' => $min, 'high' => $max]) : 'no_data');
+            $target = isset($limit['target']) ? (float) $limit['target'] : null;
+            $indicators[] = $this->finishIndicator('micro_'.$key, ['label' => $label.' intake', 'unit' => $unit], 'intake', ['prescription'], $reference, $target, $points,
+                fn ($curr, $prev) => $reference ? $this->labStatus($curr, $prev, ['low' => $min, 'high' => $max]) : $this->intakeStatus($curr, $target));
         }
 
         return $indicators;
@@ -387,6 +393,7 @@ class MonitoringPlanService
 
         return [
             'key' => $key,
+            'guide_label' => $meta['guide_label'] ?? ($category !== 'intake' ? 'Reference range' : ($reference ? 'Prescription limits' : 'Prescription target')),
             'label' => $meta['label'],
             'unit' => $meta['unit'],
             'category' => $category,

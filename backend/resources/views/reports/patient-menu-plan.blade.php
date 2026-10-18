@@ -15,23 +15,23 @@
     <div style="margin-top:5px; padding:5px 7px; border:1px solid #d1d5db; background:#f8fafc; font-size:7.5pt;">
         <span class="bold">Daily nutrition prescription:</span>
         Energy: {{ number_format($prescription['energy_kcal']) }} kcal ·
-        Protein: {{ number_format($prescription['protein_g']) }} g ·
-        Carbohydrate: {{ number_format($prescription['carbs_g']) }} g ·
-        Fat: {{ number_format($prescription['fat_g']) }} g
+        @foreach(['protein_g' => 'Protein', 'carbs_g' => 'Carbohydrate', 'fat_g' => 'Fat'] as $key => $label)
+            {{ $label }}: @include('reports.partials.nutrient-prescription', ['limit' => [($prescription['nutrient_operators'][$key] ?? 'target') => $prescription[$key], 'unit' => 'g']])@if(!$loop->last) · @endif
+        @endforeach
         @foreach($prescription['micronutrient_limits'] as $nutrient => $limit)
             · {{ Illuminate\Support\Str::headline($nutrient) }}:
-            @if(isset($limit['min']))min {{ number_format($limit['min']) }}@endif
-            @if(isset($limit['min'], $limit['max']))-@endif
-            @if(isset($limit['max']))max {{ number_format($limit['max']) }}@endif
-            {{ $limit['unit'] ?? '' }}
+            @include('reports.partials.nutrient-prescription', ['limit' => $limit])
         @endforeach
-        <div class="muted" style="margin-top:2px;">Daily nutrient targets. These are not the nutrient totals of this menu.</div>
+        @if(!empty($prescription['weight_target']))
+            <div>Target weight: @include('reports.partials.nutrient-prescription', ['limit' => [...$prescription['weight_target'], 'unit' => 'kg']])</div>
+        @endif
+        <div class="muted" style="margin-top:2px;">Daily prescription: ≤ maximum, ≥ minimum; unmarked amounts are targets. These are not the nutrient totals of this menu.</div>
         <div class="muted" style="margin-top:2px;">
-            Required fluid: {{ number_format($fluid_balance['required_fluid_ml']) }} mL/day ·
+            Fluid prescription: @include('reports.partials.nutrient-prescription', ['limit' => [($prescription['nutrient_operators']['fluid_ml'] ?? 'target') => $fluid_balance['required_fluid_ml'], 'unit' => 'mL/day']]) ·
             Fluid from planned foods: {{ number_format($fluid_balance['food_fluid_ml']) }} mL/day average ·
             Remaining drinking fluid: {{ number_format($fluid_balance['remaining_ml']) }} mL/day.
         </div>
-        <div class="muted" style="margin-top:2px;">Estimated fluid from this menu if followed. The remaining amount should come from drinks.</div>
+        <div class="muted" style="margin-top:2px;">Estimated fluid from this menu if followed. Remaining drinking fluid follows the same target or limit as the prescription.</div>
         @if($maternal_note)
             <div class="muted" style="margin-top:2px;">{{ $maternal_note }}</div>
         @endif

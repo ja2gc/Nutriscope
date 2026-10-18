@@ -330,6 +330,7 @@ class PersonNameBackendFlowTest extends TestCase
             'title' => 'Report',
             'type' => 'accomplishment_report',
             'status' => 'archived',
+            'review_state' => 'approved',
         ]);
         Budget::create([
             'fiscal_year' => 2035,

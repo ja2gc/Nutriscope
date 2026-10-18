@@ -20,6 +20,8 @@ class InterventionResource extends JsonResource
             'fat_g' => $this->fat_g,
             'fluid_ml' => $this->fluid_ml,
             'micronutrient_limits' => $this->micronutrient_limits,
+            'nutrient_operators' => $this->nutrient_operators,
+            'weight_target' => $this->weight_target,
             'education_notes' => $this->education_notes,
             'counseling_goals' => $this->counseling_goals,
             'barriers' => $this->barriers,

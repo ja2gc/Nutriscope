@@ -143,6 +143,8 @@ class PatientMenuPlanGenerator implements ReportGenerator
                 'fat_g' => (float) ($snapshot['fat_g'] ?? 0),
                 'fluid_ml' => (float) ($snapshot['fluid_ml'] ?? 0),
                 'micronutrient_limits' => $snapshot['micronutrient_limits'] ?? [],
+                'nutrient_operators' => $snapshot['nutrient_operators'] ?? [],
+                'weight_target' => $snapshot['weight_target'] ?? [],
             ],
             'fluid_balance' => [
                 'required_fluid_ml' => $fluidTarget,
@@ -228,7 +230,7 @@ class PatientMenuPlanGenerator implements ReportGenerator
     {
         return collect([
             'energy_kcal', 'protein_g', 'carbs_g', 'fat_g', 'fluid_ml',
-            'micronutrient_limits', 'education_notes', 'counseling_goals', 'strategies',
+            'micronutrient_limits', 'nutrient_operators', 'weight_target', 'education_notes', 'counseling_goals', 'strategies',
             'barriers',
         ])->mapWithKeys(fn (string $field): array => [$field => $plan->getAttribute($field)])->all();
     }

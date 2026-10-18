@@ -82,7 +82,8 @@ class MealPlanService
             'carbs' => (float) $intervention->carbs_g,
             'fat' => (float) $intervention->fat_g,
         ], fn (float $value): bool => $value > 0);
-        $microLimits = is_array($intervention->micronutrient_limits) ? $intervention->micronutrient_limits : [];
+        $microLimits = $intervention->foodNutrientLimits();
+        $targets = array_diff_key($targets, $microLimits);
 
         return DB::transaction(function () use ($mealPlan, $targets, $microLimits, $persist): array {
             if ($persist) {
@@ -133,8 +134,20 @@ class MealPlanService
                         }
                     }
 
+                    // Ceiling constraints take precedence over matching energy or other targets.
+                    $totals = $this->nutrientTotals($items, $overrides);
+                    $ceilingScale = 1.0;
+                    foreach ($microLimits as $key => $limit) {
+                        if (isset($limit['max'], $totals[$key]) && $totals[$key] > (float) $limit['max']) {
+                            $ceilingScale = min($ceilingScale, max(0, (float) $limit['max']) / $totals[$key]);
+                        }
+                    }
                     foreach ($items as $item) {
                         $next = $overrides[$item->id];
+                        if ($ceilingScale < 1) {
+                            $step = $this->quantityStep($item);
+                            $next = max($this->minimumQuantity($item), floor(($next * $ceilingScale + 0.00000001) / $step) * $step);
+                        }
                         if (abs((float) $item->quantity - $next) > 0.0001) {
                             $item->fill(['quantity' => $next]);
                             if ($persist) {
@@ -149,7 +162,7 @@ class MealPlanService
                     $slots->each->load('items');
                 }
                 $variance = $this->computeDayVariance($slots, $targets, $microLimits);
-                $flagged = $this->isFlagged($variance);
+                $flagged = $this->isFlagged($variance, $microLimits);
                 foreach ($slots as $slot) {
                     $slot->fill(['flagged' => $flagged, 'variance' => $variance]);
                     if ($persist) {
@@ -707,18 +720,20 @@ class MealPlanService
 
         // Micronutrients from micronutrient_limits
         foreach ($microLimits as $nutrientKey => $limit) {
-            $targetVal = $limit['min'] ?? $limit['max'] ?? null;
+            $targetVal = $limit['target'] ?? $limit['min'] ?? $limit['max'] ?? null;
             if ($targetVal === null) {
                 continue;
             }
 
-            if (! array_key_exists($nutrientKey, $microTotals)) {
+            $actual = $totals[$nutrientKey] ?? $microTotals[$nutrientKey] ?? null;
+            if ($actual === null) {
                 // Prescribed nutrient not reported by any recipe → data gap
                 $variance[$nutrientKey] = 'cannot_validate';
-            } elseif (isset($limit['max'])) {
-                $variance[$nutrientKey] = round(max(0, $microTotals[$nutrientKey] - (float) $limit['max']) / max((float) $limit['max'], 0.001), 4);
-            } elseif (isset($limit['min'])) {
-                $variance[$nutrientKey] = round(min(0, $microTotals[$nutrientKey] - (float) $limit['min']) / max((float) $limit['min'], 0.001), 4);
+            } else {
+                $variance[$nutrientKey] = isset($limit['target'])
+                    ? round(($actual - (float) $limit['target']) / max((float) $limit['target'], 0.001), 4)
+                    : round(max(0, $actual - (float) ($limit['max'] ?? INF)) / max((float) ($limit['max'] ?? 1), 0.001)
+                        + min(0, $actual - (float) ($limit['min'] ?? 0)) / max((float) ($limit['min'] ?? 1), 0.001), 4);
             }
         }
 
@@ -744,6 +759,9 @@ class MealPlanService
             $totals['protein'] += (float) ($snapshot['protein'] ?? 0) * $factor;
             $totals['carbs'] += (float) ($snapshot['carbs'] ?? 0) * $factor;
             $totals['fat'] += (float) ($snapshot['fat'] ?? 0) * $factor;
+            foreach ($snapshot['micronutrients'] ?? [] as $key => $value) {
+                $totals[$key] = ($totals[$key] ?? 0) + (float) $value * $factor;
+            }
         }
 
         return $totals;
@@ -760,22 +778,13 @@ class MealPlanService
         }
 
         foreach ($microLimits as $nutrient => $limit) {
-            if (! isset($limit['max'])) {
+            if (! array_key_exists($nutrient, $totals)) {
                 continue;
             }
-            $actual = 0.0;
-            $reported = false;
-            foreach ($items as $item) {
-                $snapshot = $item->nutrient_snapshot ?? [];
-                if (array_key_exists($nutrient, $snapshot['micronutrients'] ?? [])) {
-                    $reported = true;
-                    $actual += (float) $snapshot['micronutrients'][$nutrient]
-                        * $this->itemFactor($item, $quantities[$item->id] ?? null);
-                }
-            }
-            if ($reported && $actual > (float) $limit['max']) {
-                $score += (($actual - (float) $limit['max']) / max((float) $limit['max'], 0.001)) ** 2 * 4;
-            }
+            $actual = $totals[$nutrient];
+            $distance = isset($limit['target']) ? $actual - (float) $limit['target']
+                : max(0, $actual - (float) ($limit['max'] ?? INF)) + min(0, $actual - (float) ($limit['min'] ?? 0));
+            $score += ($distance / max((float) ($limit['target'] ?? $limit['max'] ?? $limit['min'] ?? 1), 0.001)) ** 2 * 4;
         }
 
         return $score;
@@ -812,13 +821,13 @@ class MealPlanService
      * True if any numeric variance value is outside ±10%.
      * "cannot_validate" does NOT trigger flagging (it is surfaced for data-gap awareness).
      */
-    private function isFlagged(array $variance): bool
+    private function isFlagged(array $variance, array $limits = []): bool
     {
         foreach ($variance as $key => $v) {
             if (in_array($key, ['water', 'fluid', 'fluid_ml'], true)) {
                 continue;
             }
-            if (is_float($v) && abs($v) > self::TOLERANCE) {
+            if (is_float($v) && abs($v) > (isset($limits[$key]['min']) || isset($limits[$key]['max']) ? 0 : self::TOLERANCE)) {
                 return true;
             }
         }

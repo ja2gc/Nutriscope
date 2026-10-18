@@ -202,6 +202,25 @@ class NcpMonitoringTest extends TestCase
         $this->assertDatabaseCount('intervention_revisions', 0);
     }
 
+    public function test_store_and_update_reject_missing_or_invalid_care_decisions_without_saving(): void
+    {
+        $rnd = $this->rnd();
+        $ncp = $this->ncpRecord($this->patient(), $rnd);
+        $url = "/api/rnd/ncp-records/{$ncp->uuid}/monitorings";
+        $this->actingAs($rnd, 'sanctum');
+
+        foreach ([null, [], ['continuation_decision' => ''], ['continuation_decision' => 'unknown']] as $goals) {
+            $this->postJson($url, $this->payload(['goal_achievement' => $goals]))
+                ->assertUnprocessable()->assertJsonValidationErrors('goal_achievement.continuation_decision');
+        }
+        $this->assertDatabaseCount('monitorings', 0);
+
+        $monitoring = Monitoring::factory()->create(['ncp_record_id' => $ncp->id, ...$this->payload()]);
+        $this->patchJson("{$url}/{$monitoring->uuid}", $this->payload(['goal_achievement' => []]))
+            ->assertUnprocessable()->assertJsonValidationErrors('goal_achievement.continuation_decision');
+        $this->assertSame('continue', $monitoring->fresh()->goal_achievement['continuation_decision']);
+    }
+
     public function test_update_replaces_complete_snapshot_and_recalculates_bmi(): void
     {
         $rnd = $this->rnd();

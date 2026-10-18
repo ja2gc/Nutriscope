@@ -133,6 +133,7 @@ class AdminReportsTest extends TestCase
             'user_id' => $this->admin->id,
             'type' => 'accomplishment_report',
             'status' => 'archived',
+            'review_state' => 'approved',
         ]);
         Report::factory()->create([
             'user_id' => $this->admin->id,

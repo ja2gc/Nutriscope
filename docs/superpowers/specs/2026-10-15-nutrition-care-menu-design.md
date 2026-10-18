@@ -151,4 +151,13 @@ NCP Summary retains each saved Monitoring Progress Assessment as Evaluation / Su
 
 ## Outside scope
 
+### Approved prescription and monitoring continuation — 2026-10-18
+
+- Care Decision is required on Monitoring save/update: Continue, Modify, or Discontinue. AI generation may still use an unsaved draft without that decision. Maria Santos's three missing decisions were filled through guarded root SSH using the explicit Continue wording already in each entry; no other fields or timestamps changed. All five decisions are Continue. Keep the seed source consistent.
+- Generated micronutrients remain selected initially, with their existing minimum/maximum semantics. Staff can edit values and selectors or uncheck Display Micros to remove the nutrient and its saved constraint. Do not continuously restore goal defaults. Previously logged readings remain visible without inventing a removed prescription.
+- Compact selectors on protein, carbohydrate, fat, fluid and selected micronutrients: blank means a target to aim near, ≤ maximum, ≥ minimum. Energy remains a target. Preserve existing two-sided ranges. Explain these meanings through the shared InfoHint without changing label alignment.
+- Scaling treats ceilings as constraints rather than amounts to reach. Retain existing composition and practical increments; flag incompatible targets or unavoidable violations. Food scaling does not satisfy fluid from a beverage schedule. Monitoring/AI and newly generated Intervention/NCP Summary reports use the same saved target/bound semantics; frozen historical report bytes are unchanged.
+- Target weight belongs to Intervention, defaulting to calculated IBW when available. Allow one weight or two range fields separated by an en dash, 1–400 kg, at most three whole digits and one decimal place. Monitoring and AI use the latest saved target; legacy plans without a saved target retain clearly labeled calculated IBW guidance. Changing target weight does not recalculate energy.
+- Rename visible Monitoring Baseline wording to Starting. Distinguish laboratory reference ranges, prescription targets/limits and weight targets. Missing starting intake stays blank.
+
 No Food Service nutrition engine merge; no new clinical advice engine, density database, ready-to-eat selection, direct Ingredient/USDA selection for new weekly menus, bulk copy-day action, report type, or change to historical archived report bytes. Do not add user-facing technical flags or identifiers.

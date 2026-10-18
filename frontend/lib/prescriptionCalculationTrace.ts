@@ -167,11 +167,13 @@ function buildMacroRows(
       key,
       label,
       unit,
-      value: valueFromNumber(prescribed ?? expected, unit),
+      value: prescription.nutrient_operators?.[key] && prescribed != null
+        ? valueFromLimit({ [prescription.nutrient_operators[key]]: prescribed, unit })
+        : valueFromNumber(prescribed ?? expected, unit),
       formulaName: formula.formulaName,
       formula: calculated ? formula.variables : "Manual target",
       calculation: calculated ? formula.values : "Entered by RND; no automatic formula applies.",
-      status: statusFor(prescribed, expected),
+      status: calculated && prescription.nutrient_operators?.[key] ? 'modified' : statusFor(prescribed, expected),
     };
   });
 }
@@ -218,7 +220,7 @@ function buildMicroRows(
   const calculatedLimits = calculated ? microLimitsFromRx(calculated, calculated.energy_kcal) : {};
   const keys = microKeys(Array.from(new Set([
     ...Object.keys(prescription.micronutrient_limits),
-    ...Object.keys(calculatedLimits),
+    ...prescription.displayed_nutrients,
   ])));
 
   return keys.flatMap((key) => {
@@ -237,7 +239,7 @@ function buildMicroRows(
       calculation: calculated
         ? microCalculation(key, calculated, currentValue.text)
         : "Entered by RND; no automatic formula applies.",
-      status: statusFor(limitNumber(prescribed), limitNumber(expected)),
+      status: prescribed && expected && valueFromLimit(prescribed)?.text !== valueFromLimit(expected)?.text ? 'modified' : statusFor(limitNumber(prescribed), limitNumber(expected)),
     }];
   });
 }
@@ -389,14 +391,16 @@ function valueFromNumber(value: number | undefined, unit: string): CalculationTr
   return { value, unit, text: `${fmt(value)} ${unit}` };
 }
 
-function valueFromLimit(limit: { max?: number; min?: number; unit: string } | undefined): CalculationTraceValue | undefined {
+function valueFromLimit(limit: { target?: number; max?: number; min?: number; unit: string } | undefined): CalculationTraceValue | undefined {
+  if (limit?.target != null) return { value: limit.target, unit: limit.unit, text: `${fmt(limit.target)} ${limit.unit}` };
+  if (limit?.min != null && limit.max != null) return { value: limit.max, unit: limit.unit, text: `${fmt(limit.min)}–${fmt(limit.max)} ${limit.unit}` };
   if (limit?.max != null) return { value: limit.max, unit: limit.unit, text: `≤ ${fmt(limit.max)} ${limit.unit}` };
   if (limit?.min != null) return { value: limit.min, unit: limit.unit, text: `≥ ${fmt(limit.min)} ${limit.unit}` };
   return undefined;
 }
 
-function limitNumber(limit: { max?: number; min?: number; unit: string } | undefined): number | undefined {
-  return limit?.max ?? limit?.min;
+function limitNumber(limit: { target?: number; max?: number; min?: number; unit: string } | undefined): number | undefined {
+  return limit?.target ?? limit?.max ?? limit?.min;
 }
 
 function parseNumber(value: string): number | undefined {

@@ -17,6 +17,31 @@ class MonitoringPlanServiceTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_unchecking_goal_micros_does_not_reinsert_them_but_keeps_logged_values_without_old_limits(): void
+    {
+        $ncp = $this->makeNcp();
+        Intervention::create(['ncp_record_id' => $ncp->id, 'goal_type' => 'cardiac_diet', 'displayed_nutrients' => [], 'micronutrient_limits' => []]);
+        $plan = app(MonitoringPlanService::class)->build($ncp->fresh());
+        $this->assertNull($this->indicator($plan, 'micro_sodium'));
+        Monitoring::create(['ncp_record_id' => $ncp->id, 'lab_values' => ['micro_sodium' => 1800]]);
+        $sodium = $this->indicator(app(MonitoringPlanService::class)->build($ncp->fresh()), 'micro_sodium');
+        $this->assertNotNull($sodium);
+        $this->assertNull($sodium['target']);
+        $this->assertNull($sodium['reference']);
+    }
+
+    public function test_latest_plan_weight_range_and_nutrient_bounds_replace_point_targets(): void
+    {
+        $ncp = $this->makeNcp();
+        Intervention::create(['ncp_record_id' => $ncp->id, 'goal_type' => 'custom', 'weight_target' => ['min' => 55, 'max' => 60], 'protein_g' => 60, 'nutrient_operators' => ['protein_g' => 'max'], 'micronutrient_limits' => ['fiber' => ['target' => 25, 'unit' => 'g']]]);
+        $indicators = collect(app(MonitoringPlanService::class)->build($ncp->fresh())['indicators'])->keyBy('key');
+        $this->assertSame(['min' => 55.0, 'max' => 60.0], $indicators['weight']['reference']);
+        $this->assertNull($indicators['weight']['target']);
+        $this->assertSame(['min' => null, 'max' => 60.0], $indicators['protein_g']['reference']);
+        $this->assertNull($indicators['protein_g']['target']);
+        $this->assertEquals(25, $indicators['micro_fiber']['target']);
+    }
+
     private function makeNcp(): NcpRecord
     {
         $patient = Patient::factory()->create(['sex' => 'Male', 'dob' => '1980-01-01']);

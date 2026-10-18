@@ -132,17 +132,18 @@
     <div class="section">Nutrition Intervention</div>
     <div class="prescription-line">
         @foreach(['energy_kcal' => ['Energy', 'kcal'], 'carbs_g' => ['Carbohydrate', 'g'], 'protein_g' => ['Protein', 'g'], 'fat_g' => ['Fat', 'g'], 'fluid_ml' => ['Fluid', 'mL']] as $key => [$label, $unit])
-            @if(!$loop->first) · @endif<span class="bold">{{ $label }}:</span> {{ $intervention?->{$key} ?? '—' }} {{ $unit }}
+            @if(!$loop->first) · @endif<span class="bold">{{ $label }}:</span> @if($intervention?->{$key} !== null)@include('reports.partials.nutrient-prescription', ['limit' => [($intervention->nutrient_operators[$key] ?? 'target') => $intervention->{$key}, 'unit' => $unit]])@else — {{ $unit }}@endif
         @endforeach
     </div>
     @foreach($intervention?->micronutrient_limits ?? [] as $nutrient => $limit)
         <div class="prescription-line"><span class="bold">{{ Illuminate\Support\Str::headline($nutrient) }}:</span>
-            @if(isset($limit['min']))min {{ $limit['min'] }}@endif
-            @if(isset($limit['min'], $limit['max'])) / @endif
-            @if(isset($limit['max']))max {{ $limit['max'] }}@endif
-            {{ $limit['unit'] ?? '' }}
+            @include('reports.partials.nutrient-prescription', ['limit' => $limit])
         </div>
     @endforeach
+    @if(!empty($intervention?->weight_target))
+        <div class="prescription-line"><span class="bold">Target weight:</span> @include('reports.partials.nutrient-prescription', ['limit' => [...$intervention->weight_target, 'unit' => 'kg']])</div>
+    @endif
+    @if($intervention)<div class="muted">≤ maximum; ≥ minimum; unmarked amounts are targets.</div>@endif
     <div class="intervention-guidance">
         @foreach(['disease_stage' => 'Diet / Stage', 'education_notes' => 'Nutrition Education', 'counseling_goals' => 'Behavioral Goals', 'barriers' => 'Identified Barriers', 'strategies' => 'Strategies'] as $key => $label)
             @if(filled($intervention?->{$key}))
@@ -180,7 +181,13 @@
                             Energy: {{ $intake['energy_kcal'] }} / {{ $intervention?->energy_kcal ?? '—' }} kcal<br>
                         @endif
                         @if(isset($intake['protein_g']))
-                            Protein: {{ $intake['protein_g'] }} / {{ $intervention?->protein_g ?? '—' }} g<br>
+                            Protein: {{ $intake['protein_g'] }} /
+                            @if($intervention?->protein_g !== null)
+                                @include('reports.partials.nutrient-prescription', ['limit' => [($intervention->nutrient_operators['protein_g'] ?? 'target') => $intervention->protein_g, 'unit' => 'g']])
+                            @else
+                                — g
+                            @endif
+                            <br>
                         @endif
                         @if($m->intake_notes){{ $m->intake_notes }}@endif
                         @if(is_array($m->goal_achievement))

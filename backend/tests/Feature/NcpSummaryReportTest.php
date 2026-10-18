@@ -193,6 +193,8 @@ class NcpSummaryReportTest extends TestCase
         $ncp = $this->makeRecord();
         Intervention::create([
             'ncp_record_id' => $ncp->id, 'energy_kcal' => 1900, 'protein_g' => 75,
+            'nutrient_operators' => ['protein_g' => 'max'],
+            'weight_target' => ['min' => 58, 'max' => 62.5],
             'micronutrient_limits' => ['sodium' => ['max' => 2000, 'unit' => 'mg'], 'fiber' => ['min' => 25, 'max' => 35, 'unit' => 'g']],
         ]);
         $data = app(NcpSummaryGenerator::class)->data(new Report(['type' => 'ncp_summary', 'parameters' => ['ncp_record_id' => $ncp->uuid]]));
@@ -206,7 +208,15 @@ class NcpSummaryReportTest extends TestCase
         $this->assertStringContainsString('25', $html);
         $this->assertStringContainsString('35', $html);
         $this->assertStringContainsString('1900', $html);
+        $this->assertStringContainsString('≤75', $html);
+        $this->assertStringContainsString('58–62.5', $html);
+        $this->assertStringContainsString('≤2000', $html);
+        $this->assertStringContainsString('25–35', $html);
         $this->assertStringNotContainsString('Nutrition Education:', $html);
+        if ($artifact = getenv('NUTRISCOPE_SUMMARY_PDF_QA_PATH')) {
+            $built = app(ReportService::class)->buildPdf(new Report(['type' => 'ncp_summary', 'parameters' => ['ncp_record_id' => $ncp->uuid]]));
+            $this->assertSame(strlen($built['bytes']), file_put_contents($artifact, $built['bytes']));
+        }
     }
 
     public function test_clinical_report_signatories_use_cycle_rnd_and_patient_physician_not_filer(): void
@@ -322,7 +332,7 @@ class NcpSummaryReportTest extends TestCase
         $this->assertStringContainsString('Physical Activity Level (PAL):', $html);
         $this->assertStringNotContainsString('Physical Assessment:', $html);
         $this->assertStringContainsString('Energy: 1500 / 1800.00 kcal', $html);
-        $this->assertStringContainsString('Protein: 60 / 70.00 g', $html);
+        $this->assertStringContainsString('Protein: 60 / 70.00 g', preg_replace('/\s+/', ' ', strip_tags($html)));
         $this->assertStringContainsString('Diet compliance: partial', $html);
         $this->assertStringContainsString('Goal decision: continue', $html);
     }

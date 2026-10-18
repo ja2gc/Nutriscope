@@ -327,6 +327,7 @@ class AccomplishmentReportTest extends TestCase
             'title' => 'Accomplishment May 01-15',
             'type' => 'accomplishment_report',
             'status' => 'archived',
+            'review_state' => 'approved',
         ]);
 
         $slugReport = Report::create([
@@ -334,6 +335,7 @@ class AccomplishmentReportTest extends TestCase
             'title' => 'accomplishment_report',
             'type' => 'accomplishment_report',
             'status' => 'archived',
+            'review_state' => 'approved',
         ]);
 
         $reports = collect(
@@ -354,6 +356,7 @@ class AccomplishmentReportTest extends TestCase
             'title' => 'Mine',
             'type' => 'accomplishment_report',
             'status' => 'archived',
+            'review_state' => 'approved',
         ]);
         // ...but not another FSS staff's row (index is owner-scoped for FSS).
         $other = Report::create([
@@ -361,6 +364,7 @@ class AccomplishmentReportTest extends TestCase
             'title' => 'Theirs',
             'type' => 'accomplishment_report',
             'status' => 'archived',
+            'review_state' => 'approved',
         ]);
 
         $ids = collect(

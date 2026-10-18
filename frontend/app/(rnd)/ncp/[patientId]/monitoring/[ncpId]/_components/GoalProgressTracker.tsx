@@ -56,7 +56,7 @@ function GoalProgressHeading() {
         Goal Progress
       </h3>
       <InfoHint label="How progress and chart guides work" title="Progress and chart guide">
-        The baseline is the saved Assessment. Follow-ups show only supported patient indicators. Amber chart lines mark reference limits; green dashed lines mark prescription targets.
+        Starting values come from the saved Assessment; missing measurements stay blank. Guides show laboratory reference ranges, prescription targets or limits, and the latest saved weight target. Amber lines mark ranges or limits; green dashed lines mark single targets.
       </InfoHint>
     </div>
   );
@@ -73,7 +73,7 @@ function PlanProgressTable({ plan }: { plan: MonitoringPlan }) {
       <div className="overflow-x-auto">
         <div className="min-w-[560px]">
           <div className="grid grid-cols-[1.4fr_72px_72px_90px_90px_80px] gap-2 px-5 py-2.5 bg-warm-50 border-b border-warm-100">
-            {["Indicator", "Baseline", "Current", "Reference", "Status", "Trend"].map((h) => (
+            {["Indicator", "Starting", "Current", "Guide", "Status", "Trend"].map((h) => (
               <span key={h} className="text-xs font-bold text-warm-400 uppercase tracking-widest">{h}</span>
             ))}
           </div>
@@ -89,7 +89,7 @@ function PlanProgressTable({ plan }: { plan: MonitoringPlan }) {
                   unit={ind.unit}
                   baseline={baseline}
                   current={current}
-                  referenceLabel={referenceLabelFor(ind.reference, ind.target, ind.unit)}
+                  referenceLabel={`${ind.guide_label ? `${ind.guide_label}: ` : ''}${referenceLabelFor(ind.reference, ind.target, ind.unit)}`}
                   status={ind.latest_status}
                   sparkValues={values}
                   lowerIsBetter={ind.reference?.lowerIsBetter ?? false}
@@ -201,7 +201,7 @@ export default function GoalProgressTracker({
         <div className="min-w-[560px]">
           {/* Column headers */}
           <div className="grid grid-cols-[1.4fr_72px_72px_90px_90px_80px] gap-2 px-5 py-2.5 bg-warm-50 border-b border-warm-100">
-            {['Indicator', 'Baseline', 'Current', 'Reference', 'Status', 'Trend'].map((h) => (
+            {['Indicator', 'Starting', 'Current', 'Guide', 'Status', 'Trend'].map((h) => (
               <span key={h} className="text-xs font-bold text-warm-400 uppercase tracking-widest">{h}</span>
             ))}
           </div>

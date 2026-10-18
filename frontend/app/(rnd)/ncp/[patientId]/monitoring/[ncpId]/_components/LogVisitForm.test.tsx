@@ -42,6 +42,21 @@ async function open(remaining = 3, monitoringPlan = plan) {
 }
 
 describe("draft monitoring summary", () => {
+  it("requires an explicit care decision before saving and preserves the entered summary", async () => {
+    const save = await open();
+    const summary = screen.getByRole("textbox", { name: "Progress Assessment" }) as HTMLTextAreaElement;
+    fireEvent.change(summary, { target: { value: "Reviewed progress summary." } });
+    fireEvent.click(screen.getByRole("button", { name: "Save Visit" }));
+    expect(save).not.toHaveBeenCalled();
+    expect(screen.getByText("Care Decision is required.")).toBeTruthy();
+    expect(summary.value).toBe("Reviewed progress summary.");
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    await act(async () => { domEvent.click(screen.getByRole("button", { name: "Save Visit" })); });
+    await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({
+      clinical_summary: "Reviewed progress summary.", goal_achievement: { continuation_decision: "continue" },
+    })));
+  });
+
   it("expands every narrative field like Assessment without an inner scrollbar", async () => {
     await open();
     for (const name of ["Dietary Restrictions", "Intake Notes", "Symptoms and Tolerance", "Progress Assessment"]) {

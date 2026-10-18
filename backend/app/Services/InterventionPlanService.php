@@ -12,7 +12,11 @@ use Illuminate\Validation\ValidationException;
 
 class InterventionPlanService
 {
-    public function __construct(private readonly AuditLogger $auditLogger) {}
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly InterventionCalculationContextService $context,
+        private readonly NutritionPrescriptionService $prescription,
+    ) {}
 
     public function create(
         NcpRecord $ncpRecord,
@@ -22,6 +26,14 @@ class InterventionPlanService
     ): Intervention {
         $this->validateOwnership($ncpRecord, $actor, $sourceMonitoring);
         $this->auditLogger->assertAvailable();
+        if (! isset($attributes['weight_target'])) {
+            $context = $this->context->for($ncpRecord);
+            if (($context['height'] ?? 0) > 0 && in_array($context['sex'] ?? null, ['Male', 'Female'], true)) {
+                $attributes['weight_target'] = ['target' => round($this->prescription->ibw((float) $context['height'], $context['sex']), 1)];
+            }
+        } else {
+            $attributes['weight_target'] = array_map('floatval', $attributes['weight_target']);
+        }
 
         return DB::transaction(function () use ($ncpRecord, $attributes, $sourceMonitoring): Intervention {
             $lockedNcpRecord = NcpRecord::query()

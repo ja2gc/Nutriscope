@@ -1,0 +1,1 @@
+@if(isset($limit['target'])){{ $limit['target'] }}@elseif(isset($limit['min'], $limit['max'])){{ $limit['min'] }}–{{ $limit['max'] }}@elseif(isset($limit['max']))≤{{ $limit['max'] }}@elseif(isset($limit['min']))≥{{ $limit['min'] }}@endif {{ $limit['unit'] ?? '' }}

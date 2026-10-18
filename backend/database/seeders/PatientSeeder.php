@@ -389,6 +389,7 @@ class PatientSeeder extends Seeder
             'symptoms' => 'Mild afternoon fatigue — improving. No polyuria, polydipsia, or new complaints.',
             'goal_achievement' => [
                 'carb_reduction' => 'partial',
+                'continuation_decision' => 'continue',
                 'sweet_beverage_elimination' => 'mostly_achieved',
                 'fiber_goal' => 'not_achieved',
                 'sodium_reduction' => 'partial',
@@ -426,6 +427,7 @@ class PatientSeeder extends Seeder
             'symptoms' => 'No symptoms. Energy levels significantly improved. Walking 20–30 minutes daily. Reports feeling less fatigued after meals.',
             'goal_achievement' => [
                 'carb_reduction' => 'achieved',
+                'continuation_decision' => 'continue',
                 'sweet_beverage_elimination' => 'achieved',
                 'fiber_goal' => 'partially_achieved',
                 'sodium_reduction' => 'partially_achieved',

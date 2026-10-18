@@ -24,6 +24,7 @@ class Intervention extends Model
         'ncp_record_id', 'source_monitoring_id', 'goal_type', 'disease_stage', 'displayed_nutrients',
         'energy_kcal', 'protein_g', 'carbs_g', 'fat_g', 'fluid_ml',
         'micronutrient_limits', 'education_notes', 'counseling_goals',
+        'nutrient_operators', 'weight_target',
         'barriers', 'strategies', 'session_type',
         'next_followup_date',
     ];
@@ -31,6 +32,8 @@ class Intervention extends Model
     protected $casts = [
         'displayed_nutrients' => 'array',
         'micronutrient_limits' => 'array',
+        'nutrient_operators' => 'array',
+        'weight_target' => 'array',
         'next_followup_date' => 'date',
         'energy_kcal' => 'decimal:2',
         'protein_g' => 'decimal:2',
@@ -54,6 +57,7 @@ class Intervention extends Model
             'ncp_record_id', 'goal_type', 'disease_stage', 'displayed_nutrients',
             'energy_kcal', 'protein_g', 'carbs_g', 'fat_g', 'fluid_ml',
             'micronutrient_limits', 'education_notes', 'counseling_goals', 'barriers',
+            'nutrient_operators', 'weight_target',
             'strategies', 'session_type', 'next_followup_date',
         ];
     }
@@ -91,10 +95,29 @@ class Intervention extends Model
             default => null,
         };
 
-        if (! $target || $target === 0.0) {
+        if ($target === null) {
             return true;
         }
 
-        return abs($actual - $target) / $target <= 0.10;
+        $field = ['protein' => 'protein_g', 'carbs' => 'carbs_g', 'fat' => 'fat_g'][$nutrient] ?? $nutrient;
+
+        return match ($this->nutrient_operators[$field] ?? null) {
+            'max' => $actual <= $target,
+            'min' => $actual >= $target,
+            default => $target === 0.0 || abs($actual - $target) / $target <= 0.10,
+        };
+    }
+
+    public function foodNutrientLimits(): array
+    {
+        $limits = $this->micronutrient_limits ?? [];
+        foreach (['protein_g' => 'protein', 'carbs_g' => 'carbs', 'fat_g' => 'fat'] as $field => $key) {
+            $operator = $this->nutrient_operators[$field] ?? null;
+            if (in_array($operator, ['min', 'max'], true) && $this->{$field} !== null) {
+                $limits[$key] = [$operator => (float) $this->{$field}, 'unit' => 'g'];
+            }
+        }
+
+        return $limits;
     }
 }

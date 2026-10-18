@@ -131,7 +131,7 @@ function NumberField({ label, unit, value, onChange, required = false, readOnly 
     <label>
       <span className="mb-1.5 flex flex-wrap items-end justify-between gap-2">
         <span className="text-xs font-bold uppercase tracking-widest text-warm-500">{label}</span>
-        {targetText && <span className="text-xs font-semibold text-warm-500">Target {targetText}</span>}
+        {targetText && <span className="text-xs font-semibold text-warm-500">{reference ? 'Limit' : 'Target'} {targetText}</span>}
       </span>
       <span className="flex overflow-hidden rounded-lg border border-warm-200 bg-white focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-500/20">
         <input
@@ -150,15 +150,16 @@ function NumberField({ label, unit, value, onChange, required = false, readOnly 
   );
 }
 
-function ToggleGroup<T extends string>({ label, options, value, onChange }: {
+function ToggleGroup<T extends string>({ label, options, value, onChange, required = false }: {
   label: string;
   options: { value: T; label: string }[];
   value: T | null;
   onChange: (value: T | null) => void;
+  required?: boolean;
 }) {
   return (
-    <div>
-      <FieldLabel>{label}</FieldLabel>
+    <div role="group" aria-label={label}>
+      <FieldLabel>{label}{required && <span aria-hidden="true"> *</span>}</FieldLabel>
       <div className="flex flex-wrap gap-2">
         {options.map((option) => (
           <button
@@ -311,6 +312,7 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel 
     event.preventDefault();
     setError(null);
     const payload = buildPayload();
+    if (!decision) { setError("Care Decision is required."); return; }
     if (!payload.clinical_summary?.trim()) { setError("Progress Assessment is required."); return; }
     const validationError = monitoringTextError(payload);
     if (validationError) { setError(validationError); return; }
@@ -453,7 +455,7 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel 
               <Button type="button" variant="ghost" onClick={() => setGeneratedFor(comparisonInputs)}>Mark reviewed</Button>
             </div>
           )}
-          <ToggleGroup<NonNullDecision> label="Care Decision" options={DECISION_OPTIONS} value={decision} onChange={setDecision} />
+          <ToggleGroup<NonNullDecision> label="Care Decision" required options={DECISION_OPTIONS} value={decision} onChange={setDecision} />
         </Section>
 
         <Section title="Follow-up">
@@ -463,7 +465,7 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel 
           </label>
         </Section>
 
-        {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+        {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
         <div className="flex flex-col gap-3 sm:flex-row">
           <Button type="submit" variant="primary" loading={submitting} disabled={aiLoading} className="sm:flex-1">Save Visit</Button>
           <Button type="button" variant="ghost" onClick={onCancel} className="sm:!w-auto">Cancel</Button>

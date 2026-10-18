@@ -9,6 +9,19 @@ use Tests\TestCase;
 
 class MonitoringTextLimitsTest extends TestCase
 {
+    public function test_care_decision_is_required_and_accepts_only_the_three_existing_choices(): void
+    {
+        foreach ([StoreMonitoringRequest::class, UpdateMonitoringRequest::class] as $requestClass) {
+            $rules = array_filter((new $requestClass)->rules(), fn ($key) => str_starts_with($key, 'goal_achievement'), ARRAY_FILTER_USE_KEY);
+            foreach ([[], ['goal_achievement' => null], ['goal_achievement' => []], ['goal_achievement' => ['continuation_decision' => null]], ['goal_achievement' => ['continuation_decision' => '']], ['goal_achievement' => ['continuation_decision' => 'unknown']]] as $invalid) {
+                $this->assertTrue(Validator::make($invalid, $rules)->fails());
+            }
+            foreach (['continue', 'modify', 'discontinue'] as $decision) {
+                $this->assertTrue(Validator::make(['goal_achievement' => ['continuation_decision' => $decision]], $rules)->passes());
+            }
+        }
+    }
+
     public function test_progress_assessment_is_required_and_limited_to_600_characters(): void
     {
         foreach ([StoreMonitoringRequest::class, UpdateMonitoringRequest::class] as $requestClass) {

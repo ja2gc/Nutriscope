@@ -20,12 +20,13 @@ import {
 import { fetchDiagnoses } from "@/services/diagnosisService";
 import { fetchMonitoringContext } from "@/services/monitoringService";
 import {
-  autofillPrescription, Prescription, PatientMetrics, ACTIVITY_FACTORS, microKeys,
+  autofillPrescription, Prescription, PatientMetrics, ACTIVITY_FACTORS, microKeys, calcIBW,
 } from "@/lib/nutritionCalculations";
 import {
   buildGoalPrescriptionForm,
   emptyPrescriptionForm,
   nutrientKeysWithValues,
+  weightTargetError,
   type PrescriptionFormState,
 } from "@/lib/interventionGoalState";
 import { buildPrescriptionCalculationTrace } from "@/lib/prescriptionCalculationTrace";
@@ -80,6 +81,8 @@ type PrescriptionForm = PrescriptionFormState;
 function interventionToForm(iv: Intervention): PrescriptionForm {
   const micronutrientLimits = iv.micronutrient_limits ?? {};
   return {
+    weight_target: iv.weight_target ?? undefined,
+    nutrient_operators: iv.nutrient_operators ?? {},
     energy_kcal: iv.energy_kcal != null ? String(iv.energy_kcal) : "",
     protein_g:   iv.protein_g   != null ? String(iv.protein_g)   : "",
     carbs_g:     iv.carbs_g     != null ? String(iv.carbs_g)     : "",
@@ -419,6 +422,8 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
   };
 
   const savePlan = async (): Promise<string | null> => {
+    const targetError = weightTargetError(prescription.weight_target);
+    if (targetError) { setEditorError(targetError); setTab('nd'); return null; }
     if (!intervention?.goal_type) {
       setEditorError("Select an intervention goal before saving.");
       setTab("nd");
@@ -441,6 +446,9 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
         fat_g:       prescription.fat_g       ? parseFloat(prescription.fat_g)       : null,
         fluid_ml:    prescription.fluid_ml    ? parseFloat(prescription.fluid_ml)    : null,
         micronutrient_limits: prescription.micronutrient_limits,
+        nutrient_operators: prescription.nutrient_operators ?? {},
+        weight_target: prescription.weight_target
+          ? Object.fromEntries(Object.entries(prescription.weight_target).map(([key, value]) => [key, Number(value)])) : undefined,
         displayed_nutrients: nutrientKeysWithValues(prescription.micronutrient_limits),
         education_notes: educationNotes || null,
         counseling_goals: counselingGoals || null,
@@ -679,6 +687,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
             {/* [B] Prescription */}
             <NutritionPrescriptionForm
               values={prescription}
+              defaultWeightTarget={editorMode === 'edit' && patientMetrics ? Math.round(calcIBW(patientMetrics.heightCm, patientMetrics.sex) * 10) / 10 : null}
               onChange={(v) => { setPrescription(v); setDirty(true); }}
               onSave={savePlan}
               saving={saving}
@@ -716,6 +725,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
                 allergens={allergens}
                 displayedMicros={microKeys(prescription.displayed_nutrients)}
                 micronutrientLimits={prescription.micronutrient_limits}
+                nutrientOperators={prescription.nutrient_operators}
                 interventionGoal={intervention?.goal_type}
               />
           </div>

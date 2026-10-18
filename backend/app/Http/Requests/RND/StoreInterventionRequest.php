@@ -27,6 +27,13 @@ class StoreInterventionRequest extends FormRequest
             'fat_g' => ['nullable', 'numeric', 'between:0,1000', 'decimal:0,2'],
             'fluid_ml' => ['nullable', 'numeric', 'between:0,10000', 'decimal:0,2'],
             'micronutrient_limits' => ['nullable', 'array'],
+            'micronutrient_limits.*.target' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            'micronutrient_limits.*.min' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            'micronutrient_limits.*.max' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            'nutrient_operators' => ['nullable', 'array:protein_g,carbs_g,fat_g,fluid_ml'],
+            'nutrient_operators.*' => ['required', Rule::in(['min', 'max'])],
+            'weight_target' => ['nullable', 'array:target,min,max'],
+            'weight_target.*' => ['required', 'numeric', 'between:1,400', 'decimal:0,1', 'regex:/^\d{1,3}(?:\.\d)?$/'],
             'education_notes' => ['nullable', 'string', 'max:'.InterventionGuidance::FIELD_MAX],
             'counseling_goals' => ['nullable', 'string', 'max:'.InterventionGuidance::FIELD_MAX],
             'barriers' => ['nullable', 'string', 'max:'.InterventionGuidance::FIELD_MAX],
@@ -38,6 +45,27 @@ class StoreInterventionRequest extends FormRequest
     {
         return [
             function (Validator $validator): void {
+                $weight = $this->input('weight_target');
+                if (is_array($weight) && (isset($weight['target'])
+                    ? count($weight) !== 1 : ! isset($weight['min'], $weight['max']))) {
+                    $validator->errors()->add('weight_target', 'Enter a single target weight or both ends of a range.');
+                }
+                if (is_array($weight) && isset($weight['min'], $weight['max']) && (float) $weight['min'] > (float) $weight['max']) {
+                    $validator->errors()->add('weight_target', 'Target weight minimum must not exceed maximum.');
+                }
+                foreach ((array) $this->input('micronutrient_limits', []) as $key => $limit) {
+                    if (! is_array($limit)) {
+                        $validator->errors()->add("micronutrient_limits.{$key}", 'Enter a nutrient target or limit.');
+
+                        continue;
+                    }
+                    if (isset($limit['target']) && (isset($limit['min']) || isset($limit['max']))) {
+                        $validator->errors()->add("micronutrient_limits.{$key}", 'Choose a target or limits, not both.');
+                    }
+                    if (isset($limit['min'], $limit['max']) && (float) $limit['min'] > (float) $limit['max']) {
+                        $validator->errors()->add("micronutrient_limits.{$key}", 'Minimum must not exceed maximum.');
+                    }
+                }
                 if (InterventionGuidance::characterCount($this->all()) > InterventionGuidance::TOTAL_MAX) {
                     $validator->errors()->add(
                         'education_notes',

@@ -124,6 +124,7 @@ class MonitoringDraftSummaryTest extends TestCase
         $save = $draft;
         unset($save['entry_key']);
         $save['clinical_summary'] = 'Reviewed summary.';
+        $save['goal_achievement'] = ['continuation_decision' => 'continue'];
         $this->postJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings", $save)->assertCreated();
         $budget = $this->getJson($url)->assertOk()->assertJsonPath('data.remaining', 3)->json('data');
         $this->assertNotSame($draft['entry_key'], $budget['entry_key']);

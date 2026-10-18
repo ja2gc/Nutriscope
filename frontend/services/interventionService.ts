@@ -2,12 +2,15 @@
 import type { PaginationMeta } from "@/components/ui/Pagination";
 
 export interface MicronutrientLimit {
+  target?: number;
   max?: number;
   min?: number;
   unit: string;
 }
 
 export interface Intervention {
+  weight_target?: { target?: number; min?: number; max?: number } | null;
+  nutrient_operators?: Record<string, 'min' | 'max'> | null;
   id: string;
   goal_type: string | null;
   disease_stage: string | null;

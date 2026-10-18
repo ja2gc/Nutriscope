@@ -111,6 +111,7 @@ class SharedRndClinicalAccessTest extends TestCase
         ])->assertOk();
 
         $this->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings/{$monitoring->uuid}", [
+            'goal_achievement' => ['continuation_decision' => 'continue'],
             'observed_at' => $monitoring->observed_at->toDateString(),
             'visit_type' => $monitoring->visit_type,
             'weight' => 61,
