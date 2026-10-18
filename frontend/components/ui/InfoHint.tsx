@@ -37,12 +37,14 @@ export function InfoHint({ label, title, children }: InfoHintProps) {
           onPointerLeave={closeSoon}
           onFocus={keepOpen}
           onBlur={closeSoon}
+          onClick={(event) => { event.preventDefault(); keepOpen(); }}
           className="inline-flex h-6 w-6 shrink-0 items-center justify-center text-warm-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40"
         >
           <CircleHelp className="h-4 w-4" aria-hidden="true" />
         </button>
       </PopoverTrigger>
       <PopoverContent
+        onOpenAutoFocus={(event) => event.preventDefault()}
         onPointerEnter={keepOpen}
         onPointerLeave={closeSoon}
         onEscapeKeyDown={() => setOpen(false)}

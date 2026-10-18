@@ -214,6 +214,7 @@ describe("monitoring workflow UI", () => {
           sources: ["calculated"],
           reference: null,
           target: 47.751968503937015,
+          guide_label: 'Weight target',
           series: [
             { visit: "Visit 1", value: 62, status: "no_data" },
             { visit: "Follow-up 1", value: 60.8, status: "in_progress" },
@@ -228,7 +229,8 @@ describe("monitoring workflow UI", () => {
       nutritionalStatus="Overweight"
     />);
 
-    expect(html).toContain("target 47.8 kg");
+    expect(html).toContain("Weight target: 47.8 kg");
+    expect(html).not.toContain("Weight target: target");
     expect(html).not.toContain("47.751968503937015");
     expect(html).not.toContain("lucide-trending-up");
     expect(html).toContain("How progress and chart guides work");

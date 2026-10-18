@@ -138,7 +138,7 @@ export default function NutritionPrescriptionForm({
       </div>
 
       {/* Macro inputs */}
-      <div className="grid grid-cols-1 min-[420px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,180px),1fr))] gap-3">
         {MACROS.map(({ key, label, unit }) => (
           <NumericInput
             key={key}
@@ -164,7 +164,7 @@ export default function NutritionPrescriptionForm({
       {microList.length > 0 ? (
         <div className="space-y-2 pt-2 border-t border-warm-100">
           <p className="text-xs font-bold text-warm-400 uppercase tracking-widest">Micronutrient Targets / Limits</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,320px),1fr))] gap-2">
             {microList.map((key) => {
               const micro    = ALL_MICROS.find((m) => m.key === key);
               const limits   = values.micronutrient_limits[key] ?? {};

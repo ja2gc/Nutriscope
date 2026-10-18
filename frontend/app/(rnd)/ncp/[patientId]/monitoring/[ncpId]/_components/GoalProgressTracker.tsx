@@ -89,7 +89,7 @@ function PlanProgressTable({ plan }: { plan: MonitoringPlan }) {
                   unit={ind.unit}
                   baseline={baseline}
                   current={current}
-                  referenceLabel={`${ind.guide_label ? `${ind.guide_label}: ` : ''}${referenceLabelFor(ind.reference, ind.target, ind.unit)}`}
+                  referenceLabel={ind.guide_label ? `${ind.guide_label}: ${referenceLabelFor(ind.reference, ind.target, ind.unit).replace(/^target /, '')}` : referenceLabelFor(ind.reference, ind.target, ind.unit)}
                   status={ind.latest_status}
                   sparkValues={values}
                   lowerIsBetter={ind.reference?.lowerIsBetter ?? false}

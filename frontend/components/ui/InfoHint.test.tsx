@@ -22,6 +22,23 @@ describe("InfoHint", () => {
     document.body.innerHTML = "";
   });
 
+  test('clicking an already hovered trigger keeps guidance open', async () => {
+    await act(async () => root.render(<InfoHint label="Prescription help">Targets and limits explained.</InfoHint>));
+    const trigger = container.querySelector<HTMLButtonElement>('button')!;
+    await act(async () => trigger.dispatchEvent(new MouseEvent('pointerover', { bubbles: true })));
+    await act(async () => trigger.click());
+    expect(document.body.textContent).toContain('Targets and limits explained.');
+  });
+
+  test('keyboard focus keeps help open without stealing focus and closing itself', async () => {
+    await act(async () => root.render(<InfoHint label="Prescription help">Targets and limits explained.</InfoHint>));
+    const trigger = container.querySelector<HTMLButtonElement>('button')!;
+    await act(async () => trigger.focus());
+    await act(async () => new Promise(resolve => setTimeout(resolve, 150)));
+    expect(document.activeElement).toBe(trigger);
+    expect(document.body.textContent).toContain('Targets and limits explained.');
+  });
+
   test("opens useful guidance on hover without adding a square hover surface", async () => {
     await act(async () => root.render(
       <InfoHint label="How AI token costs are calculated" title="How cost is calculated">

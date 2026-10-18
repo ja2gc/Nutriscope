@@ -18,6 +18,10 @@ describe("micronutrient limit direction", () => {
     expect(html).toContain('≤');
     expect(html).toContain('text-emerald-700');
   });
+  it('fits bound inputs to available panel width instead of the viewport breakpoint', () => {
+    const html = renderToStaticMarkup(<NutritionPrescriptionForm values={{ energy_kcal: '1800', protein_g: '75', carbs_g: '225', fat_g: '60', fluid_ml: '2000', micronutrient_limits: {}, displayed_nutrients: [] }} onChange={vi.fn()} onSave={vi.fn()} saving={false} />);
+    expect(html).toContain('repeat(auto-fit,minmax(min(100%,180px),1fr))');
+  });
   let container: HTMLDivElement;
   let root: Root;
 
