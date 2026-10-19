@@ -13,7 +13,7 @@ export function UnsavedChangesDialog({ title = 'Unsaved changes', busy = false, 
     panel.current?.querySelector<HTMLButtonElement>('button')?.focus();
     return () => { if (trigger instanceof HTMLElement && trigger.isConnected) trigger.focus(); };
   }, []);
-  return <div role="dialog" aria-modal="true" aria-label={title} aria-labelledby={titleId} onClick={(event) => event.stopPropagation()} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onKeyDown={(event) => {
+  return <div role="dialog" aria-modal="true" aria-label={title} aria-labelledby={titleId} onClick={(event) => event.stopPropagation()} className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4" onKeyDown={(event) => {
     if (event.key === 'Escape' && !busy) { event.stopPropagation(); onStay(); }
     if (event.key === 'Tab') {
       const controls = panel.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)');

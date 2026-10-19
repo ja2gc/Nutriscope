@@ -26,7 +26,7 @@ export function MenuItemPicker({ title = 'Add Menu Item', itemLabel = 'Menu Item
     panel.current?.querySelector<HTMLInputElement>('input')?.focus();
     return () => { if (trigger instanceof HTMLElement && trigger.isConnected) trigger.focus(); };
   }, []);
-  return <div role="dialog" aria-modal="true" aria-label={`Add ${itemLabel}`} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm" onMouseDown={(event) => { if (event.target === event.currentTarget && !busyId) onClose(); }} onKeyDown={(event) => {
+  return <div role="dialog" aria-modal="true" aria-label={`Add ${itemLabel}`} className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm" onMouseDown={(event) => { if (event.target === event.currentTarget && !busyId) onClose(); }} onKeyDown={(event) => {
     if (event.key === 'Escape' && !busyId) onClose();
     if (event.key === 'Tab') {
       const controls = panel.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input, select');
