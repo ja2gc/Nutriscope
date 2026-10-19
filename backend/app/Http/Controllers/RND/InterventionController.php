@@ -219,6 +219,38 @@ class InterventionController extends Controller
         });
     }
 
+    public function updatePlan(StoreInterventionRequest $request, NcpRecord $ncpRecord, Intervention $intervention): JsonResponse
+    {
+        $this->authorizeNcp($ncpRecord);
+        abort_unless($intervention->ncp_record_id === $ncpRecord->id, 404);
+
+        return $this->audited(function () use ($request, $ncpRecord, $intervention): JsonResponse {
+            NcpRecord::whereKey($ncpRecord->id)->lockForUpdate()->firstOrFail();
+            abort_unless((int) $ncpRecord->latestIntervention()->value('id') === $intervention->id, 403, 'Historical plans are view only.');
+            $intervention->update($request->validated());
+            if ($intervention->mealPlan) {
+                $intervention->mealPlan->update(['needs_rescaling' => true, 'scaled_at' => null]);
+            }
+            $this->refreshActivation($ncpRecord);
+            $this->appointments->recordClinicalWork($request->user(), $ncpRecord->fresh(), 'intervention');
+
+            return (new InterventionResource($intervention->load(['sourceMonitoring', 'mealPlan'])))->response();
+        });
+    }
+
+    public function destroyPlan(NcpRecord $ncpRecord, Intervention $intervention): JsonResponse
+    {
+        $this->authorizeNcp($ncpRecord);
+        abort_unless($intervention->ncp_record_id === $ncpRecord->id, 404);
+        $this->audited(function () use ($ncpRecord, $intervention): void {
+            NcpRecord::whereKey($ncpRecord->id)->lockForUpdate()->firstOrFail();
+            $intervention->mealPlans()->get()->each->delete();
+            $intervention->delete();
+        });
+
+        return response()->json(null, 204);
+    }
+
     /**
      * Activate the NCP only once the initial ADI is clinically COMPLETE (not just
      * present). An empty intervention row no longer flips the record to active —

@@ -59,6 +59,17 @@ export interface RecommendResult {
 
 const plansBase = (ncpId: string) => `/api/rnd/ncp-records/${ncpId}/interventions`;
 
+export async function updateIntervention(ncpId: string, planId: string, payload: Partial<Intervention>): Promise<Intervention> {
+  const res = await apiFetch(`${plansBase(ncpId)}/${planId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(payload) });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message || 'Failed to update intervention plan.');
+  return (await res.json()).data;
+}
+
+export async function deleteIntervention(ncpId: string, planId: string): Promise<void> {
+  const res = await apiFetch(`${plansBase(ncpId)}/${planId}`, { method: 'DELETE', headers: { Accept: 'application/json' } });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message || 'Failed to delete intervention plan.');
+}
+
 export async function fetchInterventionPlans(ncpId: string, page = 1): Promise<InterventionPlanPage> {
   const res = await apiFetch(`${plansBase(ncpId)}?page=${page}&per_page=10`, {
     headers: { Accept: "application/json" },

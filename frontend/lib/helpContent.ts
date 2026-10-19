@@ -293,7 +293,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Diagnosis & Intervention",
     question: "Can I make a patient meal plan manually or from a template?",
-    answer: "Yes. New Intervention Plan prefills the previous prescription and latest saved menu as a draft. Edit what changed; Save week stores its independent menu after the intervention is saved. Templates preview and edit in a weekly calendar before Save week. Auto-Generate uses one selected Carb beside a Meal in all main slots unless Exclude carbs is selected. Included Snacks fill AM/PM slots; Exclude snacks works for every goal. Manual menus can place Snacks in main meals. Review allergies, restrictions, portions and totals. Fluid stays outside food scaling.",
+    answer: "Yes. The latest Intervention Plan stays editable after reopening; older plans are View only. Plans actions also allow deletion. New Intervention Plan prefills the previous prescription and menu; saving the intervention stores its independent menu. Menu actions save directly: load a template, clear all items, or Auto-Generate a replacement anytime. Auto-Generate uses one selected Carb beside a Meal in main slots unless Exclude carbs is selected; Exclude snacks omits AM/PM Snacks. Adjust planned portions or the item's Ingredients, quantities, and compatible units without changing Food Library. Review allergies, restrictions and nutrient totals. Fluid stays outside food scaling.",
     keywords: ["template", "generate", "menu", "nutrition totals"],
   },
   {

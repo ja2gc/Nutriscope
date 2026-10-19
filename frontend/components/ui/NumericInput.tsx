@@ -8,6 +8,7 @@ interface Props {
   onChange: (value: string) => void;
   unit: string;
   min?: number;
+  max?: number;
   step?: number;
   disabled?: boolean;
   prefix?: React.ReactNode;
@@ -19,6 +20,7 @@ export default function NumericInput({
   onChange,
   unit,
   min = 0,
+  max,
   step = 0.1,
   disabled = false,
   prefix,
@@ -34,6 +36,7 @@ export default function NumericInput({
           aria-label={label}
           type="number"
           min={min}
+          max={max}
           step={step}
           value={value}
           onChange={(e) => onChange(e.target.value)}

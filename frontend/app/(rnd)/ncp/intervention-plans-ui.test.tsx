@@ -20,6 +20,8 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/services/interventionService", () => ({
   AutofillError: class AutofillError extends Error { missingFields: string[] = []; },
+  updateIntervention: vi.fn(),
+  deleteIntervention: vi.fn(),
   fetchIntervention: vi.fn(async () => ({
     id: "plan-newest",
     goal_type: "custom",
@@ -281,7 +283,7 @@ describe("intervention plans workspace", () => {
     expect(container.textContent).not.toContain("old assessment restriction");
   });
 
-  it("posts one complete plan then selects its returned UUID read-only", async () => {
+  it("posts one complete plan then keeps its returned UUID editable", async () => {
     vi.mocked(interventionService.autofillIntervention).mockResolvedValueOnce({ energy_kcal: 2200, protein_g: 90, carbs_g: 300, fat_g: 70, fluid_ml: 2400, source_type: "monitoring", source_monitoring_id: "monitoring-uuid", source_monitoring_date: "2026-09-28" });
     await renderPage();
     await clickButton("Plans");
@@ -298,8 +300,19 @@ describe("intervention plans workspace", () => {
       strategies: "Pack meals",
     }));
     expect(routerPush).toHaveBeenCalledWith("?plan=saved-plan");
-    expect(container.textContent).not.toContain("Save Intervention Plan");
+    expect(container.textContent).toContain("Save Intervention Plan");
     expect(container.querySelector('[data-testid="meal-plan-section"]')).not.toBeNull();
+  });
+
+  it('reopens the latest plan for editing and updates its existing identity', async () => {
+    const latest = await interventionService.fetchIntervention('ncp-uuid');
+    vi.mocked(interventionService.updateIntervention).mockResolvedValueOnce(latest!);
+    await renderPage();
+    await clickButton('Food / Nutrient Delivery');
+    expect(container.textContent).toContain('Save Intervention Plan');
+    await clickButton('Save Intervention Plan');
+    expect(interventionService.updateIntervention).toHaveBeenCalledWith('ncp-uuid', 'plan-newest', expect.objectContaining({ energy_kcal: 1900 }));
+    expect(interventionService.createIntervention).not.toHaveBeenCalled();
   });
 
   it("saves a new intervention for the pending menu action and exposes its returned identity", async () => {

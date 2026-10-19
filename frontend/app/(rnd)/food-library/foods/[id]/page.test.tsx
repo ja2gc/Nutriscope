@@ -41,7 +41,7 @@ test("baseline unit change converts size and preserves nutrient values", async (
   await act(async () => user.selectOptions(unit, "kg"));
   const size = container.querySelector('[aria-label="Nutrient baseline amount"]') as HTMLInputElement;
   expect(size.value).toBe("0.1");
-  expect(size.step).toBe("0.000001");
+  expect(size.step).toBe("0.1");
   await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
   expect(updateFoodItem).toHaveBeenCalledWith("food-1", expect.objectContaining({ serving_size: 0.1, serving_unit: "kg", calories: 100 }));
 });

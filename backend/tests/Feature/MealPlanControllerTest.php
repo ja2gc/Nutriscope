@@ -28,6 +28,24 @@ class MealPlanControllerTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_explicit_regeneration_replaces_items_and_failed_generation_preserves_the_menu(): void
+    {
+        [$ncp, $intervention] = $this->makeInterventionWithNcpRecord();
+        $this->seedRecipes();
+        $base = "/api/rnd/ncp-records/{$ncp->uuid}/meal-plans";
+        $payload = ['intervention_plan_id' => $intervention->uuid, 'week_start_date' => '2026-10-19', 'exclude_carbs' => true, 'replace' => true];
+        $first = $this->actingAs($this->rnd)->postJson("{$base}/generate", $payload)->assertCreated()->json('data.id');
+        $this->postJson("{$base}/generate", $payload)->assertCreated()->assertJsonPath('data.id', $first);
+        $this->assertDatabaseCount('meal_plans', 1);
+        $count = MealPlanItem::count();
+        $intervention->update(['energy_kcal' => null]);
+        $this->postJson("{$base}/generate", $payload)->assertUnprocessable();
+        $this->assertSame($count, MealPlanItem::count());
+        $this->postJson("{$base}/{$first}/clear")->assertOk();
+        $this->assertDatabaseCount('meal_plan_items', 0);
+        $this->assertDatabaseCount('meal_plan_days', 35);
+    }
+
     private User $rnd;
 
     protected function setUp(): void

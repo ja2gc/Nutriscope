@@ -20,6 +20,22 @@ class MealPlanItemControllerTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_plan_ingredient_list_edits_recompute_nutrients_without_changing_library_recipe(): void
+    {
+        $ctx = $this->setupPlan();
+        $food = FoodItem::factory()->create(['serving_size' => 100, 'serving_unit' => 'g', 'calories' => 100]);
+        $replacement = FoodItem::factory()->create(['serving_size' => 100, 'serving_unit' => 'g', 'calories' => 200]);
+        $recipe = Recipe::factory()->create(['rnd_user_id' => $ctx['rnd']->id, 'servings' => 1]);
+        $recipe->ingredients()->create(['food_item_id' => $food->id, 'quantity' => 100, 'unit' => 'g']);
+        $item = MealPlanItem::factory()->create(['meal_plan_day_id' => $ctx['day']->id, 'recipe_id' => $recipe->id, 'nutrient_snapshot' => $recipe->planSnapshot()]);
+        $this->actingAs($ctx['rnd'])->patchJson($this->url($ctx, $item->uuid), ['ingredients' => [['food_item_id' => $replacement->uuid, 'quantity' => 0.2, 'unit' => 'kg']]])
+            ->assertOk()->assertJsonPath('data.nutrient_snapshot.calories', 400);
+        $this->assertSame($food->id, $recipe->ingredients()->sole()->food_item_id);
+        $this->patchJson($this->url($ctx, $item->uuid), ['ingredients' => [['food_item_id' => $replacement->uuid, 'quantity' => 1, 'unit' => 'cup']]])->assertUnprocessable();
+        $this->assertEquals(400, $item->fresh()->nutrient_snapshot['calories']);
+        $this->patchJson($this->url($ctx, $item->uuid), ['ingredients' => []])->assertUnprocessable();
+    }
+
     private function setupPlan(): array
     {
         $rnd = User::factory()->create(['role' => 'RND']);

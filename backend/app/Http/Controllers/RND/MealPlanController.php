@@ -202,7 +202,7 @@ class MealPlanController extends Controller
         }
 
         $this->assertInterventionEditable($ncpRecord, $intervention->id);
-        if ($intervention->mealPlan()->exists()) {
+        if ($intervention->mealPlan()->exists() && ! $request->boolean('replace')) {
             return $this->mealPlanConflict();
         }
 
@@ -213,9 +213,10 @@ class MealPlanController extends Controller
                     ->lockForUpdate()
                     ->firstOrFail();
                 $this->assertInterventionEditable($ncpRecord, $lockedIntervention->id);
-                if ($lockedIntervention->mealPlan()->exists()) {
+                if ($lockedIntervention->mealPlan()->exists() && ! $request->boolean('replace')) {
                     return null;
                 }
+                $replacing = $lockedIntervention->mealPlan()->exists();
 
                 $result = $this->auditLogger->withoutModelEvents(fn () => $this->mealPlanService->generate(
                     $ncpRecord,
@@ -226,16 +227,17 @@ class MealPlanController extends Controller
                     $request->boolean('exclude_carbs'),
                     $lockedIntervention,
                     $request->input('carb_menu_item_id'),
+                    $request->boolean('replace'),
                 ));
 
                 if ($result instanceof MealPlan) {
                     $this->auditLogger->record(
-                        AuditAction::Created,
+                        $replacing ? AuditAction::Updated : AuditAction::Created,
                         AuditCategory::Clinical,
                         AuditDomain::Ncp,
                         subject: $result,
                         context: $ncpRecord,
-                        details: ['subject_label' => 'Meal plan generated', 'status' => 201],
+                        details: ['subject_label' => $replacing ? 'Meal plan regenerated' : 'Meal plan generated', 'status' => 201],
                     );
                 }
 
@@ -265,6 +267,24 @@ class MealPlanController extends Controller
         $this->audited(fn () => $mealPlan->delete());
 
         return response()->json(null, 204);
+    }
+
+    public function clear(NcpRecord $ncpRecord, MealPlan $mealPlan): JsonResponse
+    {
+        $this->assertPlanWritable($ncpRecord, $mealPlan);
+        $this->audited(function () use ($ncpRecord, $mealPlan): void {
+            $ncpRecord->interventions()->whereKey($mealPlan->intervention_id)->lockForUpdate()->firstOrFail();
+            $this->assertPlanWritable($ncpRecord, $mealPlan);
+            $mealPlan->days()->each(fn ($day) => $day->items()->delete());
+            $mealPlan->days()->update(['flagged' => false, 'variance' => null]);
+            $mealPlan->update(['needs_rescaling' => true, 'scaled_at' => null]);
+            $this->auditLogger->record(
+                AuditAction::Updated, AuditCategory::Clinical, AuditDomain::Ncp,
+                subject: $mealPlan, context: $ncpRecord, details: ['subject_label' => 'Weekly menu cleared'],
+            );
+        });
+
+        return response()->json(['data' => new MealPlanResource($mealPlan->load(['intervention', 'days']))]);
     }
 
     /**
@@ -503,6 +523,10 @@ class MealPlanController extends Controller
             'lines.*.ingredient_overrides' => ['sometimes', 'array'],
             'lines.*.ingredient_overrides.*.id' => ['required', 'integer'],
             'lines.*.ingredient_overrides.*.quantity' => ['required', 'numeric', 'gt:0', 'decimal:0,6'],
+            'lines.*.ingredients' => ['sometimes', 'array', 'min:1'],
+            'lines.*.ingredients.*.food_item_id' => ['required', 'uuid', 'exists:food_items,uuid'],
+            'lines.*.ingredients.*.quantity' => ['required', 'numeric', 'between:0.000001,100000'],
+            'lines.*.ingredients.*.unit' => ['required', 'string', 'max:50'],
         ]);
         $intervention = $this->resolveInterventionPlan($ncpRecord, $validated['intervention_plan_id']);
         $this->assertInterventionEditable($ncpRecord, $intervention->id);
@@ -665,9 +689,11 @@ class MealPlanController extends Controller
                 throw ValidationException::withMessages(['template' => 'Correct this template to positive servings with at most two decimals before loading.']);
             }
             try {
-                $snapshot = ! empty($line['ingredient_overrides'])
+                $snapshot = isset($line['ingredients'])
+                    ? $recipe->planSnapshot([], $source?->nutrient_snapshot, $line['ingredients'])
+                    : (! empty($line['ingredient_overrides'])
                     ? $recipe->planSnapshot($line['ingredient_overrides'], $source?->nutrient_snapshot)
-                    : ($source?->nutrient_snapshot ?? $recipe->planSnapshot());
+                    : ($source?->nutrient_snapshot ?? $recipe->planSnapshot()));
             } catch (\InvalidArgumentException $exception) {
                 throw ValidationException::withMessages(['template' => $exception->getMessage()]);
             }

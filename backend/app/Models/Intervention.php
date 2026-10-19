@@ -44,10 +44,12 @@ class Intervention extends Model
 
     protected static function booted(): void
     {
-        static::updating(function (): void {
-            throw ValidationException::withMessages([
-                'intervention' => ['Saved Intervention Plans are immutable. Create a new plan instead.'],
-            ]);
+        static::updating(function (self $plan): void {
+            if ((int) $plan->ncpRecord->latestIntervention()->value('id') !== $plan->id) {
+                throw ValidationException::withMessages([
+                    'intervention' => ['Historical Intervention Plans are view only.'],
+                ]);
+            }
         });
     }
 

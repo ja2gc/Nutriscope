@@ -102,8 +102,28 @@ class Recipe extends Model
     }
 
     /** Build a measured per-serving snapshot without changing the library Recipe. */
-    public function planSnapshot(array $overrides = [], ?array $baseline = null): array
+    public function planSnapshot(array $overrides = [], ?array $baseline = null, ?array $ingredients = null): array
     {
+        if ($ingredients !== null) {
+            $foods = FoodItem::whereIn('uuid', array_column($ingredients, 'food_item_id'))->get()->keyBy('uuid');
+            $frozenFoods = collect($baseline['recipe_original_ingredients'] ?? [])->keyBy('food_item.id');
+            $rows = [];
+            foreach ($ingredients as $index => $ingredient) {
+                $food = $foods->get($ingredient['food_item_id']);
+                if (! $food) {
+                    throw new InvalidArgumentException('Choose an existing Ingredient.');
+                }
+                $frozenFood = $frozenFoods->get($food->uuid)['food_item'] ?? null;
+                $rows[] = [
+                    'id' => $index + 1, 'food_item_id' => $food->id,
+                    'name' => $frozenFood['name'] ?? $food->name,
+                    'quantity' => $ingredient['quantity'], 'unit' => $ingredient['unit'],
+                    'food_item' => $frozenFood ?? ['id' => $food->uuid, 'name' => $food->name,
+                        ...array_intersect_key($food->toArray(), array_flip(['calories', 'protein', 'carbs', 'fat', 'water_g', 'micronutrients', 'serving_size', 'serving_unit']))],
+                ];
+            }
+            $baseline = [...($baseline ?? []), 'recipe_original_ingredients' => $rows, 'recipe_ingredients' => [], 'recipe_yield' => $baseline['recipe_yield'] ?? $this->servings];
+        }
         $originalIngredients = $baseline['recipe_original_ingredients'] ?? [];
         $frozen = (float) ($baseline['recipe_yield'] ?? 0) > 0 && $originalIngredients !== []
             && collect($originalIngredients)->every(fn ($ingredient) => isset($ingredient['id'], $ingredient['food_item']['serving_size'], $ingredient['food_item']['serving_unit']));

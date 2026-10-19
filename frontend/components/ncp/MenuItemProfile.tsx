@@ -30,7 +30,7 @@ export const MENU_ITEM_NUTRIENT_UNITS: Record<string, string> = {
   vitamin_e: 'mg', vitamin_k: 'mcg', vitamin_b1: 'mg', vitamin_b2: 'mg', vitamin_b3: 'mg', vitamin_b6: 'mg',
 };
 
-export function MenuItemProfile({ name, servings, prepNotes, nutrients, ingredients, onBack, backLabel = "Back to template", nutritionBasis = "Whole recipe", controls, actions, renderIngredientAmount }: {
+export function MenuItemProfile({ name, servings, prepNotes, nutrients, ingredients, onBack, backLabel = "Back to template", nutritionBasis = "Whole recipe", controls, actions, renderIngredientAmount, ingredientControls }: {
   name: string;
   servings?: number | null;
   prepNotes?: string | null;
@@ -42,6 +42,7 @@ export function MenuItemProfile({ name, servings, prepNotes, nutrients, ingredie
   controls?: ReactNode;
   actions?: ReactNode;
   renderIngredientAmount?: (ingredient: ProfileIngredient) => ReactNode;
+  ingredientControls?: ReactNode;
 }) {
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { heading.current?.focus(); heading.current?.scrollIntoView?.({ block: 'start' }); }, []);
@@ -63,6 +64,7 @@ export function MenuItemProfile({ name, servings, prepNotes, nutrients, ingredie
     </div>
     <div className="space-y-3 rounded-2xl border border-warm-200 bg-white p-4 sm:p-6">
       <h4 className="text-sm font-bold text-warm-700">Ingredients</h4>
+      {ingredientControls}
       {ingredients.length === 0 && <p className="text-sm text-warm-500">No measured ingredient details recorded.</p>}
       <div className="space-y-2">{ingredients.map((ingredient) => <div key={ingredient.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-warm-100 py-2 last:border-0">
         <span className="min-w-0 flex-1 break-words text-sm text-warm-800">{ingredient.name}</span>

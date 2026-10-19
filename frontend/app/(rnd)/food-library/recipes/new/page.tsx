@@ -180,7 +180,7 @@ export default function NewRecipePage() {
         {nutritionSource === "label" ? <div className="space-y-4 rounded-2xl border border-warm-200 bg-white p-6 shadow-sm">
           <h3 className="text-sm font-extrabold uppercase tracking-wider text-warm-700">Nutrition facts per label serving</h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div><Label>Label serving amount <Required /></Label><input aria-label="Label serving amount" type="number" value={labelAmount} onChange={(event) => setLabelAmount(event.target.value)} min="0.000001" max="10000" step="0.000001" required className={inputCls} /></div>
+            <div><Label>Label serving amount <Required /></Label><input aria-label="Label serving amount" type="number" value={labelAmount} onChange={(event) => setLabelAmount(event.target.value)} min="0" max="10000" step="0.1" required className={inputCls} /></div>
             <div><div className="flex items-center gap-1"><Label>Label serving unit</Label><InfoHint label="Label serving units">{CLINICAL_UNIT_HINT}</InfoHint></div><select aria-label="Label serving unit" value={labelUnit} onChange={(event) => { setLabelUnit(event.target.value); if (event.target.value === "piece") setLabelAmount("1"); }} className={inputCls}>{CLINICAL_BASELINE_UNITS.map((unit) => <option key={unit} value={unit}>{unit}</option>)}</select></div>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

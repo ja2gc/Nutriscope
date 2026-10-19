@@ -10,14 +10,14 @@ import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { InfoHint } from "@/components/ui/InfoHint";
 import {
   fetchMealPlans, createMealPlan, fetchAllMealPlanItems, addMealPlanItem,
-  removeMealPlanItem, updateMealPlanItem, deleteMealPlan, generateMealPlan,
+  removeMealPlanItem, updateMealPlanItem, clearMealPlan, generateMealPlan,
   fetchMealPlanTemplates, fetchMealPlanTemplate, deleteMealPlanTemplate,
   saveMealPlanAsTemplate, createPlanFromTemplate, scaleMealPlanToPrescription,
   MealPlan, MealPlanItem, MealPlanTemplate, MealPlanTemplateDetail, NutrientSnapshot,
 } from "@/services/mealPlanService";
 import {
-  fetchRecipes, importUsdaFood, fetchRecipeById,
-  Recipe, RecipeIngredient,
+  fetchRecipes, importUsdaFood, fetchRecipeById, fetchFoodItems,
+  Recipe, RecipeIngredient, FoodItem,
 } from "@/services/foodLibraryService";
 import MacroTrackerBar from "./MacroTrackerBar";
 import { WeeklyMenuCalendar, MENU_DAYS, MENU_SLOTS } from "@/components/ncp/WeeklyMenuCalendar";
@@ -25,7 +25,9 @@ import { MenuEditorSlots, MenuEditorActions, MenuEditorAction } from "@/componen
 import { MenuItemProfile, RecipeMenuItemProfile } from "@/components/ncp/MenuItemProfile";
 import { ALL_MICROS } from "@/lib/nutritionCalculations";
 import { foodFluidBalance, formatMealPlanAmount } from "@/lib/mealPlanNutrition";
-import { clinicalIngredientFactor } from "@/lib/clinicalUnits";
+import { clinicalIngredientFactor, clinicalRecipeUnits } from "@/lib/clinicalUnits";
+import SearchInput from '@/components/ui/SearchInput';
+import NumericInput from '@/components/ui/NumericInput';
 
 const DAYS = MENU_DAYS;
 const MEAL_TYPES = MENU_SLOTS.map(([key]) => key);
@@ -68,7 +70,7 @@ export default function MealPlanSection({
   ncpId, interventionPlanId, onSaveIntervention, newlySavedInterventionId, readOnly = false, prescriptionTargets, foodDislikes = [], allergens = [],
   displayedMicros = [], micronutrientLimits = {}, nutrientOperators = {},
 }: Props) {
-  const [plans, setPlans]               = useState<MealPlan[]>([]);
+  const [, setPlans]                    = useState<MealPlan[]>([]);
   const scopeVersion = useRef(0);
   const [activePlan, setActivePlan]     = useState<MealPlan | null>(null);
   const [selectedDay, setSelectedDay]   = useState<string>(DAYS[0]);
@@ -138,7 +140,6 @@ export default function MealPlanSection({
   const [pendingMenuAction, setPendingMenuAction] = useState<'create' | 'template' | 'generate' | 'save-week' | 'scale' | null>(null);
   const [savingIntervention, setSavingIntervention] = useState(false);
   const [loadedInterventionId, setLoadedInterventionId] = useState('');
-  const [confirmTemplateLoad, setConfirmTemplateLoad] = useState<string | null>(null);
   const [scalingPlan, setScalingPlan]                           = useState(false);
   const [scaleNotice, setScaleNotice]                           = useState<string | null>(null);
 
@@ -153,6 +154,15 @@ export default function MealPlanSection({
   const [editSaving, setEditSaving]           = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [editTab, setEditTab]                 = useState<'scale' | 'ingredients'>('scale');
+  const [ingredientQuery, setIngredientQuery] = useState('');
+  const [ingredientResults, setIngredientResults] = useState<FoodItem[]>([]);
+  const [ingredientSearchError, setIngredientSearchError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!editTarget || editTab !== 'ingredients' || !ingredientQuery.trim()) { setIngredientResults([]); return; }
+    let cancelled = false;
+    const timer = setTimeout(() => { fetchFoodItems(ingredientQuery).then((result) => { if (!cancelled) { setIngredientResults(result.data.slice(0, 5)); setIngredientSearchError(null); } }).catch(() => { if (!cancelled) setIngredientSearchError('Could not load Ingredients. Try again.'); }); }, 200);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [ingredientQuery, editTarget, editTab]);
 
   // Food picker
   const [pickerOpen, setPickerOpen]           = useState(false);
@@ -237,7 +247,7 @@ export default function MealPlanSection({
     if (!interventionPlanId || newlySavedInterventionId !== interventionPlanId || !draftRef.current) {
       setTemplateDraft(null); setActivePlan(null); setItemsByKey({});
     }
-    setFromTemplateOpen(false); setConfirmTemplateLoad(null); setCarbChoiceOpen(false);
+    setFromTemplateOpen(false); setCarbChoiceOpen(false);
     setCreatingPlan(false); setSavingWeek(false); setScalingPlan(false);
     if (interventionPlanId && newlySavedInterventionId !== interventionPlanId) setPendingMenuAction(null);
     void loadPlans();
@@ -265,6 +275,7 @@ export default function MealPlanSection({
 
   const handleCreatePlan = useCallback(async (savedInterventionId = interventionPlanId) => {
     if (!savedInterventionId) return;
+    const version = scopeVersion.current;
     setCreatingPlan(true);
     try {
       const d = new Date(); const day = d.getDay();
@@ -274,13 +285,15 @@ export default function MealPlanSection({
         week_start_date: d.toISOString().split('T')[0],
         generation_type: 'manual',
       });
+      if (version !== scopeVersion.current) return;
       setPlans([plan]);
       setActivePlan(plan);
-    } finally { setCreatingPlan(false); }
+    } finally { if (version === scopeVersion.current) setCreatingPlan(false); }
   }, [interventionPlanId, ncpId]);
 
   const handleGenerate = useCallback(async (carb?: Recipe, savedInterventionId = interventionPlanId) => {
     if (!savedInterventionId) return;
+    const version = scopeVersion.current;
     const missingTargets = [
       ['energy', prescriptionTargets.energy],
       ['protein', prescriptionTargets.protein],
@@ -305,22 +318,25 @@ export default function MealPlanSection({
       const d = new Date(); const day = d.getDay();
       d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
       const result = await generateMealPlan(ncpId, {
+        replace: true,
         intervention_plan_id: savedInterventionId,
         week_start_date: d.toISOString().split('T')[0],
         allergens: allergens.length > 0 ? allergens : undefined,
         exclude_snacks: excludeSnacks,
         ...(excludeCarbs ? { exclude_carbs: true as const } : { exclude_carbs: false as const, carb_menu_item_id: carb!.id }),
       });
+      if (version !== scopeVersion.current) return;
       if ('insufficient_recipes' in result || 'insufficient_suitable_foods' in result) {
         setGenerateError(result.message);
         return;
       }
       setPlans([result]);
+      setTemplateDraft(null);
       setActivePlan(result);
       setCarbChoiceOpen(false);
     } catch (err) {
-      setGenerateError(err instanceof Error ? err.message : 'Failed to generate meal plan. Please try again.');
-    } finally { setGenerating(false); }
+      if (version === scopeVersion.current) setGenerateError(err instanceof Error ? err.message : 'Failed to generate meal plan. Please try again.');
+    } finally { if (version === scopeVersion.current) setGenerating(false); }
   }, [allergens, excludeCarbs, excludeSnacks, interventionPlanId, ncpId, prescriptionTargets]);
 
   const handleSaveTemplate = async () => {
@@ -342,6 +358,7 @@ export default function MealPlanSection({
         source_template_item_id: item.source_template_item_id, source_meal_plan_item_id: item.source_meal_plan_item_id, recipe_id: item.recipe_id,
         day_of_week: day.day_of_week, meal_type: day.meal_type, quantity: Number(item.quantity), unit: item.unit,
         ingredient_overrides: item.ingredient_overrides,
+        ingredients: item.ingredients,
       }))),
     };
   }, [templateDraft, activePlan, itemsByKey, interventionPlanId]);
@@ -371,7 +388,7 @@ export default function MealPlanSection({
         const result = await createPlanFromTemplate(ncpId, { ...templateRequest(true), preview: true });
         if (version !== scopeVersion.current) return;
         setActivePlan(result.plan); setItemsByKey(groupWeekItems(result.plan, result.items));
-        setScaleNotice('Draft quantities scaled. Review the week and save to apply them.');
+        setScaleNotice('Quantities scaled. Review the week against the prescription.');
         return;
       }
       const { plan, scaling } = await scaleMealPlanToPrescription(ncpId, activePlan.id);
@@ -389,6 +406,10 @@ export default function MealPlanSection({
   const performMenuAction = useCallback(async (action: 'create' | 'template' | 'generate' | 'save-week' | 'scale', savedInterventionId = interventionPlanId) => {
     if (!savedInterventionId) {
       setPendingMenuAction(action);
+      setSavingIntervention(true);
+      try { await onSaveIntervention?.(); }
+      catch (error) { setGenerateError(error instanceof Error ? error.message : 'Could not save intervention.'); }
+      finally { setSavingIntervention(false); }
       return;
     }
     if (action === 'create') await handleCreatePlan(savedInterventionId);
@@ -396,7 +417,7 @@ export default function MealPlanSection({
     else if (action === 'save-week') await handleSaveWeek(savedInterventionId);
     else if (action === 'scale') await handleScaleToPrescription();
     else await handleGenerate(undefined, savedInterventionId);
-  }, [handleCreatePlan, handleGenerate, handleSaveWeek, handleScaleToPrescription, interventionPlanId]);
+  }, [handleCreatePlan, handleGenerate, handleSaveWeek, handleScaleToPrescription, interventionPlanId, onSaveIntervention]);
 
   useEffect(() => {
     if (!pendingMenuAction || !interventionPlanId || newlySavedInterventionId !== interventionPlanId || loadedInterventionId !== interventionPlanId || readOnly) return;
@@ -404,37 +425,23 @@ export default function MealPlanSection({
     void performMenuAction(pendingMenuAction).catch((error) => setGenerateError(error instanceof Error ? error.message : 'Could not continue. Try again.'));
   }, [pendingMenuAction, interventionPlanId, newlySavedInterventionId, loadedInterventionId, readOnly, performMenuAction]);
 
-  const saveInterventionAndContinue = async () => {
-    if (!pendingMenuAction || !onSaveIntervention) return;
-    setSavingIntervention(true); setGenerateError(null);
-    try {
-      const savedId = await onSaveIntervention();
-      if (!savedId) return;
-    } catch (error) {
-      setGenerateError(error instanceof Error ? error.message : 'Could not continue. Try again.');
-    } finally { setSavingIntervention(false); }
-  };
+  useEffect(() => {
+    if (templateDraft && interventionPlanId && loadedInterventionId === interventionPlanId && !pendingMenuAction && !savingWeek && !generateError && !readOnly) void handleSaveWeek();
+  }, [templateDraft, interventionPlanId, loadedInterventionId, pendingMenuAction, savingWeek, generateError, readOnly, handleSaveWeek]);
 
 
-  const handleFromTemplate = async (templateId: string, confirmed = false) => {
+  const handleFromTemplate = async (templateId: string) => {
     const version = scopeVersion.current;
-    if (!confirmed && Object.values(itemsByKey).some((items) => items.length > 0)) {
-      setConfirmTemplateLoad(templateId);
-      return;
-    }
-    setConfirmTemplateLoad(null);
     setCreatingPlan(true); setGenerateError(null);
     try {
       const d = new Date(); d.setDate(d.getDate() + (d.getDay() === 0 ? -6 : 1 - d.getDay()));
       const result = await createPlanFromTemplate(ncpId, {
         intervention_plan_id: interventionPlanId, template_id: templateId,
-        week_start_date: activePlan?.week_start_date ?? d.toISOString().split('T')[0], preview: true,
+        week_start_date: activePlan?.week_start_date ?? d.toISOString().split('T')[0], preview: false,
         meal_plan_id: templateDraft?.replacePlanId ?? (templateDraft ? undefined : activePlan?.id),
       });
       if (version !== scopeVersion.current) return;
-      setTemplateDraft(templateDraft ? { ...templateDraft, templateId, sourceMealPlanId: undefined } : {
-        templateId, replacePlanId: activePlan?.id, originalPlan: activePlan, originalItems: itemsByKey,
-      });
+      setTemplateDraft(null); setPlans([result.plan]);
       setActivePlan(result.plan); setItemsByKey(groupWeekItems(result.plan, result.items));
       setTemplateWarning(result.compatibility.warning);
       setFromTemplateOpen(false); setViewingTemplate(null); setScaleNotice(null);
@@ -443,12 +450,6 @@ export default function MealPlanSection({
     } finally { if (version === scopeVersion.current) setCreatingPlan(false); }
   };
 
-
-  const discardTemplateDraft = () => {
-    if (!templateDraft) return;
-    setActivePlan(templateDraft.originalPlan); setItemsByKey(templateDraft.originalItems);
-    setTemplateDraft(null); setGenerateError(null); setScaleNotice(null); setTemplateWarning(null);
-  };
 
   const handleViewTemplate = async (templateId: string) => {
     setLoadingTemplate(templateId);
@@ -471,9 +472,12 @@ export default function MealPlanSection({
     setDeleting(true);
     setDeleteError(null);
     try {
-      await deleteMealPlan(ncpId, confirmDeleteId);
-      const remaining = plans.filter((p) => p.id !== confirmDeleteId);
-      setPlans(remaining); setActivePlan(remaining.length > 0 ? remaining[0] : null); setItemsByKey({});
+      if (templateDraft) { setTemplateDraft(null); setActivePlan(null); setPlans([]); }
+      else {
+        const cleared = await clearMealPlan(ncpId, confirmDeleteId);
+        setPlans([cleared]); setActivePlan(cleared);
+      }
+      setItemsByKey({}); setGenerateError(null); setTemplateWarning(null);
       setConfirmDeleteId(null);
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : 'Failed to delete plan. Please try again.');
@@ -492,6 +496,7 @@ export default function MealPlanSection({
     setEditRecipe(null);
     setEditIngredients([]);
     setEditAmountDrafts({});
+    setIngredientQuery(''); setIngredientResults([]); setIngredientSearchError(null);
     const snapshot = item.nutrient_snapshot;
     if (snapshot?.recipe_yield && snapshot.recipe_original_ingredients?.length && snapshot.recipe_original_ingredients.every((ingredient) => ingredient.id && ingredient.food_item)) {
       const ingredients = snapshot.recipe_original_ingredients.map((ingredient) => ({
@@ -547,8 +552,7 @@ export default function MealPlanSection({
       serving_size: 1,
       serving_unit: 'serving',
       recipe_yield: servings,
-      recipe_original_ingredients: editTarget?.item.nutrient_snapshot?.recipe_original_ingredients
-        ?? editRecipe.ingredients.map((ingredient) => ({ ...ingredient, name: ingredient.food_item?.name ?? 'Ingredient' })),
+      recipe_original_ingredients: editIngredients.map(({ id, qty, ing }) => ({ ...ing, id, quantity: qty, name: ing.food_item?.name ?? 'Ingredient' })),
       recipe_ingredients: editIngredients.map(({ id, qty, ing }) => ({ id, name: ing.food_item?.name ?? 'Ingredient', quantity: Number(qty), unit: ing.unit })),
       micronutrients: Object.fromEntries(Object.entries(micros).map(([key, value]) => [key, Math.round(value / servings * 1000) / 1000])),
     };
@@ -558,19 +562,19 @@ export default function MealPlanSection({
     if (!editTarget || !activePlan) return;
     setEditSaving(true);
     try {
-      const payload: { quantity?: number; ingredient_overrides?: { id: number; quantity: number }[] } = {};
+      const payload: { quantity?: number; ingredients?: { food_item_id: string; quantity: number; unit: string }[] } = {};
       if (editTab === 'scale') {
         payload.quantity = Number(editServings);
       }
       if (editTab === 'ingredients' || editIngredients.some((row) => Number(row.qty) !== Number(row.ing.quantity))) {
-        payload.ingredient_overrides = editIngredients.map(({ id, qty }) => ({ id, quantity: Number(qty || 0) }));
+        payload.ingredients = editIngredients.map(({ qty, ing }) => ({ food_item_id: ing.food_item!.id, quantity: Number(qty || 0), unit: ing.unit }));
         payload.quantity = Number(editServings);
       }
       if (templateDraft) {
-        const snapshot = payload.ingredient_overrides ? { ...editTarget.item.nutrient_snapshot!, ...recalcFromIngredients() } : editTarget.item.nutrient_snapshot;
+        const snapshot = payload.ingredients ? { ...editTarget.item.nutrient_snapshot!, ...recalcFromIngredients() } : editTarget.item.nutrient_snapshot;
         const updated: MealPlanItem = {
           ...editTarget.item, quantity: String(payload.quantity ?? editTarget.item.quantity),
-          ingredient_overrides: payload.ingredient_overrides ?? editTarget.item.ingredient_overrides,
+          ingredients: payload.ingredients ?? editTarget.item.ingredients,
           nutrient_snapshot: snapshot,
           recipe_portion: snapshot?.recipe_yield && snapshot.recipe_ingredients ? { yield: snapshot.recipe_yield, ingredients: snapshot.recipe_ingredients } : editTarget.item.recipe_portion,
         };
@@ -704,20 +708,32 @@ export default function MealPlanSection({
       }}
       controls={<div className="space-y-3">
         <p className="text-xs text-warm-500">Changes affect this plan only. Ingredient amounts and nutrients below are for the planned portion.</p>
-        <label className="block text-sm font-semibold text-warm-700">Planned portion <input aria-label="Planned portion" type="number" min="0.01" max="100000" step="0.01" value={editServings} onChange={(event) => { setEditServings(event.target.value); setEditAmountDrafts({}); }} disabled={readOnly} className="ml-2 w-28 rounded-lg border border-warm-200 px-3 py-2 text-base" /> {editTarget.item.unit}</label>
+        <div className="max-w-xs"><NumericInput label="Planned portion" min={0} max={100000} step={0.1} value={editServings} onChange={(value) => { setEditServings(value); setEditAmountDrafts({}); }} disabled={readOnly} unit={editTarget.item.unit} /></div>
         {!readOnly && <div className="flex gap-2"><Button variant={editTab === 'scale' ? 'secondary' : 'ghost'} size="sm" onClick={() => setEditTab('scale')}>Portion</Button><Button variant={editTab === 'ingredients' ? 'secondary' : 'ghost'} size="sm" onClick={() => setEditTab('ingredients')}>Ingredients</Button></div>}
         {editLoadingRecipe && <p role="status" className="text-sm text-warm-500">Loading ingredients…</p>}
         {editError && <p role="alert" className="text-sm text-red-700">{editError}</p>}
       </div>}
-      renderIngredientAmount={!readOnly && editTab === 'ingredients' ? (ingredient) => <label className="flex items-center gap-2 text-sm text-warm-600"><input aria-label={`Amount of ${ingredient.name}`} type="number" min="0.000001" step="0.000001" value={editAmountDrafts[ingredient.id] ?? Number(Number(ingredient.quantity).toPrecision(12))} onChange={(event) => {
+      ingredientControls={!readOnly && editTab === 'ingredients' ? <div className="space-y-2">
+        <SearchInput label="Add Ingredient" value={ingredientQuery} onChange={setIngredientQuery} />
+        {ingredientSearchError && <p role="alert" className="text-sm text-red-700">{ingredientSearchError}</p>}
+        {ingredientResults.map((food) => <Button key={food.id} variant="secondary" size="sm" onClick={() => {
+          const id = Math.min(0, ...editIngredients.map((row) => row.id)) - 1;
+          setEditIngredients((previous) => [...previous, { id, qty: String(Number(food.serving_size) || 1), ing: { id, food_item_id: 0, quantity: String(food.serving_size ?? 1), unit: food.serving_unit ?? 'g', food_item: food } }]);
+          setIngredientQuery(''); setIngredientResults([]);
+        }}><Plus className="h-3 w-3" />{food.name}</Button>)}
+      </div> : undefined}
+      renderIngredientAmount={!readOnly && editTab === 'ingredients' ? (ingredient) => <div className="flex flex-wrap items-center gap-2 text-sm text-warm-600"><input aria-label={`Amount of ${ingredient.name}`} type="number" min="0" step="0.1" value={editAmountDrafts[ingredient.id] ?? Number(Number(ingredient.quantity).toPrecision(12))} onChange={(event) => {
         if (!(factor > 0)) return;
         setEditAmountDrafts((previous) => ({ ...previous, [ingredient.id]: event.target.value }));
         const amount = event.target.value === '' ? '' : String(Number((Number(event.target.value) / factor).toFixed(6)));
         setEditIngredients((previous) => previous.map((row) => row.id === ingredient.id ? { ...row, qty: amount } : row));
-      }} className="w-28 rounded-lg border border-warm-200 px-2 py-2 text-right text-base" /> {ingredient.unit}</label> : undefined}
+      }} className="w-28 rounded-lg border border-warm-200 px-2 py-2 text-right text-base" />
+        <select aria-label={`Unit of ${ingredient.name}`} value={ingredient.unit} onChange={(event) => { setEditIngredients((previous) => previous.map((row) => row.id === ingredient.id ? { ...row, ing: { ...row.ing, unit: event.target.value } } : row)); setEditAmountDrafts({}); }} className="rounded-lg border border-warm-200 px-2 py-2 text-base">{clinicalRecipeUnits(editIngredients.find((row) => row.id === ingredient.id)?.ing.food_item?.serving_unit ?? ingredient.unit).map((unit) => <option key={unit}>{unit}</option>)}</select>
+        <Button variant="icon" aria-label={`Remove ${ingredient.name}`} onClick={() => setEditIngredients((previous) => previous.filter((row) => row.id !== ingredient.id))}><Trash2 className="h-4 w-4" /></Button>
+      </div> : undefined}
       actions={!readOnly ? <>
         {editTarget.item.source === 'usda' && editTarget.item.fdc_id && <Button variant="secondary" loading={savingToLibrary === editTarget.item.fdc_id} onClick={() => { const fdcId = editTarget.item.fdc_id!; setSavingToLibrary(fdcId); importUsdaFood(Number(fdcId)).catch((cause) => setEditError(cause instanceof Error ? cause.message : 'Could not save to library.')).finally(() => setSavingToLibrary(null)); }}>Save to Library</Button>}
-        <Button variant="secondary" onClick={() => setEditTarget(null)}>Cancel</Button><Button variant="primary" loading={editSaving} disabled={editLoadingRecipe || !(portion >= 0.01) || portion > 100000 || editIngredients.some((row) => !(Number(row.qty) > 0) || Number(row.qty) > 100000)} onClick={() => void handleSaveEdit()}>Save Changes</Button>
+        <Button variant="secondary" onClick={() => setEditTarget(null)}>Cancel</Button><Button variant="primary" loading={editSaving} disabled={editLoadingRecipe || !(portion >= 0.01) || portion > 100000 || (editTab === 'ingredients' && !editIngredients.length) || editIngredients.some((row) => !(Number(row.qty) > 0) || Number(row.qty) > 100000 || clinicalIngredientFactor(Number(row.qty), row.ing.unit, Number(row.ing.food_item?.serving_size), row.ing.food_item?.serving_unit ?? '') === null)} onClick={() => void handleSaveEdit()}>Save Changes</Button>
       </> : undefined}
     />;
   }
@@ -729,44 +745,34 @@ export default function MealPlanSection({
         <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Weekly Meal Plan</h3>
         <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
           {!readOnly && (
-            <button onClick={() => void performMenuAction('template')} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap">
+            <Button variant="secondary" size="sm" disabled={generating || creatingPlan || savingWeek || savingIntervention} onClick={() => void performMenuAction('template')}>
               <LayoutTemplate className="h-3 w-3" /> Load Template
-            </button>
+            </Button>
           )}
           {!readOnly && activePlan && !templateDraft && (
-            <button onClick={() => setSaveTemplateOpen(true)} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap">
+            <Button variant="secondary" size="sm" onClick={() => setSaveTemplateOpen(true)}>
               <BookmarkPlus className="h-3 w-3" /> Save Template
-            </button>
+            </Button>
           )}
-          {!readOnly && templateDraft && <>
-            <Button variant="secondary" onClick={discardTemplateDraft} disabled={savingWeek}>Discard draft</Button>
-            <Button variant="primary" onClick={() => void handleSaveWeek()} loading={savingWeek}>Save week</Button>
-          </>}
+          {!readOnly && activePlan && <Button variant="secondary" size="sm" disabled={savingWeek || generating || creatingPlan} onClick={() => setConfirmDeleteId(activePlan.id)}><Trash2 className="h-3 w-3" />Clear menu</Button>}
           {!readOnly && activePlan && (
-            <button onClick={handleScaleToPrescription} disabled={scalingPlan || activePlan.scale_status === 'already_scaled'}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed">
+            <Button variant="secondary" size="sm" onClick={handleScaleToPrescription} disabled={scalingPlan || savingWeek || generating || activePlan.scale_status === 'already_scaled'}>
               {scalingPlan ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
               {activePlan.scale_status === 'already_scaled' ? 'Already scaled' : 'Scale to prescription'}
-            </button>
+            </Button>
           )}
-          {!readOnly && !activePlan && <button onClick={() => void performMenuAction('generate')} disabled={generating} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
+          {!readOnly && <Button variant="secondary" size="sm" onClick={() => void performMenuAction('generate')} disabled={generating || savingWeek || savingIntervention || creatingPlan}>
             {generating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />} Auto-Generate
-          </button>}
-          {!readOnly && !activePlan && <button onClick={() => void performMenuAction('create')} disabled={creatingPlan} className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-warm-600 border border-warm-200 rounded-lg hover:bg-warm-50 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
+          </Button>}
+          {!readOnly && !activePlan && <Button variant="secondary" size="sm" onClick={() => void performMenuAction('create')} disabled={creatingPlan || savingIntervention || generating}>
             {creatingPlan ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />} Create Menu
-          </button>}
+          </Button>}
         </div>
       </div>
 
-      {!readOnly && pendingMenuAction && <div role="status" className="space-y-2 rounded-xl border border-warm-200 p-3">
-        <p className="text-sm text-warm-700">Save the intervention before continuing with this menu action.</p>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" onClick={() => setPendingMenuAction(null)} disabled={savingIntervention}>Cancel menu action</Button>
-          <Button variant="primary" onClick={() => void saveInterventionAndContinue()} loading={savingIntervention}>Save intervention and continue</Button>
-        </div>
-      </div>}
+      {savingWeek && <p role="status" className="text-sm text-warm-500">Saving menu…</p>}
 
-      {!readOnly && !activePlan && <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-warm-100 bg-warm-50/60 px-3 py-1.5">
+      {!readOnly && <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-warm-100 bg-warm-50/60 px-3 py-1.5">
         <span className="text-xs font-bold uppercase tracking-wider text-warm-400">Auto-generate</span>
         <label className="flex min-h-9 items-center gap-2 text-xs font-semibold text-warm-600">
           <input type="checkbox" checked={excludeCarbs}
@@ -801,6 +807,7 @@ export default function MealPlanSection({
         <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl">
           <AlertTriangle className="h-3.5 w-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
           <p className="text-xs text-amber-800">{generateError}</p>
+          {templateDraft && interventionPlanId && <Button variant="secondary" size="sm" onClick={() => void handleSaveWeek()}>Retry</Button>}
         </div>
       )}
 
@@ -955,14 +962,14 @@ export default function MealPlanSection({
 
       {/* ── Delete Plan Confirm ─────────────────────────────────────────────── */}
       {!readOnly && confirmDeleteId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+        <div role="dialog" aria-modal="true" aria-label="Clear menu" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 space-y-4">
-            <h3 className="text-base font-extrabold text-warm-900">Delete Meal Plan?</h3>
-            <p className="text-sm text-warm-500">This will permanently delete the plan and all its food entries.</p>
+            <h3 className="text-base font-extrabold text-warm-900">Clear menu?</h3>
+            <p className="text-sm text-warm-500">Remove all items from this weekly menu?</p>
             <div className="flex gap-2 justify-end">
               <Button variant="ghost" onClick={() => setConfirmDeleteId(null)}>Cancel</Button>
               <Button variant="danger" onClick={handleDeletePlan} loading={deleting} className="w-auto px-4 py-2 text-sm">
-                Delete Plan
+                Clear menu
               </Button>
             </div>
           </div>
@@ -1084,17 +1091,6 @@ export default function MealPlanSection({
           </div>
         </div>
       )}
-
-      {!readOnly && confirmTemplateLoad && <div role="dialog" aria-modal="true" aria-label="Replace weekly menu draft" className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
-        <div className="w-full max-w-md space-y-4 rounded-2xl bg-white p-6">
-          <h3 className="font-bold text-warm-900">Replace current week?</h3>
-          <p className="text-sm text-warm-600">Load this template into a draft. Your saved week changes only after Save week.</p>
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setConfirmTemplateLoad(null)}>Cancel</Button>
-            <Button variant="primary" onClick={() => void handleFromTemplate(confirmTemplateLoad, true)}>Replace draft</Button>
-          </div>
-        </div>
-      </div>}
 
       {/* ── Delete Template Confirm ─────────────────────────────────────────── */}
       {!readOnly && confirmDeleteTemplateId && (

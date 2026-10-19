@@ -50,21 +50,23 @@ class InterventionPlanMigrationTest extends TestCase
         $this->assertTrue($intervention->mealPlan->is($menuPlan));
     }
 
-    public function test_saved_intervention_clinical_fields_are_immutable(): void
+    public function test_latest_plan_is_editable_but_historical_clinical_fields_are_immutable(): void
     {
         $intervention = Intervention::factory()->create(['energy_kcal' => 1800]);
+        $intervention->update(['energy_kcal' => 1850]);
+        Intervention::factory()->create(['ncp_record_id' => $intervention->ncp_record_id, 'created_at' => now()->addMinute()]);
 
         try {
             $intervention->update(['energy_kcal' => 1900]);
             $this->fail('Expected a saved Intervention Plan to reject clinical mutation.');
         } catch (ValidationException $exception) {
             $this->assertSame(
-                'Saved Intervention Plans are immutable. Create a new plan instead.',
+                'Historical Intervention Plans are view only.',
                 $exception->errors()['intervention'][0],
             );
         }
 
-        $this->assertSame('1800.00', $intervention->fresh()->energy_kcal);
+        $this->assertSame('1850.00', $intervention->fresh()->energy_kcal);
     }
 
     public function test_database_rejects_a_second_menu_plan_for_one_intervention(): void

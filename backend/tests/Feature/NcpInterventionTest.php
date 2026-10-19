@@ -21,6 +21,25 @@ class NcpInterventionTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_latest_plan_can_be_updated_and_historical_plans_can_only_be_deleted(): void
+    {
+        $rnd = $this->rnd();
+        $ncp = $this->ncpRecord($this->patient(), $rnd);
+        $old = Intervention::factory()->create(['ncp_record_id' => $ncp->id, 'created_at' => now()->subDay()]);
+        $latest = Intervention::factory()->create(['ncp_record_id' => $ncp->id]);
+        $base = "/api/rnd/ncp-records/{$ncp->uuid}/interventions";
+        $this->actingAs($rnd, 'sanctum')->patchJson("{$base}/{$latest->uuid}", ['education_notes' => 'Updated guidance'])
+            ->assertOk()->assertJsonPath('data.education_notes', 'Updated guidance');
+        $this->assertDatabaseCount('interventions', 2);
+        $this->patchJson("{$base}/{$old->uuid}", ['education_notes' => 'Changed history'])->assertForbidden();
+        $this->deleteJson("{$base}/{$old->uuid}")->assertNoContent();
+        $this->assertModelMissing($old);
+        $other = User::factory()->create(['role' => 'FSS']);
+        $this->actingAs($other, 'sanctum')->deleteJson("{$base}/{$latest->uuid}")->assertForbidden();
+        $this->actingAs($rnd, 'sanctum')->deleteJson("{$base}/{$latest->uuid}")->assertNoContent();
+        $this->assertModelMissing($latest);
+    }
+
     public function test_zero_macro_ceiling_does_not_accept_positive_intake(): void
     {
         $plan = new Intervention(['protein_g' => 0, 'nutrient_operators' => ['protein_g' => 'max']]);

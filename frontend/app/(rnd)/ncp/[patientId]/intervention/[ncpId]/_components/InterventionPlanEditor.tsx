@@ -33,17 +33,18 @@ export default function InterventionPlanEditor({
     : "Original Assessment";
 
   return (
-    <section aria-label={mode === "edit" ? "New intervention plan" : "Saved intervention plan"} className="space-y-5">
+    <section aria-label={mode === "edit" && !plan?.id ? "New intervention plan" : "Saved intervention plan"} className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-warm-200 pb-3">
         <div>
           <h3 className="text-base font-bold text-warm-900">
-            {mode === "edit" ? "New Intervention Plan" : "Intervention Plan"}
+            {mode === "edit" && !plan?.id ? "New Intervention Plan" : "Intervention Plan"}
           </h3>
-          {mode === "readonly" && plan?.created_at && (
+          {plan?.id && plan.created_at && (
             <p className="mt-1 text-sm font-semibold text-warm-700">{displayDate(plan.created_at)}</p>
           )}
           <p className="mt-1 text-xs text-warm-500">Calculation source: {source}</p>
         </div>
+        {mode === 'readonly' && <span className="rounded-full border border-warm-200 px-3 py-1 text-xs font-bold text-warm-500">View only</span>}
         {mode === "edit" && (
           <div className="flex gap-2">
             <button type="button" onClick={onCancel} className="px-3 py-2 text-sm font-semibold text-warm-700 border border-warm-300 rounded-lg">

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { User, Lock } from "lucide-react";
 import {
-  fetchIntervention, fetchInterventionPlan, fetchInterventionPlans, createIntervention, autofillIntervention,
+  fetchIntervention, fetchInterventionPlan, fetchInterventionPlans, createIntervention, updateIntervention, deleteIntervention, autofillIntervention,
   AutofillError, Intervention, type AutofillResult, type InterventionPlanSummary,
 } from "@/services/interventionService";
 import type { PaginationMeta } from "@/components/ui/Pagination";
@@ -262,7 +262,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
 
       applyIntervention(await fetchInterventionPlan(ncpId, planId));
       setSelectedPlanId(planId);
-      setEditorMode("readonly");
+      setEditorMode(planId === latest?.id ? "edit" : "readonly");
     } catch (error) {
       setPlansError(error instanceof Error ? error.message : "Failed to load intervention plans.");
     } finally {
@@ -437,7 +437,8 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
     setEditorError(null);
     setSaving(true);
     try {
-      const created = await createIntervention(ncpId, {
+      const persist = selectedPlanId ? (id: string, payload: Partial<Intervention>) => updateIntervention(id, selectedPlanId, payload) : createIntervention;
+      const created = await persist(ncpId, {
         goal_type: intervention.goal_type,
         disease_stage: intervention.disease_stage,
         energy_kcal: prescription.energy_kcal ? parseFloat(prescription.energy_kcal) : null,
@@ -459,7 +460,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
       setSelectedPlanId(created.id);
       setNewlySavedInterventionId(created.id);
       setLatestPlanId(created.id);
-      setEditorMode("readonly");
+      setEditorMode("edit");
       markLocalNavigation(`plan=${created.id}`);
       router.replace(`?plan=${created.id}`);
       setPlansPage(1);
@@ -496,7 +497,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
     try {
       applyIntervention(await fetchInterventionPlan(ncpId, planId));
       setSelectedPlanId(planId);
-      setEditorMode("readonly");
+      setEditorMode(planId === latestPlanId ? "edit" : "readonly");
       setTab("nd");
       markLocalNavigation(`plan=${planId}`);
       router.push(`?plan=${planId}`);
@@ -516,7 +517,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
         applyIntervention(latest);
         setSelectedPlanId(latest.id);
         setLatestPlanId(latest.id);
-        setEditorMode("readonly");
+        setEditorMode("edit");
         markLocalNavigation(`plan=${latest.id}`);
         router.replace(`?plan=${latest.id}`);
       } else {
@@ -639,10 +640,21 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
             meta={plansMeta}
             page={plansPage}
             selectedPlanId={selectedPlanId}
+            latestPlanId={latestPlanId}
             loading={plansLoading}
             error={plansError}
             onCreate={startNewPlan}
             onSelect={selectPlan}
+            onDelete={async (id) => {
+              await deleteIntervention(ncpId, id);
+              const [result, latest] = await Promise.all([fetchInterventionPlans(ncpId, 1), fetchIntervention(ncpId)]);
+              setPlans(result.data); setPlansMeta(result.meta); setPlansPage(1); setLatestPlanId(latest?.id ?? null);
+              if (selectedPlanId === id) {
+                applyIntervention(latest); setSelectedPlanId(latest?.id ?? null); setEditorMode('edit');
+                markLocalNavigation(latest ? `plan=${latest.id}` : 'mode=new');
+                router.replace(latest ? `?plan=${latest.id}` : '?mode=new');
+              } else if (selectedPlanId === latest?.id) setEditorMode('edit');
+            }}
             onPageChange={setPlansPage}
           />
         )}

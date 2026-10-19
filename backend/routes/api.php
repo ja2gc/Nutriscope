@@ -189,6 +189,8 @@ Route::middleware(['auth:sanctum', 'active', 'role:RND'])->prefix('rnd')->group(
     });
     Route::get('ncp-records/{ncpRecord}/interventions', [InterventionController::class, 'index']);
     Route::get('ncp-records/{ncpRecord}/interventions/latest', [InterventionController::class, 'latest']);
+    Route::patch('ncp-records/{ncpRecord}/interventions/{intervention}', [InterventionController::class, 'updatePlan']);
+    Route::delete('ncp-records/{ncpRecord}/interventions/{intervention}', [InterventionController::class, 'destroyPlan']);
     Route::post('ncp-records/{ncpRecord}/interventions', [InterventionController::class, 'storePlan']);
     Route::get('ncp-records/{ncpRecord}/interventions/{intervention}', [InterventionController::class, 'showPlan']);
 
@@ -199,6 +201,7 @@ Route::middleware(['auth:sanctum', 'active', 'role:RND'])->prefix('rnd')->group(
     Route::patch('ncp-records/{ncpRecord}/meal-plans/{mealPlan}', [MealPlanController::class, 'update']);
     Route::post('ncp-records/{ncpRecord}/meal-plans/{mealPlan}/scale-to-prescription', [MealPlanController::class, 'scaleToPrescription']);
     Route::delete('ncp-records/{ncpRecord}/meal-plans/{mealPlan}', [MealPlanController::class, 'destroy']);
+    Route::post('ncp-records/{ncpRecord}/meal-plans/{mealPlan}/clear', [MealPlanController::class, 'clear']);
     Route::post('ncp-records/{ncpRecord}/meal-plans/generate', [MealPlanController::class, 'generate'])->middleware('throttle:ai');
     Route::post('ncp-records/{ncpRecord}/meal-plans/from-template', [MealPlanController::class, 'fromTemplate']);
     Route::post('ncp-records/{ncpRecord}/meal-plans/{mealPlan}/save-template', [MealPlanController::class, 'saveTemplate']);

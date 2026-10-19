@@ -199,6 +199,7 @@ class MealPlanService
         bool $excludeCarbs = false,
         ?Intervention $intervention = null,
         ?string $carbMenuItemId = null,
+        bool $replace = false,
     ): array|MealPlan {
         $intervention ??= $ncpRecord->intervention()->firstOrFail();
         abort_unless($intervention->ncp_record_id === $ncpRecord->id, 404);
@@ -275,17 +276,23 @@ class MealPlanService
         $targetCarbsRatio = ($dailyCarbs * 4) / $dailyKcal;
         $targetFatRatio = ($dailyFat * 9) / $dailyKcal;
 
-        return DB::transaction(function () use ($ncpRecord, $intervention, $weekStartDate, $recipes, $selectedCarb, $excludeSnacks, $dailyKcal, $dailyProtein, $dailyCarbs, $dailyFat, $microLimits, $targetProteinRatio, $targetCarbsRatio, $targetFatRatio, $goalType): MealPlan {
+        return DB::transaction(function () use ($ncpRecord, $intervention, $weekStartDate, $recipes, $selectedCarb, $excludeSnacks, $dailyKcal, $dailyProtein, $dailyCarbs, $dailyFat, $microLimits, $targetProteinRatio, $targetCarbsRatio, $targetFatRatio, $goalType, $replace): MealPlan {
             $lockedIntervention = $ncpRecord->interventions()->whereKey($intervention->id)->lockForUpdate()->firstOrFail();
-            abort_if($lockedIntervention->mealPlan()->exists(), 409, 'This intervention already has a meal plan.');
-            $mealPlan = MealPlan::create([
+            $existing = $lockedIntervention->mealPlan()->lockForUpdate()->first();
+            abort_if($existing && ! $replace, 409, 'This intervention already has a meal plan.');
+            abort_if($existing?->status === 'completed', 403, 'Completed menus are view only.');
+            $mealPlan = $existing ?? new MealPlan;
+            $mealPlan->fill([
                 'intervention_id' => $intervention->id,
                 'patient_id' => $ncpRecord->patient_id,
                 'week_start_date' => $weekStartDate,
                 'generation_type' => 'auto',
                 'needs_rescaling' => true,
+                'scaled_at' => null,
                 'status' => 'draft',
             ]);
+            $mealPlan->save();
+            $mealPlan->days()->delete();
 
             $daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
             $mealTypes = array_keys(self::SLOT_DISTRIBUTION);

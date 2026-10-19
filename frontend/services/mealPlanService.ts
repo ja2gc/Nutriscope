@@ -30,6 +30,7 @@ export interface MealPlanItem {
   source_template_item_id?: string | null;
   source_meal_plan_item_id?: string | null;
   ingredient_overrides?: { id: number; quantity: number }[];
+  ingredients?: { food_item_id: string; quantity: number; unit: string }[];
   quantity: string;
   unit: string;
   nutrient_snapshot: NutrientSnapshot | null;
@@ -179,9 +180,15 @@ export async function deleteMealPlan(ncpId: string, planId: string): Promise<voi
   if (!res.ok && res.status !== 204) throw new Error('Failed to delete meal plan.');
 }
 
+export async function clearMealPlan(ncpId: string, planId: string): Promise<MealPlan> {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpId}/meal-plans/${planId}/clear`, { method: 'POST', headers: { Accept: 'application/json' } });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message || 'Failed to clear menu.');
+  return (await res.json()).data;
+}
+
 export async function generateMealPlan(
   ncpId: string,
-  payload: { intervention_plan_id: string; week_start_date: string; conditions?: string[]; allergens?: string[]; exclude_snacks?: boolean } & ({ exclude_carbs: true; carb_menu_item_id?: never } | { exclude_carbs: false; carb_menu_item_id: string })
+  payload: { intervention_plan_id: string; week_start_date: string; replace?: boolean; conditions?: string[]; allergens?: string[]; exclude_snacks?: boolean } & ({ exclude_carbs: true; carb_menu_item_id?: never } | { exclude_carbs: false; carb_menu_item_id: string })
 ): Promise<MealPlan
   | { insufficient_recipes: true; count: number; message: string }
   | { insufficient_suitable_foods: true; missing_meal_types: string[]; message: string }
@@ -372,7 +379,7 @@ export async function updateMealPlanItem(
   // DI-03: the client never sends a nutrient snapshot. For recipe ingredient
   // edits, send per-ingredient quantity overrides; the server recomputes the
   // snapshot from trusted food data.
-  payload: { quantity?: number; ingredient_overrides?: { id: number; quantity: number }[] }
+  payload: { quantity?: number; ingredient_overrides?: { id: number; quantity: number }[]; ingredients?: { food_item_id: string; quantity: number; unit: string }[] }
 ): Promise<MealPlanItem> {
   const res = await apiFetch(
     `/api/rnd/ncp-records/${ncpId}/meal-plans/${planId}/days/${dayId}/items/${itemId}`,

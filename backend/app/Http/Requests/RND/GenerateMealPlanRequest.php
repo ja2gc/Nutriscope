@@ -22,6 +22,7 @@ class GenerateMealPlanRequest extends FormRequest
             'allergens' => ['nullable', 'array'],
             'allergens.*' => ['nullable', 'string'],
             'exclude_snacks' => ['sometimes', 'boolean'],
+            'replace' => ['sometimes', 'boolean'],
             'exclude_carbs' => ['sometimes', 'boolean'],
             'carb_menu_item_id' => [
                 Rule::requiredIf(fn (): bool => ! $this->boolean('exclude_carbs')),

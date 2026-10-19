@@ -201,9 +201,20 @@ class MealPlanItemController extends Controller
             'ingredient_overrides' => 'sometimes|array',
             'ingredient_overrides.*.id' => 'required_with:ingredient_overrides|integer',
             'ingredient_overrides.*.quantity' => 'required_with:ingredient_overrides|numeric|gt:0|decimal:0,6',
+            'ingredients' => ['sometimes', 'array', 'min:1'],
+            'ingredients.*.food_item_id' => ['required', 'uuid', 'exists:food_items,uuid'],
+            'ingredients.*.quantity' => ['required', 'numeric', 'between:0.000001,100000'],
+            'ingredients.*.unit' => ['required', 'string', 'max:50'],
         ]);
 
-        if (! empty($validated['ingredient_overrides'])) {
+        if (isset($validated['ingredients'])) {
+            abort_unless($item->recipe_id, 422, 'Only recipe Menu Items have editable Ingredients.');
+            try {
+                $item->nutrient_snapshot = $item->recipe->planSnapshot([], $item->nutrient_snapshot, $validated['ingredients']);
+            } catch (\InvalidArgumentException $error) {
+                throw ValidationException::withMessages(['ingredients' => $error->getMessage()]);
+            }
+        } elseif (! empty($validated['ingredient_overrides'])) {
             $snapshot = $this->recomputeRecipeSnapshot($item, $validated['ingredient_overrides']);
             if ($snapshot !== null) {
                 $item->nutrient_snapshot = $snapshot;

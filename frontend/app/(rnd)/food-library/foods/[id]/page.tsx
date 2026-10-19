@@ -203,7 +203,7 @@ export default function EditFoodPage({ params }: { params: Promise<{ id: string 
             <div className="flex gap-2">
               <div className="flex-1">
                 <Label>Nutrient baseline amount</Label>
-                <input aria-label="Nutrient baseline amount" type="number" value={servingSize} onChange={(e) => setServingSize(e.target.value)} min="0.000001" max="10000" step="0.000001" required className={inputCls} />
+                <input aria-label="Nutrient baseline amount" type="number" value={servingSize} onChange={(e) => setServingSize(e.target.value)} min="0" max="10000" step="0.1" required className={inputCls} />
               </div>
               <div className="w-28">
                 <div className="flex items-center"><Label>Unit</Label><InfoHint label="Ingredient unit families">{CLINICAL_UNIT_HINT}</InfoHint></div>
