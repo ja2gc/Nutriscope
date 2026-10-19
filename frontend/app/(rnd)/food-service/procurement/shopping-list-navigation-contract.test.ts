@@ -9,7 +9,7 @@ describe("shopping list navigation", () => {
     expect(source).toContain('aria-label={`Open list: ${l.name}`} title="Open list"');
     expect(source).toContain('<Pencil className="h-3.5 w-3.5" />');
     expect(source).not.toContain('aria-label={`Rename ${l.name}`} title="Edit name"');
-    expect(source).toContain('<span className="block min-w-0 truncate font-semibold text-warm-800">{l.name}</span>');
+    expect(source).toMatch(/<span\b[^>]*>\{l\.name\}<\/span>/);
     expect(source).not.toContain('<button type="button" onClick={() => setListDetail(l.id)} className="text-left');
     expect(source).toContain("editingName");
     expect(source).toContain('aria-label="Apply name"');

@@ -29,9 +29,9 @@ it('uses the shared contacts editor and protects its draft when leaving the vend
     await act(async () => getByRole(container, 'button', { name: 'Add contact' }).click());
     await act(async () => fireEvent.change(getByRole(container, 'combobox', { name: 'Contact method 1' }), { target: { value: 'messenger' } }));
     await act(async () => fireEvent.input(getByRole(container, 'textbox', { name: 'Messenger contact 1' }), { target: { value: 'Demo vendor page' } }));
-    const preference = getByRole(container, 'combobox', { name: 'Preferred contact' }) as HTMLSelectElement;
-    const id = preference.options[2].value;
-    await act(async () => fireEvent.change(preference, { target: { value: id } }));
+    const preference = getByRole(container, 'checkbox', { name: 'Preferred Messenger contact 1' }) as HTMLInputElement;
+    const id = preference.value;
+    await act(async () => preference.click());
     await act(async () => leaveRef.current!.requestLeave(next));
     expect(getByRole(container, 'dialog')).toBeTruthy();
     await act(async () => getByRole(container, 'button', { name: 'Save' }).click());

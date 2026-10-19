@@ -63,7 +63,7 @@ Continue immediately with the compact Food Service sequence in `RND Food Service
 3. Show **Overview**, **ADIME Records**, **Appointments**, and **Attachments**.
 4. Open the protection-rules help icon.
 
-For the full guide, open **Overview → Contact details → Edit contact details**. Keep the existing contact number, add a fictional Email or Messenger contact, select **Preferred contact**, save and reopen to verify it. Up to five additional contacts are supported; **Other** permits a custom method label. X / Discard / Save protects unsaved contact edits when leaving.
+For the full guide, open **Overview → Contact details → Edit contact details**. Keep the existing contact number, add a fictional Email or Messenger contact, check **Preferred** beside that contact, save and reopen to verify its badge. Up to five additional contacts are supported; **Other** permits a custom method label. X / Discard / Save protects unsaved contact edits when leaving.
 
 **Narration**
 

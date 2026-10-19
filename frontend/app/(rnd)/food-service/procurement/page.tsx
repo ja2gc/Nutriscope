@@ -1219,7 +1219,7 @@ export default function ProcurementPage() {
       </div>
 
       {tab === "suppliers" ? <SuppliersPanel leaveRef={supplierLeaveRef} /> : (
-        <div className={`bg-white border border-warm-200 rounded-2xl shadow-sm ${tab === "pos" ? "overflow-x-auto" : ""}`}>
+        <div className="overflow-x-auto bg-white border border-warm-200 rounded-2xl shadow-sm">
           {loading ? (
             <div className="py-16 text-center text-sm text-warm-400">Loading…</div>
           ) : (tab === "food-lists" || tab === "supplies-lists") ? (
@@ -1235,32 +1235,29 @@ export default function ProcurementPage() {
                 </p>
               </div>
             ) : (
-              <table className="block w-full text-sm sm:table">
-                <thead className="hidden bg-warm-50 border-b border-warm-100 sm:table-header-group">
+              <table className="w-full min-w-[800px] text-sm">
+                <thead className="bg-warm-50 border-b border-warm-100">
                   <tr>
                     {["Name", tab === "food-lists" ? "Span" : "Date", "Items", "Status", "Actions"].map((h) => (
                       <th key={h} className="px-3 py-2 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="block divide-y divide-zinc-100 sm:table-row-group">
+                <tbody className="divide-y divide-zinc-100">
                   {visibleLists.map((l) => (
-                    <tr key={l.id} className="grid grid-cols-2 gap-x-4 gap-y-1 px-3 py-2 hover:bg-warm-50/60 sm:table-row sm:px-0 sm:py-0">
-                      <td className="col-span-2 min-w-0 px-0 py-1 sm:table-cell sm:px-3 sm:py-2">
-                        <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-warm-400 sm:hidden">Name</span>
-                        <span className="block min-w-0 truncate font-semibold text-warm-800">{l.name}</span>
+                    <tr key={l.id} className="hover:bg-warm-50/60">
+                      <td className="min-w-60 px-3 py-2">
+                        <span className="font-semibold text-warm-800">{l.name}</span>
                       </td>
-                      <td className="flex items-center justify-between gap-2 px-0 py-1 text-warm-500 sm:table-cell sm:px-3 sm:py-2">
-                        <span className="text-xs font-bold uppercase tracking-wider text-warm-400 sm:hidden">{tab === "food-lists" ? "Span" : "Date"}</span>
+                      <td className="whitespace-nowrap px-3 py-2 text-warm-500">
                         {tab === "food-lists"
                           ? (l.days_span ? `${spanLabel(l)} (${l.days_span}d)` : "—")
                           : (l.list_date ?? "—")}
                       </td>
-                      <td className="flex items-center justify-between gap-2 px-0 py-1 text-warm-500 sm:table-cell sm:px-3 sm:py-2">
-                        <span className="text-xs font-bold uppercase tracking-wider text-warm-400 sm:hidden">Items</span>{l.items.length}
+                      <td className="px-3 py-2 text-warm-500">
+                        {l.items.length}
                       </td>
-                      <td className="flex items-center justify-between gap-2 px-0 py-1 sm:table-cell sm:px-3 sm:py-2">
-                        <span className="text-xs font-bold uppercase tracking-wider text-warm-400 sm:hidden">Status</span>
+                      <td className="px-3 py-2">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
                           l.status === "converted"
                             ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
@@ -1269,7 +1266,7 @@ export default function ProcurementPage() {
                           {l.status}
                         </span>
                       </td>
-                      <td className="col-span-2 flex items-center justify-end gap-1 border-t border-warm-100 pt-1 sm:table-cell sm:border-0 sm:px-3 sm:py-2 sm:pt-2">
+                      <td className="px-3 py-2">
                         <div className="flex items-center gap-1">
                           <button type="button" onClick={() => setListDetail(l.id)}
                             className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-lg text-warm-500 hover:bg-warm-100 hover:text-emerald-700 cursor-pointer"

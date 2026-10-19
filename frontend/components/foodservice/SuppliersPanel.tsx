@@ -227,7 +227,7 @@ export function SuppliersPanel({ leaveRef }: { leaveRef?: Ref<EditorLeaveHandle>
                 <tr key={s.id} className="hover:bg-warm-50/60 transition-colors">
                   <td className="px-4 py-3 font-semibold text-warm-800">{s.name}</td>
                   <td className="px-4 py-3 text-warm-600">{s.category || "—"}</td>
-                  <td className="min-w-64 px-4 py-3 text-warm-600"><ContactDetailsSummary value={contactDetailsFrom(s)} /></td>
+                  <td className="min-w-64 px-4 py-3 text-warm-600"><ContactDetailsSummary value={contactDetailsFrom(s)} compact /></td>
                   <td className="px-4 py-3 text-warm-500">{s.payment_terms || "—"}</td>
                   <td className="px-4 py-3">
                     {deleteId === s.id ? (

@@ -48,7 +48,7 @@ Use this as both the recording checklist and narration script. Create every name
 6. Open **Supplies** and create **Demo Video Meal Container** with its vendor and price.
 7. Point out the **Auto grocery** and **Purchase when needed** badges.
 
-In vendor create/edit, demonstrate **Contact details → Add contact**, choose a contact method and enter its fictional value, then select **Preferred contact** before saving. The shared editor supports five additional contacts and the same validation and unsaved-change prompt as the patient profile; existing contact values remain available.
+In vendor create/edit, demonstrate **Contact details → Add contact**, choose a contact method and enter its fictional value, then check **Preferred** beside that contact before saving. The vendor list shows that contact first without a separate preference label. The shared editor supports five additional contacts and the same validation and unsaved-change prompt as the patient profile; existing contact values remain available.
 
 **Narration**
 

@@ -3,7 +3,7 @@ import React, { act, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { fireEvent, getAllByRole, getByRole } from '@testing-library/dom';
 import { expect, it } from 'vitest';
-import { ContactDetailsFields } from './ContactDetailsFields';
+import { ContactDetailsFields, ContactDetailsSummary } from './ContactDetailsFields';
 import { contactDetailsErrors, type ContactDetailsData } from '@/lib/contactDetails';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -23,11 +23,27 @@ it('adds five contacts, chooses a preference and clears it when that contact is 
     expect((getByRole(container, 'button', { name: 'Add contact' }) as HTMLButtonElement).disabled).toBe(true);
     await act(async () => fireEvent.change(getByRole(container, 'combobox', { name: 'Contact method 1' }), { target: { value: 'email' } }));
     await act(async () => fireEvent.input(getByRole(container, 'textbox', { name: 'Email contact 1' }), { target: { value: 'demo@example.test' } }));
-    await act(async () => fireEvent.change(getByRole(container, 'combobox', { name: 'Preferred contact' }), { target: { value: current!.additional_contacts[0].id } }));
+    await act(async () => getByRole(container, 'checkbox', { name: 'Preferred contact number' }).click());
+    expect(current!.preferred_contact_id).toBe('primary');
+    await act(async () => getByRole(container, 'checkbox', { name: 'Preferred Email contact 1' }).click());
     expect(current!.preferred_contact_id).toBe(current!.additional_contacts[0].id);
+    expect((getByRole(container, 'checkbox', { name: 'Preferred contact number' }) as HTMLInputElement).checked).toBe(false);
     await act(async () => getByRole(container, 'button', { name: 'Remove contact 1' }).click());
     expect(current!.preferred_contact_id).toBeNull();
     expect(current!.contact).toBe('09171234567');
+  } finally { await act(async () => root.unmount()); container.remove(); }
+});
+
+it('shows one preferred badge in the profile and orders vendor contacts without preference labels', async () => {
+  const value: ContactDetailsData = { contact: 'Original number', additional_contacts: [{ id: 'email', method: 'email', label: null, value: 'demo@example.test' }], preferred_contact_id: 'email' };
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container);
+  try {
+    await act(async () => root.render(<ContactDetailsSummary value={value} />));
+    expect(container.textContent).not.toContain('Preferred contact');
+    expect(container.querySelectorAll('dt')[1].textContent).toBe('EmailPreferred');
+    await act(async () => root.render(<ContactDetailsSummary value={value} compact />));
+    expect(container.textContent).not.toContain('Preferred');
+    expect(container.querySelectorAll('dd')[0].textContent).toBe('demo@example.test');
   } finally { await act(async () => root.unmount()); container.remove(); }
 });
 

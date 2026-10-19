@@ -22,9 +22,9 @@ it('keeps an invalid draft and uses the shared leave guard before saving contact
     expect(updatePatient).not.toHaveBeenCalled();
     expect(container.textContent).toContain('Enter the contact details.');
     await act(async () => fireEvent.input(getByRole(container, 'textbox', { name: 'Phone contact 1' }), { target: { value: '09179876543' } }));
-    const preferred = getByRole(container, 'combobox', { name: 'Preferred contact' }) as HTMLSelectElement;
-    const preferredId = preferred.options[2].value;
-    await act(async () => fireEvent.change(preferred, { target: { value: preferredId } }));
+    const preferred = getByRole(container, 'checkbox', { name: 'Preferred Phone contact 1' }) as HTMLInputElement;
+    const preferredId = preferred.value;
+    await act(async () => preferred.click());
     await act(async () => leaveRef.current!.requestLeave(next));
     expect(getByRole(container, 'dialog', { name: 'Unsaved changes' })).toBeTruthy();
     vi.mocked(updatePatient).mockRejectedValueOnce(new Error('Temporary save failure'));

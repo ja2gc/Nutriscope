@@ -15,11 +15,13 @@ export function ContactDetailsFields({ value, onChange, legacyLabel = 'Contact',
   const fieldId = (key: string) => `${prefix}-${key}`;
   const error = (key: string) => errors[key] ? <p id={fieldId(`${key}-error`)} className="mt-1 text-sm text-red-600">{errors[key]}</p> : null;
   const errorProps = (key: string) => ({ 'aria-invalid': Boolean(errors[key]), 'aria-describedby': errors[key] ? fieldId(`${key}-error`) : undefined });
-  const update = (id: string, patch: Partial<ContactEntry>) => onChange({ ...value, additional_contacts: value.additional_contacts.map(entry => entry.id === id ? { ...entry, ...patch } : entry) });
+  const update = (id: string, patch: Partial<ContactEntry>) => onChange({ ...value, additional_contacts: value.additional_contacts.map(entry => entry.id === id ? { ...entry, ...patch } : entry), preferred_contact_id: patch.value !== undefined && !patch.value.trim() && value.preferred_contact_id === id ? null : value.preferred_contact_id });
+  const preference = (id: string, name: string, available: boolean) => <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm text-warm-600"><input type="checkbox" value={id} aria-label={`Preferred ${name}`} checked={value.preferred_contact_id === id} disabled={!available} onChange={event => onChange({ ...value, preferred_contact_id: event.target.checked ? id : null })} className="h-4 w-4 accent-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-500" />Preferred</label>;
   return <fieldset disabled={disabled} className="min-w-0 space-y-4">
     <legend className="sr-only">Contact details</legend>
     <div><label htmlFor={fieldId('primary')} className={labelClass}>{legacyLabel}</label>
       <input id={fieldId('primary')} value={value.contact} maxLength={255} onChange={event => onChange({ ...value, contact: event.target.value, preferred_contact_id: !event.target.value.trim() && value.preferred_contact_id === 'primary' ? null : value.preferred_contact_id })} className={inputClass} {...errorProps('contact')} />{error('contact')}
+      {preference('primary', legacyLabel.toLowerCase(), Boolean(value.contact.trim()))}
     </div>
     <div className="flex flex-wrap items-center justify-between gap-2">
       <span className="text-sm font-semibold text-warm-600">Additional contacts ({value.additional_contacts.length}/5)</span>
@@ -39,25 +41,18 @@ export function ContactDetailsFields({ value, onChange, legacyLabel = 'Contact',
           <input id={fieldId(`${entry.id}-value`)} aria-label={`${contactMethodLabel(entry)} contact ${index + 1}`} required type={entry.method === 'email' ? 'email' : entry.method === 'phone' ? 'tel' : 'text'} maxLength={255} value={entry.value} onChange={event => update(entry.id, { value: event.target.value })} className={inputClass} {...errorProps(`${entry.id}.value`)} />{error(`${entry.id}.value`)}
         </div>
       </div>
+      {preference(entry.id, `${contactMethodLabel(entry)} contact ${index + 1}`, Boolean(entry.value.trim()))}
     </div>)}
-    <div><label htmlFor={fieldId('preferred')} className={labelClass}>Preferred contact</label>
-      <select id={fieldId('preferred')} value={value.preferred_contact_id ?? ''} onChange={event => onChange({ ...value, preferred_contact_id: event.target.value || null })} className={inputClass} {...errorProps('preferred_contact_id')}>
-        <option value="">No preference selected</option>
-        {value.contact.trim() && <option value="primary">{legacyLabel}: {value.contact}</option>}
-        {value.additional_contacts.filter(entry => entry.value.trim()).map(entry => <option key={entry.id} value={entry.id}>{contactMethodLabel(entry)}: {entry.value}</option>)}
-      </select>{error('preferred_contact_id')}
-    </div>
+    {error('preferred_contact_id')}
   </fieldset>;
 }
 
-export function ContactDetailsSummary({ value, legacyLabel = 'Contact' }: { value: ContactDetailsData; legacyLabel?: string }) {
-  const preferredEntry = value.additional_contacts.find(entry => entry.id === value.preferred_contact_id);
-  const preferred = value.preferred_contact_id === 'primary' ? legacyLabel : preferredEntry ? contactMethodLabel(preferredEntry) : 'Not selected';
+export function ContactDetailsSummary({ value, legacyLabel = 'Contact', compact = false }: { value: ContactDetailsData; legacyLabel?: string; compact?: boolean }) {
+  const contacts = [...(value.contact ? [{ id: 'primary', label: legacyLabel, value: value.contact }] : []), ...value.additional_contacts.map(entry => ({ id: entry.id, label: contactMethodLabel(entry), value: entry.value }))];
+  if (compact) contacts.sort((a, b) => Number(b.id === value.preferred_contact_id) - Number(a.id === value.preferred_contact_id));
   return <div className="min-w-0 space-y-4 text-sm">
-    <div><span className={labelClass}>Preferred contact</span><span className="font-semibold text-warm-800">{preferred}</span></div>
-    <dl className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
-      {value.contact && <div className="min-w-0"><dt className={labelClass}>{legacyLabel}</dt><dd className="break-all text-warm-800">{value.contact}</dd></div>}
-      {value.additional_contacts.map(entry => <div key={entry.id} className="min-w-0"><dt className={labelClass}>{contactMethodLabel(entry)}{value.preferred_contact_id === entry.id && <span className="ml-2 font-semibold text-emerald-700">Preferred</span>}</dt><dd className="break-all text-warm-800">{entry.value}</dd></div>)}
+    <dl className={`grid min-w-0 grid-cols-1 gap-4 ${compact ? '' : 'sm:grid-cols-2'}`}>
+      {contacts.map(entry => <div key={entry.id} className="min-w-0"><dt className={labelClass}>{entry.label}{!compact && value.preferred_contact_id === entry.id && <span className="ml-2 font-semibold text-emerald-700">Preferred</span>}</dt><dd className="break-all text-warm-800">{entry.value}</dd></div>)}
     </dl>
     {!value.contact && value.additional_contacts.length === 0 && <p className="text-warm-500">No contact details provided.</p>}
   </div>;
