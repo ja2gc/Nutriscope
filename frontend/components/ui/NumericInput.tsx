@@ -25,6 +25,12 @@ export default function NumericInput({
   disabled = false,
   prefix,
 }: Props) {
+  // Keep calculated precision on the native step grid (1.01 → 1.11).
+  const amount = Number(value);
+  const remainder = Number((((amount - min) % step + step) % step).toFixed(10));
+  const stepBase = value.trim() && Number.isFinite(amount) && amount >= min && step > 0
+    ? Number((min + (remainder >= step ? 0 : remainder)).toFixed(10))
+    : min;
   return (
     <div>
       <label className="block text-xs font-bold text-warm-400 uppercase tracking-widest mb-1">
@@ -35,7 +41,7 @@ export default function NumericInput({
         <input
           aria-label={label}
           type="number"
-          min={min}
+          min={stepBase}
           max={max}
           step={step}
           value={value}
