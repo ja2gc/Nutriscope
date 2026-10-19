@@ -12,6 +12,7 @@ import { Tabs } from "@/components/ui/Tabs";
 import { Pagination } from "@/components/ui/Pagination";
 import SearchInput from "@/components/ui/SearchInput";
 import { MealTemplatesTab } from "./_components/MealTemplatesTab";
+import type { EditorLeaveHandle } from "@/hooks/useUnsavedChanges";
 import {
   fetchFoodItems, fetchRecipes, deleteFoodItem, deleteRecipe,
   searchUsda, importUsdaFood,
@@ -323,6 +324,7 @@ function RecipeMicrosPopup({ recipe, onClose }: { recipe: Recipe; onClose: () =>
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function FoodLibraryPage() {
+  const templateLeave = useRef<EditorLeaveHandle>(null);
   const [activeTab, setActiveTab]       = useState<Tab>("foods");
   useEffect(() => {
     const tab = new URLSearchParams(window.location.search).get('tab');
@@ -456,11 +458,11 @@ export default function FoodLibraryPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs<Tab> ariaLabel="Food Library sections" value={activeTab} onChange={(tab) => { if (tab === "recipes") setRecipeLoading(true); setActiveTab(tab); const params = new URLSearchParams(window.location.search); params.set("tab", tab); window.history.replaceState(null, "", `${window.location.pathname}?${params}`); }} fill items={[
+      <Tabs<Tab> ariaLabel="Food Library sections" value={activeTab} onChange={(tab) => { if (tab === activeTab) return; const navigate = () => { if (tab === "recipes") setRecipeLoading(true); setActiveTab(tab); const params = new URLSearchParams(window.location.search); params.set("tab", tab); window.history.replaceState(null, "", `${window.location.pathname}?${params}`); }; if (templateLeave.current) templateLeave.current.requestLeave(navigate); else navigate(); }} fill items={[
         { key: "foods", label: "Ingredients" }, { key: "recipes", label: "Menu Items" }, { key: "templates", label: "Templates" },
       ]} />
 
-      {activeTab === "templates" && <MealTemplatesTab />}
+      {activeTab === "templates" && <MealTemplatesTab leaveRef={templateLeave} />}
 
       {/* ── Foods Tab ── */}
       {activeTab === "foods" && (

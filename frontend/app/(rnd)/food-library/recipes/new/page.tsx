@@ -163,7 +163,7 @@ export default function NewRecipePage() {
       </div>
 
       <div className="border-b border-warm-200 pb-5 flex items-center gap-4">
-        <Link href="/food-library?tab=recipes" className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 transition-colors">
+        <Link href="/food-library?tab=recipes" aria-label="Back to Menu Items" className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 transition-colors">
           <ArrowLeft className="h-4 w-4" />
         </Link>
         <div>
@@ -198,7 +198,7 @@ export default function NewRecipePage() {
             </div>
             <div className="sm:col-span-2">
               <Label>Prep Notes</Label>
-              <textarea value={prepNotes} maxLength={2000} onChange={(e) => setPrepNotes(e.target.value)} rows={2} className={`${inputCls} resize-none`} />
+              <textarea aria-label="Prep Notes" value={prepNotes} maxLength={2000} onChange={(e) => setPrepNotes(e.target.value)} rows={2} className={`${inputCls} resize-none`} />
             </div>
           </div>
         </div>
@@ -256,6 +256,7 @@ export default function NewRecipePage() {
                     <Search className="h-3.5 w-3.5 text-warm-400 shrink-0" />
                     <input
                       type="text"
+                      aria-label={`Ingredient ${idx + 1}`}
                       value={row.foodSearch}
                       onChange={async (e) => { const v = e.target.value; updateRow(idx, { foodSearch: v, food: v ? row.food : null }); await searchFoods(v, idx); }}
                       className="flex-1 text-base text-warm-900 outline-none placeholder:text-warm-400 bg-transparent"
@@ -280,7 +281,7 @@ export default function NewRecipePage() {
                   className="w-20 px-2 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none cursor-pointer">
                   {clinicalRecipeUnits(row.food?.serving_unit ?? "").map((u) => <option key={u} value={u}>{u}</option>)}
                 </select>
-                <button type="button" onClick={() => setIngredients((prev) => prev.filter((_, i) => i !== idx))}
+                <button type="button" aria-label={`Remove ingredient ${idx + 1}`} onClick={() => setIngredients((prev) => prev.filter((_, i) => i !== idx))}
                   disabled={ingredients.length === 1}
                   className="p-2 rounded-lg text-warm-400 hover:text-red-500 hover:bg-red-50 disabled:opacity-30 cursor-pointer transition-colors">
                   <X className="h-3.5 w-3.5" />
@@ -294,7 +295,7 @@ export default function NewRecipePage() {
         <div className="flex justify-end"><Button type="button" variant="secondary" onClick={() => setShowMicros(true)}>View Micronutrient Profile</Button></div>
 
         <div className="flex gap-3 justify-end pb-4">
-          <Link href="/food-library?tab=recipes"><Button variant="secondary" className="w-auto px-6 py-2.5">Cancel</Button></Link>
+          <Button type="button" variant="secondary" onClick={() => guard.requestLeave(() => router.push("/food-library?tab=recipes"))} className="w-auto px-6 py-2.5">Cancel</Button>
           <Button type="submit" variant="primary" loading={saving} className="w-auto px-6 py-2.5">Save Menu Item</Button>
         </div>
       </form>

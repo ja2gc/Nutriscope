@@ -42,6 +42,17 @@ async function open(remaining = 3, monitoringPlan = plan) {
 }
 
 describe("draft monitoring summary", () => {
+  it('lets surrounding tab navigation use the form guard', async () => {
+    const leaveRef = React.createRef<{ requestLeave: (next: () => void) => void }>();
+    const next = vi.fn();
+    await act(async () => root.render(<LogVisitForm context={context} intervention={null} onSubmit={vi.fn()} onCancel={vi.fn()} leaveRef={leaveRef} />));
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Weight kg' }), { target: { value: '61' } });
+    act(() => leaveRef.current?.requestLeave(next));
+    expect(next).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog', { name: 'Unsaved changes' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+    expect(next).toHaveBeenCalledOnce();
+  });
   it('uses X, Discard and Save when canceling an edited visit', async () => {
     await open();
     fireEvent.change(screen.getByRole('spinbutton', { name: 'Weight kg' }), { target: { value: '61' } });

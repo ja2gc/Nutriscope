@@ -67,6 +67,22 @@ afterEach(async () => {
 });
 
 describe("Food Library USDA search", () => {
+  it('asks before switching tabs away from an unsaved template', async () => {
+    window.history.replaceState(null, '', '/food-library?tab=templates');
+    container = document.createElement('div'); document.body.append(container); root = createRoot(container);
+    await act(async () => root.render(<FoodLibraryPage />));
+    await act(async () => Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(el => el.textContent === 'New Template')!.click());
+    await changeSearch(container.querySelector<HTMLInputElement>('[aria-label="Create meal template"] input')!, 'Unsaved template');
+    const menuTab = Array.from(container.querySelectorAll<HTMLButtonElement>('[role="tab"]')).find(el => el.textContent === 'Menu Items')!;
+    await act(async () => menuTab.click());
+    expect(container.querySelector('[role="dialog"][aria-label="Unsaved changes"]')).not.toBeNull();
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Create meal template"] input')?.value).toBe('Unsaved template');
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Stay on this page"]')!.click());
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    await act(async () => menuTab.click());
+    await act(async () => Array.from(container.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')).find(el => el.textContent === 'Discard')!.click());
+    expect(menuTab.getAttribute('aria-selected')).toBe('true');
+  });
   it('returns to Menu Items when requested by the editor back link', async () => {
     window.history.replaceState(null, '', '/food-library?tab=recipes');
     container = document.createElement('div'); document.body.append(container); root = createRoot(container);

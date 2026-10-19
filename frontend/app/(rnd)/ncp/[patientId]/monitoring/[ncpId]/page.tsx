@@ -1,6 +1,7 @@
 "use client";
 
-import React, { use, useEffect, useState, useCallback } from "react";
+import React, { use, useEffect, useState, useCallback, useRef } from "react";
+import type { EditorLeaveHandle } from "@/hooks/useUnsavedChanges";
 import Link from "next/link";
 import EncounterLog from "./_components/EncounterLog";
 import GoalProgressTracker from "./_components/GoalProgressTracker";
@@ -79,6 +80,11 @@ export default function NcpMonitoringPage({
   const [context, setContext]               = useState<MonitoringContext | null>(null);
   const [loading, setLoading]               = useState(true);
   const [showForm, setShowForm]             = useState(false);
+  const visitLeave = useRef<EditorLeaveHandle>(null);
+  function leaveVisit(next: () => void) {
+    if (visitLeave.current) visitLeave.current.requestLeave(next);
+    else next();
+  }
   const [activeTab, setActiveTab]           = useState<Tab>("log");
   const [category, setCategory] = useState<IndicatorCategory | "all">("all");
   const [error, setError]                   = useState<string | null>(null);
@@ -232,6 +238,7 @@ export default function NcpMonitoringPage({
         ]}
         interventionGoal={intervention?.goal_type}
         medicalDiagnosis={patient?.medical_diagnosis}
+        onBeforeUnselectPatient={leaveVisit}
       />
 
       {/* ── Page header ─────────────────────────────────────────────────────── */}
@@ -267,7 +274,7 @@ export default function NcpMonitoringPage({
           {/* ── Main column (2/3 on lg+) ───────────────────────────────────── */}
           <div className="lg:col-span-2 space-y-0">
 
-            <Tabs items={[{ key: "log", label: "Visit Log" }, { key: "progress", label: "Progress Trends" }]} value={activeTab} onChange={setActiveTab} ariaLabel="Monitoring views" fill className="mb-6 w-full max-w-sm sm:w-fit" />
+            <Tabs items={[{ key: "log", label: "Visit Log" }, { key: "progress", label: "Progress Trends" }]} value={activeTab} onChange={(tab) => { if (tab !== activeTab) leaveVisit(() => { setShowForm(false); setActiveTab(tab); }); }} ariaLabel="Monitoring views" fill className="mb-6 w-full max-w-sm sm:w-fit" />
 
             {/* ── Visit Log tab ─────────────────────────────────────────── */}
             {activeTab === "log" && (
@@ -277,10 +284,11 @@ export default function NcpMonitoringPage({
                   onLogNew={() => setShowForm(true)}
                   onDelete={handleDeleteEntry}
                 />
-                <Pagination meta={historyMeta} page={historyPage} onPageChange={setHistoryPage} />
+                <Pagination meta={historyMeta} page={historyPage} onPageChange={(page) => leaveVisit(() => { setShowForm(false); setHistoryPage(page); })} />
 
                 {showForm && context && plan && (
                   <LogVisitForm
+                    leaveRef={visitLeave}
                     ncpId={ncpId}
                     plan={plan}
                     context={context}

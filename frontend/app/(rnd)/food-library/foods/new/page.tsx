@@ -83,7 +83,7 @@ export default function NewFoodPage() {
       </div>
 
       <div className="border-b border-warm-200 pb-5 flex items-center gap-4">
-        <Link href="/food-library" className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 transition-colors">
+        <Link href="/food-library" aria-label="Back to Ingredients" className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 transition-colors">
           <ArrowLeft className="h-4 w-4" />
         </Link>
         <div>
@@ -104,11 +104,11 @@ export default function NewFoodPage() {
           <div className="grid grid-cols-1 items-end sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
               <Label>Name <Required /></Label>
-              <input type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputCls} required />
+              <input aria-label="Name" type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputCls} required />
             </div>
             <div>
               <Label>Category</Label>
-              <select value={category} onChange={(e) => setCategory(e.target.value)} className={inputCls}>
+              <select aria-label="Category" value={category} onChange={(e) => setCategory(e.target.value)} className={inputCls}>
                 <option value="">Select category</option>
                 {CATEGORIES.map((c) => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
               </select>
@@ -134,19 +134,19 @@ export default function NewFoodPage() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
               <Label>Calories (kcal) <Required /></Label>
-              <input type="number" value={calories} onChange={(e) => setCalories(e.target.value)} min={numericStepBase(calories)} step="0.1" className={inputCls} required />
+              <input aria-label="Calories (kcal)" type="number" value={calories} onChange={(e) => setCalories(e.target.value)} min={numericStepBase(calories)} step="0.1" className={inputCls} required />
             </div>
             <div>
               <Label>Protein (g)</Label>
-              <input type="number" value={protein} onChange={(e) => setProtein(e.target.value)} min={numericStepBase(protein)} step="0.1" className={inputCls} />
+              <input aria-label="Protein (g)" type="number" value={protein} onChange={(e) => setProtein(e.target.value)} min={numericStepBase(protein)} step="0.1" className={inputCls} />
             </div>
             <div>
               <Label>Carbs (g)</Label>
-              <input type="number" value={carbs} onChange={(e) => setCarbs(e.target.value)} min={numericStepBase(carbs)} step="0.1" className={inputCls} />
+              <input aria-label="Carbs (g)" type="number" value={carbs} onChange={(e) => setCarbs(e.target.value)} min={numericStepBase(carbs)} step="0.1" className={inputCls} />
             </div>
             <div>
               <Label>Fat (g)</Label>
-              <input type="number" value={fat} onChange={(e) => setFat(e.target.value)} min={numericStepBase(fat)} step="0.1" className={inputCls} />
+              <input aria-label="Fat (g)" type="number" value={fat} onChange={(e) => setFat(e.target.value)} min={numericStepBase(fat)} step="0.1" className={inputCls} />
             </div>
           </div>
           <p className="text-xs text-warm-400 leading-relaxed">
@@ -174,25 +174,25 @@ export default function NewFoodPage() {
           {allergens.filter((a) => !COMMON_ALLERGENS.includes(a)).map((a) => (
             <span key={a} className="inline-flex items-center gap-1 mr-2 px-2 py-0.5 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold rounded-full">
               {a}
-              <button type="button" onClick={() => setAllergens((prev) => prev.filter((x) => x !== a))} className="cursor-pointer"><X className="h-2.5 w-2.5" /></button>
+              <button type="button" aria-label={`Remove allergen ${a}`} onClick={() => setAllergens((prev) => prev.filter((x) => x !== a))} className="cursor-pointer"><X className="h-2.5 w-2.5" /></button>
             </span>
           ))}
           <div className="flex gap-2 mt-1">
             <input
-              type="text"
+              aria-label="Custom allergen" type="text"
               value={allergenInput}
               onChange={(e) => setAllergenInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCustomAllergen(); } }}
               className={`${inputCls} flex-1 max-w-64`}
             />
-            <button type="button" onClick={addCustomAllergen} className="px-3 py-2 border border-warm-300 rounded-lg text-warm-600 hover:bg-warm-50 cursor-pointer transition-colors">
+            <button type="button" aria-label="Add custom allergen" onClick={addCustomAllergen} className="px-3 py-2 border border-warm-300 rounded-lg text-warm-600 hover:bg-warm-50 cursor-pointer transition-colors">
               <Plus className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
 
         <div className="flex gap-3 justify-end pb-4">
-          <Link href="/food-library"><Button variant="secondary" className="w-auto px-6 py-2.5">Cancel</Button></Link>
+          <Button type="button" variant="secondary" onClick={() => guard.requestLeave(() => router.push("/food-library"))} className="w-auto px-6 py-2.5">Cancel</Button>
           <Button type="submit" variant="primary" loading={saving} className="w-auto px-6 py-2.5">Save Food Item</Button>
         </div>
       </form>

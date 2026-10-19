@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 import { Button } from "@/components/ui/Button";
 import { WeeklyMenuCalendar, MENU_SLOTS } from "@/components/ncp/WeeklyMenuCalendar";
 import { MenuEditorSlots, MenuEditorActions, MenuEditorAction } from "@/components/ncp/MenuEditorSlots";
 import { RecipeMenuItemProfile } from "@/components/ncp/MenuItemProfile";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { MenuItemPicker } from "@/components/ncp/MenuItemPicker";
-import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
+import { useUnsavedChanges, type EditorLeaveHandle } from "@/hooks/useUnsavedChanges";
 import { ArrowLeft } from "lucide-react";
 import { formatMealPlanAmount as formatTemplateDisplayNumber } from "@/lib/mealPlanNutrition";
 import { fetchRecipes, type Recipe } from "@/services/foodLibraryService";
@@ -22,10 +22,11 @@ type EditorLine = LibraryTemplateLine & { key: number; itemName: string; snapsho
 type EditorState = { id?: string; name: string; description: string; lines: EditorLine[]; readOnly?: boolean };
 let nextLineKey = 0;
 
-function TemplateEditor({ initial, onClose, onSaved }: {
+function TemplateEditor({ initial, onClose, onSaved, leaveRef }: {
   initial: EditorState;
   onClose: () => void;
   onSaved: () => void;
+  leaveRef?: Ref<EditorLeaveHandle>;
 }) {
   const [draft, setDraft] = useState(initial);
   const [day, setDay] = useState("Monday");
@@ -132,6 +133,7 @@ function TemplateEditor({ initial, onClose, onSaved }: {
   }
 
   const guard = useUnsavedChanges({ dirty: !draft.readOnly && JSON.stringify(draft) !== JSON.stringify(initial), onSave: save });
+  useImperativeHandle(leaveRef, () => ({ requestLeave: guard.requestLeave }), [guard.requestLeave]);
 
   if (profile) return <RecipeMenuItemProfile id={profile.id} name={profile.name} snapshot={profile.snapshot} onBack={closeProfile} />;
 
@@ -181,7 +183,7 @@ function TemplateEditor({ initial, onClose, onSaved }: {
   );
 }
 
-export function MealTemplatesTab() {
+export function MealTemplatesTab({ leaveRef }: { leaveRef?: Ref<EditorLeaveHandle> }) {
   const [templates, setTemplates] = useState<MealPlanTemplate[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [page, setPage] = useState(1);
@@ -254,7 +256,7 @@ export function MealTemplatesTab() {
     }
   }
 
-  if (editor) return <TemplateEditor initial={editor} onClose={() => setEditor(null)} onSaved={() => { setEditor(null); void load(); }} />;
+  if (editor) return <TemplateEditor leaveRef={leaveRef} initial={editor} onClose={() => setEditor(null)} onSaved={() => { setEditor(null); void load(); }} />;
 
   return <div className="space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3">

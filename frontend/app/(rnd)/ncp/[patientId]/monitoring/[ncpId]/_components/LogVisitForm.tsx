@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useEditorChanges } from "@/hooks/useUnsavedChanges";
+import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
+import { useEditorChanges, type EditorLeaveHandle } from "@/hooks/useUnsavedChanges";
 
 import { Button } from "@/components/ui/Button";
 import { numericStepBase } from "@/components/ui/NumericInput";
@@ -37,6 +37,7 @@ interface LogVisitFormProps {
   intervention: Intervention | null;
   onSubmit: (payload: MonitoringPayload) => Promise<void>;
   onCancel: () => void;
+  leaveRef?: Ref<EditorLeaveHandle>;
 }
 
 const VISIT_TYPES: { value: MonitoringVisitType; label: string }[] = [
@@ -183,7 +184,7 @@ function ToggleGroup<T extends string>({ label, options, value, onChange, requir
   );
 }
 
-export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel }: LogVisitFormProps) {
+export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel, leaveRef }: LogVisitFormProps) {
   const knownLabKeys = Object.keys(CLINICAL_LAB_META) as ClinicalLabKey[];
   const planLabKeys = plan
     ? (plan.indicators.filter((indicator) => indicator.category === "lab").map((indicator) => indicator.key) as ClinicalLabKey[])
@@ -334,6 +335,7 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel 
   }
 
   const guard = useEditorChanges(JSON.stringify({ observedAt, visitType, weight, height, edemaPresent, dryWeight, activityLevel, maternalStatus, allergies, dietaryRestrictions, foodDislikes, compliance, giTolerance, decision, clinicalSummary, intakeNotes, symptoms, nextMonitoringDate, labs, intakes }), true, () => handleSubmit());
+  useImperativeHandle(leaveRef, () => ({ requestLeave: guard.requestLeave }), [guard.requestLeave]);
 
   return (
     <div className="overflow-hidden rounded-2xl border border-warm-200 bg-white shadow-sm">

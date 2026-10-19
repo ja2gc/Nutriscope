@@ -510,7 +510,7 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
                   className="w-24 rounded border border-warm-200 px-2 py-1 disabled:bg-warm-50" />
                   </td>
                 <td className="px-3 py-2">
-                  <select value={it.purchase_unit ?? it.unit} disabled={list.status === "converted" || isSupplies}
+                  <select aria-label={`Purchase unit for ${it.ingredient_name}`} value={it.purchase_unit ?? it.unit} disabled={list.status === "converted" || isSupplies}
                     onChange={(e) => { setItemDrafts((current) => ({ ...current, [it.id]: {} })); patchItem(it.id, { purchase_unit: e.target.value }); }}
                     className="w-24 rounded border border-warm-200 bg-white px-2 py-1 disabled:bg-warm-50">
                     {compatibleRecipeUnits(it.inventory_unit ?? it.unit, it.purchase_unit ?? it.unit)

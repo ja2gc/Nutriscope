@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { UnsavedChangesDialog } from '@/components/ui/UnsavedChangesDialog';
+export type EditorLeaveHandle = { requestLeave: (next: () => void) => void };
 
 export function useEditorChanges(snapshot: string, ready: boolean, onSave: () => Promise<boolean>) {
   const [baseline, setBaseline] = useState<string | null>(ready ? snapshot : null);
