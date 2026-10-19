@@ -63,6 +63,8 @@ Continue immediately with the compact Food Service sequence in `RND Food Service
 3. Show **Overview**, **ADIME Records**, **Appointments**, and **Attachments**.
 4. Open the protection-rules help icon.
 
+For the full guide, open **Overview → Contact details → Edit contact details**. Keep the existing contact number, add a fictional Email or Messenger contact, select **Preferred contact**, save and reopen to verify it. Up to five additional contacts are supported; **Other** permits a custom method label. X / Discard / Save protects unsaved contact edits when leaving.
+
 **Narration**
 
 > The patient profile keeps clinical cycles, visits, and supporting files together. Technical cycle identifiers and patient audit panels are not part of the clinical working view. The help icon explains when a patient or cycle can be deleted and when a completed record becomes protected.

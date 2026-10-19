@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef, useImperativeHandle, type Ref } from "react";
 import { Truck, Plus, Pencil, Trash2, X, AlertTriangle } from "lucide-react";
-import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
+import { useUnsavedChanges, type EditorLeaveHandle } from "@/hooks/useUnsavedChanges";
+import { ContactDetailsFields, ContactDetailsSummary } from '@/components/ui/ContactDetailsFields';
+import { contactDetailsFrom, contactDetailsPayload, contactDetailsErrors, type ContactDetailsErrors } from '@/lib/contactDetails';
 import { Button } from "@/components/ui/Button";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import SearchInput from "@/components/ui/SearchInput";
@@ -21,31 +23,38 @@ function Label({ children }: { children: React.ReactNode }) {
   return <label className="block text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1">{children}</label>;
 }
 
-const EMPTY: SupplierPayload = { name: "", category: "", contact: "", address: "", payment_terms: "", notes: "" };
+const EMPTY: SupplierPayload = { name: "", category: "", contact: "", address: "", payment_terms: "", notes: "", additional_contacts: [], preferred_contact_id: null };
 
-function SupplierForm({ initial, editingId, onSaved, onCancel }: {
+function SupplierForm({ initial, editingId, onSaved, onCancel, leaveRef }: {
   initial: SupplierPayload;
   editingId: number | null;
   onSaved: () => void;
   onCancel: () => void;
+  leaveRef?: Ref<EditorLeaveHandle>;
 }) {
   const [form, setForm] = useState<SupplierPayload>(initial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [contactErrors, setContactErrors] = useState<ContactDetailsErrors>({});
 
   const set = (patch: Partial<SupplierPayload>) => setForm((f) => ({ ...f, ...patch }));
 
   const guard = useUnsavedChanges({ dirty: JSON.stringify(form) !== JSON.stringify(initial), onSave: handleSave });
+  useImperativeHandle(leaveRef, () => ({ requestLeave: guard.requestLeave }), [guard.requestLeave]);
 
   async function handleSave() {
     if (!form.name.trim()) { setError("Vendor name is required."); return false; }
+    const contacts = contactDetailsFrom(form);
+    const validation = contactDetailsErrors(contacts);
+    setContactErrors(validation);
+    if (Object.keys(validation).length) return false;
     setSaving(true); setError("");
     try {
       await saveSupplier(editingId, {
         ...form,
+        ...contactDetailsPayload(contacts),
         name: form.name.trim(),
         category: form.category || null,
-        contact: form.contact || null,
         address: form.address || null,
         payment_terms: form.payment_terms || null,
         notes: form.notes || null,
@@ -68,7 +77,7 @@ function SupplierForm({ initial, editingId, onSaved, onCancel }: {
           {editingId ? "Edit Vendor" : "New Vendor"}
         </h3>
         {error && (
-          <span className="flex items-center gap-1 text-sm text-red-600 font-semibold">
+          <span role="alert" className="flex items-center gap-1 text-sm text-red-600 font-semibold">
             <AlertTriangle className="h-3 w-3" /> {error}
           </span>
         )}
@@ -76,33 +85,29 @@ function SupplierForm({ initial, editingId, onSaved, onCancel }: {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <Label>Vendor Name *</Label>
-          <input value={form.name} onChange={(e) => set({ name: e.target.value })} className={inputCls} autoFocus />
+          <input aria-label="Vendor name" value={form.name} maxLength={255} onChange={(e) => set({ name: e.target.value })} className={inputCls} autoFocus />
         </div>
         <div>
           <Label>Description</Label>
-          <input value={form.category ?? ""} onChange={(e) => set({ category: e.target.value })}
-            className={inputCls} />
-        </div>
-        <div>
-          <Label>Contact</Label>
-          <input value={form.contact ?? ""} onChange={(e) => set({ contact: e.target.value })}
+          <input aria-label="Description" value={form.category ?? ""} onChange={(e) => set({ category: e.target.value })}
             className={inputCls} />
         </div>
         <div>
           <Label>Payment Terms</Label>
-          <input value={form.payment_terms ?? ""} onChange={(e) => set({ payment_terms: e.target.value })}
+          <input aria-label="Payment terms" value={form.payment_terms ?? ""} onChange={(e) => set({ payment_terms: e.target.value })}
             className={inputCls} />
         </div>
         <div className="sm:col-span-2">
           <Label>Address</Label>
-          <input value={form.address ?? ""} onChange={(e) => set({ address: e.target.value })} className={inputCls} />
+          <input aria-label="Address" value={form.address ?? ""} onChange={(e) => set({ address: e.target.value })} className={inputCls} />
         </div>
         <div className="sm:col-span-2">
           <Label>Notes</Label>
-          <textarea value={form.notes ?? ""} onChange={(e) => set({ notes: e.target.value })} rows={2}
+          <textarea aria-label="Notes" value={form.notes ?? ""} onChange={(e) => set({ notes: e.target.value })} rows={2}
             className={`${inputCls} resize-none`} />
         </div>
       </div>
+      <section className="space-y-3"><h4 className="text-sm font-bold uppercase tracking-wider text-warm-700">Contact details</h4><ContactDetailsFields value={contactDetailsFrom(form)} onChange={contacts => { set(contacts); setContactErrors({}); setError(''); }} errors={contactErrors} disabled={saving} /></section>
       <div className="flex gap-2">
         <Button variant="primary" onClick={handleSave} disabled={saving} className="!py-1.5 !px-4 text-sm">
           {saving ? "Saving…" : editingId ? "Save Changes" : "Add Vendor"}
@@ -119,7 +124,10 @@ function SupplierForm({ initial, editingId, onSaved, onCancel }: {
  * Suppliers/Vendors CRUD, rendered as a tab inside the Procurement page
  * (A3 — merged from the former standalone /food-service/suppliers route).
  */
-export function SuppliersPanel() {
+export function SuppliersPanel({ leaveRef }: { leaveRef?: Ref<EditorLeaveHandle> } = {}) {
+  const formLeaveRef = useRef<EditorLeaveHandle | null>(null);
+  const [formVersion, setFormVersion] = useState(0);
+  useImperativeHandle(leaveRef, () => ({ requestLeave: next => formLeaveRef.current ? formLeaveRef.current.requestLeave(next) : next() }), []);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -152,8 +160,8 @@ export function SuppliersPanel() {
 
   useEffect(() => { setPage(1); }, [search]);
 
-  function openNew() { setEditing(null); setFormOpen(true); }
-  function openEdit(s: Supplier) { setEditing(s); setFormOpen(true); }
+  function openNew() { const next = () => { setFormVersion(value => value + 1); setEditing(null); setFormOpen(true); }; if (formLeaveRef.current) formLeaveRef.current.requestLeave(next); else next(); }
+  function openEdit(s: Supplier) { const next = () => { setFormVersion(value => value + 1); setEditing(s); setFormOpen(true); }; if (formLeaveRef.current) formLeaveRef.current.requestLeave(next); else next(); }
   function onSaved() { setFormOpen(false); setEditing(null); load(); }
 
   async function handleDelete(id: number) {
@@ -180,8 +188,10 @@ export function SuppliersPanel() {
 
       {formOpen && (
         <SupplierForm
+          key={`${editing?.id ?? 'new'}-${formVersion}`}
+          leaveRef={formLeaveRef}
           initial={editing
-            ? { name: editing.name, category: editing.category, contact: editing.contact, address: editing.address, payment_terms: editing.payment_terms, notes: editing.notes }
+            ? { name: editing.name, category: editing.category, ...contactDetailsFrom(editing), address: editing.address, payment_terms: editing.payment_terms, notes: editing.notes }
             : EMPTY}
           editingId={editing?.id ?? null}
           onSaved={onSaved}
@@ -217,7 +227,7 @@ export function SuppliersPanel() {
                 <tr key={s.id} className="hover:bg-warm-50/60 transition-colors">
                   <td className="px-4 py-3 font-semibold text-warm-800">{s.name}</td>
                   <td className="px-4 py-3 text-warm-600">{s.category || "—"}</td>
-                  <td className="px-4 py-3 text-warm-600">{s.contact || "—"}</td>
+                  <td className="min-w-64 px-4 py-3 text-warm-600"><ContactDetailsSummary value={contactDetailsFrom(s)} /></td>
                   <td className="px-4 py-3 text-warm-500">{s.payment_terms || "—"}</td>
                   <td className="px-4 py-3">
                     {deleteId === s.id ? (
@@ -231,7 +241,7 @@ export function SuppliersPanel() {
                       </div>
                     ) : (
                       <div className="flex items-center gap-1">
-                        <button onClick={() => openEdit(s)} title="Edit"
+                        <button onClick={() => openEdit(s)} title="Edit" aria-label={`Edit ${s.name}`}
                           className="p-1.5 rounded-lg hover:bg-warm-100 text-warm-500 transition-colors cursor-pointer">
                           <Pencil className="h-3.5 w-3.5" />
                         </button>

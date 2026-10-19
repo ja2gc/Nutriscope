@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
+import { useUnsavedChanges, type EditorLeaveHandle } from "@/hooks/useUnsavedChanges";
 import { useSearchParams } from "next/navigation";
 import {
   ShoppingBag, Plus, Trash2, ChevronLeft, Split,
@@ -934,6 +934,7 @@ export default function ProcurementPage() {
   const searchParams = useSearchParams();
   const targetPoId = searchParams.get("poId") || null;
   const [tab, setTab] = useState<"food-lists" | "supplies-lists" | "pos" | "suppliers">("food-lists");
+  const supplierLeaveRef = useRef<EditorLeaveHandle | null>(null);
   const [listDetail, setListDetail] = useState<string | null>(null);
   const [draftPreview, setDraftPreview] = useState<ShoppingList | null>(null);
   const [poDetail, setPoDetail] = useState<string | null>(null);
@@ -1208,7 +1209,7 @@ export default function ProcurementPage() {
           ["pos", "Purchase Orders"],
           ["suppliers", "Suppliers"],
         ] as const).map(([k, label]) => (
-          <button key={k} onClick={() => setTab(k)}
+          <button key={k} onClick={() => supplierLeaveRef.current ? supplierLeaveRef.current.requestLeave(() => setTab(k)) : setTab(k)}
             className={`px-5 py-3 text-base font-semibold border-b-2 transition-colors cursor-pointer ${
               tab === k ? "border-emerald-600 text-emerald-700" : "border-transparent text-warm-500 hover:text-warm-800"
             }`}>
@@ -1217,7 +1218,7 @@ export default function ProcurementPage() {
         ))}
       </div>
 
-      {tab === "suppliers" ? <SuppliersPanel /> : (
+      {tab === "suppliers" ? <SuppliersPanel leaveRef={supplierLeaveRef} /> : (
         <div className={`bg-white border border-warm-200 rounded-2xl shadow-sm ${tab === "pos" ? "overflow-x-auto" : ""}`}>
           {loading ? (
             <div className="py-16 text-center text-sm text-warm-400">Loading…</div>

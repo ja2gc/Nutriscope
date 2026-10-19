@@ -76,6 +76,7 @@ class AuditValuePresenter
         ],
         AuditDomain::Procurement->value => [
             'name' => 'text', 'category' => 'text', 'contact' => 'text', 'address' => 'text',
+            'additional_contacts' => 'text', 'preferred_contact' => 'text',
             'payment_terms' => 'text', 'status' => 'enum', 'quantity' => 'number', 'unit_price' => 'currency',
             'total_amount' => 'currency', 'delivery_status' => 'enum',
             'estimated_population' => 'number', 'served_population' => 'number',

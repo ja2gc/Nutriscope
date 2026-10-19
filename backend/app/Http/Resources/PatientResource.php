@@ -25,6 +25,8 @@ class PatientResource extends JsonResource
             'religion' => $this->religion,
             'address' => $this->address,
             'contact' => $this->contact,
+            'additional_contacts' => $this->additional_contacts ?? [],
+            'preferred_contact_id' => $this->preferred_contact_id,
             'physician' => $this->physician,
             'admission_date' => $this->admission_date,
             'medical_diagnosis' => $this->medical_diagnosis,

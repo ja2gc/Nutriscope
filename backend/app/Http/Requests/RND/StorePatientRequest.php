@@ -2,11 +2,14 @@
 
 namespace App\Http\Requests\RND;
 
+use App\Http\Requests\Concerns\ValidatesContactDetails;
 use App\Rules\PersonName;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StorePatientRequest extends FormRequest
 {
+    use ValidatesContactDetails;
+
     public function authorize(): bool
     {
         return true;
@@ -15,6 +18,7 @@ class StorePatientRequest extends FormRequest
     public function rules(): array
     {
         return [
+            ...$this->contactDetailsRules(),
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'first_name' => ['required', 'string', new PersonName],
             'last_name' => ['required', 'string', new PersonName],

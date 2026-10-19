@@ -1,6 +1,8 @@
 "use client";
 
-import React, { use, useEffect, useState, useCallback } from "react";
+import React, { use, useEffect, useState, useCallback, useRef } from "react";
+import { PatientContactDetails } from '@/components/ncp/PatientContactDetails';
+import type { EditorLeaveHandle } from '@/hooks/useUnsavedChanges';
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { HeartHandshake, Plus, Trash2, AlertTriangle, Lock, Paperclip, FileText, Download, Eye, X } from "lucide-react";
@@ -343,6 +345,7 @@ export default function PatientProfilePage({
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
+  const contactLeaveRef = useRef<EditorLeaveHandle | null>(null);
   const [targetAppointmentId, setTargetAppointmentId] = useState<string | undefined>();
   const [recordsPage, setRecordsPage] = useState(1);
   const [recordsMeta, setRecordsMeta] = useState<PaginationMeta | null>(null);
@@ -615,7 +618,7 @@ export default function PatientProfilePage({
           {(["overview", "adime-records", "appointments", "attachments"] as TabKey[]).map((tab) => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => contactLeaveRef.current ? contactLeaveRef.current.requestLeave(() => setActiveTab(tab)) : setActiveTab(tab)}
               className={`pb-4 text-sm font-extrabold uppercase tracking-wider border-b-2 transition-all ${
                 activeTab === tab
                   ? "border-emerald-600 text-emerald-800"
@@ -649,10 +652,6 @@ export default function PatientProfilePage({
                   <span className="text-warm-800 font-semibold">{formatAbsoluteDate(patient.admission_date)}</span>
                 </div>
                 <div className="space-y-1">
-                  <span className="text-xs font-bold text-warm-400 uppercase tracking-wider block">Contact Number</span>
-                  <span className={`font-mono font-semibold ${patient.contact ? "text-warm-800" : "text-warm-400"}`}>{patient.contact ?? "N/A"}</span>
-                </div>
-                <div className="space-y-1">
                   <span className="text-xs font-bold text-warm-400 uppercase tracking-wider block">Religion</span>
                   <span className={`font-semibold ${patient.religion ? "text-warm-800" : "text-warm-400"}`}>{patient.religion ?? "N/A"}</span>
                 </div>
@@ -663,6 +662,7 @@ export default function PatientProfilePage({
               </div>
             </div>
 
+            <PatientContactDetails patient={patient} onSaved={setPatient} leaveRef={contactLeaveRef} />
             <div className="bg-white border border-warm-200 rounded-2xl overflow-hidden">
               <div className="px-5 py-4 border-b border-warm-100 bg-warm-50">
                 <h3 className="text-sm font-bold text-warm-900 uppercase tracking-wider">Referral Details</h3>

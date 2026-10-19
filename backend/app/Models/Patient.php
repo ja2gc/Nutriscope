@@ -21,11 +21,13 @@ class Patient extends Model
         'name', 'first_name', 'last_name', 'dob', 'sex', 'religion', 'address', 'contact',
         'physician', 'admission_date', 'medical_diagnosis', 'ward', 'status',
         'screening_type', 'hospital_number',
+        'additional_contacts', 'preferred_contact_id',
     ];
 
     protected $casts = [
         'dob' => 'date',
         'admission_date' => 'date',
+        'additional_contacts' => 'array',
     ];
 
     protected static function booted(): void
@@ -41,6 +43,7 @@ class Patient extends Model
             'name', 'first_name', 'last_name', 'dob', 'sex', 'religion', 'address', 'contact',
             'physician', 'admission_date', 'medical_diagnosis', 'ward', 'status',
             'screening_type', 'hospital_number',
+            'additional_contacts', 'preferred_contact_id',
         ];
     }
 

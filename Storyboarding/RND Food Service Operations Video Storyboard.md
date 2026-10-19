@@ -48,6 +48,8 @@ Use this as both the recording checklist and narration script. Create every name
 6. Open **Supplies** and create **Demo Video Meal Container** with its vendor and price.
 7. Point out the **Auto grocery** and **Purchase when needed** badges.
 
+In vendor create/edit, demonstrate **Contact details → Add contact**, choose a contact method and enter its fictional value, then select **Preferred contact** before saving. The shared editor supports five additional contacts and the same validation and unsaved-change prompt as the patient profile; existing contact values remain available.
+
 **Narration**
 
 > Food-service planning begins with reusable food, supply, and vendor records. They store names, units, suppliers, and current reference prices. They do not track how much stock is currently in storage. The chicken will be added automatically to shopping lists made from a menu. The seasoning mix can still be used in recipes, but staff must add it to a shopping list when they decide it is needed.

@@ -1,4 +1,5 @@
 ﻿import { apiFetch } from "@/lib/apiFetch";
+import type { ContactEntry } from '@/lib/contactDetails';
 export interface ClinicalActor {
   id: string | null;
   kind: "user" | "system" | "anonymous";
@@ -22,7 +23,9 @@ export interface Patient {
   sex: "Male" | "Female";
   religion?: string;
   address?: string;
-  contact?: string;
+  contact?: string | null;
+  additional_contacts?: ContactEntry[] | null;
+  preferred_contact_id?: string | null;
   physician?: string;
   admission_date: string; // YYYY-MM-DD
   medical_diagnosis?: string;
@@ -101,7 +104,9 @@ interface PatientStoreFields {
   sex: "Male" | "Female";
   religion?: string;
   address?: string;
-  contact?: string;
+  contact?: string | null;
+  additional_contacts?: ContactEntry[] | null;
+  preferred_contact_id?: string | null;
   physician?: string;
   admission_date: string;
   medical_diagnosis?: string;

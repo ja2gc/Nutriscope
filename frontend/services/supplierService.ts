@@ -1,5 +1,6 @@
 import { apiFetch } from "@/lib/apiFetch";
 import type { PaginationMeta } from "@/components/ui/Pagination";
+import type { ContactEntry } from '@/lib/contactDetails';
 
 export interface Supplier {
   id: number;
@@ -7,6 +8,8 @@ export interface Supplier {
   /** Free-text description, e.g. "vegetables", "meats". (stored in `category`) */
   category: string | null;
   contact: string | null;
+  additional_contacts?: ContactEntry[] | null;
+  preferred_contact_id?: string | null;
   address: string | null;
   payment_terms: string | null;
   notes: string | null;
@@ -18,6 +21,8 @@ export interface SupplierPayload {
   name: string;
   category?: string | null;
   contact?: string | null;
+  additional_contacts?: ContactEntry[] | null;
+  preferred_contact_id?: string | null;
   address?: string | null;
   payment_terms?: string | null;
   notes?: string | null;

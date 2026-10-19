@@ -184,6 +184,14 @@ export const HELP_ITEMS: HelpItem[] = [
     keywords: ["create patient", "assessment", "new NCP"],
   },
   {
+    id: "rnd-patient-contact-details",
+    role: "RND",
+    category: "Nutrition Care Process",
+    question: "How do I save a patient's preferred contact?",
+    answer: "Open the patient's Overview and select Edit contact details. Keep the existing contact number and add up to five Phone, Email, Messenger or Other contacts. Other accepts a custom method label of up to 50 characters; contact values allow 255. Select one Preferred contact or leave the preference unset, then Save contact details. Unsaved edits use X, Discard and Save when leaving.",
+    keywords: ["phone", "email", "messenger", "preferred contact"],
+  },
+  {
     id: "rnd-multiple-cycles",
     role: "RND",
     category: "Nutrition Care Process",
@@ -400,6 +408,14 @@ export const HELP_ITEMS: HelpItem[] = [
     question: "How are supplies purchased?",
     answer: "Use the supply purchasing workflow to select catalog items, quantities, and vendors. Review the request separately from menu-derived food requirements.",
     keywords: ["shopping list", "vendor", "catalog"],
+  },
+  {
+    id: "rnd-vendor-contact-details",
+    role: "RND",
+    category: "Procurement & Budget",
+    question: "Can a vendor have more than one contact method?",
+    answer: "Yes. Open Procurement > Suppliers and create or edit the vendor. Contact details uses the same editor as the patient profile: keep the existing contact, add up to five Phone, Email, Messenger or Other contacts, and choose a Preferred contact. Save Changes or Add Vendor persists the details. Updating contacts does not rewrite completed procurement reports.",
+    keywords: ["supplier", "phone", "email", "messenger", "preferred contact"],
   },
   {
     id: "rnd-convert-po",

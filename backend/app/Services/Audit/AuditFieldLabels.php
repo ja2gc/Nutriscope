@@ -8,6 +8,7 @@ class AuditFieldLabels
 {
     private const LABELS = [
         'energy_kcal' => 'Energy Target',
+        'preferred_contact_id' => 'Preferred Contact',
         'energy_target' => 'Energy Target',
         'protein_g' => 'Protein Target',
         'protein_target' => 'Protein Target',

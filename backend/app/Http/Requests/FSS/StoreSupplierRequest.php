@@ -2,10 +2,13 @@
 
 namespace App\Http\Requests\FSS;
 
+use App\Http\Requests\Concerns\ValidatesContactDetails;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreSupplierRequest extends FormRequest
 {
+    use ValidatesContactDetails;
+
     public function authorize(): bool
     {
         return true;
@@ -14,6 +17,7 @@ class StoreSupplierRequest extends FormRequest
     public function rules(): array
     {
         return [
+            ...$this->contactDetailsRules(),
             'name' => ['required', 'string', 'max:255'],
             'category' => ['nullable', 'string', 'max:255'],
             'contact' => ['nullable', 'string', 'max:255'],
