@@ -751,9 +751,9 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
                 const actualQty = draft?.totalEdited && actualPrice > 0
                   ? num(draft.total) / actualPrice
                   : num(draft?.qty ?? item.actual_qty);
-                return <tr key={item.id}>
-                  <td className="px-3 py-3">
-                    <div className="font-semibold text-warm-800">{item.description}</div>
+                return <tr key={item.id} className="[&>td]:align-top">
+                  <td className="px-3 py-2">
+                    <div className="flex min-h-8 items-center font-semibold text-warm-800">{item.description}</div>
                   </td>
                   <td className="px-3 py-2"><input type="number" min="0" step="1" disabled={locked}
                     value={draft?.totalEdited && actualPrice > 0 ? String(Math.round(num(draft.total) / actualPrice * 1000) / 1000) : draft?.qty ?? String(num(item.actual_qty))}
@@ -762,7 +762,7 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
                       return { ...current, [item.id]: { ...currentDraft, qty: e.target.value, totalEdited: false } };
                     })}
                     className="w-24 rounded border border-warm-200 px-2 py-1 disabled:bg-warm-50" /></td>
-                  <td className="px-3 py-2 text-warm-600" aria-label={`Unit for ${item.description}`}>{item.purchase_unit ?? item.unit}</td>
+                  <td className="px-3 py-2 text-warm-600" aria-label={`Unit for ${item.description}`}><div className="flex min-h-8 items-center">{item.purchase_unit ?? item.unit}</div></td>
                   <td className="px-3 py-2">
                     <input type="number" min="0" step="any" disabled={locked}
                       value={draft?.price ?? String(num(item.actual_unit_price))}
@@ -771,7 +771,6 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
                         return { ...current, [item.id]: { ...currentDraft, price: e.target.value } };
                       })}
                       className="w-24 rounded border border-warm-200 px-2 py-1 disabled:bg-warm-50" />
-                    <PurchaseValueComparison item={item} actualQty={String(actualQty)} actualPrice={String(actualPrice)} />
                   </td>
                   <td className="px-3 py-2"><input type="number" min="0" step="any" disabled={locked}
                     aria-label={`Actual Total for ${item.description}`}
@@ -780,7 +779,9 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
                       const currentDraft = current[item.id] ?? { qty: String(num(item.actual_qty)), price: String(num(item.actual_unit_price)), total: String(num(item.actual_total)), totalEdited: false };
                       return { ...current, [item.id]: { ...currentDraft, total: e.target.value, totalEdited: true } };
                     })}
-                    className="w-24 rounded border border-warm-200 px-2 py-1 disabled:bg-warm-50" /></td>
+                    className="w-24 rounded border border-warm-200 px-2 py-1 disabled:bg-warm-50" />
+                    <PurchaseValueComparison item={item} actualQty={String(actualQty)} actualPrice={String(actualPrice)} />
+                  </td>
                   <td className="px-3 py-2">
                     <VendorChangeControls
                       group={group}

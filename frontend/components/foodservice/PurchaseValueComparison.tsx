@@ -15,7 +15,7 @@ export function PurchaseValueComparison({ item, actualQty, actualPrice }: {
   const currentPrice = number(actualPrice);
 
   return (
-    <div className="mt-1 text-xs text-warm-500">
+    <div className="mt-1 w-64 text-xs text-warm-500">
       <details className="pt-1">
         <summary className="min-h-11 cursor-pointer py-2 font-bold text-emerald-700">Calculation details</summary>
         <div className="mt-1 space-y-0.5 rounded-lg bg-warm-50 p-2">
