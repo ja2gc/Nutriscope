@@ -58,6 +58,16 @@ describe("micronutrient limit direction", () => {
     expect((container.querySelector('input[aria-label="Sodium max"]') as HTMLInputElement).value).toBe("2000");
   });
 
+  it('offers energy bounds and places macro units outside the bordered input', () => {
+    const change = vi.fn();
+    act(() => root.render(<NutritionPrescriptionForm values={{ energy_kcal: '1800', protein_g: '75', carbs_g: '225', fat_g: '60', fluid_ml: '2000', micronutrient_limits: {}, displayed_nutrients: [] }} onChange={change} onSave={vi.fn()} saving={false} />));
+    act(() => fireEvent.change(screen.getByRole('combobox', { name: 'Energy bound' }), { target: { value: 'max' } }));
+    expect(change).toHaveBeenCalledWith(expect.objectContaining({ energy_kcal: '1800', nutrient_operators: { energy_kcal: 'max' } }));
+    const input = screen.getByRole('spinbutton', { name: 'Energy' });
+    expect(input.parentElement?.textContent).not.toContain('kcal');
+    expect(input.parentElement?.parentElement?.textContent).toContain('kcal');
+  });
+
   it("allows goal defaults to be unchecked and removes their saved limits", () => {
     const change = vi.fn();
     act(() => root.render(<NutritionPrescriptionForm values={{ energy_kcal: '1800', protein_g: '75', carbs_g: '225', fat_g: '60', fluid_ml: '2000', micronutrient_limits: { sodium: { max: 2000, unit: 'mg' } }, displayed_nutrients: ['sodium'] }} requiredMicros={['sodium']} onChange={change} onSave={vi.fn()} saving={false} />));

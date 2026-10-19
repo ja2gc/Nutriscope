@@ -819,7 +819,7 @@ export default function PatientProfilePage({
                       <div className="border-b border-warm-100 px-5 py-3">
                         <p className="mb-2 text-xs font-extrabold uppercase tracking-wider text-warm-500">Actions</p>
                         <div className="flex flex-wrap items-center gap-2">
-                          <button type="button" onClick={() => void handleCycleTransition(record.id, "complete")} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white">Complete and Protect</button>
+                          <button type="button" onClick={() => void handleCycleTransition(record.id, "complete")} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white">Complete cycle</button>
                           <button type="button" onClick={() => setDiscontinueRecordId(record.id)} className="rounded-lg border border-amber-200 px-3 py-2 text-xs font-bold text-amber-700">Discontinue</button>
                           {canDelete && <button type="button" onClick={() => { setConfirmDeleteRecord(record.id); setRecordDeleteError(null); }} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-600">Delete</button>}
                         </div>

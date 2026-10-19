@@ -63,9 +63,17 @@ afterEach(async () => {
   if (root) await act(async () => root.unmount());
   document.body.innerHTML = "";
   vi.clearAllMocks();
+  window.history.replaceState(null, '', '/');
 });
 
 describe("Food Library USDA search", () => {
+  it('returns to Menu Items when requested by the editor back link', async () => {
+    window.history.replaceState(null, '', '/food-library?tab=recipes');
+    container = document.createElement('div'); document.body.append(container); root = createRoot(container);
+    await act(async () => root.render(<FoodLibraryPage />));
+    const menuTab = Array.from(container.querySelectorAll('[aria-label="Food Library sections"] button')).find((button) => button.textContent === 'Menu Items');
+    expect(menuTab?.getAttribute('aria-selected')).toBe('true');
+  });
   it("offers Ingredients, Menu Items, and Templates with canonical Menu Item filters", async () => {
     container = document.createElement("div");
     document.body.appendChild(container);

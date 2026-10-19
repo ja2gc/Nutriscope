@@ -19,16 +19,16 @@ class FsItemBasePerPurchaseTest extends TestCase
         $this->assertSame(1.0, $item->basePerPurchase());
     }
 
-    public function test_count_pack_uses_units_per_purchase(): void
+    public function test_nonconvertible_pack_sizes_do_not_convert_pieces(): void
     {
         $item = new FsItem(['purchase_unit' => 'pack', 'base_unit' => 'pc', 'units_per_purchase' => 100]);
-        $this->assertEqualsWithDelta(100.0, $item->basePerPurchase(), 1e-6);
+        $this->assertSame(1.0, $item->basePerPurchase());
     }
 
-    public function test_misconfigured_returns_zero(): void
+    public function test_nonconvertible_units_retain_the_original_base_unit(): void
     {
         $item = new FsItem(['purchase_unit' => 'pack', 'base_unit' => 'pc']); // no units_per_purchase
-        $this->assertSame(0.0, $item->basePerPurchase());
+        $this->assertSame(1.0, $item->basePerPurchase());
     }
 
     public function test_unit_cost_round_trips_through_base_per_purchase(): void

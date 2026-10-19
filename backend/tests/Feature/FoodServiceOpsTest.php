@@ -1155,7 +1155,7 @@ class FoodServiceOpsTest extends TestCase
             'estimate_population' => 20,
         ])->assertOk()->json('data.items.0');
         $this->assertEquals(24.6, (float) $rounded['qty']);
-        $this->assertEquals(25, (float) $rounded['purchase_qty']);
+        $this->assertEquals(24.6, (float) $rounded['purchase_qty']);
 
         $this->actingAs($this->rnd)->patchJson("/api/fss/shopping-list-items/{$line['id']}", [
             'purchase_qty' => 30,
@@ -1164,7 +1164,7 @@ class FoodServiceOpsTest extends TestCase
             'estimate_population' => 30,
         ])->assertOk()->json('data.items.0');
         $this->assertEquals(36.9, (float) $manual['qty']);
-        $this->assertEquals(30, (float) $manual['purchase_qty']);
+        $this->assertEquals(45, (float) $manual['purchase_qty']);
         $this->assertSame('manual', $manual['quantity_mode']);
         $this->assertDatabaseHas('menu_cycle_days', ['menu_cycle_id' => $cycle->id, 'estimate_population' => 30]);
     }
@@ -1789,9 +1789,9 @@ class FoodServiceOpsTest extends TestCase
         $this->assertSame($weekday, $res->json('data.weekday'));
     }
 
-    public function test_generate_rounds_to_whole_purchase_units(): void
+    public function test_generate_converts_fractional_physical_purchase_units(): void
     {
-        // 1 kg sack = 1000 g base; planned need 1300 g → must buy 2 sacks (2000 g).
+        // Physical kg quantities remain fractional; count packs still round to whole packs.
         $fs = FsItem::factory()->create([
             'name' => 'Rice', 'base_unit' => 'g', 'purchase_unit' => 'kg',
             'purchase_price' => 50, 'units_per_purchase' => null,
@@ -1812,11 +1812,11 @@ class FoodServiceOpsTest extends TestCase
         $response->assertCreated();
         $item = collect($response->json('data.items'))->firstWhere('fs_item_id', $fs->id);
         $this->assertNotNull($item, 'Rice line should be present');
-        $this->assertEqualsWithDelta(2, (float) $item['purchase_qty'], 0.01); // ceil(1300/1000)
+        $this->assertEqualsWithDelta(1.3, (float) $item['purchase_qty'], 0.01);
         $this->assertSame('kg', $item['purchase_unit']);
         $this->assertEqualsWithDelta(50, (float) $item['purchase_price'], 0.01);
-        $this->assertEqualsWithDelta(2000, (float) $item['qty'], 0.01);          // 2 sacks × 1000 g base
-        $this->assertEqualsWithDelta(100, (float) $item['total'], 0.01);        // 2 × ₱50
+        $this->assertEqualsWithDelta(1300, (float) $item['qty'], 0.01);
+        $this->assertEqualsWithDelta(65, (float) $item['total'], 0.01);
     }
 
     public function test_generate_pos_carries_purchase_units(): void

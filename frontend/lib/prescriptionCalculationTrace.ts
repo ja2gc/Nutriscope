@@ -224,12 +224,13 @@ function buildMicroRows(
   ])));
 
   return keys.flatMap((key) => {
-    const prescribed = prescription.micronutrient_limits[key];
+    const meta = ALL_MICROS.find((micro) => micro.key === key);
+    const saved = prescription.micronutrient_limits[key];
     const expected = calculatedLimits[key];
+    const prescribed = saved ? { ...saved, unit: saved.unit || expected?.unit || meta?.unit || '' } : undefined;
     const currentValue = valueFromLimit(prescribed) ?? valueFromLimit(expected);
     if (!currentValue) return [];
 
-    const meta = ALL_MICROS.find((micro) => micro.key === key);
     return [{
       key,
       label: meta?.label ?? key,

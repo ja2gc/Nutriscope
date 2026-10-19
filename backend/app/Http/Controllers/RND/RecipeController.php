@@ -18,6 +18,7 @@ use App\Services\Audit\Revisions\AuditRevisionWriter;
 use App\Support\Search\RankedSearch;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\DB;
 
 class RecipeController extends Controller
 {
@@ -122,13 +123,13 @@ class RecipeController extends Controller
             $before = $structural
                 ? $this->revisionRegistry->capture($recipe->load('ingredients.foodItem'))
                 : null;
-            $recipe->update(array_filter([
+            $recipe->update([
                 'name' => $data['name'] ?? $recipe->name,
                 'category' => $data['category'] ?? $recipe->category,
                 'meal_types' => $data['meal_types'] ?? $recipe->meal_types,
-                'prep_notes' => $data['prep_notes'] ?? $recipe->prep_notes,
+                'prep_notes' => array_key_exists('prep_notes', $data) ? $data['prep_notes'] : $recipe->prep_notes,
                 'servings' => $data['servings'] ?? $recipe->servings,
-            ], fn ($v) => $v !== null));
+            ]);
 
             $fields = array_keys($recipe->getChanges());
             $structureChanged = $mealTypesSubmitted && $beforeMealTypes !== ($recipe->meal_types ?? []);
@@ -167,7 +168,9 @@ class RecipeController extends Controller
     {
         $this->audited(function () use ($recipe): void {
             $before = $this->revisionRegistry->capture($recipe->load('ingredients.foodItem'));
-            $recipe->delete();
+            $referenced = collect(['meal_plan_items', 'meal_plan_template_items', 'meal_plan_template_days'])
+                ->contains(fn (string $table): bool => DB::table($table)->where('recipe_id', $recipe->id)->exists());
+            $referenced ? $recipe->delete() : $recipe->forceDelete();
             $activity = $this->auditLogger->recordMutation(
                 AuditAction::Deleted,
                 AuditDomain::NutritionLibrary,

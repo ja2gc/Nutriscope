@@ -25,6 +25,11 @@ export interface ShoppingListItem {
   baseline_quantity?: string | null;
   scaled_quantity?: string | null;
   scaled_unit?: string | null;
+  generation_baseline?: {
+    estimate_population: number; qty: number; unit: string; unit_price: number;
+    purchase_qty: number; purchase_unit: string; purchase_price: number; supplier_id: string | null;
+    scaled_quantity: number; scaled_unit: string;
+  } | null;
 }
 export interface ReleaseBlocker { code: string; message: string }
 export interface ReleaseReadiness { ready: boolean; blockers: ReleaseBlocker[] }

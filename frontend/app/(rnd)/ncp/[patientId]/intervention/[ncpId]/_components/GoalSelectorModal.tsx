@@ -96,10 +96,9 @@ export default function GoalSelectorModal({ onConfirm, onClose, initialGoal, ini
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-warm-100">
-          <button onClick={onClose}
-            className="px-4 py-2 text-sm font-bold text-warm-500 hover:text-warm-700 cursor-pointer transition-colors">
+          <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
-          </button>
+          </Button>
           <Button
             variant="primary"
             onClick={handleConfirm}

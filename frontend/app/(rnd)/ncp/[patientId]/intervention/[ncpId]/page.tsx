@@ -2,6 +2,7 @@
 
 import React, { Suspense, use, useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { useRouter, useSearchParams } from "next/navigation";
 import { User, Lock } from "lucide-react";
 import {
@@ -271,17 +272,6 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
     }
   }, [applyIntervention, ncpId, plansPage, prepareNewPlan, searchParams]);
 
-  // Warn on browser unload (refresh / close / hard nav) when there are unsaved edits.
-  useEffect(() => {
-    if (!dirty) return;
-    const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = ""; // required for the native "Leave site?" prompt
-    };
-    window.addEventListener("beforeunload", onBeforeUnload);
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [dirty]);
-
   const loadMetrics = useCallback(async () => {
     setWorkflowLoading(true);
     try {
@@ -368,12 +358,6 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
   useEffect(() => {
     if (!isPlaceholder) void loadMetrics();
   }, [isPlaceholder, loadMetrics]);
-
-  const canLeavePatient = () => !dirty || window.confirm("You have unsaved changes. Leave without saving?");
-  const handleChangePatient = () => {
-    if (!canLeavePatient()) return;
-    router.push("/ncp/patients");
-  };
 
   const handleGoalConfirm = async (goalType: string, stage: string | null) => {
     setGoalError(null);
@@ -478,8 +462,10 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
     } finally { setSaving(false); }
   };
 
+  const guard = useUnsavedChanges({ dirty, onSave: async () => Boolean(await savePlan()) });
+  const handleChangePatient = () => guard.requestLeave(() => router.push("/ncp/patients"));
+
   const startNewPlan = async () => {
-    if (dirty && !window.confirm("Discard unsaved changes?")) return;
     setTab("nd");
     markLocalNavigation("mode=new");
     router.push("?mode=new");
@@ -491,7 +477,6 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
   };
 
   const selectPlan = async (planId: string) => {
-    if (dirty && !window.confirm("Discard unsaved changes?")) return;
     setPlansLoading(true);
     setEditorError(null);
     try {
@@ -577,7 +562,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
           interventionGoal={intervention?.goal_type}
           medicalDiagnosis={patient?.medical_diagnosis}
           onChangePatientClick={handleChangePatient}
-          onBeforeUnselectPatient={canLeavePatient}
+          onBeforeUnselectPatient={guard.requestLeave}
         />
         <div className="bg-white border border-warm-200 rounded-2xl p-12 text-center max-w-2xl mx-auto shadow-sm">
           <div className="p-3.5 bg-warm-50 border border-warm-200 rounded-2xl w-fit mx-auto text-warm-400">
@@ -598,6 +583,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
 
   return (
     <div className="space-y-0 font-sans">
+      {guard.dialog}
       {/* Breadcrumb + header */}
       <div className="space-y-4 mb-4">
         <NcpBreadcrumb step="Nutrition Intervention" />
@@ -610,7 +596,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
           interventionGoal={intervention?.goal_type}
           medicalDiagnosis={patient?.medical_diagnosis}
           onChangePatientClick={handleChangePatient}
-          onBeforeUnselectPatient={canLeavePatient}
+          onBeforeUnselectPatient={guard.requestLeave}
         />
         <div className="border-b border-warm-200 pb-4">
           <h2 className="text-xl font-extrabold text-warm-900 tracking-tight">
@@ -643,8 +629,8 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
             latestPlanId={latestPlanId}
             loading={plansLoading}
             error={plansError}
-            onCreate={startNewPlan}
-            onSelect={selectPlan}
+            onCreate={() => guard.requestLeave(() => void startNewPlan())}
+            onSelect={(id) => guard.requestLeave(() => void selectPlan(id))}
             onDelete={async (id) => {
               await deleteIntervention(ncpId, id);
               const [result, latest] = await Promise.all([fetchInterventionPlans(ncpId, 1), fetchIntervention(ncpId)]);

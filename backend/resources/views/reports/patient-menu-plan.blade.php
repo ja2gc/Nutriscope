@@ -14,7 +14,7 @@
 
     <div style="margin-top:5px; padding:5px 7px; border:1px solid #d1d5db; background:#f8fafc; font-size:7.5pt;">
         <span class="bold">Daily nutrition prescription:</span>
-        Energy: {{ number_format($prescription['energy_kcal']) }} kcal ·
+        Energy: @include('reports.partials.nutrient-prescription', ['limit' => [($prescription['nutrient_operators']['energy_kcal'] ?? 'target') => number_format($prescription['energy_kcal']), 'unit' => 'kcal']]) ·
         @foreach(['protein_g' => 'Protein', 'carbs_g' => 'Carbohydrate', 'fat_g' => 'Fat'] as $key => $label)
             {{ $label }}: @include('reports.partials.nutrient-prescription', ['limit' => [($prescription['nutrient_operators'][$key] ?? 'target') => $prescription[$key], 'unit' => 'g']])@if(!$loop->last) · @endif
         @endforeach

@@ -100,7 +100,7 @@ class ClinicalTrailTest extends TestCase
         $this->assertStringNotContainsString($updateSentinel, $deleted->toJson());
     }
 
-    public function test_saved_intervention_create_delete_is_rooted_and_phi_free_while_update_is_blocked(): void
+    public function test_current_intervention_edits_are_phi_free_and_historical_updates_are_blocked(): void
     {
         $rnd = User::factory()->rnd()->create();
         $patient = Patient::factory()->create();
@@ -117,18 +117,21 @@ class ClinicalTrailTest extends TestCase
             'education_notes' => 'INTERVENTION-CREATE-SENTINEL',
         ]);
 
+        $intervention->update(['education_notes' => 'INTERVENTION-UPDATE-SENTINEL']);
+        $this->assertSame('INTERVENTION-UPDATE-SENTINEL', $intervention->fresh()->education_notes);
+        Intervention::factory()->create(['ncp_record_id' => $ncp->id]);
         try {
-            $intervention->update(['education_notes' => 'INTERVENTION-UPDATE-SENTINEL']);
-            $this->fail('Saved Intervention Plans must reject updates.');
+            $intervention->update(['education_notes' => 'HISTORICAL-UPDATE-SENTINEL']);
+            $this->fail('Historical Intervention Plans must reject updates.');
         } catch (ValidationException) {
-            $this->assertSame('INTERVENTION-CREATE-SENTINEL', $intervention->fresh()->education_notes);
+            $this->assertSame('INTERVENTION-UPDATE-SENTINEL', $intervention->fresh()->education_notes);
         }
 
         $events = AuditActivity::query()
             ->where('subject_type', $intervention->getMorphClass())
             ->where('subject_id', $intervention->getKey())
             ->get();
-        $this->assertEqualsCanonicalizing(['created'], $events->pluck('event')->all());
+        $this->assertEqualsCanonicalizing(['created', 'updated'], $events->pluck('event')->all());
         $this->assertStringNotContainsString('INTERVENTION-CREATE-SENTINEL', $events->toJson());
         $this->assertStringNotContainsString('INTERVENTION-UPDATE-SENTINEL', $events->toJson());
 

@@ -382,7 +382,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Procurement & Budget",
     question: "How is a suggested food shopping list created?",
-    answer: "Choose the menu dates, enter one Estimated servings count, and preview. Save Shopping List applies that count to each selected Menu Calendar day. You can change the count on the saved list until Turn Into PO; saving recalculates generated needs. Non-Auto Grocery items are not added automatically; empty item search suggests them first. Turn Into PO is a separate step.",
+    answer: "Choose a start date in the calendar, enter 1–99 whole days and one Estimated servings count, then preview. Already-covered dates are unavailable. The serving count applies to every selected day. Generated quantities scale while you edit the count; Save Shopping List applies it to the Menu Calendar. Non-Auto Grocery items are added only when needed; empty item search suggests them first and additions inherit their Inventory vendor. Turn Into PO is a separate step.",
     keywords: ["procurement", "menu", "generate", "purchase"],
   },
   {
@@ -390,7 +390,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Procurement & Budget",
     question: "Does changing a Shopping List quantity change Estimated servings?",
-    answer: "No. It changes only the amount to buy. Keep the calculated amount, round to the nearest whole unit with .5 rounded up, or enter an amount. Back lets you save or discard unsaved edits.",
+    answer: "No. Purchase Qty changes only the amount to buy. Quantity, Cost/unit, and Total synchronize while typing. Compatible physical units convert without rounding purchases upward; nonconvertible units keep their saved unit. Reset generated items restores captured original values at the current estimated servings, keeping checkmarks and manual additions. Older lists without an original generation snapshot cannot be reset. When leaving unsaved edits, X stays, Discard leaves, and Save saves before leaving.",
     keywords: ["round", "quantity", "estimate", "discard"],
   },
   {

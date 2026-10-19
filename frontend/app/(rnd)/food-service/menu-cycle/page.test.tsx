@@ -299,7 +299,8 @@ describe("Menu Cycle template and name editing", () => {
     expect(lunch.querySelector('[data-menu-editor-item] > div > :first-child')?.hasAttribute('data-menu-editor-actions')).toBe(true);
     expect(lunch.querySelector('[data-menu-editor-add]')?.textContent?.trim()).toBe("Add item");
     expect(lunch.querySelector('[data-menu-editor-add]')?.getAttribute("aria-label")).toBe("Add item to Monday Lunch");
-    expect(Array.from(lunch.querySelectorAll<HTMLElement>('[data-menu-editor-item], [data-menu-editor-add]')).every((slot) => slot.className.includes('h-32'))).toBe(true);
+    expect(lunch.querySelector('[data-menu-editor-item]')?.className).toContain('h-32');
+  expect(lunch.querySelector('[data-menu-editor-add]')?.className).not.toContain('h-32');
     expect(lunch.querySelector('[data-menu-editor-add]')?.previousElementSibling).toBe(lunch.querySelector('[data-menu-editor-item]'));
     const toggle = container.querySelector<HTMLInputElement>('input[aria-label="Show snack slots"]')!;
     expect(toggle.checked).toBe(true);

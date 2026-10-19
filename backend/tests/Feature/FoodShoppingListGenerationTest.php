@@ -229,9 +229,9 @@ class FoodShoppingListGenerationTest extends TestCase
         $fsItem = FsItem::factory()->create([
             'name' => 'Yakult',
             'base_unit' => 'piece',
-            'purchase_unit' => 'pack',
-            'purchase_price' => 100,
-            'units_per_purchase' => 10,
+            'purchase_unit' => 'piece',
+            'purchase_price' => 10,
+            'units_per_purchase' => 1,
         ]);
         $cycle = MenuCycle::factory()->create([
             'rnd_user_id' => $this->rnd->id,
@@ -263,7 +263,7 @@ class FoodShoppingListGenerationTest extends TestCase
             'shopping_list_id' => ShoppingList::where('uuid', $listId)->value('id'),
             'fs_item_id' => $fsItem->id,
             'qty' => 50,
-            'purchase_qty' => 5,
+            'purchase_qty' => 50,
             'total' => 500,
         ]);
 

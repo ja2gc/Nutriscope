@@ -6,15 +6,25 @@ import { ALL_MICROS } from "@/lib/nutritionCalculations";
 import { formatMealPlanAmount } from "@/lib/mealPlanNutrition";
 import { fetchRecipeById, type Recipe } from "@/services/foodLibraryService";
 import { Button } from "@/components/ui/Button";
+import type { NutrientSnapshot } from '@/services/mealPlanService';
 
-export function RecipeMenuItemProfile({ id, name, onBack, backLabel = 'Back to template' }: { id: string; name: string; onBack: () => void; backLabel?: string }) {
+export function RecipeMenuItemProfile({ id, name, snapshot, onBack, backLabel = 'Back' }: { id: string; name: string; snapshot?: NutrientSnapshot | null; onBack: () => void; backLabel?: string }) {
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
+    if (snapshot) return;
     let cancelled = false;
     fetchRecipeById(id).then((result) => { if (!cancelled) setRecipe(result); }).catch((cause) => { if (!cancelled) setError(cause instanceof Error ? cause.message : 'Could not load Menu Item.'); });
     return () => { cancelled = true; };
-  }, [id]);
+  }, [id, snapshot]);
+  if (snapshot) {
+    const yieldAmount = snapshot.recipe_yield ?? snapshot.serving_size;
+    const factor = yieldAmount / (snapshot.serving_size || 1);
+    return <MenuItemProfile name={snapshot.name || name} servings={snapshot.recipe_yield} prepNotes={snapshot.prep_notes}
+      nutrients={{ calories: snapshot.calories * factor, protein: snapshot.protein * factor, carbs: snapshot.carbs * factor, fat: snapshot.fat * factor, water_g: snapshot.water_g == null ? null : snapshot.water_g * factor, micronutrients: Object.fromEntries(Object.entries(snapshot.micronutrients ?? {}).map(([key, value]) => [key, value * factor])) }}
+      ingredients={(snapshot.recipe_ingredients ?? []).map((ingredient, index) => ({ ...ingredient, id: ingredient.id ?? index }))}
+      onBack={onBack} backLabel={backLabel} />;
+  }
   if (!recipe) return <div className="space-y-3"><p role={error ? 'alert' : 'status'} className="text-sm text-warm-600">{error ?? 'Loading Menu Item…'}</p><Button variant="secondary" onClick={onBack}>{backLabel}</Button></div>;
   return <MenuItemProfile name={recipe.name ?? name} servings={recipe.servings} prepNotes={recipe.prep_notes}
     nutrients={{ calories: recipe.total_calories, protein: recipe.total_protein, carbs: recipe.total_carbs, fat: recipe.total_fat, water_g: recipe.total_water_g, micronutrients: recipe.micronutrients }}

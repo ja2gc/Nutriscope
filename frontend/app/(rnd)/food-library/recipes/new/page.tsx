@@ -1,11 +1,15 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
+import { numericStepBase } from "@/components/ui/NumericInput";
+import React, { useCallback, useRef, useState } from "react";
 import Link from "next/link";
+import { useEditorChanges } from "@/hooks/useUnsavedChanges";
 import { useRouter } from "next/navigation";
 import { CookingPot, ArrowLeft, Search, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { InfoHint } from "@/components/ui/InfoHint";
+import { MenuItemProfile } from "@/components/ncp/MenuItemProfile";
+import { clinicalIngredientMicronutrients } from "@/lib/clinicalUnits";
 import { canonicalClinicalUnit, clinicalIngredientFactor, clinicalRecipeUnits, CLINICAL_UNIT_HINT } from "@/lib/clinicalUnits";
 import { CLINICAL_BASELINE_UNITS } from "@/lib/clinicalUnits";
 import { ALL_MICROS } from "@/lib/nutritionCalculations";
@@ -52,6 +56,8 @@ export default function NewRecipePage() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showMicros, setShowMicros] = useState(false);
+  const searchRequests = useRef<Record<number, number>>({});
 
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
@@ -69,28 +75,43 @@ export default function NewRecipePage() {
     return { key: rowKey++, food: null, foodSearch: "", searchResults: [], showDropdown: false, quantity: "", unit: "g" };
   }
 
-  const searchFoods = useCallback(async (query: string, idx: number) => {
+  const searchFoods = useCallback(async (query: string, key: number) => {
+    const request = (searchRequests.current[key] ?? 0) + 1;
+    searchRequests.current[key] = request;
     if (query.length < 2) {
-      setIngredients((prev) => prev.map((r, i) => i === idx ? { ...r, searchResults: [], showDropdown: false } : r));
+      setIngredients((previous) => previous.map((row) => row.key === key ? { ...row, searchResults: [], showDropdown: false } : row));
       return;
     }
-    const res = await fetchFoodItems(query, "all", 1);
-    setIngredients((prev) => prev.map((r, i) => i === idx ? { ...r, searchResults: res.data.slice(0, 5), showDropdown: true } : r));
-  }, [setIngredients]);
+    try {
+      const result = await fetchFoodItems(query, "all", 1);
+      if (searchRequests.current[key] !== request) return;
+      setIngredients((previous) => previous.map((row) => row.key === key ? { ...row, searchResults: result.data.slice(0, 5), showDropdown: true } : row));
+    } catch (cause) {
+      if (searchRequests.current[key] !== request) return;
+      setError(cause instanceof Error ? cause.message : 'Ingredient search failed. Try again.');
+      setIngredients((previous) => previous.map((row) => row.key === key ? { ...row, searchResults: [], showDropdown: false } : row));
+    }
+  }, []);
 
   const updateRow = (idx: number, patch: Partial<IngredientRow>) =>
     setIngredients((prev) => prev.map((r, i) => i === idx ? { ...r, ...patch } : r));
 
-  const selectFood = (idx: number, food: FoodItem) =>
+  const selectFood = (idx: number, food: FoodItem) => {
+    const key = ingredients[idx].key;
+    searchRequests.current[key] = (searchRequests.current[key] ?? 0) + 1;
     updateRow(idx, { food, foodSearch: food.name, showDropdown: false, searchResults: [], unit: canonicalClinicalUnit(food.serving_unit ?? "") });
+  };
 
   const macros = calcMacros(ingredients);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) { setError("Menu Item name is required."); return; }
+  const guard = useEditorChanges(JSON.stringify({ name, category, servings, prepNotes, ingredients: ingredients.map(({ food, quantity, unit }) => ({ id: food?.id, quantity, unit })), nutritionSource, labelAmount, labelUnit, labelValues, allergens }), true, () => handleSubmit(undefined, false));
+
+  async function handleSubmit(e?: React.FormEvent, navigate = true) {
+    e?.preventDefault();
+    if (!e && !document.querySelector<HTMLFormElement>("form")?.reportValidity()) return false;
+    if (!name.trim()) { setError("Menu Item name is required."); return false; }
     if (!category || (nutritionSource === "ingredients" && ingredients.some((row) => !row.food || clinicalIngredientFactor(Number(row.quantity), row.unit, Number(row.food.serving_size), row.food.serving_unit ?? "") === null))) {
-      setError("Choose a category and measured Ingredients with positive quantities in compatible units."); return;
+      setError("Choose a category and measured Ingredients with positive quantities in compatible units."); return false;
     }
     const valid: RecipeIngredientPayload[] = ingredients
       .filter((r) => r.food && r.quantity && parseFloat(r.quantity) > 0)
@@ -111,26 +132,38 @@ export default function NewRecipePage() {
         },
       } : { ingredients: valid };
       await createRecipe({ name: name.trim(), category: category || null, servings: servings ? parseInt(servings) : null, prep_notes: prepNotes || null, ...nutrition });
-      router.push("/food-library");
+      if (navigate) { guard.allowNavigation(); router.push("/food-library?tab=recipes"); }
+      return true;
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to save Menu Item.");
+      return false;
     } finally {
       setSaving(false);
     }
   };
 
+
+  if (showMicros) return <MenuItemProfile name={name || 'Menu Item'} servings={Number(servings) || null} prepNotes={prepNotes}
+    nutrients={nutritionSource === 'label' ? {
+      calories: Number(labelValues.calories || 0) * Number(servings || 0), protein: Number(labelValues.protein || 0) * Number(servings || 0), carbs: Number(labelValues.carbs || 0) * Number(servings || 0), fat: Number(labelValues.fat || 0) * Number(servings || 0), water_g: Number(labelValues.water_g || 0) * Number(servings || 0),
+      micronutrients: Object.fromEntries(ALL_MICROS.filter(({ key }) => labelValues[key]).map(({ key }) => [key, Number(labelValues[key]) * Number(servings || 0)])),
+    } : { calories: macros.cal, protein: macros.pro, carbs: macros.carb, fat: macros.fat, micronutrients: clinicalIngredientMicronutrients(ingredients) }}
+    ingredients={nutritionSource === 'label' ? [{ id: 0, name: name || 'Label Ingredient', quantity: Number(labelAmount || 0) * Number(servings || 0), unit: labelUnit }] : ingredients.filter((row) => row.food).map((row) => ({ id: row.key, name: row.food!.name, quantity: row.quantity, unit: row.unit }))}
+    onBack={() => setShowMicros(false)} backLabel="Back" />;
+
   return (
     <div className="space-y-6 font-sans max-w-3xl mx-auto">
+      {guard.dialog}
       <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
         <Link href="/dashboard" className="hover:text-emerald-700 transition-colors">Home</Link>
         <span>/</span>
-        <Link href="/food-library" className="hover:text-emerald-700 transition-colors">Food Library</Link>
+        <Link href="/food-library?tab=recipes" className="hover:text-emerald-700 transition-colors">Food Library</Link>
         <span>/</span>
         <span className="text-zinc-650 font-bold">Create Menu Item</span>
       </div>
 
       <div className="border-b border-warm-200 pb-5 flex items-center gap-4">
-        <Link href="/food-library" className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 transition-colors">
+        <Link href="/food-library?tab=recipes" className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 transition-colors">
           <ArrowLeft className="h-4 w-4" />
         </Link>
         <div>
@@ -171,7 +204,7 @@ export default function NewRecipePage() {
         </div>
 
         <div>
-          <Label>Nutrition source</Label>
+          <div className="flex items-center gap-1"><Label>Nutrition source</Label><InfoHint label="About Nutrition source">Choose Ingredients to calculate recipe nutrition. Choose Nutrition facts label for branded items with nutrition values printed on the package.</InfoHint></div>
           <select aria-label="Nutrition source" value={nutritionSource} onChange={(event) => setNutritionSource(event.target.value)} className={inputCls}>
             <option value="ingredients">Ingredients</option>
             <option value="label">Nutrition facts label</option>
@@ -180,13 +213,13 @@ export default function NewRecipePage() {
         {nutritionSource === "label" ? <div className="space-y-4 rounded-2xl border border-warm-200 bg-white p-6 shadow-sm">
           <h3 className="text-sm font-extrabold uppercase tracking-wider text-warm-700">Nutrition facts per label serving</h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div><Label>Label serving amount <Required /></Label><input aria-label="Label serving amount" type="number" value={labelAmount} onChange={(event) => setLabelAmount(event.target.value)} min="0" max="10000" step="0.1" required className={inputCls} /></div>
+            <div><Label>Label serving amount <Required /></Label><input aria-label="Label serving amount" type="number" value={labelAmount} onChange={(event) => setLabelAmount(event.target.value)} min={numericStepBase(labelAmount)} max="10000" step="0.1" required className={inputCls} /></div>
             <div><div className="flex items-center gap-1"><Label>Label serving unit</Label><InfoHint label="Label serving units">{CLINICAL_UNIT_HINT}</InfoHint></div><select aria-label="Label serving unit" value={labelUnit} onChange={(event) => { setLabelUnit(event.target.value); if (event.target.value === "piece") setLabelAmount("1"); }} className={inputCls}>{CLINICAL_BASELINE_UNITS.map((unit) => <option key={unit} value={unit}>{unit}</option>)}</select></div>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {[...LABEL_NUTRIENTS, ...ALL_MICROS].map(({ key, label, unit }) => <div key={key}>
               <Label>{label} ({unit}){key === "calories" && <Required />}</Label>
-              <input aria-label={`${label} (${unit})`} type="number" min="0" max={LABEL_NUTRIENTS.find((nutrient) => nutrient.key === key)?.max} step="0.01" value={labelValues[key] ?? ""} onChange={(event) => setLabelValues((previous) => ({ ...previous, [key]: event.target.value }))} required={key === "calories"} className={inputCls} />
+              <input aria-label={`${label} (${unit})`} type="number" min={numericStepBase(labelValues[key] ?? "")} max={LABEL_NUTRIENTS.find((nutrient) => nutrient.key === key)?.max} step="0.1" value={labelValues[key] ?? ""} onChange={(event) => setLabelValues((previous) => ({ ...previous, [key]: event.target.value }))} required={key === "calories"} className={inputCls} />
             </div>)}
           </div>
           <fieldset className="space-y-3"><legend className="text-xs font-bold text-warm-600">Allergens</legend>
@@ -241,7 +274,7 @@ export default function NewRecipePage() {
                     </div>
                   )}
                 </div>
-                <input aria-label={`Ingredient ${idx + 1} quantity`} type="number" value={row.quantity} onChange={(e) => updateRow(idx, { quantity: e.target.value })} min="0.000001" max="100000" step="0.000001" required
+                <input aria-label={`Ingredient ${idx + 1} quantity`} type="number" value={row.quantity} onChange={(e) => updateRow(idx, { quantity: e.target.value })} min={numericStepBase(row.quantity, 0.000001)} max="100000" step="0.1" required
                   className="w-20 px-3 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" />
                 <select aria-label={`Ingredient ${idx + 1} unit`} value={row.unit} onChange={(e) => updateRow(idx, { unit: e.target.value })} disabled={!row.food}
                   className="w-20 px-2 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none cursor-pointer">
@@ -258,9 +291,10 @@ export default function NewRecipePage() {
         </div>
 
         </>}
+        <div className="flex justify-end"><Button type="button" variant="secondary" onClick={() => setShowMicros(true)}>View Micronutrient Profile</Button></div>
 
         <div className="flex gap-3 justify-end pb-4">
-          <Link href="/food-library"><Button variant="secondary" className="w-auto px-6 py-2.5">Cancel</Button></Link>
+          <Link href="/food-library?tab=recipes"><Button variant="secondary" className="w-auto px-6 py-2.5">Cancel</Button></Link>
           <Button type="submit" variant="primary" loading={saving} className="w-auto px-6 py-2.5">Save Menu Item</Button>
         </div>
       </form>

@@ -6,6 +6,7 @@ use App\Models\FsItem;
 use App\Models\MenuCycle;
 use App\Models\MenuCycleDay;
 use App\Models\ShoppingList;
+use App\Models\Supplier;
 use App\Services\MenuCycleCostService;
 use App\Support\UnitConverter;
 use Carbon\Carbon;
@@ -93,6 +94,22 @@ class ShoppingListPopulationService
         }
 
         DB::transaction(function () use ($list, $population) {
+            $previous = (int) $list->estimate_population;
+            if ($previous > 0 && $previous !== $population) {
+                $ratio = $population / $previous;
+                foreach ($list->items()->where('source', 'generated')->get() as $item) {
+                    $purchaseQty = round((float) ($item->purchase_qty ?? $item->qty) * $ratio, 6);
+                    if ($item->quantity_mode === 'rounded' && UnitConverter::isCompatible((string) $item->unit, (string) ($item->purchase_unit ?? $item->unit))) {
+                        $purchaseQty = round(UnitConverter::convert((float) ($item->scaled_quantity ?? $item->qty) * $ratio, (string) $item->unit, (string) ($item->purchase_unit ?? $item->unit)), 6);
+                    }
+                    $item->update([
+                        'qty' => round((float) $item->qty * $ratio, 6),
+                        'scaled_quantity' => round((float) ($item->scaled_quantity ?? $item->qty) * $ratio, 6),
+                        'purchase_qty' => $purchaseQty,
+                        'total' => round($purchaseQty * (float) ($item->purchase_price ?? $item->unit_price), 2),
+                    ]);
+                }
+            }
             $list->update([
                 'estimate_population' => $population,
                 'estimate_population_updated_at' => now(),
@@ -100,7 +117,9 @@ class ShoppingListPopulationService
 
             $this->cascadeMenuDays($list->period_start, $list->period_end, $population);
 
-            $this->syncItems($list->fresh());
+            if ($previous < 1) {
+                $this->syncItems($list->fresh());
+            }
         });
     }
 
@@ -118,6 +137,7 @@ class ShoppingListPopulationService
             MenuCycleDay::query()
                 ->where('menu_cycle_id', $cycle->id)
                 ->where('day_of_week', $d->format('l'))
+                ->where('po_snapshot_locked', false)
                 ->where(fn ($query) => $query->whereNotNull('recipe_id')->orWhereNotNull('fs_item_id'))
                 ->update([
                     'estimate_population' => $population,
@@ -151,7 +171,12 @@ class ShoppingListPopulationService
             return;
         }
 
-        $plan = $this->planRange($list->period_start, $list->period_end);
+        $plan = $this->planRange($list->period_start, $list->period_end, $list->estimate_population ?: null);
+        $missing = array_values(array_unique([...$plan['uncovered_dates'], ...$plan['missing_population_dates']]));
+        $list->update(['coverage_status' => $missing === [] ? 'full' : 'partial', 'uncovered_dates' => $missing]);
+        if ($missing !== []) {
+            return;
+        }
         $seen = [];
 
         foreach ($plan['items'] as $row) {
@@ -183,7 +208,7 @@ class ShoppingListPopulationService
                     $mode = $item->quantity_mode ?: 'calculated';
                     $attrs['purchase_qty'] = $mode === 'manual'
                         ? $item->purchase_qty
-                        : ($mode === 'rounded' ? round($purchaseQty) : round($purchaseQty, 6));
+                        : round($purchaseQty, 6);
                     $attrs['purchase_unit'] = $item->purchase_unit;
                     $attrs['purchase_price'] = $item->purchase_price;
                     $attrs['total'] = round((float) $attrs['purchase_qty'] * (float) ($item->purchase_price ?? $item->unit_price), 2);
@@ -193,7 +218,7 @@ class ShoppingListPopulationService
 
             $item
                 ? $item->update($attrs)
-                : $list->items()->create(['fs_item_id' => $row['fs_item_id'], 'source' => 'generated'] + $attrs);
+                : $list->items()->create(['fs_item_id' => $row['fs_item_id'], 'source' => 'generated', 'generation_baseline' => $this->generationBaseline($row, (int) $list->estimate_population)] + $attrs);
         }
 
         $list->items()
@@ -201,6 +226,16 @@ class ShoppingListPopulationService
             ->whereNotNull('fs_item_id')
             ->whereNotIn('fs_item_id', $seen)
             ->delete();
+    }
+
+    public function generationBaseline(array $row, int $population): array
+    {
+        return array_intersect_key($row, array_flip([
+            'qty', 'unit', 'unit_price', 'purchase_qty', 'purchase_unit', 'purchase_price', 'scaled_quantity', 'scaled_unit',
+        ])) + [
+            'estimate_population' => $population,
+            'supplier_id' => isset($row['supplier_id']) ? Supplier::find($row['supplier_id'])?->uuid : null,
+        ];
     }
 
     private function purchaseRows(array $acc, int $targetPopulation): array
@@ -224,14 +259,13 @@ class ShoppingListPopulationService
             $basePerPurchase = $fs ? $fs->basePerPurchase() : 0.0;
             $baselineQuantity = $targetPopulation > 0 ? round($net / $targetPopulation, 6) : round($net, 6);
 
-            if ($fs && $basePerPurchase > 0 && $basePerPurchase !== 1.0) {
-                $packs = (int) ceil($net / $basePerPurchase);
-                $baseBought = $packs * $basePerPurchase;
+            if ($fs && $basePerPurchase > 0 && $basePerPurchase !== 1.0 && UnitConverter::isCompatible((string) $fs->base_unit, (string) $fs->purchase_unit)) {
+                $packs = round($net / $basePerPurchase, 6);
                 $purchasePrice = (float) $fs->purchase_price;
                 $rows[] = [
                     'fs_item_id' => $id,
                     'ingredient_name' => $row['name'],
-                    'qty' => round($baseBought, 2),
+                    'qty' => round($net, 6),
                     'unit' => $fs->base_unit ?? $row['unit'],
                     'supplier_id' => $fs->default_supplier_id,
                     'unit_price' => round($purchasePrice / $basePerPurchase, 6),

@@ -244,6 +244,7 @@ export interface MealPlanTemplateDetail extends MealPlanTemplate {
 }
 
 export interface LibraryTemplateLine {
+  source_template_item_id?: string | null;
   day_of_week: string;
   meal_type: string;
   food_item_id?: string | null;

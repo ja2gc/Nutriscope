@@ -705,7 +705,7 @@ class MenuCycleController extends Controller
                 'quantity' => $d['quantity'] ?? 1,
                 'servings_override' => $d['servings_override'] ?? null,
                 'recipe_override' => $sameSource ? json_encode($previous->recipe_override) : null,
-                'estimate_population' => $d['estimate_population'] ?? null,
+                'estimate_population' => $d['estimate_population'] ?? $existing->first(fn ($line) => $line->day_of_week === $d['day_of_week'] && $line->estimate_population !== null)?->estimate_population,
                 'estimate_population_updated_at' => array_key_exists('estimate_population', $d) ? $now : null,
                 'is_event' => $d['is_event'] ?? false,
                 'event_allocation' => $d['event_allocation'] ?? null,

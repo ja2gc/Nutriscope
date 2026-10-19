@@ -1,22 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { WeeklyMenuCalendar, MENU_SLOTS } from "@/components/ncp/WeeklyMenuCalendar";
 import { MenuEditorSlots, MenuEditorActions, MenuEditorAction } from "@/components/ncp/MenuEditorSlots";
 import { RecipeMenuItemProfile } from "@/components/ncp/MenuItemProfile";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
-import SearchInput from "@/components/ui/SearchInput";
+import { MenuItemPicker } from "@/components/ncp/MenuItemPicker";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
+import { ArrowLeft } from "lucide-react";
 import { formatMealPlanAmount as formatTemplateDisplayNumber } from "@/lib/mealPlanNutrition";
 import { fetchRecipes, type Recipe } from "@/services/foodLibraryService";
 import {
   deleteMealPlanTemplate, fetchMealPlanTemplate, fetchMealPlanTemplates,
-  saveLibraryMealPlanTemplate, type LibraryTemplateLine, type MealPlanTemplate,
+  saveLibraryMealPlanTemplate, type LibraryTemplateLine, type MealPlanTemplate, type NutrientSnapshot,
 } from "@/services/mealPlanService";
 
 const MEALS = MENU_SLOTS;
 
-type EditorLine = LibraryTemplateLine & { key: number; itemName: string };
+type EditorLine = LibraryTemplateLine & { key: number; itemName: string; snapshot?: NutrientSnapshot | null };
 type EditorState = { id?: string; name: string; description: string; lines: EditorLine[]; readOnly?: boolean };
 let nextLineKey = 0;
 
@@ -37,10 +39,9 @@ function TemplateEditor({ initial, onClose, onSaved }: {
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const searchInputId = useId();
   const pickerTrigger = useRef<HTMLButtonElement | null>(null);
   const profileTrigger = useRef<HTMLButtonElement | null>(null);
-  const [profile, setProfile] = useState<{ id: string; name: string } | null>(null);
+  const [profile, setProfile] = useState<{ id: string; name: string; snapshot?: NutrientSnapshot | null } | null>(null);
 
   function closeProfile() {
     setProfile(null);
@@ -57,12 +58,8 @@ function TemplateEditor({ initial, onClose, onSaved }: {
   function openProfile(line: EditorLine, trigger: HTMLButtonElement) {
     if (!line.recipe_id) return;
     profileTrigger.current = trigger;
-    setProfile({ id: line.recipe_id, name: line.itemName });
+    setProfile({ id: line.recipe_id, name: line.itemName, snapshot: line.snapshot });
   }
-
-  useEffect(() => {
-    if (pickerOpen) document.getElementById(searchInputId)?.focus();
-  }, [pickerOpen, searchInputId]);
 
   useEffect(() => {
     if (!pickerOpen) return;
@@ -107,11 +104,11 @@ function TemplateEditor({ initial, onClose, onSaved }: {
   async function save() {
     if (!draft.name.trim() || draft.lines.length === 0) {
       setError("Enter a name and add at least one Menu Item.");
-      return;
+      return false;
     }
     if (draft.lines.some((line) => !Number.isFinite(line.quantity) || line.quantity < 0.01 || Number(line.quantity.toFixed(2)) !== line.quantity || line.unit !== "serving" || line.food_item_id || !line.recipe_id)) {
       setError("Each line needs a Menu Item and positive servings with at most two decimals. Replace legacy Ingredient lines before saving.");
-      return;
+      return false;
     }
     setSaving(true);
     setError(null);
@@ -119,27 +116,32 @@ function TemplateEditor({ initial, onClose, onSaved }: {
       await saveLibraryMealPlanTemplate({
         name: draft.name.trim(),
         description: draft.description.trim() || null,
-        lines: draft.lines.map(({ day_of_week, meal_type, food_item_id, recipe_id, quantity, unit }) => ({
-          day_of_week, meal_type, food_item_id, recipe_id, quantity, unit: unit.trim(),
+        lines: draft.lines.map(({ source_template_item_id, day_of_week, meal_type, food_item_id, recipe_id, quantity, unit }) => ({
+          ...(source_template_item_id ? { source_template_item_id } : {}), day_of_week, meal_type, food_item_id, recipe_id, quantity, unit: unit.trim(),
         })),
       }, draft.id);
+      guard.allowNavigation();
       onSaved();
+      return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Failed to save template.");
+      return false;
     } finally {
       setSaving(false);
     }
   }
 
-  if (profile) return <RecipeMenuItemProfile id={profile.id} name={profile.name} onBack={closeProfile} />;
+  const guard = useUnsavedChanges({ dirty: !draft.readOnly && JSON.stringify(draft) !== JSON.stringify(initial), onSave: save });
+
+  if (profile) return <RecipeMenuItemProfile id={profile.id} name={profile.name} snapshot={profile.snapshot} onBack={closeProfile} />;
 
   return (
     <section aria-label={draft.readOnly ? "View meal template" : draft.id ? "Edit meal template" : "Create meal template"}>
+      {guard.dialog}
       <div className="w-full rounded-2xl border border-warm-200 bg-white p-4 sm:p-6">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-lg font-bold text-warm-900">{draft.readOnly ? "View meal template" : draft.id ? "Edit meal template" : "Create meal template"}</h3>
+          <div className="flex items-center gap-3"><button type="button" aria-label="Back to templates" onClick={() => guard.requestLeave(onClose)} className="rounded-lg border border-warm-200 p-2 text-warm-500 hover:bg-warm-50"><ArrowLeft className="h-4 w-4" /></button><h3 className="text-lg font-bold text-warm-900">{draft.readOnly ? "View meal template" : draft.id ? "Edit meal template" : "Create meal template"}</h3></div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={onClose}>Back to templates</Button>
             {!draft.readOnly && <Button variant="primary" onClick={() => void save()} disabled={saving}>{saving ? "Saving…" : "Save template"}</Button>}
           </div>
         </div>
@@ -173,18 +175,7 @@ function TemplateEditor({ initial, onClose, onSaved }: {
             onAdd={(event) => { pickerTrigger.current = event.currentTarget; setDay(cellDay); setMeal(cellMeal); setQuery(""); setPage(1); setMatches([]); setPickerOpen(true); }}
           />; }} />
         </div>
-        {pickerOpen && <div role="dialog" aria-modal="true" aria-label="Add Menu Item" onKeyDown={(event) => { if (event.key === 'Escape') closePicker(); }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-          <div className="flex max-h-[80vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-warm-100 p-4"><h3 className="font-bold text-warm-900">{day} {MEALS.find(([key]) => key === meal)?.[1]}</h3><Button variant="secondary" onClick={closePicker}>Close</Button></div>
-            <div className="space-y-3 overflow-y-auto p-4">
-              <SearchInput id={searchInputId} label="Search Menu Items to add" value={query} onChange={(value) => { setQuery(value); setPage(1); setMatches([]); }} loading={searching} />
-              {searchError && <p role="alert" className="text-sm text-red-700">{searchError}</p>}
-              {!searching && !searchError && matches.length === 0 && <p className="text-sm text-warm-500">No Menu Items found.</p>}
-              {matches.map((item) => <button key={item.id} onClick={() => addItem(item)} className="block min-h-11 w-full rounded-lg border border-warm-200 px-3 py-2 text-left text-sm hover:bg-emerald-50"><span className="block break-words font-semibold">{item.name}</span><span className="text-xs capitalize text-warm-500">{item.category} · Recipe makes {formatTemplateDisplayNumber(item.servings)} servings</span></button>)}
-              <Pagination meta={meta} page={page} onPageChange={setPage} />
-            </div>
-          </div>
-        </div>}
+        {pickerOpen && <MenuItemPicker title={`${day} ${MEALS.find(([key]) => key === meal)?.[1]}`} query={query} onQueryChange={(value) => { setQuery(value); setPage(1); setMatches([]); }} loading={searching} error={searchError} items={matches.map((item) => ({ id: item.id, name: item.name, detail: `${item.category} · Recipe makes ${formatTemplateDisplayNumber(item.servings)} servings` }))} onSelect={(id) => { const item = matches.find((entry) => entry.id === id); if (item) addItem(item); }} onClose={closePicker} meta={meta} page={page} onPageChange={setPage} />}
       </div>
     </section>
   );
@@ -230,11 +221,13 @@ export function MealTemplatesTab() {
         description: detail.description ?? "",
         lines: detail.days.flatMap((day) => day.items.map((item) => ({
           key: ++nextLineKey,
+          source_template_item_id: item.id,
           day_of_week: day.day_of_week,
           meal_type: day.meal_type,
           food_item_id: item.food_item_id,
           recipe_id: item.recipe_id,
-          itemName: item.food_name ?? "Unavailable item",
+          itemName: item.nutrient_snapshot?.name ?? item.food_name ?? "Unavailable item",
+          snapshot: item.nutrient_snapshot,
           quantity: Number(item.quantity),
           unit: item.unit,
         }))),

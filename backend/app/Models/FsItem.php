@@ -58,8 +58,7 @@ class FsItem extends Model
      *
      *  - same/empty unit (pc→pc)    → 1.0
      *  - physical units (kg→g, L→mL)→ UnitConverter factor (exact, DRY)
-     *  - count packs (pack→pc)      → units_per_purchase
-     *  - misconfigured              → 0.0 (degrade, never throw inside a list view)
+     *  - nonconvertible units retain the saved base unit; pack sizes do not imply conversion.
      */
     public function basePerPurchase(): float
     {
@@ -69,11 +68,11 @@ class FsItem extends Model
         if ($from === '' || $to === '' || UnitConverter::normalize($from) === UnitConverter::normalize($to)) {
             return 1.0;
         }
-        if (UnitConverter::isKnown($from) && UnitConverter::isKnown($to)) {
+        if (UnitConverter::isCompatible($from, $to)) {
             return UnitConverter::convert(1, $from, $to); // e.g. 1 kg = 1000 g
         }
 
-        return (float) ($this->units_per_purchase ?? 0);
+        return 1.0;
     }
 
     /**

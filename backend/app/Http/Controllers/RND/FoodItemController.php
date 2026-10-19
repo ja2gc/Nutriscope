@@ -9,6 +9,9 @@ use App\Http\Requests\PaginatedRequest;
 use App\Http\Requests\StoreFoodItemRequest;
 use App\Http\Resources\FoodItemResource;
 use App\Models\FoodItem;
+use App\Models\MealPlanItem;
+use App\Models\MealPlanTemplateDay;
+use App\Models\MealPlanTemplateItem;
 use App\Models\Recipe;
 use App\Services\Audit\AuditLogger;
 use App\Services\Audit\FoodItemAuditValues;
@@ -176,7 +179,11 @@ class FoodItemController extends Controller
         $this->audited(function () use ($foodItem): void {
             $before = $this->auditValues->values($foodItem);
             $fields = array_keys(array_filter($before, fn (mixed $value): bool => $value !== null));
-            $foodItem->delete();
+            $referenced = $foodItem->recipeIngredients()->exists()
+                || MealPlanItem::where('food_item_id', $foodItem->id)->exists()
+                || MealPlanTemplateItem::where('food_item_id', $foodItem->id)->exists()
+                || MealPlanTemplateDay::where('food_item_id', $foodItem->id)->exists();
+            $referenced ? $foodItem->delete() : $foodItem->forceDelete();
             $this->auditLogger->recordMutation(
                 AuditAction::Deleted,
                 AuditDomain::NutritionLibrary,

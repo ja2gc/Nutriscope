@@ -30,7 +30,7 @@ class StoreInterventionRequest extends FormRequest
             'micronutrient_limits.*.target' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'micronutrient_limits.*.min' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'micronutrient_limits.*.max' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
-            'nutrient_operators' => ['nullable', 'array:protein_g,carbs_g,fat_g,fluid_ml'],
+            'nutrient_operators' => ['nullable', 'array:energy_kcal,protein_g,carbs_g,fat_g,fluid_ml'],
             'nutrient_operators.*' => ['required', Rule::in(['min', 'max'])],
             'weight_target' => ['nullable', 'array:target,min,max'],
             'weight_target.*' => ['required', 'numeric', 'between:1,400', 'decimal:0,1', 'regex:/^\d{1,3}(?:\.\d)?$/'],

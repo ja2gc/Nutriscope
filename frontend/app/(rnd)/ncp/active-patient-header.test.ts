@@ -59,7 +59,8 @@ describe("NCP active patient header", () => {
     const page = source("app/(rnd)/ncp/[patientId]/intervention/[ncpId]/page.tsx");
 
     expect(page).toContain("handleChangePatient");
-    expect(page).toContain("You have unsaved changes. Leave without saving?");
+    expect(page).toContain('guard.requestLeave(() => router.push("/ncp/patients"))');
+    expect(page).toContain('onBeforeUnselectPatient={guard.requestLeave}');
     expect(page).toContain('router.push("/ncp/patients")');
     expect(page).toContain("onChangePatientClick={handleChangePatient}");
   });

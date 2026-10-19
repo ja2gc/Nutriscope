@@ -17,7 +17,7 @@ type Props = {
   interventionGoal?: string | null;
   medicalDiagnosis?: string | null;
   onChangePatientClick?: () => void;
-  onBeforeUnselectPatient?: () => boolean;
+  onBeforeUnselectPatient?: (leave: () => void) => void;
   ncpId?: string;
 };
 
@@ -53,9 +53,12 @@ export default function NcpPatientHeader({
   const router = useRouter();
   const { user } = useAuth();
   const unselectPatient = () => {
-    if (onBeforeUnselectPatient && !onBeforeUnselectPatient()) return;
-    if (user?.id != null) clearSelectedNcpCycle(sessionStorage, user.id);
-    router.push("/ncp/patients");
+    const leave = () => {
+      if (user?.id != null) clearSelectedNcpCycle(sessionStorage, user.id);
+      router.push("/ncp/patients");
+    };
+    if (onBeforeUnselectPatient) onBeforeUnselectPatient(leave);
+    else leave();
   };
   const foodAlerts = Array.from(new Set((foodDetails ?? []).map(clean).filter(Boolean))) as string[];
   const context = [

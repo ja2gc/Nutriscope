@@ -29,13 +29,13 @@ describe("Food Service recipe unit entry", () => {
     expect(source).toContain("Weight: g, kg, oz.");
     expect(source).toContain("Liquid: mL, L, cup, tbsp, tsp.");
     expect(source).toContain("pc, bundle, pack, tray, unit each match only themselves.");
-    expect(source).toContain("Non-Auto Grocery can use a typed unit.");
+    expect(source).toContain("Nonconvertible units keep their saved unit.");
   });
-  test.each(["new/page.tsx", "[id]/page.tsx"])("lets Non-Auto Grocery use a typed unit in %s", (page) => {
+  test.each(["new/page.tsx", "[id]/page.tsx"])("keeps Ingredient units in a matching select in %s", (page) => {
     const source = readFileSync(resolve(process.cwd(), "app/(rnd)/food-service/recipes", page), "utf8");
-    expect(source).toContain("row.catalogItem?.include_in_generated_lists === false ?");
+    expect(source).not.toContain("row.catalogItem?.include_in_generated_lists === false ?");
     expect(source).toContain('aria-label="Recipe unit"');
-    expect(source).toContain('list={`recipe-units-${row.key}`}');
+    expect(source).toContain('<select aria-label="Recipe unit"');
     expect(source).toContain("compatibleRecipeUnits(");
     expect(source).toContain("adjust_to_taste: r.adjust_to_taste");
     expect(source).toContain("Adjust to taste");
@@ -44,6 +44,7 @@ describe("Food Service recipe unit entry", () => {
 
   test.each(["new/page.tsx", "[id]/page.tsx"])("accepts fractional ingredient quantities in %s", (page) => {
     const source = readFileSync(resolve(process.cwd(), "app/(rnd)/food-service/recipes", page), "utf8");
-    expect(source).toMatch(/min="0" step="any"/);
+    expect(source).toContain('step="0.1"');
+    expect(source).toContain("numericStepBase(row.quantity");
   });
 });

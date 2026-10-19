@@ -32,6 +32,8 @@ test("Menu Item editor uses canonical categories, measured units, and converted 
   expect(Array.from(category.options).map((option) => option.value)).toEqual(["", "meal", "carb", "snack"]);
   expect(container.textContent).toContain("Add Item");
   expect(container.textContent).toContain("Create Menu Item");
+  expect(container.querySelector('[aria-label="About Nutrition source"]')).not.toBeNull();
+  expect(container.textContent).toContain('View Micronutrient Profile');
   expect(container.querySelector('[aria-label="Ingredient unit families"]')).not.toBeNull();
 
   const user = userEvent.setup();
@@ -43,7 +45,7 @@ test("Menu Item editor uses canonical categories, measured units, and converted 
   expect(Array.from(unit.options).map((option) => option.value)).toEqual(["mg", "g", "kg", "oz", "lb"]);
   await act(async () => user.selectOptions(unit, "kg"));
   const quantity = container.querySelector('[aria-label="Ingredient 1 quantity"]')!;
-  expect(quantity.getAttribute("step")).toBe("0.000001");
+  expect(quantity.getAttribute("step")).toBe("0.1");
   await act(async () => user.type(quantity, "0.5"));
   expect(container.textContent).toContain("500.0");
 });

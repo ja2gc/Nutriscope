@@ -7,8 +7,43 @@ import MealPlanSection from "./MealPlanSection";
 import { fetchFoodItems, fetchRecipes, fetchRecipeById, searchUsda } from "@/services/foodLibraryService";
 import { addMealPlanItem, createMealPlan, createPlanFromTemplate, fetchAllMealPlanItems, fetchMealPlanTemplate, fetchMealPlanTemplates, fetchMealPlans, generateMealPlan, updateMealPlanItem } from "@/services/mealPlanService";
 import type { MealPlan, MealPlanItem } from "@/services/mealPlanService";
+import { fireEvent, getByRole } from '@testing-library/dom';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+
+it('adds ingredients in their own unit with a blank amount and keeps additions fixed while scaling the original recipe', async () => {
+  vi.mocked(fetchAllMealPlanItems).mockResolvedValueOnce([{
+    id: 'portion-item', meal_plan_day_id: 'day-1', recipe_id: 'recipe-1', quantity: '1', unit: 'serving', source: 'recipe',
+    nutrient_snapshot: { name: 'Rice bowl', calories: 100, protein: 2, carbs: 20, fat: 1, serving_size: 1, serving_unit: 'serving', micronutrients: {} },
+  } as MealPlanItem]);
+  vi.mocked(fetchRecipeById).mockResolvedValueOnce({ id: 'recipe-1', name: 'Rice bowl', servings: 1, ingredients: [{ id: 1, quantity: '100', unit: 'g', food_item: { id: 'rice', name: 'Rice', serving_size: '100', serving_unit: 'g', calories: '100' } }] } as never);
+  vi.mocked(fetchFoodItems).mockResolvedValue({ data: [{ id: 'milk', name: 'Milk', serving_size: '100', serving_unit: 'mL', calories: '60' }], meta: null } as never);
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container);
+  await act(async () => root.render(<MealPlanSection ncpId="ncp-1" interventionPlanId="intervention-1" prescriptionTargets={{ energy: 2000, protein: 75, carbs: 250, fat: 65, fluid: 2000 }} />));
+  try {
+    await act(async () => container.querySelector<HTMLButtonElement>('button[title="Edit"]')!.click());
+    await act(async () => getByRole(container, 'button', { name: 'Ingredients' }).click());
+    await act(async () => getByRole(container, 'button', { name: 'Add Ingredient' }).click());
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
+    await act(async () => getByRole(container, 'button', { name: 'Add Milk' }).click());
+    const amount = getByRole(container, 'spinbutton', { name: 'Amount of Milk' }) as HTMLInputElement;
+    expect(amount.value).toBe('');
+    const unit = getByRole(container, 'combobox', { name: 'Unit of Milk' }) as HTMLSelectElement;
+    expect(unit.value).toBe('mL');
+    expect(Array.from(unit.options).map(option => option.value)).not.toContain('g');
+    await act(async () => getByRole(container, 'button', { name: 'Back to menu plan' }).click());
+    await act(async () => getByRole(container, 'button', { name: 'Save' }).click());
+    expect(updateMealPlanItem).not.toHaveBeenCalled();
+    expect(getByRole(container, 'dialog', { name: 'Unsaved changes' })).toBeTruthy();
+    await act(async () => getByRole(container, 'button', { name: 'Stay on this page' }).click());
+    await act(async () => fireEvent.input(amount, { target: { value: '50' } }));
+    await act(async () => fireEvent.input(getByRole(container, 'spinbutton', { name: 'Planned portion' }), { target: { value: '2' } }));
+    expect(amount.value).toBe('50');
+    expect((getByRole(container, 'spinbutton', { name: 'Amount of Rice' }) as HTMLInputElement).value).toBe('200');
+    await act(async () => getByRole(container, 'button', { name: 'Save Changes' }).click());
+    expect(updateMealPlanItem).toHaveBeenCalledWith('ncp-1', 'plan-1', 'day-1', 'portion-item', { quantity: 2, ingredients: [{ food_item_id: 'rice', quantity: 100, unit: 'g' }, { food_item_id: 'milk', quantity: 25, unit: 'mL' }] });
+  } finally { await act(async () => root.unmount()); }
+});
 
 vi.mock("@/services/mealPlanService", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/services/mealPlanService")>()),
@@ -326,7 +361,7 @@ it("offers Menu Items only and allows a Snack in a manually planned main slot", 
   expect(add).toBeDefined();
   expect(add?.textContent?.trim()).toBe("Add item");
   await act(async () => { add!.click(); });
-  const input = container.querySelector<HTMLInputElement>('[aria-label="Search Menu Items"]');
+  const input = container.querySelector<HTMLInputElement>('[role="dialog"] input[type="search"]');
   expect(input).not.toBeNull();
   await act(async () => { await new Promise((resolve) => setTimeout(resolve, 300)); });
   const picker = container.querySelector('[aria-label="Add Menu Item"]')!;
@@ -334,7 +369,7 @@ it("offers Menu Items only and allows a Snack in a manually planned main slot", 
   expect(fetchRecipes).toHaveBeenCalledWith("", "all", 1);
   expect(fetchFoodItems).not.toHaveBeenCalled();
   expect(searchUsda).not.toHaveBeenCalled();
-  const addSnack = Array.from(picker.querySelectorAll("button")).find((button) => button.textContent?.trim() === "Add")!;
+  const addSnack = picker.querySelector<HTMLButtonElement>('[aria-label="Add Fruit cup"]')!;
   await act(async () => { addSnack.click(); });
   expect(addMealPlanItem).toHaveBeenCalledWith("ncp-1", "plan-1", "day-1", { recipe_id: "snack-1", quantity: 1, unit: "serving" });
   expect(container.textContent).toContain("Fruit cup");
@@ -395,7 +430,8 @@ it("shows scaled ingredient amounts per person and removes the generic scale sli
   expect(breakfast.querySelectorAll('[data-menu-editor-item]')).toHaveLength(1);
   expect(breakfast.querySelector('[data-menu-editor-item] > div > :first-child')?.hasAttribute('data-menu-editor-actions')).toBe(true);
   expect(breakfast.querySelectorAll('[data-menu-editor-add]')).toHaveLength(1);
-  expect(Array.from(breakfast.querySelectorAll<HTMLElement>('[data-menu-editor-item], [data-menu-editor-add]')).every((slot) => slot.className.includes('h-32'))).toBe(true);
+  expect(breakfast.querySelector('[data-menu-editor-item]')?.className).toContain('h-32');
+  expect(breakfast.querySelector('[data-menu-editor-add]')?.className).not.toContain('h-32');
   expect(breakfast.querySelector('[data-menu-editor-add]')?.previousElementSibling).toBe(breakfast.querySelector('[data-menu-editor-item]'));
   const edit = Array.from(container.querySelectorAll("button")).find((button) => button.title === "Edit");
   expect(edit).toBeDefined();

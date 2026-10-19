@@ -178,7 +178,7 @@
                     <td>
                         @php($intake = is_array($m->lab_values) ? $m->lab_values : [])
                         @if(isset($intake['energy_kcal']))
-                            Energy: {{ $intake['energy_kcal'] }} / {{ $intervention?->energy_kcal ?? '—' }} kcal<br>
+                            Energy: {{ $intake['energy_kcal'] }} / @if($intervention?->energy_kcal !== null)@include('reports.partials.nutrient-prescription', ['limit' => [($intervention->nutrient_operators['energy_kcal'] ?? 'target') => $intervention->energy_kcal, 'unit' => 'kcal']])@else — kcal @endif<br>
                         @endif
                         @if(isset($intake['protein_g']))
                             Protein: {{ $intake['protein_g'] }} /

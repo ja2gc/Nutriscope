@@ -7,14 +7,15 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { formatFoodServiceNumber } from "@/lib/foodServiceFormat";
 import type { ShoppingListItem } from "@/services/procurementService";
 
-type CopyItem = Pick<ShoppingListItem, "id" | "ingredient_name" | "qty" | "unit">;
+type CopyItem = Pick<ShoppingListItem, "id" | "ingredient_name" | "qty" | "unit"> & Partial<Pick<ShoppingListItem, "purchase_qty" | "purchase_unit" | "included_in_po">>;
 
 export function ShoppingListCopyCard({ items }: { items: CopyItem[] }) {
+  items = items.filter((item) => item.included_in_po !== false);
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState("");
   const copyText = items
-    .map((item) => `${item.ingredient_name}\t${formatFoodServiceNumber(item.qty)} ${item.unit}`)
+    .map((item) => `${item.ingredient_name}\t${formatFoodServiceNumber(item.purchase_qty ?? item.qty)} ${item.purchase_unit ?? item.unit}`)
     .join("\n");
 
   async function copyList() {
@@ -55,7 +56,7 @@ export function ShoppingListCopyCard({ items }: { items: CopyItem[] }) {
                 {items.map((item) => (
                   <li key={item.id} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-warm-100 px-2 py-1 text-sm leading-5 text-warm-800">
                     <span className="min-w-0 break-words">{item.ingredient_name}</span>
-                    <span className="whitespace-nowrap font-mono tabular-nums">{formatFoodServiceNumber(item.qty)} {item.unit}</span>
+                    <span className="whitespace-nowrap font-mono tabular-nums">{formatFoodServiceNumber(item.purchase_qty ?? item.qty)} {item.purchase_unit ?? item.unit}</span>
                   </li>
                 ))}
               </ul>

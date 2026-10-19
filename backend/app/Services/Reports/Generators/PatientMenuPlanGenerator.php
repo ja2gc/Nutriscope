@@ -195,7 +195,7 @@ class PatientMenuPlanGenerator implements ReportGenerator
         return [
             'dish' => $name,
             'foods' => [[
-                'food' => $item->foodItem?->name ?? $name,
+                'food' => $snapshot['name'] ?? $item->foodItem?->name ?? $name,
                 'household_measure' => $this->householdMeasure((float) $item->quantity, (string) $item->unit),
                 ...$this->metricAmount((float) $item->quantity, (string) $item->unit),
             ]],

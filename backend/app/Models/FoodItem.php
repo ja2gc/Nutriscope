@@ -5,11 +5,13 @@ namespace App\Models;
 use App\Models\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class FoodItem extends Model
 {
     use HasFactory;
     use HasPublicId;
+    use SoftDeletes;
 
     protected $fillable = [
         'name', 'category', 'ready_to_eat', 'usda_fdc_id', 'calories', 'protein', 'carbs', 'fat', 'water_g',

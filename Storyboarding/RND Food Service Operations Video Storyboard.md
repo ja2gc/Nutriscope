@@ -67,7 +67,7 @@ Use this as both the recording checklist and narration script. Create every name
 3. Add **Demo Video Chicken** with an exact baseline quantity such as **6.250 kg**.
 4. Add **Demo Video Seasoning Mix** with an exact baseline quantity such as **0.125 kg**.
 5. Mark **Demo Video Seasoning Mix** as **Adjust to taste**, add short preparation notes, and save.
-6. Open the recipe/profile and point to baseline servings, scaled measurements, and the separate **Adjust to taste** note. Open unit help in both new/edit recipe forms: weight, liquid, exact piece/pack matches, and the Non-Auto Grocery typed-unit exception.
+6. Open the recipe/profile and point to baseline servings, scaled measurements, and the separate **Adjust to taste** note. Open unit help in both new/edit recipe forms: weight, liquid, exact piece/pack matches, and the same-unit restriction for nonconvertible units.
 
 **Narration**
 
@@ -108,7 +108,7 @@ Use this as both the recording checklist and narration script. Create every name
 
 1. Open **Food Service → Procurement → Food Shopping Lists**.
 2. Choose **Suggest from Menu**.
-3. Select Tuesday through Thursday of the newly saved week.
+3. Choose Tuesday in the month/year calendar and enter **3** in **Number of days** to cover Tuesday through Thursday. Dates already covered by a saved Suggested Shopping List are unavailable.
 4. Enter one estimated serving count, for example **120**, for the whole span.
 5. Enter a shopping-list name before generating it.
 6. Generate the list.
@@ -121,7 +121,7 @@ Use this as both the recording checklist and narration script. Create every name
 
 **Narration**
 
-> Enter the shopping-list name and one estimated serving count before previewing. NutriScope adjusts each recipe from its standard serving size. For example, a 50-serving recipe is multiplied by 120 divided by 50. It combines automatically included ingredients across the selected dates. Non-Auto Grocery ingredients are added only when needed; the empty search suggests them first. Save Shopping List applies the estimate to each selected Menu Calendar day and keeps the list editable. The compact copy card includes every item, quantity, and unit.
+> Enter the shopping-list name and one estimated serving count before previewing. NutriScope adjusts each recipe from its standard serving size. For example, a 50-serving recipe is multiplied by 120 divided by 50. It combines automatically included ingredients across the selected dates. Non-Auto Grocery ingredients are added only when needed; the empty search suggests them first. Save Shopping List applies the estimate to each selected Menu Calendar day and keeps the list editable. The compact copy card includes checked items with their selected purchase quantity and unit.
 
 **Expected result:** The list shows the calculated chicken requirement for 120 servings, bulk rice as a manually added kilogram row, and the seasoning mix excluded until added manually.
 
@@ -135,17 +135,17 @@ Use this as both the recording checklist and narration script. Create every name
 
 1. Open the shopping list with the row pencil. In the detail view, use the pencil beside the title to rename it.
 2. Review the visible Procurement summary: Estimated servings, budget per head per day, and total procurement cost. Change Estimated servings and save to update each covered Menu Calendar day and recalculate generated needs.
-3. Keep the calculated requirement visible.
-4. Edit the chicken purchase quantity using three decimals, select its purchase unit, then edit the current purchase-unit price and vendor.
+3. Review **Purchase Qty** and **Unit**; there is no duplicate quantity column.
+4. Edit chicken **Purchase Qty**, a compatible physical unit, **Cost/unit**, or **Total**. Show the related fields updating while typing. Nonconvertible units keep their saved unit.
 5. Use **Add food item** to manually add **Demo Video Seasoning Mix** only for this purchase, showing how to include a one-time pantry item.
 6. Add another low-priority manual ingredient, then delete that manual row.
 7. On a generated row, turn off **Buy** and enter an optional exclusion note such as **Removed for cost review**; turn it back on for the final PO.
-8. Choose calculated, nearest-whole rounding, or a manual purchase quantity. Show that Estimated servings stays unchanged.
-9. Save the edits. Use Back to show the Save and Discard choices for later unsaved edits.
+8. Use **Reset generated items** on a newly generated list to restore its original buying values, scaled to the current Estimated servings. Checkmarks and manual additions remain unchanged; older lists without a captured generation baseline cannot be reset.
+9. Save the edits. Make another change and use Back to show the shared **X**, **Discard**, and **Save** prompt; X keeps the editor open.
 
 **Narration**
 
-> The row pencil opens the saved list; a pencil beside the detail title edits the name. Estimated servings can change until Turn Into PO. Saving a new count updates the covered Menu Calendar days and recalculates generated needs. Changing the amount to buy never changes Estimated servings or the Food recipe. Staff can keep the calculated amount, round it to the nearest whole unit, or enter an amount. They can choose a compatible buying unit and change price and vendor. Manually added rows cover one-time needs. An automatically calculated row is excluded instead of deleted, so its original requirement remains visible.
+> The row pencil opens the saved list; a pencil beside the detail title edits the name. Estimated servings can change until Turn Into PO. Saving a new count updates the covered Menu Calendar days and recalculates generated needs. Changing the amount to buy never changes Estimated servings or the Food recipe. Purchase quantity, unit cost, and total synchronize while typing. Physical units convert without rounding purchases upward; nonconvertible units retain their saved unit. Reset generated items restores the captured original values at the current serving count. Manually added rows cover one-time needs. Generated rows are excluded with Buy instead of deleted. Manual additions also have Delete. The Add food item search only selects an item; it inherits the Inventory vendor and all edits happen in the resulting row.
 
 **Expected result:** The list contains realistic buying values, an included manually added seasoning item, and no unresolved release blockers.
 

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Popover, PopoverContent, PopoverTrigger } from "./popover";
+import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 
 type DatePickerProps = {
   value: string;
@@ -13,6 +15,8 @@ type DatePickerProps = {
   required?: boolean;
   compactLabels?: boolean;
   className?: string;
+  calendar?: boolean;
+  isDateDisabled?: (date: string) => boolean;
 };
 
 function dateParts(value: string): [number, number, number] {
@@ -31,7 +35,11 @@ export function DatePicker({
   required = false,
   compactLabels = false,
   className = "",
+  calendar = false,
+  isDateDisabled,
 }: DatePickerProps) {
+  const [open, setOpen] = useState(false);
+  const [view, setView] = useState(() => value.slice(0, 7) || new Date().toISOString().slice(0, 7));
   const [year, setYear] = useState(() => dateParts(value)[0]);
   const [month, setMonth] = useState(() => dateParts(value)[1]);
   const [day, setDay] = useState(() => dateParts(value)[2]);
@@ -54,6 +62,8 @@ export function DatePicker({
 
   function commit(nextYear: number, nextMonth: number, nextDay: number) {
     const validDay = nextYear && nextMonth ? Math.min(nextDay, new Date(nextYear, nextMonth, 0).getDate()) : nextDay;
+    const next = `${nextYear}-${String(nextMonth).padStart(2, "0")}-${String(validDay).padStart(2, "0")}`;
+    if (nextYear && nextMonth && validDay && ((min && next < min) || (max && next > max) || isDateDisabled?.(next))) return;
     setYear(nextYear);
     setMonth(nextMonth);
     setDay(validDay);
@@ -61,8 +71,6 @@ export function DatePicker({
       onChange("");
       return;
     }
-    const next = `${nextYear}-${String(nextMonth).padStart(2, "0")}-${String(validDay).padStart(2, "0")}`;
-    if ((min && next < min) || (max && next > max)) return;
     onChange(next);
   }
 
@@ -70,6 +78,32 @@ export function DatePicker({
   const monthWidth = `calc(${compactLabels ? 3 : 5}ch + 2.5rem)`;
   const dayWidth = `calc(${compactLabels ? 2 : 3}ch + 2.5rem)`;
   const yearWidth = "calc(4ch + 2.5rem)";
+
+  if (calendar) {
+    const [viewYear, viewMonth] = view.split('-').map(Number);
+    const days = new Date(viewYear, viewMonth, 0).getDate();
+    const offset = (new Date(viewYear, viewMonth - 1, 1).getDay() + 6) % 7;
+    const move = (by: number) => { const date = new Date(Date.UTC(viewYear, viewMonth - 1 + by, 1)); setView(date.toISOString().slice(0, 7)); };
+    return <fieldset className={`min-w-0 ${className}`} disabled={disabled}>
+      {label && <legend className="mb-1.5 text-sm font-semibold text-warm-600">{label}{required && ' *'}</legend>}
+      <Popover open={open} onOpenChange={(next) => { setOpen(next); if (next && value) setView(value.slice(0, 7)); }}>
+        <PopoverTrigger asChild><button type="button" disabled={disabled} aria-label={ariaLabel} className={`${controlClass} flex w-full items-center justify-between gap-2`}><span>{value ? new Date(`${value}T00:00:00Z`).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }) : 'Select a date'}</span><CalendarDays className="h-4 w-4 text-warm-400" /></button></PopoverTrigger>
+        <PopoverContent align="start" className="w-80 max-w-[calc(100vw-2rem)] p-3" aria-label={`${ariaLabel} calendar`}>
+          <div className="mb-3 flex items-center gap-2">
+            <button type="button" aria-label="Previous month" onClick={() => move(-1)} className="rounded p-2 hover:bg-warm-50"><ChevronLeft className="h-4 w-4" /></button>
+            <select aria-label="Calendar month" value={viewMonth} onChange={(e) => setView(`${viewYear}-${e.target.value.padStart(2, '0')}`)} className="min-w-0 flex-1 rounded border border-warm-200 p-1.5">{Array.from({ length: 12 }, (_, index) => <option key={index} value={index + 1}>{new Date(2000, index, 1).toLocaleString('en', { month: 'long' })}</option>)}</select>
+            <select aria-label="Calendar year" value={viewYear} onChange={(e) => setView(`${e.target.value}-${String(viewMonth).padStart(2, '0')}`)} className="rounded border border-warm-200 p-1.5">{years.map((option) => <option key={option}>{option}</option>)}</select>
+            <button type="button" aria-label="Next month" onClick={() => move(1)} className="rounded p-2 hover:bg-warm-50"><ChevronRight className="h-4 w-4" /></button>
+          </div>
+          <div className="grid grid-cols-7 text-center text-xs text-warm-500">{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((name) => <span key={name} className="py-2">{name}</span>)}{Array.from({ length: offset }, (_, index) => <span key={`blank-${index}`} />)}{Array.from({ length: days }, (_, index) => {
+            const date = `${view}-${String(index + 1).padStart(2, '0')}`;
+            const unavailable = Boolean((min && date < min) || (max && date > max) || isDateDisabled?.(date));
+            return <button key={date} type="button" aria-label={`${date}${unavailable ? ' unavailable' : ''}`} aria-pressed={value === date} disabled={unavailable} title={unavailable ? 'Unavailable' : date} onClick={() => { onChange(date); setOpen(false); }} className={`min-h-10 rounded-lg text-sm focus-visible:ring-2 focus-visible:ring-emerald-500 ${value === date ? 'bg-emerald-600 text-white' : 'hover:bg-emerald-50'} disabled:bg-warm-100 disabled:text-warm-400 disabled:line-through`}>{index + 1}</button>;
+          })}</div>
+        </PopoverContent>
+      </Popover>
+    </fieldset>;
+  }
 
   return (
     <fieldset className={`min-w-0 ${className}`} disabled={disabled}>

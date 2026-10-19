@@ -1,10 +1,12 @@
 "use client";
 
+import { MenuItemPicker } from "@/components/ncp/MenuItemPicker";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useEditorChanges } from "@/hooks/useUnsavedChanges";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  CalendarDays, Plus, Search, X, Trash2, Save, BookmarkPlus,
+  CalendarDays, Plus, X, Trash2, Save, BookmarkPlus,
   LayoutTemplate, ChevronLeft, AlertTriangle, Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -12,6 +14,7 @@ import { MenuEditorSlots, MenuEditorActions, MenuEditorAction } from "@/componen
 import { MenuSnackVisibility, useMenuSnackVisibility } from "@/components/ncp/MenuSnackVisibility";
 import { MenuItemProfile } from "@/components/ncp/MenuItemProfile";
 import { InfoHint } from "@/components/ui/InfoHint";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { addCalendarDays, manilaCalendarToday } from "@/lib/calendarDate";
 import { useAuth } from "@/contexts/AuthContext";
@@ -250,6 +253,24 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [weekStart, setWeekStart] = useState("");
+  const [occupiedWeeks, setOccupiedWeeks] = useState<string[]>([]);
+  const [weekAvailabilityReady, setWeekAvailabilityReady] = useState(false);
+  const [weekAvailabilityError, setWeekAvailabilityError] = useState("");
+  useEffect(() => {
+    if (isTemplate || readOnly) return;
+    let cancelled = false;
+    setWeekAvailabilityReady(false); setWeekAvailabilityError("");
+    void (async () => {
+      const weeks: string[] = [];
+      for (let page = 1; ; page++) {
+        const result = await listCycles(page);
+        weeks.push(...result.data.filter((cycle) => cycle.id !== cycleId && cycle.week_start_date).map((cycle) => cycle.week_start_date!));
+        if (page >= result.meta.last_page) break;
+      }
+      if (!cancelled) { setOccupiedWeeks(weeks); setWeekAvailabilityReady(true); }
+    })().catch(() => { if (!cancelled) setWeekAvailabilityError("Could not load available weeks. Reopen the Menu Calendar to retry."); });
+    return () => { cancelled = true; };
+  }, [cycleId, isTemplate, readOnly]);
   const [showSnackSlots, changeSnackVisibility] = useMenuSnackVisibility("nutriscope.food-service.show-snacks");
 
   const [grid, setGrid] = useState<Grid>({});
@@ -470,6 +491,8 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
     });
   }
 
+  const guard = useEditorChanges(JSON.stringify({ name, description, weekStart, grid }), !loading && !planReadOnly, async () => Boolean(await handleSave()));
+
   async function handleSave() {
     setBusy(true); setErr("");
     try {
@@ -484,7 +507,8 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
         setSavedId(savedTemplate.id);
         setName(savedTemplate.name);
         setDescription(savedTemplate.description ?? "");
-        return null;
+        guard.markSaved(JSON.stringify({ name: savedTemplate.name, description: savedTemplate.description ?? "", weekStart, grid }));
+        return savedTemplate;
       }
       const saved = await saveCycle(savedId, {
         ...(name.trim() ? { name: name.trim() } : {}),
@@ -513,11 +537,13 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
         if (line) (refreshed[key] ??= []).push(line);
       });
       setGrid(refreshed);
+      guard.markSaved(JSON.stringify({ name: saved.name, description, weekStart, grid: refreshed }));
       return saved;
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "Save failed."); return null;
     } finally { setBusy(false); }
   }
+
 
   function openSaveTemplateDialog() {
     if (isTemplate) return;
@@ -581,8 +607,9 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
   async function openSlot(day: Day, meal: Meal, cell: Cell, lineIndex: number) {
     if (isTemplate) return;
     const saved = planReadOnly || cell.po_snapshot ? null : await handleSave();
-    const id = savedId ?? saved?.id;
-    const lineId = cell.id ?? saved?.days?.filter((line) => line.day_of_week === day && line.meal_type === meal)
+    const savedCycle = saved && "week_start_date" in saved ? saved : null;
+    const id = savedId ?? savedCycle?.id;
+    const lineId = cell.id ?? savedCycle?.days?.filter((line) => line.day_of_week === day && line.meal_type === meal)
       .sort((a, b) => a.line_order - b.line_order)[lineIndex]?.id;
     if (!id || !lineId) return;
     const base = readOnly ? "/fss/menu" : "/food-service/menu-cycle";
@@ -599,10 +626,10 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
     const displaySnacks = showSnackSlots;
     return (
       <div className="space-y-1"><MenuSnackVisibility visible={showSnackSlots} onChange={changeSnackVisibility} /><div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
-        <table className="w-full text-sm border-collapse">
+        <table className="w-full min-w-[1120px] table-fixed text-sm border-collapse">
           <thead>
             <tr className="bg-warm-50 border-b border-warm-100">
-              <th className="px-3 py-3 text-left text-xs font-bold text-warm-500 uppercase sticky left-0 bg-warm-50">Meal</th>
+              <th className="w-24 px-3 py-3 text-left text-xs font-bold text-warm-500 uppercase sticky left-0 bg-warm-50">Meal</th>
               {DAYS.map((d) => {
                 return (
                   <th key={d} className="px-3 py-2 text-left text-xs font-bold text-warm-500 uppercase min-w-[140px]">
@@ -698,47 +725,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
                         onAdd={() => { setActiveCell(isPicking ? null : key); setPickerSearch(""); }}
                       />
 
-                      {isPicking && !displayReadOnly && (
-                        <div className="absolute z-30 top-full left-0 mt-1 w-56 bg-white border border-warm-200 rounded-xl shadow-lg p-2">
-                          <div className="relative mb-1">
-                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-warm-400" />
-                            <input autoFocus value={pickerSearch} onChange={(e) => setPickerSearch(e.target.value)}
-                              className="w-full pl-7 pr-2 py-1.5 text-sm border border-warm-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-400" />
-                          </div>
-                          <div className="max-h-48 overflow-y-auto">
-                            {pickerLoading ? (
-                              <div className="text-xs text-warm-400 px-2 py-3 text-center">Searching…</div>
-                            ) : pickerError ? (
-                              <div className="text-xs text-red-600 px-2 py-3 text-center">Could not search. Try again.</div>
-                            ) : !pickerSearch.trim() ? (
-                              <div className="text-xs text-warm-400 px-2 py-3 text-center">Type to search recipes and items.</div>
-                            ) : filteredRecipes.length === 0 && filteredItems.length === 0 ? (
-                              <div className="text-xs text-warm-400 px-2 py-3 text-center">No matches. Build recipes/items under FSS.</div>
-                            ) : (
-                              <>
-                                {filteredRecipes.map((r) => (
-                                  <button key={`r-${r.id}`} onClick={() => assign(key, r)}
-                                    className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-emerald-50 cursor-pointer">
-                                    <div className="text-xs font-semibold text-warm-800 truncate">{r.name}</div>
-                                    <div className="text-xs text-warm-400">serves {r.servings}{r.category ? ` · ${r.category}` : ""}</div>
-                                  </button>
-                                ))}
-                                {filteredItems.length > 0 && (
-                                  <div className="px-2 pt-2 pb-1 text-xs font-bold uppercase tracking-wider text-warm-400">Single items</div>
-                                )}
-                                {filteredItems.map((it) => (
-                                  <button key={`i-${it.id}`} onClick={() => assignItem(key, it)}
-                                    className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-amber-50 cursor-pointer">
-                                    <div className="text-xs font-semibold text-warm-800 truncate">{it.name}</div>
-                                    <div className="text-xs text-warm-400">item{it.category ? ` · ${it.category}` : ""}</div>
-                                  </button>
-                                ))}
-                              </>
-                            )}
-                          </div>
-                          <button onClick={() => setActiveCell(null)} className="w-full mt-1 text-xs text-warm-400 hover:text-warm-600 cursor-pointer">close</button>
-                        </div>
-                      )}
+
                     </td>
                   );
                 })}
@@ -746,7 +733,12 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
             ))}
           </tbody>
         </table>
-      </div></div>
+      </div>
+      {activeCell && !displayReadOnly && <MenuItemPicker title={activeCell.replace('|', ' ')} query={pickerSearch} onQueryChange={setPickerSearch} loading={pickerLoading} error={pickerError ? "Could not load Menu Items. Try again." : null} items={[
+        ...filteredRecipes.map((recipe) => ({ id: `recipe:${recipe.id}`, name: recipe.name, detail: `Recipe makes ${recipe.servings} servings` })),
+        ...filteredItems.map((item) => ({ id: `item:${item.id}`, name: item.name, detail: item.category ?? 'Menu Item' })),
+      ]} onSelect={(id) => { const recipe = filteredRecipes.find((item) => `recipe:${item.id}` === id); const item = filteredItems.find((item) => `item:${item.id}` === id); if (recipe) assign(activeCell, recipe); else if (item) assignItem(activeCell, item); }} onClose={() => setActiveCell(null)} />}
+      </div>
     );
   }
 
@@ -766,8 +758,9 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
     <Shell templates={isTemplate}>
       {/* Header */}
       <div className="border-b border-warm-200 pb-5 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+      {guard.dialog}
         <div className="flex items-start gap-3">
-          <button onClick={onBack} className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 cursor-pointer mt-0.5"><ChevronLeft className="h-4 w-4" /></button>
+          <button onClick={() => guard.requestLeave(onBack)} className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 cursor-pointer mt-0.5"><ChevronLeft className="h-4 w-4" /></button>
           <div>
             <input aria-label="Menu name" value={name} onChange={(e) => setName(e.target.value)} readOnly={planReadOnly}
               className="text-xl font-extrabold text-warm-900 tracking-tight bg-transparent border-b border-dashed border-warm-200 focus:border-emerald-500 focus:outline-none read-only:border-transparent" />
@@ -804,8 +797,8 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
         ].map((f) => (
           <div key={f.label}>
             <label className="block text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1">{f.label}</label>
-            <input type={f.type} value={f.value} onChange={(e) => f.set(e.target.value)} readOnly={planReadOnly}
-              className="w-full px-3 py-2 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            <DatePicker calendar ariaLabel="Week start" value={f.value} onChange={f.set} disabled={planReadOnly || !weekAvailabilityReady} isDateDisabled={(date) => new Date(`${date}T00:00:00Z`).getUTCDay() !== 1 || occupiedWeeks.some((week) => date >= week && date <= addCalendarDays(week, 6))} />
+            {weekAvailabilityError && <p role="alert" className="mt-1 text-sm text-red-700">{weekAvailabilityError}</p>}
           </div>
         ))}
       </div>

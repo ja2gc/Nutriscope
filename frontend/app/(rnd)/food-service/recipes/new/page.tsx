@@ -2,9 +2,11 @@
 
 import React, { useCallback, useState } from "react";
 import Link from "next/link";
+import { useEditorChanges } from "@/hooks/useUnsavedChanges";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CookingPot, ArrowLeft, Search, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { numericStepBase } from "@/components/ui/NumericInput";
 import { InfoHint } from "@/components/ui/InfoHint";
 import { compatibleRecipeUnits, foodServiceIngredientCost, foodServiceUnitFactor } from "@/lib/foodServiceUnits";
 import { searchCatalog, type CatalogItem } from "@/services/fsCatalogService";
@@ -93,22 +95,25 @@ export default function NewFSSRecipePage() {
   const previewNum = parseInt(previewServings) || servingsNum;
   const previewFactor = servingsNum > 0 ? previewNum / servingsNum : 1;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) { setError("Recipe name is required."); return; }
-    if (ingredients.some((r) => r.catalogItem && (!r.unit.trim() || r.unit.trim().toLowerCase() === "to taste"))) { setError("Enter a measured unit for every ingredient."); return; }
-    if (ingredients.some((r) => r.catalogItem && (!r.quantity || Number(r.quantity) <= 0))) { setError("Enter a baseline quantity for every ingredient."); return; }
+  const guard = useEditorChanges(JSON.stringify({ name, category, servings, prepNotes, ingredients: ingredients.map(({ catalogItem, quantity, unit, adjust_to_taste }) => ({ id: catalogItem?.id, quantity, unit, adjust_to_taste })) }), true, () => handleSubmit(undefined, false));
+
+  async function handleSubmit(e?: React.FormEvent, navigate = true) {
+    e?.preventDefault();
+    if (!e && !document.querySelector<HTMLFormElement>("form")?.reportValidity()) return false;
+    if (!name.trim()) { setError("Recipe name is required."); return false; }
+    if (ingredients.some((r) => r.catalogItem && (!r.unit.trim() || r.unit.trim().toLowerCase() === "to taste"))) { setError("Enter a measured unit for every ingredient."); return false; }
+    if (ingredients.some((r) => r.catalogItem && (!r.quantity || Number(r.quantity) <= 0))) { setError("Enter a baseline quantity for every ingredient."); return false; }
 
     const valid = ingredients
       .filter((r) => r.catalogItem && r.quantity && parseFloat(r.quantity) > 0)
       .map((r) => ({ fs_item_id: r.catalogItem!.id, quantity: parseFloat(r.quantity), unit: r.unit, adjust_to_taste: r.adjust_to_taste }));
 
-    if (valid.length === 0) { setError("Add at least one ingredient."); return; }
-    if (singleItemMode && valid.length !== 1) { setError("Single item foods must have exactly one ingredient."); return; }
+    if (valid.length === 0) { setError("Add at least one ingredient."); return false; }
+    if (singleItemMode && valid.length !== 1) { setError("Single item foods must have exactly one ingredient."); return false; }
 
     // Block bundle/non-convertible units when the catalog unit is convertible.
     const blockedRow = ingredients.find((r) => r.catalogItem && r.quantity && rowConversion(r).blocked);
-    if (blockedRow) { setError(rowConversion(blockedRow).warning ?? "Incompatible ingredient unit."); return; }
+    if (blockedRow) { setError(rowConversion(blockedRow).warning ?? "Incompatible ingredient unit."); return false; }
 
     try {
       setSaving(true);
@@ -128,9 +133,11 @@ export default function NewFSSRecipePage() {
         const d = await res.json().catch(() => ({}));
         throw new Error(d.message ?? "Failed to save.");
       }
-      router.push("/food-service/inventory?tab=menu-items");
+      if (navigate) { guard.allowNavigation(); router.push("/food-service/inventory?tab=menu-items"); }
+      return true;
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to save.");
+      return false;
     } finally {
       setSaving(false);
     }
@@ -138,6 +145,7 @@ export default function NewFSSRecipePage() {
 
   return (
     <div className="space-y-6 font-sans max-w-3xl mx-auto">
+      {guard.dialog}
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
         <Link href="/dashboard" className="hover:text-emerald-700 transition-colors">Home</Link>
@@ -263,7 +271,7 @@ export default function NewFSSRecipePage() {
           <div className="grid grid-cols-[1fr_80px_72px_80px_28px] items-center gap-2 text-xs font-extrabold text-warm-400 uppercase tracking-wider px-1">
             <span>Catalog ingredient</span>
             <span>Qty</span>
-            <span className="flex items-center">Unit<InfoHint label="About recipe units">Weight: g, kg, oz. Liquid: mL, L, cup, tbsp, tsp. pc, bundle, pack, tray, unit each match only themselves. Non-Auto Grocery can use a typed unit.</InfoHint></span>
+            <span className="flex items-center">Unit<InfoHint label="About recipe units">Weight: g, kg, oz. Liquid: mL, L, cup, tbsp, tsp. pc, bundle, pack, tray, unit each match only themselves. Nonconvertible units keep their saved unit.</InfoHint></span>
             <span className="text-right">₱ Cost</span>
             <span />
           </div>
@@ -305,21 +313,13 @@ export default function NewFSSRecipePage() {
                 {/* Quantity */}
                 <input type="number" value={row.quantity} required={Boolean(row.catalogItem)}
                   onChange={(e) => updateRow(idx, { quantity: e.target.value })}
-                  min="0" step="any"
+                  min={numericStepBase(row.quantity, 0.000001)} step="0.1"
                   className="w-full px-3 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" />
 
-                {/* Non-Auto Grocery units can be entered as used in the recipe. */}
-                {row.catalogItem?.include_in_generated_lists === false ? <>
-                  <input aria-label="Recipe unit" list={`recipe-units-${row.key}`} value={row.unit}
-                    onChange={(e) => updateRow(idx, { unit: e.target.value })}
-                    className="w-full px-2 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:border-emerald-600" />
-                  <datalist id={`recipe-units-${row.key}`}>
-                    {compatibleRecipeUnits(row.catalogItem.base_unit, false).map((u) => <option key={u} value={u} />)}
-                  </datalist>
-                </> : <select value={row.unit} onChange={(e) => updateRow(idx, { unit: e.target.value })}
+                <select aria-label="Recipe unit" value={row.unit} onChange={(e) => updateRow(idx, { unit: e.target.value })}
                   className="w-full px-2 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none cursor-pointer">
-                  {compatibleRecipeUnits(row.catalogItem?.base_unit ?? row.unit, true).map((u) => <option key={u} value={u}>{u}</option>)}
-                </select>}
+                  {compatibleRecipeUnits(row.catalogItem?.base_unit ?? row.unit, row.unit).map((u) => <option key={u} value={u}>{u}</option>)}
+                </select>
 
                 {/* Cost contribution */}
                 <div className="py-2 text-right text-sm font-bold text-emerald-700">

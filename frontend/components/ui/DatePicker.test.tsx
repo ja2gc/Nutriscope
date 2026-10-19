@@ -43,6 +43,29 @@ describe("DatePicker", () => {
     expect(Array.from(day.options).map((option) => option.value)).not.toContain("30");
   });
 
+  test("does not display a rejected date while retaining a different submitted value", () => {
+    const change = vi.fn();
+    act(() => root.render(<DatePicker value="2026-10-19" min="2026-10-19" onChange={change} />));
+    const month = container.querySelector<HTMLSelectElement>('select')!;
+    act(() => { month.value = "2"; month.dispatchEvent(new Event("change", { bubbles: true })); });
+    expect(month.value).toBe("10");
+    expect(change).not.toHaveBeenCalled();
+  });
+
+  test('calendar shows unavailable days and supports selecting another month and year', async () => {
+    const change = vi.fn();
+    await act(async () => root.render(<DatePicker calendar label="Start date" value="2026-10-19" isDateDisabled={(date) => date === '2026-10-20'} onChange={change} />));
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Start date"]')!.click());
+    const unavailable = document.querySelector<HTMLButtonElement>('[aria-label="2026-10-20 unavailable"]')!;
+    expect(unavailable.disabled).toBe(true);
+    const year = document.querySelector<HTMLSelectElement>('[aria-label="Calendar year"]')!;
+    await act(async () => { year.value = '2027'; year.dispatchEvent(new Event('change', { bubbles: true })); });
+    const month = document.querySelector<HTMLSelectElement>('[aria-label="Calendar month"]')!;
+    await act(async () => { month.value = '11'; month.dispatchEvent(new Event('change', { bubbles: true })); });
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="2027-11-08"]')!.click());
+    expect(change).toHaveBeenLastCalledWith('2027-11-08');
+  });
+
   test("renders compact hints when requested while retaining full accessible labels", () => {
     act(() => root.render(<DatePicker label="Start date" ariaLabel="Start date" value="" onChange={() => undefined} compactLabels />));
 

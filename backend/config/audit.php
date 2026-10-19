@@ -860,6 +860,27 @@ return [
             'implementation_state' => 'implemented',
             'reason' => 'Unsaved AI output must not persist prompts or outputs.',
         ],
+        'PATCH api/rnd/ncp-records/{ncpRecord}/interventions/{intervention}' => [
+            'classification' => 'model_event',
+            'source' => 'App\\Models\\Intervention::AuditsChanges',
+            'owner_task' => 6,
+            'implementation_state' => 'implemented',
+            'reason' => 'Current Intervention Plan edits use the redacted clinical model event; historical updates are blocked.',
+        ],
+        'DELETE api/rnd/ncp-records/{ncpRecord}/interventions/{intervention}' => [
+            'classification' => 'model_event',
+            'source' => 'App\\Models\\Intervention::AuditsChanges',
+            'owner_task' => 6,
+            'implementation_state' => 'implemented',
+            'reason' => 'Intervention Plan deletion uses the redacted clinical model event.',
+        ],
+        'POST api/rnd/ncp-records/{ncpRecord}/meal-plans/{mealPlan}/clear' => [
+            'classification' => 'explicit_event',
+            'source' => 'App\\Http\\Controllers\\RND\\MealPlanController@clear',
+            'owner_task' => 6,
+            'implementation_state' => 'implemented',
+            'reason' => 'Clearing a weekly menu emits its existing sanitized meal-plan update event.',
+        ],
         'POST api/rnd/ncp-records/{ncpRecord}/intervention/recommend' => [
             'classification' => 'intentionally_not_audited',
             'source' => 'App\\Http\\Controllers\\RND\\MealPlanController@recommend',

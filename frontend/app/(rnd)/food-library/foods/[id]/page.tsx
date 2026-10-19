@@ -1,7 +1,9 @@
 "use client";
 
+import { numericStepBase } from "@/components/ui/NumericInput";
 import React, { use, useEffect, useState } from "react";
 import Link from "next/link";
+import { useEditorChanges } from "@/hooks/useUnsavedChanges";
 import { useRouter } from "next/navigation";
 import { Database, ArrowLeft, Plus, X, Loader2, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -61,7 +63,7 @@ export default function EditFoodPage({ params }: { params: Promise<{ id: string 
         setProtein(f.protein ?? "");
         setCarbs(f.carbs ?? "");
         setFat(f.fat ?? "");
-        setServingSize(f.serving_size ?? "100");
+        setServingSize(String(Number(f.serving_size ?? "100")));
         setServingUnit(canonicalClinicalUnit(f.serving_unit ?? ""));
         setAllergens(f.allergens ?? []);
         const microMap: Record<string, string> = {};
@@ -99,8 +101,11 @@ export default function EditFoodPage({ params }: { params: Promise<{ id: string 
     setError(null);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const guard = useEditorChanges(JSON.stringify({ name, category, calories, protein, carbs, fat, servingSize, servingUnit, allergens, micros, corrections }), !loading, () => handleSubmit(undefined, false));
+
+  async function handleSubmit(e?: React.FormEvent, navigate = true) {
+    e?.preventDefault();
+    if (!e && !document.querySelector<HTMLFormElement>("form")?.reportValidity()) return false;
     try {
       setSaving(true);
       setError(null);
@@ -109,7 +114,7 @@ export default function EditFoodPage({ params }: { params: Promise<{ id: string 
         return { recipe_id: recipe.recipe_id, line_index: recipe.line_index, quantity: Number(correction?.quantity), unit: correction?.unit ?? "" };
       });
       if (recipeCorrections.some((correction) => clinicalIngredientFactor(correction.quantity, correction.unit, Number(servingSize), servingUnit) === null)) {
-        setError("Enter a measured quantity and compatible unit for every affected Menu Item."); return;
+        setError("Enter a measured quantity and compatible unit for every affected Menu Item."); return false;
       }
       const micronutrients: Record<string, number> = {};
       if (!food?.usda_fdc_id) {
@@ -131,7 +136,8 @@ export default function EditFoodPage({ params }: { params: Promise<{ id: string 
         ...(recipeCorrections.length > 0 && { recipe_corrections: recipeCorrections }),
         ...(!food?.usda_fdc_id && Object.keys(micronutrients).length > 0 && { micronutrients }),
       });
-      router.push("/food-library");
+      if (navigate) { guard.allowNavigation(); router.push("/food-library"); }
+      return true;
     } catch (e: unknown) {
       if (e instanceof RecipeCorrectionsRequiredError) {
         setAffectedRecipes(e.affectedRecipes);
@@ -141,16 +147,19 @@ export default function EditFoodPage({ params }: { params: Promise<{ id: string 
         })));
       }
       setError(e instanceof Error ? e.message : "Failed to save.");
+      return false;
     } finally {
       setSaving(false);
     }
   };
+
 
   if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="h-6 w-6 animate-spin text-emerald-600" /></div>;
   if (!food && error) return <div className="p-6 bg-red-50 border border-red-100 rounded-2xl text-sm text-red-700 font-bold">{error}</div>;
 
   return (
     <div className="space-y-6 font-sans max-w-2xl mx-auto">
+      {guard.dialog}
       <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
         <Link href="/dashboard" className="hover:text-emerald-700 transition-colors">Home</Link>
         <span>/</span>
@@ -188,7 +197,7 @@ export default function EditFoodPage({ params }: { params: Promise<{ id: string 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="bg-white border border-warm-200 rounded-2xl p-6 space-y-4 shadow-sm">
           <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Basic Information</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 items-end sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
               <Label>Name <Required /></Label>
               <input type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputCls} required />
@@ -200,10 +209,10 @@ export default function EditFoodPage({ params }: { params: Promise<{ id: string 
                 {CATEGORIES.map((c) => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
               </select>
             </div>
-            <div className="flex gap-2">
+            <div className="flex items-end gap-2">
               <div className="flex-1">
                 <Label>Nutrient baseline amount</Label>
-                <input aria-label="Nutrient baseline amount" type="number" value={servingSize} onChange={(e) => setServingSize(e.target.value)} min="0" max="10000" step="0.1" required className={inputCls} />
+                <input aria-label="Nutrient baseline amount" type="number" value={servingSize} onChange={(e) => setServingSize(e.target.value)} min={numericStepBase(servingSize)} max="10000" step="0.1" required className={inputCls} />
               </div>
               <div className="w-28">
                 <div className="flex items-center"><Label>Unit</Label><InfoHint label="Ingredient unit families">{CLINICAL_UNIT_HINT}</InfoHint></div>
@@ -222,8 +231,8 @@ export default function EditFoodPage({ params }: { params: Promise<{ id: string 
             const correction = corrections[key] ?? { quantity: "", unit: servingUnit };
             return <div key={key} className="space-y-2">
               <p><Link href={`/food-library/recipes/${recipe.recipe_id}`} target="_blank" className="font-semibold underline">{recipe.recipe_name}</Link>: {recipe.quantity} {recipe.unit}</p>
-              <div className="flex gap-2">
-                <input aria-label={`${recipe.recipe_name} correction quantity ${recipe.line_index + 1}`} type="number" min="0.000001" max="100000" step="0.000001" value={correction.quantity} onChange={(event) => setCorrections((current) => ({ ...current, [key]: { ...correction, quantity: event.target.value } }))} className={inputCls} required />
+              <div className="flex items-end gap-2">
+                <input aria-label={`${recipe.recipe_name} correction quantity ${recipe.line_index + 1}`} type="number" min={numericStepBase(correction.quantity, 0.000001)} max="100000" step="0.1" value={correction.quantity} onChange={(event) => setCorrections((current) => ({ ...current, [key]: { ...correction, quantity: event.target.value } }))} className={inputCls} required />
                 <select aria-label={`${recipe.recipe_name} correction unit ${recipe.line_index + 1}`} value={correction.unit} onChange={(event) => setCorrections((current) => ({ ...current, [key]: { ...correction, unit: event.target.value } }))} className={inputCls}>
                   {clinicalRecipeUnits(servingUnit).map((unit) => <option key={unit} value={unit}>{unit}</option>)}
                 </select>
@@ -242,10 +251,10 @@ export default function EditFoodPage({ params }: { params: Promise<{ id: string 
 
           {/* Macros — always editable */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div><Label>Calories (kcal) <Required /></Label><input type="number" value={calories} onChange={(e) => setCalories(e.target.value)} min="0" step="0.01" className={inputCls} required /></div>
-            <div><Label>Protein (g)</Label><input type="number" value={protein} onChange={(e) => setProtein(e.target.value)} min="0" step="0.01" className={inputCls} /></div>
-            <div><Label>Carbs (g)</Label><input type="number" value={carbs} onChange={(e) => setCarbs(e.target.value)} min="0" step="0.01" className={inputCls} /></div>
-            <div><Label>Fat (g)</Label><input type="number" value={fat} onChange={(e) => setFat(e.target.value)} min="0" step="0.01" className={inputCls} /></div>
+            <div><Label>Calories (kcal) <Required /></Label><input type="number" value={calories} onChange={(e) => setCalories(e.target.value)} min={numericStepBase(calories)} step="0.1" className={inputCls} required /></div>
+            <div><Label>Protein (g)</Label><input type="number" value={protein} onChange={(e) => setProtein(e.target.value)} min={numericStepBase(protein)} step="0.1" className={inputCls} /></div>
+            <div><Label>Carbs (g)</Label><input type="number" value={carbs} onChange={(e) => setCarbs(e.target.value)} min={numericStepBase(carbs)} step="0.1" className={inputCls} /></div>
+            <div><Label>Fat (g)</Label><input type="number" value={fat} onChange={(e) => setFat(e.target.value)} min={numericStepBase(fat)} step="0.1" className={inputCls} /></div>
           </div>
 
           {/* Micronutrients — grouped */}
@@ -264,7 +273,7 @@ export default function EditFoodPage({ params }: { params: Promise<{ id: string 
                       </p>
                     ) : (
                       <input
-                        type="number" min="0" step="0.001"
+                        type="number" min={numericStepBase(micros[key] ?? "")} step="0.1"
                         value={micros[key] ?? ''}
                         onChange={(e) => setMicros((prev) => ({ ...prev, [key]: e.target.value }))}
                         className={inputCls}
@@ -293,7 +302,7 @@ export default function EditFoodPage({ params }: { params: Promise<{ id: string 
               <button type="button" onClick={() => setAllergens((prev) => prev.filter((x) => x !== a))} className="cursor-pointer"><X className="h-2.5 w-2.5" /></button>
             </span>
           ))}
-          <div className="flex gap-2">
+          <div className="flex items-end gap-2">
             <input type="text" value={allergenInput} onChange={(e) => setAllergenInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCustomAllergen(); } }}
               className={`${inputCls} flex-1 max-w-64`} />

@@ -79,7 +79,7 @@ describe("MenuSlotRecipePage", () => {
 
     const unit = container.querySelector<HTMLSelectElement>('select[aria-label="Unit for Chicken"]');
     expect(unit).not.toBeNull();
-    expect(Array.from(unit?.options ?? []).map((option) => option.value)).toContain("kg");
+    expect(Array.from(unit?.options ?? []).map((option) => option.value)).not.toContain("kg");
     expect(Array.from(unit?.options ?? []).map((option) => option.value)).toContain("cup");
     expect(unit?.value).toBe("cup");
   });
@@ -91,7 +91,7 @@ describe("MenuSlotRecipePage", () => {
     });
     await act(async () => { root.render(<MenuSlotRecipePage backHref="/food-service/menu-cycle?cycle=cycle-1" />); });
 
-    const unit = container.querySelector<HTMLInputElement>('input[aria-label="Unit for Salt"]');
+    const unit = container.querySelector<HTMLSelectElement>('select[aria-label="Unit for Salt"]');
     expect(unit?.value).toBe("tbsp");
     const qty = container.querySelector<HTMLInputElement>('input[aria-label="Recipe quantity for Salt"]');
     expect(qty?.disabled).toBe(false);

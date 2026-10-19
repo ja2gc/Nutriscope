@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Boxes, Plus, Pencil, Trash2, X } from "lucide-react";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { Button } from "@/components/ui/Button";
 import { Tabs } from "@/components/ui/Tabs";
 import { FoodServiceMenuItems } from "./_components/FoodServiceMenuItems";
@@ -17,6 +18,7 @@ import {
 } from "@/services/fsCatalogService";
 import { listAllSuppliers, Supplier } from "@/services/supplierService";
 import { CATALOG_UNIT_OPTIONS } from "@/lib/units";
+import { numericStepBase } from "@/components/ui/NumericInput";
 import { InfoHint } from "@/components/ui/InfoHint";
 import { compatibleRecipeUnits } from "@/lib/foodServiceUnits";
 import { clearCorrectionDraft, correctionHref, correctionKey, readCorrectionDraft, writeCorrectionDraft, type InventoryCorrectionDraft } from "@/lib/inventoryCorrectionDraft";
@@ -51,7 +53,11 @@ function ItemFormModal({ kind, editing, suppliers, initialDraft, initialToken, o
 }) {
   const router = useRouter();
   const isSupply = kind === "supply";
-  const [form, setForm] = useState<FormState>(initialDraft?.form ?? emptyForm);
+  const savedForm: FormState = editing ? {
+    name: editing.name, category: editing.category ?? '', default_supplier_id: editing.default_supplier_id ? String(editing.default_supplier_id) : '',
+    base_unit: editing.base_unit ?? '', purchase_price: editing.purchase_price ?? '', include_in_generated_lists: editing.include_in_generated_lists,
+  } : emptyForm;
+  const [form, setForm] = useState<FormState>(initialDraft?.form ?? savedForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [affectedRecipes, setAffectedRecipes] = useState<AffectedRecipe[]>(initialDraft?.affected ?? []);
@@ -64,34 +70,21 @@ function ItemFormModal({ kind, editing, suppliers, initialDraft, initialToken, o
     if (typeof window !== "undefined" && window.location.search.includes("inventoryCorrection")) window.history.replaceState(window.history.state, "", "/food-service/inventory");
   };
 
-  useEffect(() => {
-    if (initialDraft) return;
-    if (editing) {
-      setForm({
-        name: editing.name,
-        category: editing.category ?? "",
-        default_supplier_id: editing.default_supplier_id ? String(editing.default_supplier_id) : "",
-        base_unit: editing.base_unit ?? "",
-        purchase_price: editing.purchase_price ?? "",
-        include_in_generated_lists: editing.include_in_generated_lists,
-      });
-    } else {
-      setForm(emptyForm);
-    }
-  }, [editing, initialDraft]);
 
   const set = (k: keyof FormState, v: string | boolean) => {
     if (k === "base_unit" || k === "include_in_generated_lists") resetCorrections();
     setForm((f) => ({ ...f, [k]: v }));
   };
 
+  const guard = useUnsavedChanges({ dirty: JSON.stringify(form) !== JSON.stringify(savedForm) || Object.keys(corrections).length > 0, onSave: save });
+
   async function save() {
     setError(null);
-    if (!form.name.trim()) { setError("Name is required."); return; }
+    if (!form.name.trim()) { setError("Name is required."); return false; }
     // Ingredients carry a single unit; supplies have no unit input (cost-per-unit only).
-    if (!isSupply && !form.base_unit.trim()) { setError("Unit is required."); return; }
+    if (!isSupply && !form.base_unit.trim()) { setError("Unit is required."); return false; }
     const price = parseFloat(form.purchase_price);
-    if (!Number.isFinite(price) || price < 0) { setError("Enter a valid cost."); return; }
+    if (!Number.isFinite(price) || price < 0) { setError("Enter a valid cost."); return false; }
 
     setSaving(true);
     try {
@@ -120,9 +113,9 @@ function ItemFormModal({ kind, editing, suppliers, initialDraft, initialToken, o
             };
           });
           if (entries.some((entry) => !Number.isFinite(entry.quantity) || entry.quantity <= 0 ||
-            !compatibleRecipeUnits(form.base_unit, true).includes(entry.unit))) {
+            !compatibleRecipeUnits(form.base_unit).includes(entry.unit))) {
             setError("Open and correct every listed Food and menu item before saving Inventory.");
-            return;
+            return false;
           }
           patch.recipe_corrections = entries;
         }
@@ -131,6 +124,7 @@ function ItemFormModal({ kind, editing, suppliers, initialDraft, initialToken, o
         await createFsItem(payload);
       }
       onSaved();
+      return true;
     } catch (e) {
       if (e instanceof RecipeCorrectionsRequiredError) {
         setAffectedRecipes(e.affectedRecipes);
@@ -145,19 +139,21 @@ function ItemFormModal({ kind, editing, suppliers, initialDraft, initialToken, o
         window.history.replaceState(window.history.state, "", `/food-service/inventory?inventoryCorrection=${encodeURIComponent(nextToken)}`);
       }
       setError(e instanceof Error ? e.message : "Failed to save.");
+      return false;
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={() => guard.requestLeave(onClose)}>
+      {guard.dialog}
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h3 className="text-base font-extrabold text-warm-900 uppercase tracking-wider">
             {editing ? "Edit" : "New"} {TABS.find((t) => t.key === kind)?.label.replace(/s$/, "")}
           </h3>
-          <button onClick={onClose} className="text-warm-400 hover:text-warm-700"><X className="h-4 w-4" /></button>
+          <button onClick={() => guard.requestLeave(onClose)} className="text-warm-400 hover:text-warm-700"><X className="h-4 w-4" /></button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -184,7 +180,7 @@ function ItemFormModal({ kind, editing, suppliers, initialDraft, initialToken, o
           {isSupply ? (
             <div>
               <Label>Cost/unit (₱)</Label>
-              <input type="number" min="0" step="any" value={form.purchase_price} onChange={(e) => set("purchase_price", e.target.value)} className={inputCls} />
+              <input type="number" min={numericStepBase(form.purchase_price)} step="0.1" value={form.purchase_price} onChange={(e) => set("purchase_price", e.target.value)} className={inputCls} />
             </div>
           ) : (
             <>
@@ -198,7 +194,7 @@ function ItemFormModal({ kind, editing, suppliers, initialDraft, initialToken, o
               </div>
               <div>
                 <Label>Cost/unit (₱)</Label>
-                <input type="number" min="0" step="any" value={form.purchase_price} onChange={(e) => set("purchase_price", e.target.value)} className={inputCls} />
+                <input type="number" min={numericStepBase(form.purchase_price)} step="0.1" value={form.purchase_price} onChange={(e) => set("purchase_price", e.target.value)} className={inputCls} />
               </div>
               <div className="sm:col-span-2 flex flex-wrap items-center gap-x-3 gap-y-0 text-xs text-warm-500">
                 <span>Weight <InfoHint label="About weight conversions">g, kg and oz convert to each other.</InfoHint></span>
@@ -222,6 +218,7 @@ function ItemFormModal({ kind, editing, suppliers, initialDraft, initialToken, o
                 <div className="text-sm font-semibold text-warm-800">{recipe.recipe_name}<span className="block text-xs font-normal text-warm-500">Current: {recipe.quantity ?? "Not measured"} {recipe.unit}</span></div>
                 {href ? <button type="button" className="shrink-0 text-sm font-bold text-emerald-700" onClick={() => {
                   if (editing) writeCorrectionDraft(token, { editing, form, affected: affectedRecipes, corrections });
+                  guard.allowNavigation();
                   router.push(href);
                 }}>{correction ? "Edit correction" : "Correct"}</button> : <span className="text-xs text-red-600">Reopen Inventory to refresh this item.</span>}
               </div>;
@@ -231,7 +228,7 @@ function ItemFormModal({ kind, editing, suppliers, initialDraft, initialToken, o
 
         {error && <p className="text-sm text-red-600 font-semibold">{error}</p>}
         <div className="flex justify-end gap-3 pt-1">
-          <Button variant="secondary" onClick={onClose} className="px-4 py-2">Cancel</Button>
+          <Button variant="secondary" onClick={() => guard.requestLeave(onClose)} className="px-4 py-2">Cancel</Button>
           <Button variant="primary" onClick={save} loading={saving} className="px-4 py-2">{editing ? "Save" : "Create"}</Button>
         </div>
       </div>

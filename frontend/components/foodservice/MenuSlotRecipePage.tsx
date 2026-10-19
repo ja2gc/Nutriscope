@@ -2,9 +2,11 @@
 
 import { FormEvent, Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { useParams } from "next/navigation";
 import { AlertTriangle, ArrowLeft, LockKeyhole, RotateCcw, Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { numericStepBase } from "@/components/ui/NumericInput";
 import { InfoHint } from "@/components/ui/InfoHint";
 import { formatFoodServiceNumber } from "@/lib/foodServiceFormat";
 import { compatibleRecipeUnits } from "@/lib/foodServiceUnits";
@@ -101,12 +103,15 @@ export function MenuSlotRecipePage({ backHref, lineId }: { backHref: string; lin
     setResults([]);
   }
 
-  async function save(event: FormEvent) {
-    event.preventDefault();
-    if (!draft || !canEdit) return;
+  const guard = useUnsavedChanges({ dirty: canEdit && Boolean(data && draft && JSON.stringify(draft) !== JSON.stringify(draftFrom(data))), onSave: () => save() });
+
+  async function save(event?: FormEvent) {
+    event?.preventDefault();
+    if (!event && !document.querySelector<HTMLFormElement>("form")?.reportValidity()) return false;
+    if (!draft || !canEdit) return false;
     if (draft.ingredients.some((ingredient) => ingredient.quantity == null || ingredient.quantity <= 0 || !ingredient.unit.trim() || ingredient.unit.trim().toLowerCase() === "to taste")) {
       setError("Enter a baseline quantity and measured unit for every ingredient.");
-      return;
+      return false;
     }
     setSaving(true);
     setError("");
@@ -123,8 +128,10 @@ export function MenuSlotRecipePage({ backHref, lineId }: { backHref: string; lin
       setData(saved);
       setDraft(draftFrom(saved));
       setNotice("Menu slot changes saved. The original recipe was not changed.");
+      return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Failed to save menu slot changes.");
+      return false;
     } finally {
       setSaving(false);
     }
@@ -156,6 +163,7 @@ export function MenuSlotRecipePage({ backHref, lineId }: { backHref: string; lin
 
   return (
     <div className="mx-auto max-w-5xl space-y-5 pb-10">
+      {guard.dialog}
       <Link href={backHref} className="inline-flex min-h-11 items-center gap-2 rounded-lg pr-3 text-sm font-bold text-emerald-700 hover:bg-emerald-50">
         <ArrowLeft className="h-4 w-4" /> Back to menu cycle
       </Link>
@@ -202,11 +210,9 @@ export function MenuSlotRecipePage({ backHref, lineId }: { backHref: string; lin
                 <div key={ingredient.fs_item_id} className={`grid grid-cols-1 gap-3 rounded-xl border border-warm-100 bg-warm-50/50 p-3 sm:items-end ${canEdit ? "lg:grid-cols-[minmax(0,1fr)_7rem_8rem_7rem_8rem_auto]" : "md:grid-cols-[minmax(0,1fr)_minmax(8rem,1fr)_6rem_minmax(9rem,1fr)]"}`}>
                   <div><span className="block text-xs font-bold uppercase tracking-wider text-warm-400">Ingredient</span><span className="mt-2 block min-h-8 text-sm font-bold text-warm-800">{ingredient.name}</span>{canEdit && <label className="mt-2 flex items-center gap-2 text-xs font-semibold text-warm-600"><input type="checkbox" checked={ingredient.adjust_to_taste} onChange={(event) => updateIngredient(index, { adjust_to_taste: event.target.checked })} /> Adjust to taste</label>}</div>
                   <div><span className="block text-xs font-bold uppercase tracking-wider text-warm-400">Shopping list</span><span className="mt-2 block min-h-8 text-sm font-semibold text-warm-600">{ingredient.include_in_generated_lists ? "Auto grocery" : "Purchase when needed"}</span></div>
-                  {canEdit && <label><span className="block text-xs font-bold uppercase tracking-wider text-warm-400">Recipe qty</span><input aria-label={`Recipe quantity for ${ingredient.name}`} required type="number" min="0.001" step="any" value={ingredient.quantity ?? ""} onChange={(event) => updateIngredient(index, { quantity: event.target.value === "" ? null : Number(event.target.value) })} className="mt-1 min-h-11 w-full rounded-lg border border-warm-200 px-2 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500" /></label>}
+                  {canEdit && <label><span className="block text-xs font-bold uppercase tracking-wider text-warm-400">Recipe qty</span><input aria-label={`Recipe quantity for ${ingredient.name}`} required type="number" min={numericStepBase(String(ingredient.quantity ?? ""), 0.000001)} step="0.1" value={ingredient.quantity ?? ""} onChange={(event) => updateIngredient(index, { quantity: event.target.value === "" ? null : Number(event.target.value) })} className="mt-1 min-h-11 w-full rounded-lg border border-warm-200 px-2 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500" /></label>}
                   {canEdit ? (
-                    <label><span className="block text-xs font-bold uppercase tracking-wider text-warm-400">Unit</span>{ingredient.include_in_generated_lists
-                      ? <select aria-label={`Unit for ${ingredient.name}`} value={ingredient.unit} onChange={(event) => updateIngredient(index, { unit: event.target.value })} className="mt-1 min-h-11 w-full rounded-lg border border-warm-200 bg-white px-2 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500">{[ingredient.unit, ...compatibleRecipeUnits(ingredient.inventory_unit ?? ingredient.unit, true)].filter((unit, index, units) => units.indexOf(unit) === index).map((unit) => <option key={unit} value={unit}>{unit}</option>)}</select>
-                      : <><input aria-label={`Unit for ${ingredient.name}`} list={`slot-units-${index}`} value={ingredient.unit} onChange={(event) => updateIngredient(index, { unit: event.target.value })} className="mt-1 min-h-11 w-full rounded-lg border border-warm-200 bg-white px-2 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500" /><datalist id={`slot-units-${index}`}>{compatibleRecipeUnits(ingredient.unit, false).map((unit) => <option key={unit} value={unit} />)}</datalist></>}
+                    <label><span className="block text-xs font-bold uppercase tracking-wider text-warm-400">Unit</span><select aria-label={`Unit for ${ingredient.name}`} value={ingredient.unit} onChange={(event) => updateIngredient(index, { unit: event.target.value })} className="mt-1 min-h-11 w-full rounded-lg border border-warm-200 bg-white px-2 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500">{[ingredient.unit, ...compatibleRecipeUnits(ingredient.inventory_unit ?? ingredient.unit, ingredient.unit)].filter((unit, index, units) => units.indexOf(unit) === index).map((unit) => <option key={unit} value={unit}>{unit}</option>)}</select>
                     </label>
                   ) : (
                     <div><span className="block text-xs font-bold uppercase tracking-wider text-warm-400">Unit</span><span className="mt-2 block min-h-8 text-sm font-semibold text-warm-700">{ingredient.unit}</span></div>

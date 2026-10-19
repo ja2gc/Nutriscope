@@ -12,6 +12,15 @@ const adultMetrics: PatientMetrics = {
 };
 
 describe("buildPrescriptionCalculationTrace", () => {
+  test('uses nutrient metadata when saved limits omit units', () => {
+    const trace = buildPrescriptionCalculationTrace({ goalType: 'diabetic_control', stage: 'stage_1', metrics: adultMetrics,
+      prescription: { energy_kcal: '1800', protein_g: '60', carbs_g: '250', fat_g: '60', fluid_ml: '2000', nutrient_operators: { energy_kcal: 'max' }, displayed_nutrients: ['fiber', 'sodium'],
+        micronutrient_limits: { fiber: { min: 25 }, sodium: { max: 2000 } } as never } });
+    expect(trace.targets.find(row => row.key === 'fiber')?.value?.text).toBe('≥ 25 g');
+    expect(trace.targets.find(row => row.key === 'sodium')?.value?.text).toBe('≤ 2000 mg');
+    expect(trace.targets.find(row => row.key === 'energy_kcal')?.value?.text).toBe('≤ 1800 kcal');
+    expect(JSON.stringify(trace)).not.toContain('undefined');
+  });
   test('does not restore removed goal nutrients and shows manually chosen macro bounds', () => {
     const trace = buildPrescriptionCalculationTrace({ goalType: 'cardiac_diet', stage: 'mild', metrics: adultMetrics,
       prescription: { energy_kcal: '1800', protein_g: '60', carbs_g: '250', fat_g: '60', fluid_ml: '2000', nutrient_operators: { protein_g: 'max' }, displayed_nutrients: [], micronutrient_limits: {} } });

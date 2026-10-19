@@ -324,6 +324,10 @@ function RecipeMicrosPopup({ recipe, onClose }: { recipe: Recipe; onClose: () =>
 
 export default function FoodLibraryPage() {
   const [activeTab, setActiveTab]       = useState<Tab>("foods");
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    if (tab === 'foods' || tab === 'recipes' || tab === 'templates') setActiveTab(tab);
+  }, []);
   const [foods, setFoods]               = useState<FoodItem[]>([]);
   const [foodSearch, setFoodSearch]     = useState("");
   const [foodCategory, setFoodCategory] = useState("all");
@@ -451,7 +455,7 @@ export default function FoodLibraryPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs<Tab> ariaLabel="Food Library sections" value={activeTab} onChange={setActiveTab} fill items={[
+      <Tabs<Tab> ariaLabel="Food Library sections" value={activeTab} onChange={(tab) => { setActiveTab(tab); const params = new URLSearchParams(window.location.search); params.set("tab", tab); window.history.replaceState(null, "", `${window.location.pathname}?${params}`); }} fill items={[
         { key: "foods", label: "Ingredients" }, { key: "recipes", label: "Menu Items" }, { key: "templates", label: "Templates" },
       ]} />
 
@@ -498,7 +502,7 @@ export default function FoodLibraryPage() {
                   </thead>
                   <tbody className="divide-y divide-zinc-50">
                     {foods.map((food) => (
-                      <tr key={food.id} className="hover:bg-warm-50/60 transition-colors group">
+                      <tr key={food.id}>
                         <td className="px-5 py-3.5 min-w-[180px]">
                           <div className="text-sm font-bold text-warm-900 leading-snug">{food.name}</div>
                           {food.usda_fdc_id && (
@@ -609,7 +613,7 @@ export default function FoodLibraryPage() {
                     {recipes.map((recipe) => {
                       const hasMicros = Object.keys(recipe.micronutrients ?? {}).length > 0;
                       return (
-                        <tr key={recipe.id} className="hover:bg-warm-50/60 transition-colors group">
+                        <tr key={recipe.id}>
                           <td className="px-5 py-3.5 min-w-[180px]">
                             <div className="text-sm font-bold text-warm-900 leading-snug">{recipe.name}</div>
                             {recipe.servings && (

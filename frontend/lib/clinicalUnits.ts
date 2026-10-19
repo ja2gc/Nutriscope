@@ -30,3 +30,14 @@ export function clinicalIngredientFactor(quantity: number, unit: string, baselin
   const factor = quantity * conversion / baselineSize;
   return Number.isFinite(factor) && factor > 0 ? factor : null;
 }
+
+export function clinicalIngredientMicronutrients(rows: { food: { serving_size?: string | number | null; serving_unit?: string | null; micronutrients?: Record<string, number> | null } | null; quantity: string; unit: string }[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const row of rows) {
+    if (!row.food) continue;
+    const factor = clinicalIngredientFactor(Number(row.quantity), row.unit, Number(row.food.serving_size), row.food.serving_unit ?? '');
+    if (factor === null) continue;
+    for (const [key, value] of Object.entries(row.food.micronutrients ?? {})) totals[key] = (totals[key] ?? 0) + value * factor;
+  }
+  return totals;
+}

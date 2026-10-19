@@ -68,6 +68,7 @@ class ShoppingListResource extends JsonResource
                 'purchase_unit' => $item->purchase_unit,
                 'purchase_price' => $item->purchase_price,
                 'quantity_mode' => $item->quantity_mode,
+                'generation_baseline' => $item->generation_baseline,
                 'baseline_servings' => $item->baseline_servings,
                 'baseline_quantity' => $item->baseline_quantity,
                 'scaled_quantity' => $item->scaled_quantity,

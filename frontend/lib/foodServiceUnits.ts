@@ -15,8 +15,8 @@ export function foodServiceUnitFactor(from: string, to: string): number | null {
   return null;
 }
 
-export function compatibleRecipeUnits(baseUnit: string, autoGrocery: boolean): string[] {
-  if (!autoGrocery) return [...new Set([baseUnit, ...recipeUnits].filter(Boolean))];
+export function compatibleRecipeUnits(baseUnit: string, savedUnit?: string): string[] {
+  if (savedUnit && foodServiceUnitFactor(savedUnit, baseUnit) === null) return [savedUnit];
   return [...new Set([baseUnit, ...recipeUnits].filter((unit) => foodServiceUnitFactor(unit, baseUnit) !== null))];
 }
 

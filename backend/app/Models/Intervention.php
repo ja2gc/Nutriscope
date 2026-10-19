@@ -101,7 +101,7 @@ class Intervention extends Model
             return true;
         }
 
-        $field = ['protein' => 'protein_g', 'carbs' => 'carbs_g', 'fat' => 'fat_g'][$nutrient] ?? $nutrient;
+        $field = ['energy' => 'energy_kcal', 'protein' => 'protein_g', 'carbs' => 'carbs_g', 'fat' => 'fat_g'][$nutrient] ?? $nutrient;
 
         return match ($this->nutrient_operators[$field] ?? null) {
             'max' => $actual <= $target,
@@ -113,10 +113,10 @@ class Intervention extends Model
     public function foodNutrientLimits(): array
     {
         $limits = $this->micronutrient_limits ?? [];
-        foreach (['protein_g' => 'protein', 'carbs_g' => 'carbs', 'fat_g' => 'fat'] as $field => $key) {
+        foreach (['energy_kcal' => 'energy', 'protein_g' => 'protein', 'carbs_g' => 'carbs', 'fat_g' => 'fat'] as $field => $key) {
             $operator = $this->nutrient_operators[$field] ?? null;
             if (in_array($operator, ['min', 'max'], true) && $this->{$field} !== null) {
-                $limits[$key] = [$operator => (float) $this->{$field}, 'unit' => 'g'];
+                $limits[$key] = [$operator => (float) $this->{$field}, 'unit' => $key === 'energy' ? 'kcal' : 'g'];
             }
         }
 

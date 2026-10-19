@@ -380,7 +380,7 @@ export default function NcpMonitoringPage({
                     <div className="flex justify-between py-2.5">
                       <span className="font-semibold text-warm-400">Energy</span>
                       <span className="font-mono font-bold text-warm-900">
-                        {intervention.energy_kcal} kcal
+                        {intervention.nutrient_operators?.energy_kcal === 'max' ? '≤' : intervention.nutrient_operators?.energy_kcal === 'min' ? '≥' : ''}{intervention.energy_kcal} kcal
                       </span>
                     </div>
                   )}

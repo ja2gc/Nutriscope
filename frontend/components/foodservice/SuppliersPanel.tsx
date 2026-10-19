@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { Truck, Plus, Pencil, Trash2, X, AlertTriangle } from "lucide-react";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { Button } from "@/components/ui/Button";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import SearchInput from "@/components/ui/SearchInput";
@@ -34,8 +35,10 @@ function SupplierForm({ initial, editingId, onSaved, onCancel }: {
 
   const set = (patch: Partial<SupplierPayload>) => setForm((f) => ({ ...f, ...patch }));
 
+  const guard = useUnsavedChanges({ dirty: JSON.stringify(form) !== JSON.stringify(initial), onSave: handleSave });
+
   async function handleSave() {
-    if (!form.name.trim()) { setError("Vendor name is required."); return; }
+    if (!form.name.trim()) { setError("Vendor name is required."); return false; }
     setSaving(true); setError("");
     try {
       await saveSupplier(editingId, {
@@ -48,8 +51,10 @@ function SupplierForm({ initial, editingId, onSaved, onCancel }: {
         notes: form.notes || null,
       });
       onSaved();
+      return true;
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Save failed.");
+      return false;
     } finally {
       setSaving(false);
     }
@@ -57,6 +62,7 @@ function SupplierForm({ initial, editingId, onSaved, onCancel }: {
 
   return (
     <div className="bg-emerald-50/40 border border-emerald-100 rounded-2xl p-6 space-y-4 shadow-sm">
+      {guard.dialog}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-extrabold text-emerald-700 uppercase tracking-wider">
           {editingId ? "Edit Vendor" : "New Vendor"}
@@ -101,7 +107,7 @@ function SupplierForm({ initial, editingId, onSaved, onCancel }: {
         <Button variant="primary" onClick={handleSave} disabled={saving} className="!py-1.5 !px-4 text-sm">
           {saving ? "Saving…" : editingId ? "Save Changes" : "Add Vendor"}
         </Button>
-        <button onClick={onCancel} className="text-sm text-warm-500 hover:text-warm-700 flex items-center gap-1">
+        <button onClick={() => guard.requestLeave(onCancel)} className="text-sm text-warm-500 hover:text-warm-700 flex items-center gap-1">
           <X className="h-3 w-3" /> Cancel
         </button>
       </div>

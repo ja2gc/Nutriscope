@@ -47,7 +47,8 @@ it("edits ordered Menu Items without quantity controls and opens profiles from c
   expect(breakfast.querySelectorAll('[data-menu-editor-item]')).toHaveLength(2);
   expect(breakfast.querySelector('[data-menu-editor-item] > div > :first-child')?.hasAttribute('data-menu-editor-actions')).toBe(true);
   expect(breakfast.querySelectorAll('[data-menu-editor-add]')).toHaveLength(1);
-  expect(Array.from(breakfast.querySelectorAll<HTMLElement>('[data-menu-editor-item], [data-menu-editor-add]')).every((slot) => slot.className.includes('h-32'))).toBe(true);
+  expect(breakfast.querySelector('[data-menu-editor-item]')?.className).toContain('h-32');
+  expect(breakfast.querySelector('[data-menu-editor-add]')?.className).not.toContain('h-32');
   expect(breakfast.querySelector('[data-menu-editor-add]')?.previousElementSibling).toBe(breakfast.querySelectorAll('[data-menu-editor-item]')[1]);
   expect(breakfast.querySelectorAll('input, select')).toHaveLength(0);
   expect(breakfast.querySelector('[data-menu-editor-actions]')?.className).toContain('justify-end');
@@ -57,7 +58,7 @@ it("edits ordered Menu Items without quantity controls and opens profiles from c
   expect(addToLunch.textContent?.trim()).toBe('Add item');
   await act(async () => addToLunch.click());
   expect(document.activeElement).toBe(container.querySelector('input[type="search"]'));
-  const close = Array.from(container.querySelectorAll('[role="dialog"] button')).find((button) => button.textContent === 'Close')!;
+  const close = container.querySelector<HTMLButtonElement>('[aria-label="Close Menu Item picker"]')!;
   await act(async () => (close as HTMLButtonElement).click());
 
   vi.mocked(saveLibraryMealPlanTemplate).mockRejectedValueOnce(new Error('Could not save. Try again.'));
@@ -90,7 +91,7 @@ it("opens a complete read-only profile from the editable template and returns wi
   expect(profile.textContent).toContain('750 g');
   expect(profile.textContent).toContain('<0.1 g');
   expect(profile.textContent).not.toContain('750.000000');
-  const back = profile.querySelector<HTMLButtonElement>('[aria-label="Back to template"]')!;
+  const back = profile.querySelector<HTMLButtonElement>('[aria-label="Back"]')!;
   await act(async () => back.click());
   expect(container.querySelector('[aria-label="Menu Item profile"]')).toBeNull();
   expect(document.activeElement).toBe(container.querySelector('[aria-label="View Fruit cup"]'));
@@ -117,7 +118,7 @@ it("returns from the template editor to the template list without saving", async
   const container = document.createElement('div'); document.body.append(container); root = createRoot(container);
   await act(async () => root.render(<MealTemplatesTab />));
   await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Edit Measured week"]')!.click());
-  const back = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === 'Back to templates')!;
+  const back = container.querySelector<HTMLButtonElement>('[aria-label="Back to templates"]')!;
   await act(async () => back.click());
   expect(container.querySelector('[aria-label="Edit Measured week"]')).not.toBeNull();
   expect(container.querySelector('table[aria-label="Weekly menu calendar"]')).toBeNull();

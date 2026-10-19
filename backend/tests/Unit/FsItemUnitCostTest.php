@@ -8,7 +8,7 @@ use Tests\TestCase;
 /**
  * Pure-logic test (no DB): the food-service catalog derives a per-base-unit cost
  * from how the item is purchased, reusing App\Support\UnitConverter for physical
- * units and an explicit units_per_purchase only for countable packs.
+ * units. Nonconvertible pack sizes never change the saved unit price.
  */
 class FsItemUnitCostTest extends TestCase
 {
@@ -32,19 +32,19 @@ class FsItemUnitCostTest extends TestCase
         $this->assertEqualsWithDelta(12.5, $item->unit_cost, 1e-6);
     }
 
-    public function test_count_pack_uses_units_per_purchase(): void
+    public function test_count_pack_does_not_change_the_saved_unit_price(): void
     {
-        // Buy a pack of 100 meal boxes at ₱200 → ₱2.00 each (converter can't know pack→pc)
+        // A legacy pack-size field must not imply a piece-to-pack conversion.
         $item = new FsItem([
             'purchase_price' => 200, 'purchase_unit' => 'pack', 'base_unit' => 'pc', 'units_per_purchase' => 100,
         ]);
-        $this->assertEqualsWithDelta(2.0, $item->unit_cost, 1e-6);
+        $this->assertEqualsWithDelta(200.0, $item->unit_cost, 1e-6);
     }
 
     public function test_misconfigured_count_item_is_safe_not_fatal(): void
     {
-        // pack→pc with no units_per_purchase must not throw inside a list view; degrade to 0
+        // Nonconvertible units keep the saved catalog unit and price.
         $item = new FsItem(['purchase_price' => 50, 'purchase_unit' => 'pack', 'base_unit' => 'pc']);
-        $this->assertSame(0.0, $item->unit_cost);
+        $this->assertSame(50.0, $item->unit_cost);
     }
 }

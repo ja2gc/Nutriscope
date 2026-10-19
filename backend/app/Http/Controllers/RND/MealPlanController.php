@@ -418,7 +418,7 @@ class MealPlanController extends Controller
     public function updateLibraryTemplate(Request $request, MealPlanTemplate $template): JsonResponse
     {
         $this->assertTemplateOwner($template);
-        [$attributes, $lines] = $this->validatedLibraryTemplate($request);
+        [$attributes, $lines] = $this->validatedLibraryTemplate($request, $template);
         $this->audited(function () use ($template, $attributes, $lines): void {
             $template->update($attributes);
             $template->days()->delete();
@@ -742,7 +742,7 @@ class MealPlanController extends Controller
     }
 
     /** @return array{0: array<string, mixed>, 1: list<array<string, mixed>>} */
-    private function validatedLibraryTemplate(Request $request): array
+    private function validatedLibraryTemplate(Request $request, ?MealPlanTemplate $template = null): array
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -750,6 +750,7 @@ class MealPlanController extends Controller
             'goal_type' => ['nullable', 'string', 'max:255'],
             'disease_stage' => ['nullable', 'string', 'max:100'],
             'lines' => ['required', 'array', 'min:1', 'max:350'],
+            'lines.*.source_template_item_id' => ['nullable', 'uuid'],
             'lines.*.day_of_week' => ['required', 'in:Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday'],
             'lines.*.meal_type' => ['required', 'in:breakfast,am_snack,lunch,pm_snack,dinner'],
             'lines.*.food_item_id' => ['prohibited'],
@@ -763,7 +764,22 @@ class MealPlanController extends Controller
             ->whereIn('category', ['meal', 'carb', 'snack'])->with('ingredients.foodItem')
             ->whereIn('uuid', collect($lines)->pluck('recipe_id')->all())->get()->keyBy('uuid');
 
+        $sources = $template ? MealPlanTemplateItem::query()->whereHas('templateDay', fn ($query) => $query->where('template_id', $template->id))->with('recipe')->get()->keyBy('uuid') : collect();
+
         foreach ($lines as $index => &$line) {
+            if (! empty($line['source_template_item_id'])) {
+                $source = $sources->get($line['source_template_item_id']);
+                if (! $source || $source->recipe?->uuid !== $line['recipe_id']) {
+                    throw ValidationException::withMessages(["lines.{$index}.source_template_item_id" => 'Choose a saved line from this template.']);
+                }
+                if ($source->nutrient_snapshot !== null) {
+                    $line['food_item_id'] = null;
+                    $line['recipe_id'] = $source->recipe_id;
+                    $line['snapshot'] = $source->nutrient_snapshot;
+
+                    continue;
+                }
+            }
             $recipe = $recipes->get($line['recipe_id']);
             if ($recipe === null || ! $recipe->hasValidPortionData()) {
                 throw ValidationException::withMessages(["lines.{$index}.recipe_id" => 'Choose an available Menu Item with a valid yield and measured Ingredient units.']);
@@ -803,7 +819,7 @@ class MealPlanController extends Controller
                     'recipe_id' => $line['recipe_id'],
                     'quantity' => $line['quantity'],
                     'unit' => $line['unit'],
-                    'nutrient_snapshot' => $this->snapshotForTemplateItem($line['food_item_id'], $line['recipe_id']),
+                    'nutrient_snapshot' => $line['snapshot'] ?? $this->snapshotForTemplateItem($line['food_item_id'], $line['recipe_id']),
                     'ai_suggested' => false,
                     'line_order' => $index + 1,
                 ]);

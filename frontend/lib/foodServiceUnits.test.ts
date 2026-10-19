@@ -17,9 +17,10 @@ describe("Food Service recipe units", () => {
   });
 
   test("offers only matching recipe units for Auto Grocery", () => {
-    expect(compatibleRecipeUnits("kg", true)).toContain("g");
-    expect(compatibleRecipeUnits("kg", true)).not.toContain("tbsp");
-    expect(compatibleRecipeUnits("pc", true)).toEqual(["pc"]);
-    expect(compatibleRecipeUnits("kg", false)).toContain("tbsp");
+    expect(compatibleRecipeUnits("kg")).toContain("g");
+    expect(compatibleRecipeUnits("kg")).not.toContain("tbsp");
+    expect(compatibleRecipeUnits("pc")).toEqual(["pc"]);
+    expect(compatibleRecipeUnits("kg")).not.toContain("tbsp");
+    expect(compatibleRecipeUnits("piece")).toEqual(["piece"]);
   });
 });

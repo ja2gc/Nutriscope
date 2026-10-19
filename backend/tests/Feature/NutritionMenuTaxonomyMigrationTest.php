@@ -51,6 +51,7 @@ class NutritionMenuTaxonomyMigrationTest extends TestCase
             $table->decimal('unit_price', 10, 2)->default(0);
             $table->string('serving_unit')->default('g');
             $table->decimal('serving_size', 8, 2)->default(100);
+            $table->softDeletes();
             $table->timestamps();
         });
         $schema->create('recipes', function (Blueprint $table): void {
@@ -72,6 +73,7 @@ class NutritionMenuTaxonomyMigrationTest extends TestCase
             $table->unsignedInteger('servings')->default(1);
             $table->decimal('prepared_portion_amount', 8, 2)->nullable();
             $table->string('prepared_portion_unit')->nullable();
+            $table->softDeletes();
             $table->timestamps();
         });
         $schema->create('recipe_ingredients', function (Blueprint $table): void {

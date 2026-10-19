@@ -126,6 +126,41 @@ describe("Food Service procurement display", () => {
     await act(async () => { root.render(<ProcurementPage />); await Promise.resolve(); });
   }
 
+  test("purchase quantity and editable total synchronize before leaving either field", async () => {
+    await openList(makeList({ items: [{ id: 'item-1', fs_item_id: 1, fs_item_uuid: 'rice-public-uuid', ingredient_name: 'Rice', source: 'generated', item_type: 'ingredient', qty: '10', unit: 'kg', purchase_qty: '10', purchase_unit: 'kg', purchase_price: '5', unit_price: '5', total: '50', supplier_id: null, included_in_po: true, exclusion_note: null }] }));
+    const qty = container.querySelector<HTMLInputElement>('[aria-label="Purchase quantity for Rice"]');
+    expect(qty).not.toBeNull();
+    const table = qty!.closest('table')!;
+    expect(table.className).toContain('min-w-[1100px]');
+    expect(table.parentElement?.className).toContain('overflow-x-auto');
+    await act(async () => { setInputValue(qty!, '20'); });
+    const total = container.querySelector<HTMLInputElement>('[aria-label="Total for Rice"]');
+    expect(Number(total?.value)).toBe(100);
+    await act(async () => { setInputValue(total!, '25'); });
+    expect(Number(qty?.value)).toBe(5);
+    expect(container.querySelector('[aria-label="Quantity mode for Rice"]')).toBeNull();
+    expect(container.querySelector('[aria-label="Remove Rice"]')).toBeNull();
+  });
+
+  test('reset restores generated prices and purchases scaled to current servings, keeping manual items and exclusions', async () => {
+    const generated = { id: 'item-1', fs_item_id: 1, fs_item_uuid: 'rice-public-uuid', ingredient_name: 'Rice', source: 'generated' as const, item_type: 'ingredient' as const, qty: '10', unit: 'kg', purchase_qty: '50', purchase_unit: 'kg', purchase_price: '99', unit_price: '5', total: '4950', supplier_id: null, included_in_po: false, exclusion_note: 'Already available', generation_baseline: { estimate_population: 10, qty: 10, unit: 'kg', unit_price: 5, purchase_qty: 10, purchase_unit: 'kg', purchase_price: 5, supplier_id: null, scaled_quantity: 10, scaled_unit: 'kg' } };
+    await openList(makeList({ list_type: 'suggested', period_start: '2026-10-19', period_end: '2026-10-19', days_span: 1, estimate_population: 20, items: [generated, { ...generated, id: 'manual-1', ingredient_name: 'Extra rice', source: 'manual', generation_baseline: null }] }));
+    expect(container.querySelector('[aria-label="Remove Rice"]')).toBeNull();
+    expect(container.querySelector('[aria-label="Remove Extra rice"]')).not.toBeNull();
+    const reset = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find((button) => button.textContent === 'Reset generated items');
+    expect(reset).toBeDefined();
+    await act(async () => reset!.click());
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Estimated servings"]')?.value).toBe('20');
+    expect(Number(container.querySelector<HTMLInputElement>('[aria-label="Purchase quantity for Rice"]')?.value)).toBe(20);
+    expect(Number(container.querySelector<HTMLInputElement>('[aria-label="Unit cost for Rice"]')?.value)).toBe(5);
+    expect(Number(container.querySelector<HTMLInputElement>('[aria-label="Total for Rice"]')?.value)).toBe(100);
+    expect(Number(container.querySelector<HTMLInputElement>('[aria-label="Purchase quantity for Extra rice"]')?.value)).toBe(50);
+    const servings = container.querySelector<HTMLInputElement>('[aria-label="Estimated servings"]')!;
+    await act(async () => setInputValue(servings, ''));
+    await act(async () => setInputValue(servings, '40'));
+    expect(Number(container.querySelector<HTMLInputElement>('[aria-label="Purchase quantity for Rice"]')?.value)).toBe(40);
+  });
+
   async function openPurchaseOrder(overrides: Partial<PurchaseOrder> = {}) {
     const po = makePo(overrides);
     mockListPurchaseOrders.mockResolvedValue({ data: [po], meta });
@@ -135,6 +170,19 @@ describe("Food Service procurement display", () => {
     await act(async () => { tab?.click(); });
     const edit = container.querySelector<HTMLButtonElement>('button[aria-label="Edit PO — October menu"]');
     await act(async () => { edit?.click(); await Promise.resolve(); await Promise.resolve(); });
+  }
+
+  async function chooseSuggestedStart() {
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Start date"]')!.click());
+    await act(async () => {
+      const year = document.querySelector<HTMLSelectElement>('[aria-label="Calendar year"]')!;
+      year.value = '2026'; year.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await act(async () => {
+      const month = document.querySelector<HTMLSelectElement>('[aria-label="Calendar month"]')!;
+      month.value = '10'; month.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="2026-10-04"]')!.click());
   }
 
   async function openList(list = makeList()) {
@@ -208,6 +256,7 @@ describe("Food Service procurement display", () => {
     const suggest = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
       .find((candidate) => candidate.textContent?.trim() === "Suggest from Menu");
     await act(async () => { suggest?.click(); });
+    await chooseSuggestedStart();
     const estimate = container.querySelector<HTMLInputElement>('input[type="number"]');
     await act(async () => { if (estimate) setInputValue(estimate, "100"); });
     const generate = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
@@ -221,6 +270,7 @@ describe("Food Service procurement display", () => {
     const suggest = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
       .find((candidate) => candidate.textContent?.trim() === "Suggest from Menu");
     await act(async () => { suggest?.click(); });
+    await chooseSuggestedStart();
     const hint = container.querySelector<HTMLButtonElement>('button[aria-label="About suggested lists"]');
     expect(hint).not.toBeNull();
     await act(async () => { await userEvent.setup().hover(hint!); });
@@ -266,6 +316,7 @@ describe("Food Service procurement display", () => {
     const suggest = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
       .find((candidate) => candidate.textContent?.trim() === "Suggest from Menu");
     await act(async () => { suggest?.click(); });
+    await chooseSuggestedStart();
     const estimate = container.querySelector<HTMLInputElement>('input[type="number"]');
     const name = container.querySelector<HTMLInputElement>('input[aria-label="Shopping list name"]');
     await act(async () => {
@@ -350,6 +401,7 @@ describe("Food Service procurement display", () => {
   });
 
   test("adds a selected Inventory item through the existing public-id flow", async () => {
+    mockSearchCatalog.mockResolvedValue([{ ...rice, default_supplier_id: 'inventory-vendor-uuid', vendor: 'Inventory vendor' }]);
     await openList();
     const search = container.querySelector<HTMLInputElement>('#shopping-list-item-search');
     await act(async () => { if (search) setInputValue(search, "Rice"); await Promise.resolve(); });
@@ -364,7 +416,7 @@ describe("Food Service procurement display", () => {
     expect(mockUpdateShoppingList).not.toHaveBeenCalled();
     const save = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent?.trim() === "Save Shopping List");
     await act(async () => { save?.click(); await Promise.resolve(); });
-    expect(mockUpdateShoppingList).toHaveBeenCalledWith("list-1", expect.objectContaining({ items: [expect.objectContaining({ fs_item_uuid: "rice-public-uuid", source: "manual" })] }));
+    expect(mockUpdateShoppingList).toHaveBeenCalledWith("list-1", expect.objectContaining({ items: [expect.objectContaining({ fs_item_uuid: "rice-public-uuid", source: "manual", supplier_id: 'inventory-vendor-uuid' })] }));
     expect(container.querySelector('[role="alert"]')).toBeNull();
   });
 
@@ -385,6 +437,7 @@ describe("Food Service procurement display", () => {
     const suggest = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
       .find((button) => button.textContent?.trim() === "Suggest from Menu");
     await act(async () => { suggest?.click(); });
+    await chooseSuggestedStart();
     const estimate = container.querySelector<HTMLInputElement>('input[type="number"]');
     const name = container.querySelector<HTMLInputElement>('input[aria-label="Shopping list name"]');
     await act(async () => {

@@ -32,7 +32,7 @@ class PatientMenuPlanGeneratorTest extends TestCase
     public function test_label_based_menu_item_retains_recipe_yield_and_measured_portions_in_reports(): void
     {
         $plan = $this->makePlan();
-        $plan->intervention->forceFill(['nutrient_operators' => ['protein_g' => 'max'], 'weight_target' => ['min' => 58, 'max' => 62.5]])->saveQuietly();
+        $plan->intervention->forceFill(['nutrient_operators' => ['energy_kcal' => 'max', 'protein_g' => 'max'], 'weight_target' => ['min' => 58, 'max' => 62.5]])->saveQuietly();
         $response = $this->actingAs($plan->intervention->ncpRecord->rnd)->postJson('/api/rnd/recipes', [
             'name' => 'Fictional label drink', 'category' => 'snack', 'servings' => 6,
             'nutrition_label' => ['serving_size' => 250, 'serving_unit' => 'mL', 'calories' => 120, 'protein' => 8, 'carbs' => 12, 'fat' => 4, 'micronutrients' => ['calcium' => 300]],
@@ -42,7 +42,8 @@ class PatientMenuPlanGeneratorTest extends TestCase
         MealPlanItem::create(['meal_plan_day_id' => $day->id, 'recipe_id' => $recipe->id, 'quantity' => 1.5, 'unit' => 'serving', 'nutrient_snapshot' => $recipe->planSnapshot()]);
         $report = new Report(['title' => 'Nutrition Intervention Plan — Label serving check', 'type' => 'patient_menu_plan', 'parameters' => ['intervention_plan_id' => $plan->intervention->uuid]]);
         $data = app(PatientMenuPlanGenerator::class)->data($report);
-        $this->assertSame(['protein_g' => 'max'], $data['prescription']['nutrient_operators']);
+        $this->assertEquals(['energy_kcal' => 'max', 'protein_g' => 'max'], $data['prescription']['nutrient_operators']);
+        $this->assertStringContainsString('≤1,800', view('reports.patient-menu-plan', [...$data, 'branding' => ReportBranding::singleton(), 'signatories' => [], 'generated_at' => now(), 'report' => $report])->render());
         $this->assertEquals(['min' => 58, 'max' => 62.5], $data['prescription']['weight_target']);
         $portion = $data['portion_details'][0];
         $this->assertSame(6.0, $portion['recipe_yield']);

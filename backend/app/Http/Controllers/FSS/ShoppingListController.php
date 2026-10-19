@@ -16,6 +16,7 @@ use App\Models\Supplier;
 use App\Services\Audit\AuditLogger;
 use App\Services\Audit\Revisions\AuditRevisionRegistry;
 use App\Services\Audit\Revisions\AuditRevisionWriter;
+use App\Services\FSS\MaintainMenuCycles;
 use App\Services\FSS\ShoppingListPopulationService;
 use App\Support\UnitConverter;
 use Carbon\Carbon;
@@ -100,7 +101,7 @@ class ShoppingListController extends Controller
             $fields = [];
             $items = $data['items'] ?? null;
             unset($data['items']);
-            if (array_key_exists('estimate_population', $data)) {
+            if (array_key_exists('estimate_population', $data) && (int) $data['estimate_population'] !== (int) $shoppingList->estimate_population) {
                 $beforePopulation = $shoppingList->estimate_population;
                 $this->auditLogger->withoutModelEvents(
                     fn () => app(ShoppingListPopulationService::class)->cascadePopulation($shoppingList, (int) $data['estimate_population']),
@@ -109,8 +110,8 @@ class ShoppingListController extends Controller
                 if ($beforePopulation !== $shoppingList->estimate_population) {
                     $fields[] = 'estimate_population';
                 }
-                unset($data['estimate_population']);
             }
+            unset($data['estimate_population']);
             if ($data !== []) {
                 $this->auditLogger->withoutModelEvents(fn () => $shoppingList->update($data));
                 $fields = [...$fields, ...array_keys($shoppingList->getChanges())];
@@ -170,6 +171,7 @@ class ShoppingListController extends Controller
         $cursor = Carbon::parse($data['start_date'])->startOfDay();
         $end = Carbon::parse($data['end_date'])->startOfDay();
         $spanDays = $cursor->diffInDays($end) + 1;
+        abort_if($spanDays > 99, 422, 'Choose a span from 1 to 99 days.');
 
         $plan = app(ShoppingListPopulationService::class)->planRange($cursor, $end, $data['estimate_population']);
 
@@ -238,6 +240,7 @@ class ShoppingListController extends Controller
                     'inventory_unit' => $itemUuids->get($item['fs_item_id'])?->base_unit,
                     'supplier_id' => $supplierUuids->get($item['supplier_id'])?->uuid,
                     'source' => 'generated',
+                    'generation_baseline' => app(ShoppingListPopulationService::class)->generationBaseline($item, $data['estimate_population']),
                     'included_in_po' => true,
                     'exclusion_note' => null,
                     'quantity_mode' => 'calculated',
@@ -247,6 +250,10 @@ class ShoppingListController extends Controller
         }
 
         $list = $this->audited(function () use ($data, $plan, $spanDays): ShoppingList {
+            MaintainMenuCycles::lockCreationOwner();
+            abort_if(ShoppingList::query()->where('list_type', 'suggested')
+                ->whereDate('period_start', '<=', $data['end_date'])->whereDate('period_end', '>=', $data['start_date'])->exists(),
+                422, 'These service dates already have a saved Suggested Shopping List.');
             $list = $this->auditLogger->withoutModelEvents(fn () => DB::transaction(function () use ($data, $plan, $spanDays) {
                 $list = ShoppingList::create([
                     'rnd_user_id' => Auth::id(),
@@ -265,7 +272,7 @@ class ShoppingListController extends Controller
                 ]);
 
                 foreach ($plan['items'] as $row) {
-                    $list->items()->create($row + ['source' => 'generated']);
+                    $list->items()->create($row + ['source' => 'generated', 'generation_baseline' => app(ShoppingListPopulationService::class)->generationBaseline($row, $data['estimate_population'])]);
                 }
 
                 if (isset($data['items'])) {
@@ -294,9 +301,12 @@ class ShoppingListController extends Controller
         $seen = [];
         foreach ($lines as $line) {
             $fsItem = FsItem::query()->where('uuid', $line['fs_item_uuid'])->firstOrFail();
+            abort_if($fsItem->kind !== ($list->isSupplies() ? 'supply' : 'ingredient'), 422, 'Choose an Inventory item that matches this list type.');
             $unit = (string) $line['purchase_unit'];
-            if (! UnitConverter::isCompatible((string) $fsItem->base_unit, $unit)
-                || ($fsItem->include_in_generated_lists && $fsItem->hasIncompatibleRecipeUnit($unit))) {
+            $physical = UnitConverter::isCompatible((string) $fsItem->base_unit, $unit)
+                && (! $fsItem->include_in_generated_lists || ! $fsItem->hasIncompatibleRecipeUnit($unit));
+            $savedUnit = isset($line['id']) && $list->items()->where('uuid', $line['id'])->where('purchase_unit', $unit)->exists();
+            if (! $physical && ! $savedUnit) {
                 abort(422, 'Choose a unit that matches the Inventory item and its Auto Grocery recipes.');
             }
             if (isset($line['id'])) {
@@ -325,7 +335,9 @@ class ShoppingListController extends Controller
             }
             $seen[$item->id] = true;
             $mode = $line['quantity_mode'];
-            $calculatedQty = UnitConverter::convert((float) $item->qty, (string) $item->unit, $unit);
+            $calculatedQty = UnitConverter::isCompatible((string) $item->unit, $unit)
+                ? UnitConverter::convert((float) $item->qty, (string) $item->unit, $unit)
+                : (float) $item->purchase_qty;
             $purchaseQty = match ($mode) {
                 'rounded' => round($calculatedQty),
                 'manual' => (float) $line['purchase_qty'],
@@ -342,6 +354,7 @@ class ShoppingListController extends Controller
                 'total' => round($purchaseQty * (float) $line['purchase_price'], 2),
             ]);
         }
+        abort_if($list->items()->where('source', 'generated')->whereNotIn('id', array_keys($seen))->exists(), 422, 'Generated ingredients cannot be deleted. Uncheck items you do not need to purchase.');
         $list->items()->where('source', 'manual')->whereNotIn('id', array_keys($seen))->delete();
     }
 
@@ -609,11 +622,9 @@ class ShoppingListController extends Controller
 
     public function destroyItem(ShoppingListItem $shoppingListItem): JsonResponse
     {
+        abort_if($shoppingListItem->source === 'generated', 422, 'Generated ingredients cannot be deleted. Uncheck items you do not need to purchase.');
         if ($shoppingListItem->shoppingList->status !== 'draft') {
             return response()->json(['message' => 'Converted shopping list items are read-only.'], 422);
-        }
-        if ($shoppingListItem->source === 'generated') {
-            return response()->json(['message' => 'Calculated rows cannot be deleted. Exclude the row from the PO instead.'], 422);
         }
 
         $this->audited(function () use ($shoppingListItem): void {

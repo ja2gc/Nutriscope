@@ -30,11 +30,11 @@ class MealPlanItem extends Model
 
     public function foodItem(): BelongsTo
     {
-        return $this->belongsTo(FoodItem::class);
+        return $this->belongsTo(FoodItem::class)->withTrashed();
     }
 
     public function recipe(): BelongsTo
     {
-        return $this->belongsTo(Recipe::class);
+        return $this->belongsTo(Recipe::class)->withTrashed();
     }
 }

@@ -1,7 +1,9 @@
 "use client";
 
+import { numericStepBase } from "@/components/ui/NumericInput";
 import React, { useState } from "react";
 import Link from "next/link";
+import { useEditorChanges } from "@/hooks/useUnsavedChanges";
 import { useRouter } from "next/navigation";
 import { Database, ArrowLeft, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -38,9 +40,12 @@ export default function NewFoodPage() {
     setAllergenInput("");
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim() || !calories) { setError("Name and calories are required."); return; }
+  const guard = useEditorChanges(JSON.stringify({ name, category, calories, protein, carbs, fat, servingSize, servingUnit, allergens }), true, () => handleSubmit(undefined, false));
+
+  async function handleSubmit(e?: React.FormEvent, navigate = true) {
+    e?.preventDefault();
+    if (!e && !document.querySelector<HTMLFormElement>("form")?.reportValidity()) return false;
+    if (!name.trim() || !calories) { setError("Name and calories are required."); return false; }
     try {
       setSaving(true);
       setError(null);
@@ -55,16 +60,20 @@ export default function NewFoodPage() {
         serving_unit: servingUnit || null,
         allergens,
       });
-      router.push("/food-library");
+      if (navigate) { guard.allowNavigation(); router.push("/food-library"); }
+      return true;
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to save.");
+      return false;
     } finally {
       setSaving(false);
     }
   };
 
+
   return (
     <div className="space-y-6 font-sans max-w-2xl mx-auto">
+      {guard.dialog}
       <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
         <Link href="/dashboard" className="hover:text-emerald-700 transition-colors">Home</Link>
         <span>/</span>
@@ -92,7 +101,7 @@ export default function NewFoodPage() {
         {/* Basic Info */}
         <div className="bg-white border border-warm-200 rounded-2xl p-6 space-y-4 shadow-sm">
           <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Basic Information</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 items-end sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
               <Label>Name <Required /></Label>
               <input type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputCls} required />
@@ -104,10 +113,10 @@ export default function NewFoodPage() {
                 {CATEGORIES.map((c) => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
               </select>
             </div>
-            <div className="flex gap-2">
+            <div className="flex items-end gap-2">
               <div className="flex-1">
                 <Label>Nutrient baseline amount</Label>
-                <input aria-label="Nutrient baseline amount" type="number" value={servingSize} onChange={(e) => setServingSize(e.target.value)} min="0" max="10000" step="0.1" required className={inputCls} />
+                <input aria-label="Nutrient baseline amount" type="number" value={servingSize} onChange={(e) => setServingSize(e.target.value)} min={numericStepBase(servingSize)} max="10000" step="0.1" required className={inputCls} />
               </div>
               <div className="w-28">
                 <div className="flex items-center"><Label>Unit</Label><InfoHint label="Ingredient unit families">{CLINICAL_UNIT_HINT}</InfoHint></div>
@@ -125,19 +134,19 @@ export default function NewFoodPage() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
               <Label>Calories (kcal) <Required /></Label>
-              <input type="number" value={calories} onChange={(e) => setCalories(e.target.value)} min="0" step="0.01" className={inputCls} required />
+              <input type="number" value={calories} onChange={(e) => setCalories(e.target.value)} min={numericStepBase(calories)} step="0.1" className={inputCls} required />
             </div>
             <div>
               <Label>Protein (g)</Label>
-              <input type="number" value={protein} onChange={(e) => setProtein(e.target.value)} min="0" step="0.01" className={inputCls} />
+              <input type="number" value={protein} onChange={(e) => setProtein(e.target.value)} min={numericStepBase(protein)} step="0.1" className={inputCls} />
             </div>
             <div>
               <Label>Carbs (g)</Label>
-              <input type="number" value={carbs} onChange={(e) => setCarbs(e.target.value)} min="0" step="0.01" className={inputCls} />
+              <input type="number" value={carbs} onChange={(e) => setCarbs(e.target.value)} min={numericStepBase(carbs)} step="0.1" className={inputCls} />
             </div>
             <div>
               <Label>Fat (g)</Label>
-              <input type="number" value={fat} onChange={(e) => setFat(e.target.value)} min="0" step="0.01" className={inputCls} />
+              <input type="number" value={fat} onChange={(e) => setFat(e.target.value)} min={numericStepBase(fat)} step="0.1" className={inputCls} />
             </div>
           </div>
           <p className="text-xs text-warm-400 leading-relaxed">

@@ -60,7 +60,7 @@ class NcpInterventionTest extends TestCase
         foreach ([['target' => 25, 'max' => 30], ['min' => 30, 'max' => 20], ['min' => -1]] as $limit) {
             $this->postJson($url, ['micronutrient_limits' => ['fiber' => [...$limit, 'unit' => 'g']]])->assertUnprocessable();
         }
-        $this->postJson($url, ['nutrient_operators' => ['energy_kcal' => 'max']])->assertUnprocessable();
+        $this->postJson($url, ['nutrient_operators' => ['unknown' => 'max']])->assertUnprocessable();
         $this->assertDatabaseCount('interventions', 0);
         $this->postJson($url, ['weight_target' => ['min' => 58, 'max' => 62.5]])->assertCreated()
             ->assertJsonPath('data.weight_target.max', 62.5);
@@ -78,6 +78,24 @@ class NcpInterventionTest extends TestCase
             ->assertCreated()->assertJsonPath('data.nutrient_operators.protein_g', 'max')
             ->assertJsonPath('data.micronutrient_limits.fiber.target', 25);
         $this->assertSame(['protein_g' => 'max'], Intervention::sole()->nutrient_operators);
+    }
+
+    public function test_energy_bound_is_saved_reloaded_and_used_for_comparison(): void
+    {
+        $rnd = $this->rnd();
+        $ncp = $this->ncpRecord($this->patient(), $rnd);
+        $this->diagnosis($ncp);
+        $url = "/api/rnd/ncp-records/{$ncp->uuid}/interventions";
+        $response = $this->actingAs($rnd, 'sanctum')->postJson($url, ['energy_kcal' => 1800, 'nutrient_operators' => ['energy_kcal' => 'max']])
+            ->assertCreated()->assertJsonPath('data.nutrient_operators.energy_kcal', 'max');
+        $plan = Intervention::sole();
+        $this->assertTrue($plan->isWithinTarget('energy', 1000));
+        $this->assertFalse($plan->isWithinTarget('energy', 1900));
+        $this->assertSame(['max' => 1800.0, 'unit' => 'kcal'], $plan->foodNutrientLimits()['energy']);
+        $this->patchJson($url.'/'.$response->json('data.id'), ['nutrient_operators' => ['energy_kcal' => 'min']])
+            ->assertOk()->assertJsonPath('data.nutrient_operators.energy_kcal', 'min');
+        $this->assertTrue($plan->fresh()->isWithinTarget('energy', 1900));
+        $this->assertFalse($plan->fresh()->isWithinTarget('energy', 1000));
     }
 
     private function rnd(): User

@@ -2,7 +2,7 @@ import { Children, isValidElement, type MouseEvent, type ReactNode } from "react
 import { Plus, Pencil, X } from "lucide-react";
 
 export function MenuEditorActions({ children }: { children: ReactNode }) {
-  return <div data-menu-editor-actions className="pointer-events-auto relative z-10 -mr-1 -mt-1 flex shrink-0 justify-end gap-0.5">{children}</div>;
+  return <div data-menu-editor-actions className="pointer-events-auto absolute right-1 top-1 z-10 flex shrink-0 justify-end gap-0.5">{children}</div>;
 }
 
 export function MenuEditorAction({ kind, label, onClick, disabled = false }: {
@@ -30,14 +30,14 @@ export function MenuEditorSlots({ items, itemActions, addLabel, addAriaLabel, on
   return (
     <div className="grid gap-2" data-menu-editor-slots>
       {Children.toArray(items).map((item, index) => (
-        <div key={isValidElement(item) ? item.key : index} data-menu-editor-item className={`relative h-32 min-w-0 overflow-hidden rounded-lg border border-warm-200 bg-white p-2 text-center ${itemActions?.[index] ? '[&>div]:pointer-events-none hover:border-emerald-300 hover:bg-emerald-50/30' : ''}`}>
+        <div key={isValidElement(item) ? item.key : index} data-menu-editor-item className={`relative h-32 min-w-0 overflow-hidden rounded-lg border border-warm-200 bg-white p-2 text-center [&>div]:justify-center [&>div]:py-5 ${itemActions?.[index] ? '[&>div]:pointer-events-none hover:border-emerald-300 hover:bg-emerald-50/30' : ''}`}>
           {itemActions?.[index] && <button type="button" data-menu-editor-open id={itemActions[index]?.id} aria-label={itemActions[index]?.label} title={itemActions[index]?.label.startsWith('Edit') ? 'Edit' : 'View'} onClick={(event) => itemActions[index]?.onOpen(event.currentTarget)} className="absolute inset-0 h-full w-full cursor-pointer rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600" />}
           {item}
         </div>
       ))}
       {!readOnly && onAdd ? (
         <button type="button" data-menu-editor-add aria-label={addAriaLabel ?? addLabel} onClick={onAdd}
-          className="flex h-32 w-full items-center justify-center gap-1 rounded-lg border border-dashed border-warm-300 px-2 text-xs font-semibold text-warm-500 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700">
+          className="flex min-h-10 w-full items-center justify-center gap-1 rounded-lg border border-dashed border-warm-300 px-2 py-2 text-xs font-semibold text-warm-500 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700">
           <Plus className="h-3.5 w-3.5" />{addLabel}
         </button>
       ) : items.length === 0 ? (

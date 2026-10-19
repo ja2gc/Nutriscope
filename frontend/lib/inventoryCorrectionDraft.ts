@@ -45,5 +45,5 @@ export function clearCorrectionDraft(token: string): void {
 }
 
 export function correctionUnits(unit: string): string[] {
-  return compatibleRecipeUnits(unit, true);
+  return compatibleRecipeUnits(unit);
 }

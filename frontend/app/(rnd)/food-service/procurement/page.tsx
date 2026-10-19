@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { useSearchParams } from "next/navigation";
 import {
   ShoppingBag, Plus, Trash2, ChevronLeft, Split,
@@ -23,13 +24,13 @@ import { searchCatalog, type CatalogItem } from "@/services/fsCatalogService";
 import { SuppliersPanel } from "@/components/foodservice/SuppliersPanel";
 import { ImageUploadGallery, type UploadImage } from "@/components/ui/ImageUploadGallery";
 import { DatePicker } from "@/components/ui/DatePicker";
+import { numericStepBase } from "@/components/ui/NumericInput";
 import { InfoHint } from "@/components/ui/InfoHint";
 import { VendorChangeControls } from "@/components/foodservice/VendorChangeControls";
 import { PurchaseValueComparison } from "@/components/foodservice/PurchaseValueComparison";
 import { ShoppingListCopyCard } from "@/components/foodservice/ShoppingListCopyCard";
-import { formatFoodServiceNumber } from "@/lib/foodServiceFormat";
 import { compatibleRecipeUnits, foodServiceUnitFactor } from "@/lib/foodServiceUnits";
-import { manilaCalendarToday } from "@/lib/calendarDate";
+import { addCalendarDays } from "@/lib/calendarDate";
 
 const peso = (n: number) => `₱${n.toFixed(2)}`;
 const num = (s: string | number | null | undefined) => (s != null ? parseFloat(String(s)) : 0);
@@ -39,7 +40,6 @@ const poStatusLabel = (status: PurchaseOrder["lifecycle_status"]) => ({
   completed: "Completed",
   archived: "Archived",
 }[status]);
-const today = manilaCalendarToday;
 const attachmentImages = (attachments: POAttachment[] | undefined | null, type: "receipt" | "proof"): UploadImage[] =>
   (attachments ?? []).filter((a) => a.type === type).map((a) => ({
     id: String(a.id),
@@ -68,8 +68,8 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
 }) {
   const [list, setList] = useState<ShoppingList | null>(null);
   const [savedSnapshot, setSavedSnapshot] = useState("");
-  const [confirmMode, setConfirmMode] = useState<"back" | "first-save" | "release" | null>(null);
-  const [closeAfterSave, setCloseAfterSave] = useState(false);
+  const [servingsInput, setServingsInput] = useState<string | null>(null);
+  const [confirmMode, setConfirmMode] = useState<"first-save" | "release" | null>(null);
   const [saveError, setSaveError] = useState("");
   const [busy, setBusy] = useState(false);
   const [itemSearch, setItemSearch] = useState("");
@@ -77,7 +77,7 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
   const [selectedItem, setSelectedItem] = useState<CatalogItem | null>(null);
   const [addQty, setAddQty] = useState("1");
   const [addUnitPrice, setAddUnitPrice] = useState("0");
-  const [addUnitPriceEdited, setAddUnitPriceEdited] = useState(false);
+  const [, setAddUnitPriceEdited] = useState(false);
   const [addSupplier, setAddSupplier] = useState("");
   const [itemError, setItemError] = useState("");
   const [approveErr, setApproveErr] = useState("");
@@ -85,6 +85,7 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
   const [nameDraft, setNameDraft] = useState("");
   const [addingItem, setAddingItem] = useState(false);
   const itemSearchRequest = useRef(0);
+  const [itemDrafts, setItemDrafts] = useState<Record<string, { qty?: string; price?: string; total?: string }>>({});
 
   const load = useCallback(() => {
     if (id) {
@@ -108,15 +109,53 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
             purchase_price: quantity > 0 ? purchaseNumber(num(item.total) / quantity) : "0" };
         }
       }
-      if (patch.quantity_mode && patch.quantity_mode !== "manual") {
-        const factor = foodServiceUnitFactor(item.unit, next.purchase_unit ?? item.unit);
-        const calculated = num(item.qty) * (factor ?? 1);
-        next.purchase_qty = purchaseNumber(patch.quantity_mode === "rounded" ? Math.round(calculated) : calculated);
-      }
       if (patch.purchase_qty !== undefined) next.quantity_mode = "manual";
       next.total = (num(next.purchase_qty ?? next.qty) * num(next.purchase_price ?? next.unit_price)).toFixed(2);
       return next;
     }) } : current);
+  }
+
+  function resetGeneratedItems() {
+    setList((current) => current ? { ...current, items: current.items.map((item) => {
+      if (item.source !== 'generated' || !item.generation_baseline) return item;
+      const baseline = item.generation_baseline;
+      const ratio = (current.estimate_population ?? 0) / baseline.estimate_population;
+      const quantity = baseline.purchase_qty * ratio;
+      return { ...item, qty: purchaseNumber(baseline.qty * ratio), unit: baseline.unit,
+        unit_price: purchaseNumber(baseline.unit_price), purchase_qty: purchaseNumber(quantity),
+        purchase_unit: baseline.purchase_unit, purchase_price: purchaseNumber(baseline.purchase_price),
+        supplier_id: baseline.supplier_id, scaled_quantity: purchaseNumber(baseline.scaled_quantity * ratio),
+        scaled_unit: baseline.scaled_unit, total: (quantity * baseline.purchase_price).toFixed(2), quantity_mode: 'manual' };
+    }) } : current);
+    setItemDrafts({}); setSaveError('');
+  }
+
+  function editPurchase(item: ShoppingListItem, field: 'qty' | 'price' | 'total', value: string) {
+    setItemDrafts((current) => ({ ...current, [item.id]: { ...current[item.id], [field]: value, ...(field !== 'total' ? { total: undefined } : { qty: undefined }) } }));
+    const amount = Number(value);
+    if (!Number.isFinite(amount) || amount < 0) return;
+    if (field === 'total') {
+      const price = num(item.purchase_price ?? item.unit_price);
+      if (price <= 0) { setItemError('Enter a unit cost above zero before editing Total.'); return; }
+      patchItem(item.id, { purchase_qty: amount / price });
+    } else patchItem(item.id, field === 'qty' ? { purchase_qty: amount } : { purchase_price: amount });
+  }
+
+  function scaleServings(value: string) {
+    setServingsInput(value);
+    const population = Number(value);
+    if (!Number.isInteger(population) || population < 1) return;
+    setItemDrafts({});
+    setList((current) => {
+      if (!current) return current;
+      const previous = current.estimate_population ?? 0;
+      const ratio = previous > 0 && population && Number.isInteger(population) ? population / previous : 1;
+      return { ...current, estimate_population: population, items: current.items.map((item) => {
+        if (item.source !== 'generated') return item;
+        const quantity = num(item.purchase_qty ?? item.qty) * ratio;
+        return { ...item, qty: purchaseNumber(num(item.qty) * ratio), scaled_quantity: purchaseNumber(num(item.scaled_quantity ?? item.qty) * ratio), purchase_qty: purchaseNumber(quantity), quantity_mode: 'manual' as const, total: (quantity * num(item.purchase_price ?? item.unit_price)).toFixed(2) };
+      }) };
+    });
   }
 
   async function searchItems(q: string) {
@@ -163,7 +202,7 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
     setItemResults([]);
     setAddUnitPrice(String(item.unit_cost ?? item.purchase_price ?? "0"));
     setAddUnitPriceEdited(false);
-    setAddSupplier("");
+    setAddSupplier(item.default_supplier_id ?? "");
   }
 
   async function addManualItem() {
@@ -222,11 +261,14 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
     setEditingName(false);
   }
 
-  async function saveList(closeAfter = false) {
-    if (!list) return;
-    if (list.list_type === "suggested" && (!Number.isInteger(list.estimate_population) || (list.estimate_population ?? 0) < 1)) {
+  async function saveList() {
+    if (!list) return false;
+    if (Object.values(itemDrafts).some((draft) => Object.values(draft).some((value) => value !== undefined && (!value.trim() || !Number.isFinite(Number(value)) || Number(value) < 0)))) {
+      setSaveError('Enter valid quantities, unit costs, and totals before saving.'); return false;
+    }
+    if (list.list_type === "suggested" && (servingsInput !== null && (!servingsInput.trim() || !Number.isInteger(Number(servingsInput)) || Number(servingsInput) < 1) || !Number.isInteger(list.estimate_population) || (list.estimate_population ?? 0) < 1)) {
       setSaveError("Enter a whole Estimated servings number above zero.");
-      return;
+      return false;
     }
     setBusy(true);
     setSaveError("");
@@ -239,32 +281,34 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
         purchase_unit: item.purchase_unit ?? item.unit,
         purchase_price: num(item.purchase_price ?? item.unit_price),
         supplier_id: item.supplier_id ? String(item.supplier_id) : null,
-        quantity_mode: item.quantity_mode ?? "calculated",
+        quantity_mode: "manual",
         included_in_po: item.included_in_po,
         exclusion_note: item.exclusion_note,
       }));
       const saved = id
         ? await updateShoppingList(id, {
-            name: list.name,
+            name: editingName ? nameDraft.trim() : list.name,
             ...(list.list_type === "suggested" ? { estimate_population: list.estimate_population } : {}),
             items,
           })
-        : await generateByDates(list.period_start!, list.period_end!, list.estimate_population!, list.name, { items });
+        : await generateByDates(list.period_start!, list.period_end!, list.estimate_population!, editingName ? nameDraft.trim() : list.name, { items });
       setConfirmMode(null);
       setList(saved);
       setSavedSnapshot(JSON.stringify(saved));
+      setItemDrafts({});
+      setEditingName(false);
+      setServingsInput(null);
       onSaved(saved);
-      if (closeAfter) onBack();
+      return true;
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Could not save Shopping List.");
+      return false;
     } finally { setBusy(false); }
   }
 
-  const dirty = !id || JSON.stringify(list) !== savedSnapshot;
-  function requestBack() {
-    if (dirty) setConfirmMode("back");
-    else onBack();
-  }
+  const dirty = Boolean(list && list.status === 'draft' && (!id || JSON.stringify(list) !== savedSnapshot || servingsInput !== null && servingsInput !== String(list.estimate_population) || editingName && nameDraft !== list.name));
+  const guard = useUnsavedChanges({ dirty, onSave: saveList, title: "Unsaved Shopping List" });
+  function requestBack() { guard.requestLeave(onBack); }
 
   if (!list) return <div className="py-16 text-center text-sm text-warm-400">Loading…</div>;
 
@@ -275,6 +319,7 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
 
   return (
     <div className="space-y-5">
+      {guard.dialog}
       {/* Header */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
@@ -305,6 +350,10 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
           </div>
         </div>
         <div className="flex flex-col items-end gap-1">
+          {list.status === 'draft' && list.list_type === 'suggested' && list.items.some((item) => item.source === 'generated') && <div className="flex items-center gap-1">
+            <Button variant="secondary" onClick={resetGeneratedItems} disabled={!list.estimate_population || list.items.some((item) => item.source === 'generated' && !item.generation_baseline)}>Reset generated items</Button>
+            <InfoHint label="About resetting generated items">Restores original generated quantities, units, costs, totals, and vendors using the current estimated servings. Manual items and checkmarks stay as they are. Older lists without an original generation snapshot cannot be reset.</InfoHint>
+          </div>}
           {list.status === "draft" && <Button variant="secondary" onClick={() => id ? void saveList() : setConfirmMode("first-save")} loading={busy} className="px-4 py-2">Save Shopping List</Button>}
           <Button
             variant="primary"
@@ -335,15 +384,15 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
                 </label>
                 <InfoHint label="About Estimated servings" title="Estimated servings">One count applies to every selected day. Saving a change updates those days and recalculates menu items. It locks after Turn Into PO.</InfoHint>
               </div>
-              {id && list.list_type === "suggested" && list.status === "draft" ? (
+              {list.list_type === "suggested" && list.status === "draft" ? (
                 <input
                   id="shopping-list-estimated-servings"
                   aria-label="Estimated servings"
                   type="number"
                   min="1"
                   step="1"
-                  value={list.estimate_population ?? ""}
-                  onChange={(event) => setList({ ...list, estimate_population: event.target.value === "" ? null : Number(event.target.value) })}
+                  value={servingsInput ?? list.estimate_population ?? ""}
+                  onChange={(event) => scaleServings(event.target.value)}
                   className="w-full rounded-lg border border-warm-200 px-3 py-1 text-2xl font-extrabold text-warm-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               ) : (
@@ -386,8 +435,8 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
       {list.status === "draft" && (
         <div className="bg-white border border-warm-200 rounded-2xl p-4 shadow-sm">
           <div className="text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-3">Add {isSupplies ? "supply" : "food"} item</div>
-          <div className="grid grid-cols-1 md:grid-cols-[1.4fr_90px_110px_150px_auto] gap-3 items-end">
-            <div className="relative">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="relative min-w-48 flex-1" onMouseLeave={() => { ++itemSearchRequest.current; setItemResults([]); }} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) { ++itemSearchRequest.current; setItemResults([]); } }} onKeyDown={(event) => { if (event.key === 'Escape') { ++itemSearchRequest.current; setItemResults([]); } }}>
               <label htmlFor="shopping-list-item-search" className="block text-xs font-extrabold text-warm-500 uppercase mb-1">Search {isSupplies ? "supplies" : "ingredients"}</label>
               <div className="flex items-center gap-2 px-3 py-2 border border-warm-200 rounded-lg">
                 <Search className="h-3.5 w-3.5 text-warm-400" />
@@ -413,26 +462,6 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
                 </div>
               )}
             </div>
-            <div>
-              <label className="block text-xs font-extrabold text-warm-500 uppercase mb-1">Qty</label>
-              <input type="number" min="0" step="any" value={addQty}
-                onChange={(e) => setAddQty(e.target.value)}
-                className="w-full px-3 py-2 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-            </div>
-            <div>
-              <label className="block text-xs font-extrabold text-warm-500 uppercase mb-1">Cost/unit (₱)</label>
-              <input type="number" min="0" step="any" value={addUnitPriceEdited ? addUnitPrice : formatFoodServiceNumber(addUnitPrice)}
-                onChange={(e) => { setAddUnitPriceEdited(true); setAddUnitPrice(e.target.value); }}
-                className="w-full px-3 py-2 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-            </div>
-            <div>
-              <label className="block text-xs font-extrabold text-warm-500 uppercase mb-1">Vendor</label>
-              <select value={addSupplier} onChange={(e) => setAddSupplier(e.target.value)}
-                className="w-full px-3 py-2 text-base border border-warm-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer">
-                <option value="">— vendor —</option>
-                {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            </div>
             <Button variant="secondary" onClick={addManualItem} loading={addingItem} disabled={!selectedItem || addingItem} className="px-4 py-2 flex items-center gap-2">
               <Plus className="h-4 w-4" /> Add
             </Button>
@@ -442,19 +471,18 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
       )}
 
       {/* Cart table */}
-      <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
-        <div className="flex items-center gap-1 px-3 pt-2 text-xs text-warm-500">Quantity options<InfoHint label="About Shopping List quantities" title="Shopping List quantities">Calculated need follows Estimated servings. Round to the nearest whole unit or enter a purchase quantity. Changing either does not change the Food recipe or Estimated servings.</InfoHint></div>
-        <table className="w-full text-sm">
+      <div className="min-w-0 w-full max-w-full bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
+        <table aria-label="Shopping List purchase items" className="w-full min-w-[1100px] text-sm">
           <thead className="bg-warm-50 border-b border-warm-100">
             <tr>
-              {["Buy", "Item", "Qty", "Purchase Qty", "Unit", "Vendor", "Cost/unit", "Total", ""].map((h) => (
+              {["Buy", "Item", "Purchase Qty", "Unit", "Vendor", "Cost/unit", "Total", ""].map((h) => (
                 <th key={h} className="px-3 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
             {list.items.length === 0 ? (
-              <tr><td colSpan={9} className="px-3 py-8 text-center text-warm-400">No items yet.</td></tr>
+              <tr><td colSpan={8} className="px-3 py-8 text-center text-warm-400">No items yet.</td></tr>
             ) : list.items.map((it) => (
               <tr key={it.id} className={`hover:bg-warm-50/60 ${it.included_in_po ? "" : "opacity-55"}`}>
                 <td className="px-3 py-2">
@@ -462,36 +490,28 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
                     onChange={(e) => patchItem(it.id, { included_in_po: e.target.checked })}
                     className="h-4 w-4 accent-emerald-600" aria-label={`Include ${it.ingredient_name} in PO`} />
                 </td>
-                <td className="px-3 py-2 font-semibold text-warm-800">
+                <td className="min-w-44 break-words px-3 py-2 font-semibold text-warm-800">
                   {it.ingredient_name}
-                  {!it.included_in_po && <input defaultValue={it.exclusion_note ?? ""}
-                    disabled={list.status === "converted"} onBlur={(e) => patchItem(it.id, { exclusion_note: e.target.value || null })}
+                  {!it.included_in_po && <input aria-label={`Exclusion note for ${it.ingredient_name}`} value={it.exclusion_note ?? ""}
+                    disabled={list.status === "converted"} onChange={(e) => patchItem(it.id, { exclusion_note: e.target.value || null })}
                     className="mt-1 block w-40 rounded border border-warm-200 px-2 py-1 text-xs font-normal" />}
                 </td>
-                <td className="px-3 py-2 font-mono text-warm-700">{purchaseNumber(it.qty)} {it.unit}</td>
-                <td className="px-3 py-2"><input type="number" min="0" step="any" key={`${it.id}:purchase-qty:${purchaseNumber(it.purchase_qty ?? it.qty)}`} defaultValue={purchaseNumber(it.purchase_qty ?? it.qty)} disabled={list.status === "converted"}
-                  onChange={(e) => { e.currentTarget.dataset.userEdited = "true"; }}
-                  onBlur={(e) => {
-                    const input = e.currentTarget;
-                    if (input.dataset.userEdited !== "true") return;
-                    const value = parseFloat(input.value);
-                    if (!Number.isFinite(value)) return;
-                    delete input.dataset.userEdited;
-                    patchItem(it.id, isSupplies ? { qty: value } : { purchase_qty: value });
-                  }}
+                <td className="px-3 py-2"><input aria-label={`Purchase quantity for ${it.ingredient_name}`} type="number" min={numericStepBase(itemDrafts[it.id]?.qty ?? purchaseNumber(it.purchase_qty ?? it.qty))} step="0.1" value={itemDrafts[it.id]?.qty ?? purchaseNumber(it.purchase_qty ?? it.qty)} disabled={list.status === "converted"}
+                  onChange={(e) => editPurchase(it, 'qty', e.target.value)}
                   className="w-24 rounded border border-warm-200 px-2 py-1 disabled:bg-warm-50" />
-                  {!isSupplies && <select aria-label={`Quantity mode for ${it.ingredient_name}`} value={it.quantity_mode ?? "calculated"} disabled={list.status === "converted"} onChange={(e) => patchItem(it.id, { quantity_mode: e.target.value as "calculated" | "rounded" | "manual" })} className="mt-1 w-28 rounded border border-warm-200 bg-white text-xs"><option value="calculated">Calculated</option><option value="rounded">Round nearest</option><option value="manual">Manual</option></select>}</td>
+                  </td>
                 <td className="px-3 py-2">
                   <select value={it.purchase_unit ?? it.unit} disabled={list.status === "converted" || isSupplies}
-                    onChange={(e) => patchItem(it.id, { purchase_unit: e.target.value })}
+                    onChange={(e) => { setItemDrafts((current) => ({ ...current, [it.id]: {} })); patchItem(it.id, { purchase_unit: e.target.value }); }}
                     className="w-24 rounded border border-warm-200 bg-white px-2 py-1 disabled:bg-warm-50">
-                    {[it.purchase_unit ?? it.unit, ...compatibleRecipeUnits(it.inventory_unit ?? it.unit, true)]
+                    {[it.purchase_unit ?? it.unit, ...(foodServiceUnitFactor(it.purchase_unit ?? it.unit, it.inventory_unit ?? it.unit) !== null ? compatibleRecipeUnits(it.inventory_unit ?? it.unit) : [])]
                       .filter((unit, index, units) => units.indexOf(unit) === index)
                       .map((unit) => <option key={unit} value={unit}>{unit}</option>)}
                   </select>
                 </td>
                 <td className="px-3 py-2">
                   <select
+                    aria-label={`Vendor for ${it.ingredient_name}`}
                     value={it.supplier_id ?? ""}
                     disabled={list.status === "converted"}
                     onChange={(e) => patchItem(it.id, { supplier_id: e.target.value ? e.target.value : null })}
@@ -504,23 +524,16 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
                 <td className="px-3 py-2">
                   <input
                     type="number"
-                    key={`${it.id}:unit-price:${purchaseNumber(it.purchase_price ?? it.unit_price)}`}
-                    defaultValue={purchaseNumber(it.purchase_price ?? it.unit_price)}
-                    step="any"
+                    aria-label={`Unit cost for ${it.ingredient_name}`}
+                    min={numericStepBase(itemDrafts[it.id]?.price ?? purchaseNumber(it.purchase_price ?? it.unit_price))}
+                    value={itemDrafts[it.id]?.price ?? purchaseNumber(it.purchase_price ?? it.unit_price)}
+                    step="0.1"
                     disabled={list.status === "converted"}
-                    onChange={(e) => { e.currentTarget.dataset.userEdited = "true"; }}
-                    onBlur={(e) => {
-                      const input = e.currentTarget;
-                      if (input.dataset.userEdited !== "true") return;
-                      const value = parseFloat(input.value);
-                      if (!Number.isFinite(value)) return;
-                      delete input.dataset.userEdited;
-                      patchItem(it.id, isSupplies ? { unit_price: value } : { purchase_price: value });
-                    }}
+                    onChange={(e) => editPurchase(it, 'price', e.target.value)}
                     className="w-20 px-2 py-1 border border-warm-200 rounded focus:outline-none focus:ring-1 focus:ring-emerald-400 disabled:bg-warm-50 disabled:text-warm-400"
                   />
                 </td>
-                <td className="px-3 py-2 font-mono text-emerald-700">{peso(num(it.total))}</td>
+                <td className="px-3 py-2 font-mono text-emerald-700"><input aria-label={`Total for ${it.ingredient_name}`} type="number" min={numericStepBase(itemDrafts[it.id]?.total ?? purchaseNumber(it.total))} step="0.1" value={itemDrafts[it.id]?.total ?? purchaseNumber(it.total)} onChange={(e) => editPurchase(it, 'total', e.target.value)} disabled={list.status === 'converted'} className="w-24 rounded border border-warm-200 px-2 py-1 disabled:bg-warm-50" /></td>
                 <td className="px-3 py-2">
                   {it.source === "manual" && (
                     <button
@@ -539,7 +552,7 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
           {list.items.length > 0 && (
             <tfoot className="bg-warm-50 border-t border-warm-200">
               <tr>
-                <td colSpan={7} className="px-3 py-2.5 text-sm font-bold text-warm-500 text-right uppercase tracking-wider">Included total</td>
+                <td colSpan={6} className="px-3 py-2.5 text-sm font-bold text-warm-500 text-right uppercase tracking-wider">Included total</td>
                 <td className="px-3 py-2.5 font-mono font-bold text-emerald-700">{peso(estimatedTotal)}</td>
                 <td />
               </tr>
@@ -551,22 +564,19 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
         Inventory suggests the Vendor from the latest completed PO.
         Converting to a PO creates one purchase order grouped by vendor.
       </p>
-      {confirmMode && <div role="dialog" aria-modal="true" aria-label={confirmMode === "back" ? "Unsaved Shopping List" : confirmMode === "release" ? "Turn Into PO warning" : "Save Shopping List"} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-        <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl space-y-4">
+      {confirmMode && <div role="dialog" aria-modal="true" aria-label={confirmMode === "release" ? "Turn Into PO warning" : "Save Shopping List"} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="relative w-full max-w-md rounded-2xl bg-white p-5 shadow-xl space-y-4" onKeyDown={(event) => { if (event.key === 'Escape' && !busy) setConfirmMode(null); }}>
+          <button type="button" aria-label="Close dialog" disabled={busy} onClick={() => setConfirmMode(null)} className="absolute right-3 top-3 rounded-lg p-2 text-warm-500 hover:bg-warm-50"><X className="h-4 w-4" /></button>
           {confirmMode === "first-save" ? <>
             <h3 className="text-lg font-bold text-warm-900">Save Shopping List?</h3>
             <p className="text-sm text-warm-600">This list uses the current estimated servings for the selected Menu Calendar service days. You can keep editing it after saving. Saving does not create a purchase order; Turn Into PO is a separate action.</p>
-            <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => { setConfirmMode(null); setCloseAfterSave(false); }}>Keep Editing</Button><Button variant="primary" onClick={() => void saveList(closeAfterSave)} loading={busy}>Save Shopping List</Button></div>
-          </> : confirmMode === "release" ? <>
+            <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setConfirmMode(null)}>Keep Editing</Button><Button variant="primary" onClick={() => void saveList()} loading={busy}>Save Shopping List</Button></div>
+          </> : <>
             <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950">
               <h3 className="flex items-center gap-2 text-lg font-bold"><AlertTriangle className="h-5 w-5 shrink-0" aria-hidden="true" />This will lock the Shopping List</h3>
               <p className="mt-2 text-sm">The Shopping List will become read-only. Are you sure you want to turn it into a PO and lock the list?</p>
             </div>
             <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setConfirmMode(null)}>Cancel</Button><Button variant="primary" onClick={() => { setConfirmMode(null); void doGeneratePos(); }} loading={busy}>Turn Into PO and lock list</Button></div>
-          </> : <>
-            <h3 className="text-lg font-bold text-warm-900">Unsaved Shopping List</h3>
-            <p className="text-sm text-warm-600">Save your changes before leaving?</p>
-            <div className="flex justify-end gap-2"><Button variant="secondary" onClick={onBack}>Discard</Button><Button variant="primary" onClick={() => { if (!id) { setCloseAfterSave(true); setConfirmMode("first-save"); } else void saveList(true); }} loading={busy}>Save</Button></div>
           </>}
           {saveError && <p role="alert" className="text-sm text-red-600">{saveError}</p>}
         </div>
@@ -585,8 +595,6 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
   const [imageError, setImageError] = useState<string | null>(null);
   const [actualError, setActualError] = useState<string | null>(null);
   const [actualDraft, setActualDraft] = useState<Record<number, { qty: string; price: string; total: string; totalEdited: boolean }>>({});
-  const [pendingLeave, setPendingLeave] = useState<(() => void) | null>(null);
-  const allowUnload = useRef(false);
   const group = po.vendor_groups?.find((g) => g.id === groupId) ?? null;
   const locked = po.lifecycle_status !== "open_execution";
   const hasUnsavedChanges = Boolean(group && (
@@ -602,46 +610,20 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
   ));
 
   useEffect(() => { setOrDraft(group?.or_number ?? ""); }, [group?.id, group?.or_number]);
+  const initializedGroup = useRef<string | null>(null);
   useEffect(() => {
+    if ((group?.id ?? null) === initializedGroup.current) return;
+    initializedGroup.current = group?.id ?? null;
     setActualDraft(Object.fromEntries((group?.items ?? []).map((item) => [item.id, {
       qty: String(num(item.actual_qty)),
       price: String(num(item.actual_unit_price)),
       total: String(num(item.actual_total)),
       totalEdited: false,
     }])));
-  }, [group]);
+  }, [group?.id, group?.items]);
 
-  useEffect(() => {
-    if (!hasUnsavedChanges) return;
-    const beforeUnload = (event: BeforeUnloadEvent) => {
-      if (allowUnload.current) return;
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    const guardLinks = (event: MouseEvent) => {
-      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-      const target = event.target;
-      if (!(target instanceof Element)) return;
-      const anchor = target.closest<HTMLAnchorElement>("a[href]");
-      if (!anchor || anchor.target || anchor.hasAttribute("download")) return;
-      const destination = new URL(anchor.href, window.location.href);
-      if (destination.origin !== window.location.origin || destination.href === window.location.href) return;
-      event.preventDefault();
-      event.stopPropagation();
-      setPendingLeave(() => () => { allowUnload.current = true; window.location.assign(destination.href); });
-    };
-    window.addEventListener("beforeunload", beforeUnload);
-    window.addEventListener("click", guardLinks, true);
-    return () => {
-      window.removeEventListener("beforeunload", beforeUnload);
-      window.removeEventListener("click", guardLinks, true);
-    };
-  }, [hasUnsavedChanges]);
-
-  function requestLeave(next: () => void) {
-    if (hasUnsavedChanges) setPendingLeave(() => next);
-    else next();
-  }
+  const vendorGuard = useUnsavedChanges({ dirty: hasUnsavedChanges, onSave: () => saveActuals(false), title: "Unsaved vendor changes" });
+  const requestLeave = vendorGuard.requestLeave;
 
   async function saveGroup(next: Parameters<typeof updateVendorGroup>[1]): Promise<boolean> {
     if (!group) return false;
@@ -725,7 +707,7 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
             group={group}
             vendors={suppliers}
             disabled={locked}
-            onChanged={() => { setGroupId(null); reload(); }}
+            onChanged={reload}
           />
         </div>
 
@@ -751,12 +733,13 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
                 const actualQty = draft?.totalEdited && actualPrice > 0
                   ? num(draft.total) / actualPrice
                   : num(draft?.qty ?? item.actual_qty);
+                const quantityValue = draft?.totalEdited && actualPrice > 0 ? String(Math.round(num(draft.total) / actualPrice * 1000) / 1000) : draft?.qty ?? String(num(item.actual_qty));
                 return <tr key={item.id} className="[&>td]:align-top">
                   <td className="px-3 py-2">
                     <div className="flex min-h-8 items-center font-semibold text-warm-800">{item.description}</div>
                   </td>
-                  <td className="px-3 py-2"><input type="number" min="0" step="1" disabled={locked}
-                    value={draft?.totalEdited && actualPrice > 0 ? String(Math.round(num(draft.total) / actualPrice * 1000) / 1000) : draft?.qty ?? String(num(item.actual_qty))}
+                  <td className="px-3 py-2"><input type="number" min={numericStepBase(quantityValue)} step="0.1" disabled={locked}
+                    value={quantityValue}
                     onChange={(e) => setActualDraft((current) => {
                       const currentDraft = current[item.id] ?? { qty: String(num(item.actual_qty)), price: String(num(item.actual_unit_price)), total: String(num(item.actual_total)), totalEdited: false };
                       return { ...current, [item.id]: { ...currentDraft, qty: e.target.value, totalEdited: false } };
@@ -764,7 +747,7 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
                     className="w-24 rounded border border-warm-200 px-2 py-1 disabled:bg-warm-50" /></td>
                   <td className="px-3 py-2 text-warm-600" aria-label={`Unit for ${item.description}`}><div className="flex min-h-8 items-center">{item.purchase_unit ?? item.unit}</div></td>
                   <td className="px-3 py-2">
-                    <input type="number" min="0" step="any" disabled={locked}
+                    <input type="number" min={numericStepBase(draft?.price ?? String(num(item.actual_unit_price)))} step="0.1" disabled={locked}
                       value={draft?.price ?? String(num(item.actual_unit_price))}
                       onChange={(e) => setActualDraft((current) => {
                         const currentDraft = current[item.id] ?? { qty: String(num(item.actual_qty)), price: String(num(item.actual_unit_price)), total: String(num(item.actual_total)), totalEdited: false };
@@ -772,7 +755,7 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
                       })}
                       className="w-24 rounded border border-warm-200 px-2 py-1 disabled:bg-warm-50" />
                   </td>
-                  <td className="px-3 py-2"><input type="number" min="0" step="any" disabled={locked}
+                  <td className="px-3 py-2"><input type="number" min={numericStepBase(draft?.totalEdited ? draft.total : (actualQty * actualPrice).toFixed(2))} step="0.1" disabled={locked}
                     aria-label={`Actual Total for ${item.description}`}
                     value={draft?.totalEdited ? draft.total : (actualQty * actualPrice).toFixed(2)}
                     onChange={(e) => setActualDraft((current) => {
@@ -788,7 +771,7 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
                       vendors={suppliers}
                       itemId={item.id}
                       disabled={locked}
-                      onChanged={() => { setGroupId(null); reload(); }}
+                      onChanged={reload}
                     />
                   </td>
                 </tr>;
@@ -842,18 +825,7 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
             />
           </div>
         </div>
-        {pendingLeave && <div role="dialog" aria-modal="true" aria-label="Unsaved vendor changes" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md space-y-4 rounded-2xl bg-white p-5 shadow-xl">
-            <h3 className="text-lg font-bold text-warm-900">Unsaved vendor changes</h3>
-            <p className="text-sm text-warm-600">Save your changes before leaving?</p>
-            <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setPendingLeave(null)}>Stay</Button>
-              <Button variant="ghost" onClick={() => { const leave = pendingLeave; setPendingLeave(null); leave(); }}>Discard</Button>
-              <Button variant="primary" onClick={async () => { if (await saveActuals(false)) { const leave = pendingLeave; setPendingLeave(null); leave(); } }} loading={busy}>Save</Button>
-            </div>
-            {actualError && <p role="alert" className="text-sm text-red-600">{actualError}</p>}
-          </div>
-        </div>}
+        {vendorGuard.dialog}
       </div>
     );
   }
@@ -959,8 +931,12 @@ export default function ProcurementPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [genOpen, setGenOpen] = useState(false);
-  const [genStartDate, setGenStartDate] = useState(today());
-  const [genEndDate, setGenEndDate] = useState(today());
+  const [genStartDate, setGenStartDate] = useState("");
+  const [genEndDate, setGenEndDate] = useState("");
+  const [genDays, setGenDays] = useState('1');
+  const [occupiedSpans, setOccupiedSpans] = useState<ShoppingList[]>([]);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [availabilityReady, setAvailabilityReady] = useState(false);
   const [genEstimate, setGenEstimate] = useState("");
   const [genName, setGenName] = useState("");
   const [genError, setGenError] = useState("");
@@ -984,6 +960,26 @@ export default function ProcurementPage() {
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
+    if (!genOpen) return;
+    let cancelled = false;
+    setAvailabilityLoading(true);
+    setAvailabilityReady(false);
+    void (async () => {
+      const all: ShoppingList[] = [];
+      for (let page = 1; ; page++) {
+        const result = await listShoppingLists(page);
+        all.push(...result.data);
+        if (page >= result.meta.last_page) break;
+      }
+      if (!cancelled) { setOccupiedSpans(all.filter((list) => list.list_type === 'suggested' && list.period_start && list.period_end)); setAvailabilityReady(true); }
+    })().catch(() => { if (!cancelled) setGenError('Could not load date availability. Reopen Suggest from Menu to retry.'); })
+      .finally(() => { if (!cancelled) setAvailabilityLoading(false); });
+    return () => { cancelled = true; };
+  }, [genOpen]);
+  useEffect(() => { if (genStartDate && /^[1-9]\d?$/.test(genDays)) setGenEndDate(addCalendarDays(genStartDate, Number(genDays) - 1)); }, [genStartDate, genDays]);
+  const dateOccupied = (date: string) => occupiedSpans.some((list) => list.period_start! <= date && list.period_end! >= date);
+
+  useEffect(() => {
     if (!targetPoId || poDetail === targetPoId) return;
     setListDetail(null);
     setDraftPreview(null);
@@ -993,6 +989,8 @@ export default function ProcurementPage() {
 
   async function doGenerate() {
     if (!genStartDate || !genEndDate) return;
+    if (!/^[1-9]\d?$/.test(genDays)) { setGenError('Enter a whole span from 1 to 99 days.'); return; }
+    if (Array.from({ length: Number(genDays) }, (_, index) => addCalendarDays(genStartDate, index)).some(dateOccupied)) { setGenError('This span includes days already in a saved Suggested Shopping List. Choose another span.'); return; }
     if (!genName.trim()) {
       setGenError("Enter a name for the shopping list.");
       return;
@@ -1001,8 +999,8 @@ export default function ProcurementPage() {
       setGenError("End date must be on or after the start date.");
       return;
     }
-    const estimate = parseInt(genEstimate, 10);
-    if (!Number.isFinite(estimate) || estimate < 1) {
+    const estimate = Number(genEstimate);
+    if (!Number.isInteger(estimate) || estimate < 1) {
       setGenError("Enter the estimated servings for the selected span.");
       return;
     }
@@ -1149,13 +1147,14 @@ export default function ProcurementPage() {
           </h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <div>
-              <DatePicker label="From date" value={genStartDate} onChange={(next) => {
+              <DatePicker calendar label="Start date" value={genStartDate} disabled={availabilityLoading} isDateDisabled={dateOccupied} onChange={(next) => {
                 setGenStartDate(next);
                 if (genEndDate < next) setGenEndDate(next);
               }} />
             </div>
             <div>
-              <DatePicker label="To date" value={genEndDate} min={genStartDate} onChange={setGenEndDate} />
+              <label className="block"><span className="mb-1 block text-xs font-bold text-warm-600">Number of days</span><input aria-label="Number of days" type="text" inputMode="numeric" pattern="[1-9][0-9]?" maxLength={2} value={genDays} onChange={(event) => { if (/^\d{0,2}$/.test(event.target.value)) setGenDays(event.target.value); }} className="min-h-11 w-full rounded-lg border border-warm-200 px-3 py-2" /></label>
+              {genStartDate && /^[1-9]\d?$/.test(genDays) && <p className="mt-1 text-xs text-warm-500">Through {genEndDate}</p>}
             </div>
             <label className="block"><span className="mb-1 block text-xs font-bold text-warm-600">Estimated servings</span>
               <input type="number" min="1" value={genEstimate} onChange={(e) => setGenEstimate(e.target.value)}
@@ -1166,7 +1165,7 @@ export default function ProcurementPage() {
                 className="w-full rounded-lg border border-warm-200 px-3 py-2" />
             </label>
             <div className="flex items-end gap-2">
-              <Button variant="primary" onClick={doGenerate} disabled={!genName.trim() || !genEstimate.trim()} className="px-4 py-2">Generate</Button>
+              <Button variant="primary" onClick={doGenerate} disabled={availabilityLoading || !availabilityReady || !genStartDate || !genName.trim() || !genEstimate.trim()} className="px-4 py-2">Generate</Button>
               <button onClick={() => setGenOpen(false)} className="text-sm text-warm-500 hover:text-warm-700 cursor-pointer">Cancel</button>
             </div>
           </div>

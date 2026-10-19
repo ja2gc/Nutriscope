@@ -26,12 +26,12 @@ class MealPlanTemplateDay extends Model
 
     public function foodItem()
     {
-        return $this->belongsTo(FoodItem::class);
+        return $this->belongsTo(FoodItem::class)->withTrashed();
     }
 
     public function recipe()
     {
-        return $this->belongsTo(Recipe::class);
+        return $this->belongsTo(Recipe::class)->withTrashed();
     }
 
     public function items(): HasMany

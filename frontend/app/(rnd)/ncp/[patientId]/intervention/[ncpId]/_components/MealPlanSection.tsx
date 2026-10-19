@@ -1,8 +1,10 @@
 "use client";
 
+import { useEditorChanges } from "@/hooks/useUnsavedChanges";
+import { MenuItemPicker } from "@/components/ncp/MenuItemPicker";
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
-  Plus, X, Search, Loader2, Trash2, BookmarkPlus,
+  Plus, X, Loader2, Trash2, BookmarkPlus,
   Wand2, AlertTriangle, LayoutTemplate,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -26,7 +28,6 @@ import { MenuItemProfile, RecipeMenuItemProfile } from "@/components/ncp/MenuIte
 import { ALL_MICROS } from "@/lib/nutritionCalculations";
 import { foodFluidBalance, formatMealPlanAmount } from "@/lib/mealPlanNutrition";
 import { clinicalIngredientFactor, clinicalRecipeUnits } from "@/lib/clinicalUnits";
-import SearchInput from '@/components/ui/SearchInput';
 import NumericInput from '@/components/ui/NumericInput';
 
 const DAYS = MENU_DAYS;
@@ -148,21 +149,27 @@ export default function MealPlanSection({
   const editRequest = useRef(0);
   const [editServings, setEditServings]       = useState<string>('1');
   const [editRecipe, setEditRecipe]           = useState<Pick<Recipe, 'name' | 'servings' | 'ingredients'> | null>(null);
-  const [editIngredients, setEditIngredients] = useState<{ id: number; qty: string; ing: RecipeIngredient }[]>([]);
+  const [editIngredients, setEditIngredients] = useState<{ id: number; qty: string; ing: RecipeIngredient; added?: boolean }[]>([]);
   const [editAmountDrafts, setEditAmountDrafts] = useState<Record<number, string>>({});
   const [editLoadingRecipe, setEditLoadingRecipe] = useState(false);
   const [editSaving, setEditSaving]           = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [editTab, setEditTab]                 = useState<'scale' | 'ingredients'>('scale');
   const [ingredientQuery, setIngredientQuery] = useState('');
+  const [ingredientPickerOpen, setIngredientPickerOpen] = useState(false);
+  const [ingredientLoading, setIngredientLoading] = useState(false);
+  const [ingredientPage, setIngredientPage] = useState(1);
+  const [ingredientMeta, setIngredientMeta] = useState<PaginationMeta | null>(null);
   const [ingredientResults, setIngredientResults] = useState<FoodItem[]>([]);
   const [ingredientSearchError, setIngredientSearchError] = useState<string | null>(null);
   useEffect(() => {
-    if (!editTarget || editTab !== 'ingredients' || !ingredientQuery.trim()) { setIngredientResults([]); return; }
+    if (!editTarget || editTab !== 'ingredients' || !ingredientPickerOpen) { setIngredientResults([]); return; }
     let cancelled = false;
-    const timer = setTimeout(() => { fetchFoodItems(ingredientQuery).then((result) => { if (!cancelled) { setIngredientResults(result.data.slice(0, 5)); setIngredientSearchError(null); } }).catch(() => { if (!cancelled) setIngredientSearchError('Could not load Ingredients. Try again.'); }); }, 200);
+    setIngredientLoading(true);
+    setIngredientSearchError(null);
+    const timer = setTimeout(() => { fetchFoodItems(ingredientQuery, undefined, ingredientPage).then((result) => { if (!cancelled) { setIngredientResults(result.data); setIngredientMeta(result.meta ?? null); } }).catch(() => { if (!cancelled) setIngredientSearchError('Could not load Ingredients. Try again.'); }).finally(() => { if (!cancelled) setIngredientLoading(false); }); }, 200);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [ingredientQuery, editTarget, editTab]);
+  }, [ingredientQuery, editTarget, editTab, ingredientPickerOpen, ingredientPage]);
 
   // Food picker
   const [pickerOpen, setPickerOpen]           = useState(false);
@@ -175,7 +182,7 @@ export default function MealPlanSection({
   const [adding, setAdding]                   = useState<number | string | null>(null);
   const [pickerError, setPickerError]         = useState<string | null>(null);
   const [savingToLibrary, setSavingToLibrary] = useState<string | null>(null);
-  const [templateProfile, setTemplateProfile] = useState<{ id: string; name: string } | null>(null);
+  const [templateProfile, setTemplateProfile] = useState<{ id: string; name: string; snapshot?: MealPlanItem["nutrient_snapshot"] } | null>(null);
   useEffect(() => {
     if (!pickerOpen) return;
     let cancelled = false;
@@ -496,7 +503,7 @@ export default function MealPlanSection({
     setEditRecipe(null);
     setEditIngredients([]);
     setEditAmountDrafts({});
-    setIngredientQuery(''); setIngredientResults([]); setIngredientSearchError(null);
+    setIngredientQuery(''); setIngredientResults([]); setIngredientSearchError(null); setIngredientPickerOpen(false);
     const snapshot = item.nutrient_snapshot;
     if (snapshot?.recipe_yield && snapshot.recipe_original_ingredients?.length && snapshot.recipe_original_ingredients.every((ingredient) => ingredient.id && ingredient.food_item)) {
       const ingredients = snapshot.recipe_original_ingredients.map((ingredient) => ({
@@ -523,12 +530,19 @@ export default function MealPlanSection({
     }
   };
 
+  // Existing rows store whole-recipe amounts; additions are entered for this planned portion.
+  const ingredientBatchQuantity = (row: (typeof editIngredients)[number]) => row.added
+    ? Number((Number(row.qty) * (editRecipe?.servings ?? 1) / (Number(editServings) || 1)).toFixed(6))
+    : Number(row.qty);
+
   const recalcFromIngredients = (): Partial<NutrientSnapshot> => {
     if (!editRecipe) return {};
     const servings = editRecipe.servings ?? 1;
     let cal = 0, prot = 0, carb = 0, fat = 0, water = 0;
     const micros: Record<string, number> = {};
-    for (const { qty, ing } of editIngredients) {
+    for (const row of editIngredients) {
+      const { ing } = row;
+      const qty = ingredientBatchQuantity(row);
       const food = ing.food_item;
       if (!food) continue;
       const factor = clinicalIngredientFactor(Number(qty), ing.unit, Number(food.serving_size), food.serving_unit ?? '');
@@ -552,14 +566,23 @@ export default function MealPlanSection({
       serving_size: 1,
       serving_unit: 'serving',
       recipe_yield: servings,
-      recipe_original_ingredients: editIngredients.map(({ id, qty, ing }) => ({ ...ing, id, quantity: qty, name: ing.food_item?.name ?? 'Ingredient' })),
-      recipe_ingredients: editIngredients.map(({ id, qty, ing }) => ({ id, name: ing.food_item?.name ?? 'Ingredient', quantity: Number(qty), unit: ing.unit })),
+      recipe_original_ingredients: editIngredients.map((row) => ({ ...row.ing, id: row.id, quantity: ingredientBatchQuantity(row), name: row.ing.food_item?.name ?? 'Ingredient' })),
+      recipe_ingredients: editIngredients.map((row) => ({ id: row.id, name: row.ing.food_item?.name ?? 'Ingredient', quantity: ingredientBatchQuantity(row), unit: row.ing.unit })),
       micronutrients: Object.fromEntries(Object.entries(micros).map(([key, value]) => [key, Math.round(value / servings * 1000) / 1000])),
     };
   };
 
+  const editValid = Number(editServings) >= 0.01 && Number(editServings) <= 100000
+    && (editTab !== 'ingredients' || editIngredients.length > 0)
+    && editIngredients.every((row) => Number(row.qty) > 0 && Number(row.qty) <= 100000
+      && clinicalIngredientFactor(Number(row.qty), row.ing.unit, Number(row.ing.food_item?.serving_size), row.ing.food_item?.serving_unit ?? '') !== null);
+
   const handleSaveEdit = async () => {
-    if (!editTarget || !activePlan) return;
+    if (!editTarget || !activePlan) return false;
+    if (!editValid || editLoadingRecipe) {
+      setEditError('Enter a valid planned portion and positive ingredient quantities in compatible units.');
+      return false;
+    }
     setEditSaving(true);
     try {
       const payload: { quantity?: number; ingredients?: { food_item_id: string; quantity: number; unit: string }[] } = {};
@@ -567,7 +590,7 @@ export default function MealPlanSection({
         payload.quantity = Number(editServings);
       }
       if (editTab === 'ingredients' || editIngredients.some((row) => Number(row.qty) !== Number(row.ing.quantity))) {
-        payload.ingredients = editIngredients.map(({ qty, ing }) => ({ food_item_id: ing.food_item!.id, quantity: Number(qty || 0), unit: ing.unit }));
+        payload.ingredients = editIngredients.map((row) => ({ food_item_id: row.ing.food_item!.id, quantity: ingredientBatchQuantity(row), unit: row.ing.unit }));
         payload.quantity = Number(editServings);
       }
       if (templateDraft) {
@@ -580,7 +603,7 @@ export default function MealPlanSection({
         };
         setItemsByKey((previous) => ({ ...previous, [editTarget.slotKey]: (previous[editTarget.slotKey] ?? []).map((item) => item.id === updated.id ? updated : item) }));
         markPlanNeedsScaling(activePlan.id); setEditTarget(null);
-        return;
+        return true;
       }
       const updated = await updateMealPlanItem(ncpId, activePlan.id, editTarget.dayId, editTarget.item.id, payload);
       setItemsByKey((prev) => ({
@@ -589,10 +612,14 @@ export default function MealPlanSection({
       }));
       markPlanNeedsScaling(activePlan.id);
       setEditTarget(null);
+      return true;
     } catch (cause) {
       setEditError(cause instanceof Error ? cause.message : 'Could not save this portion. Try again.');
+      return false;
     } finally { setEditSaving(false); }
   };
+
+  const editGuard = useEditorChanges(JSON.stringify({ editServings, ingredients: editIngredients.map(({ id, qty, ing }) => ({ id, qty, unit: ing.unit })) }), Boolean(editTarget && !editLoadingRecipe && !readOnly), handleSaveEdit);
 
   // ── Picker helpers ──────────────────────────────────────────────────────────
 
@@ -679,13 +706,13 @@ export default function MealPlanSection({
   const selectedItems = MEAL_TYPES.flatMap((mealType) => itemsByKey[slotKey(selectedDay, mealType)] ?? []);
   const selectedFluid = foodFluidBalance(selectedItems, t.fluid);
   const trackerTargets = [
-    { label: 'Energy',  current: selectedTotals.cal,   target: t.energy,        unit: 'kcal' },
+    { label: 'Energy',  current: selectedTotals.cal,   target: t.energy,        unit: 'kcal', operator: nutrientOperators?.energy_kcal },
     { label: 'Protein', current: selectedTotals.prot,  target: t.protein,       unit: 'g', operator: nutrientOperators?.protein_g },
     { label: 'Carbs',   current: selectedTotals.carb,  target: t.carbs,         unit: 'g', operator: nutrientOperators?.carbs_g },
     { label: 'Fat',     current: selectedTotals.fat,   target: t.fat,           unit: 'g', operator: nutrientOperators?.fat_g },
   ];
 
-  if (templateProfile) return <RecipeMenuItemProfile id={templateProfile.id} name={templateProfile.name} onBack={() => setTemplateProfile(null)} />;
+  if (templateProfile) return <RecipeMenuItemProfile id={templateProfile.id} name={templateProfile.name} snapshot={templateProfile.snapshot} onBack={() => setTemplateProfile(null)} />;
 
   if (editTarget) {
     const snapshot = editRecipe && editIngredients.length > 0 ? recalcFromIngredients() : editTarget.item.nutrient_snapshot;
@@ -696,8 +723,8 @@ export default function MealPlanSection({
       name={editTarget.item.nutrient_snapshot?.name ?? 'Menu Item'}
       servings={editRecipe?.servings}
       prepNotes={editTarget.item.nutrient_snapshot?.prep_notes ?? (editRecipe && 'prep_notes' in editRecipe ? String(editRecipe.prep_notes ?? '') : null)}
-      onBack={() => setEditTarget(null)} backLabel="Back to menu plan" nutritionBasis="Planned portion"
-      ingredients={editIngredients.map((row) => ({ id: row.id, name: row.ing.food_item?.name ?? 'Ingredient', quantity: Number(row.qty) * factor, unit: row.ing.unit }))}
+      onBack={() => editGuard.requestLeave(() => setEditTarget(null))} backLabel="Back to menu plan" nutritionBasis="Planned portion"
+      ingredients={editIngredients.map((row) => ({ id: row.id, name: row.ing.food_item?.name ?? 'Ingredient', quantity: row.qty === '' ? '' : Number(row.qty) * (row.added ? 1 : factor), unit: row.ing.unit }))}
       nutrients={{
         calories: Number(snapshot?.calories ?? 0) * nutrientFactor,
         protein: Number(snapshot?.protein ?? 0) * nutrientFactor,
@@ -714,26 +741,29 @@ export default function MealPlanSection({
         {editError && <p role="alert" className="text-sm text-red-700">{editError}</p>}
       </div>}
       ingredientControls={!readOnly && editTab === 'ingredients' ? <div className="space-y-2">
-        <SearchInput label="Add Ingredient" value={ingredientQuery} onChange={setIngredientQuery} />
-        {ingredientSearchError && <p role="alert" className="text-sm text-red-700">{ingredientSearchError}</p>}
-        {ingredientResults.map((food) => <Button key={food.id} variant="secondary" size="sm" onClick={() => {
+        <Button type="button" variant="secondary" size="sm" onClick={() => { setIngredientQuery(''); setIngredientPage(1); setIngredientPickerOpen(true); }}><Plus className="h-3 w-3" />Add Ingredient</Button>
+        {ingredientPickerOpen && <MenuItemPicker title="Add Ingredient" itemLabel="Ingredient" query={ingredientQuery} onQueryChange={(query) => { setIngredientQuery(query); setIngredientPage(1); }} loading={ingredientLoading} error={ingredientSearchError} meta={ingredientMeta} page={ingredientPage} onPageChange={setIngredientPage} items={ingredientResults.map((food) => ({ id: food.id, name: food.name }))} onClose={() => setIngredientPickerOpen(false)} onSelect={(foodId) => {
+          const food = ingredientResults.find((item) => item.id === foodId);
+          if (!food) return;
           const id = Math.min(0, ...editIngredients.map((row) => row.id)) - 1;
-          setEditIngredients((previous) => [...previous, { id, qty: String(Number(food.serving_size) || 1), ing: { id, food_item_id: 0, quantity: String(food.serving_size ?? 1), unit: food.serving_unit ?? 'g', food_item: food } }]);
-          setIngredientQuery(''); setIngredientResults([]);
-        }}><Plus className="h-3 w-3" />{food.name}</Button>)}
+          setEditIngredients((previous) => [...previous, { id, qty: '', added: true, ing: { id, food_item_id: 0, quantity: '', unit: food.serving_unit ?? '', food_item: food } }]);
+          setIngredientQuery(''); setIngredientResults([]); setIngredientPickerOpen(false);
+        }} />}
       </div> : undefined}
-      renderIngredientAmount={!readOnly && editTab === 'ingredients' ? (ingredient) => <div className="flex flex-wrap items-center gap-2 text-sm text-warm-600"><input aria-label={`Amount of ${ingredient.name}`} type="number" min="0" step="0.1" value={editAmountDrafts[ingredient.id] ?? Number(Number(ingredient.quantity).toPrecision(12))} onChange={(event) => {
+      renderIngredientAmount={!readOnly && editTab === 'ingredients' ? (ingredient) => <div className="flex flex-wrap items-center gap-2 text-sm text-warm-600"><input aria-label={`Amount of ${ingredient.name}`} type="number" min="0" step="0.1" value={editAmountDrafts[ingredient.id] ?? (ingredient.quantity === '' ? '' : Number(Number(ingredient.quantity).toPrecision(12)))} onChange={(event) => {
         if (!(factor > 0)) return;
         setEditAmountDrafts((previous) => ({ ...previous, [ingredient.id]: event.target.value }));
-        const amount = event.target.value === '' ? '' : String(Number((Number(event.target.value) / factor).toFixed(6)));
+        const row = editIngredients.find((item) => item.id === ingredient.id);
+        const amount = event.target.value === '' ? '' : String(Number((Number(event.target.value) / (row?.added ? 1 : factor)).toFixed(6)));
         setEditIngredients((previous) => previous.map((row) => row.id === ingredient.id ? { ...row, qty: amount } : row));
       }} className="w-28 rounded-lg border border-warm-200 px-2 py-2 text-right text-base" />
         <select aria-label={`Unit of ${ingredient.name}`} value={ingredient.unit} onChange={(event) => { setEditIngredients((previous) => previous.map((row) => row.id === ingredient.id ? { ...row, ing: { ...row.ing, unit: event.target.value } } : row)); setEditAmountDrafts({}); }} className="rounded-lg border border-warm-200 px-2 py-2 text-base">{clinicalRecipeUnits(editIngredients.find((row) => row.id === ingredient.id)?.ing.food_item?.serving_unit ?? ingredient.unit).map((unit) => <option key={unit}>{unit}</option>)}</select>
         <Button variant="icon" aria-label={`Remove ${ingredient.name}`} onClick={() => setEditIngredients((previous) => previous.filter((row) => row.id !== ingredient.id))}><Trash2 className="h-4 w-4" /></Button>
       </div> : undefined}
       actions={!readOnly ? <>
+        {editGuard.dialog}
         {editTarget.item.source === 'usda' && editTarget.item.fdc_id && <Button variant="secondary" loading={savingToLibrary === editTarget.item.fdc_id} onClick={() => { const fdcId = editTarget.item.fdc_id!; setSavingToLibrary(fdcId); importUsdaFood(Number(fdcId)).catch((cause) => setEditError(cause instanceof Error ? cause.message : 'Could not save to library.')).finally(() => setSavingToLibrary(null)); }}>Save to Library</Button>}
-        <Button variant="secondary" onClick={() => setEditTarget(null)}>Cancel</Button><Button variant="primary" loading={editSaving} disabled={editLoadingRecipe || !(portion >= 0.01) || portion > 100000 || (editTab === 'ingredients' && !editIngredients.length) || editIngredients.some((row) => !(Number(row.qty) > 0) || Number(row.qty) > 100000 || clinicalIngredientFactor(Number(row.qty), row.ing.unit, Number(row.ing.food_item?.serving_size), row.ing.food_item?.serving_unit ?? '') === null)} onClick={() => void handleSaveEdit()}>Save Changes</Button>
+        <Button variant="secondary" onClick={() => editGuard.requestLeave(() => setEditTarget(null))}>Cancel</Button><Button variant="primary" loading={editSaving} disabled={editLoadingRecipe || !editValid} onClick={() => void handleSaveEdit()}>Save Changes</Button>
       </> : undefined}
     />;
   }
@@ -977,37 +1007,7 @@ export default function MealPlanSection({
       )}
 
       {/* ── Food Picker Modal ───────────────────────────────────────────────── */}
-      {!readOnly && pickerOpen && (
-        <div role="dialog" aria-modal="true" aria-label="Add Menu Item" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 flex flex-col max-h-[80vh]">
-            <div className="flex items-center justify-between p-4 border-b border-warm-100">
-              <h3 className="text-base font-extrabold text-warm-900">Add Menu Item</h3>
-              <button aria-label="Close Menu Item picker" onClick={() => setPickerOpen(false)} className="text-warm-400 hover:text-warm-700 cursor-pointer"><X className="h-4 w-4" /></button>
-            </div>
-            {pickerError && (
-              <div className="mx-4 mt-2 flex items-start gap-2 p-2.5 bg-red-50 border border-red-200 rounded-lg">
-                <AlertTriangle className="h-3.5 w-3.5 text-red-600 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-red-800">{pickerError}</p>
-              </div>
-            )}
-            <div className="p-4 space-y-3 overflow-y-auto flex-1">
-                  <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-warm-400" />
-                    <input type="text" value={recipeQuery} autoFocus aria-label="Search Menu Items"
-                      onChange={(e) => { setRecipeQuery(e.target.value); setRecipePage(1); setRecipeResults([]); }}
-                      className="w-full pl-9 pr-3 py-2 text-base border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" /></div>
-                  {pickerLoading && <Loader2 className="h-4 w-4 animate-spin text-warm-400 mx-auto" />}
-                  {!pickerLoading && !pickerError && recipeResults.length === 0 && <p className="text-sm text-warm-500">No Menu Items found.</p>}
-                  {recipeResults.map((r) => (
-                    <div key={r.id} className="flex items-center justify-between p-3 border border-warm-100 rounded-xl hover:border-emerald-200 transition-colors">
-                      <div><p className="text-sm font-semibold text-warm-800">{r.name}</p><p className="text-xs text-warm-400">{r.total_calories}kcal · P{r.total_protein}g · C{r.total_carbs}g · F{r.total_fat}g{r.servings ? ` · ${r.servings} srv` : ''}</p></div>
-                      <Button aria-label={`Add ${r.name}`} variant="primary" loading={adding === `recipe-${r.id}`} onClick={() => addFromRecipe(r)} className="w-auto px-3 py-1.5 text-xs">Add</Button>
-                    </div>
-                  ))}
-                  <Pagination meta={recipeMeta} page={recipePage} onPageChange={setRecipePage} />
-            </div>
-          </div>
-        </div>
-      )}
+      {!readOnly && pickerOpen && <MenuItemPicker query={recipeQuery} onQueryChange={(value) => { setRecipeQuery(value); setRecipePage(1); setRecipeResults([]); }} loading={pickerLoading} error={pickerError} items={recipeResults.map((item) => ({ id: item.id, name: item.name, detail: `${item.category} · Recipe makes ${item.servings} servings` }))} onSelect={(id) => { const recipe = recipeResults.find((item) => item.id === id); if (recipe) void addFromRecipe(recipe); }} onClose={() => setPickerOpen(false)} busyId={adding === null ? null : String(adding)} meta={recipeMeta} page={recipePage} onPageChange={setRecipePage} />}
 
       {/* ── Save Template Modal ─────────────────────────────────────────────── */}
       {!readOnly && saveTemplateOpen && (
@@ -1077,7 +1077,7 @@ export default function MealPlanSection({
                   {(viewingTemplate.goal_type || viewingTemplate.maternal_status) && <p className="text-xs text-warm-400 capitalize">{viewingTemplate.goal_type?.replace(/_/g, ' ') ?? 'Maternal'}{viewingTemplate.disease_stage ? ` · ${viewingTemplate.disease_stage.replace(/_/g, ' ')}` : ''}</p>}
                   <WeeklyMenuCalendar renderCell={(day, meal) => {
                     const items = viewingTemplate.days.filter((slot) => slot.day_of_week === day && slot.meal_type === meal).flatMap((slot) => slot.items);
-                    return <MenuEditorSlots itemActions={items.map((item) => item.recipe_id ? { label: `View ${item.food_name ?? 'Menu Item'}`, onOpen: () => setTemplateProfile({ id: item.recipe_id!, name: item.food_name ?? 'Menu Item' }) } : undefined)} items={items.map((item) => <div key={item.id} className="flex h-full flex-col justify-between gap-1">
+                    return <MenuEditorSlots itemActions={items.map((item) => item.recipe_id ? { label: `View ${item.food_name ?? 'Menu Item'}`, onOpen: () => setTemplateProfile({ id: item.recipe_id!, name: item.food_name ?? 'Menu Item', snapshot: item.nutrient_snapshot }) } : undefined)} items={items.map((item) => <div key={item.id} className="flex h-full flex-col justify-between gap-1">
                     <p className="line-clamp-2 overflow-hidden break-words text-center text-xs font-semibold text-warm-800">{item.food_name ?? 'Legacy item'}</p>
                     <p className="text-xs text-warm-500">{formatMealPlanAmount(item.quantity)} {item.unit}</p>
                   </div>)} addLabel="Add item" readOnly />; }} />

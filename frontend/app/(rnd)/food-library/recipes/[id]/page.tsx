@@ -1,7 +1,9 @@
 "use client";
 
-import React, { use, useCallback, useEffect, useState } from "react";
+import { numericStepBase } from "@/components/ui/NumericInput";
+import React, { use, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useEditorChanges } from "@/hooks/useUnsavedChanges";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MenuItemProfile, MENU_ITEM_NUTRIENT_UNITS as NUTRIENT_UNITS } from "@/components/ncp/MenuItemProfile";
 import { CookingPot, ArrowLeft, Search, Plus, X, Loader2, FlaskConical } from "lucide-react";
@@ -75,6 +77,7 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
   const [prepNotes, setPrepNotes] = useState("");
   const [ingredients, setIngredients] = useState<IngredientRow[]>([]);
   const [showMicros, setShowMicros] = useState(false);
+  const searchRequests = useRef<Record<number, number>>({});
 
   useEffect(() => {
     fetchRecipeById(id)
@@ -101,29 +104,44 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
       .finally(() => setLoading(false));
   }, [id]);
 
-  const searchFoods = useCallback(async (query: string, idx: number) => {
+  const searchFoods = useCallback(async (query: string, key: number) => {
+    const request = (searchRequests.current[key] ?? 0) + 1;
+    searchRequests.current[key] = request;
     if (query.length < 2) {
-      setIngredients((prev) => prev.map((r, i) => i === idx ? { ...r, searchResults: [], showDropdown: false } : r));
+      setIngredients((previous) => previous.map((row) => row.key === key ? { ...row, searchResults: [], showDropdown: false } : row));
       return;
     }
-    const res = await fetchFoodItems(query, "all", 1);
-    setIngredients((prev) => prev.map((r, i) => i === idx ? { ...r, searchResults: res.data.slice(0, 5), showDropdown: true } : r));
+    try {
+      const result = await fetchFoodItems(query, "all", 1);
+      if (searchRequests.current[key] !== request) return;
+      setIngredients((previous) => previous.map((row) => row.key === key ? { ...row, searchResults: result.data.slice(0, 5), showDropdown: true } : row));
+    } catch (cause) {
+      if (searchRequests.current[key] !== request) return;
+      setError(cause instanceof Error ? cause.message : 'Ingredient search failed. Try again.');
+      setIngredients((previous) => previous.map((row) => row.key === key ? { ...row, searchResults: [], showDropdown: false } : row));
+    }
   }, []);
 
   const updateRow = (idx: number, patch: Partial<IngredientRow>) =>
     setIngredients((prev) => prev.map((r, i) => i === idx ? { ...r, ...patch } : r));
 
-  const selectFood = (idx: number, food: FoodItem) =>
+  const selectFood = (idx: number, food: FoodItem) => {
+    const key = ingredients[idx].key;
+    searchRequests.current[key] = (searchRequests.current[key] ?? 0) + 1;
     updateRow(idx, { food, foodSearch: food.name, showDropdown: false, searchResults: [], unit: canonicalClinicalUnit(food.serving_unit ?? "") });
+  };
 
   const macros = calcMacros(ingredients);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (readOnly) return;
-    if (!name.trim()) { setError("Menu Item name is required."); return; }
+  const guard = useEditorChanges(JSON.stringify({ name, category, servings, prepNotes, ingredients: ingredients.map(({ food, quantity, unit }) => ({ id: food?.id, quantity, unit })) }), !loading && !readOnly, () => handleSubmit(undefined, false));
+
+  async function handleSubmit(e?: React.FormEvent, navigate = true) {
+    e?.preventDefault();
+    if (!e && !document.querySelector<HTMLFormElement>("form")?.reportValidity()) return false;
+    if (readOnly) return false;
+    if (!name.trim()) { setError("Menu Item name is required."); return false; }
     if (!category || ingredients.some((row) => !row.food || clinicalIngredientFactor(Number(row.quantity), row.unit, Number(row.food.serving_size), row.food.serving_unit ?? "") === null)) {
-      setError("Choose a category and measured Ingredients with positive quantities in compatible units."); return;
+      setError("Choose a category and measured Ingredients with positive quantities in compatible units."); return false;
     }
     const valid: RecipeIngredientPayload[] = ingredients
       .filter((r) => r.food && r.quantity && parseFloat(r.quantity) > 0)
@@ -132,13 +150,16 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
       setSaving(true);
       setError(null);
       await updateRecipe(id, { name: name.trim(), category: category || null, servings: servings ? parseInt(servings) : null, prep_notes: prepNotes || null, ingredients: valid });
-      router.push("/food-library");
+      if (navigate) { guard.allowNavigation(); router.push("/food-library?tab=recipes"); }
+      return true;
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to save.");
+      return false;
     } finally {
       setSaving(false);
     }
   };
+
 
   if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="h-6 w-6 animate-spin text-emerald-600" /></div>;
   if (!recipe && error) return <div className="p-6 bg-red-50 border border-red-100 rounded-2xl text-sm text-red-700 font-bold">{error}</div>;
@@ -151,16 +172,17 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
 
   return (
     <div className="space-y-6 font-sans max-w-3xl mx-auto">
+      {guard.dialog}
       <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
         <Link href="/dashboard" className="hover:text-emerald-700 transition-colors">Home</Link>
         <span>/</span>
-        <Link href="/food-library" className="hover:text-emerald-700 transition-colors">Food Library</Link>
+        <Link href="/food-library?tab=recipes" className="hover:text-emerald-700 transition-colors">Food Library</Link>
         <span>/</span>
         <span className="text-zinc-650 font-bold truncate max-w-40">{recipe?.name}</span>
       </div>
 
       <div className="border-b border-warm-200 pb-5 flex items-center gap-4">
-        <Link href="/food-library" className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 transition-colors">
+        <Link href="/food-library?tab=recipes" className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 transition-colors">
           <ArrowLeft className="h-4 w-4" />
         </Link>
         <div>
@@ -247,7 +269,7 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
                     </div>
                   )}
                 </div>
-                <input aria-label={`Ingredient ${idx + 1} quantity`} type="number" value={row.quantity} onChange={(e) => updateRow(idx, { quantity: e.target.value })} min="0.000001" max="100000" step="0.000001" required
+                <input aria-label={`Ingredient ${idx + 1} quantity`} type="number" value={row.quantity} onChange={(e) => updateRow(idx, { quantity: e.target.value })} min={numericStepBase(row.quantity, 0.000001)} max="100000" step="0.1" required
                   className="w-20 px-3 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" />
                 <select aria-label={`Ingredient ${idx + 1} unit`} value={row.unit} onChange={(e) => updateRow(idx, { unit: e.target.value })} disabled={!row.food}
                   className="w-20 px-2 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none cursor-pointer">
@@ -264,7 +286,7 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
         </div>
 
         <div className="flex gap-3 justify-end pb-4">
-          <Link href="/food-library"><Button variant="secondary" className="w-auto px-6 py-2.5">Cancel</Button></Link>
+          <Link href="/food-library?tab=recipes"><Button variant="secondary" className="w-auto px-6 py-2.5">Cancel</Button></Link>
           <Button type="submit" variant="primary" loading={saving} className="w-auto px-6 py-2.5">Save Changes</Button>
         </div>
       </form>

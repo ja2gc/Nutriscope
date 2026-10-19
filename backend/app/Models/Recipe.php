@@ -8,12 +8,14 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use InvalidArgumentException;
 
 class Recipe extends Model
 {
     use HasFactory;
     use HasPublicId;
+    use SoftDeletes;
 
     protected $fillable = [
         'rnd_user_id', 'name', 'category', 'meal_types', 'component_type', 'prep_notes', 'cost',
@@ -105,15 +107,15 @@ class Recipe extends Model
     public function planSnapshot(array $overrides = [], ?array $baseline = null, ?array $ingredients = null): array
     {
         if ($ingredients !== null) {
-            $foods = FoodItem::whereIn('uuid', array_column($ingredients, 'food_item_id'))->get()->keyBy('uuid');
+            $foods = FoodItem::withTrashed()->whereIn('uuid', array_column($ingredients, 'food_item_id'))->get()->keyBy('uuid');
             $frozenFoods = collect($baseline['recipe_original_ingredients'] ?? [])->keyBy('food_item.id');
             $rows = [];
             foreach ($ingredients as $index => $ingredient) {
                 $food = $foods->get($ingredient['food_item_id']);
-                if (! $food) {
+                $frozenFood = $frozenFoods->get($ingredient['food_item_id'])['food_item'] ?? null;
+                if (! $food || ($food->trashed() && ! $frozenFood)) {
                     throw new InvalidArgumentException('Choose an existing Ingredient.');
                 }
-                $frozenFood = $frozenFoods->get($food->uuid)['food_item'] ?? null;
                 $rows[] = [
                     'id' => $index + 1, 'food_item_id' => $food->id,
                     'name' => $frozenFood['name'] ?? $food->name,

@@ -19,6 +19,7 @@ class ShoppingListItem extends Model
         'quantity_mode',
         'vendor_locked_at', 'vendor_locked_by',
         'baseline_servings', 'baseline_quantity', 'scaled_quantity', 'scaled_unit',
+        'generation_baseline',
     ];
 
     protected $casts = [
@@ -32,6 +33,7 @@ class ShoppingListItem extends Model
         'baseline_quantity' => 'decimal:6',
         'scaled_quantity' => 'decimal:6',
         'included_in_po' => 'boolean',
+        'generation_baseline' => 'array',
     ];
 
     public function vendorLocked(): bool

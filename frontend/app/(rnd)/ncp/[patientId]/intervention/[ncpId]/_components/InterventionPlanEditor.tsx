@@ -1,7 +1,8 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { Intervention } from "@/services/interventionService";
+import { Button } from "@/components/ui/Button";
 
 interface Props {
   mode: "edit" | "readonly";
@@ -10,7 +11,7 @@ interface Props {
   error: string | null;
   children: ReactNode;
   onSave: () => void;
-  onCancel: () => void;
+  onCancel: () => void | Promise<void>;
 }
 
 export default function InterventionPlanEditor({
@@ -22,6 +23,7 @@ export default function InterventionPlanEditor({
   onSave,
   onCancel,
 }: Props) {
+  const [canceling, setCanceling] = useState(false);
   const displayDate = (value: string) => new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
@@ -47,12 +49,15 @@ export default function InterventionPlanEditor({
         {mode === 'readonly' && <span className="rounded-full border border-warm-200 px-3 py-1 text-xs font-bold text-warm-500">View only</span>}
         {mode === "edit" && (
           <div className="flex gap-2">
-            <button type="button" onClick={onCancel} className="px-3 py-2 text-sm font-semibold text-warm-700 border border-warm-300 rounded-lg">
+            <Button type="button" variant="secondary" onClick={async () => {
+              setCanceling(true);
+              try { await onCancel(); } finally { setCanceling(false); }
+            }} disabled={saving} loading={canceling}>
               Cancel
-            </button>
-            <button type="button" onClick={onSave} disabled={saving} className="px-3 py-2 text-sm font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg disabled:opacity-50">
-              {saving ? "Saving…" : "Save Intervention Plan"}
-            </button>
+            </Button>
+            <Button type="button" onClick={onSave} loading={saving} disabled={canceling}>
+              Save Intervention Plan
+            </Button>
           </div>
         )}
       </div>

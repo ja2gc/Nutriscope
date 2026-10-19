@@ -8,6 +8,7 @@ import { InfoHint } from "@/components/ui/InfoHint";
 import { Fragment, useState } from "react";
 import type { CalculationTrace } from "@/lib/prescriptionCalculationTrace";
 import PrescriptionCalculationPanel from "./PrescriptionCalculationPanel";
+import { Button } from "@/components/ui/Button";
 
 interface PrescriptionValues {
   weight_target?: { target?: number | string; min?: number | string; max?: number | string };
@@ -146,8 +147,9 @@ export default function NutritionPrescriptionForm({
             value={(values as unknown as Record<string, string>)[key] ?? ""}
             onChange={(val) => setMacro(key, val)}
             unit={unit}
+            unitPlacement="outside"
             disabled={readOnly}
-            prefix={key === 'energy_kcal' ? undefined : boundSelect(label, values.nutrient_operators?.[key] ?? '', value => setMacroBound(key, value))}
+            prefix={boundSelect(label, values.nutrient_operators?.[key] ?? '', value => setMacroBound(key, value))}
           />
         ))}
       </div>
@@ -205,12 +207,11 @@ export default function NutritionPrescriptionForm({
       ) : null}
 
       {showSave && !readOnly && <div className="flex justify-end pt-2">
-        <button
+        <Button type="button"
           onClick={onSave}
-          disabled={saving}
-          className="px-4 py-2 text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors cursor-pointer disabled:opacity-50">
-          {saving ? "Saving…" : "Save Prescription"}
-        </button>
+          loading={saving}>
+          Save Prescription
+        </Button>
       </div>}
     </div>
   );
