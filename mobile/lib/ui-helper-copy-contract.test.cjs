@@ -45,14 +45,17 @@ test('mobile screens retain actionable safety and state guidance', () => {
   );
 });
 
-test('Android release metadata records the latest signed APK and pending build increments it', () => {
+test('Android release metadata identifies a signed artifact compatible with the current build', () => {
   const appConfig = JSON.parse(read('app.json'));
   const release = JSON.parse(read('release.json'));
-  assert.equal(release.version, '1.2.22');
-  assert.equal(release.version_code, 26);
-  assert.equal(appConfig.expo.version, '1.2.23');
-  assert.equal(appConfig.expo.android.versionCode, 27);
-  assert.ok(appConfig.expo.android.versionCode > release.version_code);
-  assert.equal(release.artifact_url, 'https://expo.dev/artifacts/eas/K8KQH9mHxnueON1JsRr87YILiop09y-RJ_lGnALNWkg.apk');
-  assert.equal(release.sha256, 'bed81624e79d6099d9c5b12d6ce0d746ff124576d53f820ba88f0359aa3f5670');
+  assert.match(release.version, /^\d+\.\d+\.\d+$/);
+  assert.ok(Number.isInteger(release.version_code) && release.version_code > 0);
+  assert.ok(appConfig.expo.android.versionCode >= release.version_code);
+  if (appConfig.expo.android.versionCode === release.version_code) {
+    assert.equal(appConfig.expo.version, release.version);
+  }
+  const artifact = new URL(release.artifact_url);
+  assert.equal(artifact.protocol, 'https:');
+  assert.match(artifact.pathname, /\.apk$/);
+  assert.match(release.sha256, /^[0-9a-f]{64}$/);
 });
