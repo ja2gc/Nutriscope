@@ -12,7 +12,6 @@ interface Props {
   step?: number;
   disabled?: boolean;
   prefix?: React.ReactNode;
-  unitPlacement?: 'inside' | 'outside';
 }
 
 export function numericStepBase(value: string, min = 0, step = 0.1): number {
@@ -32,7 +31,6 @@ export default function NumericInput({
   step = 0.1,
   disabled = false,
   prefix,
-  unitPlacement = 'inside',
 }: Props) {
   // Keep calculated precision on the native step grid (1.01 → 1.11).
   const stepBase = numericStepBase(value, min, step);
@@ -55,11 +53,8 @@ export default function NumericInput({
           disabled={disabled}
           className="min-w-0 flex-1 w-full px-2.5 py-2 text-base font-numeric text-warm-900 bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
         />
-        {unitPlacement === 'inside' && <span className="px-2 text-xs text-warm-400 font-bold bg-warm-50 border-l border-warm-200 whitespace-nowrap">
-          {unit}
-        </span>}
       </div>
-      {unitPlacement === 'outside' && <span className="shrink-0 text-xs text-warm-400">{unit}</span>}
+      {unit && <span className="shrink-0 text-xs text-warm-400">{unit}</span>}
       </div>
     </div>
   );

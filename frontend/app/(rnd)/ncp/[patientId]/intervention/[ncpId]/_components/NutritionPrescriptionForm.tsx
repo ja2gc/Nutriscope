@@ -147,7 +147,6 @@ export default function NutritionPrescriptionForm({
             value={(values as unknown as Record<string, string>)[key] ?? ""}
             onChange={(val) => setMacro(key, val)}
             unit={unit}
-            unitPlacement="outside"
             disabled={readOnly}
             prefix={boundSelect(label, values.nutrient_operators?.[key] ?? '', value => setMacroBound(key, value))}
           />
