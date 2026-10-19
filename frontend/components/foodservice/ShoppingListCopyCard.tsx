@@ -32,11 +32,11 @@ export function ShoppingListCopyCard({ items }: { items: CopyItem[] }) {
   return (
     <Card className="overflow-hidden p-0">
       <Collapsible open={open} onOpenChange={setOpen}>
-        <div className="flex items-center justify-between gap-2 px-3 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
           <CollapsibleTrigger asChild>
             <button type="button" aria-label={open ? "Hide shopping list" : "Show shopping list"}
-              className="flex min-h-10 min-w-0 flex-1 cursor-pointer items-center justify-between gap-2 rounded-lg px-2 text-left transition-colors hover:bg-warm-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500/30">
-              <span className="truncate text-xs font-extrabold uppercase tracking-wider text-warm-600">Shopping list <span className="font-semibold text-warm-400">({items.length})</span></span>
+              className="flex min-h-10 min-w-40 flex-1 cursor-pointer items-center justify-between gap-2 rounded-lg px-2 text-left transition-colors hover:bg-warm-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500/30">
+              <span className="text-xs font-extrabold uppercase tracking-wider text-warm-600">Shopping list <span className="font-semibold text-warm-400">({items.length})</span></span>
               <ChevronDown className={`h-4 w-4 shrink-0 text-warm-400 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
             </button>
           </CollapsibleTrigger>

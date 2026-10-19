@@ -42,6 +42,18 @@ async function open(remaining = 3, monitoringPlan = plan) {
 }
 
 describe("draft monitoring summary", () => {
+  it('uses X, Discard and Save when canceling an edited visit', async () => {
+    await open();
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Weight kg' }), { target: { value: '61' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.getByRole('dialog', { name: 'Unsaved changes' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Stay on this page' }));
+    expect((screen.getByRole('spinbutton', { name: 'Weight kg' }) as HTMLInputElement).value).toBe('61');
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    await act(async () => { domEvent.click(screen.getByRole('button', { name: 'Save' })); });
+    expect(screen.getByRole('dialog', { name: 'Unsaved changes' })).toBeTruthy();
+    expect(screen.getByText('Could not save. Close this dialog to review the fields and try again.')).toBeTruthy();
+  });
   it("requires an explicit care decision before saving and preserves the entered summary", async () => {
     const save = await open();
     const summary = screen.getByRole("textbox", { name: "Progress Assessment" }) as HTMLTextAreaElement;

@@ -182,7 +182,7 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
       </div>
 
       <div className="border-b border-warm-200 pb-5 flex items-center gap-4">
-        <Link href="/food-library?tab=recipes" className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 transition-colors">
+        <Link href="/food-library?tab=recipes" aria-label="Back to Menu Items" className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 transition-colors">
           <ArrowLeft className="h-4 w-4" />
         </Link>
         <div>
@@ -199,15 +199,15 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
         <div className="bg-white border border-warm-200 rounded-2xl p-6 space-y-4 shadow-sm">
           <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Menu Item Details</h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="sm:col-span-2"><Label>Menu Item Name <Required /></Label><input type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputCls} required /></div>
+            <div className="sm:col-span-2"><Label>Menu Item Name <Required /></Label><input aria-label="Menu Item Name" type="text" value={name} onChange={(e) => setName(e.target.value)} className={inputCls} required /></div>
             <div><Label>Category</Label>
               <select aria-label="Category" value={category} onChange={(e) => setCategory(e.target.value)} className={inputCls} required>
                 <option value="">Select...</option>
                 {RECIPE_CATEGORIES.map((c) => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
               </select>
             </div>
-            <div><Label>Recipe yield (servings) <Required /></Label><input type="number" value={servings} onChange={(e) => setServings(e.target.value)} min="1" max="10000" step="1" required className={inputCls} /></div>
-            <div className="sm:col-span-2"><Label>Prep Notes</Label><textarea value={prepNotes} onChange={(e) => setPrepNotes(e.target.value)} rows={2} className={`${inputCls} resize-none`} /></div>
+            <div><Label>Recipe yield (servings) <Required /></Label><input aria-label="Recipe yield (servings)" type="number" value={servings} onChange={(e) => setServings(e.target.value)} min="1" max="10000" step="1" required className={inputCls} /></div>
+            <div className="sm:col-span-2"><Label>Prep Notes</Label><textarea aria-label="Prep Notes" value={prepNotes} onChange={(e) => setPrepNotes(e.target.value)} rows={2} className={`${inputCls} resize-none`} /></div>
           </div>
         </div>
 
@@ -251,6 +251,7 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
                     <Search className="h-3.5 w-3.5 text-warm-400 shrink-0" />
                     <input
                       type="text"
+                      aria-label={`Ingredient ${idx + 1}`}
                       value={row.foodSearch}
                       onChange={async (e) => { const v = e.target.value; updateRow(idx, { foodSearch: v, food: v ? row.food : null }); await searchFoods(v, idx); }}
                       className="flex-1 text-base text-warm-900 outline-none placeholder:text-warm-400 bg-transparent"
@@ -275,7 +276,7 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
                   className="w-20 px-2 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none cursor-pointer">
                   {clinicalRecipeUnits(row.food?.serving_unit ?? "").map((u) => <option key={u} value={u}>{u}</option>)}
                 </select>
-                <button type="button" onClick={() => setIngredients((prev) => prev.filter((_, i) => i !== idx))}
+                <button type="button" aria-label={`Remove ingredient ${idx + 1}`} onClick={() => setIngredients((prev) => prev.filter((_, i) => i !== idx))}
                   disabled={ingredients.length === 1}
                   className="p-2 rounded-lg text-warm-400 hover:text-red-500 hover:bg-red-50 disabled:opacity-30 cursor-pointer transition-colors">
                   <X className="h-3.5 w-3.5" />
@@ -286,7 +287,7 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
         </div>
 
         <div className="flex gap-3 justify-end pb-4">
-          <Link href="/food-library?tab=recipes"><Button variant="secondary" className="w-auto px-6 py-2.5">Cancel</Button></Link>
+          <Button type="button" variant="secondary" onClick={() => guard.requestLeave(() => router.push("/food-library?tab=recipes"))} className="w-auto px-6 py-2.5">Cancel</Button>
           <Button type="submit" variant="primary" loading={saving} className="w-auto px-6 py-2.5">Save Changes</Button>
         </div>
       </form>
@@ -306,7 +307,7 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
                   <h3 className="text-base font-extrabold text-warm-900">{name || "Recipe"} — Micronutrients</h3>
                   <p className="text-xs text-warm-400 mt-0.5">Aggregated from current ingredients · updates when you change quantities</p>
                 </div>
-                <button onClick={() => setShowMicros(false)}
+                <button aria-label="Close micronutrient profile" onClick={() => setShowMicros(false)}
                   className="p-1.5 rounded-lg hover:bg-warm-200 text-warm-400 cursor-pointer transition-colors">
                   <X className="h-4 w-4" />
                 </button>

@@ -624,7 +624,7 @@ export default function MealPlanSection({
   // ── Picker helpers ──────────────────────────────────────────────────────────
 
   const openPicker = (dayId: string, mealType: string) => {
-    setPickerTarget({ dayId, mealType }); setPickerOpen(true);
+    setPickerTarget({ dayId, mealType }); setPickerLoading(true); setPickerOpen(true);
     setRecipeQuery(''); setRecipeResults([]); setRecipePage(1); setRecipeMeta(null); setPickerError(null);
   };
 
@@ -1007,7 +1007,7 @@ export default function MealPlanSection({
       )}
 
       {/* ── Food Picker Modal ───────────────────────────────────────────────── */}
-      {!readOnly && pickerOpen && <MenuItemPicker query={recipeQuery} onQueryChange={(value) => { setRecipeQuery(value); setRecipePage(1); setRecipeResults([]); }} loading={pickerLoading} error={pickerError} items={recipeResults.map((item) => ({ id: item.id, name: item.name, detail: `${item.category} · Recipe makes ${item.servings} servings` }))} onSelect={(id) => { const recipe = recipeResults.find((item) => item.id === id); if (recipe) void addFromRecipe(recipe); }} onClose={() => setPickerOpen(false)} busyId={adding === null ? null : String(adding)} meta={recipeMeta} page={recipePage} onPageChange={setRecipePage} />}
+      {!readOnly && pickerOpen && <MenuItemPicker query={recipeQuery} onQueryChange={(value) => { setPickerLoading(true); setRecipeQuery(value); setRecipePage(1); setRecipeResults([]); }} loading={pickerLoading} error={pickerError} items={recipeResults.map((item) => ({ id: item.id, name: item.name, detail: `${item.category} · Recipe makes ${item.servings} ${item.servings === 1 ? "serving" : "servings"}` }))} onSelect={(id) => { const recipe = recipeResults.find((item) => item.id === id); if (recipe) void addFromRecipe(recipe); }} onClose={() => setPickerOpen(false)} busyId={adding === null ? null : String(adding)} meta={recipeMeta} page={recipePage} onPageChange={setRecipePage} />}
 
       {/* ── Save Template Modal ─────────────────────────────────────────────── */}
       {!readOnly && saveTemplateOpen && (

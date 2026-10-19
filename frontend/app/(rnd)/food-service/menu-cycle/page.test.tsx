@@ -6,13 +6,14 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { instantiateTemplate, listCycles, getCycle, listTemplates, getTemplate, saveCycle, saveTemplate, getRecipeProfile, getFsItemProfile, type MenuCycle, type TemplateDetail, type CycleListItem, type TemplateListItem } from "@/services/menuCycleService";
 import MenuCyclePage, { MenuTemplateDirectory } from "./page";
+const { routerPush } = vi.hoisted(() => ({ routerPush: vi.fn() }));
 
 vi.mock("next/navigation", () => ({
   useSearchParams: (() => {
     const params = new URLSearchParams();
     return () => params;
   })(),
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: routerPush }),
 }));
 vi.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ user: { role: "RND" } }) }));
 vi.mock("@/services/menuCycleService", async (importOriginal) => ({
@@ -99,6 +100,15 @@ describe("Menu Cycle template and name editing", () => {
     expect(cycleRows[0].textContent).not.toContain("Rice plan");
     expect(container.querySelector("thead")?.textContent).not.toContain("Per-day plan");
     expect(cycleRows[0].textContent).not.toContain("planned");
+  });
+
+  test('opening a saved menu line does not write an unchanged calendar', async () => {
+    mockGetCycle.mockResolvedValue({ ...makeCycle(), days: [{ id: 'line-1', day_of_week: 'Monday', meal_type: 'lunch', line_order: 1, recipe_id: null, fs_item_id: 'rice-id', quantity: 1, servings_override: null, estimate_population: null, is_event: false, event_allocation: null, fs_item: { id: 'rice-id', name: 'Rice' } }] });
+    await renderPage();
+    await act(async () => container.querySelector<HTMLButtonElement>('button[title="Edit"]')!.click());
+    await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label="View Rice"]')!.click());
+    expect(mockSaveCycle).not.toHaveBeenCalled();
+    expect(routerPush).toHaveBeenCalledWith('/food-service/menu-cycle/cycle-1/lines/line-1');
   });
 
   test("hides snack rows without removing saved menu lines and remembers the browser preference", async () => {

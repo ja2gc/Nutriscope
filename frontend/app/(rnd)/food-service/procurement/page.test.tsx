@@ -142,6 +142,18 @@ describe("Food Service procurement display", () => {
     expect(container.querySelector('[aria-label="Remove Rice"]')).toBeNull();
   });
 
+  test('restoring the original quantity leaves a saved shopping list clean', async () => {
+    await openList(makeList({ items: [{ id: 'item-1', fs_item_id: 1, fs_item_uuid: 'rice-public-uuid', ingredient_name: 'Rice', source: 'generated', item_type: 'ingredient', qty: '340.000000', unit: 'kg', purchase_qty: '340.000000', purchase_unit: 'kg', purchase_price: '5.000000', unit_price: '5.000000', total: '1700.00', quantity_mode: 'calculated', supplier_id: null, included_in_po: true, exclusion_note: null }] }));
+    const qty = container.querySelector<HTMLInputElement>('[aria-label="Purchase quantity for Rice"]')!;
+    await act(async () => { setInputValue(qty, '341'); });
+    await act(async () => { setInputValue(qty, '340'); });
+    const back = container.querySelector<HTMLButtonElement>('button[aria-label="Back to Shopping Lists"]')!;
+    expect(back).not.toBeNull();
+    await act(async () => back.click());
+    expect(container.querySelector('[role="dialog"][aria-label="Unsaved Shopping List"]')).toBeNull();
+    expect(container.textContent).toContain('Procurement');
+  });
+
   test('reset restores generated prices and purchases scaled to current servings, keeping manual items and exclusions', async () => {
     const generated = { id: 'item-1', fs_item_id: 1, fs_item_uuid: 'rice-public-uuid', ingredient_name: 'Rice', source: 'generated' as const, item_type: 'ingredient' as const, qty: '10', unit: 'kg', purchase_qty: '50', purchase_unit: 'kg', purchase_price: '99', unit_price: '5', total: '4950', supplier_id: null, included_in_po: false, exclusion_note: 'Already available', generation_baseline: { estimate_population: 10, qty: 10, unit: 'kg', unit_price: 5, purchase_qty: 10, purchase_unit: 'kg', purchase_price: 5, supplier_id: null, scaled_quantity: 10, scaled_unit: 'kg' } };
     await openList(makeList({ list_type: 'suggested', period_start: '2026-10-19', period_end: '2026-10-19', days_span: 1, estimate_population: 20, items: [generated, { ...generated, id: 'manual-1', ingredient_name: 'Extra rice', source: 'manual', generation_baseline: null }] }));

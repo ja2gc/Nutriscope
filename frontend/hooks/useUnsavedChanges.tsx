@@ -9,8 +9,9 @@ export function useEditorChanges(snapshot: string, ready: boolean, onSave: () =>
     if (!ready && baseline !== null) setBaseline(null);
     else if (ready && baseline === null) setBaseline(snapshot);
   }, [ready, baseline, snapshot]);
-  const guard = useUnsavedChanges({ dirty: ready && baseline !== null && snapshot !== baseline, onSave });
-  return { ...guard, markSaved: (next = snapshot) => setBaseline(next) };
+  const dirty = ready && baseline !== null && snapshot !== baseline;
+  const guard = useUnsavedChanges({ dirty, onSave });
+  return { ...guard, dirty, markSaved: (next = snapshot) => setBaseline(next) };
 }
 
 export function useUnsavedChanges({ dirty, onSave, title }: { dirty: boolean; onSave: () => Promise<boolean>; title?: string }) {

@@ -341,7 +341,7 @@ export default function FoodLibraryPage() {
   const [recipeCategory, setRecipeCategory] = useState("all");
   const [recipePage, setRecipePage]         = useState(1);
   const [recipeMeta, setRecipeMeta]         = useState<PaginatedResponse<Recipe>["meta"] | null>(null);
-  const [recipeLoading, setRecipeLoading]   = useState(false);
+  const [recipeLoading, setRecipeLoading]   = useState(true);
   const [recipeError, setRecipeError]       = useState<string | null>(null);
 
   const [showUsda, setShowUsda]           = useState(false);
@@ -394,6 +394,7 @@ export default function FoodLibraryPage() {
 
   useEffect(() => {
     if (activeTab === "recipes") {
+      setRecipeLoading(true);
       const t = window.setTimeout(() => void loadRecipes(), 250);
       return () => window.clearTimeout(t);
     }
@@ -455,7 +456,7 @@ export default function FoodLibraryPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs<Tab> ariaLabel="Food Library sections" value={activeTab} onChange={(tab) => { setActiveTab(tab); const params = new URLSearchParams(window.location.search); params.set("tab", tab); window.history.replaceState(null, "", `${window.location.pathname}?${params}`); }} fill items={[
+      <Tabs<Tab> ariaLabel="Food Library sections" value={activeTab} onChange={(tab) => { if (tab === "recipes") setRecipeLoading(true); setActiveTab(tab); const params = new URLSearchParams(window.location.search); params.set("tab", tab); window.history.replaceState(null, "", `${window.location.pathname}?${params}`); }} fill items={[
         { key: "foods", label: "Ingredients" }, { key: "recipes", label: "Menu Items" }, { key: "templates", label: "Templates" },
       ]} />
 

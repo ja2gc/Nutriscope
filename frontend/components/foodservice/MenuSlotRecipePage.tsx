@@ -4,13 +4,15 @@ import { FormEvent, Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { useParams } from "next/navigation";
-import { AlertTriangle, ArrowLeft, LockKeyhole, RotateCcw, Search, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, LockKeyhole, RotateCcw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { MenuItemPicker } from "@/components/ncp/MenuItemPicker";
+import type { PaginationMeta } from "@/components/ui/Pagination";
 import { numericStepBase } from "@/components/ui/NumericInput";
 import { InfoHint } from "@/components/ui/InfoHint";
 import { formatFoodServiceNumber } from "@/lib/foodServiceFormat";
 import { compatibleRecipeUnits } from "@/lib/foodServiceUnits";
-import { searchCatalog, type CatalogItem } from "@/services/fsCatalogService";
+import { listCatalog, type CatalogItem } from "@/services/fsCatalogService";
 import {
   getMenuSlotRecipe,
   getMenuLineRecipe,
@@ -54,6 +56,10 @@ export function MenuSlotRecipePage({ backHref, lineId }: { backHref: string; lin
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<CatalogItem[]>([]);
   const [searching, setSearching] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [searchError, setSearchError] = useState("");
+  const [searchPage, setSearchPage] = useState(1);
+  const [searchMeta, setSearchMeta] = useState<PaginationMeta | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -79,19 +85,19 @@ export function MenuSlotRecipePage({ backHref, lineId }: { backHref: string; lin
     } : current);
   }
 
-  async function findIngredients(event: FormEvent) {
-    event.preventDefault();
-    if (query.trim().length < 2) return;
+  useEffect(() => {
+    if (!pickerOpen) return;
+    let active = true;
     setSearching(true);
-    setError("");
-    try {
-      setResults(await searchCatalog(query.trim(), "ingredient"));
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Ingredient search failed.");
-    } finally {
-      setSearching(false);
-    }
-  }
+    setSearchError("");
+    const timer = window.setTimeout(() => {
+      listCatalog("ingredient", searchPage, query.trim())
+        .then((result) => { if (active) { setResults(result.data); setSearchMeta(result.meta); } })
+        .catch((cause) => { if (active) setSearchError(cause instanceof Error ? cause.message : "Ingredient search failed."); })
+        .finally(() => { if (active) setSearching(false); });
+    }, 200);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [pickerOpen, searchPage, query]);
 
   function addIngredient(item: CatalogItem) {
     if (ingredientIds.has(item.id)) return;
@@ -99,6 +105,7 @@ export function MenuSlotRecipePage({ backHref, lineId }: { backHref: string; lin
       ...current,
       ingredients: [...current.ingredients, { fs_item_id: item.id, name: item.name, quantity: 1, unit: item.base_unit, inventory_unit: item.base_unit, include_in_generated_lists: item.include_in_generated_lists, adjust_to_taste: false }],
     } : current);
+    setPickerOpen(false);
     setQuery("");
     setResults([]);
   }
@@ -225,7 +232,8 @@ export function MenuSlotRecipePage({ backHref, lineId }: { backHref: string; lin
             })}
           </div>
 
-          {canEdit && <div className="mt-4 rounded-xl border border-dashed border-warm-200 p-3"><p className="mb-2 text-xs font-extrabold uppercase tracking-wider text-warm-500">Add ingredient</p><div className="flex flex-col gap-2 sm:flex-row"><input aria-label="Search inventory items" value={query} onChange={(event) => setQuery(event.target.value)} className="min-h-11 flex-1 rounded-lg border border-warm-200 px-3 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500" /><Button type="button" variant="secondary" loading={searching} disabled={query.trim().length < 2} onClick={findIngredients} className="min-h-11"><Search className="mr-2 h-4 w-4" /> Search</Button></div>{results.length > 0 && <div className="mt-2 divide-y divide-warm-100 rounded-lg border border-warm-100">{results.map((item) => <button key={item.id} type="button" disabled={ingredientIds.has(item.id)} onClick={() => addIngredient(item)} className="flex min-h-11 w-full items-center justify-between px-3 text-left text-sm font-semibold text-warm-700 hover:bg-emerald-50 disabled:opacity-40"><span>{item.name}</span><span className="text-xs text-warm-400">{ingredientIds.has(item.id) ? "Added" : item.base_unit}</span></button>)}</div>}</div>}
+          {canEdit && <Button type="button" variant="secondary" aria-label="Add Ingredient" className="mt-4" onClick={() => { setSearching(true); setQuery(""); setSearchPage(1); setPickerOpen(true); }}>Add ingredient</Button>}
+          {pickerOpen && <MenuItemPicker itemLabel="Ingredient" title="Add Ingredient" query={query} onQueryChange={(value) => { setSearching(true); setQuery(value); setSearchPage(1); }} loading={searching} error={searchError} items={results.filter((item) => !ingredientIds.has(item.id)).map((item) => ({ id: item.id, name: item.name, detail: item.base_unit }))} meta={searchMeta} page={searchPage} onPageChange={(page) => { setSearching(true); setSearchPage(page); }} onSelect={(id) => { const item = results.find((result) => result.id === id); if (item) addIngredient(item); }} onClose={() => setPickerOpen(false)} />}
         </section>
 
         <section className="rounded-2xl border border-warm-200 bg-white p-4 shadow-sm sm:p-5">

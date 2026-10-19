@@ -606,7 +606,9 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
 
   async function openSlot(day: Day, meal: Meal, cell: Cell, lineIndex: number) {
     if (isTemplate) return;
-    const saved = planReadOnly || cell.po_snapshot ? null : await handleSave();
+    const needsSave = !planReadOnly && !cell.po_snapshot && (guard.dirty || !savedId || !cell.id);
+    const saved = needsSave ? await handleSave() : null;
+    if (needsSave && !saved) return;
     const savedCycle = saved && "week_start_date" in saved ? saved : null;
     const id = savedId ?? savedCycle?.id;
     const lineId = cell.id ?? savedCycle?.days?.filter((line) => line.day_of_week === day && line.meal_type === meal)
@@ -722,7 +724,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
                         addLabel="Add item"
                         addAriaLabel={`Add item to ${d} ${MEAL_LABELS[m]}`}
                         readOnly={displayReadOnly}
-                        onAdd={() => { setActiveCell(isPicking ? null : key); setPickerSearch(""); }}
+                        onAdd={() => { setPickerLoading(!isPicking); setActiveCell(isPicking ? null : key); setPickerSearch(""); }}
                       />
 
 
@@ -734,8 +736,8 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
           </tbody>
         </table>
       </div>
-      {activeCell && !displayReadOnly && <MenuItemPicker title={activeCell.replace('|', ' ')} query={pickerSearch} onQueryChange={setPickerSearch} loading={pickerLoading} error={pickerError ? "Could not load Menu Items. Try again." : null} items={[
-        ...filteredRecipes.map((recipe) => ({ id: `recipe:${recipe.id}`, name: recipe.name, detail: `Recipe makes ${recipe.servings} servings` })),
+      {activeCell && !displayReadOnly && <MenuItemPicker title={activeCell.replace('|', ' ')} query={pickerSearch} onQueryChange={(value) => { setPickerLoading(true); setPickerSearch(value); }} loading={pickerLoading} error={pickerError ? "Could not load Menu Items. Try again." : null} items={[
+        ...filteredRecipes.map((recipe) => ({ id: `recipe:${recipe.id}`, name: recipe.name, detail: `Recipe makes ${recipe.servings} ${recipe.servings === 1 ? 'serving' : 'servings'}` })),
         ...filteredItems.map((item) => ({ id: `item:${item.id}`, name: item.name, detail: item.category ?? 'Menu Item' })),
       ]} onSelect={(id) => { const recipe = filteredRecipes.find((item) => `recipe:${item.id}` === id); const item = filteredItems.find((item) => `item:${item.id}` === id); if (recipe) assign(activeCell, recipe); else if (item) assignItem(activeCell, item); }} onClose={() => setActiveCell(null)} />}
       </div>
@@ -760,7 +762,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
       <div className="border-b border-warm-200 pb-5 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
       {guard.dialog}
         <div className="flex items-start gap-3">
-          <button onClick={() => guard.requestLeave(onBack)} className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 cursor-pointer mt-0.5"><ChevronLeft className="h-4 w-4" /></button>
+          <button aria-label={isTemplate ? "Back to templates" : "Back to Menu Calendar"} onClick={() => guard.requestLeave(onBack)} className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 cursor-pointer mt-0.5"><ChevronLeft className="h-4 w-4" /></button>
           <div>
             <input aria-label="Menu name" value={name} onChange={(e) => setName(e.target.value)} readOnly={planReadOnly}
               className="text-xl font-extrabold text-warm-900 tracking-tight bg-transparent border-b border-dashed border-warm-200 focus:border-emerald-500 focus:outline-none read-only:border-transparent" />

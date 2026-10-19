@@ -21,7 +21,7 @@ describe("shopping list navigation", () => {
   test("purchase unit options follow the compatible inventory units", () => {
     const source = readFileSync(join(process.cwd(), "app", "(rnd)", "food-service", "procurement", "page.tsx"), "utf8");
 
-    expect(source).toContain("compatibleRecipeUnits(it.inventory_unit ?? it.unit)");
+    expect(source).toContain("compatibleRecipeUnits(it.inventory_unit ?? it.unit, it.purchase_unit ?? it.unit)");
     expect(source).not.toContain('<input defaultValue={it.purchase_unit ?? it.unit}');
   });
 });

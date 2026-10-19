@@ -505,6 +505,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
         setEditorMode("edit");
         markLocalNavigation(`plan=${latest.id}`);
         router.replace(`?plan=${latest.id}`);
+        setTab("plans");
       } else {
         applyIntervention(null);
         setSelectedPlanId(null);

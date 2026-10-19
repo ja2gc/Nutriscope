@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useEditorChanges } from "@/hooks/useUnsavedChanges";
 
 import { Button } from "@/components/ui/Button";
+import { numericStepBase } from "@/components/ui/NumericInput";
 import { CharacterCountTextarea } from "@/components/ui/CharacterCountTextarea";
 import { CharacterCountListInput } from "@/components/ui/CharacterCountListInput";
 import { ASSESSMENT_TEXT_LIMITS, FOOD_DISLIKE_LIMIT, FOOD_DISLIKE_MAX_ENTRIES } from "@/lib/assessmentValidation";
@@ -137,7 +139,7 @@ function NumberField({ label, unit, value, onChange, required = false, readOnly 
         <input
           type="number"
           step="0.1"
-          min="0"
+          min={numericStepBase(value)}
           required={required}
           readOnly={readOnly}
           value={value}
@@ -308,32 +310,40 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel 
     }
   }
 
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
+  const form = useRef<HTMLFormElement>(null);
+
+  async function handleSubmit(event?: React.FormEvent) {
+    event?.preventDefault();
+    if (!event && !form.current?.reportValidity()) return false;
     setError(null);
     const payload = buildPayload();
-    if (!decision) { setError("Care Decision is required."); return; }
-    if (!payload.clinical_summary?.trim()) { setError("Progress Assessment is required."); return; }
+    if (!decision) { setError("Care Decision is required."); return false; }
+    if (!payload.clinical_summary?.trim()) { setError("Progress Assessment is required."); return false; }
     const validationError = monitoringTextError(payload);
-    if (validationError) { setError(validationError); return; }
+    if (validationError) { setError(validationError); return false; }
     setSubmitting(true);
     try {
       await onSubmit(payload);
+      return true;
     } catch (submissionError) {
       setError(submissionError instanceof Error ? submissionError.message : "Failed to save visit.");
+      return false;
     } finally {
       setSubmitting(false);
     }
   }
 
+  const guard = useEditorChanges(JSON.stringify({ observedAt, visitType, weight, height, edemaPresent, dryWeight, activityLevel, maternalStatus, allergies, dietaryRestrictions, foodDislikes, compliance, giTolerance, decision, clinicalSummary, intakeNotes, symptoms, nextMonitoringDate, labs, intakes }), true, () => handleSubmit());
+
   return (
     <div className="overflow-hidden rounded-2xl border border-warm-200 bg-white shadow-sm">
+      {guard.dialog}
       <div className="flex items-center justify-between border-b border-warm-100 px-5 py-4">
         <h3 className="text-sm font-extrabold uppercase tracking-wider text-warm-700">Log Monitoring Visit</h3>
-        <button type="button" onClick={onCancel} className="min-h-10 px-2 text-sm font-semibold text-warm-500 hover:text-warm-800">Close</button>
+        <button type="button" onClick={() => guard.requestLeave(onCancel)} className="min-h-10 px-2 text-sm font-semibold text-warm-500 hover:text-warm-800">Close</button>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5 px-4 py-5 sm:px-5">
+      <form ref={form} onSubmit={handleSubmit} className="space-y-5 px-4 py-5 sm:px-5">
         <Section title="Visit Context">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <label>
@@ -468,7 +478,7 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel 
         {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
         <div className="flex flex-col gap-3 sm:flex-row">
           <Button type="submit" variant="primary" loading={submitting} disabled={aiLoading} className="sm:flex-1">Save Visit</Button>
-          <Button type="button" variant="ghost" onClick={onCancel} className="sm:!w-auto">Cancel</Button>
+          <Button type="button" variant="ghost" onClick={() => guard.requestLeave(onCancel)} className="sm:!w-auto">Cancel</Button>
         </div>
       </form>
     </div>

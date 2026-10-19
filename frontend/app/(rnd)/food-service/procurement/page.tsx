@@ -35,6 +35,15 @@ import { addCalendarDays } from "@/lib/calendarDate";
 const peso = (n: number) => `₱${n.toFixed(2)}`;
 const num = (s: string | number | null | undefined) => (s != null ? parseFloat(String(s)) : 0);
 const purchaseNumber = (value: string | number | null | undefined) => String(Number(num(value).toFixed(6)));
+const shoppingSnapshot = (list: ShoppingList) => JSON.stringify({
+  name: list.name, estimate_population: list.estimate_population,
+  items: list.items.map((item) => ({
+    id: item.id, source: item.source, fs_item_uuid: item.fs_item_uuid,
+    purchase_qty: num(item.purchase_qty ?? item.qty), purchase_unit: item.purchase_unit ?? item.unit,
+    purchase_price: num(item.purchase_price ?? item.unit_price), supplier_id: item.supplier_id ? String(item.supplier_id) : null,
+    included_in_po: item.included_in_po, exclusion_note: item.exclusion_note,
+  })),
+});
 const poStatusLabel = (status: PurchaseOrder["lifecycle_status"]) => ({
   open_execution: "In progress",
   completed: "Completed",
@@ -89,10 +98,10 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
 
   const load = useCallback(() => {
     if (id) {
-      getShoppingList(id).then((saved) => { setList(saved); setSavedSnapshot(JSON.stringify(saved)); });
+      getShoppingList(id).then((saved) => { setList(saved); setSavedSnapshot(shoppingSnapshot(saved)); });
     } else if (initialDraft) {
       setList(initialDraft);
-      setSavedSnapshot(JSON.stringify(initialDraft));
+      setSavedSnapshot(shoppingSnapshot(initialDraft));
     }
   }, [id, initialDraft]);
   useEffect(() => { load(); }, [load]);
@@ -294,7 +303,7 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
         : await generateByDates(list.period_start!, list.period_end!, list.estimate_population!, editingName ? nameDraft.trim() : list.name, { items });
       setConfirmMode(null);
       setList(saved);
-      setSavedSnapshot(JSON.stringify(saved));
+      setSavedSnapshot(shoppingSnapshot(saved));
       setItemDrafts({});
       setEditingName(false);
       setServingsInput(null);
@@ -306,7 +315,7 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
     } finally { setBusy(false); }
   }
 
-  const dirty = Boolean(list && list.status === 'draft' && (!id || JSON.stringify(list) !== savedSnapshot || servingsInput !== null && servingsInput !== String(list.estimate_population) || editingName && nameDraft !== list.name));
+  const dirty = Boolean(list && list.status === 'draft' && (!id || shoppingSnapshot(list) !== savedSnapshot || Object.values(itemDrafts).some((draft) => Object.values(draft).some((value) => value !== undefined && (!value.trim() || !Number.isFinite(Number(value)) || Number(value) < 0))) || servingsInput !== null && (!servingsInput.trim() || Number(servingsInput) !== list.estimate_population) || editingName && nameDraft !== list.name));
   const guard = useUnsavedChanges({ dirty, onSave: saveList, title: "Unsaved Shopping List" });
   function requestBack() { guard.requestLeave(onBack); }
 
@@ -504,7 +513,7 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
                   <select value={it.purchase_unit ?? it.unit} disabled={list.status === "converted" || isSupplies}
                     onChange={(e) => { setItemDrafts((current) => ({ ...current, [it.id]: {} })); patchItem(it.id, { purchase_unit: e.target.value }); }}
                     className="w-24 rounded border border-warm-200 bg-white px-2 py-1 disabled:bg-warm-50">
-                    {[it.purchase_unit ?? it.unit, ...(foodServiceUnitFactor(it.purchase_unit ?? it.unit, it.inventory_unit ?? it.unit) !== null ? compatibleRecipeUnits(it.inventory_unit ?? it.unit) : [])]
+                    {compatibleRecipeUnits(it.inventory_unit ?? it.unit, it.purchase_unit ?? it.unit)
                       .filter((unit, index, units) => units.indexOf(unit) === index)
                       .map((unit) => <option key={unit} value={unit}>{unit}</option>)}
                   </select>
@@ -691,7 +700,7 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
           <span className="text-warm-700">{group.supplier?.name ?? "Unspecified"}</span>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={() => requestLeave(() => setGroupId(null))} className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 cursor-pointer">
+          <button aria-label="Back to purchase order" onClick={() => requestLeave(() => setGroupId(null))} className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 cursor-pointer">
             <ChevronLeft className="h-4 w-4" />
           </button>
           <div className="min-w-0 flex-1">
@@ -738,7 +747,7 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
                   <td className="px-3 py-2">
                     <div className="flex min-h-8 items-center font-semibold text-warm-800">{item.description}</div>
                   </td>
-                  <td className="px-3 py-2"><input type="number" min={numericStepBase(quantityValue)} step="0.1" disabled={locked}
+                  <td className="px-3 py-2"><input aria-label={`Actual quantity for ${item.description}`} type="number" min={numericStepBase(quantityValue)} step="0.1" disabled={locked}
                     value={quantityValue}
                     onChange={(e) => setActualDraft((current) => {
                       const currentDraft = current[item.id] ?? { qty: String(num(item.actual_qty)), price: String(num(item.actual_unit_price)), total: String(num(item.actual_total)), totalEdited: false };
@@ -747,7 +756,7 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
                     className="w-24 rounded border border-warm-200 px-2 py-1 disabled:bg-warm-50" /></td>
                   <td className="px-3 py-2 text-warm-600" aria-label={`Unit for ${item.description}`}><div className="flex min-h-8 items-center">{item.purchase_unit ?? item.unit}</div></td>
                   <td className="px-3 py-2">
-                    <input type="number" min={numericStepBase(draft?.price ?? String(num(item.actual_unit_price)))} step="0.1" disabled={locked}
+                    <input aria-label={`Actual unit cost for ${item.description}`} type="number" min={numericStepBase(draft?.price ?? String(num(item.actual_unit_price)))} step="0.1" disabled={locked}
                       value={draft?.price ?? String(num(item.actual_unit_price))}
                       onChange={(e) => setActualDraft((current) => {
                         const currentDraft = current[item.id] ?? { qty: String(num(item.actual_qty)), price: String(num(item.actual_unit_price)), total: String(num(item.actual_total)), totalEdited: false };
@@ -833,7 +842,7 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3">
-        <button onClick={onBack} className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 cursor-pointer">
+        <button aria-label="Back to purchase orders" onClick={onBack} className="p-2 rounded-lg border border-warm-200 hover:bg-warm-50 text-warm-500 cursor-pointer">
           <ChevronLeft className="h-4 w-4" />
         </button>
         <div>

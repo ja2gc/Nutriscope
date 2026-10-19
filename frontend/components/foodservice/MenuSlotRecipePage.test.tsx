@@ -5,7 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { getMenuSlotRecipe, updateMenuSlotRecipe } from "@/services/menuCycleService";
-import { searchCatalog } from "@/services/fsCatalogService";
+import { listCatalog } from "@/services/fsCatalogService";
 import { MenuSlotRecipePage } from "./MenuSlotRecipePage";
 
 vi.mock("next/navigation", () => ({
@@ -17,11 +17,11 @@ vi.mock("@/services/menuCycleService", async (importOriginal) => ({
   updateMenuSlotRecipe: vi.fn(),
   restoreMenuSlotRecipe: vi.fn(),
 }));
-vi.mock("@/services/fsCatalogService", () => ({ searchCatalog: vi.fn() }));
+vi.mock("@/services/fsCatalogService", () => ({ listCatalog: vi.fn() }));
 
 const loadMock = vi.mocked(getMenuSlotRecipe);
 const updateMock = vi.mocked(updateMenuSlotRecipe);
-const searchMock = vi.mocked(searchCatalog);
+const searchMock = vi.mocked(listCatalog);
 const slot = {
   id: "line-1",
   cycle_id: "cycle-1",
@@ -53,7 +53,7 @@ describe("MenuSlotRecipePage", () => {
     root = createRoot(container);
     loadMock.mockResolvedValue(slot);
     updateMock.mockResolvedValue(slot);
-    searchMock.mockResolvedValue([]);
+    searchMock.mockResolvedValue({ data: [], meta: { current_page: 1, last_page: 1, per_page: 10, total: 0 } });
   });
 
   afterEach(() => {
@@ -147,20 +147,19 @@ describe("MenuSlotRecipePage", () => {
       unit_cost: 52, default_supplier_id: null, vendor: null, vendor_locked: false, include_in_generated_lists: true,
     };
     const user = userEvent.setup();
-    searchMock.mockResolvedValue([rice]);
+    searchMock.mockResolvedValue({ data: [rice], meta: { current_page: 1, last_page: 1, per_page: 10, total: 1 } });
     await act(async () => { root.render(<MenuSlotRecipePage backHref="/food-service/menu-cycle?cycle=cycle-1" />); });
-    const searchInput = container.querySelector<HTMLInputElement>('input[aria-label="Search inventory items"]');
+    await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label="Add Ingredient"]')!.click());
+    const searchInput = container.querySelector<HTMLInputElement>('input[type="search"]');
     if (!searchInput) throw new Error("Ingredient search input missing.");
     await act(async () => { await user.type(searchInput, "Rice"); });
-    const search = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
-      .find((candidate) => candidate.textContent?.includes("Search"));
-    await act(async () => { search?.click(); await Promise.resolve(); });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 250)); });
     const riceResult = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
       .find((candidate) => candidate.textContent?.includes("Rice"));
     await act(async () => { riceResult?.click(); });
     await act(async () => { container.querySelector<HTMLButtonElement>('button[type="submit"]')?.click(); await Promise.resolve(); });
 
-    expect(searchMock).toHaveBeenCalledWith("Rice", "ingredient");
+    expect(searchMock).toHaveBeenCalledWith("ingredient", 1, "Rice");
     expect(updateMock).toHaveBeenCalledWith("cycle-1", "Monday", "lunch", expect.objectContaining({
       ingredients: [
         { fs_item_id: "item-1", quantity: 3, unit: "kg", adjust_to_taste: false },

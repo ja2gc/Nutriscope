@@ -17,7 +17,9 @@ export function foodServiceUnitFactor(from: string, to: string): number | null {
 
 export function compatibleRecipeUnits(baseUnit: string, savedUnit?: string): string[] {
   if (savedUnit && foodServiceUnitFactor(savedUnit, baseUnit) === null) return [savedUnit];
-  return [...new Set([baseUnit, ...recipeUnits].filter((unit) => foodServiceUnitFactor(unit, baseUnit) !== null))];
+  return [savedUnit ?? baseUnit, baseUnit, ...recipeUnits]
+    .filter((unit) => foodServiceUnitFactor(unit, baseUnit) !== null)
+    .filter((unit, index, units) => !units.slice(0, index).some((prior) => foodServiceUnitFactor(prior, unit) === 1));
 }
 
 export function foodServiceIngredientCost(

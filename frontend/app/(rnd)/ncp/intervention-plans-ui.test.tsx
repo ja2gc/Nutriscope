@@ -263,6 +263,8 @@ describe("intervention plans workspace", () => {
 
     await clickButton("Cancel");
     expect(interventionService.createIntervention).not.toHaveBeenCalled();
+    expect(container.querySelector('[aria-labelledby="intervention-plans-heading"]')).not.toBeNull();
+    expect(container.querySelector('[aria-label="Saved intervention plan"]')?.closest('[hidden]')).not.toBeNull();
   });
 
   it("uses the latest monitoring context in new-plan calculation details", async () => {

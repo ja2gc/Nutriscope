@@ -175,7 +175,7 @@ function TemplateEditor({ initial, onClose, onSaved }: {
             onAdd={(event) => { pickerTrigger.current = event.currentTarget; setDay(cellDay); setMeal(cellMeal); setQuery(""); setPage(1); setMatches([]); setPickerOpen(true); }}
           />; }} />
         </div>
-        {pickerOpen && <MenuItemPicker title={`${day} ${MEALS.find(([key]) => key === meal)?.[1]}`} query={query} onQueryChange={(value) => { setQuery(value); setPage(1); setMatches([]); }} loading={searching} error={searchError} items={matches.map((item) => ({ id: item.id, name: item.name, detail: `${item.category} · Recipe makes ${formatTemplateDisplayNumber(item.servings)} servings` }))} onSelect={(id) => { const item = matches.find((entry) => entry.id === id); if (item) addItem(item); }} onClose={closePicker} meta={meta} page={page} onPageChange={setPage} />}
+        {pickerOpen && <MenuItemPicker title={`${day} ${MEALS.find(([key]) => key === meal)?.[1]}`} query={query} onQueryChange={(value) => { setQuery(value); setPage(1); setMatches([]); }} loading={searching} error={searchError} items={matches.map((item) => ({ id: item.id, name: item.name, detail: `${item.category} · Recipe makes ${formatTemplateDisplayNumber(item.servings)} ${item.servings === 1 ? "serving" : "servings"}` }))} onSelect={(id) => { const item = matches.find((entry) => entry.id === id); if (item) addItem(item); }} onClose={closePicker} meta={meta} page={page} onPageChange={setPage} />}
       </div>
     </section>
   );

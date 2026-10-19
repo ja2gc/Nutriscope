@@ -73,6 +73,7 @@ describe("Food Library USDA search", () => {
     await act(async () => root.render(<FoodLibraryPage />));
     const menuTab = Array.from(container.querySelectorAll('[aria-label="Food Library sections"] button')).find((button) => button.textContent === 'Menu Items');
     expect(menuTab?.getAttribute('aria-selected')).toBe('true');
+    expect(container.textContent).not.toContain('No Menu Items Found');
   });
   it("offers Ingredients, Menu Items, and Templates with canonical Menu Item filters", async () => {
     container = document.createElement("div");

@@ -2,6 +2,11 @@ import { describe, expect, test } from "vitest";
 import { compatibleRecipeUnits, foodServiceIngredientCost, foodServiceUnitFactor } from "./foodServiceUnits";
 
 describe("Food Service recipe units", () => {
+  test('deduplicates equivalent units while keeping the saved spelling', () => {
+    expect(compatibleRecipeUnits('mL', 'ml')).toContain('ml');
+    expect(compatibleRecipeUnits('mL', 'ml')).not.toContain('mL');
+    expect(compatibleRecipeUnits('mL', 'ml')).toContain('L');
+  });
   test("converts within mass or volume and never guesses across them", () => {
     expect(foodServiceUnitFactor("g", "kg")).toBe(0.001);
     expect(foodServiceUnitFactor("mL", "L")).toBe(0.001);
