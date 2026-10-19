@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { CookingPot, ArrowLeft, Search, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { numericStepBase } from "@/components/ui/NumericInput";
+import { quantityInputValue } from "@/lib/foodServiceFormat";
 import { InfoHint } from "@/components/ui/InfoHint";
 import { compatibleRecipeUnits, foodServiceIngredientCost, foodServiceUnitFactor } from "@/lib/foodServiceUnits";
 import { searchCatalog, type CatalogItem } from "@/services/fsCatalogService";
@@ -311,9 +312,9 @@ export default function NewFSSRecipePage() {
                 </div>
 
                 {/* Quantity */}
-                <input type="number" value={row.quantity} required={Boolean(row.catalogItem)}
+                <input type="number" value={quantityInputValue(row.quantity)} required={Boolean(row.catalogItem)}
                   onChange={(e) => updateRow(idx, { quantity: e.target.value })}
-                  min={numericStepBase(row.quantity, 0.000001)} step="0.1"
+                  min={numericStepBase(quantityInputValue(row.quantity))} step="0.1"
                   className="w-full px-3 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" />
 
                 <select aria-label="Recipe unit" value={row.unit} onChange={(e) => updateRow(idx, { unit: e.target.value })}

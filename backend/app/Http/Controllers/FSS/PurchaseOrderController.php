@@ -59,7 +59,7 @@ class PurchaseOrderController extends Controller
 
     public function index(PaginatedRequest $request): AnonymousResourceCollection
     {
-        $query = PurchaseOrder::with(self::RELATIONS)->orderByDesc('created_at');
+        $query = PurchaseOrder::with(self::RELATIONS)->orderByDesc('order_date')->orderByDesc('created_at');
         if ($request->filled('shopping_list_id')) {
             $query->where('shopping_list_id', $request->get('shopping_list_id'));
         }

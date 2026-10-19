@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useEditorChanges } from "@/hooks/useUnsavedChanges";
 import { numericStepBase } from "@/components/ui/NumericInput";
+import { quantityInputValue } from "@/lib/foodServiceFormat";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { InfoHint } from "@/components/ui/InfoHint";
@@ -85,7 +86,7 @@ export function InventoryCorrectionEditor({ kind, id, token, cycleId }: Props) {
         return <div key={key} className="rounded-xl border border-warm-200 p-4 space-y-2">
           <p className="text-sm font-semibold text-warm-800">{draft?.editing.name} <span className="font-normal text-warm-500">Current: {row.quantity ?? "Not measured"} {row.unit}</span></p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <label className="text-xs font-bold text-warm-600">New quantity<input aria-label={`${row.recipe_name} new quantity`} type="number" min={numericStepBase(value.quantity, 0.01)} max="100000" step="0.1" value={value.quantity} onChange={(event) => { setError(""); setValues((all) => ({ ...all, [key]: { ...value, quantity: event.target.value } })); }} className="mt-1 w-full rounded-lg border border-warm-200 px-3 py-2 text-base" /></label>
+            <label className="text-xs font-bold text-warm-600">New quantity<input aria-label={`${row.recipe_name} new quantity`} type="number" min={numericStepBase(quantityInputValue(value.quantity))} max="100000" step="0.1" value={quantityInputValue(value.quantity)} onChange={(event) => { setError(""); setValues((all) => ({ ...all, [key]: { ...value, quantity: event.target.value } })); }} className="mt-1 w-full rounded-lg border border-warm-200 px-3 py-2 text-base" /></label>
             <label className="text-xs font-bold text-warm-600">Unit<select aria-label={`${row.recipe_name} new unit`} value={value.unit} onChange={(event) => { setError(""); setValues((all) => ({ ...all, [key]: { ...value, unit: event.target.value } })); }} className="mt-1 w-full rounded-lg border border-warm-200 bg-white px-3 py-2 text-base"><option value="">Select unit…</option>{units.map((unit) => <option key={unit} value={unit}>{unit}</option>)}</select></label>
           </div>
         </div>;

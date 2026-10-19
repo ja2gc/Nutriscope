@@ -1,4 +1,5 @@
 "use client";
+import { quantityInputValue } from "@/lib/foodServiceFormat";
 
 import React, { use, useEffect, useState } from "react";
 import Link from "next/link";
@@ -151,7 +152,7 @@ export default function EditFoodPage({
             <div className="flex gap-2">
               <div className="flex-1">
                 <Label>Serving Size</Label>
-                <input type="number" value={servingSize} onChange={(e) => setServingSize(e.target.value)} min="0" step="0.1" className={inputCls} />
+                <input type="number" value={quantityInputValue(servingSize)} onChange={(e) => setServingSize(e.target.value)} min="0" step="0.1" className={inputCls} />
               </div>
               <div className="w-28">
                 <Label>Unit</Label>

@@ -1,6 +1,7 @@
 "use client";
 
 import { numericStepBase } from "@/components/ui/NumericInput";
+import { quantityInputValue } from "@/lib/foodServiceFormat";
 import React, { use, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useEditorChanges } from "@/hooks/useUnsavedChanges";
@@ -270,7 +271,7 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
                     </div>
                   )}
                 </div>
-                <input aria-label={`Ingredient ${idx + 1} quantity`} type="number" value={row.quantity} onChange={(e) => updateRow(idx, { quantity: e.target.value })} min={numericStepBase(row.quantity, 0.000001)} max="100000" step="0.1" required
+                <input aria-label={`Ingredient ${idx + 1} quantity`} type="number" value={quantityInputValue(row.quantity)} onChange={(e) => updateRow(idx, { quantity: e.target.value })} min={numericStepBase(quantityInputValue(row.quantity))} max="100000" step="0.1" required
                   className="w-20 px-3 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" />
                 <select aria-label={`Ingredient ${idx + 1} unit`} value={row.unit} onChange={(e) => updateRow(idx, { unit: e.target.value })} disabled={!row.food}
                   className="w-20 px-2 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none cursor-pointer">

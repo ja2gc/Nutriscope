@@ -138,8 +138,18 @@ describe("Food Service procurement display", () => {
     expect(Number(total?.value)).toBe(100);
     await act(async () => { setInputValue(total!, '25'); });
     expect(Number(qty?.value)).toBe(5);
+    const price = container.querySelector<HTMLInputElement>('[aria-label="Unit cost for Rice"]')!;
+    await act(async () => { setInputValue(price, '3'); });
+    await act(async () => { setInputValue(total!, '100'); });
+    expect(qty?.value).toBe('33.33');
+    expect(Number(total?.value)).toBe(100);
     expect(container.querySelector('[aria-label="Quantity mode for Rice"]')).toBeNull();
     expect(container.querySelector('[aria-label="Remove Rice"]')).toBeNull();
+    const save = Array.from(container.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Save Shopping List')!;
+    await act(async () => { save.click(); });
+    const savedQuantity = mockUpdateShoppingList.mock.calls[0][1].items![0].purchase_qty;
+    expect(savedQuantity).toBeCloseTo(33.333333333333, 10);
+    expect(savedQuantity * 3).toBeCloseTo(100, 10);
   });
 
   test('restoring the original quantity leaves a saved shopping list clean', async () => {
@@ -540,7 +550,7 @@ describe("Food Service procurement display", () => {
 
     const row = container.querySelector("tbody tr");
     const inputs = row?.querySelectorAll<HTMLInputElement>('input[type="number"]');
-    expect(inputs?.[0]?.value).toBe("12.3456");
+    expect(inputs?.[0]?.value).toBe("12.35");
     expect(inputs?.[1]?.value).toBe("52.3456");
     const orInput = Array.from(container.querySelectorAll<HTMLLabelElement>("label"))
       .find((label) => label.textContent?.includes("OR number (optional)"))?.querySelector("input") ?? null;
@@ -615,6 +625,7 @@ describe("Food Service procurement display", () => {
     await act(async () => { openGroup?.click(); });
     const total = container.querySelector<HTMLInputElement>('input[aria-label="Actual Total for Rice"]');
     await act(async () => { if (total) setInputValue(total, "550"); });
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Actual quantity for Rice"]')?.value).toBe('10.51');
     const save = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
       .find((candidate) => candidate.textContent?.trim() === "Save");
     await act(async () => { save?.click(); await Promise.resolve(); });

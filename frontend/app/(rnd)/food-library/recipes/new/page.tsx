@@ -1,6 +1,7 @@
 "use client";
 
 import { numericStepBase } from "@/components/ui/NumericInput";
+import { quantityInputValue } from "@/lib/foodServiceFormat";
 import React, { useCallback, useRef, useState } from "react";
 import Link from "next/link";
 import { useEditorChanges } from "@/hooks/useUnsavedChanges";
@@ -213,7 +214,7 @@ export default function NewRecipePage() {
         {nutritionSource === "label" ? <div className="space-y-4 rounded-2xl border border-warm-200 bg-white p-6 shadow-sm">
           <h3 className="text-sm font-extrabold uppercase tracking-wider text-warm-700">Nutrition facts per label serving</h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div><Label>Label serving amount <Required /></Label><input aria-label="Label serving amount" type="number" value={labelAmount} onChange={(event) => setLabelAmount(event.target.value)} min={numericStepBase(labelAmount)} max="10000" step="0.1" required className={inputCls} /></div>
+            <div><Label>Label serving amount <Required /></Label><input aria-label="Label serving amount" type="number" value={quantityInputValue(labelAmount)} onChange={(event) => setLabelAmount(event.target.value)} min={numericStepBase(quantityInputValue(labelAmount))} max="10000" step="0.1" required className={inputCls} /></div>
             <div><div className="flex items-center gap-1"><Label>Label serving unit</Label><InfoHint label="Label serving units">{CLINICAL_UNIT_HINT}</InfoHint></div><select aria-label="Label serving unit" value={labelUnit} onChange={(event) => { setLabelUnit(event.target.value); if (event.target.value === "piece") setLabelAmount("1"); }} className={inputCls}>{CLINICAL_BASELINE_UNITS.map((unit) => <option key={unit} value={unit}>{unit}</option>)}</select></div>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -275,7 +276,7 @@ export default function NewRecipePage() {
                     </div>
                   )}
                 </div>
-                <input aria-label={`Ingredient ${idx + 1} quantity`} type="number" value={row.quantity} onChange={(e) => updateRow(idx, { quantity: e.target.value })} min={numericStepBase(row.quantity, 0.000001)} max="100000" step="0.1" required
+                <input aria-label={`Ingredient ${idx + 1} quantity`} type="number" value={quantityInputValue(row.quantity)} onChange={(e) => updateRow(idx, { quantity: e.target.value })} min={numericStepBase(quantityInputValue(row.quantity))} max="100000" step="0.1" required
                   className="w-20 px-3 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" />
                 <select aria-label={`Ingredient ${idx + 1} unit`} value={row.unit} onChange={(e) => updateRow(idx, { unit: e.target.value })} disabled={!row.food}
                   className="w-20 px-2 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none cursor-pointer">

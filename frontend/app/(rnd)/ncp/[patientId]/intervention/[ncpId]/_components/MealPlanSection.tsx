@@ -28,7 +28,8 @@ import { MenuItemProfile, RecipeMenuItemProfile } from "@/components/ncp/MenuIte
 import { ALL_MICROS } from "@/lib/nutritionCalculations";
 import { foodFluidBalance, formatMealPlanAmount } from "@/lib/mealPlanNutrition";
 import { clinicalIngredientFactor, clinicalRecipeUnits } from "@/lib/clinicalUnits";
-import NumericInput from '@/components/ui/NumericInput';
+import NumericInput, { numericStepBase } from '@/components/ui/NumericInput';
+import { quantityInputValue } from '@/lib/foodServiceFormat';
 
 const DAYS = MENU_DAYS;
 const MEAL_TYPES = MENU_SLOTS.map(([key]) => key);
@@ -735,7 +736,7 @@ export default function MealPlanSection({
       }}
       controls={<div className="space-y-3">
         <p className="text-xs text-warm-500">Changes affect this plan only. Ingredient amounts and nutrients below are for the planned portion.</p>
-        <div className="max-w-xs"><NumericInput label="Planned portion" min={0} max={100000} step={0.1} value={editServings} onChange={(value) => { setEditServings(value); setEditAmountDrafts({}); }} disabled={readOnly} unit={editTarget.item.unit} /></div>
+        <div className="max-w-xs"><NumericInput label="Planned portion" min={0} max={100000} step={0.1} value={editServings} onChange={(value) => { setEditServings(value); setEditAmountDrafts({}); }} disabled={readOnly} unit={editTarget.item.unit} quantity /></div>
         {!readOnly && <div className="flex gap-2"><Button variant={editTab === 'scale' ? 'secondary' : 'ghost'} size="sm" onClick={() => setEditTab('scale')}>Portion</Button><Button variant={editTab === 'ingredients' ? 'secondary' : 'ghost'} size="sm" onClick={() => setEditTab('ingredients')}>Ingredients</Button></div>}
         {editLoadingRecipe && <p role="status" className="text-sm text-warm-500">Loading ingredients…</p>}
         {editError && <p role="alert" className="text-sm text-red-700">{editError}</p>}
@@ -750,7 +751,7 @@ export default function MealPlanSection({
           setIngredientQuery(''); setIngredientResults([]); setIngredientPickerOpen(false);
         }} />}
       </div> : undefined}
-      renderIngredientAmount={!readOnly && editTab === 'ingredients' ? (ingredient) => <div className="flex flex-wrap items-center gap-2 text-sm text-warm-600"><input aria-label={`Amount of ${ingredient.name}`} type="number" min="0" step="0.1" value={editAmountDrafts[ingredient.id] ?? (ingredient.quantity === '' ? '' : Number(Number(ingredient.quantity).toPrecision(12)))} onChange={(event) => {
+      renderIngredientAmount={!readOnly && editTab === 'ingredients' ? (ingredient) => <div className="flex flex-wrap items-center gap-2 text-sm text-warm-600"><input aria-label={`Amount of ${ingredient.name}`} type="number" min={numericStepBase(quantityInputValue(editAmountDrafts[ingredient.id] ?? ingredient.quantity))} step="0.1" value={quantityInputValue(editAmountDrafts[ingredient.id] ?? ingredient.quantity)} onChange={(event) => {
         if (!(factor > 0)) return;
         setEditAmountDrafts((previous) => ({ ...previous, [ingredient.id]: event.target.value }));
         const row = editIngredients.find((item) => item.id === ingredient.id);

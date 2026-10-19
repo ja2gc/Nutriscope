@@ -1,6 +1,9 @@
+// @vitest-environment jsdom
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, test } from "vitest";
+import { numericStepBase } from '@/components/ui/NumericInput';
+import { quantityInputValue } from '@/lib/foodServiceFormat';
 
 describe("Food Service recipe unit entry", () => {
   test.each(["new/page.tsx", "[id]/page.tsx"])("requires Meal, Snack, or Beverage category in %s", (page) => {
@@ -42,9 +45,13 @@ describe("Food Service recipe unit entry", () => {
     expect(source).toContain("Enter a baseline quantity for every ingredient.");
   });
 
-  test.each(["new/page.tsx", "[id]/page.tsx"])("accepts fractional ingredient quantities in %s", (page) => {
-    const source = readFileSync(resolve(process.cwd(), "app/(rnd)/food-service/recipes", page), "utf8");
-    expect(source).toContain('step="0.1"');
-    expect(source).toContain("numericStepBase(row.quantity");
+  test.each([['1.234567', '1.23', '1.33'], ['2.6789', '2.68', '2.78']])('keeps a rounded recipe quantity valid on its one-tenth step grid: %s', (raw, displayed, incremented) => {
+    const input = document.createElement('input');
+    input.type = 'number'; input.step = '0.1';
+    input.value = quantityInputValue(raw);
+    input.min = String(numericStepBase(input.value));
+    expect(input.value).toBe(displayed);
+    expect(input.checkValidity()).toBe(true);
+    input.stepUp(); expect(input.value).toBe(incremented);
   });
 });

@@ -54,6 +54,27 @@ class FoodServiceOpsTest extends TestCase
         ]);
     }
 
+    public function test_shopping_lists_use_business_dates_before_creation_time_across_pages(): void
+    {
+        $laterSpan = ShoppingList::factory()->create(['rnd_user_id' => $this->rnd->id, 'list_type' => 'suggested', 'period_start' => '2026-11-16', 'list_date' => '2026-10-01', 'created_at' => '2026-10-01']);
+        $manual = ShoppingList::factory()->create(['rnd_user_id' => $this->rnd->id, 'list_type' => 'manual', 'period_start' => null, 'list_date' => '2026-11-10', 'created_at' => '2026-10-02']);
+        $olderSpan = ShoppingList::factory()->create(['rnd_user_id' => $this->rnd->id, 'list_type' => 'suggested', 'period_start' => '2026-11-03', 'list_date' => '2026-11-03', 'created_at' => '2026-10-03']);
+        foreach ([$laterSpan, $manual, $olderSpan] as $index => $list) {
+            $this->actingAs($this->rnd)->getJson('/api/fss/shopping-lists?per_page=1&page='.($index + 1))
+                ->assertOk()->assertJsonPath('data.0.id', $list->uuid);
+        }
+    }
+
+    public function test_purchase_orders_use_order_date_before_creation_time_across_pages(): void
+    {
+        $later = PurchaseOrder::factory()->create(['rnd_user_id' => $this->rnd->id, 'order_date' => '2026-11-16', 'created_at' => '2026-10-01']);
+        $older = PurchaseOrder::factory()->create(['rnd_user_id' => $this->rnd->id, 'order_date' => '2026-11-03', 'created_at' => '2026-10-02']);
+        foreach ([$later, $older] as $index => $po) {
+            $this->actingAs($this->rnd)->getJson('/api/fss/purchase-orders?per_page=1&page='.($index + 1))
+                ->assertOk()->assertJsonPath('data.0.id', $po->uuid);
+        }
+    }
+
     private function makeFsItem(array $attrs = []): FsItem
     {
         Budget::firstOrCreate(['fiscal_year' => 2026], ['allocated_amount' => 1000000]);

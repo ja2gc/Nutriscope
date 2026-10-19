@@ -36,12 +36,13 @@ it('adds ingredients in their own unit with a blank amount and keeps additions f
     expect(updateMealPlanItem).not.toHaveBeenCalled();
     expect(getByRole(container, 'dialog', { name: 'Unsaved changes' })).toBeTruthy();
     await act(async () => getByRole(container, 'button', { name: 'Stay on this page' }).click());
-    await act(async () => fireEvent.input(amount, { target: { value: '50' } }));
+    await act(async () => fireEvent.input(amount, { target: { value: '50.123456' } }));
+    expect(amount.value).toBe('50.12');
     await act(async () => fireEvent.input(getByRole(container, 'spinbutton', { name: 'Planned portion' }), { target: { value: '2' } }));
-    expect(amount.value).toBe('50');
+    expect(amount.value).toBe('50.12');
     expect((getByRole(container, 'spinbutton', { name: 'Amount of Rice' }) as HTMLInputElement).value).toBe('200');
     await act(async () => getByRole(container, 'button', { name: 'Save Changes' }).click());
-    expect(updateMealPlanItem).toHaveBeenCalledWith('ncp-1', 'plan-1', 'day-1', 'portion-item', { quantity: 2, ingredients: [{ food_item_id: 'rice', quantity: 100, unit: 'g' }, { food_item_id: 'milk', quantity: 25, unit: 'mL' }] });
+    expect(updateMealPlanItem).toHaveBeenCalledWith('ncp-1', 'plan-1', 'day-1', 'portion-item', { quantity: 2, ingredients: [{ food_item_id: 'rice', quantity: 100, unit: 'g' }, { food_item_id: 'milk', quantity: 25.061728, unit: 'mL' }] });
   } finally { await act(async () => root.unmount()); }
 });
 

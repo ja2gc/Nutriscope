@@ -31,6 +31,7 @@ import { PurchaseValueComparison } from "@/components/foodservice/PurchaseValueC
 import { ShoppingListCopyCard } from "@/components/foodservice/ShoppingListCopyCard";
 import { compatibleRecipeUnits, foodServiceUnitFactor } from "@/lib/foodServiceUnits";
 import { addCalendarDays } from "@/lib/calendarDate";
+import { quantityInputValue } from "@/lib/foodServiceFormat";
 
 const peso = (n: number) => `₱${n.toFixed(2)}`;
 const num = (s: string | number | null | undefined) => (s != null ? parseFloat(String(s)) : 0);
@@ -507,7 +508,7 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
                     disabled={list.status === "converted"} onChange={(e) => patchItem(it.id, { exclusion_note: e.target.value || null })}
                     className="mt-1 block w-40 rounded border border-warm-200 px-2 py-1 text-xs font-normal" />}
                 </td>
-                <td className="px-3 py-2"><input aria-label={`Purchase quantity for ${it.ingredient_name}`} type="number" min={numericStepBase(itemDrafts[it.id]?.qty ?? purchaseNumber(it.purchase_qty ?? it.qty))} step="0.1" value={itemDrafts[it.id]?.qty ?? purchaseNumber(it.purchase_qty ?? it.qty)} disabled={list.status === "converted"}
+                <td className="px-3 py-2"><input aria-label={`Purchase quantity for ${it.ingredient_name}`} type="number" min={numericStepBase(quantityInputValue(itemDrafts[it.id]?.qty ?? it.purchase_qty ?? it.qty))} step="0.1" value={quantityInputValue(itemDrafts[it.id]?.qty ?? it.purchase_qty ?? it.qty)} disabled={list.status === "converted"}
                   onChange={(e) => editPurchase(it, 'qty', e.target.value)}
                   className="w-24 rounded border border-warm-200 px-2 py-1 disabled:bg-warm-50" />
                   </td>
@@ -744,7 +745,7 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
                 const actualQty = draft?.totalEdited && actualPrice > 0
                   ? num(draft.total) / actualPrice
                   : num(draft?.qty ?? item.actual_qty);
-                const quantityValue = draft?.totalEdited && actualPrice > 0 ? String(Math.round(num(draft.total) / actualPrice * 1000) / 1000) : draft?.qty ?? String(num(item.actual_qty));
+                const quantityValue = quantityInputValue(draft?.totalEdited && actualPrice > 0 ? num(draft.total) / actualPrice : draft?.qty ?? item.actual_qty);
                 return <tr key={item.id} className="[&>td]:align-top">
                   <td className="px-3 py-2">
                     <div className="flex min-h-8 items-center font-semibold text-warm-800">{item.description}</div>

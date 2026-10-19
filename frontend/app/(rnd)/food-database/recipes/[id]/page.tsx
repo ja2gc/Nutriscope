@@ -1,4 +1,5 @@
 "use client";
+import { quantityInputValue } from "@/lib/foodServiceFormat";
 
 import React, { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -248,7 +249,7 @@ export default function EditRecipePage({
                 </div>
                 <input
                   type="number"
-                  value={row.quantity}
+                  value={quantityInputValue(row.quantity)}
                   onChange={(e) => updateRow(idx, { quantity: e.target.value })}
                   min="0"
                   step="0.1"

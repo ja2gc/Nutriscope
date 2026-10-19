@@ -1,4 +1,5 @@
 "use client";
+import { quantityInputValue } from "@/lib/foodServiceFormat";
 
 import { numericStepBase } from "@/components/ui/NumericInput";
 import React, { use, useEffect, useState } from "react";
@@ -212,7 +213,7 @@ export default function EditFoodPage({ params }: { params: Promise<{ id: string 
             <div className="flex items-end gap-2">
               <div className="flex-1">
                 <Label>Nutrient baseline amount</Label>
-                <input aria-label="Nutrient baseline amount" type="number" value={servingSize} onChange={(e) => setServingSize(e.target.value)} min={numericStepBase(servingSize)} max="10000" step="0.1" required className={inputCls} />
+                <input aria-label="Nutrient baseline amount" type="number" value={quantityInputValue(servingSize)} onChange={(e) => setServingSize(e.target.value)} min={numericStepBase(quantityInputValue(servingSize))} max="10000" step="0.1" required className={inputCls} />
               </div>
               <div className="w-28">
                 <div className="flex items-center"><Label>Unit</Label><InfoHint label="Ingredient unit families">{CLINICAL_UNIT_HINT}</InfoHint></div>
@@ -232,7 +233,7 @@ export default function EditFoodPage({ params }: { params: Promise<{ id: string 
             return <div key={key} className="space-y-2">
               <p><Link href={`/food-library/recipes/${recipe.recipe_id}`} target="_blank" className="font-semibold underline">{recipe.recipe_name}</Link>: {recipe.quantity} {recipe.unit}</p>
               <div className="flex items-end gap-2">
-                <input aria-label={`${recipe.recipe_name} correction quantity ${recipe.line_index + 1}`} type="number" min={numericStepBase(correction.quantity, 0.000001)} max="100000" step="0.1" value={correction.quantity} onChange={(event) => setCorrections((current) => ({ ...current, [key]: { ...correction, quantity: event.target.value } }))} className={inputCls} required />
+                <input aria-label={`${recipe.recipe_name} correction quantity ${recipe.line_index + 1}`} type="number" min={numericStepBase(quantityInputValue(correction.quantity))} max="100000" step="0.1" value={quantityInputValue(correction.quantity)} onChange={(event) => setCorrections((current) => ({ ...current, [key]: { ...correction, quantity: event.target.value } }))} className={inputCls} required />
                 <select aria-label={`${recipe.recipe_name} correction unit ${recipe.line_index + 1}`} value={correction.unit} onChange={(event) => setCorrections((current) => ({ ...current, [key]: { ...correction, unit: event.target.value } }))} className={inputCls}>
                   {clinicalRecipeUnits(servingUnit).map((unit) => <option key={unit} value={unit}>{unit}</option>)}
                 </select>
