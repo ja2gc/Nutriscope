@@ -358,23 +358,25 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
             </div>
           </div>
         </div>
-        <div className="flex flex-col items-end gap-1">
+        <div className="flex w-full flex-col items-end gap-2 sm:w-auto">
+          <div className="flex w-full flex-wrap justify-end gap-2 sm:w-auto">
+            {list.status === "draft" && <Button variant="secondary" onClick={() => id ? void saveList() : setConfirmMode("first-save")} loading={busy} className="px-4 py-2">Save Shopping List</Button>}
+            <Button
+              variant="primary"
+              onClick={() => setConfirmMode("release")}
+              loading={busy}
+              disabled={!id || dirty || list.status === "converted" || !list.release_readiness?.ready}
+              className="px-4 py-2 flex items-center gap-2"
+            >
+              <Split className="h-4 w-4" />
+              {list.status === "converted" ? "PO released" : "Turn Into PO"}
+            </Button>
+          </div>
+          {!id || dirty ? <span className="text-xs text-warm-500">Save the list before Turn Into PO.</span> : null}
           {list.status === 'draft' && list.list_type === 'suggested' && list.items.some((item) => item.source === 'generated') && <div className="flex items-center gap-1">
             <Button variant="secondary" onClick={resetGeneratedItems} disabled={!list.estimate_population || list.items.some((item) => item.source === 'generated' && !item.generation_baseline)}>Reset generated items</Button>
             <InfoHint label="About resetting generated items">Restores original generated quantities, units, costs, totals, and vendors using the current estimated servings. Manual items and checkmarks stay as they are. Older lists without an original generation snapshot cannot be reset.</InfoHint>
           </div>}
-          {list.status === "draft" && <Button variant="secondary" onClick={() => id ? void saveList() : setConfirmMode("first-save")} loading={busy} className="px-4 py-2">Save Shopping List</Button>}
-          <Button
-            variant="primary"
-            onClick={() => setConfirmMode("release")}
-            loading={busy}
-            disabled={!id || dirty || list.status === "converted" || !list.release_readiness?.ready}
-            className="px-4 py-2 flex items-center gap-2"
-          >
-            <Split className="h-4 w-4" />
-            {list.status === "converted" ? "PO released" : "Turn Into PO"}
-          </Button>
-          {!id || dirty ? <span className="text-xs text-warm-500">Save the list before Turn Into PO.</span> : null}
           {saveError && <span role="alert" className="text-xs text-red-600 font-semibold">{saveError}</span>}
           {approveErr && <span className="text-xs text-red-600 font-semibold">{approveErr}</span>}
         </div>
