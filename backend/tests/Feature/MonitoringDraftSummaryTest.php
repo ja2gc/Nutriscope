@@ -62,14 +62,18 @@ class MonitoringDraftSummaryTest extends TestCase
         });
     }
 
-    public function test_summary_prompt_prioritizes_two_sentences_and_excludes_recommendations(): void
+    public function test_summary_prompt_identifies_care_focus_without_prescribing_steps(): void
     {
-        [$ncp, $url, $draft] = $this->context();
-        $this->postJson($url, $draft)->assertOk();
+        $narrative = 'Intake improved but remains below the recorded protein goal. Protein adequacy remains the priority care focus.';
+        [$ncp, $url, $draft] = $this->context(true, $narrative);
+        $this->postJson($url, $draft)->assertOk()->assertJsonPath('data.narrative', $narrative);
+        Http::assertSentCount(1);
         Http::assertSent(fn ($request) => str_starts_with($request['system'], '# CONSTRAINTS & LOGIC')
             && strlen($request['system']) <= 1200
             && str_contains($request['system'], '2 sentences; <=60 words')
-            && str_contains($request['system'], 'No recommendations')
+            && str_contains($request['system'], 'care focus')
+            && str_contains($request['system'], 'Name what needs attention')
+            && str_contains($request['system'], 'No prescribed steps')
             && str_contains($request['system'], 'No per-indicator value lists')
             && str_contains($request['system'], 'No target: normality/goal attainment unknown')
             && str_contains($request['system'], 'Overshoot != improvement'));

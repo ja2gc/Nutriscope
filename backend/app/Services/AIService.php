@@ -179,8 +179,8 @@ PROMPT;
 
 # OUTPUT & SYNTAX
 - Draft Progress Assessment: 2 sentences; <=60 words; target 250..400 chars; HARD MAX 600.
-- Order: change/stability, then remaining concerns. End with current findings.
-- No recommendations, treatment advice, closing actions, headings, Markdown, preamble. Output editable text only.
+- Academy NCP: Report progress/remaining concerns; name supported care focus from unmet goals/barriers. Name what needs attention; invent none.
+- No prescribed steps, treatment advice, closing actions, headings, Markdown, preamble. Output editable text only.
 PROMPT,
                 'messages' => [
                     ['role' => 'user', 'content' => $userPrompt],
