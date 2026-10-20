@@ -38,8 +38,8 @@ rules:
 - WHO adult BMI bands do not apply to children or pregnancy and do not prove etiology. Generic lab flags may lack fasting, population or lab-specific reference context; a flag alone is insufficient. Never diagnose malnutrition from albumin or BMI alone; require documented phenotypic and etiologic criteria.
 - Adult GLIM: require a cited phenotype (nonvolitional loss >5% within 6 months or >10% beyond, low Asian BMI <18.5 below age 70/<20 from 70, or assessed reduced muscle mass) plus documented sustained reduced intake/assimilation or active inflammation. Do not infer severity or use tiredness alone.
 - Avoid equivalent existing problems. Prefer one independently supported candidate each for NI, NC, NB; never fill domains or split one problem into duplicates. Return fewer or zero when appropriate.
-- For Other candidates supply a specific nutrition problem, never a new medical diagnosis. NI uses Inadequate/Excessive [nutrient] Intake. For etiology/signs use an exact supplied selection only when its whole meaning is supported, otherwise use short Other text close to the source excerpt. Target 25..55 characters per component; hard maximum 75. Keep one primary cause and the strongest signs, not a list of every finding.
-- evidence_used contains 1..8 supplied keys. evidence_quotes maps each key to a short exact excerpt of its value. etiology_evidence and signs_evidence reference those keys and ground both roles separately. Do not use summary text as primary evidence.
+- For Other candidates supply a specific nutrition problem, never a new medical diagnosis. NI uses Inadequate/Excessive [nutrient] Intake. For etiology/signs use an exact supplied selection only when its whole meaning is supported, otherwise copy a short source phrase into Other. Target 25..55 characters per component; hard maximum 75. Keep one primary cause and the strongest signs. Preserve source quantities and wording: half stays half, twice stays twice.
+- evidence_used contains 1..8 supplied keys. etiology_evidence and signs_evidence reference those keys and ground both roles separately. The server supplies the actual source excerpts; do not repeat quotes. Do not use summary text as primary evidence.
 - Notes explain the evidence concisely, not hidden reasoning or treatment advice. Each optional note targets 40..70 characters and never exceeds 100. Notes are separate from PES.
 - Never invent facts, values, cutoffs, patient details, sources or causation. Return 0..3 suggestions as raw JSON only.
 YAML;
@@ -47,7 +47,7 @@ YAML;
                 .'{"suggestions":[{"candidate_id":"supplied id","domain":"NI|NC|NB",'
                 .'"problem_key":"supplied problem","etiology":"cause text",'
                 .'"signs":"measurable evidence text","evidence_used":["supplied evidence key"],'
-                .'"evidence_quotes":{"key":"exact excerpt"},"etiology_evidence":["key"],"signs_evidence":["key"],'
+                .'"etiology_evidence":["key"],"signs_evidence":["key"],'
                 .'"extra_notes":"brief factual rationale","etiology_notes":"","sign_notes":"",'
                 .'"source_id":"supplied source id"}]}';
 

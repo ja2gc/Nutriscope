@@ -101,6 +101,10 @@ class ContextualPesDraftTest extends TestCase
         $candidates = app(PesEligibilityService::class)->eligible($evidence);
         $this->assertNotContains('unintended_weight_loss_v1', array_column($candidates, 'candidate_id'));
         $this->assertNotContains('knowledge_deficit_v2', array_column($candidates, 'candidate_id'));
+        $eligibility = app(PesEligibilityService::class);
+        $this->assertFalse($eligibility->hasConcern('- No diagnosed chronic illness.'));
+        $this->assertFalse($eligibility->hasConcern('- Normal fasting glucose.'));
+        $this->assertTrue($eligibility->hasConcern('- No planned physical activity.'));
     }
 
     private function knowledgeDraft(): array
@@ -147,15 +151,10 @@ class ContextualPesDraftTest extends TestCase
         Http::assertSentCount(1);
     }
 
-    public function test_stale_draft_and_invented_excerpts_or_unsupported_cause_are_rejected_without_spending_allowance(): void
+    public function test_stale_draft_and_unsupported_cause_or_denied_signs_are_rejected_without_spending_allowance(): void
     {
         $record = $this->knowledgeRecord();
         $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest";
-        $bad = $this->knowledgeDraft();
-        $bad['evidence_quotes']['knowledge_notes'] = 'Invented finding';
-        $this->provider([$bad]);
-        $this->postJson($url)->assertStatus(502);
-        $this->getJson($url)->assertJsonPath('meta.budget.remaining', 3);
         $bad = $this->knowledgeDraft();
         $bad['etiology'] = 'Kidney failure';
         $this->provider([$bad]);
@@ -165,6 +164,10 @@ class ContextualPesDraftTest extends TestCase
         $bad = $this->knowledgeDraft();
         $bad['signs'] = 'No difficulty swallowing';
         $bad['evidence_quotes']['knowledge_notes'] = 'No difficulty swallowing';
+        $this->provider([$bad]);
+        $this->postJson($url)->assertStatus(502);
+        $this->getJson($url)->assertJsonPath('meta.budget.remaining', 3);
+        $bad['signs'] = 'Difficulty swallowing';
         $this->provider([$bad]);
         $this->postJson($url)->assertStatus(502);
         $this->getJson($url)->assertJsonPath('meta.budget.remaining', 3);
@@ -181,6 +184,29 @@ class ContextualPesDraftTest extends TestCase
         $evidence = app(PesEvidenceBuilder::class)->build($record);
         $candidates = app(PesEligibilityService::class)->eligible($evidence);
         $this->assertNotContains('knowledge_deficit_v2', array_column($candidates, 'candidate_id'));
+    }
+
+    public function test_evidence_excerpts_come_from_the_assessment_instead_of_model_quoting(): void
+    {
+        $record = $this->knowledgeRecord();
+        $draft = $this->knowledgeDraft();
+        unset($draft['evidence_quotes']);
+        $this->provider([$draft]);
+        $result = $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk();
+        $this->assertSame('Cannot identify carbohydrate foods.', $result->json('data.0.evidence_refs.0.quote'));
+        $this->assertSame(hash('sha256', json_encode('Cannot identify carbohydrate foods.')), $result->json('data.0.evidence_refs.0.value_hash'));
+    }
+
+    public function test_an_invalid_source_is_withheld_without_discarding_an_independently_supported_draft(): void
+    {
+        $record = $this->knowledgeRecord();
+        $bad = $this->knowledgeDraft();
+        $bad['candidate_id'] = 'food_insecurity_v2';
+        $bad['problem_key'] = 'Food Insecurity';
+        $bad['source_id'] = 'invented-source';
+        $this->provider([$this->knowledgeDraft(), $bad]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.candidate_id', 'knowledge_deficit_v2');
     }
 
     public function test_overlong_optional_reasoning_does_not_discard_a_supported_draft(): void

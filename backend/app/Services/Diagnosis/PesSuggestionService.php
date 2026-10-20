@@ -265,139 +265,129 @@ class PesSuggestionService
         $seen = [];
         $problems = $this->eligibility->canonicalProblems($evidence['existing_problem_keys'] ?? []);
         $validated = [];
-        $textError = null;
+        $draftError = null;
         foreach ($raw as $draft) {
-            if (! is_array($draft)) {
-                throw new \RuntimeException('The AI returned an unexpected diagnosis shape.');
-            }
-            $id = $draft['candidate_id'] ?? null;
-            if (! is_string($id) || isset($seen[$id]) || ! $byId->has($id)) {
-                throw new \RuntimeException('The AI returned an unsupported or duplicate PES draft.');
-            }
-            $candidate = $byId[$id];
-            if (($draft['domain'] ?? null) !== $candidate['domain'] || ($draft['source_id'] ?? null) !== $candidate['source']['id']) {
-                throw new \RuntimeException('The AI returned an unsupported PES domain or source.');
-            }
             try {
+                if (! is_array($draft)) {
+                    throw new \RuntimeException('The AI returned an unexpected diagnosis shape.');
+                }
+                $id = $draft['candidate_id'] ?? null;
+                if (! is_string($id) || isset($seen[$id]) || ! $byId->has($id)) {
+                    throw new \RuntimeException('The AI returned an unsupported or duplicate PES draft.');
+                }
+                $candidate = $byId[$id];
+                if (($draft['domain'] ?? null) !== $candidate['domain'] || ($draft['source_id'] ?? null) !== $candidate['source']['id']) {
+                    throw new \RuntimeException('The AI returned an unsupported PES domain or source.');
+                }
                 $label = $candidate['problem_key'] === 'Other' ? $this->component($draft['problem_key'] ?? null, 75) : $candidate['problem_key'];
-            } catch (\RuntimeException $error) {
-                $textError = $error;
-
-                continue;
-            }
-            if ($candidate['problem_key'] !== 'Other' && ($draft['problem_key'] ?? null) !== $label) {
-                throw new \RuntimeException('The AI changed a supplied nutrition problem.');
-            }
-            $canonical = $this->eligibility->canonicalProblem($label);
-            foreach (DiagnosisBuilder::options() as $optionDomain => $optionGroups) {
-                if ($optionDomain !== $candidate['domain'] && in_array($label, $optionGroups['problems'], true)) {
-                    throw new \RuntimeException('The AI assigned a known problem to the wrong diagnostic domain.');
+                if ($candidate['problem_key'] !== 'Other' && ($draft['problem_key'] ?? null) !== $label) {
+                    throw new \RuntimeException('The AI changed a supplied nutrition problem.');
                 }
-            }
-            if ($canonical === 'overweight obesity' && ! collect($eligible)->contains('candidate_id', 'overweight_obesity_v1')) {
-                throw new \RuntimeException('Adult BMI classification is not supported for this Assessment context.');
-            }
-            if ($candidate['domain'] === 'NI' && (! preg_match('/^(Inadequate|Excessive) (.{1,50}) Intake$/u', $label))) {
-                throw new \RuntimeException('Use the supported intake direction and nutrient format.');
-            }
-            if (preg_match('/^(diabetes(?: mellitus)?|hypertension|cancer|chronic kidney disease|heart failure)$/i', $label)) {
-                throw new \RuntimeException('Medical diagnoses cannot replace nutrition problems.');
-            }
-            if (in_array($canonical, $problems, true)) {
-                continue;
-            }
-            $keys = $draft['evidence_used'] ?? null;
-            if (! is_array($keys) || $keys === [] || count($keys) > 8 || ! is_array($draft['evidence_quotes'] ?? null)) {
-                throw new \RuntimeException('The AI returned a PES draft without bounded evidence.');
-            }
-            $refs = [];
-            foreach ($keys as $key) {
-                if (! is_string($key) || ! array_key_exists($key, $evidence) || in_array($key, ['existing_problem_keys', 'rnd_summary'], true)) {
-                    throw new \RuntimeException('The AI returned evidence that was not supplied.');
-                }
-                $value = $evidence[$key];
-                $quote = $draft['evidence_quotes'][$key] ?? null;
-                $serialized = is_array($value) ? json_encode($value, JSON_UNESCAPED_UNICODE) : (string) $value;
-                if (! is_string($quote) || trim($quote) === '' || mb_strlen($quote) > 180 || ! str_contains(mb_strtolower($serialized), mb_strtolower($quote))) {
-                    throw new \RuntimeException('The AI returned an evidence excerpt not present in the Assessment.');
-                }
-                $refs[] = ['key' => $key, 'value_hash' => hash('sha256', json_encode($value)), 'quote' => $quote];
-            }
-            $roles = [];
-            foreach (['etiology_evidence', 'signs_evidence'] as $role) {
-                $roleKeys = $draft[$role] ?? null;
-                if (! is_array($roleKeys) || $roleKeys === [] || count($roleKeys) > 8 || count(array_filter($roleKeys, 'is_string')) !== count($roleKeys) || array_diff($roleKeys, $keys) !== []) {
-                    throw new \RuntimeException('The AI did not ground both the cause and signs in supplied evidence.');
-                }
-                $roles[$role] = $roleKeys;
-            }
-            $causes = array_filter($roles['etiology_evidence'], fn ($key): bool => $this->eligibility->hasConcern($evidence[$key])
-                && $this->eligibility->hasConcern($draft['evidence_quotes'][$key])
-                && in_array($key, ['appetite', 'dietary_intake', 'present_diet', 'knowledge_notes', 'lifestyle', 'social_history', 'medical_history', 'physical_assessment', 'body_composition', 'food_intolerance', 'nutrient_drug_interaction', 'dietary_restrictions', 'supplements', 'chewing_swallowing_difficulties', 'gi_symptoms', 'energy_intake_status'], true)
-            );
-            if ($causes === []) {
-                throw new \RuntimeException('The AI inferred a cause without a documented concern.');
-            }
-            $signConcerns = array_filter($roles['signs_evidence'], function ($key) use ($evidence, $draft): bool {
-                return match ($key) {
-                    'bmi' => in_array($evidence['age_group'] ?? null, ['adult', 'elderly'], true)
-                        && (($evidence['bmi'] ?? 0) >= 25 || (($evidence['bmi'] ?? 0) > 0 && $evidence['bmi'] < (($evidence['age_70_plus'] ?? false) ? 20 : 18.5))),
-                    'weight_loss_percentage', 'weight_change_percentage' => ($evidence['weight_change_direction'] ?? 'unknown') === 'loss' && ($evidence[$key] ?? 0) > 0,
-                    'laboratory_flags' => ! empty($evidence[$key]),
-                    'age_group', 'age_70_plus', 'sex', 'weight_kg', 'usual_weight_kg', 'height_cm', 'weight_change_direction', 'weight_change_period', 'pregnancy_lactation_status', 'physical_activity_level', 'functional_assessment', 'medication_count', 'laboratory_values', 'nutritional_status', 'ibw_percentage', 'muac_mm', 'waist_cm', 'hip_cm' => false,
-                    default => $this->eligibility->hasConcern($evidence[$key]) && $this->eligibility->hasConcern($draft['evidence_quotes'][$key]),
-                };
-            });
-            if ($signConcerns === []) {
-                throw new \RuntimeException('The AI used only normal or contextual values as proof of a problem.');
-            }
-            try {
-                $etiology = $this->component($draft['etiology'] ?? null, 75);
-                $signs = $this->component($draft['signs'] ?? null, 75);
-            } catch (\RuntimeException $error) {
-                $textError = $error;
-
-                continue;
-            }
-            if (! $this->groundedWording($etiology, $roles['etiology_evidence'], $evidence)
-                || ! $this->groundedWording($signs, $roles['signs_evidence'], $evidence)) {
-                throw new \RuntimeException('The AI wording adds claims not supported by its cited findings.');
-            }
-            $notes = [];
-            foreach (['extra_notes', 'etiology_notes', 'sign_notes'] as $field) {
-                $notes[$field] = $this->component($draft[$field] ?? '', 100, true);
-            }
-            foreach ([$label, $etiology, $signs] as $wording) {
-                preg_match_all('/\d+(?:\.\d+)?/', $wording, $numbers);
-                foreach ($numbers[0] as $number) {
-                    if (! preg_match('/(?<!\d)'.preg_quote($number, '/').'(?!\d)/', json_encode(array_intersect_key($evidence, array_fill_keys($keys, true))))) {
-                        throw new \RuntimeException('The AI added a measurement or threshold not present in its evidence.');
+                $canonical = $this->eligibility->canonicalProblem($label);
+                foreach (DiagnosisBuilder::options() as $optionDomain => $optionGroups) {
+                    if ($optionDomain !== $candidate['domain'] && in_array($label, $optionGroups['problems'], true)) {
+                        throw new \RuntimeException('The AI assigned a known problem to the wrong diagnostic domain.');
                     }
                 }
+                if ($canonical === 'overweight obesity' && ! collect($eligible)->contains('candidate_id', 'overweight_obesity_v1')) {
+                    throw new \RuntimeException('Adult BMI classification is not supported for this Assessment context.');
+                }
+                if ($candidate['domain'] === 'NI' && (! preg_match('/^(Inadequate|Excessive) (.{1,50}) Intake$/u', $label))) {
+                    throw new \RuntimeException('Use the supported intake direction and nutrient format.');
+                }
+                if (preg_match('/^(diabetes(?: mellitus)?|hypertension|cancer|chronic kidney disease|heart failure)$/i', $label)) {
+                    throw new \RuntimeException('Medical diagnoses cannot replace nutrition problems.');
+                }
+                if (in_array($canonical, $problems, true)) {
+                    continue;
+                }
+                $keys = $draft['evidence_used'] ?? null;
+                if (! is_array($keys) || $keys === [] || count($keys) > 8) {
+                    throw new \RuntimeException('The AI returned a PES draft without bounded evidence.');
+                }
+                $refs = [];
+                foreach ($keys as $key) {
+                    if (! is_string($key) || ! array_key_exists($key, $evidence) || in_array($key, ['existing_problem_keys', 'rnd_summary'], true)) {
+                        throw new \RuntimeException('The AI returned evidence that was not supplied.');
+                    }
+                    $value = $evidence[$key];
+                    $serialized = is_array($value) ? json_encode($value, JSON_UNESCAPED_UNICODE) : (string) $value;
+                    $refs[] = ['key' => $key, 'value_hash' => hash('sha256', json_encode($value)), 'quote' => mb_substr($serialized, 0, 600)];
+                }
+                $roles = [];
+                foreach (['etiology_evidence', 'signs_evidence'] as $role) {
+                    $roleKeys = $draft[$role] ?? null;
+                    if (! is_array($roleKeys) || $roleKeys === [] || count($roleKeys) > 8 || count(array_filter($roleKeys, 'is_string')) !== count($roleKeys) || array_diff($roleKeys, $keys) !== []) {
+                        throw new \RuntimeException('The AI did not ground both the cause and signs in supplied evidence.');
+                    }
+                    $roles[$role] = $roleKeys;
+                }
+                $causes = array_filter($roles['etiology_evidence'], fn ($key): bool => $this->eligibility->hasConcern($evidence[$key])
+                    && in_array($key, ['appetite', 'dietary_intake', 'present_diet', 'knowledge_notes', 'lifestyle', 'social_history', 'medical_history', 'physical_assessment', 'body_composition', 'food_intolerance', 'nutrient_drug_interaction', 'dietary_restrictions', 'supplements', 'chewing_swallowing_difficulties', 'gi_symptoms', 'energy_intake_status'], true)
+                );
+                if ($causes === []) {
+                    throw new \RuntimeException('The AI inferred a cause without a documented concern.');
+                }
+                $signConcerns = array_filter($roles['signs_evidence'], function ($key) use ($evidence): bool {
+                    return match ($key) {
+                        'bmi' => in_array($evidence['age_group'] ?? null, ['adult', 'elderly'], true)
+                            && (($evidence['bmi'] ?? 0) >= 25 || (($evidence['bmi'] ?? 0) > 0 && $evidence['bmi'] < (($evidence['age_70_plus'] ?? false) ? 20 : 18.5))),
+                        'weight_loss_percentage', 'weight_change_percentage' => ($evidence['weight_change_direction'] ?? 'unknown') === 'loss' && ($evidence[$key] ?? 0) > 0,
+                        'laboratory_flags' => ! empty($evidence[$key]),
+                        'age_group', 'age_70_plus', 'sex', 'weight_kg', 'usual_weight_kg', 'height_cm', 'weight_change_direction', 'weight_change_period', 'pregnancy_lactation_status', 'physical_activity_level', 'functional_assessment', 'medication_count', 'laboratory_values', 'nutritional_status', 'ibw_percentage', 'muac_mm', 'waist_cm', 'hip_cm' => false,
+                        default => $this->eligibility->hasConcern($evidence[$key]),
+                    };
+                });
+                if ($signConcerns === []) {
+                    throw new \RuntimeException('The AI used only normal or contextual values as proof of a problem.');
+                }
+                $etiology = $this->component($draft['etiology'] ?? null, 75);
+                $signs = $this->component($draft['signs'] ?? null, 75);
+                if (! $this->eligibility->hasConcern($etiology) || ! $this->eligibility->hasConcern($signs)) {
+                    throw new \RuntimeException('Normal or denied findings cannot establish a cause or signs.');
+                }
+                if (! $this->groundedWording($etiology, $roles['etiology_evidence'], $evidence)
+                    || ! $this->groundedWording($signs, $roles['signs_evidence'], $evidence)) {
+                    throw new \RuntimeException('The AI wording adds claims not supported by its cited findings.');
+                }
+                $notes = [];
+                foreach (['extra_notes', 'etiology_notes', 'sign_notes'] as $field) {
+                    $notes[$field] = $this->component($draft[$field] ?? '', 100, true);
+                }
+                foreach ([$label, $etiology, $signs] as $wording) {
+                    preg_match_all('/\d+(?:\.\d+)?/', $wording, $numbers);
+                    foreach ($numbers[0] as $number) {
+                        if (! preg_match('/(?<!\d)'.preg_quote($number, '/').'(?!\d)/', json_encode(array_intersect_key($evidence, array_fill_keys($keys, true))))) {
+                            throw new \RuntimeException('The AI added a measurement or threshold not present in its evidence.');
+                        }
+                    }
+                }
+                if (str_contains($canonical, 'weight loss') && ($evidence['weight_change_direction'] ?? 'unknown') !== 'loss') {
+                    throw new \RuntimeException('Weight gain or unknown direction cannot support unintended weight loss.');
+                }
+                if (str_contains($canonical, 'weight loss') && ! $this->affirmativeFinding(array_intersect_key($evidence, array_fill_keys($keys, true)), '/\b(unintentional|unintended|non.?volitional|without trying|not intentional)\b/i')) {
+                    throw new \RuntimeException('Unintended weight loss requires documentation of intentionality.');
+                }
+                if (preg_match('/\b(malnutrition|undernutrition)\b/', $canonical) && ! $this->supportsMalnutrition($evidence, $roles)) {
+                    throw new \RuntimeException('Malnutrition requires independently supported clinical criteria.');
+                }
+                $seen[$id] = true;
+                $problems[] = $canonical;
+                $builder = DiagnosisBuilder::fromDraft($candidate['domain'], $label, $etiology, $signs, $notes);
+                $validated[] = [
+                    'draft_id' => (string) Str::uuid(), 'candidate_id' => $id, 'domain' => $candidate['domain'],
+                    'label' => $label, 'etiology' => $etiology, 'signs' => $signs,
+                    'builder_data' => $builder, ...$notes, 'evidence_refs' => $refs,
+                    'context_hash' => $this->contextHash($id, $evidence, array_column($refs, 'key')),
+                    'evidence_used' => array_map(fn ($key) => $this->formatEvidence($key, $evidence[$key]), array_values(array_unique($keys))),
+                    'source' => $candidate['source'],
+                ];
+            } catch (\RuntimeException $error) {
+                $draftError = $error;
             }
-            if (str_contains($canonical, 'weight loss') && ($evidence['weight_change_direction'] ?? 'unknown') !== 'loss') {
-                throw new \RuntimeException('Weight gain or unknown direction cannot support unintended weight loss.');
-            }
-            if (str_contains($canonical, 'weight loss') && ! $this->affirmativeFinding(array_intersect_key($evidence, array_fill_keys($keys, true)), '/\b(unintentional|unintended|non.?volitional|without trying|not intentional)\b/i')) {
-                throw new \RuntimeException('Unintended weight loss requires documentation of intentionality.');
-            }
-            if (preg_match('/\b(malnutrition|undernutrition)\b/', $canonical) && ! $this->supportsMalnutrition($evidence, $roles)) {
-                throw new \RuntimeException('Malnutrition requires independently supported clinical criteria.');
-            }
-            $seen[$id] = true;
-            $problems[] = $canonical;
-            $builder = DiagnosisBuilder::fromDraft($candidate['domain'], $label, $etiology, $signs, $notes);
-            $validated[] = [
-                'draft_id' => (string) Str::uuid(), 'candidate_id' => $id, 'domain' => $candidate['domain'],
-                'label' => $label, 'etiology' => $etiology, 'signs' => $signs,
-                'builder_data' => $builder, ...$notes, 'evidence_refs' => $refs,
-                'context_hash' => $this->contextHash($id, $evidence, array_column($refs, 'key')),
-                'evidence_used' => array_map(fn ($key) => $this->formatEvidence($key, $evidence[$key]), array_values(array_unique($keys))),
-                'source' => $candidate['source'],
-            ];
         }
-        if ($validated === [] && $textError !== null) {
-            throw $textError;
+        if ($validated === [] && $draftError !== null) {
+            throw $draftError;
         }
         $balanced = [];
         foreach (['NI', 'NC', 'NB'] as $domain) {
@@ -477,16 +467,31 @@ class PesSuggestionService
             preg_match_all('/[\p{L}]+/u', $text, $words);
             $stop = ['a', 'an', 'the', 'of', 'and', 'or', 'to', 'for', 'from', 'with', 'by', 'in', 'over', 'as', 'at', 'related', 'due', 'documented', 'reported', 'reports', 'noted', 'estimated'];
 
-            return array_values(array_unique(array_diff(array_map(static fn ($word) => rtrim($word, 's'), $words[0]), $stop)));
+            return array_values(array_unique(array_diff(array_map(static fn ($word) => $word === 'difficulties' ? 'difficulty' : rtrim($word, 's'), $words[0]), $stop)));
         };
         $source = [];
         foreach ($keys as $key) {
-            $source[$key] = $evidence[$key];
+            $source[$key] = $this->concernEvidence($evidence[$key]);
         }
         $words = $normalize($wording);
         $supported = $normalize(json_encode($source, JSON_UNESCAPED_UNICODE));
 
-        return $words !== [] && count(array_intersect($words, $supported)) / count($words) >= 0.67;
+        return $words !== [] && count(array_intersect($words, $supported)) / count($words) >= 2 / 3;
+    }
+
+    private function concernEvidence(mixed $value): mixed
+    {
+        if (is_array($value)) {
+            return array_map(fn ($item) => $this->concernEvidence($item), $value);
+        }
+        if (! is_string($value)) {
+            return $value;
+        }
+
+        return implode('; ', array_filter(
+            preg_split('/(?<=[.!?;])(?:\s+|$)|\s+-\s+/u', $value),
+            fn ($sentence) => $this->eligibility->hasConcern($sentence),
+        ));
     }
 
     private function formatEvidence(string $key, mixed $value): string

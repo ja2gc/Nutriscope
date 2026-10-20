@@ -63,14 +63,14 @@ class PesEligibilityService
         if (! is_string($value) || trim($value) === '') {
             return false;
         }
-        $text = mb_strtolower(trim($value));
+        $text = mb_strtolower(trim((string) preg_replace('/^[\s•*-]+/u', '', $value)));
         if (preg_match('/^[+-]?\d+(?:\.\d+)?\s*(?:%|kg|g|mg|cm|mm|ml|l|kcal)?$/', $text)) {
             return false;
         }
         if (preg_match('/^(no|none|n\/a|na|normal|resolved|adequate|sufficient|regular|no change|independent|ambulatory|\[redacted\])\.?$/', $text)) {
             return false;
         }
-        if (preg_match('/^(understands|demonstrates understanding|adequate knowledge|normal (intake|exam|assessment|findings)|no (concerns|barriers|symptoms|difficulty|constipation|diarrhea)|(?:patient )?denies (chewing|swallowing|constipation|diarrhea|weight loss)|(?:possible|suspected|historical|resolved|family history of)\b)[^;]*$/', $text) && ! preg_match('/\b(but|however|except)\b/', $text)) {
+        if (preg_match('/^(understands|demonstrates understanding|(?:normal|adequate|sufficient)\b|no (?:(?:current|known|diagnosed|documented) )?(?:concerns|barriers|symptoms|signs|evidence|difficulty|dysphagia|constipation|diarrhea|vomiting|edema|muscle wasting|chronic illness|disease|medical conditions)|(?:patient )?denies\b|(?:possible|suspected|historical|resolved|family history of)\b)[^;]*$/', $text) && ! preg_match('/\b(but|however|except)\b/', $text)) {
             return false;
         }
 
