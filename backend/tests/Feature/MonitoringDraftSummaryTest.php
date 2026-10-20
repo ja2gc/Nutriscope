@@ -66,10 +66,13 @@ class MonitoringDraftSummaryTest extends TestCase
     {
         [$ncp, $url, $draft] = $this->context();
         $this->postJson($url, $draft)->assertOk();
-        Http::assertSent(fn ($request) => str_contains($request['system'], 'Write two sentences')
-            && str_contains($request['system'], 'Use at most 60 words')
-            && str_contains($request['system'], 'Do not add a closing recommendation')
-            && str_contains($request['system'], 'Do not repeat a value for each indicator'));
+        Http::assertSent(fn ($request) => str_starts_with($request['system'], '# CONSTRAINTS & LOGIC')
+            && strlen($request['system']) <= 1200
+            && str_contains($request['system'], '2 sentences; <=60 words')
+            && str_contains($request['system'], 'No recommendations')
+            && str_contains($request['system'], 'No per-indicator value lists')
+            && str_contains($request['system'], 'No target: normality/goal attainment unknown')
+            && str_contains($request['system'], 'Overshoot != improvement'));
     }
 
     public function test_three_generations_are_shared_across_refreshes_and_changed_values(): void

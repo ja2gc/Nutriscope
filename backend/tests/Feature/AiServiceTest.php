@@ -80,7 +80,7 @@ class AiServiceTest extends TestCase
         app(AIService::class)->draftPes($this->boundedPayload());
     }
 
-    public function test_pes_draft_instruction_is_compact_yaml_with_json_data_and_output_contract(): void
+    public function test_pes_draft_instruction_is_compact_with_native_json_contract(): void
     {
         Http::fake(['api.anthropic.com/*' => Http::response([
             'content' => [['type' => 'text', 'text' => json_encode($this->providerSuggestions())]],
@@ -94,12 +94,26 @@ class AiServiceTest extends TestCase
             $system = $body['system'] ?? '';
             $prompt = $body['messages'][0]['content'] ?? '';
 
-            $this->assertStringStartsWith('task:', $system);
-            $this->assertStringContainsString("rules:\n", $system);
+            $this->assertStringStartsWith('# CONSTRAINTS & LOGIC', $system);
+            $this->assertStringContainsString('# STRUCTURE & DOMAINS', $system);
+            $this->assertStringContainsString('# CITATION & SYNTAX', $system);
             $this->assertStringContainsString("input_json:\n", $prompt);
-            $this->assertStringContainsString("output_json_schema:\n", $prompt);
-            $this->assertLessThanOrEqual(4500, strlen($system.$prompt));
-            $this->assertStringContainsString('Interpret current findings and counterevidence', $system);
+            $this->assertStringNotContainsString('output_json_schema:', $prompt);
+            $this->assertLessThanOrEqual(2000, strlen($system));
+            $this->assertLessThanOrEqual(1000, $body['max_tokens']);
+            $this->assertStringContainsString('counterevidence', $system);
+            $this->assertSame('json_schema', $body['output_config']['format']['type'] ?? null);
+            $schema = $body['output_config']['format']['schema'];
+            $draft = $schema['properties']['suggestions']['items'];
+            $this->assertFalse($draft['additionalProperties']);
+            $this->assertSame('^.{1,75}$', $draft['properties']['e']['pattern']);
+            $this->assertSame('^.{1,75}$', $draft['properties']['s']['pattern']);
+            $this->assertSame('^.{0,100}$', $draft['properties']['n']['pattern']);
+            $this->assertSame(1, preg_match('/'.$draft['properties']['e']['pattern'].'/u', str_repeat('a', 75)));
+            $this->assertSame(0, preg_match('/'.$draft['properties']['e']['pattern'].'/u', str_repeat('a', 76)));
+            $this->assertSame(0, preg_match('/'.$draft['properties']['n']['pattern'].'/u', str_repeat('a', 101)));
+            $this->assertSame(['id', 'e', 'ek', 's', 'sk'], $draft['required']);
+            $this->assertArrayNotHasKey('source_id', $draft['properties']);
 
             return true;
         });

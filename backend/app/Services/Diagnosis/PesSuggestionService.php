@@ -59,21 +59,13 @@ class PesSuggestionService
                     ...array_column($this->activeDrafts($ncpRecord, $evidence), 'label'),
                 ]));
                 $providerEvidence = $evidence;
-                unset($providerEvidence['existing_problem_keys']);
-                $domains = array_unique(array_column($eligible, 'domain'));
-                $options = array_intersect_key(DiagnosisBuilder::options(), array_fill_keys($domains, true));
-                foreach ($options as &$domainOptions) {
-                    unset($domainOptions['problems']);
-                }
-                unset($domainOptions);
+                unset($providerEvidence['existing_problem_keys'], $providerEvidence['rnd_summary']);
                 $raw = $this->aiService->draftPes([
-                    'catalog_version' => $this->catalog->version(),
                     'evidence' => $providerEvidence,
                     'existing_problems' => $reviewEvidence['existing_problem_keys'],
                     'candidates' => array_map(static fn (array $item): array => [
-                        'id' => $item['candidate_id'], 'd' => $item['domain'], 'p' => $item['problem_key'], 's' => $item['source']['id'],
+                        'id' => $item['candidate_id'], 'd' => $item['domain'], 'p' => $item['problem_key'],
                     ], $eligible),
-                    'options' => $options,
                 ]);
                 $validated = $this->validateProviderResponse($raw, $eligible, $reviewEvidence);
                 $previous = $state?->validated_response ?? [];
@@ -271,11 +263,28 @@ class PesSuggestionService
                 if (! is_array($draft)) {
                     throw new \RuntimeException('The AI returned an unexpected diagnosis shape.');
                 }
-                $id = $draft['candidate_id'] ?? null;
+                $id = $draft['candidate_id'] ?? $draft['id'] ?? null;
                 if (! is_string($id) || isset($seen[$id]) || ! $byId->has($id)) {
                     throw new \RuntimeException('The AI returned an unsupported or duplicate PES draft.');
                 }
                 $candidate = $byId[$id];
+                if (array_key_exists('id', $draft)) {
+                    foreach (['e', 's'] as $role) {
+                        $keys = $draft[$role.'k'] ?? null;
+                        if (! is_string($draft[$role] ?? null) || ! is_array($keys)
+                            || count(array_filter($keys, 'is_string')) !== count($keys)) {
+                            throw new \RuntimeException('The AI did not ground both the cause and signs in supplied evidence.');
+                        }
+                    }
+                    $draft = [
+                        'candidate_id' => $id, 'domain' => $candidate['domain'], 'source_id' => $candidate['source']['id'],
+                        'problem_key' => $candidate['problem_key'] === 'Other' ? ($draft['p'] ?? null) : $candidate['problem_key'],
+                        'etiology' => $draft['e'], 'signs' => $draft['s'],
+                        'etiology_evidence' => $draft['ek'], 'signs_evidence' => $draft['sk'],
+                        'evidence_used' => array_values(array_unique([...$draft['ek'], ...$draft['sk']])),
+                        'extra_notes' => $draft['n'] ?? '', 'etiology_notes' => '', 'sign_notes' => '',
+                    ];
+                }
                 if (($draft['domain'] ?? null) !== $candidate['domain'] || ($draft['source_id'] ?? null) !== $candidate['source']['id']) {
                     throw new \RuntimeException('The AI returned an unsupported PES domain or source.');
                 }
