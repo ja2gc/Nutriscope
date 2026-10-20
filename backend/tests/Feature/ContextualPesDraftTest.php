@@ -183,6 +183,36 @@ class ContextualPesDraftTest extends TestCase
         $this->assertNotContains('knowledge_deficit_v2', array_column($candidates, 'candidate_id'));
     }
 
+    public function test_overlong_optional_reasoning_does_not_discard_a_supported_draft(): void
+    {
+        $record = $this->knowledgeRecord();
+        $draft = $this->knowledgeDraft();
+        $draft['extra_notes'] = str_repeat('Documented evidence. ', 8);
+        $this->provider([$draft]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.extra_notes', '');
+    }
+
+    public function test_a_component_over_75_does_not_discard_valid_drafts_or_mark_unreturned_problems_reviewed(): void
+    {
+        $record = $this->knowledgeRecord();
+        $record->assessment()->update(['social_history' => 'Limited access to nutrition education. Limited food budget; misses dinner twice weekly and skips lunch on several working days.']);
+        $long = [
+            'candidate_id' => 'food_insecurity_v2', 'domain' => 'NB', 'problem_key' => 'Food Insecurity',
+            'etiology' => 'Limited food budget',
+            'signs' => 'Misses dinner twice weekly and skips lunch on several working days due to limited food budget',
+            'evidence_used' => ['social_history'],
+            'evidence_quotes' => ['social_history' => 'Limited food budget; misses dinner twice weekly and skips lunch on several working days'],
+            'etiology_evidence' => ['social_history'], 'signs_evidence' => ['social_history'], 'source_id' => 'academy_ncp_diagnosis_2026',
+        ];
+        $this->provider([$this->knowledgeDraft(), $long]);
+        $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest";
+        $this->postJson($url)->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('meta.budget.used', 1)->assertJsonPath('meta.can_generate', true);
+        $long['signs'] = 'Misses dinner twice weekly; skips lunch on working days';
+        $this->provider([$long]);
+        $this->postJson($url)->assertOk()->assertJsonCount(2, 'data')->assertJsonPath('meta.budget.used', 2);
+    }
+
     public function test_pending_and_dismissed_findings_survive_unrelated_assessment_edits(): void
     {
         $record = $this->knowledgeRecord();

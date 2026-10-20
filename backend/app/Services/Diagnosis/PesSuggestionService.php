@@ -78,7 +78,8 @@ class PesSuggestionService
                 $validated = $this->validateProviderResponse($raw, $eligible, $reviewEvidence);
                 $previous = $state?->validated_response ?? [];
                 $reviewed = $state?->provider_metadata['reviewed_candidate_ids'] ?? [];
-                $newlyReviewed = count($validated) < 3 ? array_column($eligible, 'candidate_id') : array_column($validated, 'candidate_id');
+                $newlyReviewed = count($raw) < 3 && count($validated) === count($raw)
+                    ? array_column($eligible, 'candidate_id') : array_column($validated, 'candidate_id');
                 $reviewed = array_values(array_unique([
                     ...$reviewed,
                     ...$newlyReviewed,
@@ -264,6 +265,7 @@ class PesSuggestionService
         $seen = [];
         $problems = $this->eligibility->canonicalProblems($evidence['existing_problem_keys'] ?? []);
         $validated = [];
+        $textError = null;
         foreach ($raw as $draft) {
             if (! is_array($draft)) {
                 throw new \RuntimeException('The AI returned an unexpected diagnosis shape.');
@@ -276,7 +278,13 @@ class PesSuggestionService
             if (($draft['domain'] ?? null) !== $candidate['domain'] || ($draft['source_id'] ?? null) !== $candidate['source']['id']) {
                 throw new \RuntimeException('The AI returned an unsupported PES domain or source.');
             }
-            $label = $candidate['problem_key'] === 'Other' ? $this->component($draft['problem_key'] ?? null, 75) : $candidate['problem_key'];
+            try {
+                $label = $candidate['problem_key'] === 'Other' ? $this->component($draft['problem_key'] ?? null, 75) : $candidate['problem_key'];
+            } catch (\RuntimeException $error) {
+                $textError = $error;
+
+                continue;
+            }
             if ($candidate['problem_key'] !== 'Other' && ($draft['problem_key'] ?? null) !== $label) {
                 throw new \RuntimeException('The AI changed a supplied nutrition problem.');
             }
@@ -343,8 +351,14 @@ class PesSuggestionService
             if ($signConcerns === []) {
                 throw new \RuntimeException('The AI used only normal or contextual values as proof of a problem.');
             }
-            $etiology = $this->component($draft['etiology'] ?? null, 75);
-            $signs = $this->component($draft['signs'] ?? null, 75);
+            try {
+                $etiology = $this->component($draft['etiology'] ?? null, 75);
+                $signs = $this->component($draft['signs'] ?? null, 75);
+            } catch (\RuntimeException $error) {
+                $textError = $error;
+
+                continue;
+            }
             if (! $this->groundedWording($etiology, $roles['etiology_evidence'], $evidence)
                 || ! $this->groundedWording($signs, $roles['signs_evidence'], $evidence)) {
                 throw new \RuntimeException('The AI wording adds claims not supported by its cited findings.');
@@ -381,6 +395,9 @@ class PesSuggestionService
                 'evidence_used' => array_map(fn ($key) => $this->formatEvidence($key, $evidence[$key]), array_values(array_unique($keys))),
                 'source' => $candidate['source'],
             ];
+        }
+        if ($validated === [] && $textError !== null) {
+            throw $textError;
         }
         $balanced = [];
         foreach (['NI', 'NC', 'NB'] as $domain) {
@@ -440,6 +457,9 @@ class PesSuggestionService
             throw new \RuntimeException('The AI returned invalid diagnosis text.');
         }
         $text = trim((string) preg_replace('/\s+/', ' ', $value));
+        if ($optional && mb_strlen($text) > $limit) {
+            return '';
+        }
         if ((! $optional && $text === '') || mb_strlen($text) > $limit) {
             throw new \RuntimeException('The AI returned diagnosis text exceeding its field limit.');
         }
