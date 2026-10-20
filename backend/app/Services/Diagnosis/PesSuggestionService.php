@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class PesSuggestionService
@@ -58,16 +59,18 @@ class PesSuggestionService
                     ...($evidence['existing_problem_keys'] ?? []),
                     ...array_column($this->activeDrafts($ncpRecord, $evidence), 'label'),
                 ]));
-                $providerEvidence = $evidence;
-                unset($providerEvidence['existing_problem_keys'], $providerEvidence['rnd_summary']);
-                $raw = $this->aiService->draftPes([
-                    'evidence' => $providerEvidence,
-                    'existing_problems' => $reviewEvidence['existing_problem_keys'],
-                    'candidates' => array_map(static fn (array $item): array => [
-                        'id' => $item['candidate_id'], 'd' => $item['domain'], 'p' => $item['problem_key'],
-                    ], $eligible),
-                ]);
-                $validated = $this->validateProviderResponse($raw, $eligible, $reviewEvidence);
+                [$payload, $candidateRefs, $evidenceRefs] = $this->providerPayload($eligible, $reviewEvidence);
+                $result = $this->aiService->draftPes($payload);
+                $raw = $result['suggestions'];
+                $validated = [];
+                try {
+                    $validated = $this->validateProviderResponse($raw, $eligible, $reviewEvidence, $candidateRefs, $evidenceRefs);
+                } finally {
+                    Log::info('PES generation outcome', [
+                        ...$result['usage'], 'returned_drafts' => count($raw),
+                        'accepted_drafts' => count($validated), 'withheld_drafts' => count($raw) - count($validated),
+                    ]);
+                }
                 $previous = $state?->validated_response ?? [];
                 $reviewed = $state?->provider_metadata['reviewed_candidate_ids'] ?? [];
                 $newlyReviewed = count($raw) < 3 && count($validated) === count($raw)
@@ -248,7 +251,39 @@ class PesSuggestionService
         ]];
     }
 
-    private function validateProviderResponse(array $raw, array $eligible, array $evidence): array
+    /** Request-local aliases never enter stored drafts or clinical provenance. */
+    private function providerPayload(array $eligible, array $evidence): array
+    {
+        unset($evidence['rnd_summary']);
+        $existing = $evidence['existing_problem_keys'] ?? [];
+        unset($evidence['existing_problem_keys']);
+        if (! in_array('NC', array_column($eligible, 'domain'), true)) {
+            $required = [];
+            foreach ($eligible as $candidate) {
+                $required = [...$required, ...array_keys($candidate['evidence'])];
+            }
+            $measurements = ['nutritional_status', 'ibw_percentage', 'muac_mm', 'waist_cm', 'hip_cm', 'laboratory_values', 'laboratory_flags'];
+            foreach (array_diff($measurements, $required) as $key) {
+                unset($evidence[$key]);
+            }
+        }
+        $payload = ['evidence' => [], 'existing_problems' => $existing, 'candidates' => []];
+        $candidateRefs = $evidenceRefs = [];
+        foreach ($eligible as $candidate) {
+            $ref = 'c'.(count($candidateRefs) + 1);
+            $candidateRefs[$ref] = $candidate['candidate_id'];
+            $payload['candidates'][$ref] = [$candidate['domain'], $candidate['problem_key']];
+        }
+        foreach ($evidence as $key => $value) {
+            $ref = 'e'.(count($evidenceRefs) + 1);
+            $evidenceRefs[$ref] = $key;
+            $payload['evidence'][$ref] = [$key, $value];
+        }
+
+        return [$payload, $candidateRefs, $evidenceRefs];
+    }
+
+    private function validateProviderResponse(array $raw, array $eligible, array $evidence, array $candidateRefs, array $evidenceRefs): array
     {
         if (! array_is_list($raw) || count($raw) > 3) {
             throw new \RuntimeException('The AI returned too many PES drafts.');
@@ -263,7 +298,9 @@ class PesSuggestionService
                 if (! is_array($draft)) {
                     throw new \RuntimeException('The AI returned an unexpected diagnosis shape.');
                 }
-                $id = $draft['candidate_id'] ?? $draft['id'] ?? null;
+                $id = array_key_exists('id', $draft)
+                    ? (is_string($draft['id']) ? ($candidateRefs[$draft['id']] ?? null) : null)
+                    : ($draft['candidate_id'] ?? null);
                 if (! is_string($id) || isset($seen[$id]) || ! $byId->has($id)) {
                     throw new \RuntimeException('The AI returned an unsupported or duplicate PES draft.');
                 }
@@ -272,9 +309,11 @@ class PesSuggestionService
                     foreach (['e', 's'] as $role) {
                         $keys = $draft[$role.'k'] ?? null;
                         if (! is_string($draft[$role] ?? null) || ! is_array($keys)
-                            || count(array_filter($keys, 'is_string')) !== count($keys)) {
+                            || count(array_filter($keys, 'is_string')) !== count($keys)
+                            || array_diff($keys, array_keys($evidenceRefs)) !== []) {
                             throw new \RuntimeException('The AI did not ground both the cause and signs in supplied evidence.');
                         }
+                        $draft[$role.'k'] = array_map(fn ($key) => $evidenceRefs[$key], $keys);
                     }
                     $draft = [
                         'candidate_id' => $id, 'domain' => $candidate['domain'], 'source_id' => $candidate['source']['id'],
@@ -316,7 +355,7 @@ class PesSuggestionService
                 }
                 $refs = [];
                 foreach ($keys as $key) {
-                    if (! is_string($key) || ! array_key_exists($key, $evidence) || in_array($key, ['existing_problem_keys', 'rnd_summary'], true)) {
+                    if (! is_string($key) || ! in_array($key, $evidenceRefs, true) || ! array_key_exists($key, $evidence)) {
                         throw new \RuntimeException('The AI returned evidence that was not supplied.');
                     }
                     $value = $evidence[$key];

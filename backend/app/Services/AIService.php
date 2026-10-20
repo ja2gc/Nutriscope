@@ -12,7 +12,9 @@ use Illuminate\Support\Facades\Log;
 class AIService
 {
     /**
-     * Draft wording only for deterministic, source-gated PES candidates.
+     * Draft wording with provider usage for the supplied source-gated PES candidates.
+     *
+     * @return array{suggestions: array, usage: array{usage_log_id: int, input_tokens: int, output_tokens: int}}
      */
     public function draftPes(array $payload): array
     {
@@ -37,12 +39,12 @@ class AIService
 
 # STRUCTURE & DOMAINS
 - Selection: Avoid existing/equivalent problems. Prefer max 1 NI, 1 NC, 1 NB; never force domains or duplicate. Return 0..3 drafts.
-- Fields: id=candidate id. Only Other needs p (<=75 chars); NI uses Inadequate/Excessive [nutrient] Intake. Server supplies labels, domain, sources, excerpts, PES.
+- Fields: candidates={cN:[domain,problem]}; evidence={eN:[field,value]}. id=cN. Only Other needs p (<=75 chars); NI uses Inadequate/Excessive [nutrient] Intake. Server supplies labels, sources, excerpts, PES.
 - Optional n: Factual rationale, target 40..70 chars, HARD MAX 100. No hidden reasoning/treatment advice. Keep outside PES.
 
 # CITATION & SYNTAX
 - Quotes: Copy ONE source phrase into e (cause), s (sign). Target 25..50 chars, HARD MAX 75 each.
-- Keys: Cite 1..8 actual keys in ek/sk respectively. Preserve quantities, negation, context. Invent no cause, measurement, threshold.
+- Keys: Cite 1..8 supplied eN refs in ek/sk respectively. Preserve quantities, negation, context. Invent no cause, measurement, threshold.
 - Format: Output JSON object only.
 PROMPT;
             $userPrompt = "input_json:\n{$encoded}";
@@ -86,7 +88,7 @@ PROMPT;
                 $outputTokens = $body['usage']['output_tokens'] ?? 0;
                 $totalTokens = $inputTokens + $outputTokens;
 
-                AiUsageLog::create([
+                $usage = AiUsageLog::create([
                     'user_id' => auth()->id(),
                     'model' => $model,
                     'tokens_input' => $inputTokens,
@@ -116,7 +118,9 @@ PROMPT;
                     throw new \RuntimeException('The AI returned an unexpected PES response.');
                 }
 
-                return $decoded['suggestions'];
+                return ['suggestions' => $decoded['suggestions'], 'usage' => [
+                    'usage_log_id' => $usage->id, 'input_tokens' => $inputTokens, 'output_tokens' => $outputTokens,
+                ]];
             }
 
             Log::error('AIService API request failed', [

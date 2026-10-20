@@ -126,6 +126,29 @@ class MonitoringDraftSummaryTest extends TestCase
         $this->assertDatabaseCount('monitorings', 2);
     }
 
+    public function test_blank_visits_use_last_nonblank_field_then_assessment_or_unknown(): void
+    {
+        [$ncp, $url, $draft] = $this->context();
+        $ncp->assessment->biochemicalData->update(['sodium' => 140]);
+        Monitoring::create(['ncp_record_id' => $ncp->id, 'observed_at' => now()->subDays(3), 'lab_values' => ['albumin' => 2.9]]);
+        Monitoring::create(['ncp_record_id' => $ncp->id, 'observed_at' => now()->subDay(), 'lab_values' => []]);
+        $draft['entry_key'] = $this->getJson($url.'?draft_id='.$draft['draft_id'])->json('data.entry_key');
+        $draft['lab_values'] = ['albumin' => 3.1, 'sodium' => 142, 'micro_fiber' => 20, 'potassium' => null];
+        $this->postJson($url, $draft)->assertOk();
+        Http::assertSent(function ($request): bool {
+            $indicators = collect(json_decode($request['messages'][0]['content'], true)['indicators'])->keyBy('key');
+
+            return $indicators['albumin']['previous'] === 2.9
+                && $indicators['albumin']['previous_visit'] === 'Follow-up 1'
+                && $indicators['sodium']['previous'] === 140
+                && $indicators['sodium']['previous_visit'] === 'Visit 1'
+                && $indicators['micro_fiber']['previous'] === null
+                && $indicators['micro_fiber']['gap_before'] === null
+                && ! $indicators->has('potassium');
+        });
+        Http::assertSentCount(1);
+    }
+
     public function test_failed_generation_does_not_use_allowance_and_invalid_inputs_never_reach_ai(): void
     {
         [$ncp, $url, $draft] = $this->context(false);

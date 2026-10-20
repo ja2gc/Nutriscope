@@ -9,9 +9,11 @@ use App\Models\Patient;
 use App\Models\User;
 use App\Services\Diagnosis\PesEligibilityService;
 use App\Services\Diagnosis\PesEvidenceBuilder;
+use App\Services\Diagnosis\PesRuleCatalog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
 class ContextualPesDraftTest extends TestCase
@@ -153,7 +155,34 @@ class ContextualPesDraftTest extends TestCase
     private function provider(array $drafts): void
     {
         Http::swap(new Factory);
-        Http::fake(['api.anthropic.com/*' => Http::response(['content' => [['type' => 'text', 'text' => json_encode(['suggestions' => $drafts])]], 'usage' => ['input_tokens' => 100, 'output_tokens' => 100]])]);
+        Http::fake(['api.anthropic.com/*' => function ($request) use ($drafts) {
+            $payload = json_decode(substr($request['messages'][0]['content'], strlen("input_json:\n")), true);
+            $wireDrafts = array_map(function ($draft) use ($payload) {
+                if (! isset($draft['id'])) {
+                    return $draft;
+                }
+                $card = collect(app(PesRuleCatalog::class)->cards())->firstWhere('id', $draft['id']);
+                $alias = $card ? array_search([$card['domain'], $card['problem_key']], $payload['candidates'], true) : false;
+                if ($alias !== false) {
+                    $draft['id'] = $alias;
+                }
+                $keys = [];
+                foreach ($payload['evidence'] as $ref => $value) {
+                    if (is_array($value) && array_is_list($value) && count($value) === 2 && is_string($value[0])) {
+                        $keys[$value[0]] = $ref;
+                    }
+                }
+                foreach (['ek', 'sk'] as $role) {
+                    if (is_array($draft[$role] ?? null)) {
+                        $draft[$role] = array_map(fn ($key) => is_string($key) ? ($keys[$key] ?? $key) : $key, $draft[$role]);
+                    }
+                }
+
+                return $draft;
+            }, $drafts);
+
+            return Http::response(['content' => [['type' => 'text', 'text' => json_encode(['suggestions' => $wireDrafts])]], 'usage' => ['input_tokens' => 100, 'output_tokens' => 100]]);
+        }]);
     }
 
     private function knowledgeRecord(): NcpRecord
@@ -172,14 +201,33 @@ class ContextualPesDraftTest extends TestCase
         ]]);
         $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest";
         $draft = $this->postJson($url)->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.candidate_id', 'knowledge_deficit_v2')
             ->assertJsonPath('data.0.domain', 'NB')
             ->assertJsonPath('data.0.label', 'Food and Nutrition Knowledge Deficit')
             ->assertJsonPath('data.0.source.id', 'academy_ncp_diagnosis_2026')
             ->assertJsonPath('data.0.extra_notes', 'Knowledge gap and education barrier documented.')
             ->json('data.0');
+        $this->assertSame(['social_history', 'knowledge_notes'], array_column($draft['evidence_refs'], 'key'));
+        Http::assertSent(function ($request): bool {
+            $payload = json_decode(substr($request['messages'][0]['content'], strlen("input_json:\n")), true);
+            foreach ($payload['candidates'] as $ref => $candidate) {
+                $this->assertMatchesRegularExpression('/^c[1-9][0-9]*$/', $ref);
+                $this->assertCount(2, $candidate);
+            }
+            foreach ($payload['evidence'] as $ref => $field) {
+                $this->assertMatchesRegularExpression('/^e[1-9][0-9]*$/', $ref);
+                $this->assertCount(2, $field);
+            }
+
+            return true;
+        });
         $this->getJson($url)->assertOk()->assertJsonPath('data.0.draft_id', $draft['draft_id']);
         $this->postJson($url)->assertOk()->assertJsonPath('meta.budget.used', 1);
         Http::assertSentCount(1);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-approve", ['draft_id' => $draft['draft_id']])->assertCreated();
+        $provenance = Diagnosis::query()->sole()->ai_provenance;
+        $this->assertSame('knowledge_deficit_v2', $provenance['candidate_id']);
+        $this->assertSame(['social_history', 'knowledge_notes'], array_column($provenance['evidence_refs'], 'key'));
     }
 
     public function test_compact_output_still_rejects_malformed_references_and_invented_causes(): void
@@ -197,6 +245,8 @@ class ContextualPesDraftTest extends TestCase
             $this->getJson($url)->assertJsonPath('meta.budget.used', 0);
             Http::assertSentCount(1);
         }
+        $this->assertDatabaseCount('ai_usage_logs', 4);
+        $this->assertDatabaseHas('ai_usage_logs', ['tokens_input' => 100, 'tokens_output' => 100, 'tokens_total' => 200]);
     }
 
     public function test_compact_other_problem_maps_into_the_saved_builder(): void
@@ -210,6 +260,45 @@ class ContextualPesDraftTest extends TestCase
         $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()
             ->assertJsonPath('data.0.builder_data.problem_other', 'Nutrition education access difficulty')
             ->assertJsonPath('data.0.extra_notes', '');
+    }
+
+    public function test_behavioral_review_omits_unrelated_measurements_but_keeps_counterevidence(): void
+    {
+        $record = $this->knowledgeRecord();
+        $record->assessment()->update(['physical_assessment' => 'Normal dentition.', 'present_diet' => 'Adequate intake.', 'waist_cm' => 75]);
+        $record->assessment->biochemicalData()->create(['albumin' => 4.0, 'sodium' => 140]);
+        $this->provider([$this->knowledgeDraft()]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk();
+        Http::assertSent(function ($request): bool {
+            $payload = json_decode(substr($request['messages'][0]['content'], strlen("input_json:\n")), true);
+            $fields = array_column($payload['evidence'], 1, 0);
+            $this->assertArrayNotHasKey('laboratory_values', $fields);
+            $this->assertArrayNotHasKey('waist_cm', $fields);
+            $this->assertSame('Normal dentition.', $fields['physical_assessment']);
+            $this->assertSame('Adequate intake.', $fields['present_diet']);
+            $this->assertSame('stable', $fields['weight_change_direction']);
+            $this->assertArrayHasKey('pregnancy_lactation_status', $fields);
+
+            return true;
+        });
+    }
+
+    public function test_unknown_short_references_are_withheld_individually_and_usage_remains_counted(): void
+    {
+        $record = $this->knowledgeRecord();
+        Log::spy();
+        $valid = ['id' => 'knowledge_deficit_v2', 'e' => 'Limited access to nutrition education', 'ek' => ['social_history'],
+            's' => 'Cannot identify carbohydrate foods', 'sk' => ['knowledge_notes']];
+        $invalid = array_replace($valid, ['id' => 'food_insecurity_v2', 'sk' => ['e999']]);
+        $this->provider([$invalid, $valid]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()
+            ->assertJsonCount(1, 'data')->assertJsonPath('data.0.candidate_id', 'knowledge_deficit_v2');
+        $this->assertDatabaseHas('ai_usage_logs', ['endpoint' => 'diagnosis_suggestion', 'tokens_input' => 100, 'tokens_output' => 100]);
+        Log::shouldHaveReceived('info')->once()->with('PES generation outcome', \Mockery::on(fn ($data) => $data['input_tokens'] === 100 && $data['output_tokens'] === 100
+            && $data['returned_drafts'] === 2 && $data['accepted_drafts'] === 1 && $data['withheld_drafts'] === 1
+            && isset($data['usage_log_id']) && ! str_contains(json_encode($data), 'Cannot identify')
+        ));
+        Http::assertSentCount(1);
     }
 
     public function test_provider_input_is_compact_without_editor_options_or_repeated_source_metadata(): void
@@ -228,11 +317,13 @@ class ContextualPesDraftTest extends TestCase
             $prompt = $body['messages'][0]['content'];
             $payload = json_decode(explode("\noutput_json_schema:", substr($prompt, strlen("input_json:\n")))[0], true);
             $inputCharacters = strlen($body['system'].$prompt.json_encode($body['output_config']['format']['schema'] ?? []));
-            $this->assertLessThanOrEqual(6000, $inputCharacters, 'Representative all-domain input must remain compact.');
+            $this->assertLessThanOrEqual(4800, $inputCharacters, 'Representative all-domain input must remain compact.');
             $this->assertArrayNotHasKey('options', $payload);
             $this->assertArrayNotHasKey('catalog_version', $payload);
-            $this->assertArrayHasKey('medical_history', $payload['evidence']);
-            $this->assertSame('stable', $payload['evidence']['weight_change_direction']);
+            $fields = array_column($payload['evidence'], 1, 0);
+            $this->assertSame('Intentional 4% gain; no unintended loss.', $fields['medical_history']);
+            $this->assertSame('Poor dentition limits chewing.', $fields['physical_assessment']);
+            $this->assertSame('stable', $fields['weight_change_direction']);
             foreach ($payload['candidates'] as $candidate) {
                 $this->assertArrayNotHasKey('s', $candidate);
             }
@@ -392,7 +483,7 @@ class ContextualPesDraftTest extends TestCase
             $prompt = $request->data()['messages'][0]['content'];
             $encoded = explode("\noutput_json_schema:", substr($prompt, strlen("input_json:\n")))[0];
             $payload = json_decode($encoded, true);
-            $this->assertArrayHasKey('knowledge_notes', $payload['evidence']);
+            $this->assertArrayHasKey('knowledge_notes', array_column($payload['evidence'], 1, 0));
             foreach ($payload['candidates'] as $candidate) {
                 $this->assertArrayNotHasKey('evidence', $candidate);
             }

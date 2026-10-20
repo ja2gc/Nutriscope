@@ -61,7 +61,9 @@ class AiServiceTest extends TestCase
 
         $result = app(AIService::class)->draftPes($this->boundedPayload());
 
-        $this->assertSame('unintended_weight_loss_v1', $result[0]['candidate_id']);
+        $this->assertSame('unintended_weight_loss_v1', $result['suggestions'][0]['candidate_id']);
+        $this->assertSame(120, $result['usage']['input_tokens']);
+        $this->assertSame(50, $result['usage']['output_tokens']);
         $this->assertDatabaseHas('ai_usage_logs', [
             'user_id' => $this->rnd->id,
             'endpoint' => 'diagnosis_suggestion',
