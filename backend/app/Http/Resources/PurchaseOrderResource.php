@@ -24,6 +24,8 @@ class PurchaseOrderResource extends JsonResource
             'shopping_list' => $this->whenLoaded('shoppingList', fn () => $this->shoppingList ? [
                 'id' => $this->shoppingList->uuid,
                 'name' => $this->shoppingList->name,
+                'period_start' => $this->shoppingList->period_start?->toDateString(),
+                'period_end' => $this->shoppingList->period_end?->toDateString(),
             ] : null),
             'supplier_id' => $this->supplier_id,
             'supplier' => $this->whenLoaded('supplier', fn () => $this->supplier ? [

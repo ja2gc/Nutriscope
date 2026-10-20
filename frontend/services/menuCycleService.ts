@@ -29,6 +29,8 @@ export interface MenuDay {
   po_snapshot?: MenuSnapshot | null;
   po_snapshot_at?: string | null;
   po_snapshot_locked?: boolean;
+  snapshot_purchase_order_id?: number | null;
+  snapshot_purchase_order?: { id: string; po_number: string; lifecycle_status: "open_execution" | "completed" | "archived" } | null;
   has_recipe_override?: boolean;
   recipe?: { id: string; name: string; servings: number; portion_label?: string | null; cost: string } | null;
   fs_item?: { id: string; name: string } | null;
@@ -66,6 +68,7 @@ export interface CycleListItem {
   week_start_date: string | null;
   plan_days?: Partial<Record<Day, boolean>>;
   days_count?: number;
+  days?: Pick<MenuDay, "po_snapshot_locked" | "snapshot_purchase_order_id" | "snapshot_purchase_order">[];
   updated_at: string;
 }
 
@@ -303,7 +306,10 @@ export async function saveCycle(id: string | null, payload: SaveCyclePayload): P
 
 export async function deleteCycle(id: string): Promise<void> {
   const res = await apiFetch(`/api/fss/menu-cycles/${id}`, { method: "DELETE" });
-  if (!res.ok && res.status !== 204) throw new Error("Failed to delete menu week.");
+  if (!res.ok && res.status !== 204) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.message ?? "Failed to delete menu week.");
+  }
 }
 
 export interface CostToday {

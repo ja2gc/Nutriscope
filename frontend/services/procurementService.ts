@@ -51,6 +51,7 @@ export interface ShoppingList {
   estimated_total?: number | null;
   estimated_budget_per_head_per_day?: number | null;
   release_readiness?: ReleaseReadiness | null;
+  purchase_orders?: { id: string; po_number: string; lifecycle_status: "open_execution" | "completed" | "archived" }[];
   items: ShoppingListItem[];
 }
 
@@ -100,7 +101,7 @@ export interface ProgramProjectActivity {
 export interface PurchaseOrder {
   id: string;
   shopping_list_id: string | null;
-  shopping_list?: { id: string; name: string } | null;
+  shopping_list?: { id: string; name: string; period_start?: string | null; period_end?: string | null } | null;
   supplier_id: number | null;
   supplier?: { id: string; name: string; category: string | null } | null;
   po_number: string;
@@ -202,7 +203,10 @@ export async function generateByDates(start_date: string, end_date: string, esti
 }
 export async function deleteShoppingList(id: string): Promise<void> {
   const res = await apiFetch(`/api/fss/shopping-lists/${id}`, { method: "DELETE" });
-  if (!res.ok && res.status !== 204) throw new Error("Failed to delete list.");
+  if (!res.ok && res.status !== 204) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.message ?? "Failed to delete list.");
+  }
 }
 
 export async function updateListItem(itemId: string, patch: { supplier_id?: string | null; qty?: number; unit_price?: number; purchase_qty?: number | null; purchase_unit?: string | null; purchase_price?: number | null; included_in_po?: boolean; exclusion_note?: string | null; quantity_mode?: "calculated" | "rounded" | "manual" }): Promise<ShoppingListItem> {
@@ -268,7 +272,10 @@ export async function updateVendorGroup(groupId: string, patch: {
 }
 export async function deletePurchaseOrder(id: string): Promise<void> {
   const res = await apiFetch(`/api/fss/purchase-orders/${id}`, { method: "DELETE" });
-  if (!res.ok && res.status !== 204) throw new Error("Failed to delete PO.");
+  if (!res.ok && res.status !== 204) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.message ?? "Failed to delete PO.");
+  }
 }
 export async function uploadAttachment(poId: string, file: File, type: "receipt" | "proof", caption?: string): Promise<POAttachment> {
   const fd = new FormData();

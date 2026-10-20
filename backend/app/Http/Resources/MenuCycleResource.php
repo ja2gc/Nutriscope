@@ -54,6 +54,11 @@ class MenuCycleResource extends JsonResource
                     'po_snapshot_at' => $d->po_snapshot_at?->toISOString(),
                     'po_snapshot_locked' => (bool) $d->po_snapshot_locked,
                     'snapshot_purchase_order_id' => $d->snapshot_purchase_order_id,
+                    'snapshot_purchase_order' => $d->relationLoaded('snapshotPurchaseOrder') && $d->snapshotPurchaseOrder ? [
+                        'id' => $d->snapshotPurchaseOrder->uuid,
+                        'po_number' => $d->snapshotPurchaseOrder->po_number,
+                        'lifecycle_status' => $d->snapshotPurchaseOrder->lifecycle_status,
+                    ] : null,
                     'has_recipe_override' => $d->recipe_override !== null,
                     'recipe' => $d->relationLoaded('recipe') && $d->recipe ? [
                         'id' => $d->recipe->uuid,

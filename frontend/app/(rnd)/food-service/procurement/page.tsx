@@ -9,6 +9,7 @@ import {
   FileText, Pencil, Check, Search, X, AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { DeleteActionDialog } from "@/components/ui/DeleteActionDialog";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import {
   ShoppingList, PurchaseOrder, POAttachment, ShoppingListItem, ShoppingListDraftItem,
@@ -60,6 +61,11 @@ const spanLabel = (list?: ShoppingList) =>
   list?.period_start && list?.period_end
     ? `${list.period_start} → ${list.period_end}`
     : list?.list_date ?? "Manual";
+const poLifecycleLabel = (status: PurchaseOrder["lifecycle_status"]) => ({
+  open_execution: "In progress",
+  completed: "completed",
+  archived: "archived",
+}[status]);
 
 function Crumbs({ children }: { children?: React.ReactNode }) {
   return (
@@ -962,6 +968,9 @@ export default function ProcurementPage() {
   const [poPage, setPoPage] = useState(1);
   const [listMeta, setListMeta] = useState<PaginationMeta | null>(null);
   const [poMeta, setPoMeta] = useState<PaginationMeta | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ kind: "list"; list: ShoppingList } | { kind: "po"; po: PurchaseOrder } | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1058,14 +1067,85 @@ export default function ProcurementPage() {
     setManualListError("");
   }
 
-  async function removeList(id: string) {
-    await deleteShoppingList(id);
-    setLists((current) => current.filter((list) => list.id !== id));
+  function requestDeleteList(list: ShoppingList) {
+    setDeleteError("");
+    setDeleteTarget({ kind: "list", list });
   }
 
-  async function removePo(id: string) {
-    await deletePurchaseOrder(id);
-    setPos((current) => current.filter((po) => po.id !== id));
+  function requestDeletePo(po: PurchaseOrder) {
+    setDeleteError("");
+    setDeleteTarget({ kind: "po", po });
+  }
+
+  const deleteDialog = (() => {
+    if (!deleteTarget) return null;
+    if (deleteTarget.kind === "list") {
+      const { list } = deleteTarget;
+      const linkedOrders = list.purchase_orders ?? [];
+      if (linkedOrders.length > 0) {
+        const blockingOrder = linkedOrders.find((po) => po.lifecycle_status !== "open_execution") ?? linkedOrders[0];
+        const status = poLifecycleLabel(blockingOrder.lifecycle_status);
+        return {
+          title: "Shopping list is linked to a PO",
+          message: blockingOrder.lifecycle_status === "open_execution"
+            ? "Delete the linked PO first."
+            : `This list is linked to a ${status} PO and can't be deleted.`,
+          related: `Linked PO: ${blockingOrder.po_number} (${status}).`,
+          nextStep: blockingOrder.lifecycle_status === "open_execution"
+            ? "Delete it under Purchase Orders; this list will return to draft."
+            : "Its date span stays reserved for this PO record.",
+          blocked: true,
+        };
+      }
+      return {
+        title: "Delete shopping list?",
+        message: list.list_type === "suggested"
+          ? `Delete ${list.name}? This frees ${spanLabel(list)} for a new suggested list.`
+          : `Delete ${list.name} and its items?`,
+        blocked: false,
+      };
+    }
+
+    const { po } = deleteTarget;
+    if (po.lifecycle_status !== "open_execution") {
+      const status = poLifecycleLabel(po.lifecycle_status);
+      return {
+        title: "Purchase order can't be deleted",
+        message: `${status[0].toUpperCase()}${status.slice(1)} POs can't be deleted.`,
+        related: po.shopping_list ? `Linked list: ${po.shopping_list.name}.` : undefined,
+        nextStep: "This PO is kept in the procurement record.",
+        blocked: true,
+      };
+    }
+    const list = po.shopping_list;
+    const listSpan = list?.period_start && list.period_end ? ` (${list.period_start} → ${list.period_end})` : "";
+    return {
+      title: "Delete purchase order?",
+      message: `Delete ${po.po_number}?`,
+      related: list ? `Linked list: ${list.name}${listSpan}.` : undefined,
+      nextStep: list && po.procurement_track === "food"
+        ? "The list returns to draft and menu items unlock. Delete the list later to free its dates."
+        : list ? "The list returns to draft. Delete it later if you want to remove it." : undefined,
+      blocked: false,
+    };
+  })();
+
+  async function confirmDelete() {
+    if (!deleteTarget || deleteDialog?.blocked) return;
+    setDeleteBusy(true); setDeleteError("");
+    try {
+      if (deleteTarget.kind === "list") {
+        await deleteShoppingList(deleteTarget.list.id);
+      } else {
+        await deletePurchaseOrder(deleteTarget.po.id);
+      }
+      setDeleteTarget(null);
+      void load();
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : "Delete failed.");
+    } finally {
+      setDeleteBusy(false);
+    }
   }
 
   const foodLists = lists.filter((list) => (list.procurement_track ?? "food") === "food");
@@ -1273,7 +1353,7 @@ export default function ProcurementPage() {
                             aria-label={`Open list: ${l.name}`} title="Open list">
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
-                          <button type="button" onClick={() => removeList(l.id)} className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-lg hover:bg-red-50 text-warm-500 hover:text-red-600 cursor-pointer" aria-label={`Delete ${l.name}`} title="Delete">
+                          <button type="button" onClick={() => requestDeleteList(l)} className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-lg hover:bg-red-50 text-warm-500 hover:text-red-600 cursor-pointer" aria-label={`Delete ${l.name}`} title="Delete">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
@@ -1328,15 +1408,14 @@ export default function ProcurementPage() {
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
-                          {po.lifecycle_status === "open_execution" && (
-                            <button
-                              onClick={() => removePo(po.id)}
-                              className="p-1.5 rounded-lg hover:bg-red-50 text-warm-500 hover:text-red-600 cursor-pointer"
-                              aria-label={`Delete ${po.display_name}`}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          )}
+                          <button
+                            onClick={() => requestDeletePo(po)}
+                            className="p-1.5 rounded-lg hover:bg-red-50 text-warm-500 hover:text-red-600 cursor-pointer"
+                            aria-label={`Delete ${po.display_name}`}
+                            title="Delete or view why it is locked"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -1349,6 +1428,17 @@ export default function ProcurementPage() {
           {tab === "pos" && <Pagination meta={poMeta} page={poPage} onPageChange={setPoPage} />}
         </div>
       )}
+      {deleteTarget && deleteDialog && <DeleteActionDialog
+        title={deleteDialog.title}
+        message={deleteDialog.message}
+        related={deleteDialog.related}
+        nextStep={deleteDialog.nextStep}
+        blocked={deleteDialog.blocked}
+        busy={deleteBusy}
+        error={deleteError}
+        onClose={() => { if (!deleteBusy) setDeleteTarget(null); }}
+        onConfirm={() => void confirmDelete()}
+      />}
     </div>
   );
 }

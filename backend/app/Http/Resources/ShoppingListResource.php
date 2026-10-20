@@ -45,6 +45,11 @@ class ShoppingListResource extends JsonResource
             'release_readiness' => $this->status === 'draft'
                 ? app(PurchaseOrderLifecycleService::class)->releaseReadiness($this->resource)
                 : null,
+            'purchase_orders' => $this->whenLoaded('purchaseOrders', fn () => $this->purchaseOrders->map(fn ($purchaseOrder) => [
+                'id' => $purchaseOrder->uuid,
+                'po_number' => $purchaseOrder->po_number,
+                'lifecycle_status' => $purchaseOrder->lifecycle_status,
+            ])->values()),
             'items' => $this->items->map(fn ($item) => [
                 'id' => $item->uuid,
                 // fs_item_id stays the raw FK — it isn't consumed for routing/matching by

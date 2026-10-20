@@ -12,6 +12,7 @@ use App\Http\Requests\FSS\UploadPurchaseOrderAttachmentRequest;
 use App\Http\Requests\PaginatedRequest;
 use App\Http\Resources\PurchaseOrderResource;
 use App\Models\AuditActivity;
+use App\Models\MenuCycleDay;
 use App\Models\ProgramProjectActivity;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderAttachment;
@@ -171,6 +172,34 @@ class PurchaseOrderController extends Controller
                 }
                 $before = $this->revisionRegistry->capture($purchaseOrder);
                 $moves = $this->attachmentStorage->quarantineMany($purchaseOrder->attachments->pluck('path')->all());
+
+                $shoppingList = $purchaseOrder->shoppingList;
+                if ($shoppingList?->status === 'converted') {
+                    $beforeList = $this->revisionRegistry->capture($shoppingList->load('items'));
+                    $shoppingList->status = 'draft';
+                    $this->auditLogger->withoutModelEvents(fn () => $shoppingList->save());
+                    $listActivity = $this->auditLogger->recordMutation(
+                        AuditAction::Updated,
+                        AuditDomain::Procurement,
+                        $shoppingList,
+                        ['status'],
+                        oldValues: ['status' => 'converted'],
+                        newValues: ['status' => 'draft'],
+                    );
+                    if ($listActivity !== null) {
+                        $this->revisionWriter->write($listActivity, $beforeList, $this->revisionRegistry->capture($shoppingList->load('items')));
+                    }
+                }
+
+                MenuCycleDay::query()
+                    ->where('snapshot_purchase_order_id', $purchaseOrder->id)
+                    ->update([
+                        'snapshot_purchase_order_id' => null,
+                        'po_snapshot' => null,
+                        'po_snapshot_at' => null,
+                        'po_snapshot_locked' => false,
+                    ]);
+
                 $activity = $this->auditLogger->record(
                     AuditAction::Deleted,
                     AuditCategory::Operations,

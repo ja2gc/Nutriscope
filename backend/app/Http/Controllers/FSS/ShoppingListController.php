@@ -55,7 +55,7 @@ class ShoppingListController extends Controller
 
     public function index(PaginatedRequest $request): AnonymousResourceCollection
     {
-        return ShoppingListResource::collection(ShoppingList::with('items.fsItem', 'items.supplier:id,uuid')
+        return ShoppingListResource::collection(ShoppingList::with('items.fsItem', 'items.supplier:id,uuid', 'purchaseOrders')
             ->orderByRaw('COALESCE(period_start, list_date) DESC')
             ->orderByDesc('created_at')
             ->orderByDesc('id')
