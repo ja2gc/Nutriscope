@@ -525,7 +525,7 @@ describe("Food Service procurement display", () => {
     expect(clipboardWrite).toHaveBeenCalledWith("Rice\t2.5 kg\nOil\t1 L");
   });
 
-  test("shows friendly PO status, uses a pencil action, and hides completed delete", async () => {
+  test("shows friendly PO status and explains why a completed PO cannot be deleted", async () => {
     const completed = makePo({ lifecycle_status: "completed" });
     mockListPurchaseOrders.mockResolvedValue({ data: [completed], meta });
     await renderPage();
@@ -538,7 +538,13 @@ describe("Food Service procurement display", () => {
     expect(container.textContent).toContain("Completed");
     expect(container.textContent).not.toContain("open_execution");
     expect(container.querySelector('button[aria-label="Edit PO — October menu"]')).not.toBeNull();
-    expect(container.querySelector('button[aria-label="Delete PO — October menu"]')).toBeNull();
+    const deleteButton = container.querySelector<HTMLButtonElement>('button[aria-label="Delete PO — October menu"]');
+    expect(deleteButton).not.toBeNull();
+    await act(async () => { deleteButton?.click(); });
+    const dialog = container.querySelector('[role="dialog"]');
+    expect(dialog?.textContent).toContain("Purchase order can't be deleted");
+    expect(dialog?.textContent).toContain("Completed POs can't be deleted.");
+    expect(dialog?.textContent).toContain("This PO is kept in the procurement record.");
   });
 
   test("saves changed OR and actual PO values through one Save action", async () => {
