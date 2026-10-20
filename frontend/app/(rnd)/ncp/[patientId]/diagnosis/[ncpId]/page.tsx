@@ -169,6 +169,7 @@ interface BuilderState {
   domain: "NI" | "NC" | "NB";
   niDirection: "Inadequate" | "Excessive";
   niNutrient: string;
+  niNutrientSpecify: "Vitamins (specify)" | "Minerals (specify)" | "";
   ncProblems: string[];
   nbProblems: string[];
   etiologyChecks: string[];
@@ -186,6 +187,7 @@ function defaultBuilder(): BuilderState {
     domain: "NI",
     niDirection: "Inadequate",
     niNutrient: "",
+    niNutrientSpecify: "",
     ncProblems: [],
     nbProblems: [],
     etiologyChecks: [],
@@ -258,6 +260,12 @@ function loadBuilderFromDiagnosis(d: Diagnosis): BuilderState {
     if (match) {
       b.niDirection = (match[1] as "Inadequate" | "Excessive");
       b.niNutrient = match[2];
+      if (match[2] === "Vitamins (specify)" || match[2] === "Minerals (specify)") {
+        b.niNutrientSpecify = match[2];
+        b.niNutrient = "";
+      } else if (!NI_NUTRIENTS.includes(match[2])) {
+        b.niNutrientSpecify = "Vitamins (specify)";
+      }
       b.problemOverride = "";
     }
   } else if (d.domain === "NC") {
@@ -536,6 +544,12 @@ export default function NcpDiagnosisPage({
       if (match) {
         b.niDirection = match[1] as "Inadequate" | "Excessive";
         b.niNutrient = match[2];
+        if (match[2] === "Vitamins (specify)" || match[2] === "Minerals (specify)") {
+          b.niNutrientSpecify = match[2];
+          b.niNutrient = "";
+        } else if (!NI_NUTRIENTS.includes(match[2])) {
+          b.niNutrientSpecify = "Vitamins (specify)";
+        }
         b.problemOverride = "";
       }
     } else if (s.domain === "NC") {
@@ -724,7 +738,7 @@ export default function NcpDiagnosisPage({
             <button
               key={d}
               type="button"
-              onClick={() => updateBuilder({ domain: d, ncProblems: [], nbProblems: [], niNutrient: "", etiologyChecks: [], signChecks: [], problemOverride: "" })}
+              onClick={() => updateBuilder({ domain: d, ncProblems: [], nbProblems: [], niNutrient: "", niNutrientSpecify: "", etiologyChecks: [], signChecks: [], problemOverride: "" })}
               className={`px-1 py-2 text-sm font-semibold border-b-2 transition-colors cursor-pointer ${
                 builder.domain === d
                   ? "border-emerald-700 text-emerald-800"
@@ -765,9 +779,9 @@ export default function NcpDiagnosisPage({
                 <button
                   key={n}
                   type="button"
-                  onClick={() => updateBuilder({ niNutrient: n, problemOverride: "" })}
+                  onClick={() => updateBuilder({ niNutrient: n.includes("specify") ? "" : n, niNutrientSpecify: n.includes("specify") ? n as BuilderState["niNutrientSpecify"] : "", problemOverride: "" })}
                   className={`px-3 py-2 text-sm font-semibold rounded-lg border transition-all cursor-pointer text-left ${
-                    builder.niNutrient === n
+                    (builder.niNutrient === n || builder.niNutrientSpecify === n)
                       ? "bg-sky-50 text-sky-800 border-sky-300 font-bold"
                       : "bg-white text-warm-600 border-warm-200 hover:border-warm-300"
                   }`}
@@ -776,10 +790,12 @@ export default function NcpDiagnosisPage({
                 </button>
               ))}
             </div>
-            {builder.niNutrient.includes("specify") && (
+            {builder.niNutrientSpecify && (
               <input
                 type="text"
-                value={builder.niNutrient.includes("specify") ? "" : builder.niNutrient}
+                aria-label={builder.niNutrientSpecify}
+                maxLength={50}
+                value={builder.niNutrient}
                 onChange={e => updateBuilder({ niNutrient: e.target.value, problemOverride: "" })}
                 className="mt-2 w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-400/20 focus:border-sky-400"
               />
@@ -837,7 +853,7 @@ export default function NcpDiagnosisPage({
           aria-label="Extra Notes (optional)"
           onChange={value => updateBuilder({ extraNotes: value })}
           rows={2}
-          maxLength={125}
+          maxLength={200}
           className="w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-warm-400 resize-none"
         />
       </div>
@@ -885,7 +901,7 @@ export default function NcpDiagnosisPage({
           aria-label="Additional Etiology Notes"
           onChange={value => updateBuilder({ etiologyNotes: value })}
           rows={3}
-          maxLength={125}
+          maxLength={200}
           className="w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-warm-400 resize-none"
         />
       </div>
@@ -930,7 +946,7 @@ export default function NcpDiagnosisPage({
           aria-label="Additional Signs and Symptoms Notes"
           onChange={value => updateBuilder({ signNotes: value })}
           rows={3}
-          maxLength={125}
+          maxLength={200}
           className="w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-warm-400 resize-none"
         />
       </div>
@@ -980,7 +996,7 @@ export default function NcpDiagnosisPage({
               aria-label="PES statement"
               onChange={value => updateBuilder({ pesOverride: value })}
               rows={4}
-              maxLength={500}
+              maxLength={600}
               className="w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium text-warm-900 placeholder:text-warm-400 resize-none"
             />
             <p className="text-xs text-warm-400 mt-1">The statement above is auto-generated from the builder. Edit manually if needed before saving.</p>
