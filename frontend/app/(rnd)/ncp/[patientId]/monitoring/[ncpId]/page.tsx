@@ -80,6 +80,7 @@ export default function NcpMonitoringPage({
   const [context, setContext]               = useState<MonitoringContext | null>(null);
   const [loading, setLoading]               = useState(true);
   const [showForm, setShowForm]             = useState(false);
+  const [selectedEntry, setSelectedEntry] = useState<MonitoringEntry | null>(null);
   const visitLeave = useRef<EditorLeaveHandle>(null);
   function leaveVisit(next: () => void) {
     if (visitLeave.current) visitLeave.current.requestLeave(next);
@@ -147,12 +148,15 @@ export default function NcpMonitoringPage({
   async function handleLogVisit(payload: MonitoringPayload) {
     await createMonitoring(ncpId, payload);
     setShowForm(false);
-    await loadData();
+    if (historyPage !== 1) setHistoryPage(1);
+    else await loadData();
   }
 
   async function handleDeleteEntry(id: string) {
     await deleteMonitoring(ncpId, id);
-    await loadData();
+    setSelectedEntry(null);
+    if (entries.length === 1 && historyPage > 1) setHistoryPage(historyPage - 1);
+    else await loadData();
   }
 
   // ─── No patient selected ───────────────────────────────────────────────────
@@ -274,27 +278,32 @@ export default function NcpMonitoringPage({
           {/* ── Main column (2/3 on lg+) ───────────────────────────────────── */}
           <div className="lg:col-span-2 space-y-0">
 
-            <Tabs items={[{ key: "log", label: "Visit Log" }, { key: "progress", label: "Progress Trends" }]} value={activeTab} onChange={(tab) => { if (tab !== activeTab) leaveVisit(() => { setShowForm(false); setActiveTab(tab); }); }} ariaLabel="Monitoring views" fill className="mb-6 w-full max-w-sm sm:w-fit" />
+            <Tabs items={[{ key: "log", label: "Visit Log" }, { key: "progress", label: "Progress Trends" }]} value={activeTab} onChange={(tab) => { if (tab !== activeTab) leaveVisit(() => { setShowForm(false); setSelectedEntry(null); setActiveTab(tab); }); }} ariaLabel="Monitoring views" fill className="mb-6 w-full max-w-sm sm:w-fit" />
 
             {/* ── Visit Log tab ─────────────────────────────────────────── */}
             {activeTab === "log" && (
               <div className="space-y-6">
-                <EncounterLog
-                  entries={entries}
-                  onLogNew={() => setShowForm(true)}
-                  onDelete={handleDeleteEntry}
-                />
-                <Pagination meta={historyMeta} page={historyPage} onPageChange={(page) => leaveVisit(() => { setShowForm(false); setHistoryPage(page); })} />
+                {!showForm && !selectedEntry && <>
+                  <EncounterLog
+                    entries={entries}
+                    onLogNew={() => setShowForm(true)}
+                    onView={setSelectedEntry}
+                  />
+                  <Pagination meta={historyMeta} page={historyPage} onPageChange={setHistoryPage} />
+                </>}
 
-                {showForm && context && plan && (
+                {(showForm || selectedEntry) && context && plan && (
                   <LogVisitForm
+                    key={selectedEntry?.id ?? "new"}
+                    entry={selectedEntry}
                     leaveRef={visitLeave}
                     ncpId={ncpId}
                     plan={plan}
                     context={context}
                     intervention={intervention}
                     onSubmit={handleLogVisit}
-                    onCancel={() => setShowForm(false)}
+                    onCancel={() => { setShowForm(false); setSelectedEntry(null); }}
+                    onDelete={selectedEntry ? () => handleDeleteEntry(selectedEntry.id) : undefined}
                   />
                 )}
               </div>

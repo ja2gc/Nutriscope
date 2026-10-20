@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
+import { ArrowLeft } from "lucide-react";
 import { useEditorChanges, type EditorLeaveHandle } from "@/hooks/useUnsavedChanges";
 
 import { Button } from "@/components/ui/Button";
@@ -12,6 +13,7 @@ import { ALLERGY_ENTRY_LIMIT, MONITORING_TEXT_LIMITS, monitoringTextError } from
 import { InfoHint } from "@/components/ui/InfoHint";
 import type { Intervention } from "@/services/interventionService";
 import type { MonitoringPlan } from "@/services/monitoringPlan";
+import { ALL_MICROS } from "@/lib/nutritionCalculations";
 import {
   CLINICAL_LAB_META,
   fetchMonitoringAiBudget,
@@ -24,6 +26,7 @@ import {
   type ContinuationDecision,
   type GiToleranceStatus,
   type MonitoringContext,
+  type MonitoringEntry,
   type MonitoringLabValues,
   type MonitoringPayload,
   type MonitoringVisitType,
@@ -38,9 +41,20 @@ interface LogVisitFormProps {
   onSubmit: (payload: MonitoringPayload) => Promise<void>;
   onCancel: () => void;
   leaveRef?: Ref<EditorLeaveHandle>;
+  entry?: MonitoringEntry | null;
+  onDelete?: () => Promise<void>;
 }
 
-const VISIT_TYPES: { value: MonitoringVisitType; label: string }[] = [
+const INTAKE_META: Record<string, { label: string; unit: string }> = {
+  energy_kcal: { label: "Energy intake", unit: "kcal" },
+  protein_g: { label: "Protein intake", unit: "g" },
+  carbs_g: { label: "Carbohydrate intake", unit: "g" },
+  fat_g: { label: "Fat intake", unit: "g" },
+  fluid_ml: { label: "Fluid intake", unit: "mL" },
+  ...Object.fromEntries(ALL_MICROS.map(({ key, label, unit }) => [`micro_${key}`, { label: `${label} intake`, unit }])),
+};
+
+export const VISIT_TYPES: { value: MonitoringVisitType; label: string }[] = [
   { value: "scheduled_follow_up", label: "Scheduled follow-up" },
   { value: "inpatient_review", label: "Inpatient review" },
   { value: "discharge_review", label: "Discharge review" },
@@ -184,38 +198,44 @@ function ToggleGroup<T extends string>({ label, options, value, onChange, requir
   );
 }
 
-export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel, leaveRef }: LogVisitFormProps) {
+export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel, leaveRef, entry, onDelete }: LogVisitFormProps) {
+  const readOnly = Boolean(entry);
+  const initial = entry ?? context;
   const knownLabKeys = Object.keys(CLINICAL_LAB_META) as ClinicalLabKey[];
   const planLabKeys = plan
     ? (plan.indicators.filter((indicator) => indicator.category === "lab").map((indicator) => indicator.key) as ClinicalLabKey[])
         .filter((key) => knownLabKeys.includes(key))
     : [];
-  const labKeys = planLabKeys;
-  const intakeFields = plan?.indicators.filter((indicator) => indicator.category === "intake") ?? [];
+  const labKeys = entry ? knownLabKeys.filter((key) => entry.lab_values?.[key] != null) : planLabKeys;
+  const intakeFields = entry
+    ? Object.keys(entry.lab_values ?? {}).filter((key) => !(key in CLINICAL_LAB_META) && entry.lab_values?.[key] != null).map((key) => ({
+      key, ...(INTAKE_META[key] ?? { label: key.replaceAll("_", " "), unit: "" }), target: null, reference: null,
+    }))
+    : plan?.indicators.filter((indicator) => indicator.category === "intake") ?? [];
 
-  const [observedAt, setObservedAt] = useState(todayValue);
-  const [visitType, setVisitType] = useState<MonitoringVisitType>("scheduled_follow_up");
-  const [weight, setWeight] = useState(fieldValue(context.weight));
-  const [height, setHeight] = useState(fieldValue(context.height));
-  const [edemaPresent, setEdemaPresent] = useState(context.edema_present);
-  const [dryWeight, setDryWeight] = useState(fieldValue(context.dry_weight_kg));
-  const [activityLevel, setActivityLevel] = useState(context.physical_activity_level ?? "");
-  const [maternalStatus, setMaternalStatus] = useState<PregnancyLactationStatus>(context.pregnancy_lactation_status ?? "none");
-  const [allergies, setAllergies] = useState(context.allergies ?? []);
-  const [dietaryRestrictions, setDietaryRestrictions] = useState(context.dietary_restrictions ?? "");
-  const [foodDislikes, setFoodDislikes] = useState(context.food_dislikes ?? []);
-  const [compliance, setCompliance] = useState<ComplianceStatus | null>(null);
-  const [giTolerance, setGiTolerance] = useState<GiToleranceStatus | null>(null);
-  const [decision, setDecision] = useState<ContinuationDecision>(null);
-  const [clinicalSummary, setClinicalSummary] = useState("");
-  const [intakeNotes, setIntakeNotes] = useState("");
-  const [symptoms, setSymptoms] = useState("");
+  const [observedAt, setObservedAt] = useState(() => entry ? (entry.observed_at ?? entry.created_at).slice(0, 10) : todayValue());
+  const [visitType, setVisitType] = useState<MonitoringVisitType | "">(entry ? entry.visit_type ?? "" : "scheduled_follow_up");
+  const [weight, setWeight] = useState(fieldValue(initial.weight));
+  const [height, setHeight] = useState(fieldValue(initial.height));
+  const [edemaPresent, setEdemaPresent] = useState(initial.edema_present);
+  const [dryWeight, setDryWeight] = useState(fieldValue(initial.dry_weight_kg));
+  const [activityLevel, setActivityLevel] = useState(initial.physical_activity_level ?? "");
+  const [maternalStatus, setMaternalStatus] = useState<PregnancyLactationStatus | "">(entry ? entry.pregnancy_lactation_status ?? "" : context.pregnancy_lactation_status ?? "none");
+  const [allergies, setAllergies] = useState(initial.allergies ?? []);
+  const [dietaryRestrictions, setDietaryRestrictions] = useState(initial.dietary_restrictions ?? "");
+  const [foodDislikes, setFoodDislikes] = useState(initial.food_dislikes ?? []);
+  const [compliance, setCompliance] = useState<ComplianceStatus | null>((entry?.goal_achievement?.compliance as ComplianceStatus) ?? null);
+  const [giTolerance, setGiTolerance] = useState<GiToleranceStatus | null>((entry?.goal_achievement?.gi_tolerance as GiToleranceStatus) ?? null);
+  const [decision, setDecision] = useState<ContinuationDecision>((entry?.goal_achievement?.continuation_decision as ContinuationDecision) ?? null);
+  const [clinicalSummary, setClinicalSummary] = useState(entry?.clinical_summary ?? "");
+  const [intakeNotes, setIntakeNotes] = useState(entry?.intake_notes ?? "");
+  const [symptoms, setSymptoms] = useState(entry?.symptoms ?? "");
   const [nextMonitoringAt, setNextMonitoringAt] = useState("");
   const [nextMonitoringPurpose, setNextMonitoringPurpose] = useState("");
   const [labs, setLabs] = useState<Record<ClinicalLabKey, string>>(
-    Object.fromEntries(knownLabKeys.map((key) => [key, ""])) as Record<ClinicalLabKey, string>,
+    Object.fromEntries(knownLabKeys.map((key) => [key, fieldValue(entry?.lab_values?.[key])])) as Record<ClinicalLabKey, string>,
   );
-  const [intakes, setIntakes] = useState<Record<string, string>>({});
+  const [intakes, setIntakes] = useState<Record<string, string>>(() => Object.fromEntries(intakeFields.map(({ key }) => [key, fieldValue(entry?.lab_values?.[key])])));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [budget, setBudget] = useState<AiSummaryBudget | null>(null);
@@ -227,14 +247,14 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
   const latestText = useRef("");
 
   useEffect(() => {
-    if (!ncpId) return;
+    if (!ncpId || readOnly) return;
     let active = true;
     fetchMonitoringAiBudget(ncpId).then((value) => { if (active) setBudget(value); })
       .catch((err) => { if (active) setAiError(err instanceof Error ? err.message : "Could not load AI allowance."); });
     return () => { active = false; };
-  }, [ncpId]);
+  }, [ncpId, readOnly]);
 
-  const bmi = Number(weight) > 0 && Number(height) > 0 ? String(calculateBmi(Number(weight), Number(height))) : "";
+  const bmi = entry ? fieldValue(entry.bmi) : Number(weight) > 0 && Number(height) > 0 ? String(calculateBmi(Number(weight), Number(height))) : "";
 
   function buildPayload(): MonitoringPayload {
     const labValues: Record<string, number | string | null> = {};
@@ -258,13 +278,13 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
 
     return buildEffectiveMonitoringPayload(context, {
       observed_at: observedAt,
-      visit_type: visitType,
+      visit_type: visitType || "scheduled_follow_up",
       weight: Number(weight),
       height: Number(height),
-      edema_present: edemaPresent,
+      edema_present: Boolean(edemaPresent),
       dry_weight_kg: edemaPresent ? optionalNumber(dryWeight) : null,
       physical_activity_level: activityLevel,
-      pregnancy_lactation_status: maternalStatus,
+      pregnancy_lactation_status: maternalStatus || "none",
       allergies: parseList(allergies),
       dietary_restrictions: dietaryRestrictions.trim() || null,
       food_dislikes: parseList(foodDislikes),
@@ -318,6 +338,7 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
 
   async function handleSubmit(event?: React.FormEvent) {
     event?.preventDefault();
+    if (readOnly) return false;
     if (!event && !form.current?.reportValidity()) return false;
     setError(null);
     const payload = buildPayload();
@@ -337,18 +358,22 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
     }
   }
 
-  const guard = useEditorChanges(JSON.stringify({ observedAt, visitType, weight, height, edemaPresent, dryWeight, activityLevel, maternalStatus, allergies, dietaryRestrictions, foodDislikes, compliance, giTolerance, decision, clinicalSummary, intakeNotes, symptoms, nextMonitoringAt, nextMonitoringPurpose, labs, intakes }), true, () => handleSubmit());
+  const guard = useEditorChanges(JSON.stringify({ observedAt, visitType, weight, height, edemaPresent, dryWeight, activityLevel, maternalStatus, allergies, dietaryRestrictions, foodDislikes, compliance, giTolerance, decision, clinicalSummary, intakeNotes, symptoms, nextMonitoringAt, nextMonitoringPurpose, labs, intakes }), !readOnly, () => handleSubmit());
   useImperativeHandle(leaveRef, () => ({ requestLeave: guard.requestLeave }), [guard.requestLeave]);
 
   return (
     <div className="overflow-hidden rounded-2xl border border-warm-200 bg-white shadow-sm">
       {guard.dialog}
-      <div className="flex items-center justify-between border-b border-warm-100 px-5 py-4">
-        <h3 className="text-sm font-extrabold uppercase tracking-wider text-warm-700">Log Monitoring Visit</h3>
-        <button type="button" onClick={() => guard.requestLeave(onCancel)} className="min-h-10 px-2 text-sm font-semibold text-warm-500 hover:text-warm-800">Close</button>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-warm-100 px-5 py-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <button type="button" aria-label="Back to visit history" title="Back to visit history" onClick={() => guard.requestLeave(onCancel)} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border border-warm-200 text-warm-500 hover:bg-warm-50 focus-visible:ring-2 focus-visible:ring-emerald-600"><ArrowLeft className="h-4 w-4" aria-hidden="true" /></button>
+          <h3 className="text-sm font-extrabold uppercase tracking-wider text-warm-700">{readOnly ? "Monitoring Visit" : "Log Monitoring Visit"}</h3>
+        </div>
+        {readOnly && <span className="rounded-full border border-warm-200 px-3 py-1 text-xs font-bold text-warm-500">View only</span>}
       </div>
 
       <form ref={form} onSubmit={handleSubmit} className="space-y-5 px-4 py-5 sm:px-5">
+        <fieldset disabled={readOnly} className="min-w-0 space-y-5 disabled:[&_input]:bg-warm-50 disabled:[&_select]:bg-warm-50 disabled:[&_textarea]:bg-warm-50">
         <Section title="Visit Context">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <label>
@@ -358,6 +383,7 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
             <label>
               <FieldLabel>Visit Type</FieldLabel>
               <select required value={visitType} onChange={(event) => setVisitType(event.target.value as MonitoringVisitType)} className="w-full rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900">
+                {readOnly && <option value="">Not recorded</option>}
                 {VISIT_TYPES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
             </label>
@@ -371,7 +397,8 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
             <NumberField label="BMI" unit="kg/m²" value={bmi} onChange={() => undefined} readOnly />
             <label>
               <FieldLabel>Edema</FieldLabel>
-              <select value={edemaPresent ? "yes" : "no"} onChange={(event) => setEdemaPresent(event.target.value === "yes")} className="w-full rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900">
+              <select value={edemaPresent == null ? "" : edemaPresent ? "yes" : "no"} onChange={(event) => setEdemaPresent(event.target.value === "yes")} className="w-full rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900">
+                {readOnly && <option value="">Not recorded</option>}
                 <option value="no">Not present</option><option value="yes">Present</option>
               </select>
             </label>
@@ -379,13 +406,14 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
             <label>
               <FieldLabel>Physical Activity</FieldLabel>
               <select required value={activityLevel} onChange={(event) => setActivityLevel(event.target.value)} className="w-full rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900">
-                <option value="">Select activity level</option>
+                <option value="">{readOnly ? "Not recorded" : "Select activity level"}</option>
                 {ACTIVITY_LEVELS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
             </label>
             <label>
               <FieldLabel>Pregnancy / Lactation</FieldLabel>
               <select required value={maternalStatus} onChange={(event) => setMaternalStatus(event.target.value as PregnancyLactationStatus)} className="w-full rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900">
+                {readOnly && <option value="">Not recorded</option>}
                 {MATERNAL_STATUSES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
             </label>
@@ -415,7 +443,7 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
                 <span className="text-xs font-bold uppercase tracking-widest text-warm-500">Allergies</span>
                 <InfoHint label="How allergies affect meal plans" title="Allergy exclusions">Allergies are hard exclusions in generated meal plans. Confirm this list before saving.</InfoHint>
               </span>
-              <CharacterCountListInput value={allergies} onChange={setAllergies} maxLength={ALLERGY_ENTRY_LIMIT} label="Allergy" />
+              <CharacterCountListInput readOnly={readOnly} value={allergies} onChange={setAllergies} maxLength={ALLERGY_ENTRY_LIMIT} label="Allergy" />
             </div>
             <label>
               <FieldLabel>Dietary Restrictions</FieldLabel>
@@ -423,7 +451,7 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
             </label>
             <div>
               <FieldLabel>Food Dislikes</FieldLabel>
-              <CharacterCountListInput value={foodDislikes} onChange={setFoodDislikes} maxLength={FOOD_DISLIKE_LIMIT} maxEntries={FOOD_DISLIKE_MAX_ENTRIES} label="Food dislike" />
+              <CharacterCountListInput readOnly={readOnly} value={foodDislikes} onChange={setFoodDislikes} maxLength={FOOD_DISLIKE_LIMIT} maxEntries={FOOD_DISLIKE_MAX_ENTRIES} label="Food dislike" />
             </div>
           </div>
 
@@ -452,10 +480,10 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
             <FieldLabel>Progress Assessment *</FieldLabel>
             <CharacterCountTextarea aria-label="Progress Assessment" autoGrow required value={clinicalSummary} onChange={setClinicalSummary} maxLength={MONITORING_TEXT_LIMITS.clinical_summary} rows={3} className="w-full resize-none overflow-hidden rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
           </label>
-          <div className="flex flex-wrap items-center gap-3">
+          {!readOnly && <div className="flex flex-wrap items-center gap-3">
             <Button type="button" variant="ghost" disabled={!budget || budget.remaining <= 0 || submitting} loading={aiLoading} onClick={generateSummary}>Generate AI Summary</Button>
             {budget && <span className="text-xs text-warm-500" role="status">{budget.remaining} generations left for this entry</span>}
-          </div>
+          </div>}
           {aiError && <p className="text-sm text-red-700" role="alert">{aiError}</p>}
           {suggestion && (
             <div className="space-y-3 rounded-lg border border-warm-200 p-3">
@@ -471,23 +499,29 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
             </div>
           )}
           <ToggleGroup<NonNullDecision> label="Care Decision" required options={DECISION_OPTIONS} value={decision} onChange={setDecision} />
+          {entry?.ai_decision && <label><FieldLabel>Clinical Review</FieldLabel><p className="whitespace-pre-wrap text-sm text-warm-800">{entry.ai_decision}</p></label>}
         </Section>
 
         <Section title="Follow-up">
-          <div className="max-w-2xl">
+          {entry ? <label className="block max-w-sm"><FieldLabel>Next Monitoring Date</FieldLabel><input type="date" value={entry.next_monitoring_date ?? ""} readOnly className="w-full rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" /></label> : <div className="max-w-2xl">
             <FieldLabel>Schedule Follow-up</FieldLabel>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="text-xs font-bold text-warm-600">Date and time<input type="datetime-local" min={`${observedAt}T00:00`} value={nextMonitoringAt} onChange={(event) => setNextMonitoringAt(event.target.value)} className="mt-1 w-full rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" /></label>
               <label className="text-xs font-bold text-warm-600">Purpose<input value={nextMonitoringPurpose} onChange={(event) => setNextMonitoringPurpose(event.target.value)} maxLength={255} required={Boolean(nextMonitoringAt)} disabled={!nextMonitoringAt} className="mt-1 w-full rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900 disabled:bg-warm-50" /></label>
             </div>
-          </div>
+          </div>}
         </Section>
+        </fieldset>
 
         {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
-        <div className="flex flex-col gap-3 sm:flex-row">
+        {!readOnly && <div className="flex flex-col gap-3 sm:flex-row">
           <Button type="submit" variant="primary" loading={submitting} disabled={aiLoading} className="sm:flex-1">Save Visit</Button>
           <Button type="button" variant="ghost" onClick={() => guard.requestLeave(onCancel)} className="sm:!w-auto">Cancel</Button>
-        </div>
+        </div>}
+        {readOnly && onDelete && <Button type="button" variant="danger" loading={submitting} onClick={async () => {
+          setSubmitting(true); setError(null);
+          try { await onDelete(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Failed to delete visit."); } finally { setSubmitting(false); }
+        }}>Delete Entry</Button>}
       </form>
     </div>
   );

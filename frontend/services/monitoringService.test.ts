@@ -9,6 +9,7 @@ import {
   type ClinicalLabKey,
   buildEffectiveMonitoringPayload,
   fetchMonitoringContext,
+  fetchMonitorings,
   getWeightStatus,
 } from "./monitoringService";
 
@@ -88,6 +89,17 @@ describe("monitoring effective context", () => {
       "/api/rnd/ncp-records/ncp-uuid/monitorings/context",
       expect.objectContaining({ headers: { Accept: "application/json" } }),
     );
+  });
+
+  it("requests five visits for each history page", async () => {
+    const requests: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => {
+      requests.push(url);
+      return new Response(JSON.stringify({ data: [], meta: { current_page: 2, per_page: 5, total: 6, last_page: 2 } }), { status: 200 });
+    });
+    const result = await fetchMonitorings("ncp-uuid", 2);
+    expect(requests).toEqual(["/api/rnd/ncp-records/ncp-uuid/monitorings?page=2&per_page=5"]);
+    expect(result.meta).toEqual({ current_page: 2, per_page: 5, total: 6, last_page: 2 });
   });
 
   it("merges edits into a complete effective calculation payload", () => {

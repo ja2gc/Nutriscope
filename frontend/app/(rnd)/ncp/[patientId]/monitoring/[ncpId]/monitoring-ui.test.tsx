@@ -8,7 +8,6 @@ import CarePlanHeader from "./_components/CarePlanHeader";
 import EncounterLog from "./_components/EncounterLog";
 import GoalProgressTracker from "./_components/GoalProgressTracker";
 import LogVisitForm from "./_components/LogVisitForm";
-import MonitoringVisitDetails from "./_components/MonitoringVisitDetails";
 import type { MonitoringContext, MonitoringEntry } from "@/services/monitoringService";
 
 const context: MonitoringContext = {
@@ -79,12 +78,6 @@ describe("monitoring workflow UI", () => {
     expect(html).not.toMatch(/lucide-(clipboard-list|target|stethoscope|flask-conical)/);
   });
 
-  it("shows recorded micronutrient intake with the same units as logging and graphs", () => {
-    const html = renderToStaticMarkup(<MonitoringVisitDetails entry={{ ...entry, lab_values: { micro_fiber: 22, micro_sodium: 2300 } }} mode="full" />);
-    expect(html).toContain("22 g");
-    expect(html).toContain("2300 mg");
-  });
-
   it("orders complete effective reassessment fields without intervention actions", () => {
     const html = renderToStaticMarkup(<LogVisitForm
       plan={null}
@@ -114,33 +107,6 @@ describe("monitoring workflow UI", () => {
     expect(html).not.toMatch(/Update care plan|Open Intervention after saving|revision|version/i);
   });
 
-  it("summarizes saved visits and expands only non-empty ordered sections", () => {
-    const summary = renderToStaticMarkup(<MonitoringVisitDetails entry={entry} mode="summary" />);
-    const full = renderToStaticMarkup(<MonitoringVisitDetails entry={entry} mode="full" />);
-    const sparse = renderToStaticMarkup(<MonitoringVisitDetails entry={{ ...entry, lab_values: null, intake_notes: null, symptoms: null }} mode="full" />);
-
-    expect(summary).toContain("Sep 28, 2026");
-    expect(summary).toContain("Scheduled follow-up");
-    expect(summary).toContain("59 kg");
-    expect(summary).toContain("Continue");
-    expect(summary).not.toContain("Clinical Progress and Decision");
-
-    const ordered = [
-      "Visit Context",
-      "Recalculation Measurements and Factors",
-      "Goal-relevant Labs",
-      "Meal Safety, Intake, and Tolerance",
-      "Clinical Progress and Decision",
-      "Follow-up",
-    ];
-    ordered.reduce((previous, heading) => {
-      const position = full.indexOf(heading);
-      expect(position).toBeGreaterThan(previous);
-      return position;
-    }, -1);
-    expect(sparse).not.toContain("Goal-relevant Labs");
-  });
-
   it("keeps legacy visits readable when newer context fields are absent", () => {
     const legacy = {
       ...entry,
@@ -156,9 +122,8 @@ describe("monitoring workflow UI", () => {
       food_dislikes: null,
     } as unknown as MonitoringEntry;
 
-    const summary = renderToStaticMarkup(<MonitoringVisitDetails entry={legacy} mode="summary" />);
-    const full = renderToStaticMarkup(<MonitoringVisitDetails entry={legacy} mode="full" />);
-
+    const summary = renderToStaticMarkup(<EncounterLog entries={[legacy]} onLogNew={() => undefined} onView={() => undefined} />);
+    const full = renderToStaticMarkup(<LogVisitForm entry={legacy} context={context} intervention={null} onSubmit={async () => undefined} onCancel={() => undefined} />);
     expect(summary).toContain("Sep 28, 2026");
     expect(summary).toContain("Follow-up");
     expect(full).not.toMatch(/null (cm|kg)/);
@@ -183,7 +148,7 @@ describe("monitoring workflow UI", () => {
     const html = renderToStaticMarkup(<EncounterLog
       entries={[entry]}
       onLogNew={() => undefined}
-      onDelete={() => undefined}
+      onView={() => undefined}
     />);
     const root = join(process.cwd(), "app", "(rnd)", "ncp", "[patientId]", "monitoring", "[ncpId]");
     const page = readFileSync(join(root, "page.tsx"), "utf8");

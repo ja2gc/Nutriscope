@@ -60,7 +60,7 @@ describe("draft monitoring summary", () => {
     expect(screen.getByRole('dialog', { name: 'Unsaved changes' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Stay on this page' }));
     expect((screen.getByRole('spinbutton', { name: 'Weight kg' }) as HTMLInputElement).value).toBe('61');
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Back to visit history' }));
     await act(async () => { domEvent.click(screen.getByRole('button', { name: 'Save' })); });
     expect(screen.getByRole('dialog', { name: 'Unsaved changes' })).toBeTruthy();
     expect(screen.getByText('Could not save. Close this dialog to review the fields and try again.')).toBeTruthy();

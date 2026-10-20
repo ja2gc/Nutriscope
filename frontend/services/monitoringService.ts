@@ -153,7 +153,7 @@ export function buildEffectiveMonitoringPayload(
 // ─── API Functions ─────────────────────────────────────────────────────────────
 
 export async function fetchMonitorings(ncpRecordId: number | string, page = 1): Promise<{ data: MonitoringEntry[]; meta: PaginationMeta }> {
-  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/monitorings?page=${page}&per_page=10`, {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/monitorings?page=${page}&per_page=5`, {
     headers: { Accept: 'application/json' },
   });
   if (!res.ok) {
@@ -161,7 +161,7 @@ export async function fetchMonitorings(ncpRecordId: number | string, page = 1): 
     throw new Error((err as { message?: string }).message || 'Failed to fetch monitoring entries.');
   }
   const data = await res.json();
-  return { data: data.data ?? [], meta: data.meta ?? { current_page: page, per_page: 10, total: 0, last_page: 1 } };
+  return { data: data.data ?? [], meta: data.meta ?? { current_page: page, per_page: 5, total: 0, last_page: 1 } };
 }
 
 export async function fetchMonitoringContext(ncpRecordId: number | string): Promise<MonitoringContext> {
