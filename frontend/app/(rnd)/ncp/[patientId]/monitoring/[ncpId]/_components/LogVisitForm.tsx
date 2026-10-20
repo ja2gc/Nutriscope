@@ -210,7 +210,8 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
   const [clinicalSummary, setClinicalSummary] = useState("");
   const [intakeNotes, setIntakeNotes] = useState("");
   const [symptoms, setSymptoms] = useState("");
-  const [nextMonitoringDate, setNextMonitoringDate] = useState("");
+  const [nextMonitoringAt, setNextMonitoringAt] = useState("");
+  const [nextMonitoringPurpose, setNextMonitoringPurpose] = useState("");
   const [labs, setLabs] = useState<Record<ClinicalLabKey, string>>(
     Object.fromEntries(knownLabKeys.map((key) => [key, ""])) as Record<ClinicalLabKey, string>,
   );
@@ -272,7 +273,9 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
       symptoms: symptoms.trim() || null,
       goal_achievement: Object.keys(goalAchievement).length > 0 ? goalAchievement : null,
       clinical_summary: clinicalSummary.trim() || null,
-      next_monitoring_date: nextMonitoringDate || null,
+      next_monitoring_date: nextMonitoringAt ? nextMonitoringAt.slice(0, 10) : null,
+      next_monitoring_at: nextMonitoringAt || null,
+      next_monitoring_purpose: nextMonitoringAt ? nextMonitoringPurpose.trim() : null,
     });
   }
 
@@ -334,7 +337,7 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
     }
   }
 
-  const guard = useEditorChanges(JSON.stringify({ observedAt, visitType, weight, height, edemaPresent, dryWeight, activityLevel, maternalStatus, allergies, dietaryRestrictions, foodDislikes, compliance, giTolerance, decision, clinicalSummary, intakeNotes, symptoms, nextMonitoringDate, labs, intakes }), true, () => handleSubmit());
+  const guard = useEditorChanges(JSON.stringify({ observedAt, visitType, weight, height, edemaPresent, dryWeight, activityLevel, maternalStatus, allergies, dietaryRestrictions, foodDislikes, compliance, giTolerance, decision, clinicalSummary, intakeNotes, symptoms, nextMonitoringAt, nextMonitoringPurpose, labs, intakes }), true, () => handleSubmit());
   useImperativeHandle(leaveRef, () => ({ requestLeave: guard.requestLeave }), [guard.requestLeave]);
 
   return (
@@ -471,10 +474,13 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
         </Section>
 
         <Section title="Follow-up">
-          <label className="block max-w-sm">
-            <FieldLabel>Next Monitoring Date</FieldLabel>
-            <input type="date" min={observedAt} value={nextMonitoringDate} onChange={(event) => setNextMonitoringDate(event.target.value)} className="w-full rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
-          </label>
+          <div className="max-w-2xl">
+            <FieldLabel>Schedule Follow-up</FieldLabel>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="text-xs font-bold text-warm-600">Date and time<input type="datetime-local" min={`${observedAt}T00:00`} value={nextMonitoringAt} onChange={(event) => setNextMonitoringAt(event.target.value)} className="mt-1 w-full rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" /></label>
+              <label className="text-xs font-bold text-warm-600">Purpose<input value={nextMonitoringPurpose} onChange={(event) => setNextMonitoringPurpose(event.target.value)} maxLength={255} required={Boolean(nextMonitoringAt)} disabled={!nextMonitoringAt} className="mt-1 w-full rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900 disabled:bg-warm-50" /></label>
+            </div>
+          </div>
         </Section>
 
         {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}

@@ -106,6 +106,8 @@ export interface MonitoringPayload {
   clinical_summary?: string | null;
   ai_decision?: string | null;
   next_monitoring_date?: string | null;
+  next_monitoring_at?: string | null;
+  next_monitoring_purpose?: string | null;
 }
 
 export type MonitoringDraftChanges =
@@ -143,6 +145,8 @@ export function buildEffectiveMonitoringPayload(
     clinical_summary: changes.clinical_summary,
     ai_decision: changes.ai_decision,
     next_monitoring_date: changes.next_monitoring_date,
+    next_monitoring_at: changes.next_monitoring_at,
+    next_monitoring_purpose: changes.next_monitoring_purpose,
   };
 }
 

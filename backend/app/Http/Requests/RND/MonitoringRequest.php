@@ -41,6 +41,8 @@ abstract class MonitoringRequest extends FormRequest
             'clinical_summary' => ['required', 'string', 'max:600'],
             'ai_decision' => ['nullable', 'string'],
             'next_monitoring_date' => ['nullable', 'date', 'after_or_equal:observed_at'],
+            'next_monitoring_at' => ['nullable', 'date', 'after_or_equal:observed_at', 'required_with:next_monitoring_purpose'],
+            'next_monitoring_purpose' => ['nullable', 'string', 'max:255', 'required_with:next_monitoring_at'],
             'intervention_revision' => ['prohibited'],
             'intervention_revision_id' => ['prohibited'],
         ];

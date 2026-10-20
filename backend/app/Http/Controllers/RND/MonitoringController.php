@@ -17,6 +17,7 @@ use App\Services\MonitoringPlanService;
 use App\Services\MonitoringSummaryService;
 use App\Services\NcpAppointmentWorkflow;
 use App\Services\NotificationLifecycleService;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Cache;
@@ -134,13 +135,27 @@ class MonitoringController extends Controller
         }
 
         $data = $request->validated();
+        $followUpAt = $data['next_monitoring_at'] ?? null;
+        $followUpPurpose = $data['next_monitoring_purpose'] ?? null;
+        unset($data['next_monitoring_at'], $data['next_monitoring_purpose']);
+        if ($followUpAt !== null) {
+            $data['next_monitoring_date'] = CarbonImmutable::parse($followUpAt)->toDateString();
+        }
         $data['bmi'] = $this->calculateBmi($data['weight'], $data['height']);
 
-        return $this->audited(function () use ($data, $ncpRecord, $notificationLifecycle, $request) {
+        return $this->audited(function () use ($data, $ncpRecord, $notificationLifecycle, $request, $followUpAt, $followUpPurpose) {
             $monitoring = new Monitoring($data);
             $monitoring->ncp_record_id = $ncpRecord->id;
             $monitoring->save();
             $notificationLifecycle->resolveFollowUp($ncpRecord, $monitoring->created_at);
+            if ($followUpAt !== null && $followUpPurpose !== null) {
+                $scheduledAt = CarbonImmutable::parse($followUpAt);
+                $this->appointments->create($request->user(), $ncpRecord->patient, [
+                    'source' => 'scheduled',
+                    'purpose' => $followUpPurpose,
+                    'scheduled_at' => $scheduledAt->toDateTimeString(),
+                ]);
+            }
             $freshNcp = $ncpRecord->fresh(['monitorings']);
             $this->appointments->recordClinicalWork($request->user(), $freshNcp, 'monitoring');
 

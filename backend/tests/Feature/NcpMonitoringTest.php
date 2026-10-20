@@ -141,6 +141,34 @@ class NcpMonitoringTest extends TestCase
         $this->assertSame('24.91', Monitoring::sole()->bmi);
     }
 
+    public function test_store_creates_a_scheduled_appointment_from_follow_up_details(): void
+    {
+        $rnd = $this->rnd();
+        $patient = $this->patient();
+        $ncp = $this->ncpRecord($patient, $rnd);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings", $this->payload([
+                'next_monitoring_at' => '2026-11-12T14:30',
+                'next_monitoring_purpose' => 'Review updated nutrition plan',
+            ]))
+            ->assertCreated();
+
+        $this->assertDatabaseHas('monitorings', [
+            'ncp_record_id' => $ncp->id,
+            'next_monitoring_date' => '2026-11-12',
+        ]);
+        $this->assertDatabaseHas('ncp_appointments', [
+            'patient_id' => $patient->id,
+            'rnd_user_id' => $rnd->id,
+            'ncp_record_id' => null,
+            'source' => 'scheduled',
+            'status' => 'scheduled',
+            'purpose' => 'Review updated nutrition plan',
+            'scheduled_at' => '2026-11-12 14:30:00',
+        ]);
+    }
+
     public function test_store_requires_complete_calculation_snapshot(): void
     {
         $rnd = $this->rnd();
