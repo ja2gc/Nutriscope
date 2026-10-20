@@ -639,7 +639,7 @@ export default function RndDashboardPage() {
           </div>
         </Link>
 
-        <Link href="/calendar" aria-label="Open scheduled visits" className="bg-white border border-warm-200 rounded-2xl p-4 flex items-center justify-between shadow-sm transition-colors hover:border-brand-green-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green-600">
+        <Link href="/ncp/patients" aria-label="Open scheduled visits" className="bg-white border border-warm-200 rounded-2xl p-4 flex items-center justify-between shadow-sm transition-colors hover:border-brand-green-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green-600">
           <div>
             <span className="text-xs font-extrabold text-warm-400 uppercase tracking-wider block">
               Scheduled Visits

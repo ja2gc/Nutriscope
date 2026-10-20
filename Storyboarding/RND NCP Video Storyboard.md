@@ -80,7 +80,7 @@ For the full guide, open **Overview → Contact details → Edit contact details
 1. Open **Appointments** and select **Schedule or Walk-in**.
 2. Choose **Scheduled**, enter a future date/time, and write a purpose that may cover multiple steps, such as **Complete assessment and review diagnosis**.
 3. Save the schedule.
-4. Return to the RND dashboard and show the appointment queue. Show the matching Patients in Care, Scheduled Visits, and Pending POs cards; each entire card opens its corresponding page.
+4. Return to the RND dashboard and show the appointment queue. Patients in Care and Scheduled Visits both open the Patients page; Pending POs opens Procurement. Each entire card is clickable.
 5. Open **Notifications**, select the appointment reminder, and confirm it opens the exact patient appointment. Return and point out that **Dismiss** remains visible but disabled while action is required.
 
 **Narration**

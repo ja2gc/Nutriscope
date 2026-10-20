@@ -11,7 +11,6 @@ function read(path: string): string {
 const auditedSource = [
   "app/(rnd)/dashboard/page.tsx",
   "app/admin/dashboard/page.tsx",
-  "app/(rnd)/calendar/page.tsx",
   "app/(rnd)/food-service/inventory/_components/FoodServiceMenuItems.tsx",
   "app/(rnd)/food-service/recipes/new/page.tsx",
   "app/(rnd)/food-service/recipes/[id]/page.tsx",
