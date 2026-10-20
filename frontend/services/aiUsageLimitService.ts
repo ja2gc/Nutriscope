@@ -8,9 +8,11 @@ export interface AiUsageLimits {
   daily_used: number;
   daily_tokens_input: number;
   daily_tokens_output: number;
+  daily_estimated_cost_usd: number;
   monthly_used: number;
   monthly_tokens_input: number;
   monthly_tokens_output: number;
+  monthly_estimated_cost_usd: number;
 }
 
 export interface SaveAiUsageLimitsPayload {

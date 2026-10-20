@@ -11,7 +11,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { calcTokenCostUsd } from "@/lib/aiTokenCost";
 import { MONTH_NAMES as MONTHS, MonthYearSelect } from "@/components/ui/MonthYearSelect";
 import {
   fetchAiUsageAnalytics,
@@ -20,8 +19,6 @@ import {
 } from "@/services/aiUsageAnalyticsService";
 
 interface AiUsageExplorerProps {
-  inputCostPer1mTokensUsd: number;
-  outputCostPer1mTokensUsd: number;
   phpRate: number;
 }
 
@@ -71,20 +68,13 @@ export function AiUsageTooltip({
   active,
   month,
   point,
-  inputCostPer1mTokensUsd,
-  outputCostPer1mTokensUsd,
   phpRate,
 }: AiUsageTooltipProps) {
   if (!active || !point || point.tokens === null) return null;
 
   const inputTokens = point.tokens_input ?? 0;
   const outputTokens = point.tokens_output ?? 0;
-  const estimatedCost = calcTokenCostUsd(
-    inputTokens,
-    outputTokens,
-    inputCostPer1mTokensUsd,
-    outputCostPer1mTokensUsd,
-  );
+  const estimatedCost = point.estimated_cost_usd ?? 0;
   const period = point.day ? `${MONTHS[month - 1]} ${point.day}` : MONTHS[(point.month ?? 1) - 1];
 
   return (
@@ -112,8 +102,6 @@ export function AiUsageTooltip({
 
 function RechartsUsageTooltip({
   month,
-  inputCostPer1mTokensUsd,
-  outputCostPer1mTokensUsd,
   phpRate,
   ...props
 }: AiUsageExplorerProps & {
@@ -128,16 +116,12 @@ function RechartsUsageTooltip({
       label={props.label}
       month={month}
       point={props.payload?.[0]?.payload as AiUsagePoint | undefined}
-      inputCostPer1mTokensUsd={inputCostPer1mTokensUsd}
-      outputCostPer1mTokensUsd={outputCostPer1mTokensUsd}
       phpRate={phpRate}
     />
   );
 }
 
 export function AiUsageExplorer({
-  inputCostPer1mTokensUsd,
-  outputCostPer1mTokensUsd,
   phpRate,
 }: AiUsageExplorerProps) {
   const today = useMemo(() => manilaToday(), []);
@@ -308,8 +292,6 @@ export function AiUsageExplorer({
                       <RechartsUsageTooltip
                         {...tooltipProps}
                         month={month}
-                        inputCostPer1mTokensUsd={inputCostPer1mTokensUsd}
-                        outputCostPer1mTokensUsd={outputCostPer1mTokensUsd}
                         phpRate={phpRate}
                       />
                     )}

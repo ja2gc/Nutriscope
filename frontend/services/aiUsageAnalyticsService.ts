@@ -6,6 +6,7 @@ export type AiUsagePoint = {
   tokens: number | null;
   tokens_input: number | null;
   tokens_output: number | null;
+  estimated_cost_usd: number | null;
 };
 
 export type AiUsageAnalytics = {
@@ -16,6 +17,7 @@ export type AiUsageAnalytics = {
   total_tokens: number;
   total_tokens_input: number;
   total_tokens_output: number;
+  total_estimated_cost_usd: number;
   points: AiUsagePoint[];
 };
 

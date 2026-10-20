@@ -12,8 +12,6 @@ vi.mock("@/services/aiUsageAnalyticsService", () => ({ fetchAiUsageAnalytics: vi
 const fetchMock = vi.mocked(fetchAiUsageAnalytics);
 
 const pricing = {
-  inputCostPer1mTokensUsd: 1,
-  outputCostPer1mTokensUsd: 5,
   phpRate: 56,
 };
 
@@ -34,11 +32,13 @@ describe("AiUsageExplorer", () => {
       total_tokens: 1718,
       total_tokens_input: 1420,
       total_tokens_output: 298,
+      total_estimated_cost_usd: 0.00291,
       points: Array.from({ length: 31 }, (_, index) => ({
         day: index + 1,
         tokens_input: index === 17 ? 1420 : 0,
         tokens_output: index === 17 ? 298 : 0,
         tokens: index === 17 ? 1718 : 0,
+        estimated_cost_usd: index === 17 ? 0.00291 : 0,
       })),
     });
   });
@@ -77,7 +77,7 @@ describe("AiUsageExplorer", () => {
           active
           label="18"
           month={7}
-          point={{ day: 18, tokens: 1718, tokens_input: 1420, tokens_output: 298 }}
+          point={{ day: 18, tokens: 1718, tokens_input: 1420, tokens_output: 298, estimated_cost_usd: 0.00291 }}
           {...pricing}
         />,
       );

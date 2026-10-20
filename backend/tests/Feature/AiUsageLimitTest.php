@@ -11,6 +11,7 @@ use App\Models\Patient;
 use App\Models\User;
 use App\Services\AIService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -170,6 +171,67 @@ class AiUsageLimitTest extends TestCase
             'input_cost_per_1m_tokens_usd' => 1.25,
             'output_cost_per_1m_tokens_usd' => 5.75,
         ]);
+    }
+
+    public function test_changing_rates_preserves_past_cost_and_prices_future_usage(): void
+    {
+        AiUsageLimit::current()->update([
+            'input_cost_per_1m_tokens_usd' => 1,
+            'output_cost_per_1m_tokens_usd' => 5,
+        ]);
+
+        $usage = [
+            'user_id' => $this->rnd->id,
+            'model' => 'claude-haiku-4-5-20251001',
+            'tokens_input' => 1000,
+            'tokens_output' => 200,
+            'tokens_total' => 1200,
+            'endpoint' => 'diagnosis_suggestion',
+        ];
+        $past = AiUsageLog::create($usage);
+
+        $this->actingAs($this->admin, 'sanctum')->putJson('/api/admin/ai-usage-limits', [
+            'input_cost_per_1m_tokens_usd' => 0.1,
+            'output_cost_per_1m_tokens_usd' => 0.5,
+        ])->assertOk();
+
+        $future = AiUsageLog::create($usage);
+        $this->assertEqualsWithDelta(0.002, (float) $past->fresh()->estimated_cost_usd, 0.0000000001);
+        $this->assertEqualsWithDelta(0.0002, (float) $future->estimated_cost_usd, 0.0000000001);
+
+        $response = $this->getJson('/api/admin/ai-usage-limits')->assertOk();
+        $this->assertEqualsWithDelta(0.0022, $response->json('data.daily_estimated_cost_usd'), 0.0000000001);
+        $this->assertEqualsWithDelta(0.0022, $response->json('data.monthly_estimated_cost_usd'), 0.0000000001);
+    }
+
+    public function test_backfill_freezes_existing_usage_at_the_saved_rates(): void
+    {
+        AiUsageLimit::current()->update([
+            'input_cost_per_1m_tokens_usd' => 2,
+            'output_cost_per_1m_tokens_usd' => 4,
+        ]);
+        $past = AiUsageLog::create([
+            'user_id' => $this->rnd->id,
+            'model' => 'claude-haiku-4-5-20251001',
+            'tokens_input' => 1000,
+            'tokens_output' => 200,
+            'tokens_total' => 1200,
+            'endpoint' => 'diagnosis_suggestion',
+        ]);
+        DB::table('ai_usage_logs')->where('id', $past->id)->update(['estimated_cost_usd' => null]);
+
+        $migrationFiles = glob(database_path('migrations/*_backfill_ai_usage_estimated_cost.php'));
+        $this->assertCount(1, $migrationFiles);
+        $migration = require $migrationFiles[0];
+        $migration->up();
+        $this->assertEqualsWithDelta(0.0028, (float) $past->fresh()->estimated_cost_usd, 0.0000000001);
+
+        AiUsageLimit::current()->update([
+            'input_cost_per_1m_tokens_usd' => 0.1,
+            'output_cost_per_1m_tokens_usd' => 0.5,
+        ]);
+        $migration->up();
+        $this->assertEqualsWithDelta(0.0028, (float) $past->fresh()->estimated_cost_usd, 0.0000000001);
     }
 
     public function test_admin_can_clear_limits_by_sending_null(): void

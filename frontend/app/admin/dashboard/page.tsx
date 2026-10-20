@@ -13,7 +13,6 @@ import { fetchUsdToPhpRate } from "@/services/currencyService";
 import {
   DEFAULT_AI_INPUT_COST_PER_1M_TOKENS_USD,
   DEFAULT_AI_OUTPUT_COST_PER_1M_TOKENS_USD,
-  calcTokenCostUsd,
 } from "@/lib/aiTokenCost";
 import { KpiCard } from "@/components/ui/KpiCard";
 import { InfoHint } from "@/components/ui/InfoHint";
@@ -81,8 +80,6 @@ export default function AdminDashboardPage() {
   const [outputCostPer1mInput, setOutputCostPer1mInput] = useState(String(DEFAULT_AI_OUTPUT_COST_PER_1M_TOKENS_USD));
   const [capSaving, setCapSaving] = useState(false);
   const [capSaveMsg, setCapSaveMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const inputCostPer1mTokensUsd = aiLimits?.input_cost_per_1m_tokens_usd ?? DEFAULT_AI_INPUT_COST_PER_1M_TOKENS_USD;
-  const outputCostPer1mTokensUsd = aiLimits?.output_cost_per_1m_tokens_usd ?? DEFAULT_AI_OUTPUT_COST_PER_1M_TOKENS_USD;
 
   async function loadAiLimits() {
     try {
@@ -211,7 +208,7 @@ export default function AdminDashboardPage() {
           <KpiCard
             label="AI Usage (Month)"
             value={formatNumber(dashboardData.ai_usage.month_calls)}
-            hint={`${formatTokens(dashboardData.ai_usage.month_tokens)} tokens · Estimated cost: ${formatCost(calcTokenCostUsd(dashboardData.ai_usage.month_tokens_input, dashboardData.ai_usage.month_tokens_output, inputCostPer1mTokensUsd, outputCostPer1mTokensUsd), phpRate)}`}
+            hint={`${formatTokens(dashboardData.ai_usage.month_tokens)} tokens · Estimated cost: ${formatCost(dashboardData.ai_usage.month_estimated_cost_usd, phpRate)}`}
             tone="zinc"
           />
           <KpiCard
@@ -229,7 +226,7 @@ export default function AdminDashboardPage() {
           <div className="flex items-center gap-1">
             <h3 className="text-sm font-bold text-warm-900 uppercase tracking-[0.18em]">AI Token Caps</h3>
             <InfoHint label="How AI token costs are calculated" title="How AI limits and cost work">
-              Daily and monthly limits stop additional AI requests after total token use reaches the limit. Leave a limit blank for unlimited use. Estimated USD cost = (input tokens ÷ 1,000,000 × configured input rate) + (output tokens ÷ 1,000,000 × configured output rate), then the dashboard converts it using its USD-to-PHP rate.
+              Daily and monthly limits stop additional AI requests after total token use reaches the limit. Leave a limit blank for unlimited use. Each AI call saves a USD cost estimate using the rates active at that time. Changing rates affects future calls only. The dashboard converts saved estimates using its USD-to-PHP rate.
             </InfoHint>
           </div>
         </div>
@@ -253,7 +250,7 @@ export default function AdminDashboardPage() {
                     {over && <span className="ml-1.5 font-bold text-amber-600">· over cap</span>}
                   </div>
                   <div className="text-xs text-warm-400 mt-1">
-                    Estimated cost: {formatCost(calcTokenCostUsd(aiLimits?.daily_tokens_input ?? 0, aiLimits?.daily_tokens_output ?? 0, inputCostPer1mTokensUsd, outputCostPer1mTokensUsd), phpRate)}
+                    Estimated cost: {formatCost(aiLimits?.daily_estimated_cost_usd ?? 0, phpRate)}
                   </div>
                 </div>
               );
@@ -275,7 +272,7 @@ export default function AdminDashboardPage() {
                     {over && <span className="ml-1.5 font-bold text-amber-600">· over cap</span>}
                   </div>
                   <div className="text-xs text-warm-400 mt-1">
-                    Estimated cost: {formatCost(calcTokenCostUsd(aiLimits?.monthly_tokens_input ?? 0, aiLimits?.monthly_tokens_output ?? 0, inputCostPer1mTokensUsd, outputCostPer1mTokensUsd), phpRate)}
+                    Estimated cost: {formatCost(aiLimits?.monthly_estimated_cost_usd ?? 0, phpRate)}
                   </div>
                 </div>
               );
@@ -369,8 +366,6 @@ export default function AdminDashboardPage() {
         {/* Left: AI usage chart + Quick Actions */}
         <div className="lg:col-span-2 space-y-6 min-w-0">
           <AiUsageExplorer
-            inputCostPer1mTokensUsd={inputCostPer1mTokensUsd}
-            outputCostPer1mTokensUsd={outputCostPer1mTokensUsd}
             phpRate={phpRate}
           />
 

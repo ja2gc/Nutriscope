@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AiUsageLimit;
 use App\Models\AiUsageLog;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -74,6 +75,28 @@ class AdminAiUsageAnalyticsTest extends TestCase
         $this->assertSame(85, $points[12]['tokens']);
         $this->assertSame(75, $points[12]['tokens_input']);
         $this->assertSame(10, $points[12]['tokens_output']);
+    }
+
+    public function test_cost_points_keep_each_calls_saved_estimate_after_rates_change(): void
+    {
+        CarbonImmutable::setTestNow('2026-07-15 04:00:00 UTC');
+        $admin = User::factory()->create(['role' => 'Admin']);
+        $this->log($admin, 1000, 200, '2026-07-10 00:00:00');
+        AiUsageLimit::current()->update([
+            'input_cost_per_1m_tokens_usd' => 0.1,
+            'output_cost_per_1m_tokens_usd' => 0.5,
+        ]);
+        $this->log($admin, 1000, 200, '2026-07-10 01:00:00');
+
+        $month = $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/admin/ai-usage?view=month&year=2026&month=7')
+            ->assertOk();
+        $this->assertEqualsWithDelta(0.0022, $month->json('total_estimated_cost_usd'), 0.0000000001);
+        $this->assertEqualsWithDelta(0.0022, collect($month->json('points'))->firstWhere('day', 10)['estimated_cost_usd'], 0.0000000001);
+
+        $year = $this->getJson('/api/admin/ai-usage?view=year&year=2026')->assertOk();
+        $this->assertEqualsWithDelta(0.0022, $year->json('total_estimated_cost_usd'), 0.0000000001);
+        $this->assertEqualsWithDelta(0.0022, collect($year->json('points'))->firstWhere('month', 7)['estimated_cost_usd'], 0.0000000001);
     }
 
     public function test_query_validation_and_admin_authorization_are_enforced(): void

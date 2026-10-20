@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AiUsageLimit;
 use App\Models\AiUsageLog;
 use App\Models\Patient;
 use App\Models\User;
@@ -53,6 +54,10 @@ class AdminDashboardTest extends TestCase
             'tokens_output' => 80,
             'tokens_total' => 230,
             'endpoint' => 'monitoring_narrative',
+        ]);
+        AiUsageLimit::current()->update([
+            'input_cost_per_1m_tokens_usd' => 0.1,
+            'output_cost_per_1m_tokens_usd' => 0.5,
         ]);
 
         // Seed audit activity
@@ -107,6 +112,7 @@ class AdminDashboardTest extends TestCase
         $response->assertJsonPath('data.ai_usage.daily.0.date', now()->toDateString());
         $response->assertJsonPath('data.ai_usage.daily.0.calls', 2);
         $response->assertJsonPath('data.ai_usage.daily.0.tokens', 530);
+        $this->assertEqualsWithDelta(0.00125, $response->json('data.ai_usage.month_estimated_cost_usd'), 0.0000000001);
 
         // AuditsChanges trait auto-logs Patient creates; assert at least our manual row
         $this->assertGreaterThanOrEqual(

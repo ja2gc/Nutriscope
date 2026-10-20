@@ -33,6 +33,7 @@ class AiUsageLimitController extends Controller
             ->selectRaw('COALESCE(SUM(tokens_input), 0) as tokens_input')
             ->selectRaw('COALESCE(SUM(tokens_output), 0) as tokens_output')
             ->selectRaw('COALESCE(SUM(tokens_total), 0) as tokens_total')
+            ->selectRaw('COALESCE(SUM(estimated_cost_usd), 0) as estimated_cost_usd')
             ->first();
 
         $monthlyUsage = AiUsageLog::query()
@@ -40,6 +41,7 @@ class AiUsageLimitController extends Controller
             ->selectRaw('COALESCE(SUM(tokens_input), 0) as tokens_input')
             ->selectRaw('COALESCE(SUM(tokens_output), 0) as tokens_output')
             ->selectRaw('COALESCE(SUM(tokens_total), 0) as tokens_total')
+            ->selectRaw('COALESCE(SUM(estimated_cost_usd), 0) as estimated_cost_usd')
             ->first();
 
         return [
@@ -50,9 +52,11 @@ class AiUsageLimitController extends Controller
             'daily_used' => (int) $dailyUsage->tokens_total,
             'daily_tokens_input' => (int) $dailyUsage->tokens_input,
             'daily_tokens_output' => (int) $dailyUsage->tokens_output,
+            'daily_estimated_cost_usd' => (float) $dailyUsage->estimated_cost_usd,
             'monthly_used' => (int) $monthlyUsage->tokens_total,
             'monthly_tokens_input' => (int) $monthlyUsage->tokens_input,
             'monthly_tokens_output' => (int) $monthlyUsage->tokens_output,
+            'monthly_estimated_cost_usd' => (float) $monthlyUsage->estimated_cost_usd,
         ];
     }
 }

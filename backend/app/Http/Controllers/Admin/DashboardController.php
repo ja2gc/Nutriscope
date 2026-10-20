@@ -82,6 +82,7 @@ class DashboardController extends Controller
                 DB::raw('COALESCE(SUM(tokens_total), 0) as tokens'),
                 DB::raw('COALESCE(SUM(tokens_input), 0) as tokens_input'),
                 DB::raw('COALESCE(SUM(tokens_output), 0) as tokens_output'),
+                DB::raw('COALESCE(SUM(estimated_cost_usd), 0) as estimated_cost_usd'),
             )
             ->first();
 
@@ -123,6 +124,7 @@ class DashboardController extends Controller
             'month_tokens' => (int) $month->tokens,
             'month_tokens_input' => (int) $month->tokens_input,
             'month_tokens_output' => (int) $month->tokens_output,
+            'month_estimated_cost_usd' => (float) $month->estimated_cost_usd,
             'by_endpoint' => $byEndpoint,
             'daily' => $daily,
         ];
