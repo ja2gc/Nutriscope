@@ -3,6 +3,19 @@ import { cookies } from "next/headers";
 
 const LARAVEL_API = process.env.LARAVEL_API_URL ?? "http://127.0.0.1:8000/api";
 
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ ncpRecordId: string }> },
+) {
+  const token = (await cookies()).get("nutriscope_token")?.value;
+  if (!token) return NextResponse.json({ message: "Unauthenticated." }, { status: 401 });
+  const { ncpRecordId } = await params;
+  const response = await fetch(`${LARAVEL_API}/rnd/ncp-records/${ncpRecordId}/diagnoses/ai-suggest`, {
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }, cache: "no-store",
+  });
+  return NextResponse.json(await response.json().catch(() => ({})), { status: response.status });
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ ncpRecordId: string }> }
@@ -34,7 +47,7 @@ export async function POST(
 
   if (!laravelRes.ok) {
     return NextResponse.json(
-      { message: data.message ?? "AI suggestion failed." },
+      { ...data, message: data.message ?? "AI suggestion failed." },
       { status: laravelRes.status }
     );
   }

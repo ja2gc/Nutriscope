@@ -13,15 +13,15 @@ class PesEligibilityServiceTest extends TestCase
     {
         $catalog = app(PesRuleCatalog::class);
 
-        $this->assertSame('2026-09-21-v1', $catalog->version());
-        $this->assertCount(6, $catalog->cards());
+        $this->assertSame('2026-10-20-v2', $catalog->version());
+        $this->assertEqualsCanonicalizing(['NI', 'NC', 'NB'], array_values(array_unique(array_column($catalog->cards(), 'domain'))));
 
         foreach ($catalog->cards() as $card) {
             $this->assertSame(
-                ['id', 'problem_key', 'required_evidence', 'corroborating_evidence', 'disqualifiers', 'source'],
+                ['id', 'domain', 'problem_key', 'required_evidence', 'corroborating_evidence', 'disqualifiers', 'source'],
                 array_keys($card),
             );
-            $this->assertMatchesRegularExpression('/_v1$/', $card['id']);
+            $this->assertMatchesRegularExpression('/_v[12]$/', $card['id']);
             $this->assertNotSame('', $card['problem_key']);
             $this->assertNotEmpty($card['required_evidence']);
             $this->assertSame(
@@ -49,6 +49,7 @@ class PesEligibilityServiceTest extends TestCase
     {
         return [
             'unintended weight loss' => ['unintended_weight_loss_v1', [
+                'weight_change_direction' => 'loss',
                 'weight_loss_percentage' => 6.5,
                 'weight_change_period' => ['value' => 2, 'unit' => 'months'],
                 'appetite' => 'decreased',
@@ -111,7 +112,7 @@ class PesEligibilityServiceTest extends TestCase
         ]));
     }
 
-    public function test_results_exclude_existing_and_dismissed_problems_and_stop_at_three(): void
+    public function test_results_exclude_existing_and_dismissed_problems_without_limiting_contextual_review_to_first_three(): void
     {
         $evidence = [
             'weight_loss_percentage' => 8,
@@ -135,7 +136,7 @@ class PesEligibilityServiceTest extends TestCase
             ['swallowing_chewing_difficulty_v1'],
         );
 
-        $this->assertCount(3, $eligible);
+        $this->assertGreaterThanOrEqual(4, count($eligible));
         $this->assertNotContains('unintended_weight_loss_v1', array_column($eligible, 'candidate_id'));
         $this->assertNotContains('swallowing_chewing_difficulty_v1', array_column($eligible, 'candidate_id'));
     }

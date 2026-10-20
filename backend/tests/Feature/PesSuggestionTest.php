@@ -43,7 +43,7 @@ class PesSuggestionTest extends TestCase
             ->assertJsonPath('data.0.candidate_id', 'unintended_weight_loss_v1')
             ->assertJsonPath('data.0.label', 'Unintended Weight Loss')
             ->assertJsonPath('meta.cached', false)
-            ->assertJsonPath('meta.catalog_version', '2026-09-21-v1');
+            ->assertJsonPath('meta.catalog_version', '2026-10-20-v2');
 
         $this->assertLessThanOrEqual(3, count($first->json('data')));
 
@@ -56,7 +56,7 @@ class PesSuggestionTest extends TestCase
         $this->assertDatabaseCount('pes_suggestion_states', 1);
     }
 
-    public function test_zero_eligible_drafts_is_successful_and_cached_without_provider_call(): void
+    public function test_zero_eligible_drafts_is_successful_without_provider_call(): void
     {
         $ncpRecord = $this->makeRecord(assessment: [
             'weight_loss_percentage' => 0,
@@ -68,10 +68,10 @@ class PesSuggestionTest extends TestCase
             ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-suggest")
             ->assertOk()
             ->assertJsonPath('data', [])
-            ->assertJsonPath('meta.message', 'No sufficiently supported PES draft was found.');
+            ->assertJsonPath('meta.message', 'No new supported nutrition problems were found.');
 
         Http::assertNothingSent();
-        $this->assertDatabaseCount('pes_suggestion_states', 1);
+        $this->assertDatabaseCount('pes_suggestion_states', 0);
     }
 
     public function test_dismissal_persists_for_the_same_fingerprint(): void
@@ -111,7 +111,7 @@ class PesSuggestionTest extends TestCase
         $url = "/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-suggest";
 
         $this->actingAs($this->rnd, 'sanctum')->postJson($url)->assertOk();
-        $ncpRecord->assessment()->update(['weight_loss_percentage' => 7]);
+        $ncpRecord->assessment()->update(['weight' => 55.8, 'weight_loss_percentage' => 7]);
         $this->actingAs($this->rnd, 'sanctum')->postJson($url)
             ->assertOk()
             ->assertJsonPath('data.0.signs', '7% unintended weight loss over 2 months')
@@ -182,6 +182,8 @@ class PesSuggestionTest extends TestCase
         ]);
         Assessment::factory()->create([
             'ncp_record_id' => $ncpRecord->id,
+            'weight' => 56.1, 'usual_weight' => 60, 'height' => 170,
+            'medical_history' => 'Unintentional weight loss after decreased appetite.',
             'weight_loss_percentage' => 6.5,
             'weight_change_period_value' => 2,
             'weight_change_period_unit' => 'months',
@@ -199,8 +201,8 @@ class PesSuggestionTest extends TestCase
             $serialized = json_encode($body);
             $content = $body['messages'][0]['content'] ?? '';
 
-            $this->assertLessThanOrEqual(700, $body['max_tokens']);
-            $this->assertLessThanOrEqual(8000, strlen($content));
+            $this->assertLessThanOrEqual(1800, $body['max_tokens']);
+            $this->assertLessThanOrEqual(18000, strlen($content));
             foreach (['Fictional Private Name', 'SECRET-HOSPITAL-42', 'Secret address', 'Dr Secret', '1980-01-02'] as $forbidden) {
                 $this->assertStringNotContainsString($forbidden, $serialized);
             }
@@ -249,6 +251,9 @@ class PesSuggestionTest extends TestCase
         ]);
         Assessment::factory()->create(array_merge([
             'ncp_record_id' => $ncpRecord->id,
+            'weight' => round(60 * (1 - (float) ($assessment['weight_loss_percentage'] ?? 0) / 100), 4),
+            'usual_weight' => 60, 'height' => 170, 'physical_assessment' => null, 'present_diet' => null,
+            'medical_history' => ($assessment['weight_loss_percentage'] ?? 0) > 0 ? 'Unintentional weight loss after decreased appetite.' : null,
             'weight_loss_percentage' => null,
             'weight_change_period_value' => null,
             'weight_change_period_unit' => null,
@@ -274,7 +279,10 @@ class PesSuggestionTest extends TestCase
                     'problem_key' => 'Unintended Weight Loss',
                     'etiology' => 'decreased appetite',
                     'signs' => $signs,
-                    'evidence_used' => ['weight_loss_percentage', 'weight_change_period', 'appetite'],
+                    'evidence_used' => ['weight_loss_percentage', 'weight_change_period', 'appetite', 'medical_history'],
+                    'evidence_quotes' => ['weight_loss_percentage' => str_starts_with($signs, '7%') ? '7' : '6.5', 'weight_change_period' => '2', 'appetite' => 'decreased', 'medical_history' => 'Unintentional weight loss'],
+                    'etiology_evidence' => ['appetite'], 'signs_evidence' => ['weight_loss_percentage', 'weight_change_period', 'medical_history'],
+                    'extra_notes' => 'Loss and decreased appetite require review in context.',
                     'source_id' => 'academy_ncp_diagnosis_2026',
                 ]]]),
             ]],

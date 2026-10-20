@@ -14,11 +14,7 @@ class AiApproveDiagnosisRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'domain' => ['required', 'string', 'in:NI,NC,NB'],
-            'label' => ['required', 'string', 'max:255'],
-            'etiology' => ['required', 'string'],
-            'signs' => ['required', 'string'],
-            'priority' => ['nullable', 'integer', 'min:1'],
+            'draft_id' => ['required', 'uuid'],
         ];
     }
 }

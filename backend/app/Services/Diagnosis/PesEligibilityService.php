@@ -8,114 +8,96 @@ class PesEligibilityService
 
     public function eligible(array $evidence, array $dismissedCandidateIds = []): array
     {
-        $existing = array_map(
-            static fn (mixed $value): string => mb_strtolower(trim((string) $value)),
-            $evidence['existing_problem_keys'] ?? [],
-        );
-        $dismissed = array_fill_keys($dismissedCandidateIds, true);
+        $existing = $this->canonicalProblems($evidence['existing_problem_keys'] ?? []);
         $eligible = [];
-
         foreach ($this->catalog->cards() as $card) {
-            if (isset($dismissed[$card['id']])) {
-                continue;
-            }
-            if (in_array(mb_strtolower($card['problem_key']), $existing, true)) {
+            if (in_array($card['id'], $dismissedCandidateIds, true) || in_array($this->canonicalProblem($card['problem_key']), $existing, true)) {
                 continue;
             }
             if (! $this->matches($card['id'], $evidence)) {
                 continue;
             }
-
-            $allowedKeys = array_merge($card['required_evidence'], $card['corroborating_evidence']);
-            $candidateEvidence = array_intersect_key($evidence, array_fill_keys($allowedKeys, true));
-            $eligible[] = [
-                'candidate_id' => $card['id'],
-                'domain' => 'NC',
-                'problem_key' => $card['problem_key'],
-                'evidence' => $candidateEvidence,
-                'source' => $card['source'],
-            ];
-
-            if (count($eligible) === 3) {
-                break;
-            }
+            $keys = array_unique([...$card['required_evidence'], ...$card['corroborating_evidence'], 'age_group', 'sex', 'edema_present', 'pregnancy_lactation_status', 'weight_change_direction', 'weight_change_percentage', 'usual_weight_kg', 'weight_kg', 'weight_change_period']);
+            $candidateEvidence = array_intersect_key($evidence, array_fill_keys($keys, true));
+            $eligible[] = ['candidate_id' => $card['id'], 'domain' => $card['domain'], 'problem_key' => $card['problem_key'], 'evidence' => $candidateEvidence, 'source' => $card['source']];
         }
 
         return $eligible;
     }
 
-    private function matches(string $ruleId, array $evidence): bool
+    public function canonicalProblem(string $problem): string
     {
-        return match ($ruleId) {
-            'unintended_weight_loss_v1' => $this->positiveNumber($evidence['weight_loss_percentage'] ?? null)
-                && $this->validPeriod($evidence['weight_change_period'] ?? null),
-            'overweight_obesity_v1' => is_numeric($evidence['bmi'] ?? null)
-                && (float) $evidence['bmi'] >= 25
-                && in_array($evidence['age_group'] ?? null, ['adult', 'elderly'], true)
-                && $this->positiveNumber($evidence['weight_kg'] ?? null)
-                && $this->positiveNumber($evidence['height_cm'] ?? null),
-            'swallowing_chewing_difficulty_v1' => $this->positiveFinding(
-                $evidence['chewing_swallowing_difficulties'] ?? null,
-                ['difficulty', 'problem'],
-            ),
-            'altered_gi_function_v1' => is_array($evidence['gi_symptoms'] ?? null)
-                && array_filter(
-                    $evidence['gi_symptoms'],
-                    fn (mixed $value, string $key): bool => $this->positiveFinding($value, [$key]),
-                    ARRAY_FILTER_USE_BOTH,
-                ) !== [],
-            'food_medication_interaction_v1' => $this->positiveFinding(
-                $evidence['nutrient_drug_interaction'] ?? null,
-                ['interaction'],
-            )
-                && (int) ($evidence['medication_count'] ?? 0) > 0,
-            'predicted_suboptimal_intake_v1' => in_array(
-                $evidence['energy_intake_status'] ?? null,
-                ['Mostly liquids', 'Sub-optimal', 'Starvation', 'Poor intake prior to admission'],
-                true,
-            ) && (
-                in_array($evidence['appetite'] ?? null, ['decreased', 'absent'], true)
-                || $this->hasText($evidence['present_diet'] ?? null)
-            ),
-            default => false,
+        $key = trim((string) preg_replace('/[^a-z0-9]+/', ' ', mb_strtolower($problem)));
+
+        return match (true) {
+            preg_match('/\b(unintended|unintentional) weight loss\b/', $key) === 1 => 'unintended weight loss',
+            preg_match('/\b(malnutrition|undernutrition)\b/', $key) === 1 => 'malnutrition undernutrition',
+            preg_match('/\b(overweight|obesity|obese)\b/', $key) === 1 => 'overweight obesity',
+            preg_match('/\b(inadequate|insufficient|suboptimal|sub optimal).*\b(oral|food|energy).*\bintake\b/', $key) === 1 => 'inadequate energy oral intake',
+            preg_match('/\b(food|nutrition).*\bknowledge.*\b(deficit|lack)\b|\black of.*nutrition knowledge\b/', $key) === 1 => 'nutrition knowledge deficit',
+            preg_match('/\b(limited|inadequate|poor) (food and )?nutrition knowledge\b/', $key) === 1 => 'nutrition knowledge deficit',
+            preg_match('/\baltered (gi|gastrointestinal) function\b/', $key) === 1 => 'altered gastrointestinal function',
+            preg_match('/\bdysphagia\b|\b(swallowing|chewing|mastication).*\bdifficulty\b/', $key) === 1 => 'swallowing chewing difficulty',
+            preg_match('/\bfood insecurity\b|\blimited access to food\b/', $key) === 1 => 'food insecurity',
+            default => $key,
         };
     }
 
-    private function positiveNumber(mixed $value): bool
+    public function canonicalProblems(array $problems): array
     {
-        return is_numeric($value) && (float) $value > 0;
-    }
-
-    private function validPeriod(mixed $period): bool
-    {
-        return is_array($period)
-            && filter_var($period['value'] ?? null, FILTER_VALIDATE_INT) !== false
-            && (int) $period['value'] > 0
-            && in_array($period['unit'] ?? null, ['weeks', 'months'], true);
-    }
-
-    private function hasText(mixed $value): bool
-    {
-        return is_string($value) && trim($value) !== '';
-    }
-
-    private function positiveFinding(mixed $value, array $findingTerms): bool
-    {
-        if (! $this->hasText($value)) {
-            return false;
-        }
-
-        $normalized = mb_strtolower(trim($value));
-        if (in_array($normalized, ['no', 'none', 'n/a', 'na', 'not applicable', 'normal', 'resolved'], true)) {
-            return false;
-        }
-
-        foreach ($findingTerms as $term) {
-            if (preg_match('/^(?:no|den(?:y|ies)|without)\b.*\b'.preg_quote($term, '/').'\b/i', $normalized)) {
-                return false;
+        $parts = [];
+        foreach ($problems as $problem) {
+            foreach (explode(';', $problem) as $part) {
+                $parts[] = $this->canonicalProblem(trim($part));
             }
         }
 
+        return array_values(array_unique($parts));
+    }
+
+    public function hasConcern(mixed $value): bool
+    {
+        if (is_array($value)) {
+            return collect($value)->contains(fn ($item): bool => $this->hasConcern($item));
+        }
+        if (! is_string($value) || trim($value) === '') {
+            return false;
+        }
+        $text = mb_strtolower(trim($value));
+        if (preg_match('/^[+-]?\d+(?:\.\d+)?\s*(?:%|kg|g|mg|cm|mm|ml|l|kcal)?$/', $text)) {
+            return false;
+        }
+        if (preg_match('/^(no|none|n\/a|na|normal|resolved|adequate|sufficient|regular|no change|independent|ambulatory|\[redacted\])\.?$/', $text)) {
+            return false;
+        }
+        if (preg_match('/^(understands|demonstrates understanding|adequate knowledge|normal (intake|exam|assessment|findings)|no (concerns|barriers|symptoms|difficulty|constipation|diarrhea)|(?:patient )?denies (chewing|swallowing|constipation|diarrhea|weight loss)|(?:possible|suspected|historical|resolved|family history of)\b)[^;]*$/', $text) && ! preg_match('/\b(but|however|except)\b/', $text)) {
+            return false;
+        }
+
         return true;
+    }
+
+    private function matches(string $id, array $evidence): bool
+    {
+        $text = fn (string $key): bool => $this->hasConcern($evidence[$key] ?? null);
+        if (str_starts_with($id, 'inadequate_') || str_starts_with($id, 'excessive_') || $id === 'intake_other_v2') {
+            return $text('dietary_intake');
+        }
+
+        return match ($id) {
+            'unintended_weight_loss_v1' => ($evidence['weight_change_direction'] ?? 'unknown') === 'loss'
+                && ($evidence['weight_loss_percentage'] ?? 0) > 0 && ! empty($evidence['weight_change_period']),
+            'overweight_obesity_v1' => ($evidence['bmi'] ?? 0) >= 25 && in_array($evidence['age_group'] ?? null, ['adult', 'elderly'], true)
+                && ($evidence['pregnancy_lactation_status'] ?? 'none') === 'none' && ! ($evidence['edema_present'] ?? false),
+            'swallowing_chewing_difficulty_v1' => $text('chewing_swallowing_difficulties'),
+            'altered_gi_function_v1' => $text('gi_symptoms'),
+            'food_medication_interaction_v1' => $text('nutrient_drug_interaction') && ($evidence['medication_count'] ?? 0) > 0,
+            'predicted_suboptimal_intake_v1' => in_array($evidence['energy_intake_status'] ?? null, ['Mostly liquids', 'Sub-optimal', 'Starvation', 'Poor intake prior to admission'], true)
+                && (in_array($evidence['appetite'] ?? null, ['decreased', 'absent'], true) || $text('dietary_intake')),
+            'altered_labs_v2' => ! empty($evidence['laboratory_flags']) && in_array($evidence['age_group'] ?? null, ['adult', 'elderly'], true) && ($evidence['sex'] ?? 'unknown') !== 'unknown',
+            'clinical_other_v2' => $text('physical_assessment') || $text('medical_history') || $text('body_composition') || $text('food_intolerance')
+                || (in_array($evidence['age_group'] ?? null, ['adult', 'elderly'], true) && ($evidence['bmi'] ?? 0) > 0 && $evidence['bmi'] < (($evidence['age_70_plus'] ?? false) ? 20 : 18.5)),
+            default => str_ends_with($id, '_v2') && ($text('knowledge_notes') || $text('social_history') || $text('lifestyle') || $text('dietary_intake')),
+        };
     }
 }

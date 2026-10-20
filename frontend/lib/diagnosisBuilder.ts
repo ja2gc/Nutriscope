@@ -7,6 +7,8 @@ export interface DiagnosisProblemBuilder {
   ncProblems: string[];
   nbProblems: string[];
   problemOverride?: string;
+  problemOther?: string;
+  problemOtherChecked?: boolean;
 }
 
 export function buildDiagnosisProblemText(builder: DiagnosisProblemBuilder): string {
@@ -14,11 +16,11 @@ export function buildDiagnosisProblemText(builder: DiagnosisProblemBuilder): str
   if (override) return override;
 
   if (builder.domain === "NI") {
-    return `${builder.niDirection} ${builder.niNutrient || "[Nutrient]"} Intake`;
+    return `${builder.niDirection} ${builder.niNutrient.replace(/\s+Intake$/i, "") || "[Nutrient]"} Intake`;
   }
   if (builder.domain === "NC") {
-    return builder.ncProblems.length > 0 ? builder.ncProblems.join("; ") : "[Select problem]";
+    return [...builder.ncProblems, ...(builder.problemOtherChecked && builder.problemOther?.trim() ? [builder.problemOther.trim()] : [])].join("; ") || "[Select problem]";
   }
-  return builder.nbProblems.length > 0 ? builder.nbProblems.join("; ") : "[Select problem]";
+  return [...builder.nbProblems, ...(builder.problemOtherChecked && builder.problemOther?.trim() ? [builder.problemOther.trim()] : [])].join("; ") || "[Select problem]";
 }
 

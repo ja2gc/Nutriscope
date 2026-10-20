@@ -8,12 +8,13 @@ const monitoring = readFileSync(join(process.cwd(), "app/(rnd)/ncp/[patientId]/m
 
 describe("NCP explicit save and diagnosis UX", () => {
   test("AI edit is a local draft with matching selections checked", () => {
-    expect(page).toContain("splitStoredComponent(s.etiology");
-    expect(page).toContain("splitStoredComponent(s.signs");
-    expect(page).toContain("matchStoredOption(s.label");
+    expect(page).toContain("splitDiagnosisComponent(d.etiology");
+    expect(page).toContain("splitDiagnosisComponent(d.signs_symptoms");
+    expect(page).toContain("builder_data: s.builder_data");
     expect(page).toContain("> Edit");
     expect(page).not.toContain("Edit then Accept");
-    expect(page).toContain("candidateBuilderSelections(s.candidate_id)");
+    expect(page).not.toContain("candidateBuilderSelections(s.candidate_id)");
+    expect(page).toContain("b.aiDraftId = s.draft_id");
   });
 
   test("PES previews use light readable surfaces", () => {
@@ -37,7 +38,7 @@ describe("NCP explicit save and diagnosis UX", () => {
     expect(page).not.toContain(">Source</span>");
     expect(page).not.toContain("s.source.url");
     expect(page).not.toContain("Cached for this unchanged Assessment");
-    expect(page).toContain("No sufficiently supported PES draft was found.");
+    expect(page).toContain("No new supported nutrition problems were found.");
     expect(page).toContain("External AI drafts are unavailable");
     expect(page).toContain("dismissPesSuggestion");
     expect(page).toContain("> Dismiss");

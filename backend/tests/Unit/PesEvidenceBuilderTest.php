@@ -11,7 +11,7 @@ use Tests\TestCase;
 
 class PesEvidenceBuilderTest extends TestCase
 {
-    public function test_no_answers_are_omitted_and_yes_answers_send_only_the_optional_detail(): void
+    public function test_no_answers_remain_counterevidence_and_yes_answers_send_only_the_optional_detail(): void
     {
         $assessment = new Assessment([
             'chewing_swallowing_difficulties' => 'No',
@@ -26,14 +26,14 @@ class PesEvidenceBuilderTest extends TestCase
 
         $evidence = app(PesEvidenceBuilder::class)->build($record);
 
-        $this->assertArrayNotHasKey('chewing_swallowing_difficulties', $evidence);
-        $this->assertSame(['diarrhea' => 'Three loose stools since morning'], $evidence['gi_symptoms']);
+        $this->assertSame('No', $evidence['chewing_swallowing_difficulties']);
+        $this->assertSame(['constipation' => 'No', 'diarrhea' => 'Three loose stools since morning'], $evidence['gi_symptoms']);
     }
 
     public function test_age_evidence_uses_dob_and_census_boundaries_instead_of_legacy_category(): void
     {
         foreach ([
-            ['dob' => '2008-01-01', 'legacy' => 'adult', 'expected' => 'pediatric'],
+            ['dob' => '2009-01-01', 'legacy' => 'adult', 'expected' => 'pediatric'],
             ['dob' => '2007-01-01', 'legacy' => 'pediatric', 'expected' => 'adult'],
             ['dob' => '1966-01-01', 'legacy' => 'adult', 'expected' => 'elderly'],
         ] as $case) {

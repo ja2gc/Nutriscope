@@ -28,6 +28,7 @@ use App\Services\Audit\AuditEventPresenter;
 use App\Services\Audit\AuditLogger;
 use App\Services\Audit\AuditPatientSnapshot;
 use App\Services\Audit\AuditPseudonymousReference;
+use App\Services\Diagnosis\PesSuggestionService;
 use App\Services\UsdaService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -312,7 +313,16 @@ class AuditCanonicalEventTest extends TestCase
         ]);
         AuditFixture::delete(AuditActivity::query());
 
+        $this->mock(PesSuggestionService::class, function ($mock): void {
+            $mock->shouldReceive('resolveDraft')->once()->andReturn([
+                'domain' => 'NI', 'problem' => 'Inadequate energy intake', 'label' => 'Inadequate energy intake',
+                'etiology' => 'poor appetite', 'signs_symptoms' => 'weight loss',
+                'pes_statement' => 'Inadequate energy intake related to poor appetite as evidenced by weight loss',
+                'ai_generated' => true,
+            ]);
+        });
         $this->postJson("/api/rnd/ncp-records/{$ncp->uuid}/diagnoses/ai-approve", [
+            'draft_id' => fake()->uuid(),
             'domain' => 'NI',
             'label' => 'Inadequate energy intake',
             'etiology' => 'related to poor appetite',

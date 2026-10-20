@@ -7,6 +7,7 @@ use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\User;
 use App\Services\AIService;
+use App\Services\Diagnosis\PesSuggestionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
@@ -97,7 +98,8 @@ class AiServiceTest extends TestCase
             $this->assertStringContainsString("rules:\n", $system);
             $this->assertStringContainsString("input_json:\n", $prompt);
             $this->assertStringContainsString("output_json_schema:\n", $prompt);
-            $this->assertLessThanOrEqual(1200, strlen($system.$prompt));
+            $this->assertLessThanOrEqual(4500, strlen($system.$prompt));
+            $this->assertStringContainsString('Interpret current findings and counterevidence', $system);
 
             return true;
         });
@@ -112,7 +114,17 @@ class AiServiceTest extends TestCase
             'height' => 170.0,
         ]);
 
+        $this->mock(PesSuggestionService::class, function ($mock): void {
+            $mock->shouldReceive('resolveDraft')->once()->andReturn([
+                'domain' => 'NC', 'problem' => 'Unintended Weight Loss', 'label' => 'Unintended Weight Loss',
+                'etiology' => 'decreased appetite', 'signs_symptoms' => '6.5% weight loss over 2 months',
+                'pes_statement' => 'Unintended Weight Loss related to decreased appetite as evidenced by 6.5% weight loss over 2 months',
+                'ai_generated' => true,
+            ]);
+        });
+
         $this->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-approve", [
+            'draft_id' => fake()->uuid(),
             'domain' => 'NC',
             'label' => 'Unintended Weight Loss',
             'etiology' => 'related to decreased appetite',
@@ -155,7 +167,7 @@ class AiServiceTest extends TestCase
             'etiology' => 'cause',
             'signs' => 'evidence',
         ])->assertUnprocessable()
-            ->assertJsonValidationErrors(['domain', 'label']);
+            ->assertJsonValidationErrors(['draft_id']);
     }
 
     private function makeNcpRecord(): NcpRecord

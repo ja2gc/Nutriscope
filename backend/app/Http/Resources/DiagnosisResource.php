@@ -19,6 +19,7 @@ class DiagnosisResource extends JsonResource
             'signs_symptoms' => $this->signs_symptoms,
             'pes_statement' => $this->pes_statement,
             'extra_notes' => $this->extra_notes,
+            'builder_data' => $this->builder_data,
             'ai_generated' => $this->ai_generated,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,

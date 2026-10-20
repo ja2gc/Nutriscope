@@ -14,7 +14,13 @@ use App\Models\NcpRecord;
 use App\Policies\AuditPolicy;
 use App\Services\Audit\AuditLogger;
 use App\Services\Diagnosis\PesSuggestionService;
+use App\Services\NcpAppointmentWorkflow;
+use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Validation\ValidationException;
 
 class AiDiagnosisController extends Controller
 {
@@ -22,81 +28,61 @@ class AiDiagnosisController extends Controller
         private PesSuggestionService $pesSuggestions,
         private AuditPolicy $auditPolicy,
         private AuditLogger $auditLogger,
+        private NcpAppointmentWorkflow $appointments,
     ) {}
 
-    /**
-     * GET AI-suggested diagnoses for an NCP record.
-     */
+    public function aiStatus(Request $request, NcpRecord $ncpRecord): JsonResponse
+    {
+        abort_unless($this->auditPolicy->viewNcpTrail($request->user(), $ncpRecord), 403);
+
+        return response()->json($this->pesSuggestions->status($ncpRecord));
+    }
+
     public function aiSuggest(AiSuggestDiagnosisRequest $request, NcpRecord $ncpRecord): JsonResponse
     {
         abort_unless($this->auditPolicy->viewNcpTrail($request->user(), $ncpRecord), 403);
         $data = $request->validated();
-
         try {
-            $result = $this->pesSuggestions->suggest(
-                $ncpRecord,
-                $data['dismissed_candidate_id'] ?? null,
-            );
-        } catch (\InvalidArgumentException $e) {
-            return response()->json(['message' => $e->getMessage()], 422);
-        } catch (\RuntimeException $e) {
-            return response()->json(['message' => $e->getMessage()], 502);
+            $result = $this->pesSuggestions->suggest($ncpRecord, $data['dismissed_candidate_id'] ?? null);
+        } catch (HttpResponseException $error) {
+            throw $error;
+        } catch (LockTimeoutException) {
+            return response()->json(['message' => 'Another request for this patient is in progress. Please try again shortly.'], 409);
+        } catch (\InvalidArgumentException $error) {
+            return response()->json(['message' => $error->getMessage()], 422);
+        } catch (\RuntimeException $error) {
+            return response()->json(['message' => $error->getMessage()], 502);
         }
 
         return response()->json($result);
     }
 
-    /**
-     * Store an AI-approved diagnosis to the database.
-     */
     public function aiApprove(AiApproveDiagnosisRequest $request, NcpRecord $ncpRecord): JsonResponse
     {
         abort_unless($this->auditPolicy->viewNcpTrail($request->user(), $ncpRecord), 403);
-        // ADIME step order: the assessment must precede the diagnosis (same gate as the
-        // manual create path, so AI-approve can't bypass it).
         if (! $ncpRecord->assessment()->exists()) {
-            return response()->json([
-                'message' => 'Record the nutrition assessment before adding a diagnosis.',
-            ], 422);
+            return response()->json(['message' => 'Record the nutrition assessment before adding a diagnosis.'], 422);
         }
+        try {
+            return Cache::lock('pes-patient-'.$ncpRecord->patient_id, 40)->block(1, function () use ($request, $ncpRecord): JsonResponse {
+                $data = $this->pesSuggestions->resolveDraft($ncpRecord, $request->validated('draft_id'));
 
-        $data = $request->validated();
-        $problem = $this->cleanPesComponent($data['label']);
-        $etiology = $this->cleanPesComponent($data['etiology'], 'related to');
-        $signs = $this->cleanPesComponent($data['signs'], 'as evidenced by');
+                return $this->audited(function () use ($data, $request, $ncpRecord): JsonResponse {
+                    $diagnosis = $this->auditLogger->withoutModelEvents(fn (): Diagnosis => Diagnosis::create(['ncp_record_id' => $ncpRecord->id, ...$data]));
+                    $this->auditLogger->record(
+                        AuditAction::Created, AuditCategory::Clinical, AuditDomain::Ncp,
+                        subject: $diagnosis, context: $ncpRecord,
+                        details: ['subject_label' => 'AI diagnosis', 'status' => 201, 'fields' => ['domain', 'label', 'etiology', 'signs_symptoms', 'extra_notes']],
+                    );
+                    $this->appointments->recordClinicalWork($request->user(), $ncpRecord->fresh(['diagnoses']), 'diagnosis');
 
-        return $this->audited(function () use ($ncpRecord, $data, $problem, $etiology, $signs) {
-            $diagnosis = $this->auditLogger->withoutModelEvents(fn (): Diagnosis => Diagnosis::create([
-                'ncp_record_id' => $ncpRecord->id,
-                'domain' => $data['domain'],
-                'problem' => $problem,
-                'label' => $problem,
-                'etiology' => $etiology,
-                'signs_symptoms' => $signs,
-                'pes_statement' => Diagnosis::buildPes($problem, $etiology, $signs),
-                'ai_generated' => true,
-            ]));
-            $this->auditLogger->record(
-                AuditAction::Created,
-                AuditCategory::Clinical,
-                AuditDomain::Ncp,
-                subject: $diagnosis,
-                context: $ncpRecord,
-                details: ['subject_label' => 'AI diagnosis', 'status' => 201, 'fields' => ['domain', 'label', 'etiology', 'signs_symptoms']],
-            );
-
-            return response()->json(['data' => new DiagnosisResource($diagnosis)], 201);
-        });
-    }
-
-    private function cleanPesComponent(string $value, ?string $prefix = null): string
-    {
-        $value = trim(preg_replace('/\s+/', ' ', $value) ?? $value);
-
-        if ($prefix === null) {
-            return $value;
+                    return response()->json(['data' => new DiagnosisResource($diagnosis)], 201);
+                });
+            });
+        } catch (\InvalidArgumentException $error) {
+            throw ValidationException::withMessages(['draft_id' => $error->getMessage()]);
+        } catch (LockTimeoutException) {
+            return response()->json(['message' => 'Another request for this patient is in progress. Please try again shortly.'], 409);
         }
-
-        return trim((string) preg_replace('/^'.preg_quote($prefix, '/').'\s+/i', '', $value));
     }
 }

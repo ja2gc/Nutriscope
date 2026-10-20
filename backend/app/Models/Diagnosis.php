@@ -19,11 +19,13 @@ class Diagnosis extends Model
 
     protected $fillable = [
         'ncp_record_id', 'domain', 'problem', 'label', 'etiology',
-        'signs_symptoms', 'pes_statement', 'extra_notes', 'ai_generated',
+        'signs_symptoms', 'pes_statement', 'extra_notes', 'ai_generated', 'builder_data', 'ai_provenance', 'ai_draft_id',
     ];
 
     protected $casts = [
         'ai_generated' => 'boolean',
+        'builder_data' => 'array',
+        'ai_provenance' => 'array',
     ];
 
     protected function auditAttributes(): array

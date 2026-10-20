@@ -11,18 +11,18 @@ import ButtonFilterGroup from "@/components/ui/ButtonFilterGroup";
 import { fetchPatientById, Patient } from "@/services/patientService";
 import {
   fetchDiagnosesPage, storeDiagnosis, updateDiagnosis, deleteDiagnosis,
-  aiSuggestDiagnoses, aiApproveDiagnosis, dismissPesSuggestion,
+  aiSuggestDiagnoses, aiApproveDiagnosis, dismissPesSuggestion, fetchPesDraftStatus,
   Diagnosis, StoreDiagnosisPayload, AiSuggestion, PesDraftMeta,
 } from "@/services/diagnosisService";
 import { fetchAssessment, type Assessment } from "@/services/assessmentService";
 import { fetchIntervention } from "@/services/interventionService";
 import { buildDiagnosisProblemText } from "@/lib/diagnosisBuilder";
-import { matchStoredOption, splitStoredComponent } from "@/lib/diagnosisComponentSplit";
+import { composeDiagnosisComponent, splitDiagnosisComponent } from "@/lib/diagnosisEditor";
+import DiagnosisOtherField from "@/components/ncp/DiagnosisOtherField";
 import NcpPatientHeader from "../../../_components/NcpPatientHeader";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { InfoHint } from "@/components/ui/InfoHint";
 import { CharacterCountTextarea } from "@/components/ui/CharacterCountTextarea";
-import { candidateBuilderSelections } from "@/lib/pesBuilderSelections";
 import { NcpBreadcrumb } from "@/components/ncp/NcpBreadcrumb";
 import { paginateAiDrafts } from "@/lib/aiDraftPagination";
 
@@ -169,7 +169,7 @@ interface BuilderState {
   domain: "NI" | "NC" | "NB";
   niDirection: "Inadequate" | "Excessive";
   niNutrient: string;
-  niNutrientSpecify: "Vitamins (specify)" | "Minerals (specify)" | "";
+  niNutrientSpecify: "Vitamins (specify)" | "Minerals (specify)" | "Nutrient / substance (specify)" | "";
   ncProblems: string[];
   nbProblems: string[];
   etiologyChecks: string[];
@@ -179,6 +179,14 @@ interface BuilderState {
   pesOverride: string;
   extraNotes: string;
   problemOverride: string;
+  problemOther: string;
+  problemOtherChecked: boolean;
+  etiologyOther: string;
+  etiologyOtherChecked: boolean;
+  signOther: string;
+  signOtherChecked: boolean;
+  pesEdited: boolean;
+  aiDraftId?: string;
 }
 
 function defaultBuilder(): BuilderState {
@@ -197,6 +205,9 @@ function defaultBuilder(): BuilderState {
     pesOverride: "",
     extraNotes: "",
     problemOverride: "",
+    problemOther: "", problemOtherChecked: false,
+    etiologyOther: "", etiologyOtherChecked: false,
+    signOther: "", signOtherChecked: false, pesEdited: false,
   };
 }
 
@@ -205,15 +216,19 @@ function buildProblemText(b: BuilderState): string {
 }
 
 function buildEtiologyText(b: BuilderState): string {
-  const parts = [...b.etiologyChecks];
-  if (b.etiologyNotes.trim()) parts.push(b.etiologyNotes.trim());
-  return parts.length > 0 ? parts.join("; ") : "[Select etiology]";
+  return composeDiagnosisComponent(b.etiologyChecks, b.etiologyOther, b.etiologyOtherChecked) || "[Select etiology]";
 }
 
 function buildSignsText(b: BuilderState): string {
-  const parts = [...b.signChecks];
-  if (b.signNotes.trim()) parts.push(b.signNotes.trim());
-  return parts.length > 0 ? parts.join("; ") : "[Select signs and symptoms]";
+  return composeDiagnosisComponent(b.signChecks, b.signOther, b.signOtherChecked) || "[Select signs and symptoms]";
+}
+
+function hasIncompleteOther(b: BuilderState): boolean {
+  return [
+    [b.domain !== "NI" && b.problemOtherChecked, b.problemOther],
+    [b.etiologyOtherChecked, b.etiologyOther],
+    [b.signOtherChecked, b.signOther],
+  ].some(([checked, value]) => checked && (!(value as string).trim() || Array.from(value as string).length > 75));
 }
 
 function buildPes(problem: string, etiology: string, signs: string): string {
@@ -235,7 +250,18 @@ function buildPayload(b: BuilderState): StoreDiagnosisPayload {
     // builder-derived statement). Backend falls back to P-E-S if this is blank.
     pes_statement: pesStatement,
     extra_notes: b.extraNotes || null,
-    ai_generated: false,
+    ai_generated: Boolean(b.aiDraftId),
+    ai_draft_id: b.aiDraftId,
+    builder_data: b.domain === "NI" && b.problemOverride ? undefined : {
+      problem_checks: b.domain === "NC" ? b.ncProblems : b.domain === "NB" ? b.nbProblems : [],
+      problem_other: b.domain !== "NI" && b.problemOtherChecked ? b.problemOther.trim() : "",
+      etiology_checks: b.etiologyChecks,
+      etiology_other: b.etiologyOtherChecked ? b.etiologyOther.trim() : "",
+      sign_checks: b.signChecks,
+      sign_other: b.signOtherChecked ? b.signOther.trim() : "",
+      etiology_notes: b.etiologyNotes, sign_notes: b.signNotes,
+      ...(b.domain === "NI" ? { ni_direction: b.niDirection, ni_nutrient: b.niNutrient } : {}),
+    },
   };
 }
 
@@ -244,37 +270,35 @@ function loadBuilderFromDiagnosis(d: Diagnosis): BuilderState {
   b.editingId = d.id ?? null;
   b.domain = d.domain;
   b.extraNotes = d.extra_notes ?? "";
-  b.pesOverride = d.pes_statement ?? "";
-  b.problemOverride = d.problem ?? "";
-
-  // Re-hydrate checkbox selections from the stored joined strings.
-  const etiology = splitStoredComponent(d.etiology ?? "", getEtiologies(d.domain));
-  b.etiologyChecks = etiology.checks;
-  b.etiologyNotes = etiology.notes;
-  const signs = splitStoredComponent(d.signs_symptoms ?? "", getSigns(d.domain));
-  b.signChecks = signs.checks;
-  b.signNotes = signs.notes;
-
+  const stored = d.builder_data;
+  const etiology = splitDiagnosisComponent(d.etiology ?? "", getEtiologies(d.domain));
+  const signs = splitDiagnosisComponent(d.signs_symptoms ?? "", getSigns(d.domain));
+  const problems = splitDiagnosisComponent(d.problem, d.domain === "NC" ? NC_PROBLEMS : NB_PROBLEMS);
+  b.etiologyChecks = stored?.etiology_checks ?? etiology.checks;
+  b.etiologyOther = stored?.etiology_other ?? etiology.other;
+  b.etiologyOtherChecked = Boolean(b.etiologyOther);
+  b.signChecks = stored?.sign_checks ?? signs.checks;
+  b.signOther = stored?.sign_other ?? signs.other;
+  b.signOtherChecked = Boolean(b.signOther);
+  b.etiologyNotes = stored?.etiology_notes ?? "";
+  b.signNotes = stored?.sign_notes ?? "";
   if (d.domain === "NI") {
     const match = d.problem.match(/^(Inadequate|Excessive)\s+(.+)\s+Intake$/i);
     if (match) {
-      b.niDirection = (match[1] as "Inadequate" | "Excessive");
-      b.niNutrient = match[2];
-      if (match[2] === "Vitamins (specify)" || match[2] === "Minerals (specify)") {
-        b.niNutrientSpecify = match[2];
-        b.niNutrient = "";
-      } else if (!NI_NUTRIENTS.includes(match[2])) {
-        b.niNutrientSpecify = "Vitamins (specify)";
-      }
-      b.problemOverride = "";
-    }
-  } else if (d.domain === "NC") {
-    b.ncProblems = [matchStoredOption(d.problem, NC_PROBLEMS) ?? d.problem];
-    b.problemOverride = "";
+      b.niDirection = match[1] as "Inadequate" | "Excessive";
+      b.niNutrient = stored?.ni_nutrient ?? match[2];
+      if (!NI_NUTRIENTS.includes(b.niNutrient) && !NI_NUTRIENTS.includes(b.niNutrient + " Intake")) b.niNutrientSpecify = "Nutrient / substance (specify)";
+      if (NI_NUTRIENTS.includes(b.niNutrient + " Intake")) b.niNutrient += " Intake";
+    } else b.problemOverride = d.problem;
   } else {
-    b.nbProblems = [matchStoredOption(d.problem, NB_PROBLEMS) ?? d.problem];
-    b.problemOverride = "";
+    if (d.domain === "NC") b.ncProblems = stored?.problem_checks ?? problems.checks;
+    else b.nbProblems = stored?.problem_checks ?? problems.checks;
+    b.problemOther = stored?.problem_other ?? problems.other;
+    b.problemOtherChecked = Boolean(b.problemOther);
   }
+  const composed = buildPes(buildProblemText(b), buildEtiologyText(b), buildSignsText(b));
+  b.pesOverride = d.pes_statement ?? composed;
+  b.pesEdited = Boolean(d.pes_statement && d.pes_statement !== composed);
   return b;
 }
 
@@ -291,7 +315,7 @@ function DomainBadge({ domain }: { domain: "NI" | "NC" | "NB" }) {
 
 function Checkbox({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
-    <label className="flex items-start gap-2 text-xs text-warm-700 cursor-pointer hover:bg-warm-50 p-1.5 rounded-lg transition-colors">
+    <label className="flex min-h-11 items-start gap-2 text-xs text-warm-700 cursor-pointer hover:bg-warm-50 p-2.5 rounded-lg transition-colors">
       <input
         type="checkbox"
         checked={checked}
@@ -346,12 +370,18 @@ export default function NcpDiagnosisPage({
     if (isPlaceholder) { setLoading(false); return; }
     try {
       setLoading(true);
-      const [p, d, a, intervention] = await Promise.allSettled([
+      const [p, d, a, intervention, ai] = await Promise.allSettled([
         fetchPatientById(patientId),
         fetchDiagnosesPage(ncpId, diagnosesPage),
         fetchAssessment(ncpId),
         fetchIntervention(ncpId),
+        fetchPesDraftStatus(ncpId),
       ]);
+      if (ai.status === "fulfilled") {
+        setAiSuggestions(ai.value.data); setAiMeta(ai.value.meta); setAiUnavailable(null);
+      } else {
+        setAiMeta(null); setAiUnavailable("Could not load AI draft status. Refresh to try again.");
+      }
       if (p.status === "fulfilled") setPatient(p.value);
       if (d.status === "fulfilled") {
         setDiagnoses(d.value.data);
@@ -382,7 +412,7 @@ export default function NcpDiagnosisPage({
     const etiology = buildEtiologyText(builder);
     const signs = buildSignsText(builder);
     if (
-      !problem.includes("[") &&
+      !builder.pesEdited && !hasIncompleteOther(builder) && !problem.includes("[") &&
       !etiology.includes("[") &&
       !signs.includes("[")
     ) {
@@ -392,9 +422,25 @@ export default function NcpDiagnosisPage({
   }, [
     builder.domain, builder.niDirection, builder.niNutrient,
     builder.ncProblems, builder.nbProblems, builder.problemOverride,
-    builder.etiologyChecks, builder.etiologyNotes,
-    builder.signChecks, builder.signNotes,
+    builder.etiologyChecks, builder.etiologyOther, builder.etiologyOtherChecked,
+    builder.signChecks, builder.signOther, builder.signOtherChecked,
+    builder.problemOther, builder.problemOtherChecked, builder.pesEdited,
   ]);
+
+  const refreshAiStatus = useCallback(async () => {
+    const result = await fetchPesDraftStatus(ncpId);
+    setAiSuggestions(result.data); setAiMeta(result.meta); setAiUnavailable(null);
+  }, [ncpId]);
+
+  useEffect(() => {
+    if (isPlaceholder) return;
+    const refresh = () => { void refreshAiStatus().catch(() => setAiUnavailable("Could not refresh AI draft status.")); };
+    const reset = aiMeta?.budget?.resets_at;
+    const delay = reset ? Math.max(1000, new Date(reset).getTime() - Date.now() + 1000) : null;
+    const timer = delay !== null ? setTimeout(refresh, Math.min(delay, 2147483647)) : undefined;
+    window.addEventListener("focus", refresh);
+    return () => { if (timer !== undefined) clearTimeout(timer); window.removeEventListener("focus", refresh); };
+  }, [aiMeta?.budget?.resets_at, isPlaceholder, refreshAiStatus]);
 
   const updateBuilder = (patch: Partial<BuilderState>) => setBuilder(prev => ({ ...prev, ...patch }));
 
@@ -434,8 +480,8 @@ export default function NcpDiagnosisPage({
     const etiology = buildEtiologyText(builder);
     const signs = buildSignsText(builder);
 
-    if (problem.includes("[") || etiology.includes("[") || signs.includes("[")) {
-      setError("Please complete the Problem, Etiology, and Signs & Symptoms before saving.");
+    if (hasIncompleteOther(builder) || problem.includes("[") || etiology.includes("[") || signs.includes("[") || payload.pes_statement!.length > 500 || [builder.extraNotes, builder.etiologyNotes, builder.signNotes].some(note => Array.from(note).length > 125)) {
+      setError("Complete each component and any checked Other field within its character limit before saving.");
       setActiveTab("pes");
       return;
     }
@@ -482,18 +528,15 @@ export default function NcpDiagnosisPage({
         setError(message);
       }
     } finally {
+      await refreshAiStatus().catch(() => undefined);
       setAiLoading(false);
     }
   };
 
   const handleAiAccept = async (s: AiSuggestion) => {
     try {
-      await aiApproveDiagnosis(ncpId, {
-        domain: s.domain,
-        label: s.label,
-        etiology: s.etiology,
-        signs: s.signs,
-      });
+      setAiLoading(true);
+      await aiApproveDiagnosis(ncpId, { draft_id: s.draft_id });
       if (diagnosesPage === 1) {
         await loadData();
       } else {
@@ -505,6 +548,9 @@ export default function NcpDiagnosisPage({
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to accept diagnosis.");
+    } finally {
+      await refreshAiStatus().catch(() => undefined);
+      setAiLoading(false);
     }
   };
 
@@ -524,43 +570,11 @@ export default function NcpDiagnosisPage({
   };
 
   const handleAiEdit = (s: AiSuggestion) => {
-    const b = defaultBuilder();
-    b.domain = s.domain;
-    const etiology = splitStoredComponent(s.etiology, getEtiologies(s.domain));
-    const signs = splitStoredComponent(s.signs, getSigns(s.domain));
-    b.etiologyChecks = etiology.checks;
-    b.etiologyNotes = etiology.notes;
-    b.signChecks = signs.checks;
-    b.signNotes = signs.notes;
-    const candidateSelections = candidateBuilderSelections(s.candidate_id);
-    if (candidateSelections) {
-      if (!b.etiologyChecks.includes(candidateSelections.etiology)) b.etiologyChecks.push(candidateSelections.etiology);
-      if (!b.signChecks.includes(candidateSelections.sign)) b.signChecks.push(candidateSelections.sign);
-    }
-    b.pesOverride = `${s.label} related to ${s.etiology} as evidenced by ${s.signs}`;
-    b.problemOverride = s.label;
-    if (s.domain === "NI") {
-      const match = s.label.match(/^(Inadequate|Excessive)\s+(.+)\s+Intake$/i);
-      if (match) {
-        b.niDirection = match[1] as "Inadequate" | "Excessive";
-        b.niNutrient = match[2];
-        if (match[2] === "Vitamins (specify)" || match[2] === "Minerals (specify)") {
-          b.niNutrientSpecify = match[2];
-          b.niNutrient = "";
-        } else if (!NI_NUTRIENTS.includes(match[2])) {
-          b.niNutrientSpecify = "Vitamins (specify)";
-        }
-        b.problemOverride = "";
-      }
-    } else if (s.domain === "NC") {
-      const matchedProblem = matchStoredOption(s.label, NC_PROBLEMS);
-      b.ncProblems = matchedProblem ? [matchedProblem] : [];
-      b.problemOverride = matchedProblem ? "" : s.label;
-    } else {
-      const matchedProblem = matchStoredOption(s.label, NB_PROBLEMS);
-      b.nbProblems = matchedProblem ? [matchedProblem] : [];
-      b.problemOverride = matchedProblem ? "" : s.label;
-    }
+    const b = loadBuilderFromDiagnosis({
+      domain: s.domain, problem: s.label, etiology: s.etiology, signs_symptoms: s.signs,
+      extra_notes: s.extra_notes, builder_data: s.builder_data,
+    });
+    b.aiDraftId = s.draft_id;
     setBuilder(b);
     setActiveTab("problem");
   };
@@ -738,7 +752,7 @@ export default function NcpDiagnosisPage({
             <button
               key={d}
               type="button"
-              onClick={() => updateBuilder({ domain: d, ncProblems: [], nbProblems: [], niNutrient: "", niNutrientSpecify: "", etiologyChecks: [], signChecks: [], problemOverride: "" })}
+              onClick={() => setBuilder({ ...defaultBuilder(), domain: d, editingId: builder.editingId, aiDraftId: builder.aiDraftId })}
               className={`px-1 py-2 text-sm font-semibold border-b-2 transition-colors cursor-pointer ${
                 builder.domain === d
                   ? "border-emerald-700 text-emerald-800"
@@ -791,6 +805,8 @@ export default function NcpDiagnosisPage({
               ))}
             </div>
             {builder.niNutrientSpecify && (
+              <label className="mt-2 block text-xs font-semibold text-warm-600">
+                Specify nutrient or substance
               <input
                 type="text"
                 aria-label={builder.niNutrientSpecify}
@@ -799,6 +815,7 @@ export default function NcpDiagnosisPage({
                 onChange={e => updateBuilder({ niNutrient: e.target.value, problemOverride: "" })}
                 className="mt-2 w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-400/20 focus:border-sky-400"
               />
+              </label>
             )}
           </div>
         </div>
@@ -821,7 +838,9 @@ export default function NcpDiagnosisPage({
                 label={p}
               />
             ))}
-          </div>
+
+            <DiagnosisOtherField id="clinical-problem" label="Other clinical problem" checked={builder.problemOtherChecked} value={builder.problemOther} onToggle={checked => updateBuilder({ problemOtherChecked: checked, problemOverride: "" })} onChange={value => updateBuilder({ problemOther: value, problemOverride: "" })} />
+        </div>
         </div>
       )}
 
@@ -842,7 +861,9 @@ export default function NcpDiagnosisPage({
                 label={p}
               />
             ))}
-          </div>
+
+            <DiagnosisOtherField id="behavioral-problem" label="Other behavioral problem" checked={builder.problemOtherChecked} value={builder.problemOther} onToggle={checked => updateBuilder({ problemOtherChecked: checked, problemOverride: "" })} onChange={value => updateBuilder({ problemOther: value, problemOverride: "" })} />
+        </div>
         </div>
       )}
 
@@ -853,7 +874,7 @@ export default function NcpDiagnosisPage({
           aria-label="Extra Notes (optional)"
           onChange={value => updateBuilder({ extraNotes: value })}
           rows={2}
-          maxLength={200}
+          maxLength={125}
           className="w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-warm-400 resize-none"
         />
       </div>
@@ -892,16 +913,18 @@ export default function NcpDiagnosisPage({
               label={e}
             />
           ))}
+
+          <DiagnosisOtherField id="etiology-other" label="Other etiology" checked={builder.etiologyOtherChecked} value={builder.etiologyOther} onToggle={checked => updateBuilder({ etiologyOtherChecked: checked })} onChange={value => updateBuilder({ etiologyOther: value })} />
         </div>
       </div>
       <div>
-        <SectionLabel>Additional Etiology Notes (free text)</SectionLabel>
+        <SectionLabel>Additional Etiology Notes (reasoning only)</SectionLabel>
         <CharacterCountTextarea
           value={builder.etiologyNotes}
           aria-label="Additional Etiology Notes"
           onChange={value => updateBuilder({ etiologyNotes: value })}
           rows={3}
-          maxLength={200}
+          maxLength={125}
           className="w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-warm-400 resize-none"
         />
       </div>
@@ -937,16 +960,18 @@ export default function NcpDiagnosisPage({
               label={s}
             />
           ))}
+
+          <DiagnosisOtherField id="sign-other" label="Other signs and symptoms" checked={builder.signOtherChecked} value={builder.signOther} onToggle={checked => updateBuilder({ signOtherChecked: checked })} onChange={value => updateBuilder({ signOther: value })} />
         </div>
       </div>
       <div>
-        <SectionLabel>Additional Signs & Symptoms Notes (free text)</SectionLabel>
+        <SectionLabel>Additional Signs & Symptoms Notes (reasoning only)</SectionLabel>
         <CharacterCountTextarea
           value={builder.signNotes}
           aria-label="Additional Signs and Symptoms Notes"
           onChange={value => updateBuilder({ signNotes: value })}
           rows={3}
-          maxLength={200}
+          maxLength={125}
           className="w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 placeholder:text-warm-400 resize-none"
         />
       </div>
@@ -969,7 +994,7 @@ export default function NcpDiagnosisPage({
     const problem = buildProblemText(builder);
     const etiology = buildEtiologyText(builder);
     const signs = buildSignsText(builder);
-    const isComplete = !problem.includes("[") && !etiology.includes("[") && !signs.includes("[");
+    const isComplete = !hasIncompleteOther(builder) && builder.pesOverride.length <= 500 && !problem.includes("[") && !etiology.includes("[") && !signs.includes("[");
 
     return (
       <div className="space-y-5 max-w-2xl">
@@ -994,13 +1019,15 @@ export default function NcpDiagnosisPage({
             <CharacterCountTextarea
               value={builder.pesOverride}
               aria-label="PES statement"
-              onChange={value => updateBuilder({ pesOverride: value })}
+              onChange={value => updateBuilder({ pesOverride: value, pesEdited: true })}
               rows={4}
-              maxLength={600}
+              maxLength={500}
               className="w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-medium text-warm-900 placeholder:text-warm-400 resize-none"
             />
             <p className="text-xs text-warm-400 mt-1">The statement above is auto-generated from the builder. Edit manually if needed before saving.</p>
           </div>
+
+          {builder.pesEdited && <button type="button" onClick={() => updateBuilder({ pesEdited: false })} className="min-h-11 text-xs font-semibold text-emerald-700 underline">Use builder statement</button>}
 
           {!isComplete && (
             <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700 font-semibold">
@@ -1034,23 +1061,28 @@ export default function NcpDiagnosisPage({
         <div className="mb-2 flex items-center gap-1 text-sm font-bold uppercase tracking-wider text-emerald-600">
           <span>AI Suggestions</span>
           <InfoHint label="How PES drafts work" title="How PES drafts work">
-            Uses only eligible, de-identified Assessment evidence. Review before saving; manual PES entry remains available.
+            Each generation returns up to three drafts from saved Assessment findings. Normal findings alone do not establish a diagnosis. Review every draft before saving.
           </InfoHint>
         </div>
-        {!aiMeta && !aiUnavailable && (
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={handleAiSuggest}
-            disabled={aiLoading || !hasAssessment}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-warm-300 text-white text-xs font-extrabold uppercase tracking-wider rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed"
+            disabled={aiLoading || !hasAssessment || !aiMeta?.can_generate || Boolean(aiUnavailable)}
+            aria-describedby="ai-generation-state"
+            title={aiMeta?.disabled_reason ?? aiUnavailable ?? undefined}
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-xs font-extrabold uppercase tracking-wider text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-warm-300"
           >
             {aiLoading && <RefreshCw className="h-3.5 w-3.5 animate-spin" />}
             {aiLoading ? "Generating suggestions..." : "Generate AI Suggestions"}
           </button>
-        )}
-        {aiUnavailable && (
-          <p className="text-xs font-semibold text-amber-700">{aiUnavailable}</p>
-        )}
+          {(aiMeta?.disabled_reason || aiUnavailable) && <InfoHint label="Why AI generation is unavailable" title="AI generation unavailable">{aiMeta?.disabled_reason ?? aiUnavailable}</InfoHint>}
+          {aiUnavailable && <button type="button" onClick={() => { void refreshAiStatus().catch(() => setAiUnavailable("Could not load AI draft status. Try again shortly.")); }} className="min-h-11 text-xs font-semibold text-emerald-700 underline">Refresh status</button>}
+        </div>
+        <p id="ai-generation-state" role="status" className="mt-2 text-xs text-warm-600">
+          {aiMeta?.budget && <span>{aiMeta.budget.used}/{aiMeta.budget.limit} generations used today for this patient. </span>}
+          {aiUnavailable ?? aiMeta?.disabled_reason}
+        </p>
         {!hasAssessment && (
           <p className="text-xs font-semibold text-amber-700">Save the Assessment before requesting PES drafts.</p>
         )}
@@ -1058,7 +1090,7 @@ export default function NcpDiagnosisPage({
 
       {aiMeta?.message && aiSuggestions.length === 0 && (
         <div className="rounded-xl border border-warm-200 bg-warm-50 px-4 py-3 text-sm text-warm-700">
-          {aiMeta.message || "No sufficiently supported PES draft was found."}
+          {aiMeta.message || "No new supported nutrition problems were found."}
         </div>
       )}
 
@@ -1094,18 +1126,21 @@ export default function NcpDiagnosisPage({
                     </ul>
                   </div>
                 </div>
+                {s.extra_notes && <p className="text-xs text-warm-600"><span className="font-semibold">Reasoning: </span>{s.extra_notes}</p>}
                 <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-warm-100">
                   <button
                     type="button"
                     onClick={() => handleAiAccept(s)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer"
+                    disabled={aiLoading || saving}
+                    className="inline-flex min-h-11 items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <CheckCheck className="h-3 w-3" /> Accept
                   </button>
                   <button
                     type="button"
                     onClick={() => handleAiEdit(s)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 text-xs font-bold uppercase tracking-wider rounded-lg border border-sky-200 transition-colors cursor-pointer"
+                    disabled={aiLoading || saving}
+                    className="inline-flex min-h-11 items-center gap-1.5 px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 text-xs font-bold uppercase tracking-wider rounded-lg border border-sky-200 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <Pencil className="h-3 w-3" /> Edit
                   </button>
@@ -1113,7 +1148,7 @@ export default function NcpDiagnosisPage({
                     type="button"
                     onClick={() => handleAiDismiss(s)}
                     disabled={aiLoading}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-warm-100 hover:bg-warm-200 text-warm-600 text-xs font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer"
+                    className="inline-flex min-h-11 items-center gap-1.5 px-3 py-1.5 bg-warm-100 hover:bg-warm-200 text-warm-600 text-xs font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <X className="h-3 w-3" /> Dismiss
                   </button>

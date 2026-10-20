@@ -1,0 +1,104 @@
+{
+  "NI": {
+    "problems": [],
+    "etiologies": [
+      "Poor appetite / anorexia",
+      "Nausea or vomiting",
+      "Dysphagia or feeding difficulties",
+      "Prescribed diet restriction",
+      "Mechanical eating difficulty",
+      "GI disease or malabsorption",
+      "Post-surgical changes to GI tract",
+      "Increased metabolic demand",
+      "Medication side effects affecting intake"
+    ],
+    "signs": [
+      "Estimated intake < 75% of estimated needs",
+      "Estimated intake > 125% of estimated needs",
+      "Unintentional weight loss > 5% in 3 months",
+      "BMI < 18.5 (underweight)",
+      "BMI > 25 (overweight) or > 30 (obese)",
+      "Serum albumin < 3.5 g/dL",
+      "Low hemoglobin / hematocrit",
+      "Muscle wasting noted on physical exam",
+      "Peripheral edema or ascites",
+      "Fatigue / weakness on activity"
+    ]
+  },
+  "NC": {
+    "problems": [
+      "Unintended Weight Loss",
+      "Overweight / Obesity",
+      "Malnutrition (undernutrition)",
+      "Altered GI Function",
+      "Swallowing / Chewing Difficulty",
+      "Altered Nutrition-Related Laboratory Values",
+      "Food-Medication Interaction",
+      "Predicted Suboptimal Intake",
+      "Impaired Nutrient Utilization"
+    ],
+    "etiologies": [
+      "Poor appetite / anorexia",
+      "Energy intake exceeding needs",
+      "Mechanical eating difficulty",
+      "Chronic illness (DM, CKD, Cardiac, etc.)",
+      "Acute illness or trauma",
+      "Active infection or systemic inflammation",
+      "Medications affecting nutritional status",
+      "Altered GI function or motility",
+      "Metabolic disorder or enzyme deficiency",
+      "Reduced nutrient absorption",
+      "Prolonged hospitalization",
+      "Surgical intervention affecting nutrition"
+    ],
+    "signs": [
+      "BMI ≥ 25 (overweight / obesity)",
+      "Swallowing / chewing difficulty documented",
+      "Food-medication interaction documented",
+      "Suboptimal energy intake documented",
+      "Abnormal laboratory values (specify in notes)",
+      "Significant unintended weight change",
+      "Muscle wasting or loss of subcutaneous fat",
+      "Poor wound healing or pressure injury",
+      "Altered bowel function (constipation / diarrhea)",
+      "Serum albumin < 3.5 g/dL",
+      "Elevated inflammatory markers (CRP, WBC)",
+      "Abnormal blood glucose levels",
+      "Abnormal lipid panel values",
+      "Altered kidney function markers (BUN, Creatinine)"
+    ]
+  },
+  "NB": {
+    "problems": [
+      "Food and Nutrition Knowledge Deficit",
+      "Harmful Beliefs / Attitudes about Food",
+      "Not Ready for Diet / Lifestyle Change",
+      "Self-Monitoring Deficit",
+      "Disordered Eating Pattern",
+      "Limited Adherence to Nutrition-Related Recommendations",
+      "Undesirable Food Choices",
+      "Physical Inactivity",
+      "Food Insecurity"
+    ],
+    "etiologies": [
+      "Lack of nutrition knowledge or education",
+      "Cultural or religious food practices",
+      "Financial constraints / food insecurity",
+      "Psychological distress or eating disorder",
+      "Limited access to food or nutrition resources",
+      "Inadequate social support",
+      "Poor health literacy",
+      "Motivational barriers to change"
+    ],
+    "signs": [
+      "Patient unable to identify appropriate food choices",
+      "Missed meals or skipping planned feedings",
+      "Poor adherence to prescribed diet (patient report)",
+      "Refuses recommended nutrition therapy",
+      "Selects inappropriate foods for medical condition",
+      "No self-monitoring of food intake",
+      "Limited support at home for dietary compliance",
+      "Reports financial barriers to food access"
+    ]
+  }
+}

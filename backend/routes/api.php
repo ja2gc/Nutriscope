@@ -176,6 +176,7 @@ Route::middleware(['auth:sanctum', 'active', 'role:RND'])->prefix('rnd')->group(
     Route::delete('ncp-records/{ncpRecord}/diagnoses/{diagnosis}', [DiagnosisController::class, 'destroy']);
 
     // AI Diagnoses routes
+    Route::get('ncp-records/{ncpRecord}/diagnoses/ai-suggest', [AiDiagnosisController::class, 'aiStatus']);
     Route::middleware('throttle:ai')->group(function () {
         Route::post('ncp-records/{ncpRecord}/diagnoses/ai-suggest', [AiDiagnosisController::class, 'aiSuggest']);
         Route::post('ncp-records/{ncpRecord}/diagnoses/ai-approve', [AiDiagnosisController::class, 'aiApprove']);

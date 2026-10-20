@@ -10,8 +10,11 @@ use App\Http\Resources\DiagnosisResource;
 use App\Models\Diagnosis;
 use App\Models\NcpRecord;
 use App\Policies\AuditPolicy;
+use App\Services\Diagnosis\PesSuggestionService;
 use App\Services\NcpAppointmentWorkflow;
+use App\Support\DiagnosisBuilder;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Validation\ValidationException;
 
 class DiagnosisController extends Controller
 {
@@ -48,7 +51,7 @@ class DiagnosisController extends Controller
             ], 422);
         }
 
-        $data = $request->validated();
+        $data = $this->prepareBuilder($ncpRecord, $request->validated());
 
         return $this->audited(function () use ($data, $ncpRecord, $request) {
             $diagnosis = new Diagnosis($data);
@@ -73,7 +76,7 @@ class DiagnosisController extends Controller
             abort(404);
         }
 
-        $data = $request->validated();
+        $data = $this->prepareBuilder($ncpRecord, $request->validated(), $diagnosis);
 
         return $this->audited(function () use ($diagnosis, $data, $ncpRecord, $request) {
             $diagnosis->fill($data);
@@ -89,10 +92,45 @@ class DiagnosisController extends Controller
         });
     }
 
+    private function prepareBuilder(NcpRecord $record, array $data, ?Diagnosis $existing = null): array
+    {
+        if (! empty($data['ai_draft_id'])) {
+            try {
+                $issued = app(PesSuggestionService::class)->resolveDraft($record, $data['ai_draft_id']);
+                $data['ai_provenance'] = $issued['ai_provenance'];
+                $data['ai_generated'] = true;
+            } catch (\InvalidArgumentException $error) {
+                throw ValidationException::withMessages(['ai_draft_id' => $error->getMessage()]);
+            }
+        } else {
+            unset($data['ai_draft_id']);
+            $data['ai_generated'] = $existing?->ai_generated ?? false;
+        }
+        if (is_array($data['builder_data'] ?? null)) {
+            $domain = $data['domain'] ?? $existing?->domain;
+            if ($domain === 'NI' && (empty($data['builder_data']['ni_direction']) || trim((string) ($data['builder_data']['ni_nutrient'] ?? '')) === '')) {
+                throw ValidationException::withMessages(['builder_data.ni_nutrient' => 'Choose an intake direction and specify the nutrient or substance.']);
+            }
+            $options = DiagnosisBuilder::options()[$domain];
+            foreach (['problem_checks' => 'problems', 'etiology_checks' => 'etiologies', 'sign_checks' => 'signs'] as $key => $list) {
+                if (array_diff($data['builder_data'][$key] ?? [], $options[$list]) !== []) {
+                    throw ValidationException::withMessages(["builder_data.{$key}" => 'Choose a listed option or use Other.']);
+                }
+            }
+            $components = DiagnosisBuilder::components($domain, $data['builder_data']);
+            foreach ($components as $key => $value) {
+                if (trim($value) === '' || mb_strlen($value) > ($key === 'problem' ? 255 : 400)) {
+                    throw ValidationException::withMessages([$key => 'Complete this component within its character limit.']);
+                }
+            }
+            $data = array_merge($data, $components);
+        }
+
+        return $data;
+    }
+
     /**
-     * Use the RND's manual PES override when one is supplied (DP-02 — previously
-     * the override was silently discarded), otherwise derive the statement from
-     * the P-E-S components. Components are guaranteed non-empty by validation.
+     * Preserve an explicit manual PES override; otherwise compose the selected components.
      */
     private function resolvePes(array $data, Diagnosis $diagnosis): string
     {

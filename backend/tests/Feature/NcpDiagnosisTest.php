@@ -354,7 +354,7 @@ class NcpDiagnosisTest extends TestCase
         $this->assertDatabaseMissing('diagnoses', ['id' => $diagnosis->id]);
     }
 
-    public function test_clinical_rules_drive_ai_flag_on_diagnosis(): void
+    public function test_manual_creation_cannot_claim_ai_provenance_without_an_issued_draft(): void
     {
         $rnd = $this->rnd();
         $patient = $this->patient();
@@ -371,7 +371,7 @@ class NcpDiagnosisTest extends TestCase
             ]);
 
         $response->assertStatus(201)
-            ->assertJsonPath('data.ai_generated', true);
+            ->assertJsonPath('data.ai_generated', false);
     }
 
     public function test_diagnosis_belongs_to_correct_ncp_record(): void

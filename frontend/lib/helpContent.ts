@@ -269,7 +269,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Diagnosis & Intervention",
     question: "How do I write a nutrition diagnosis?",
-    answer: "Choose a supported problem, etiology, and signs/symptoms, then review the generated PES statement. Save only a statement that accurately represents the patient's assessed condition.",
+    answer: "Choose a supported problem, etiology, and signs/symptoms. Other checkboxes reveal 75-character fields in Clinical/Behavioral problems and all Etiology/Signs lists. Selected options and Other text compose PES; additional reasoning notes stay separate. Review and save only a statement that accurately represents the patient's assessed condition.",
     keywords: ["problem", "etiology", "signs", "PES"],
   },
   {
@@ -277,7 +277,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Diagnosis & Intervention",
     question: "Can AI create a diagnosis automatically?",
-    answer: "AI Review uses source-backed rules to return zero to three AI Suggestions, paginated two per page; it never saves a diagnosis automatically. Edit selects matching Problem, Etiology, and Signs options or checkboxes and keeps only unmatched detail in notes. Accept, edit, dismiss, or use the manual builder; the RND remains responsible for the final record.",
+    answer: "AI Review interprets saved Assessment evidence in context and returns up to three supported drafts per generation, preferring Intake, Clinical and Behavioral coverage when appropriate. It can return none. Earlier pending drafts may remain while another generation reviews uncovered findings. Three successful generations are allowed per patient daily, shared across users/cycles and resetting at midnight Philippine time. Cached results and failed requests do not count. The button stays visible with its disabled explanation. Edit uses exact matching choices or 75-character Other text; concise reasoning notes remain outside PES. Existing diagnoses and reviewed evidence prevent repeated drafts. RND must accept or save an edited draft.",
     keywords: ["suggestion", "accept", "edit", "checkbox", "dismiss", "manual", "review"],
   },
   {

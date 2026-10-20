@@ -11,6 +11,7 @@ export interface Diagnosis {
   signs_symptoms: string;
   pes_statement?: string;
   extra_notes?: string | null;
+  builder_data?: DiagnosisBuilderData | null;
   ai_generated?: boolean;
   created_at?: string;
   updated_at?: string;
@@ -25,14 +26,32 @@ export interface StoreDiagnosisPayload {
   pes_statement?: string;
   extra_notes?: string | null;
   ai_generated?: boolean;
+  builder_data?: DiagnosisBuilderData;
+  ai_draft_id?: string;
+}
+
+export interface DiagnosisBuilderData {
+  problem_checks: string[];
+  problem_other: string;
+  etiology_checks: string[];
+  etiology_other: string;
+  sign_checks: string[];
+  sign_other: string;
+  etiology_notes: string;
+  sign_notes: string;
+  ni_direction?: "Inadequate" | "Excessive";
+  ni_nutrient?: string;
 }
 
 export interface AiSuggestion {
+  draft_id: string;
   candidate_id: string;
   domain: "NI" | "NC" | "NB";
   label: string;
   etiology: string;
   signs: string;
+  builder_data: DiagnosisBuilderData;
+  extra_notes: string;
   evidence_used: string[];
   source: {
     id: string;
@@ -49,6 +68,9 @@ export interface PesDraftMeta {
   fingerprint: string;
   catalog_version: string;
   message: string | null;
+  budget: { limit: number; used: number; remaining: number; resets_at: string };
+  can_generate: boolean;
+  disabled_reason: string | null;
 }
 
 export interface PesDraftResult {
@@ -57,11 +79,7 @@ export interface PesDraftResult {
 }
 
 export interface AiApprovePayload {
-  domain: "NI" | "NC" | "NB";
-  label: string;
-  etiology: string;
-  signs: string;
-  priority?: number;
+  draft_id: string;
 }
 
 export async function fetchDiagnosesPage(
@@ -141,6 +159,13 @@ export async function aiSuggestDiagnoses(ncpRecordId: number | string): Promise<
     throw new Error(err.message || "AI suggestion failed.");
   }
   const data = await res.json();
+  return data;
+}
+
+export async function fetchPesDraftStatus(ncpRecordId: number | string): Promise<PesDraftResult> {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/diagnoses/ai-suggest`, { headers: { Accept: "application/json" }, cache: "no-store" });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.message || "Could not load AI draft status.");
   return data;
 }
 
