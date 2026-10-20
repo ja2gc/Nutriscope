@@ -95,4 +95,29 @@ describe("RND dashboard pagination", () => {
     expect(fetchAnnouncements).toHaveBeenCalledWith(2, 3);
     expect(container.textContent).toContain("Announcement 4");
   });
+
+  test("filters the appointment queue and returns pagination to page one", async () => {
+    vi.mocked(fetchUpcomingAppointments).mockResolvedValue({
+      data: [],
+      meta: { current_page: 1, last_page: 2, per_page: 3, total: 6 },
+    });
+    await act(async () => root.render(<RndDashboardPage />));
+    await act(async () => undefined);
+
+    const queuePagination = Array.from(container.querySelectorAll<HTMLButtonElement>('button[aria-label="Next page"]'));
+    const queueNext = queuePagination.find((button) => !button.disabled);
+    await act(async () => queueNext?.click());
+    await act(async () => undefined);
+    expect(fetchUpcomingAppointments).toHaveBeenLastCalledWith(2, 3, "all");
+
+    const filter = container.querySelector<HTMLSelectElement>('select[aria-label="Appointment queue filter"]');
+    expect(filter).not.toBeNull();
+    await act(async () => {
+      filter!.value = "overdue";
+      filter!.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await act(async () => undefined);
+
+    expect(fetchUpcomingAppointments).toHaveBeenLastCalledWith(1, 3, "overdue");
+  });
 });

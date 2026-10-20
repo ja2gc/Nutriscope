@@ -23,4 +23,12 @@ describe("ncpAppointmentService", () => {
 
     expect(fetchMock).toHaveBeenCalledWith("/api/rnd/ncp-appointments/dashboard?page=1&per_page=3");
   });
+
+  it("sends dashboard queue filters to the paginated endpoint", async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ data: [], meta: { current_page: 1, per_page: 3, total: 0, last_page: 1 } }), { status: 200 }));
+
+    await fetchUpcomingAppointments(2, 3, "overdue");
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/rnd/ncp-appointments/dashboard?page=2&per_page=3&filter=overdue");
+  });
 });

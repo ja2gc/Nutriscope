@@ -9,7 +9,7 @@ import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from "@/compone
 import { ImageCarousel, ImageUploadGallery, imagesFromSrcs, imageSrcs, type UploadImage } from "@/components/ui/ImageUploadGallery";
 import { AnnouncementAuthorAvatar } from "@/components/announcements/AnnouncementAuthorAvatar";
 import { fetchPatients } from "@/services/patientService";
-import { fetchUpcomingAppointments, transitionAppointment, type NcpAppointment } from "@/services/ncpAppointmentService";
+import { fetchUpcomingAppointments, transitionAppointment, type AppointmentQueueFilter, type NcpAppointment } from "@/services/ncpAppointmentService";
 import {
   Announcement,
   AnnouncementCategory,
@@ -67,6 +67,7 @@ function formatTimeStamp(value: string) {
 
 function buildFollowUps(appointments: NcpAppointment[]): FollowUpRow[] {
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   return appointments
     .flatMap((appointment) => {
@@ -79,6 +80,7 @@ function buildFollowUps(appointments: NcpAppointment[]): FollowUpRow[] {
         return [];
       }
 
+      followUpDate.setHours(0, 0, 0, 0);
       const diffDays = Math.round((followUpDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
       return [
@@ -93,8 +95,7 @@ function buildFollowUps(appointments: NcpAppointment[]): FollowUpRow[] {
           daysRemaining: diffDays,
         },
       ];
-    })
-    .sort((left, right) => left.daysRemaining - right.daysRemaining);
+    });
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -138,6 +139,7 @@ export default function RndDashboardPage() {
   const [editingPostId, setEditingPostId] = useState<string | number | null>(null);
   const [viewingPostId, setViewingPostId] = useState<string | number | null>(null);
   const [followUpPage, setFollowUpPage] = useState(1);
+  const [followUpFilter, setFollowUpFilter] = useState<AppointmentQueueFilter>("all");
   const [announcementsPage, setAnnouncementsPage] = useState(1);
   const FOLLOW_UPS_PER_PAGE = 3;
   const ANNOUNCEMENTS_PER_PAGE = 3;
@@ -158,7 +160,7 @@ export default function RndDashboardPage() {
       try {
         setLoading(true);
         setError(null);
-        const response = await fetchUpcomingAppointments(followUpPage, FOLLOW_UPS_PER_PAGE);
+        const response = await fetchUpcomingAppointments(followUpPage, FOLLOW_UPS_PER_PAGE, followUpFilter);
         setAppointments(response.data);
         setFollowUpMeta(response.meta ?? {
           current_page: followUpPage,
@@ -174,7 +176,7 @@ export default function RndDashboardPage() {
     }
 
     void loadDashboard();
-  }, [followUpPage]);
+  }, [followUpFilter, followUpPage]);
 
   useEffect(() => {
     fetchPatients("", "Active", 1, 1)
@@ -249,7 +251,7 @@ export default function RndDashboardPage() {
           ? { action, scheduled_at: rescheduledAt, purpose: row.purpose }
           : { action });
       setAppointmentAction(null); setRescheduledAt("");
-      const response = await fetchUpcomingAppointments(followUpPage, FOLLOW_UPS_PER_PAGE);
+      const response = await fetchUpcomingAppointments(followUpPage, FOLLOW_UPS_PER_PAGE, followUpFilter);
       setAppointments(response.data); setFollowUpMeta(response.meta);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Failed to update appointment.");
@@ -669,12 +671,15 @@ export default function RndDashboardPage() {
                   Appointment Queue
                 </h3>
               </div>
-              <Link
-                href="/ncp/patients"
-                className="inline-flex px-3 py-1.5 bg-brand-green-600 hover:bg-brand-green-700 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors"
-              >
-                Open Patients
-              </Link>
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-bold text-warm-500">Filter <select aria-label="Appointment queue filter" value={followUpFilter} onChange={(event) => { setFollowUpFilter(event.target.value as AppointmentQueueFilter); setFollowUpPage(1); }} className="ml-1 rounded-lg border border-warm-200 px-2 py-2 text-sm"><option value="all">All</option><option value="upcoming">Upcoming</option><option value="overdue">Overdue</option></select></label>
+                <Link
+                  href="/ncp/patients"
+                  className="inline-flex px-3 py-1.5 bg-brand-green-600 hover:bg-brand-green-700 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors"
+                >
+                  Open Patients
+                </Link>
+              </div>
             </div>
 
             {loading ? (

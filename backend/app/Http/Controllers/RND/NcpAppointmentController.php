@@ -9,6 +9,7 @@ use App\Http\Resources\NcpAppointmentResource;
 use App\Models\NcpAppointment;
 use App\Models\Patient;
 use App\Services\NcpAppointmentWorkflow;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -30,11 +31,19 @@ class NcpAppointmentController extends Controller
 
     public function upcoming(Request $request): JsonResponse
     {
-        $appointments = NcpAppointment::query()
+        $filters = $request->validate([
+            'filter' => ['sometimes', 'string', Rule::in(['all', 'upcoming', 'overdue'])],
+        ]);
+        $filter = $filters['filter'] ?? 'all';
+        $today = CarbonImmutable::today('Asia/Manila')->toDateString();
+        $query = NcpAppointment::query()
             ->whereBelongsTo($request->user(), 'rnd')
             ->where('status', 'scheduled')
-            ->with(['patient', 'ncpRecord', 'rnd', 'rescheduledFrom:id,uuid'])
-            ->orderBy('scheduled_at')
+            ->when($filter === 'upcoming', fn ($query) => $query->whereDate('scheduled_at', '>=', $today))
+            ->when($filter === 'overdue', fn ($query) => $query->whereDate('scheduled_at', '<', $today))
+            ->with(['patient', 'ncpRecord', 'rnd', 'rescheduledFrom:id,uuid']);
+        $appointments = $query
+            ->orderBy('scheduled_at', $filter === 'upcoming' ? 'desc' : 'asc')
             ->paginate(min(max($request->integer('per_page', 3), 1), 20));
 
         return response()->json([

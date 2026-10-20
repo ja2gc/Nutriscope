@@ -47,8 +47,12 @@ export async function fetchActiveAppointment(): Promise<NcpAppointment | null> {
   return json<NcpAppointment | null>(await apiFetch("/api/rnd/ncp-appointments/active"), "Failed to load active visit.");
 }
 
-export async function fetchUpcomingAppointments(page = 1, perPage = 3) {
-  const response = await apiFetch(`/api/rnd/ncp-appointments/dashboard?page=${page}&per_page=${perPage}`);
+export type AppointmentQueueFilter = "all" | "upcoming" | "overdue";
+
+export async function fetchUpcomingAppointments(page = 1, perPage = 3, filter: AppointmentQueueFilter = "all") {
+  const params = new URLSearchParams({ page: String(page), per_page: String(perPage) });
+  if (filter !== "all") params.set("filter", filter);
+  const response = await apiFetch(`/api/rnd/ncp-appointments/dashboard?${params}`);
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body.message ?? "Failed to load upcoming appointments.");
   return { data: (body.data ?? []) as NcpAppointment[], meta: body.meta as PaginationMeta };

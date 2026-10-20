@@ -388,6 +388,43 @@ class NcpAppointmentWorkflowTest extends TestCase
             ->assertJsonPath('data.0.id', $overdue->uuid);
     }
 
+    public function test_dashboard_queue_filters_and_orders_upcoming_and_overdue_appointments(): void
+    {
+        [$rnd, $patient] = $this->clinicalContext();
+        $this->travelTo(now()->setDate(2026, 10, 20)->setTime(12, 0));
+        $appointments = collect([
+            '2026-10-17 09:00:00',
+            '2026-10-19 09:00:00',
+            '2026-10-20 09:00:00',
+            '2026-10-22 09:00:00',
+            '2026-10-25 09:00:00',
+        ])->map(fn (string $scheduledAt) => NcpAppointment::factory()->create([
+            'patient_id' => $patient->id,
+            'rnd_user_id' => $rnd->id,
+            'scheduled_at' => $scheduledAt,
+        ]));
+
+        $this->actingAs($rnd, 'sanctum')
+            ->getJson('/api/rnd/ncp-appointments/dashboard?filter=upcoming&per_page=10')
+            ->assertOk()
+            ->assertJsonCount(3, 'data')
+            ->assertJsonPath('data.0.id', $appointments[4]->uuid)
+            ->assertJsonPath('data.1.id', $appointments[3]->uuid)
+            ->assertJsonPath('data.2.id', $appointments[2]->uuid);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->getJson('/api/rnd/ncp-appointments/dashboard?filter=overdue&per_page=10')
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.id', $appointments[0]->uuid)
+            ->assertJsonPath('data.1.id', $appointments[1]->uuid);
+
+        $this->actingAs($rnd, 'sanctum')
+            ->getJson('/api/rnd/ncp-appointments/dashboard?filter=invalid')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('filter');
+    }
+
     public function test_patient_appointment_history_filters_upcoming_and_past_and_names_administering_rnd(): void
     {
         [$rnd, $patient, $ncp] = $this->clinicalContext();
