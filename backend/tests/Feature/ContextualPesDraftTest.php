@@ -47,6 +47,33 @@ class ContextualPesDraftTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_provider_abstention_stops_generation_until_supporting_evidence_changes(): void
+    {
+        $record = $this->knowledgeRecord();
+        $this->provider([]);
+        $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest";
+        $this->postJson($url)->assertOk()->assertJsonPath('data', [])
+            ->assertJsonPath('meta.can_generate', false)->assertJsonPath('meta.budget.used', 1);
+        $this->getJson($url)->assertOk()->assertJsonPath('meta.can_generate', false);
+        $this->postJson($url)->assertOk()->assertJsonPath('data', [])
+            ->assertJsonPath('meta.can_generate', false)->assertJsonPath('meta.budget.used', 1);
+        Http::assertSentCount(1);
+        $record->assessment()->update(['knowledge_notes' => 'Cannot identify high-sodium foods.']);
+        $this->getJson($url)->assertOk()->assertJsonPath('meta.can_generate', true);
+    }
+
+    public function test_pending_drafts_remain_reviewable_when_no_new_evidence_is_left(): void
+    {
+        $record = $this->knowledgeRecord();
+        $this->provider([$this->knowledgeDraft()]);
+        $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest";
+        $id = $this->postJson($url)->assertOk()->assertJsonPath('meta.can_generate', false)->json('data.0.draft_id');
+        $this->postJson($url)->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.draft_id', $id)->assertJsonPath('meta.can_generate', false)
+            ->assertJsonPath('meta.budget.used', 1);
+        Http::assertSentCount(1);
+    }
+
     public function test_three_successful_generations_are_shared_by_patient_across_cycles_and_reset_in_manila(): void
     {
         $this->travelTo(now()->setTimezone('Asia/Manila')->setTime(23, 55));
