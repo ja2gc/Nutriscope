@@ -11,6 +11,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class MonitoringDraftSummaryTest extends TestCase
@@ -33,10 +34,11 @@ class MonitoringDraftSummaryTest extends TestCase
             'micronutrient_limits' => ['fiber' => ['min' => 25, 'unit' => 'g']]]);
         $this->actingAs($rnd, 'sanctum');
         $url = "/api/rnd/ncp-records/{$ncp->uuid}/monitorings/ai-review";
-        $entryKey = $this->getJson($url)->assertOk()->json('data.entry_key');
+        $draftId = (string) Str::uuid();
+        $entryKey = $this->getJson($url.'?draft_id='.$draftId)->assertOk()->json('data.entry_key');
 
         return [$ncp, $url, [
-            'entry_key' => $entryKey, 'observed_at' => now()->toDateString(), 'visit_type' => 'scheduled_follow_up',
+            'entry_key' => $entryKey, 'draft_id' => $draftId, 'observed_at' => now()->toDateString(), 'visit_type' => 'scheduled_follow_up',
             'weight' => 61, 'height' => 170, 'edema_present' => false, 'physical_activity_level' => 'light',
             'pregnancy_lactation_status' => 'none', 'allergies' => [], 'food_dislikes' => [], 'dietary_restrictions' => null,
             'lab_values' => ['albumin' => 3.1, 'micro_fiber' => 20], 'symptoms' => 'Nausea persists.',
@@ -76,11 +78,33 @@ class MonitoringDraftSummaryTest extends TestCase
         foreach ([2, 1, 0] as $remaining) {
             $this->postJson($url, $draft)->assertOk()->assertJsonPath('data.remaining', $remaining);
             $draft['weight']++;
-            $this->getJson($url)->assertOk()->assertJsonPath('data.remaining', $remaining);
+            $this->getJson($url.'?draft_id='.$draft['draft_id'])->assertOk()->assertJsonPath('data.remaining', $remaining);
         }
         $this->postJson($url, $draft)->assertStatus(429);
         Http::assertSentCount(3);
         $this->assertDatabaseCount('monitorings', 0);
+    }
+
+    public function test_a_new_draft_has_its_own_allowance_after_an_unsaved_draft_is_abandoned(): void
+    {
+        [$ncp, $url, $draft] = $this->context();
+        $this->postJson($url, $draft)->assertOk()->assertJsonPath('data.remaining', 2);
+        $nextDraftId = (string) Str::uuid();
+        $next = $this->getJson($url.'?draft_id='.$nextDraftId)->assertOk()
+            ->assertJsonPath('data.remaining', 3)->json('data');
+        $this->assertNotSame($draft['entry_key'], $next['entry_key']);
+        $this->getJson($url.'?draft_id='.$draft['draft_id'])->assertOk()->assertJsonPath('data.remaining', 2);
+        $this->postJson($url, [...$draft, 'draft_id' => $nextDraftId, 'entry_key' => $next['entry_key']])
+            ->assertOk()->assertJsonPath('data.remaining', 2);
+        $this->assertDatabaseCount('monitorings', 0);
+    }
+
+    public function test_allowance_requires_a_valid_draft_id_and_rejects_a_key_from_a_different_draft(): void
+    {
+        [$ncp, $url, $draft] = $this->context();
+        $this->getJson($url.'?draft_id=invalid')->assertUnprocessable();
+        $this->postJson($url, [...$draft, 'draft_id' => (string) Str::uuid()])->assertStatus(409);
+        Http::assertNothingSent();
     }
 
     public function test_backdated_draft_uses_last_earlier_value_and_not_future_visits(): void
@@ -88,7 +112,7 @@ class MonitoringDraftSummaryTest extends TestCase
         [$ncp, $url, $draft] = $this->context();
         Monitoring::create(['ncp_record_id' => $ncp->id, 'observed_at' => now()->subDays(3), 'lab_values' => ['albumin' => 2.9]]);
         Monitoring::create(['ncp_record_id' => $ncp->id, 'observed_at' => now(), 'lab_values' => ['albumin' => 4.0]]);
-        $draft['entry_key'] = $this->getJson($url)->json('data.entry_key');
+        $draft['entry_key'] = $this->getJson($url.'?draft_id='.$draft['draft_id'])->json('data.entry_key');
         $draft['observed_at'] = now()->subDay()->toDateString();
         $this->postJson($url, $draft)->assertOk();
         Http::assertSent(fn ($request) => collect(json_decode($request['messages'][0]['content'], true)['indicators'])->firstWhere('key', 'albumin')['previous'] === 2.9);
@@ -101,7 +125,7 @@ class MonitoringDraftSummaryTest extends TestCase
         $this->postJson($url, array_replace($draft, ['weight' => -2]))->assertUnprocessable();
         Http::assertNothingSent();
         $this->postJson($url, $draft)->assertStatus(503);
-        $this->getJson($url)->assertOk()->assertJsonPath('data.remaining', 3);
+        $this->getJson($url.'?draft_id='.$draft['draft_id'])->assertOk()->assertJsonPath('data.remaining', 3);
     }
 
     public function test_other_role_cannot_generate_and_stale_entry_keys_are_rejected(): void
@@ -126,7 +150,7 @@ class MonitoringDraftSummaryTest extends TestCase
         $save['clinical_summary'] = 'Reviewed summary.';
         $save['goal_achievement'] = ['continuation_decision' => 'continue'];
         $this->postJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings", $save)->assertCreated();
-        $budget = $this->getJson($url)->assertOk()->assertJsonPath('data.remaining', 3)->json('data');
+        $budget = $this->getJson($url.'?draft_id='.$draft['draft_id'])->assertOk()->assertJsonPath('data.remaining', 3)->json('data');
         $this->assertNotSame($draft['entry_key'], $budget['entry_key']);
     }
 
@@ -134,7 +158,7 @@ class MonitoringDraftSummaryTest extends TestCase
     {
         [$ncp, $url, $draft] = $this->context(true, str_repeat('x', 601));
         $this->postJson($url, $draft)->assertStatus(503);
-        $this->getJson($url)->assertOk()->assertJsonPath('data.remaining', 3);
+        $this->getJson($url.'?draft_id='.$draft['draft_id'])->assertOk()->assertJsonPath('data.remaining', 3);
         $this->assertDatabaseCount('monitorings', 0);
     }
 }

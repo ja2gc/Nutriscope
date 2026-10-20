@@ -11,6 +11,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class MonitoringAiReviewTest extends TestCase
@@ -36,9 +37,10 @@ class MonitoringAiReviewTest extends TestCase
         Monitoring::create(['ncp_record_id' => $ncp->id, 'weight' => 52, 'bmi' => 18.0, 'lab_values' => ['albumin' => 3.0]]);
 
         $url = "/api/rnd/ncp-records/{$ncp->uuid}/monitorings/ai-review";
-        $key = $this->actingAs($rnd, 'sanctum')->getJson($url)->assertOk()->json('data.entry_key');
+        $draftId = (string) Str::uuid();
+        $key = $this->actingAs($rnd, 'sanctum')->getJson($url.'?draft_id='.$draftId)->assertOk()->json('data.entry_key');
         $res = $this->postJson($url, [
-            'entry_key' => $key, 'observed_at' => now()->toDateString(), 'visit_type' => 'scheduled_follow_up',
+            'entry_key' => $key, 'draft_id' => $draftId, 'observed_at' => now()->toDateString(), 'visit_type' => 'scheduled_follow_up',
             'weight' => 53, 'height' => 170, 'edema_present' => false, 'physical_activity_level' => 'light',
             'pregnancy_lactation_status' => 'none', 'allergies' => [], 'food_dislikes' => [], 'dietary_restrictions' => null,
             'lab_values' => ['albumin' => 3.2],

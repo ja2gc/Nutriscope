@@ -13,7 +13,7 @@ import { fetchPatientById } from "@/services/patientService";
 vi.mock("@/services/monitoringService", async (original) => ({
   ...await original<typeof import("@/services/monitoringService")>(),
   fetchMonitorings: vi.fn(), fetchMonitoringPlan: vi.fn(), fetchMonitoringContext: vi.fn(),
-  fetchMonitoringAiBudget: vi.fn(), createMonitoring: vi.fn(), deleteMonitoring: vi.fn(),
+  fetchMonitoringAiBudget: vi.fn(), createMonitoring: vi.fn(),
 }));
 vi.mock("@/services/assessmentService");
 vi.mock("@/services/interventionService");
@@ -86,6 +86,7 @@ it("opens a saved visit in the same form with only its historical values and ret
   expect((screen.getByRole("spinbutton", { name: /Fiber intake/ }) as HTMLInputElement).value).toBe("22");
   expect(screen.queryByRole("button", { name: "Save Visit" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Generate AI Summary" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Delete Entry" })).toBeNull();
   await click("Back to visit history");
   expect(screen.getByRole("heading", { name: "Visit History" })).toBeTruthy();
   expect(screen.getByText("Page 2 of 2 · 6 items")).toBeTruthy();

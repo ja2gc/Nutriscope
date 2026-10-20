@@ -17,7 +17,6 @@ import {
   fetchMonitoringPlan,
   fetchMonitoringContext,
   createMonitoring,
-  deleteMonitoring,
 } from "@/services/monitoringService";
 import { fetchAssessment, Assessment } from "@/services/assessmentService";
 import { fetchIntervention, Intervention } from "@/services/interventionService";
@@ -149,13 +148,6 @@ export default function NcpMonitoringPage({
     await createMonitoring(ncpId, payload);
     setShowForm(false);
     if (historyPage !== 1) setHistoryPage(1);
-    else await loadData();
-  }
-
-  async function handleDeleteEntry(id: string) {
-    await deleteMonitoring(ncpId, id);
-    setSelectedEntry(null);
-    if (entries.length === 1 && historyPage > 1) setHistoryPage(historyPage - 1);
     else await loadData();
   }
 
@@ -303,7 +295,6 @@ export default function NcpMonitoringPage({
                     intervention={intervention}
                     onSubmit={handleLogVisit}
                     onCancel={() => { setShowForm(false); setSelectedEntry(null); }}
-                    onDelete={selectedEntry ? () => handleDeleteEntry(selectedEntry.id) : undefined}
                   />
                 )}
               </div>

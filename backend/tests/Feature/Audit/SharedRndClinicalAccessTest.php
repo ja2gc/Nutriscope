@@ -134,7 +134,7 @@ class SharedRndClinicalAccessTest extends TestCase
         $this->deleteJson("/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/{$mealPlan->uuid}/days/{$day->uuid}/items/{$item->uuid}")
             ->assertNoContent();
         $this->deleteJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings/{$monitoring->uuid}")
-            ->assertNoContent();
+            ->assertStatus(409);
         $this->deleteJson("/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/{$mealPlan->uuid}")
             ->assertNoContent();
 
@@ -143,7 +143,7 @@ class SharedRndClinicalAccessTest extends TestCase
         $this->assertDatabaseCount('interventions', 1);
         $this->assertModelMissing($document);
         $this->assertModelMissing($item);
-        $this->assertModelMissing($monitoring);
+        $this->assertModelExists($monitoring);
         $this->assertModelMissing($mealPlan);
 
         $this->getJson("/api/rnd/patients/{$patient->uuid}/activity")

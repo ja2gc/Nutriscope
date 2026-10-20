@@ -1,4 +1,5 @@
 import type { Assessment } from "@/services/assessmentService";
+import { getWaistHipAssessment } from "./anthropometricSafety";
 
 export const ASSESSMENT_TEXT_LIMITS = {
   present_diet: 250,
@@ -32,6 +33,8 @@ const labels: Record<keyof typeof ASSESSMENT_TEXT_LIMITS, string> = {
 };
 
 export function assessmentTextError(assessment: Partial<Assessment>): string | null {
+  const circumferenceError = getWaistHipAssessment({ waistCm: assessment.waist_cm, hipCm: assessment.hip_cm, sex: null, ageYears: null }).error;
+  if (circumferenceError) return circumferenceError;
   for (const [field, limit] of Object.entries(ASSESSMENT_TEXT_LIMITS)) {
     const key = field as keyof typeof ASSESSMENT_TEXT_LIMITS;
     const value = assessment[key];

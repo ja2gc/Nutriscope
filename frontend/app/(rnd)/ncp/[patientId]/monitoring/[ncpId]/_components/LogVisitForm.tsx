@@ -7,10 +7,8 @@ import { useEditorChanges, type EditorLeaveHandle } from "@/hooks/useUnsavedChan
 import { Button } from "@/components/ui/Button";
 import { numericStepBase } from "@/components/ui/NumericInput";
 import { CharacterCountTextarea } from "@/components/ui/CharacterCountTextarea";
-import { CharacterCountListInput } from "@/components/ui/CharacterCountListInput";
-import { ASSESSMENT_TEXT_LIMITS, FOOD_DISLIKE_LIMIT, FOOD_DISLIKE_MAX_ENTRIES } from "@/lib/assessmentValidation";
-import { ALLERGY_ENTRY_LIMIT, MONITORING_TEXT_LIMITS, monitoringTextError } from "@/lib/monitoringValidation";
-import { InfoHint } from "@/components/ui/InfoHint";
+import { ASSESSMENT_TEXT_LIMITS } from "@/lib/assessmentValidation";
+import { MONITORING_TEXT_LIMITS, monitoringTextError } from "@/lib/monitoringValidation";
 import type { Intervention } from "@/services/interventionService";
 import type { MonitoringPlan } from "@/services/monitoringPlan";
 import { ALL_MICROS } from "@/lib/nutritionCalculations";
@@ -42,7 +40,6 @@ interface LogVisitFormProps {
   onCancel: () => void;
   leaveRef?: Ref<EditorLeaveHandle>;
   entry?: MonitoringEntry | null;
-  onDelete?: () => Promise<void>;
 }
 
 const INTAKE_META: Record<string, { label: string; unit: string }> = {
@@ -105,12 +102,6 @@ function todayValue(): string {
 
 function fieldValue(value: string | number | null | undefined): string {
   return value == null ? "" : String(value);
-}
-
-function parseList(value: string[]): string[] {
-  return value
-    .map((item) => item.trim())
-    .filter(Boolean);
 }
 
 function optionalNumber(value: string): number | null {
@@ -198,8 +189,9 @@ function ToggleGroup<T extends string>({ label, options, value, onChange, requir
   );
 }
 
-export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel, leaveRef, entry, onDelete }: LogVisitFormProps) {
+export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel, leaveRef, entry }: LogVisitFormProps) {
   const readOnly = Boolean(entry);
+  const [draftId] = useState(() => crypto.randomUUID());
   const initial = entry ?? context;
   const knownLabKeys = Object.keys(CLINICAL_LAB_META) as ClinicalLabKey[];
   const planLabKeys = plan
@@ -221,9 +213,7 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
   const [dryWeight, setDryWeight] = useState(fieldValue(initial.dry_weight_kg));
   const [activityLevel, setActivityLevel] = useState(initial.physical_activity_level ?? "");
   const [maternalStatus, setMaternalStatus] = useState<PregnancyLactationStatus | "">(entry ? entry.pregnancy_lactation_status ?? "" : context.pregnancy_lactation_status ?? "none");
-  const [allergies, setAllergies] = useState(initial.allergies ?? []);
   const [dietaryRestrictions, setDietaryRestrictions] = useState(initial.dietary_restrictions ?? "");
-  const [foodDislikes, setFoodDislikes] = useState(initial.food_dislikes ?? []);
   const [compliance, setCompliance] = useState<ComplianceStatus | null>((entry?.goal_achievement?.compliance as ComplianceStatus) ?? null);
   const [giTolerance, setGiTolerance] = useState<GiToleranceStatus | null>((entry?.goal_achievement?.gi_tolerance as GiToleranceStatus) ?? null);
   const [decision, setDecision] = useState<ContinuationDecision>((entry?.goal_achievement?.continuation_decision as ContinuationDecision) ?? null);
@@ -249,10 +239,10 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
   useEffect(() => {
     if (!ncpId || readOnly) return;
     let active = true;
-    fetchMonitoringAiBudget(ncpId).then((value) => { if (active) setBudget(value); })
+    fetchMonitoringAiBudget(ncpId, draftId).then((value) => { if (active) setBudget(value); })
       .catch((err) => { if (active) setAiError(err instanceof Error ? err.message : "Could not load AI allowance."); });
     return () => { active = false; };
-  }, [ncpId, readOnly]);
+  }, [ncpId, readOnly, draftId]);
 
   const bmi = entry ? fieldValue(entry.bmi) : Number(weight) > 0 && Number(height) > 0 ? String(calculateBmi(Number(weight), Number(height))) : "";
 
@@ -285,9 +275,7 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
       dry_weight_kg: edemaPresent ? optionalNumber(dryWeight) : null,
       physical_activity_level: activityLevel,
       pregnancy_lactation_status: maternalStatus || "none",
-      allergies: parseList(allergies),
       dietary_restrictions: dietaryRestrictions.trim() || null,
-      food_dislikes: parseList(foodDislikes),
       lab_values: Object.keys(labValues).length > 0 ? labValues as MonitoringLabValues : null,
       intake_notes: intakeNotes.trim() || null,
       symptoms: symptoms.trim() || null,
@@ -314,7 +302,7 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
     setAiError(null);
     setSuggestion(null);
     try {
-      const result = await requestMonitoringAiReview(ncpId, { ...payload, entry_key: budget.entry_key });
+      const result = await requestMonitoringAiReview(ncpId, { ...payload, entry_key: budget.entry_key, draft_id: draftId });
       setBudget({ ...budget, remaining: result.remaining });
       if (latestInputs.current !== comparisonInputs) {
         setAiError(result.remaining > 0
@@ -328,7 +316,7 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
       }
     } catch (err) {
       setAiError(err instanceof Error ? err.message : "Summary generation failed. You can write it manually.");
-      fetchMonitoringAiBudget(ncpId).then(setBudget).catch(() => undefined);
+      fetchMonitoringAiBudget(ncpId, draftId).then(setBudget).catch(() => undefined);
     } finally {
       setAiLoading(false);
     }
@@ -358,7 +346,7 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
     }
   }
 
-  const guard = useEditorChanges(JSON.stringify({ observedAt, visitType, weight, height, edemaPresent, dryWeight, activityLevel, maternalStatus, allergies, dietaryRestrictions, foodDislikes, compliance, giTolerance, decision, clinicalSummary, intakeNotes, symptoms, nextMonitoringAt, nextMonitoringPurpose, labs, intakes }), !readOnly, () => handleSubmit());
+  const guard = useEditorChanges(JSON.stringify({ observedAt, visitType, weight, height, edemaPresent, dryWeight, activityLevel, maternalStatus, dietaryRestrictions, compliance, giTolerance, decision, clinicalSummary, intakeNotes, symptoms, nextMonitoringAt, nextMonitoringPurpose, labs, intakes }), !readOnly, () => handleSubmit());
   useImperativeHandle(leaveRef, () => ({ requestLeave: guard.requestLeave }), [guard.requestLeave]);
 
   return (
@@ -436,23 +424,12 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
           </div>
         </Section>
 
-        <Section title="Meal Safety, Intake, and Tolerance">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <div>
-              <span className="mb-1.5 flex items-center gap-1.5">
-                <span className="text-xs font-bold uppercase tracking-widest text-warm-500">Allergies</span>
-                <InfoHint label="How allergies affect meal plans" title="Allergy exclusions">Allergies are hard exclusions in generated meal plans. Confirm this list before saving.</InfoHint>
-              </span>
-              <CharacterCountListInput readOnly={readOnly} value={allergies} onChange={setAllergies} maxLength={ALLERGY_ENTRY_LIMIT} label="Allergy" />
-            </div>
+        <Section title="Dietary Intake and Tolerance">
+          <div className="max-w-2xl">
             <label>
               <FieldLabel>Dietary Restrictions</FieldLabel>
               <CharacterCountTextarea aria-label="Dietary Restrictions" autoGrow value={dietaryRestrictions} onChange={setDietaryRestrictions} maxLength={ASSESSMENT_TEXT_LIMITS.dietary_restrictions} rows={2} className="w-full resize-none overflow-hidden rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
             </label>
-            <div>
-              <FieldLabel>Food Dislikes</FieldLabel>
-              <CharacterCountListInput readOnly={readOnly} value={foodDislikes} onChange={setFoodDislikes} maxLength={FOOD_DISLIKE_LIMIT} maxEntries={FOOD_DISLIKE_MAX_ENTRIES} label="Food dislike" />
-            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -518,10 +495,6 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
           <Button type="submit" variant="primary" loading={submitting} disabled={aiLoading} className="sm:flex-1">Save Visit</Button>
           <Button type="button" variant="ghost" onClick={() => guard.requestLeave(onCancel)} className="sm:!w-auto">Cancel</Button>
         </div>}
-        {readOnly && onDelete && <Button type="button" variant="danger" loading={submitting} onClick={async () => {
-          setSubmitting(true); setError(null);
-          try { await onDelete(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Failed to delete visit."); } finally { setSubmitting(false); }
-        }}>Delete Entry</Button>}
       </form>
     </div>
   );

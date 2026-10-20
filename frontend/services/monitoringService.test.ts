@@ -116,9 +116,7 @@ describe("monitoring effective context", () => {
       dry_weight_kg: 58,
       physical_activity_level: "light",
       pregnancy_lactation_status: "none",
-      allergies: ["shellfish"],
       dietary_restrictions: "Low sodium",
-      food_dislikes: ["okra"],
     });
   });
 

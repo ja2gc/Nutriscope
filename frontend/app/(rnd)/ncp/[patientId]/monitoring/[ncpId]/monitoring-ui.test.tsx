@@ -90,7 +90,7 @@ describe("monitoring workflow UI", () => {
       "Visit Context",
       "Recalculation Measurements and Factors",
       "Goal-relevant Labs",
-      "Meal Safety, Intake, and Tolerance",
+      "Dietary Intake and Tolerance",
       "Clinical Progress and Decision",
       "Follow-up",
     ];

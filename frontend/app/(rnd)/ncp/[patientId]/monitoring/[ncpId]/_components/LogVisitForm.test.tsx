@@ -42,6 +42,24 @@ async function open(remaining = 3, monitoringPlan = plan) {
 }
 
 describe("draft monitoring summary", () => {
+  it("starts a separate allowance for a new form while retaining its draft identity on generation failure", async () => {
+    await open();
+    const firstDraft = vi.mocked(fetchMonitoringAiBudget).mock.calls[0][1];
+    expect(firstDraft).toMatch(/^[0-9a-f-]{36}$/i);
+    vi.mocked(requestMonitoringAiReview).mockRejectedValueOnce(new Error("Temporary error"));
+    await act(async () => { domEvent.click(screen.getByRole("button", { name: "Generate AI Summary" })); });
+    expect(vi.mocked(fetchMonitoringAiBudget).mock.calls.at(-1)?.[1]).toBe(firstDraft);
+    await act(async () => root.render(<LogVisitForm key="new-attempt" ncpId="ncp" plan={plan} context={context} intervention={null} onSubmit={vi.fn()} onCancel={vi.fn()} />));
+    expect(vi.mocked(fetchMonitoringAiBudget).mock.calls.at(-1)?.[1]).not.toBe(firstDraft);
+  });
+
+  it("keeps allergies and food dislikes in Assessment instead of offering them in a visit", async () => {
+    await open();
+    expect(screen.queryByRole("button", { name: "Add allergy" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add food dislike" })).toBeNull();
+    expect(screen.queryByText("Allergies")).toBeNull();
+    expect(screen.queryByText("Food Dislikes")).toBeNull();
+  });
   it('lets surrounding tab navigation use the form guard', async () => {
     const leaveRef = React.createRef<{ requestLeave: (next: () => void) => void }>();
     const next = vi.fn();

@@ -309,7 +309,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Monitoring",
     question: "What can I record in Monitoring?",
-    answer: "Record patient-specific follow-up measurements, intake/tolerance, symptoms, and next monitoring date. Progress Assessment is required, up to 600 characters. Write it manually or use Generate AI Summary, limited to three successful generations per entry. AI compares current unsaved values with earlier readings and available targets; review/edit before Save Visit. Saved visits are read-only in Visit Log; Progress Trends provides filtered graphs without a separate evaluation card. Create a new dated Intervention Plan when treatment changes.",
+    answer: "Record patient-specific follow-up measurements, dietary restrictions, intake/tolerance, symptoms, and next monitoring date. Maintain allergies and food dislikes in Assessment. Progress Assessment is required, up to 600 characters. Generate AI Summary allows three successful generations per draft; cancel/discard and open Log New Visit for a fresh allowance. Retries within the same draft retain its used count. AI compares unsaved values with earlier readings and targets; review/edit before Save Visit. History shows five visits per page and opens the same form as View only, with a back arrow. Saved visits cannot be deleted. Progress Trends provides filtered graphs. Create a new dated Intervention Plan when treatment changes.",
     keywords: ["visit log", "progress trend", "follow-up"],
   },
   {

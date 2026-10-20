@@ -96,9 +96,9 @@ export interface MonitoringPayload {
   dry_weight_kg: number | null;
   physical_activity_level: string;
   pregnancy_lactation_status: PregnancyLactationStatus;
-  allergies: string[];
+  allergies?: string[];
   dietary_restrictions: string | null;
-  food_dislikes: string[];
+  food_dislikes?: string[];
   lab_values?: MonitoringLabValues | null;
   intake_notes?: string | null;
   symptoms?: string | null;
@@ -133,11 +133,9 @@ export function buildEffectiveMonitoringPayload(
     pregnancy_lactation_status: changes.pregnancy_lactation_status
       ?? context.pregnancy_lactation_status
       ?? 'none',
-    allergies: changes.allergies ?? context.allergies,
     dietary_restrictions: changes.dietary_restrictions !== undefined
       ? changes.dietary_restrictions
       : context.dietary_restrictions,
-    food_dislikes: changes.food_dislikes ?? context.food_dislikes,
     lab_values: changes.lab_values,
     intake_notes: changes.intake_notes,
     symptoms: changes.symptoms,
@@ -210,20 +208,6 @@ export async function updateMonitoring(
   return data.data ?? data;
 }
 
-export async function deleteMonitoring(
-  ncpRecordId: number | string,
-  monitoringId: number | string
-): Promise<void> {
-  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/monitorings/${monitoringId}`, {
-    method: 'DELETE',
-    headers: { Accept: 'application/json' },
-  });
-  if (!res.ok && res.status !== 204) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error((err as { message?: string }).message || 'Failed to delete monitoring entry.');
-  }
-}
-
 // ─── Phase 6 — Monitoring summary (rule-based delta + optional AI review) ──────
 
 export interface MonitoringChange {
@@ -283,13 +267,13 @@ export async function fetchMonitoringPlan(ncpRecordId: number | string): Promise
 export interface AiSummaryBudget { entry_key: string; remaining: number; }
 export interface AiReviewResult { narrative: string; remaining: number; }
 
-export async function fetchMonitoringAiBudget(ncpRecordId: number | string): Promise<AiSummaryBudget> {
-  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/monitorings/ai-review`);
+export async function fetchMonitoringAiBudget(ncpRecordId: number | string, draftId: string): Promise<AiSummaryBudget> {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/monitorings/ai-review?draft_id=${encodeURIComponent(draftId)}`);
   if (!res.ok) throw new Error("Could not load the AI generation allowance. Reload the form or write the summary manually.");
   return (await res.json()).data;
 }
 
-export async function requestMonitoringAiReview(ncpRecordId: number | string, payload: Omit<MonitoringPayload, "clinical_summary"> & { entry_key: string }): Promise<AiReviewResult> {
+export async function requestMonitoringAiReview(ncpRecordId: number | string, payload: Omit<MonitoringPayload, "clinical_summary"> & { entry_key: string; draft_id: string }): Promise<AiReviewResult> {
   const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/monitorings/ai-review`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },

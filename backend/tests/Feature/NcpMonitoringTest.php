@@ -179,8 +179,7 @@ class NcpMonitoringTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors([
                 'observed_at', 'visit_type', 'weight', 'height', 'edema_present',
-                'physical_activity_level', 'pregnancy_lactation_status', 'allergies',
-                'dietary_restrictions', 'food_dislikes',
+                'physical_activity_level', 'pregnancy_lactation_status', 'dietary_restrictions',
             ]);
     }
 
@@ -326,9 +325,29 @@ class NcpMonitoringTest extends TestCase
             "/api/rnd/ncp-records/{$other->uuid}/monitorings/{$monitoring->uuid}",
             $this->payload(),
         )->assertNotFound();
+        $this->deleteJson("/api/rnd/ncp-records/{$other->uuid}/monitorings/{$monitoring->uuid}")->assertNotFound();
         $this->deleteJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings/{$monitoring->uuid}")
-            ->assertNoContent();
-        $this->assertModelMissing($monitoring);
+            ->assertStatus(409)->assertJsonPath('message', 'Saved monitoring entries cannot be deleted.');
+        $this->assertModelExists($monitoring);
+    }
+
+    public function test_a_visit_can_be_saved_without_reentering_assessment_allergies_or_food_dislikes(): void
+    {
+        $rnd = $this->rnd();
+        $ncp = $this->ncpRecord($this->patient(), $rnd);
+        $data = $this->payload();
+        unset($data['allergies'], $data['food_dislikes']);
+        $this->actingAs($rnd, 'sanctum')->postJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings", $data)->assertCreated();
+        $this->assertSame(['shellfish'], $ncp->assessment->fresh()->allergies);
+    }
+
+    public function test_meal_safety_context_keeps_assessment_allergies_and_dislikes_when_a_legacy_visit_disagrees(): void
+    {
+        $rnd = $this->rnd();
+        $ncp = $this->ncpRecord($this->patient(), $rnd);
+        Monitoring::factory()->create(['ncp_record_id' => $ncp->id, ...$this->payload(['allergies' => [], 'food_dislikes' => []])]);
+        $this->actingAs($rnd, 'sanctum')->getJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings/context")
+            ->assertOk()->assertJsonPath('data.allergies', ['shellfish'])->assertJsonPath('data.food_dislikes', ['liver']);
     }
 
     public function test_monitoring_rejects_oversized_notes_summaries_and_out_of_range_labs(): void

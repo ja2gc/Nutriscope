@@ -11,6 +11,7 @@ class MonitoringSummaryRequest extends MonitoringRequest
         return array_replace(parent::rules(), [
             'clinical_summary' => ['prohibited'],
             'entry_key' => ['required', 'string', 'size:64', 'regex:/^[a-f0-9]+$/D'],
+            'draft_id' => ['required', 'uuid'],
             'goal_achievement' => ['nullable', 'array:compliance,gi_tolerance,continuation_decision'],
             'goal_achievement.compliance' => ['sometimes', Rule::in(['compliant', 'partial', 'non_compliant'])],
             'goal_achievement.gi_tolerance' => ['sometimes', Rule::in(['tolerating', 'not_tolerating'])],

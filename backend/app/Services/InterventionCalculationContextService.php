@@ -36,9 +36,7 @@ class InterventionCalculationContextService
             'dry_weight_kg',
             'physical_activity_level',
             'pregnancy_lactation_status',
-            'allergies',
             'dietary_restrictions',
-            'food_dislikes',
         ];
         $context = [];
 
@@ -46,6 +44,8 @@ class InterventionCalculationContextService
             $context[$field] = $monitoring?->getAttribute($field)
                 ?? $assessment?->getAttribute($field);
         }
+        $context['allergies'] = $assessment?->allergies ?? [];
+        $context['food_dislikes'] = $assessment?->food_dislikes ?? [];
 
         $context['source_type'] = $monitoring === null ? 'assessment' : 'monitoring';
         $context['source_monitoring_id'] = $monitoring?->uuid;

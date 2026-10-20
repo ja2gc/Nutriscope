@@ -14,7 +14,7 @@ import {
   classifyBmi, classifyNutritionalStatus, ACTIVITY_FACTORS,
 } from "@/lib/nutritionCalculations";
 import { CALCULATION_INPUT_HELPERS } from "@/lib/assessmentCalculationInputs";
-import { getAnthropometricSafetyWarning } from "@/lib/anthropometricSafety";
+import { CIRCUMFERENCE_BOUNDS, getAnthropometricSafetyWarning, getWaistHipAssessment } from "@/lib/anthropometricSafety";
 import { formatDateInputValue, formatPatientAge } from "@/lib/patientAge";
 import { changedPersonNameFields } from "@/lib/personName";
 import {
@@ -778,14 +778,11 @@ export default function NcpAssessmentPage({
   const computedNutritionalStatus = computedBmi !== null && computedPercentIBW !== null
     ? classifyNutritionalStatus(computedBmi, computedPercentIBW)
     : null;
-  const computedWHR = assessment.waist_cm && assessment.hip_cm
-    ? Math.round((Number(assessment.waist_cm) / Number(assessment.hip_cm)) * 100) / 100
-    : null;
-  const whrRisk = computedWHR !== null
-    ? (patientSex === "Female"
-      ? (computedWHR < 0.85 ? "Low Risk" : "High Risk")
-      : (computedWHR < 0.90 ? "Low Risk" : "High Risk"))
-    : null;
+  const { ratio: computedWHR, risk: whrRisk, error: whrError } = getWaistHipAssessment({
+    waistCm: assessment.waist_cm, hipCm: assessment.hip_cm,
+    sex: patient?.sex ?? null, ageYears: patientDobStr ? patientAgeYears : null,
+    pregnancyLactationStatus: assessment.pregnancy_lactation_status,
+  });
 
   // ─── Weight Loss % Auto-Calc ────────────────────────────────────────
   const usualWeight = Number(assessment.usual_weight) || 0;
@@ -872,7 +869,7 @@ export default function NcpAssessmentPage({
         weightChangePercent: computedWeightChangePct,
         weightChangeDirection: weightChangeDirection === "stable" ? "none" : weightChangeDirection,
         muacClassification: muacClassification?.label ?? null,
-        whr: computedWHR,
+        whr: computedWHR === null ? null : Number(computedWHR.toFixed(3)),
         whrRisk,
         nutritionalStatus: computedNutritionalStatus?.label ?? assessment.nutritional_status,
       },
@@ -1268,15 +1265,15 @@ export default function NcpAssessmentPage({
         </div>
         {/* WHR — from waist_cm ÷ hip_cm */}
         <div className={`rounded-xl border p-2.5 ${computedWHR !== null ? (whrRisk === "High Risk" ? "bg-white border-red-200" : "bg-white border-warm-200") : "bg-warm-50 border-warm-100"}`}>
-          <p className="text-xs font-bold text-warm-400 uppercase tracking-wider">WHR</p>
+          <div className="flex items-center gap-1.5"><p className="text-xs font-bold text-warm-400 uppercase tracking-wider">WHR</p><InfoHint label="How WHR is calculated" title="Waist-to-hip ratio">Waist circumference ÷ hip circumference. Adult risk classification uses the unrounded ratio and is not applied during pregnancy.</InfoHint></div>
           <p className={`text-xl font-black font-mono mt-0.5 ${computedWHR !== null ? "text-warm-900" : "text-warm-300"}`}>
-            {computedWHR !== null ? computedWHR.toFixed(2) : "—"}
+            {computedWHR !== null ? computedWHR.toFixed(3) : "—"}
           </p>
-          {computedWHR !== null
+          {whrRisk !== null
             ? <p className={`text-xs font-bold mt-0.5 ${whrRisk === "High Risk" ? "text-red-500" : "text-emerald-600"}`}>
               {whrRisk} · {patientSex === "Female" ? "cut-off 0.85" : "cut-off 0.90"}
             </p>
-            : <p className="text-xs text-warm-400 mt-0.5">Enter waist & hip cm</p>
+            : <p className={`text-xs mt-0.5 ${whrError ? "text-red-600" : "text-warm-400"}`} role={whrError ? "alert" : undefined}>{whrError ?? (computedWHR !== null ? "Adult risk classification unavailable." : "Enter waist & hip cm")}</p>
           }
         </div>
       </div>
@@ -1297,11 +1294,11 @@ export default function NcpAssessmentPage({
         <Field label="MUAC (mm)" required={CALCULATION_INPUT_HELPERS.muac_mm.required}>
           <TextInput type="number" value={String(assessment.muac_mm ?? "")} onChange={v => updateField("muac_mm", v ? Number(v) : null)} />
         </Field>
-        <Field label="Waist Circumference (cm)" required={CALCULATION_INPUT_HELPERS.waist_cm.required}>
-          <TextInput type="number" value={String(assessment.waist_cm ?? "")} onChange={v => updateField("waist_cm", v ? Number(v) : null)} />
+        <Field label="Waist Circumference (cm)" htmlFor="waist-cm" required={CALCULATION_INPUT_HELPERS.waist_cm.required}>
+          <TextInput id="waist-cm" type="number" min={CIRCUMFERENCE_BOUNDS.min} max={CIRCUMFERENCE_BOUNDS.max} value={String(assessment.waist_cm ?? "")} onChange={v => updateField("waist_cm", v ? Number(v) : null)} />
         </Field>
-        <Field label="Hip Circumference (cm)" required={CALCULATION_INPUT_HELPERS.hip_cm.required}>
-          <TextInput type="number" value={String(assessment.hip_cm ?? "")} onChange={v => updateField("hip_cm", v ? Number(v) : null)} />
+        <Field label="Hip Circumference (cm)" htmlFor="hip-cm" required={CALCULATION_INPUT_HELPERS.hip_cm.required}>
+          <TextInput id="hip-cm" type="number" min={CIRCUMFERENCE_BOUNDS.min} max={CIRCUMFERENCE_BOUNDS.max} value={String(assessment.hip_cm ?? "")} onChange={v => updateField("hip_cm", v ? Number(v) : null)} />
         </Field>
         <Field label="Weight Change Duration" required={CALCULATION_INPUT_HELPERS.weight_change_period_value.required || CALCULATION_INPUT_HELPERS.weight_change_period_unit.required}>
           <div className="grid grid-cols-[minmax(0,1fr)_minmax(8rem,0.65fr)] gap-2">

@@ -19,6 +19,7 @@ use App\Services\NcpAppointmentWorkflow;
 use App\Services\NotificationLifecycleService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\RateLimiter;
@@ -42,25 +43,26 @@ class MonitoringController extends Controller
         return response()->json(['data' => $svc->summarize($ncpRecord)]);
     }
 
-    public function aiReviewBudget(NcpRecord $ncpRecord): JsonResponse
+    public function aiReviewBudget(Request $request, NcpRecord $ncpRecord): JsonResponse
     {
         $this->authorizeNcp($ncpRecord);
-        $key = $this->summaryEntryKey($ncpRecord);
+        $data = $request->validate(['draft_id' => ['required', 'uuid']]);
+        $key = $this->summaryEntryKey($ncpRecord, $data['draft_id']);
 
         return response()->json(['data' => ['entry_key' => $key, 'remaining' => max(0, 3 - Cache::get('monitoring-summary:'.$key, 0))]]);
     }
 
-    /** The allowance is tied to the pending visit, not a client-created/resettable token. */
-    private function summaryEntryKey(NcpRecord $ncpRecord): string
+    /** Scope each draft's allowance to its clinician, cycle, and current visit history. */
+    private function summaryEntryKey(NcpRecord $ncpRecord, string $draftId): string
     {
-        return hash('sha256', auth()->id().':'.$ncpRecord->id.':'.($ncpRecord->monitorings()->max('id') ?? 'initial'));
+        return hash('sha256', auth()->id().':'.$ncpRecord->id.':'.($ncpRecord->monitorings()->max('id') ?? 'initial').':'.$draftId);
     }
 
     public function aiReview(MonitoringSummaryRequest $request, NcpRecord $ncpRecord, MonitoringPlanService $planSvc, AIService $ai): JsonResponse
     {
         $this->authorizeNcp($ncpRecord);
         abort_unless($ncpRecord->intervention()->exists(), 422, 'Save an intervention before monitoring.');
-        $key = $this->summaryEntryKey($ncpRecord);
+        $key = $this->summaryEntryKey($ncpRecord, $request->validated('draft_id'));
         abort_unless(hash_equals($key, $request->validated('entry_key')), 409, 'The visit history changed. Reload the form before generating.');
         $rlKey = 'ai-review:'.(auth()->id() ?? 'guest');
         if (RateLimiter::tooManyAttempts($rlKey, 5)) {
@@ -77,7 +79,7 @@ class MonitoringController extends Controller
             if ($narrative === null) {
                 return response()->json(['message' => 'Summary generation is unavailable. Try again or write the summary manually.'], 503);
             }
-            abort_unless(hash_equals($key, $this->summaryEntryKey($ncpRecord)), 409, 'The visit history changed during generation. Reload the form.');
+            abort_unless(hash_equals($key, $this->summaryEntryKey($ncpRecord, $request->validated('draft_id'))), 409, 'The visit history changed during generation. Reload the form.');
             Cache::forever($cacheKey, $used + 1);
 
             return response()->json(['data' => ['narrative' => $narrative, 'remaining' => 2 - $used]]);
@@ -196,9 +198,7 @@ class MonitoringController extends Controller
             abort(404);
         }
 
-        $this->audited(fn () => $monitoring->delete());
-
-        return response()->noContent();
+        abort(409, 'Saved monitoring entries cannot be deleted.');
     }
 
     private function authorizeNcp(NcpRecord $ncpRecord): void
