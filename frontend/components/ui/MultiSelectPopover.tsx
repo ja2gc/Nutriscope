@@ -50,7 +50,7 @@ export default function MultiSelectPopover({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-warm-500 border border-warm-200 rounded-lg hover:border-brand-green-500 hover:text-brand-green-700 transition-colors cursor-pointer">
+        <button type="button" className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-warm-500 border border-warm-200 rounded-lg hover:border-brand-green-500 hover:text-brand-green-700 transition-colors cursor-pointer">
           {triggerIcon}
           {triggerLabel}
           {showCount && selected.length > 0 && (
@@ -113,6 +113,7 @@ export default function MultiSelectPopover({
         </div>
         {selected.some((k) => !required.includes(k)) && (
           <button
+            type="button"
             onClick={() =>
               onChange(selected.filter((k) => required.includes(k)))
             }

@@ -2,6 +2,10 @@
 
 import React, { use, useCallback, useEffect, useState, useRef } from "react";
 import Link from "next/link";
+import { useEditorChanges } from '@/hooks/useUnsavedChanges';
+import { FoodRecallCalculator, type FoodRecallHandle } from '@/components/ncp/FoodRecallCalculator';
+import { FoodRecallNutrientFields } from '@/components/ncp/FoodRecallNutrientFields';
+import type { FoodRecallPlan } from '@/lib/foodRecall';
 import {
   ClipboardCheck, Utensils, Ruler, UserRound, FlaskConical,
   FileText, Sparkles, Save, Upload, AlertTriangle,
@@ -51,7 +55,7 @@ const ASSESSMENT_FIELD_LABELS: Record<string, string> = {
 
 function formatAssessmentValidationError(error: AssessmentValidationError): string {
   return Object.entries(error.errors).map(([field, messages]) =>
-    `${ASSESSMENT_FIELD_LABELS[field] ?? field.replace(/_/g, " ")}: ${messages.join(" ")}`,
+    `${field.startsWith('food_recall') ? 'Food Recall' : ASSESSMENT_FIELD_LABELS[field] ?? field.replace(/_/g, " ")}: ${messages.join(" ")}`,
   ).join(" ") || error.message;
 }
 
@@ -196,12 +200,6 @@ const REFERRAL_SECTIONS: Array<{ key: ReferralSection; label: string }> = [
 const ENERGY_INTAKE_OPTIONS = [
   "No change", "Mostly liquids", "Sub-optimal", "Starvation", "Poor intake prior to admission"
 ];
-const DIETARY_METHOD_OPTIONS = [
-  { value: "24_hour_recall", label: "24-Hour Recall" },
-  { value: "food_frequency", label: "Food Frequency" },
-  { value: "3_day_record", label: "3-Day Record" },
-  { value: "other", label: "Other" },
-];
 const FUNCTIONAL_OPTIONS = ["Independent", "Needs assistance", "Bedridden"];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
@@ -269,9 +267,9 @@ function AssessmentSection({ legend, children, className = "" }: {
   );
 }
 
-function TextInput({ value, onChange, type, disabled, min, max, id, className, ariaLabel, maxLength }: {
+function TextInput({ value, onChange, type, disabled, min, max, id, className, ariaLabel, maxLength, step }: {
   value: string; onChange: (v: string) => void; type?: string; disabled?: boolean;
-  min?: number; max?: number; id?: string; className?: string; ariaLabel?: string; maxLength?: number;
+  min?: number; max?: number; id?: string; className?: string; ariaLabel?: string; maxLength?: number; step?: number;
 }) {
   return (
     <input
@@ -282,6 +280,7 @@ function TextInput({ value, onChange, type, disabled, min, max, id, className, a
       disabled={disabled}
       min={min}
       max={max}
+      step={step}
       aria-label={ariaLabel}
       maxLength={maxLength}
       className={`min-h-11 w-full px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all disabled:bg-warm-50 disabled:cursor-not-allowed ${className ?? ""}`}
@@ -657,6 +656,10 @@ export default function NcpAssessmentPage({
   const [activeTab, setActiveTab] = useState<TabKey>("dietary");
   const [patient, setPatient] = useState<Patient | null>(null);
   const [assessment, setAssessment] = useState<Assessment>(defaultAssessment());
+  const recallEditor = useRef<FoodRecallHandle>(null);
+  const acceptedRecall = useRef<FoodRecallPlan | null>(null);
+  const [recallDirty, setRecallDirty] = useState(false);
+  const markAssessmentSaved = useRef<(snapshot: string) => void>(() => {});
   const [interventionGoal, setInterventionGoal] = useState<string | null>(null);
   const [assessmentExists, setAssessmentExists] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -724,6 +727,7 @@ export default function NcpAssessmentPage({
       }
       if (a.status === "fulfilled") {
         setAssessment(a.value);
+        acceptedRecall.current = a.value.food_recall ?? null;
         setAssessmentExists(true);
         loadedAssessment = a.value;
       }
@@ -970,12 +974,17 @@ export default function NcpAssessmentPage({
   };
 
   // ─── Save ───────────────────────────────────────────────────────────
-  const handleSave = async () => {
+  const handleSave = async (): Promise<boolean> => {
+    if (recallEditor.current?.isDirty() && !await recallEditor.current.savePlan()) {
+      setActiveTab('dietary');
+      setError('Review the Food Recall calculation before saving.');
+      return false;
+    }
     const validationError = assessmentTextError(assessment);
     if (validationError) {
       setError(validationError);
       setSuccess(null);
-      return;
+      return false;
     }
     try {
       setSaving(true);
@@ -988,7 +997,7 @@ export default function NcpAssessmentPage({
         heightCm: assessment.height,
       });
       if (safetyWarning && !window.confirm(safetyWarning)) {
-        return;
+        return false;
       }
       const nameFields = patient && screeningDraft
         ? changedPersonNameFields(patient, screeningDraft.firstName, screeningDraft.lastName)
@@ -996,6 +1005,7 @@ export default function NcpAssessmentPage({
 
       const toSave: Partial<Assessment> = {
         ...assessment,
+        food_recall: acceptedRecall.current,
         medications: assessment.medications?.length ? [assessment.medications.join(", ")] : [],
         food_dislikes: (assessment.food_dislikes ?? []).map(value => value.trim()).filter(Boolean),
         // Auto-computed fields — override stored value with live computation when available
@@ -1012,6 +1022,7 @@ export default function NcpAssessmentPage({
 
       const saved = await saveAssessment(ncpId, toSave, assessmentExists);
       setAssessment(saved);
+      acceptedRecall.current = saved.food_recall ?? null;
       setAssessmentExists(true);
 
       // Save patient demographics if updated via screening form
@@ -1030,15 +1041,21 @@ export default function NcpAssessmentPage({
       }
 
       setSuccess("Assessment saved successfully.");
+      markAssessmentSaved.current(JSON.stringify({ assessment: saved, screeningDraft, recallDirty: false }));
       setTimeout(() => setSuccess(null), 3000);
+      return true;
     } catch (err: unknown) {
       setError(err instanceof AssessmentValidationError
         ? formatAssessmentValidationError(err)
         : err instanceof Error ? err.message : "Failed to save assessment.");
+      return false;
     } finally {
       setSaving(false);
     }
   };
+
+  const assessmentGuard = useEditorChanges(JSON.stringify({ assessment, screeningDraft, recallDirty }), !loading && !isPlaceholder, handleSave);
+  useEffect(() => { markAssessmentSaved.current = assessmentGuard.markSaved; }, [assessmentGuard.markSaved]);
 
   // ─── Loading / Placeholder ──────────────────────────────────────────
   if (isPlaceholder) {
@@ -1084,16 +1101,6 @@ export default function NcpAssessmentPage({
           onChange={v => updateField("energy_intake_status", v || null)}
           options={ENERGY_INTAKE_OPTIONS.map(o => ({ value: o, label: o }))}
         />
-      </Field>
-      <Field label="Dietary Intake Method">
-        <SelectInput
-          value={s("dietary_intake_method")}
-          onChange={v => updateField("dietary_intake_method", v || null)}
-          options={DIETARY_METHOD_OPTIONS}
-        />
-      </Field>
-      <Field label="Dietary Intake" htmlFor="dietary_intake" className="md:col-span-2 xl:col-span-2">
-        <TextArea id="dietary_intake" value={s("dietary_intake")} onChange={v => updateField("dietary_intake", v)} rows={2} maxLength={ASSESSMENT_TEXT_LIMITS.dietary_intake} />
       </Field>
       <Field label="Appetite Changes">
         <SelectInput
@@ -1903,6 +1910,7 @@ export default function NcpAssessmentPage({
   // ─── Render ─────────────────────────────────────────────────────────
   return (
     <div className="space-y-4 font-sans">
+      {assessmentGuard.dialog}
       {/* Breadcrumb */}
       <NcpBreadcrumb step="Nutrition Assessment" />
 
@@ -1914,6 +1922,7 @@ export default function NcpAssessmentPage({
         foodDetails={[...allergies, ...(assessment.food_dislikes ?? []), assessment.dietary_restrictions]}
         interventionGoal={interventionGoal}
         medicalDiagnosis={screeningDraft?.diagnosis}
+        onBeforeUnselectPatient={assessmentGuard.requestLeave}
       />
 
       {/* Status Messages */}
@@ -1978,6 +1987,16 @@ export default function NcpAssessmentPage({
           className="p-3 sm:p-4 lg:p-5"
         >
           {tabContent[activeTab]}
+          <div hidden={activeTab !== 'dietary'} className="mt-4">
+            <AssessmentSection legend="Food Recall">
+              {assessment.dietary_intake && <p className="whitespace-pre-wrap text-sm text-warm-600">Previously recorded intake: {assessment.dietary_intake}</p>}
+              <FoodRecallNutrientFields values={Object.fromEntries(Object.entries(assessment.intake_nutrients ?? { energy_kcal: null }).map(([key, value]) => [key, value == null ? '' : String(value)]))}
+                onChange={values => updateField('intake_nutrients', Object.fromEntries(Object.entries(values).map(([key, value]) => [key, value.trim() === '' ? null : value])))}
+                renderField={(field, value, onChange) => <Field label={`${field.label} intake (${field.unit})`}><TextInput type="number" ariaLabel={`${field.label} intake`} value={value} onChange={onChange} min={0} max={field.max} step={0.01} /></Field>} />
+              <FoodRecallCalculator key={`${ncpId}:${assessment.updated_at ?? 'draft'}`} value={assessment.food_recall} disabled={saving} leaveRef={recallEditor} onDirtyChange={setRecallDirty}
+                onSave={plan => { acceptedRecall.current = plan; updateField('food_recall', plan); }} />
+            </AssessmentSection>
+          </div>
         </div>
 
       </div>

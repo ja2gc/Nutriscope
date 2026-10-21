@@ -15,7 +15,7 @@ export function useEditorChanges(snapshot: string, ready: boolean, onSave: () =>
   return { ...guard, dirty, markSaved: (next = snapshot) => setBaseline(next) };
 }
 
-export function useUnsavedChanges({ dirty, onSave, title }: { dirty: boolean; onSave: () => Promise<boolean>; title?: string }) {
+export function useUnsavedChanges({ dirty, onSave, title, watchNavigation = true }: { dirty: boolean; onSave: () => Promise<boolean>; title?: string; watchNavigation?: boolean }) {
   const [pending, setPending] = useState<(() => void) | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,6 +27,7 @@ export function useUnsavedChanges({ dirty, onSave, title }: { dirty: boolean; on
   }, [dirty]);
   useEffect(() => {
     if (!dirty) { allowed.current = false; return; }
+    if (!watchNavigation) return;
     const unload = (event: BeforeUnloadEvent) => {
       if (!allowed.current) { event.preventDefault(); event.returnValue = ''; }
     };
@@ -42,7 +43,7 @@ export function useUnsavedChanges({ dirty, onSave, title }: { dirty: boolean; on
     window.addEventListener('beforeunload', unload);
     window.addEventListener('click', click, true);
     return () => { window.removeEventListener('beforeunload', unload); window.removeEventListener('click', click, true); };
-  }, [dirty, requestLeave]);
+  }, [dirty, requestLeave, watchNavigation]);
   const leave = () => { allowed.current = true; setPending(null); pending?.(); };
   return { requestLeave, allowNavigation, dialog: pending ? <UnsavedChangesDialog title={title} busy={busy} error={error} onStay={() => { setPending(null); setError(null); }} onDiscard={leave} onSave={async () => {
     setBusy(true); setError(null);

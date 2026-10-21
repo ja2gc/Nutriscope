@@ -16,6 +16,8 @@ export interface NutrientSnapshot {
   serving_size: number;
   serving_unit: string;
   recipe_yield?: number;
+  prepared_portion_amount?: number | string | null;
+  prepared_portion_unit?: string | null;
   prep_notes?: string | null;
   recipe_original_ingredients?: Array<Omit<RecipeIngredient, 'quantity'> & { name: string; quantity: number | string }>;
   recipe_ingredients?: { id?: number; name: string; quantity: number; unit: string }[];

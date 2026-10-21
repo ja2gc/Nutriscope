@@ -8,6 +8,7 @@ interface Props {
   onToggleMicros?: () => void;
   hasMicros?: boolean;
   className?: string;
+  showWithoutTargets?: boolean;
 }
 
 function statusColor(current: number, target: number, operator?: 'min' | 'max'): string {
@@ -25,19 +26,20 @@ export default function MacroTrackerBar({
   onToggleMicros,
   hasMicros = false,
   className = "",
+  showWithoutTargets = false,
 }: Props) {
   const foodTargets = targets.filter((target) => target.label !== "Fluid");
-  if (foodTargets.every((target) => target.target <= 0)) return null;
+  if (!showWithoutTargets && foodTargets.every((target) => target.target <= 0)) return null;
   return (
     <div className={`flex flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3 bg-white border border-warm-200 rounded-xl ${className}`}>
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1 flex-1 min-w-0">
         {foodTargets.map(({ label, current, target, unit, operator }) => (
           <div key={label} className="flex items-baseline gap-1">
             <span className="text-xs font-bold text-warm-400 uppercase tracking-wider">{label}</span>
-            <span className={`text-base font-extrabold font-mono ${statusColor(current, target, operator)}`}>
+            <span className={`text-base font-extrabold font-mono ${showWithoutTargets && target <= 0 ? 'text-warm-900' : statusColor(current, target, operator)}`}>
               {Math.round(current)}
             </span>
-            <span className="text-xs text-warm-400">/ {operator === 'max' ? '≤' : operator === 'min' ? '≥' : ''}{Math.round(target)} {unit}</span>
+            <span className="text-xs text-warm-500">{target > 0 && <>/ {operator === 'max' ? '≤' : operator === 'min' ? '≥' : ''}{Math.round(target)} </>}{unit}</span>
           </div>
         ))}
       </div>

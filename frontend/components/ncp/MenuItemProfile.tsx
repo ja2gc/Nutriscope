@@ -40,7 +40,7 @@ export const MENU_ITEM_NUTRIENT_UNITS: Record<string, string> = {
   vitamin_e: 'mg', vitamin_k: 'mcg', vitamin_b1: 'mg', vitamin_b2: 'mg', vitamin_b3: 'mg', vitamin_b6: 'mg',
 };
 
-export function MenuItemProfile({ name, servings, prepNotes, nutrients, ingredients, onBack, backLabel = "Back to template", nutritionBasis = "Whole recipe", controls, actions, renderIngredientAmount, ingredientControls }: {
+export function MenuItemProfile({ name, servings, prepNotes, nutrients, ingredients, onBack, backLabel = "Back to template", nutritionBasis = "Whole recipe", controls, actions, renderIngredientAmount, ingredientControls, profileType = 'Menu Item' }: {
   name: string;
   servings?: number | null;
   prepNotes?: string | null;
@@ -53,13 +53,14 @@ export function MenuItemProfile({ name, servings, prepNotes, nutrients, ingredie
   actions?: ReactNode;
   renderIngredientAmount?: (ingredient: ProfileIngredient) => ReactNode;
   ingredientControls?: ReactNode;
+  profileType?: 'Menu Item' | 'Ingredient';
 }) {
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { heading.current?.focus(); heading.current?.scrollIntoView?.({ block: 'start' }); }, []);
   return <section aria-label="Menu Item profile" className="mx-auto max-w-3xl space-y-5">
     <div className="flex items-center gap-3 border-b border-warm-200 pb-4">
       <button type="button" aria-label={backLabel} title={backLabel} onClick={onBack} className="shrink-0 rounded-lg border border-warm-200 p-2 text-warm-500 hover:bg-warm-50 focus-visible:ring-2 focus-visible:ring-emerald-600"><ArrowLeft className="h-4 w-4" /></button>
-      <div className="min-w-0"><h3 ref={heading} tabIndex={-1} className="break-words text-xl font-extrabold text-warm-900 outline-none">{name}</h3><p className="text-sm text-warm-500">Menu Item profile</p></div>
+      <div className="min-w-0"><h3 ref={heading} tabIndex={-1} className="break-words text-xl font-extrabold text-warm-900 outline-none">{name}</h3><p className="text-sm text-warm-500">{profileType} profile</p></div>
     </div>
     <div className="space-y-4 rounded-2xl border border-warm-200 bg-white p-4 sm:p-6">
       {servings != null && <p className="text-sm text-warm-700">Recipe makes: {formatMealPlanAmount(servings)} {servings === 1 ? 'serving' : 'servings'}</p>}
@@ -72,7 +73,7 @@ export function MenuItemProfile({ name, servings, prepNotes, nutrients, ingredie
       {nutrients.water_g != null && <p className="text-sm text-warm-600">Water: {formatMealPlanAmount(nutrients.water_g)} g</p>}
       </>}
     </div>
-    <div className="space-y-3 rounded-2xl border border-warm-200 bg-white p-4 sm:p-6">
+    {profileType === 'Menu Item' && <><div className="space-y-3 rounded-2xl border border-warm-200 bg-white p-4 sm:p-6">
       <h4 className="text-sm font-bold text-warm-700">Ingredients</h4>
       {ingredientControls}
       {ingredients.length === 0 && <p className="text-sm text-warm-500">No measured ingredient details recorded.</p>}
@@ -81,7 +82,7 @@ export function MenuItemProfile({ name, servings, prepNotes, nutrients, ingredie
         {renderIngredientAmount ? renderIngredientAmount(ingredient) : <span className="text-sm text-warm-600">{formatMealPlanAmount(ingredient.quantity)} {ingredient.unit}</span>}
       </div>)}</div>
     </div>
-    <div className="space-y-3 rounded-2xl border border-warm-200 bg-white p-4 sm:p-6"><h4 className="text-sm font-bold text-warm-700">Preparation notes</h4><p className="whitespace-pre-wrap break-words text-sm text-warm-600">{prepNotes || "No preparation notes recorded."}</p></div>
+    <div className="space-y-3 rounded-2xl border border-warm-200 bg-white p-4 sm:p-6"><h4 className="text-sm font-bold text-warm-700">Preparation notes</h4><p className="whitespace-pre-wrap break-words text-sm text-warm-600">{prepNotes || "No preparation notes recorded."}</p></div></>}
     {nutrients && <div className="space-y-3 rounded-2xl border border-warm-200 bg-white p-4 sm:p-6"><h4 className="text-sm font-bold text-warm-700">Micronutrients · {nutritionBasis.toLowerCase()}</h4>
       {Object.keys(nutrients.micronutrients ?? {}).length === 0 ? <p className="text-sm text-warm-500">No micronutrient data recorded.</p> : <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">{Object.entries(nutrients.micronutrients ?? {}).map(([key, value]) => {
         const metadata = ALL_MICROS.find((entry) => entry.key === key);

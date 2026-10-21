@@ -25,9 +25,9 @@ import MacroTrackerBar from "./MacroTrackerBar";
 import { WeeklyMenuCalendar, MENU_DAYS, MENU_SLOTS } from "@/components/ncp/WeeklyMenuCalendar";
 import { MenuEditorSlots, MenuEditorActions, MenuEditorAction } from "@/components/ncp/MenuEditorSlots";
 import { MenuItemProfile, RecipeMenuItemProfile } from "@/components/ncp/MenuItemProfile";
-import { ALL_MICROS } from "@/lib/nutritionCalculations";
 import { foodFluidBalance, formatMealPlanAmount } from "@/lib/mealPlanNutrition";
-import { clinicalIngredientFactor, clinicalRecipeUnits } from "@/lib/clinicalUnits";
+import { clinicalIngredientFactor, clinicalRecipeUnits, clinicalRecipeNutrients } from "@/lib/clinicalUnits";
+import { MicronutrientTotals } from '@/components/ncp/MicronutrientTotals';
 import NumericInput, { numericStepBase } from '@/components/ui/NumericInput';
 import { quantityInputValue } from '@/lib/foodServiceFormat';
 
@@ -539,37 +539,16 @@ export default function MealPlanSection({
   const recalcFromIngredients = (): Partial<NutrientSnapshot> => {
     if (!editRecipe) return {};
     const servings = editRecipe.servings ?? 1;
-    let cal = 0, prot = 0, carb = 0, fat = 0, water = 0;
-    const micros: Record<string, number> = {};
-    for (const row of editIngredients) {
-      const { ing } = row;
-      const qty = ingredientBatchQuantity(row);
-      const food = ing.food_item;
-      if (!food) continue;
-      const factor = clinicalIngredientFactor(Number(qty), ing.unit, Number(food.serving_size), food.serving_unit ?? '');
-      if (factor === null) continue;
-      cal += parseFloat(food.calories || '0') * factor;
-      prot += parseFloat(food.protein ?? '0') * factor;
-      carb += parseFloat(food.carbs ?? '0') * factor;
-      fat += parseFloat(food.fat ?? '0') * factor;
-      water += Number(food.water_g ?? 0) * factor;
-      for (const [key, value] of Object.entries(food.micronutrients ?? {})) {
-        micros[key] = (micros[key] ?? 0) + value * factor;
-      }
-    }
+    const totals = clinicalRecipeNutrients(editIngredients.map(row => ({ quantity: ingredientBatchQuantity(row), unit: row.ing.unit, food: row.ing.food_item })), servings);
+    if (!totals) return {};
     return {
+      ...totals,
       name: editTarget?.item.nutrient_snapshot?.name ?? editRecipe.name,
-      calories: Math.round(cal / servings * 100) / 100,
-      protein: Math.round(prot / servings * 100) / 100,
-      carbs: Math.round(carb / servings * 100) / 100,
-      fat: Math.round(fat / servings * 100) / 100,
-      water_g: Math.round(water / servings * 100) / 100,
       serving_size: 1,
       serving_unit: 'serving',
       recipe_yield: servings,
       recipe_original_ingredients: editIngredients.map((row) => ({ ...row.ing, id: row.id, quantity: ingredientBatchQuantity(row), name: row.ing.food_item?.name ?? 'Ingredient' })),
       recipe_ingredients: editIngredients.map((row) => ({ id: row.id, name: row.ing.food_item?.name ?? 'Ingredient', quantity: ingredientBatchQuantity(row), unit: row.ing.unit })),
-      micronutrients: Object.fromEntries(Object.entries(micros).map(([key, value]) => [key, Math.round(value / servings * 1000) / 1000])),
     };
   };
 
@@ -884,29 +863,7 @@ export default function MealPlanSection({
 
           {/* Micro totals row */}
           {showMicros && displayedMicros.length > 0 && (
-            <div className="p-3 bg-sky-50 border border-sky-100 rounded-xl space-y-2">
-              <p className="text-xs font-bold text-sky-500 uppercase tracking-widest">Daily Micronutrients — {selectedDay}</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {displayedMicros.map((key) => {
-                  const meta = ALL_MICROS.find((m) => m.key === key);
-                  const val  = Math.round((selectedMicroTotals[key] ?? 0) * 10) / 10;
-                  const limit = micronutrientLimits[key];
-                  const overLimit = limit?.max != null && val > limit.max;
-                  const underLimit = limit?.min != null && val < limit.min;
-                  return (
-                    <div key={key} className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-xs ${overLimit ? 'bg-red-50 border-red-200' : underLimit ? 'bg-amber-50 border-amber-200' : 'bg-white border-warm-200'}`}>
-                      <span className="font-semibold text-warm-700">{meta?.label ?? key}</span>
-                      <span className={`font-mono font-bold ${overLimit ? 'text-red-600' : underLimit ? 'text-amber-600' : 'text-warm-500'}`}>
-                        {val}{meta?.unit}
-                        {limit?.target != null && <span className="font-normal text-warm-400"> / {limit.target}</span>}
-                        {limit?.min != null && <span className="font-normal text-warm-400"> / ≥{limit.min}</span>}
-                        {limit?.max != null && <span className="font-normal text-warm-400"> / ≤{limit.max}</span>}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            <MicronutrientTotals title={`Daily Micronutrients — ${selectedDay}`} selected={displayedMicros} totals={selectedMicroTotals} limits={micronutrientLimits} />
           )}
 
           {/* Day pills */}

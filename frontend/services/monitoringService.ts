@@ -1,6 +1,7 @@
 ﻿import { apiFetch } from "@/lib/apiFetch";
 import type { MonitoringPlan } from "@/services/monitoringPlan";
 import type { PaginationMeta } from "@/components/ui/Pagination";
+import { foodRecallPayload, type FoodRecallPlan } from '@/lib/foodRecall';
 export type { MonitoringPlan, PlanIndicator, PlanVisit, PlanSeriesPoint, IndicatorStatus, IndicatorCategory } from "@/services/monitoringPlan";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -63,6 +64,7 @@ export interface MonitoringContext {
 }
 
 export interface MonitoringEntry {
+  food_recall?: FoodRecallPlan | null;
   id: string;
   observed_at: string | null;
   visit_type: MonitoringVisitType | null;
@@ -88,6 +90,7 @@ export interface MonitoringEntry {
 }
 
 export interface MonitoringPayload {
+  food_recall?: FoodRecallPlan | null;
   observed_at: string;
   visit_type: MonitoringVisitType;
   weight: number;
@@ -121,6 +124,7 @@ export function buildEffectiveMonitoringPayload(
   const numberValue = (value: number | string | null): number => Number(value);
 
   return {
+    ...(changes.food_recall !== undefined ? { food_recall: changes.food_recall } : {}),
     observed_at: changes.observed_at,
     visit_type: changes.visit_type,
     weight: changes.weight ?? numberValue(context.weight),
@@ -180,7 +184,7 @@ export async function createMonitoring(
   const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/monitorings`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ ...payload, ...(payload.food_recall !== undefined ? { food_recall: foodRecallPayload(payload.food_recall) } : {}) }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

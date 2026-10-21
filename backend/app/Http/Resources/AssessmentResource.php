@@ -21,6 +21,8 @@ class AssessmentResource extends JsonResource
             'id' => $this->id,
             'ncp_record_id' => $this->ncp_record_id,
             'dietary_intake' => $this->dietary_intake,
+            'food_recall' => $this->food_recall,
+            'intake_nutrients' => $this->intake_nutrients,
             'appetite_changes' => $this->appetite_changes,
             'dietary_restrictions' => $this->dietary_restrictions,
             'supplements' => $this->supplements,

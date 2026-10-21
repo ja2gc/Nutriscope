@@ -12,6 +12,7 @@ use App\Models\Monitoring;
 use App\Models\NcpRecord;
 use App\Policies\AuditPolicy;
 use App\Services\AIService;
+use App\Services\FoodRecallService;
 use App\Services\InterventionCalculationContextService;
 use App\Services\MonitoringPlanService;
 use App\Services\MonitoringSummaryService;
@@ -29,6 +30,7 @@ class MonitoringController extends Controller
     public function __construct(
         private readonly AuditPolicy $auditPolicy,
         private readonly NcpAppointmentWorkflow $appointments,
+        private readonly FoodRecallService $foodRecalls,
     ) {}
 
     /**
@@ -137,6 +139,9 @@ class MonitoringController extends Controller
         }
 
         $data = $request->validated();
+        if (array_key_exists('food_recall', $data)) {
+            $data['food_recall'] = $this->foodRecalls->normalize($data['food_recall']);
+        }
         $followUpAt = $data['next_monitoring_at'] ?? null;
         $followUpPurpose = $data['next_monitoring_purpose'] ?? null;
         unset($data['next_monitoring_at'], $data['next_monitoring_purpose']);
@@ -174,6 +179,8 @@ class MonitoringController extends Controller
         if ($monitoring->ncp_record_id !== $ncpRecord->id) {
             abort(404);
         }
+
+        abort_if($request->exists('food_recall'), 409, 'Saved monitoring recall plans are view-only.');
 
         $data = $request->validated();
         $data['bmi'] = $this->calculateBmi($data['weight'], $data['height']);

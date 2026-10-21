@@ -128,6 +128,10 @@ For the full guide, open **Overview → Contact details → Edit contact details
 
 **Expected result:** The visit shows the sections worked on without forcing the RND to predict one next step.
 
+**Food Recall demonstration:** At the bottom of Assessment's Dietary tab, expand the calculator and show its empty seven-column area. Add Weekday and Add Weekend in alternating order; weekdays group first and each type has its own numbering. Add beyond seven days and use the side arrows. Add Ingredients and Menu Items without meal slots, open a saved profile, and change a compatible unit while keeping its quantity to show nutrient scaling. Review daily totals, Display Micros, and the full-plan daily average. Save Plan accepts one calculation into the form and reveals Recall Coverage; Save Assessment persists it. Demonstrate cancel/discard restoring the previous calculation. In Monitoring, show the same calculator outside the entry card on the right, keep Intake Notes separate, and persist through Save Visit. Open the saved log to view its coverage, frozen profiles, and totals without editing them. Recall Coverage stays hidden when no calculation exists.
+
+For Food Recall inputs, show Energy alone initially, then use Display Macros and Display Micros to add nutrient fields in the neutral responsive grid. Assessment follows the Dietary tab's existing field styling; Monitoring retains its intake grouping and target hints. Save/reopen the nutrient inputs with the whole entry. Intake Notes remains separate, and AI diagnosis rules are unchanged.
+
 ## Scene 5 — Finish, End Early, or Correct a Mistaken Start
 
 **Purpose:** Explain the small set of visit-ending actions.

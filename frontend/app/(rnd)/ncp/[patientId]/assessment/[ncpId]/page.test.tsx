@@ -35,3 +35,20 @@ it("updates the visible WHR when hip changes and never labels a 1cm waist as low
   expect(screen.queryByText(/Low Risk · cut-off/)).toBeNull();
   expect(screen.queryByText("0.750")).toBeNull();
 });
+
+it('protects unsaved assessment changes when leaving from any tab', async () => {
+  const params = Promise.resolve({ patientId: 'demo', ncpId: 'demo-cycle' });
+  await act(async () => root.render(<Suspense fallback="Loading"><Page params={params} /></Suspense>));
+  expect(screen.queryByLabelText('Food Recall')).toBeNull();
+  expect(screen.getByRole('button', { name: /Display Macros/ })).toBeTruthy();
+  act(() => fireEvent.change(screen.getByRole('spinbutton', { name: /Energy intake/ }), { target: { value: '1800' } }));
+  await act(async () => fireEvent.click(screen.getByRole('tab', { name: /Anthropometrics/ })));
+  expect(screen.getByRole('button', { name: 'Save Assessment' })).toBeTruthy();
+  const link = document.createElement('a'); link.href = '/ncp/patients'; document.body.append(link);
+  act(() => fireEvent.click(link));
+  expect(screen.getByRole('dialog', { name: 'Unsaved changes' })).toBeTruthy();
+  act(() => fireEvent.click(screen.getByRole('button', { name: 'Stay on this page' })));
+  expect(screen.queryByRole('dialog')).toBeNull();
+  await act(async () => fireEvent.click(screen.getByRole('tab', { name: /Dietary/ })));
+  expect((screen.getByRole('spinbutton', { name: /Energy intake/ }) as HTMLInputElement).value).toBe('1800');
+});

@@ -19,7 +19,7 @@ class Assessment extends Model
 
     protected $fillable = [
         'ncp_record_id',
-        'dietary_intake', 'appetite_changes', 'dietary_restrictions', 'supplements', 'knowledge_notes',
+        'dietary_intake', 'food_recall', 'intake_nutrients', 'appetite_changes', 'dietary_restrictions', 'supplements', 'knowledge_notes',
         'weight', 'height', 'bmi', 'body_composition',
         'medical_history', 'social_history', 'religion', 'lifestyle',
         'allergies', 'food_dislikes', 'medications',
@@ -38,6 +38,8 @@ class Assessment extends Model
     ];
 
     protected $casts = [
+        'food_recall' => 'array',
+        'intake_nutrients' => 'array',
         'allergies' => 'array',
         'food_dislikes' => 'array',
         'medications' => 'array',
@@ -56,7 +58,7 @@ class Assessment extends Model
     protected function auditAttributes(): array
     {
         return [
-            'ncp_record_id', 'dietary_intake', 'appetite_changes', 'dietary_restrictions',
+            'ncp_record_id', 'dietary_intake', 'food_recall', 'intake_nutrients', 'appetite_changes', 'dietary_restrictions',
             'supplements', 'knowledge_notes', 'weight', 'height', 'bmi', 'body_composition',
             'medical_history', 'social_history', 'religion', 'lifestyle', 'allergies',
             'food_dislikes', 'medications', 'rnd_summary', 'usual_weight', 'nutritional_status',

@@ -41,3 +41,22 @@ export function clinicalIngredientMicronutrients(rows: { food: { serving_size?: 
   }
   return totals;
 }
+
+export function clinicalRecipeNutrients(rows: { quantity: number; unit: string; food: {
+  calories: number | string; protein?: number | string | null; carbs?: number | string | null; fat?: number | string | null;
+  water_g?: number | string | null; micronutrients?: Record<string, number> | null; serving_size?: number | string | null; serving_unit?: string | null;
+} | null }[], servings: number) {
+  if (!Number.isFinite(servings) || servings <= 0 || !rows.length) return null;
+  const totals = { calories: 0, protein: 0, carbs: 0, fat: 0, water_g: 0, micronutrients: {} as Record<string, number> };
+  for (const { quantity, unit, food } of rows) {
+    if (!food) return null;
+    const factor = clinicalIngredientFactor(quantity, unit, Number(food.serving_size), food.serving_unit ?? '');
+    if (factor === null) return null;
+    for (const key of ['calories', 'protein', 'carbs', 'fat', 'water_g'] as const) totals[key] += Number(food[key] ?? 0) * factor;
+    for (const [key, value] of Object.entries(food.micronutrients ?? {})) totals.micronutrients[key] = (totals.micronutrients[key] ?? 0) + value * factor;
+  }
+  return {
+    ...Object.fromEntries((['calories', 'protein', 'carbs', 'fat', 'water_g'] as const).map(key => [key, Math.round(totals[key] / servings * 100) / 100])) as Omit<typeof totals, 'micronutrients'>,
+    micronutrients: Object.fromEntries(Object.entries(totals.micronutrients).map(([key, value]) => [key, Math.round(value / servings * 1000) / 1000])),
+  };
+}

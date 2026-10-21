@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import SearchInput from '@/components/ui/SearchInput';
 import { Pagination, type PaginationMeta } from '@/components/ui/Pagination';
 
-export function MenuItemPicker({ title = 'Add Menu Item', itemLabel = 'Menu Item', query, onQueryChange, loading, error, items, onSelect, onClose, busyId, meta, page = 1, onPageChange }: {
+export function MenuItemPicker({ title = 'Add Menu Item', itemLabel = 'Menu Item', query, onQueryChange, loading, error, items, onSelect, onClose, busyId, meta, page = 1, onPageChange, filters }: {
   title?: string;
   itemLabel?: 'Menu Item' | 'Ingredient';
   query: string;
@@ -19,6 +19,7 @@ export function MenuItemPicker({ title = 'Add Menu Item', itemLabel = 'Menu Item
   meta?: PaginationMeta | null;
   page?: number;
   onPageChange?: (page: number) => void;
+  filters?: ReactNode;
 }) {
   const panel = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -39,6 +40,7 @@ export function MenuItemPicker({ title = 'Add Menu Item', itemLabel = 'Menu Item
     <div ref={panel} className="flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
       <div className="flex items-center justify-between gap-3 border-b border-warm-100 p-4"><h3 className="font-bold text-warm-900">{title}</h3><button type="button" disabled={Boolean(busyId)} aria-label={`Close ${itemLabel} picker`} onClick={onClose} className="rounded-lg p-2 text-warm-500 hover:bg-warm-50 focus-visible:ring-2 focus-visible:ring-emerald-500"><X className="h-4 w-4" /></button></div>
       <div className="space-y-3 overflow-y-auto p-4">
+        {filters}
         <SearchInput label={`Search ${itemLabel}s`} value={query} onChange={onQueryChange} loading={loading} />
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
         {loading && <p role="status" className="text-sm text-warm-500">Searching…</p>}

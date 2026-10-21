@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\RND;
 
+use App\Services\FoodRecallService;
 use App\Support\MonitoringVisitType;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
@@ -20,6 +21,7 @@ abstract class MonitoringRequest extends FormRequest
         $bounds = config('clinical.assessment_input_bounds');
 
         return [
+            ...FoodRecallService::rules(),
             'observed_at' => ['required', 'date', 'before_or_equal:'.CarbonImmutable::now('Asia/Manila')->toDateString()],
             'visit_type' => ['required', 'string', Rule::in(MonitoringVisitType::values())],
             'weight' => ['required', 'numeric', "between:{$bounds['weight']['min']},{$bounds['weight']['max']}"],

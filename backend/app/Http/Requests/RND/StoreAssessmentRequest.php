@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\RND;
 
+use App\Services\FoodRecallService;
 use App\Support\PrimaryDiagnosisCategory;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -26,6 +27,8 @@ class StoreAssessmentRequest extends FormRequest
         $bounds = config('clinical.assessment_input_bounds');
 
         return [
+            ...FoodRecallService::rules(),
+            ...FoodRecallService::intakeRules(),
             'dietary_intake' => ['nullable', 'string', 'max:250'],
             'appetite_changes' => ['nullable', 'string', 'max:400'],
             'dietary_restrictions' => ['nullable', 'string', 'max:100'],

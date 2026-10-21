@@ -107,6 +107,10 @@ Current behavior includes calculated anthropometrics, nutritional-risk scoring w
 
 Important correction: lab/referral uploads are stored as supporting files only. They do **not** run OCR or auto-populate Assessment fields in the current page.
 
+**Food Recall** sits at the bottom of Dietary. Its calculator is collapsed initially and starts with no days. Add Weekday or Add Weekend creates independently numbered columns, grouped weekdays first, with seven columns per page and side arrows for further days. Days have no dates or meal slots. Add clinical Ingredients or Menu Items, open their profiles, and adjust local portions or recipe ingredients without changing Food Library. Unit choices stay within the saved Ingredient baseline's family; changing units keeps the entered quantity and rescales nutrients. Daily totals, full-plan daily average, and the shared Intervention Display Micros controls use saved nutrient snapshots. Every added day needs an item before Save Plan. One accepted plan belongs to the Assessment: Save Plan stages it in the form; Save Assessment persists it. Recall Coverage appears only for an accepted calculation (for example, “6 weekdays · 2 weekends”), replacing the Intake Method dropdown. Save Assessment is available above every tab. Leaving or replacing unsaved work uses the existing save/discard/continue-editing dialog.
+
+Food Recall's editable intake fields are separate from the calculator: Energy is initially shown, while Display Macros and Display Micros select additional nutrient inputs in the same neutral field grid. Assessment saves these inputs with Save Assessment and includes recorded amounts in its editable summary. Existing textual intake is retained as a historical note. Monitoring uses the same selectors for its existing nutrient intake data and retains Intake Notes separately. Saved logs show recorded values without editing/selection controls. This feature does not add AI diagnosis candidates or evidence rules.
+
 ### Diagnosis and PES
 
 RND can:
@@ -138,6 +142,8 @@ The **Plans** tab lists complete saved Intervention Plans newest first with serv
 The menu may be manual, generated, or template-based. Goal templates retain exact items and quantities; the common editor can scale quantities to the saved prescription without substituting foods. Fluid remains separate guidance shown in the Intervention and patient document. The selected day shows approximate fluid from saved food-water values and remaining drink guidance, but generation, scaling, variance, and target-match status do not use that value. Generation can exclude snacks and redistribute targets across main meals, except for liver-disease plans where frequent intake remains required. Guidance fields are limited to 1,200 characters each and 2,200 characters combined so the printable menu and guidance remain concise. Unsaved-change guards warn before leaving.
 
 ### Monitoring and Evaluation
+
+Monitoring uses the same Food Recall calculator in the right-hand area outside the entry card, stacking below on narrow screens. Recall Coverage appears only when that entry has an accepted calculation; Intake Notes remains separate free text. Tracked/goal micronutrients are initially selected and other nutrients can be chosen with Display Micros. Save Plan stages the sole calculation until Save Visit persists the entry. Saved logs show their recorded calculation and scaled profiles read-only, with daily/average totals and selectable micronutrient display.
 
 Current tabs:
 

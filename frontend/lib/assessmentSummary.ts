@@ -1,4 +1,5 @@
 import type { Assessment } from "@/services/assessmentService";
+import { INTAKE_FIELDS, foodRecallCoverage } from './foodRecall';
 
 export type SummaryLabStatus = "low" | "high" | "normal";
 
@@ -136,6 +137,13 @@ export function buildAssessmentSummary(input: AssessmentSummaryInput): string {
   if (intakeStatus) dietaryParts.push(sentence(`Energy intake is ${lowerFirst(intakeStatus)}`));
   if (intakeMethod) dietaryParts.push(sentence(`Intake assessed using ${INTAKE_METHODS[intakeMethod] ?? lowerFirst(intakeMethod)}`));
   if (dietaryIntake) dietaryParts.push(sentence(`Reported intake: ${dietaryIntake}`));
+  const recordedIntake = INTAKE_FIELDS.flatMap(field => {
+    const value = assessment.intake_nutrients?.[field.key];
+    return value == null || value === '' ? [] : [`${field.label} ${value} ${field.unit}`];
+  });
+  if (recordedIntake.length) dietaryParts.push(sentence(`Food recall: ${recordedIntake.join(', ')}`));
+  const coverage = foodRecallCoverage(assessment.food_recall);
+  if (coverage) dietaryParts.push(sentence(`Recall coverage: ${coverage}`));
   if (appetite) dietaryParts.push(sentence(`Appetite is ${lowerFirst(appetite.replace(/_/g, " "))}`));
   if (restrictions) dietaryParts.push(sentence(`Dietary restrictions: ${restrictions}`));
   if (supplements) dietaryParts.push(sentence(`Supplements: ${supplements}`));

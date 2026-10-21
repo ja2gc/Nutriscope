@@ -25,6 +25,7 @@ class MonitoringResource extends JsonResource
             'bmi' => $this->bmi,
             'lab_values' => $this->lab_values,
             'intake_notes' => $this->intake_notes,
+            'food_recall' => $this->food_recall,
             'symptoms' => $this->symptoms,
             'goal_achievement' => $this->goal_achievement,
             'clinical_summary' => $this->clinical_summary,

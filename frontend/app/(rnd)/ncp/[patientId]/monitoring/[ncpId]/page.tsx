@@ -80,6 +80,7 @@ export default function NcpMonitoringPage({
   const [loading, setLoading]               = useState(true);
   const [showForm, setShowForm]             = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<MonitoringEntry | null>(null);
+  const [recallContainer, setRecallContainer] = useState<HTMLDivElement | null>(null);
   const visitLeave = useRef<EditorLeaveHandle>(null);
   function leaveVisit(next: () => void) {
     if (visitLeave.current) visitLeave.current.requestLeave(next);
@@ -288,6 +289,7 @@ export default function NcpMonitoringPage({
                   <LogVisitForm
                     key={selectedEntry?.id ?? "new"}
                     entry={selectedEntry}
+                    recallContainer={recallContainer}
                     leaveRef={visitLeave}
                     ncpId={ncpId}
                     plan={plan}
@@ -323,7 +325,8 @@ export default function NcpMonitoringPage({
           </div>
 
           {/* ── Sidebar (1/3 on lg+, full-width below lg) ─────────────────── */}
-          <div className="space-y-5">
+          <div className="min-w-0 space-y-5">
+            <div ref={setRecallContainer} />
             {/* Monitoring record card */}
             <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm">
               <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider mb-4">

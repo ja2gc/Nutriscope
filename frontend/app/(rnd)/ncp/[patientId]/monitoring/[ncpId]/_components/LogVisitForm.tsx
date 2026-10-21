@@ -2,6 +2,10 @@
 
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 import { ArrowLeft } from "lucide-react";
+import { createPortal } from 'react-dom';
+import { FoodRecallCalculator, type FoodRecallHandle } from '@/components/ncp/FoodRecallCalculator';
+import { FoodRecallNutrientFields } from '@/components/ncp/FoodRecallNutrientFields';
+import type { FoodRecallPlan } from '@/lib/foodRecall';
 import { useEditorChanges, type EditorLeaveHandle } from "@/hooks/useUnsavedChanges";
 
 import { Button } from "@/components/ui/Button";
@@ -11,7 +15,7 @@ import { ASSESSMENT_TEXT_LIMITS } from "@/lib/assessmentValidation";
 import { MONITORING_TEXT_LIMITS, monitoringTextError } from "@/lib/monitoringValidation";
 import type { Intervention } from "@/services/interventionService";
 import type { MonitoringPlan } from "@/services/monitoringPlan";
-import { ALL_MICROS } from "@/lib/nutritionCalculations";
+import { ALL_MICROS, GOAL_MICRO_FLAGS } from "@/lib/nutritionCalculations";
 import {
   CLINICAL_LAB_META,
   fetchMonitoringAiBudget,
@@ -40,6 +44,7 @@ interface LogVisitFormProps {
   onCancel: () => void;
   leaveRef?: Ref<EditorLeaveHandle>;
   entry?: MonitoringEntry | null;
+  recallContainer?: HTMLElement | null;
 }
 
 const INTAKE_META: Record<string, { label: string; unit: string }> = {
@@ -189,8 +194,12 @@ function ToggleGroup<T extends string>({ label, options, value, onChange, requir
   );
 }
 
-export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel, leaveRef, entry }: LogVisitFormProps) {
+export default function LogVisitForm({ ncpId, plan, context, intervention, onSubmit, onCancel, leaveRef, entry, recallContainer }: LogVisitFormProps) {
   const readOnly = Boolean(entry);
+  const [foodRecall, setFoodRecall] = useState<FoodRecallPlan | null>(entry?.food_recall ?? null);
+  const acceptedRecall = useRef<FoodRecallPlan | null>(foodRecall);
+  const recallEditor = useRef<FoodRecallHandle>(null);
+  const [recallDirty, setRecallDirty] = useState(false);
   const [draftId] = useState(() => crypto.randomUUID());
   const initial = entry ?? context;
   const knownLabKeys = Object.keys(CLINICAL_LAB_META) as ClinicalLabKey[];
@@ -199,11 +208,7 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
         .filter((key) => knownLabKeys.includes(key))
     : [];
   const labKeys = entry ? knownLabKeys.filter((key) => entry.lab_values?.[key] != null) : planLabKeys;
-  const intakeFields = entry
-    ? Object.keys(entry.lab_values ?? {}).filter((key) => !(key in CLINICAL_LAB_META) && entry.lab_values?.[key] != null).map((key) => ({
-      key, ...(INTAKE_META[key] ?? { label: key.replaceAll("_", " "), unit: "" }), target: null, reference: null,
-    }))
-    : plan?.indicators.filter((indicator) => indicator.category === "intake") ?? [];
+  const initialIntakeKeys = entry ? Object.keys(entry.lab_values ?? {}).filter(key => key in INTAKE_META && entry.lab_values?.[key] != null) : ['energy_kcal'];
 
   const [observedAt, setObservedAt] = useState(() => entry ? (entry.observed_at ?? entry.created_at).slice(0, 10) : todayValue());
   const [visitType, setVisitType] = useState<MonitoringVisitType | "">(entry ? entry.visit_type ?? "" : "scheduled_follow_up");
@@ -225,7 +230,7 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
   const [labs, setLabs] = useState<Record<ClinicalLabKey, string>>(
     Object.fromEntries(knownLabKeys.map((key) => [key, fieldValue(entry?.lab_values?.[key])])) as Record<ClinicalLabKey, string>,
   );
-  const [intakes, setIntakes] = useState<Record<string, string>>(() => Object.fromEntries(intakeFields.map(({ key }) => [key, fieldValue(entry?.lab_values?.[key])])));
+  const [intakes, setIntakes] = useState<Record<string, string>>(() => Object.fromEntries(initialIntakeKeys.map(key => [key, fieldValue(entry?.lab_values?.[key])])));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [budget, setBudget] = useState<AiSummaryBudget | null>(null);
@@ -246,7 +251,7 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
 
   const bmi = entry ? fieldValue(entry.bmi) : Number(weight) > 0 && Number(height) > 0 ? String(calculateBmi(Number(weight), Number(height))) : "";
 
-  function buildPayload(): MonitoringPayload {
+  function buildPayload(recall = foodRecall): MonitoringPayload {
     const labValues: Record<string, number | string | null> = {};
     labKeys.forEach((key) => {
       const value = labs[key]?.trim();
@@ -256,7 +261,7 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
         labValues[key] = Number(value);
       }
     });
-    intakeFields.forEach(({ key }) => {
+    Object.keys(intakes).forEach(key => {
       const value = intakes[key]?.trim();
       if (value) labValues[key] = Number(value);
     });
@@ -278,6 +283,7 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
       dietary_restrictions: dietaryRestrictions.trim() || null,
       lab_values: Object.keys(labValues).length > 0 ? labValues as MonitoringLabValues : null,
       intake_notes: intakeNotes.trim() || null,
+      food_recall: recall,
       symptoms: symptoms.trim() || null,
       goal_achievement: Object.keys(goalAchievement).length > 0 ? goalAchievement : null,
       clinical_summary: clinicalSummary.trim() || null,
@@ -287,7 +293,7 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
     });
   }
 
-  const comparisonInputs = JSON.stringify({ ...buildPayload(), clinical_summary: undefined });
+  const comparisonInputs = JSON.stringify({ ...buildPayload(), clinical_summary: undefined, food_recall: undefined });
   useEffect(() => {
     latestInputs.current = comparisonInputs;
     latestText.current = clinicalSummary;
@@ -327,9 +333,10 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
   async function handleSubmit(event?: React.FormEvent) {
     event?.preventDefault();
     if (readOnly) return false;
+    if (recallEditor.current?.isDirty() && !await recallEditor.current.savePlan()) return false;
     if (!event && !form.current?.reportValidity()) return false;
     setError(null);
-    const payload = buildPayload();
+    const payload = buildPayload(acceptedRecall.current);
     if (!decision) { setError("Care Decision is required."); return false; }
     if (!payload.clinical_summary?.trim()) { setError("Progress Assessment is required."); return false; }
     const validationError = monitoringTextError(payload);
@@ -346,8 +353,18 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
     }
   }
 
-  const guard = useEditorChanges(JSON.stringify({ observedAt, visitType, weight, height, edemaPresent, dryWeight, activityLevel, maternalStatus, dietaryRestrictions, compliance, giTolerance, decision, clinicalSummary, intakeNotes, symptoms, nextMonitoringAt, nextMonitoringPurpose, labs, intakes }), !readOnly, () => handleSubmit());
+  const guard = useEditorChanges(JSON.stringify({ observedAt, visitType, weight, height, edemaPresent, dryWeight, activityLevel, maternalStatus, dietaryRestrictions, compliance, giTolerance, decision, clinicalSummary, intakeNotes, symptoms, nextMonitoringAt, nextMonitoringPurpose, labs, intakes, foodRecall, recallDirty }), !readOnly, () => handleSubmit());
   useImperativeHandle(leaveRef, () => ({ requestLeave: guard.requestLeave }), [guard.requestLeave]);
+
+  const trackedMicros = Array.from(new Set([
+    ...(plan?.indicators.filter(indicator => indicator.category === 'intake' && indicator.key.startsWith('micro_')).map(indicator => indicator.key.slice(6)) ?? []),
+    ...(GOAL_MICRO_FLAGS[plan?.goal_type ?? ''] ?? []),
+  ]));
+  const recall = <div className="min-w-0 rounded-2xl border border-warm-200 bg-white p-3">
+    <FoodRecallCalculator value={foodRecall} readOnly={readOnly} compact disabled={submitting} leaveRef={recallEditor} onDirtyChange={setRecallDirty}
+      defaultMicros={trackedMicros} limits={intervention?.micronutrient_limits ?? {}}
+      onSave={value => { acceptedRecall.current = value; setFoodRecall(value); }} />
+  </div>;
 
   return (
     <div className="overflow-hidden rounded-2xl border border-warm-200 bg-white shadow-sm">
@@ -432,11 +449,10 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
             </label>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {intakeFields.map(({ key, label, unit, target, reference }) => (
-              <NumberField key={key} label={label} unit={unit} value={intakes[key] ?? ""} onChange={(value) => setIntakes((current) => ({ ...current, [key]: value }))} target={target} reference={reference} />
-            ))}
-          </div>
+          <FoodRecallNutrientFields values={intakes} onChange={setIntakes} readOnly={readOnly} renderField={(field, value, onChange) => {
+            const indicator = plan?.indicators.find(indicator => indicator.category === 'intake' && indicator.key === field.key);
+            return <NumberField label={`${field.label} intake`} unit={field.unit} value={value} onChange={onChange} target={indicator?.target} reference={indicator?.reference} />;
+          }} />
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <ToggleGroup label="Diet Compliance" options={COMPLIANCE_OPTIONS} value={compliance} onChange={setCompliance} />
@@ -496,6 +512,7 @@ export default function LogVisitForm({ ncpId, plan, context, onSubmit, onCancel,
           <Button type="button" variant="ghost" onClick={() => guard.requestLeave(onCancel)} className="sm:!w-auto">Cancel</Button>
         </div>}
       </form>
+      {recallContainer ? createPortal(recall, recallContainer) : recall}
     </div>
   );
 }

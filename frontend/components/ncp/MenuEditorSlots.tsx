@@ -18,7 +18,7 @@ export function MenuEditorAction({ kind, label, onClick, disabled = false }: {
   </button>;
 }
 
-export function MenuEditorSlots({ items, itemActions, addLabel, addAriaLabel, onAdd, readOnly = false, emptyLabel = "—" }: {
+export function MenuEditorSlots({ items, itemActions, addLabel, addAriaLabel, onAdd, readOnly = false, emptyLabel = "—", compact = false }: {
   items: ReactNode[];
   itemActions?: Array<{ id?: string; label: string; onOpen: (trigger: HTMLButtonElement) => void } | undefined>;
   addLabel: string;
@@ -26,11 +26,12 @@ export function MenuEditorSlots({ items, itemActions, addLabel, addAriaLabel, on
   onAdd?: (event: MouseEvent<HTMLButtonElement>) => void;
   readOnly?: boolean;
   emptyLabel?: string;
+  compact?: boolean;
 }) {
   return (
     <div className="grid gap-2" data-menu-editor-slots>
       {Children.toArray(items).map((item, index) => (
-        <div key={isValidElement(item) ? item.key : index} data-menu-editor-item className={`relative h-32 min-w-0 overflow-hidden rounded-lg border border-warm-200 bg-white p-2 text-center [&>div]:justify-center [&>div]:py-5 ${itemActions?.[index] ? '[&>div]:pointer-events-none hover:border-emerald-300 hover:bg-emerald-50/30' : ''}`}>
+        <div key={isValidElement(item) ? item.key : index} data-menu-editor-item className={`relative min-w-0 overflow-hidden rounded-lg border border-warm-200 bg-white p-2 ${compact ? 'min-h-16 text-left' : 'h-32 text-center [&>div]:justify-center [&>div]:py-5'} ${itemActions?.[index] ? '[&>div]:pointer-events-none hover:border-emerald-300 hover:bg-emerald-50/30' : ''}`}>
           {itemActions?.[index] && <button type="button" data-menu-editor-open id={itemActions[index]?.id} aria-label={itemActions[index]?.label} title={itemActions[index]?.label.startsWith('Edit') ? 'Edit' : 'View'} onClick={(event) => itemActions[index]?.onOpen(event.currentTarget)} className="absolute inset-0 h-full w-full cursor-pointer rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600" />}
           {item}
         </div>

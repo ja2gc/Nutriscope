@@ -17,6 +17,7 @@ use App\Models\NcpRecord;
 use App\Models\ScreeningDocument;
 use App\Policies\AuditPolicy;
 use App\Services\Audit\AuditLogger;
+use App\Services\FoodRecallService;
 use App\Services\NcpAppointmentWorkflow;
 use App\Services\RiskScoreCalculator;
 use App\Services\StoredObjectStorage;
@@ -31,6 +32,7 @@ class AssessmentController extends Controller
         private readonly AuditLogger $auditLogger,
         private readonly StoredObjectStorage $storedObjects,
         private readonly NcpAppointmentWorkflow $appointments,
+        private readonly FoodRecallService $foodRecalls,
     ) {}
 
     /**
@@ -44,6 +46,9 @@ class AssessmentController extends Controller
         }
 
         $data = $request->validated();
+        if (array_key_exists('food_recall', $data)) {
+            $data['food_recall'] = $this->foodRecalls->normalize($data['food_recall']);
+        }
         $biochemicalData = $data['biochemical_data'] ?? null;
         $manualOverride = (bool) ($data['risk_score_manual_override'] ?? false);
         $manualFactors = $data['risk_score_manual_factors'] ?? [];
@@ -88,6 +93,9 @@ class AssessmentController extends Controller
         $assessment = $ncpRecord->assessment()->firstOrFail();
 
         $data = $request->validated();
+        if (array_key_exists('food_recall', $data)) {
+            $data['food_recall'] = $this->foodRecalls->normalize($data['food_recall'], $assessment->food_recall);
+        }
         $biochemicalData = $data['biochemical_data'] ?? null;
         $manualOverride = array_key_exists('risk_score_manual_override', $data)
             ? (bool) $data['risk_score_manual_override']

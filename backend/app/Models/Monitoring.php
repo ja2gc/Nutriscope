@@ -21,12 +21,13 @@ class Monitoring extends Model
         'ncp_record_id', 'observed_at', 'visit_type',
         'weight', 'height', 'edema_present', 'dry_weight_kg', 'physical_activity_level',
         'pregnancy_lactation_status', 'allergies', 'dietary_restrictions', 'food_dislikes',
-        'bmi', 'lab_values', 'intake_notes',
+        'bmi', 'lab_values', 'intake_notes', 'food_recall',
         'symptoms', 'goal_achievement', 'clinical_summary', 'ai_decision',
         'ai_review', 'ai_review_key', 'next_monitoring_date',
     ];
 
     protected $casts = [
+        'food_recall' => 'array',
         'weight' => 'decimal:2',
         'height' => 'decimal:2',
         'dry_weight_kg' => 'decimal:2',
@@ -45,7 +46,7 @@ class Monitoring extends Model
         return [
             'ncp_record_id', 'observed_at', 'visit_type', 'weight', 'height', 'edema_present',
             'dry_weight_kg', 'physical_activity_level', 'pregnancy_lactation_status',
-            'allergies', 'dietary_restrictions', 'food_dislikes', 'bmi', 'lab_values', 'intake_notes', 'symptoms',
+            'allergies', 'dietary_restrictions', 'food_dislikes', 'bmi', 'lab_values', 'intake_notes', 'food_recall', 'symptoms',
             'goal_achievement', 'clinical_summary', 'ai_decision', 'ai_review', 'ai_review_key',
             'next_monitoring_date',
         ];

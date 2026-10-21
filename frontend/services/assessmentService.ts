@@ -1,5 +1,6 @@
 import { apiFetch } from "@/lib/apiFetch";
 import type { PaginationMeta } from "@/components/ui/Pagination";
+import { foodRecallPayload, type FoodRecallPlan } from '@/lib/foodRecall';
 export class AssessmentValidationError extends Error {
   constructor(message: string, public readonly errors: Record<string, string[]>) {
     super(message);
@@ -23,6 +24,8 @@ export const PRIMARY_DIAGNOSIS_CATEGORIES = [
 export type PrimaryDiagnosisCategory = (typeof PRIMARY_DIAGNOSIS_CATEGORIES)[number];
 
 export interface Assessment {
+  food_recall?: FoodRecallPlan | null;
+  intake_nutrients?: Record<string, number | string | null> | null;
   id?: number;
   ncp_record_id?: number;
   dietary_intake: string | null;
@@ -151,6 +154,8 @@ export async function saveAssessment(
 ): Promise<Assessment> {
   const method = exists ? "PATCH" : "POST";
   const payload: Record<string, unknown> = { ...data };
+  if ('food_recall' in data) payload.food_recall = foodRecallPayload(data.food_recall);
+  if (data.intake_nutrients) payload.intake_nutrients = Object.fromEntries(Object.entries(data.intake_nutrients).map(([key, value]) => [key, value == null || value === '' ? null : Number(value)]));
   delete payload.weight_loss_period;
   delete payload.stress_factor;
   if (typeof payload.ibw_percentage === "number") {

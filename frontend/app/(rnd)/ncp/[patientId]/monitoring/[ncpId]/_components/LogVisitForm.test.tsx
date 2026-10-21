@@ -40,6 +40,11 @@ async function open(remaining = 3, monitoringPlan = plan) {
   await act(async () => { root.render(<LogVisitForm ncpId="ncp" plan={monitoringPlan} context={context} intervention={null} onSubmit={save} onCancel={() => undefined} />); });
   return save;
 }
+function selectProtein() {
+  fireEvent.click(screen.getByRole('button', { name: /Display Macros/ }));
+  fireEvent.click(screen.getByRole('checkbox', { name: /^Protein/ }));
+  fireEvent.click(screen.getByRole('button', { name: /Display Macros/ }));
+}
 
 describe("draft monitoring summary", () => {
   it("starts a separate allowance for a new form while retaining its draft identity on generation failure", async () => {
@@ -117,6 +122,10 @@ describe("draft monitoring summary", () => {
 
   it("sends current unsaved intake, preserves manual text, and applies an editable suggestion", async () => {
     const save = await open();
+    selectProtein();
+    fireEvent.click(screen.getByRole('button', { name: /Display Micros/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /^Fiber/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Display Micros/ }));
     vi.mocked(requestMonitoringAiReview).mockResolvedValue({ narrative: "Intake improved; protein remains below target.", remaining: 2 });
     fireEvent.change(screen.getByRole("spinbutton", { name: /Protein intake/ }), { target: { value: "65" } });
     const summary = screen.getByRole("textbox", { name: "Progress Assessment" }) as HTMLTextAreaElement;
@@ -134,11 +143,12 @@ describe("draft monitoring summary", () => {
     expect(summary.value).toBe("Reviewed summary.");
     expect(screen.getByText("2 generations left for this entry")).toBeTruthy();
     expect(screen.getByText(/25–35 g/)).toBeTruthy();
-    expect(screen.queryByRole("spinbutton", { name: /Energy intake/ })).toBeNull();
+    expect(screen.getByRole("spinbutton", { name: /Energy intake/ })).toBeTruthy();
   });
 
   it("discards a response generated for changed inputs", async () => {
     await open();
+    selectProtein();
     let resolve!: (value: { narrative: string; remaining: number }) => void;
     vi.mocked(requestMonitoringAiReview).mockReturnValue(new Promise((done) => { resolve = done; }));
     const generate = screen.getByRole("button", { name: "Generate AI Summary" }) as HTMLButtonElement;
@@ -159,6 +169,7 @@ describe("draft monitoring summary", () => {
 
   it("offers manual recovery when the final generation becomes stale", async () => {
     await open(1);
+    selectProtein();
     let resolve!: (value: { narrative: string; remaining: number }) => void;
     vi.mocked(requestMonitoringAiReview).mockReturnValue(new Promise((done) => { resolve = done; }));
     fireEvent.click(screen.getByRole("button", { name: "Generate AI Summary" }));

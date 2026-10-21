@@ -3,8 +3,7 @@
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { MicronutrientTotals } from '@/components/ncp/MicronutrientTotals';
 import NutritionPrescriptionForm from "./NutritionPrescriptionForm";
 import MacroTrackerBar from './MacroTrackerBar';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -88,10 +87,9 @@ describe("micronutrient limit direction", () => {
   });
 
   it("shows minimum and maximum targets in the meal tracker", () => {
-    const source = readFileSync(join(process.cwd(), "app/(rnd)/ncp/[patientId]/intervention/[ncpId]/_components/MealPlanSection.tsx"), "utf8");
-    expect(source).toContain("limit?.min != null");
-    expect(source).toContain("/ ≥{limit.min}");
-    expect(source).toContain("/ ≤{limit.max}");
+    const html = renderToStaticMarkup(<MicronutrientTotals title="Daily totals" selected={['fiber', 'sodium']} totals={{ fiber: 20, sodium: 2200 }} limits={{ fiber: { min: 25, unit: 'g' }, sodium: { max: 2000, unit: 'mg' } }} />);
+    expect(html).toContain('≥25');
+    expect(html).toContain('≤2000');
   });
 
   it("defaults weight to IBW and offers an editable one-decimal range", () => {
