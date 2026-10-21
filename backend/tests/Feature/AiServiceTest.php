@@ -82,6 +82,62 @@ class AiServiceTest extends TestCase
         app(AIService::class)->draftPes($this->boundedPayload());
     }
 
+    public function test_haiku_55_diagnosis_disables_thinking_and_selects_text_by_type(): void
+    {
+        config()->set('services.anthropic.model', 'claude-haiku-5-5');
+        Http::fake(['api.anthropic.com/*' => Http::response([
+            'content' => [['type' => 'thinking', 'thinking' => '', 'signature' => 'test'],
+                ['type' => 'text', 'text' => json_encode($this->providerSuggestions())]],
+            'usage' => ['input_tokens' => 130, 'output_tokens' => 60], 'stop_reason' => 'end_turn',
+        ])]);
+
+        $result = app(AIService::class)->draftPes($this->boundedPayload());
+        $this->assertSame('unintended_weight_loss_v1', $result['suggestions'][0]['candidate_id']);
+        Http::assertSent(fn ($request) => $request['model'] === 'claude-haiku-5-5'
+            && $request['thinking'] === ['type' => 'disabled']
+            && $request['max_tokens'] === 1000
+            && ! isset($request['temperature']) && ! isset($request['top_p']) && ! isset($request['top_k']));
+        $this->assertDatabaseHas('ai_usage_logs', ['model' => 'claude-haiku-5-5', 'tokens_input' => 130, 'tokens_output' => 60]);
+    }
+
+    public function test_haiku_55_refusal_never_becomes_a_draft_but_keeps_usage(): void
+    {
+        config()->set('services.anthropic.model', 'claude-haiku-5-5');
+        Http::fake(['api.anthropic.com/*' => Http::response([
+            'content' => [['type' => 'text', 'text' => json_encode($this->providerSuggestions())]],
+            'usage' => ['input_tokens' => 130, 'output_tokens' => 20], 'stop_reason' => 'refusal',
+        ])]);
+
+        try {
+            app(AIService::class)->draftPes($this->boundedPayload());
+            $this->fail('A refused response must not become a draft.');
+        } catch (\RuntimeException $exception) {
+            $this->assertStringContainsString('declined', $exception->getMessage());
+        }
+        $this->assertDatabaseHas('ai_usage_logs', ['model' => 'claude-haiku-5-5', 'tokens_total' => 150]);
+        Http::assertSentCount(1);
+    }
+
+    public function test_haiku_55_monitoring_selects_text_and_rejects_refusal(): void
+    {
+        config()->set('services.anthropic.model', 'claude-haiku-5-5');
+        $text = 'Intake improved. Protein adequacy remains the care focus.';
+        Http::fakeSequence()->push([
+            'content' => [['type' => 'thinking', 'thinking' => '', 'signature' => 'test'], ['type' => 'text', 'text' => $text]],
+            'usage' => ['input_tokens' => 80, 'output_tokens' => 25], 'stop_reason' => 'end_turn',
+        ])->push([
+            'content' => [['type' => 'text', 'text' => $text]],
+            'usage' => ['input_tokens' => 80, 'output_tokens' => 15], 'stop_reason' => 'refusal',
+        ]);
+
+        $this->assertSame($text, app(AIService::class)->narrateMonitoring([]));
+        $this->assertNull(app(AIService::class)->narrateMonitoring([]));
+        Http::assertSent(fn ($request) => $request['model'] === 'claude-haiku-5-5'
+            && $request['thinking'] === ['type' => 'disabled'] && $request['max_tokens'] === 300);
+        Http::assertSentCount(2);
+        $this->assertDatabaseCount('ai_usage_logs', 2);
+    }
+
     public function test_pes_draft_instruction_is_compact_with_native_json_contract(): void
     {
         Http::fake(['api.anthropic.com/*' => Http::response([

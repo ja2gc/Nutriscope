@@ -29,7 +29,7 @@ class AiUsageLimitController extends Controller
     private function payload(AiUsageLimit $limits): array
     {
         $dailyUsage = AiUsageLog::query()
-            ->where('created_at', '>=', now()->startOfDay())
+            ->where('created_at', '>=', now('Asia/Manila')->startOfDay()->utc())
             ->selectRaw('COALESCE(SUM(tokens_input), 0) as tokens_input')
             ->selectRaw('COALESCE(SUM(tokens_output), 0) as tokens_output')
             ->selectRaw('COALESCE(SUM(tokens_total), 0) as tokens_total')
@@ -37,7 +37,7 @@ class AiUsageLimitController extends Controller
             ->first();
 
         $monthlyUsage = AiUsageLog::query()
-            ->where('created_at', '>=', now()->startOfMonth())
+            ->where('created_at', '>=', now('Asia/Manila')->startOfMonth()->utc())
             ->selectRaw('COALESCE(SUM(tokens_input), 0) as tokens_input')
             ->selectRaw('COALESCE(SUM(tokens_output), 0) as tokens_output')
             ->selectRaw('COALESCE(SUM(tokens_total), 0) as tokens_total')

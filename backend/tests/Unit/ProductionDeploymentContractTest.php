@@ -8,6 +8,16 @@ use Tests\TestCase;
 
 class ProductionDeploymentContractTest extends TestCase
 {
+    public function test_all_production_backend_processes_select_haiku_55_without_private_env_edits(): void
+    {
+        $compose = file_get_contents(base_path('../docker-compose.prod.yml'));
+        $common = explode('services:', $compose)[0];
+        $this->assertStringContainsString('ANTHROPIC_MODEL: "claude-haiku-5-5"', $common);
+        $this->assertSame(4, substr_count($compose, '<<: *backend-common'));
+        $this->assertStringContainsString("'model' => env('ANTHROPIC_MODEL', 'claude-haiku-5-5')", file_get_contents(config_path('services.php')));
+        $this->assertStringContainsString('ANTHROPIC_MODEL=claude-haiku-5-5', file_get_contents(base_path('.env.production.example')));
+    }
+
     #[Test]
     public function production_email_uses_resends_https_api_when_smtp_egress_is_blocked(): void
     {

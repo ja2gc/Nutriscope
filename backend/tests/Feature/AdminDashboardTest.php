@@ -38,6 +38,7 @@ class AdminDashboardTest extends TestCase
         Patient::factory()->count(5)->create();
 
         // Seed AI usage logs (no factory — create directly)
+        AiUsageLimit::current()->update(['input_cost_per_1m_tokens_usd' => 1, 'output_cost_per_1m_tokens_usd' => 5]);
         $rnd = User::where('role', 'RND')->first();
         AiUsageLog::create([
             'user_id' => $rnd->id,
@@ -109,7 +110,7 @@ class AdminDashboardTest extends TestCase
         $response->assertJsonPath('data.ai_usage.month_tokens', 530);
         $response->assertJsonPath('data.ai_usage.by_endpoint.diagnosis_suggestion.tokens', 300);
         $response->assertJsonPath('data.ai_usage.by_endpoint.monitoring_narrative.tokens', 230);
-        $response->assertJsonPath('data.ai_usage.daily.0.date', now()->toDateString());
+        $response->assertJsonPath('data.ai_usage.daily.0.date', now('Asia/Manila')->toDateString());
         $response->assertJsonPath('data.ai_usage.daily.0.calls', 2);
         $response->assertJsonPath('data.ai_usage.daily.0.tokens', 530);
         $this->assertEqualsWithDelta(0.00125, $response->json('data.ai_usage.month_estimated_cost_usd'), 0.0000000001);

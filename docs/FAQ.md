@@ -395,7 +395,9 @@ User totals by role, patient count as an aggregate KPI, monthly AI calls/tokens 
 
 ### What do AI token caps do?
 
-Admin can set daily and monthly token limits; blank means unlimited. Admin also configures estimated USD cost per one million tokens for dashboard cost display.
+Admin can set daily and monthly token limits; blank means unlimited. Caps, dashboard totals and chart periods use Philippine calendar days/months. Diagnosis and Monitoring use Claude Haiku 5.5; default estimated rates are USD 0.10 input and USD 0.50 output per million tokens for these bounded requests, following [Anthropic's pricing](https://platform.claude.com/docs/en/about-claude/pricing). Admin can update the two rates independently.
+
+Changing a rate does not change saved input/output token counts or reprice saved USD estimates. Each later call uses the updated rates; the daily/monthly graph adds each call's saved estimate, including old-rate and new-rate calls on the same day. Peso amounts use the dashboard's exchange-rate conversion.
 
 ### What can Admin do in Audit Logs?
 

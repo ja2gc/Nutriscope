@@ -1,5 +1,5 @@
-export const DEFAULT_AI_INPUT_COST_PER_1M_TOKENS_USD = 1;
-export const DEFAULT_AI_OUTPUT_COST_PER_1M_TOKENS_USD = 5;
+export const DEFAULT_AI_INPUT_COST_PER_1M_TOKENS_USD = 0.1;
+export const DEFAULT_AI_OUTPUT_COST_PER_1M_TOKENS_USD = 0.5;
 
 export function calcTokenCostUsd(
   inputTokens: number,

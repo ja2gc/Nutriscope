@@ -8,6 +8,7 @@ x-backend-common: &backend-common
       - ./backend/.env.production
     environment:
       MAIL_MAILER: "resend-api"
+      ANTHROPIC_MODEL: "claude-haiku-5-5"
     volumes:
       - nutriscope_private_uploads:/var/www/html/storage/app/private-uploads
     depends_on:

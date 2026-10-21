@@ -81,6 +81,7 @@ class AdminAiUsageAnalyticsTest extends TestCase
     {
         CarbonImmutable::setTestNow('2026-07-15 04:00:00 UTC');
         $admin = User::factory()->create(['role' => 'Admin']);
+        AiUsageLimit::current()->update(['input_cost_per_1m_tokens_usd' => 1, 'output_cost_per_1m_tokens_usd' => 5]);
         $this->log($admin, 1000, 200, '2026-07-10 00:00:00');
         AiUsageLimit::current()->update([
             'input_cost_per_1m_tokens_usd' => 0.1,

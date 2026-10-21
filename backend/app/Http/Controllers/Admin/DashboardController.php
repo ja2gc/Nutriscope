@@ -76,7 +76,7 @@ class DashboardController extends Controller
 
         // Month-to-date totals — what the "AI Usage" KPI card headlines.
         $month = AiUsageLog::query()
-            ->where('created_at', '>=', now()->startOfMonth())
+            ->where('created_at', '>=', now('Asia/Manila')->startOfMonth()->utc())
             ->select(
                 DB::raw('COUNT(*) as calls'),
                 DB::raw('COALESCE(SUM(tokens_total), 0) as tokens'),
@@ -99,13 +99,13 @@ class DashboardController extends Controller
             ->toArray();
 
         $daily = AiUsageLog::query()
-            ->where('created_at', '>=', now()->subDays(29)->startOfDay())
+            ->where('created_at', '>=', now('Asia/Manila')->subDays(29)->startOfDay()->utc())
             ->select(
-                DB::raw('DATE(created_at) as date'),
+                DB::raw("DATE(CONVERT_TZ(created_at, '+00:00', '+08:00')) as date"),
                 DB::raw('COUNT(*) as calls'),
                 DB::raw('COALESCE(SUM(tokens_total), 0) as tokens'),
             )
-            ->groupBy(DB::raw('DATE(created_at)'))
+            ->groupBy(DB::raw("DATE(CONVERT_TZ(created_at, '+00:00', '+08:00'))"))
             ->orderBy('date')
             ->get()
             ->map(fn ($row) => [

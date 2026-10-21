@@ -10,6 +10,8 @@ use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\User;
 use App\Services\AIService;
+use Carbon\Carbon;
+use Database\Seeders\AiUsageLimitSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -74,14 +76,27 @@ class AiUsageLimitTest extends TestCase
             ])
             ->assertJsonPath('data.daily_token_limit', null)
             ->assertJsonPath('data.monthly_token_limit', null)
-            ->assertJsonPath('data.input_cost_per_1m_tokens_usd', 1)
-            ->assertJsonPath('data.output_cost_per_1m_tokens_usd', 5)
+            ->assertJsonPath('data.input_cost_per_1m_tokens_usd', 0.1)
+            ->assertJsonPath('data.output_cost_per_1m_tokens_usd', 0.5)
             ->assertJsonPath('data.daily_used', 0)
             ->assertJsonPath('data.daily_tokens_input', 0)
             ->assertJsonPath('data.daily_tokens_output', 0)
             ->assertJsonPath('data.monthly_used', 0)
             ->assertJsonPath('data.monthly_tokens_input', 0)
             ->assertJsonPath('data.monthly_tokens_output', 0);
+    }
+
+    public function test_demo_rate_seeding_is_repeatable_with_haiku_55_prices(): void
+    {
+        $this->seed(AiUsageLimitSeeder::class);
+        $this->seed(AiUsageLimitSeeder::class);
+        $this->assertDatabaseCount('ai_usage_limits', 1);
+        $this->assertDatabaseCount('ai_usage_logs', 0);
+        $limits = AiUsageLimit::current();
+        $this->assertSame(0.1, $limits->input_cost_per_1m_tokens_usd);
+        $this->assertSame(0.5, $limits->output_cost_per_1m_tokens_usd);
+        $this->assertSame(35_000, $limits->daily_token_limit);
+        $this->assertSame(1_000_000, $limits->monthly_token_limit);
     }
 
     public function test_admin_get_limits_reflects_seeded_usage_logs(): void
@@ -195,13 +210,51 @@ class AiUsageLimitTest extends TestCase
             'output_cost_per_1m_tokens_usd' => 0.5,
         ])->assertOk();
 
-        $future = AiUsageLog::create($usage);
+        $future = AiUsageLog::create([...$usage, 'model' => 'claude-haiku-5-5']);
+        $this->assertSame('claude-haiku-4-5-20251001', $past->fresh()->model);
+        $this->assertSame('claude-haiku-5-5', $future->model);
         $this->assertEqualsWithDelta(0.002, (float) $past->fresh()->estimated_cost_usd, 0.0000000001);
         $this->assertEqualsWithDelta(0.0002, (float) $future->estimated_cost_usd, 0.0000000001);
 
         $response = $this->getJson('/api/admin/ai-usage-limits')->assertOk();
         $this->assertEqualsWithDelta(0.0022, $response->json('data.daily_estimated_cost_usd'), 0.0000000001);
         $this->assertEqualsWithDelta(0.0022, $response->json('data.monthly_estimated_cost_usd'), 0.0000000001);
+    }
+
+    public function test_manila_daily_and_monthly_totals_combine_saved_rates_across_utc_midnight(): void
+    {
+        $this->travelTo(Carbon::parse('2026-11-01 02:00:00 UTC'));
+        AiUsageLimit::current()->update(['input_cost_per_1m_tokens_usd' => 1, 'output_cost_per_1m_tokens_usd' => 5]);
+        $usage = ['user_id' => $this->rnd->id, 'model' => 'claude-haiku-4-5-20251001', 'endpoint' => 'diagnosis_suggestion',
+            'tokens_input' => 1000, 'tokens_output' => 200, 'tokens_total' => 1200];
+        foreach (['2026-10-31 15:59:00', '2026-10-31 17:00:00'] as $timestamp) {
+            AiUsageLog::forceCreate([...$usage, 'created_at' => $timestamp, 'updated_at' => $timestamp]);
+        }
+        $this->actingAs($this->admin, 'sanctum')->putJson('/api/admin/ai-usage-limits', [
+            'input_cost_per_1m_tokens_usd' => 0.1, 'output_cost_per_1m_tokens_usd' => 0.5,
+        ])->assertOk();
+        AiUsageLog::forceCreate([...$usage, 'model' => 'claude-haiku-5-5', 'created_at' => '2026-11-01 01:00:00', 'updated_at' => '2026-11-01 01:00:00']);
+        $response = $this->getJson('/api/admin/ai-usage-limits')->assertOk()
+            ->assertJsonPath('data.daily_used', 2400)->assertJsonPath('data.daily_tokens_input', 2000)
+            ->assertJsonPath('data.daily_tokens_output', 400)->assertJsonPath('data.monthly_used', 2400);
+        $this->assertEqualsWithDelta(0.0022, $response->json('data.daily_estimated_cost_usd'), 0.0000000001);
+        $this->assertEqualsWithDelta(0.0022, $response->json('data.monthly_estimated_cost_usd'), 0.0000000001);
+        $dashboard = $this->getJson('/api/admin/dashboard')->assertOk()->assertJsonPath('data.ai_usage.month_tokens', 2400);
+        $this->assertEqualsWithDelta(0.0022, $dashboard->json('data.ai_usage.month_estimated_cost_usd'), 0.0000000001);
+        $point = collect($dashboard->json('data.ai_usage.daily'))->firstWhere('date', '2026-11-01');
+        $this->assertSame(2400, $point['tokens']);
+
+        Http::fake();
+        foreach (['daily' => 'Daily', 'monthly' => 'Monthly'] as $period => $label) {
+            AiUsageLimit::current()->update(['daily_token_limit' => null, 'monthly_token_limit' => null, $period.'_token_limit' => 2000]);
+            try {
+                app(AIService::class)->draftPes($this->pesPayload());
+                $this->fail('Philippine-period usage must enforce the global cap.');
+            } catch (TokenLimitExceededException $exception) {
+                $this->assertStringContainsString($label, $exception->getMessage());
+            }
+        }
+        Http::assertNothingSent();
     }
 
     public function test_backfill_freezes_existing_usage_at_the_saved_rates(): void

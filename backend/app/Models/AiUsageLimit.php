@@ -27,8 +27,8 @@ class AiUsageLimit extends Model
     ];
 
     protected $attributes = [
-        'input_cost_per_1m_tokens_usd' => 1.0,
-        'output_cost_per_1m_tokens_usd' => 5.0,
+        'input_cost_per_1m_tokens_usd' => 0.1,
+        'output_cost_per_1m_tokens_usd' => 0.5,
     ];
 
     /** The one-and-only limits row, created on demand if missing. */
