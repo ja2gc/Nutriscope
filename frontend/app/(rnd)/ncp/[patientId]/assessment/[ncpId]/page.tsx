@@ -2,6 +2,7 @@
 
 import React, { use, useCallback, useEffect, useState, useRef } from "react";
 import Link from "next/link";
+import layout from './assessmentLayout.module.css';
 import { useEditorChanges } from '@/hooks/useUnsavedChanges';
 import { FoodRecallCalculator, type FoodRecallHandle } from '@/components/ncp/FoodRecallCalculator';
 import { FoodRecallNutrientFields } from '@/components/ncp/FoodRecallNutrientFields';
@@ -243,7 +244,7 @@ function Field({ label, children, span, required, htmlFor, className = "" }: {
   className?: string;
 }) {
   return (
-    <div className={`${span ? `col-span-${span}` : ""} ${className}`} style={span ? { gridColumn: `span ${span}` } : undefined}>
+    <div data-assessment-field className={`${span ? `col-span-${span}` : ""} ${className}`} style={span ? { gridColumn: `span ${span}` } : undefined}>
       <label htmlFor={htmlFor} className="block text-xs font-bold text-warm-500 uppercase tracking-wider mb-1.5">
         {label}
         {required && <span className="ml-0.5 text-red-500" aria-hidden="true">*</span>}
@@ -1089,11 +1090,14 @@ export default function NcpAssessmentPage({
 
   // ─── Tab Renderers ──────────────────────────────────────────────────
   const renderDietaryTab = () => (
-    <div className="space-y-4">
+    <div className={`${layout.tab} space-y-5`}>
       <AssessmentSection legend="Diet and intake">
-        <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <Field label="Present Diet" htmlFor="present_diet" className="md:col-span-2 xl:col-span-2">
+        <div className={layout.grid}>
+      <Field label="Present Diet" htmlFor="present_diet">
         <TextArea id="present_diet" value={s("present_diet")} onChange={v => updateField("present_diet", v)} rows={2} maxLength={ASSESSMENT_TEXT_LIMITS.present_diet} />
+      </Field>
+      <Field label="Dietary Restrictions" htmlFor="dietary_restrictions">
+        <TextArea id="dietary_restrictions" value={s("dietary_restrictions")} onChange={v => updateField("dietary_restrictions", v)} rows={2} maxLength={ASSESSMENT_TEXT_LIMITS.dietary_restrictions} />
       </Field>
       <Field label="Energy Intake Status">
         <SelectInput
@@ -1117,28 +1121,25 @@ export default function NcpAssessmentPage({
           ]}
         />
       </Field>
-      <Field label="Dietary Restrictions" htmlFor="dietary_restrictions">
-        <TextArea id="dietary_restrictions" value={s("dietary_restrictions")} onChange={v => updateField("dietary_restrictions", v)} rows={2} maxLength={ASSESSMENT_TEXT_LIMITS.dietary_restrictions} />
-      </Field>
         </div>
       </AssessmentSection>
 
       <AssessmentSection legend="Dietary modifiers">
-        <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-3">
+        <div className={layout.grid}>
       <Field label="Supplements" htmlFor="supplements">
-        <TextArea id="supplements" value={s("supplements")} onChange={v => updateField("supplements", v)} rows={1} maxLength={ASSESSMENT_TEXT_LIMITS.supplements} />
-      </Field>
-      <Field label="Knowledge / Beliefs Notes" htmlFor="knowledge_notes">
-        <TextArea id="knowledge_notes" value={s("knowledge_notes")} onChange={v => updateField("knowledge_notes", v)} rows={2} maxLength={ASSESSMENT_TEXT_LIMITS.knowledge_notes} />
+        <TextArea id="supplements" value={s("supplements")} onChange={v => updateField("supplements", v)} rows={2} maxLength={ASSESSMENT_TEXT_LIMITS.supplements} />
       </Field>
       <Field label="Nutrient-Drug Interaction" htmlFor="nutrient_drug_interaction">
         <TextArea id="nutrient_drug_interaction" value={s("nutrient_drug_interaction")} onChange={v => updateField("nutrient_drug_interaction", v)} rows={2} maxLength={ASSESSMENT_TEXT_LIMITS.nutrient_drug_interaction} />
+      </Field>
+      <Field label="Knowledge / Beliefs Notes" htmlFor="knowledge_notes" className={layout.fullWidth}>
+        <TextArea id="knowledge_notes" value={s("knowledge_notes")} onChange={v => updateField("knowledge_notes", v)} rows={2} maxLength={ASSESSMENT_TEXT_LIMITS.knowledge_notes} />
       </Field>
         </div>
       </AssessmentSection>
       {/* GI / Tolerance — moved from Anthropometrics tab */}
       <AssessmentSection legend="GI / tolerance">
-        <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className={layout.grid}>
           <Field label="Chewing / Swallowing Difficulties">
             <SelectInput
               value={["Yes", "No"].includes(s("chewing_swallowing_difficulties")) ? s("chewing_swallowing_difficulties") : ""}
@@ -1338,10 +1339,10 @@ export default function NcpAssessmentPage({
   );
 
   const renderClientTab = () => (
-    <div className="space-y-4">
+    <div className={`${layout.tab} space-y-5`}>
       <AssessmentSection legend="Clinical and social context">
-        <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-3">
-      <Field label="Nutrition care category" required>
+        <div className={layout.grid}>
+      <Field label="Nutrition care category" required className={assessment.primary_diagnosis_category === 'Other' ? '' : layout.fullWidth}>
         <SelectInput
           value={assessment.primary_diagnosis_category ?? ""}
           onChange={v => {
@@ -1362,7 +1363,7 @@ export default function NcpAssessmentPage({
           />
         </Field>
       )}
-      <Field label="Medical History" htmlFor="medical_history" className="md:col-span-2">
+      <Field label="Medical History" htmlFor="medical_history" className={layout.fullWidth}>
         <TextArea id="medical_history" value={s("medical_history")} onChange={v => updateField("medical_history", v)} rows={3} maxLength={ASSESSMENT_TEXT_LIMITS.medical_history} />
       </Field>
       <Field label="Social History" htmlFor="social_history">
@@ -1381,7 +1382,7 @@ export default function NcpAssessmentPage({
       </AssessmentSection>
 
       <AssessmentSection legend="Calculation context">
-        <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className={layout.grid}>
       <Field label="Physical Activity Level (PAL)" required={CALCULATION_INPUT_HELPERS.physical_activity_level.required}>
         <SelectInput
           value={s("physical_activity_level")}
@@ -1440,8 +1441,8 @@ export default function NcpAssessmentPage({
       </AssessmentSection>
 
       <AssessmentSection legend="Food safety and preferences">
-        <div className="grid grid-cols-1 items-start gap-3 xl:grid-cols-3">
-      <Field label="Allergies (Hard Filter for meal plans)">
+        <div className={layout.grid}>
+      <Field label="Allergies (Hard Filter for meal plans)" className={layout.fullWidth}>
         <div className="flex flex-wrap gap-1.5 py-1">
           {COMMON_ALLERGENS.map(a => (
             <button

@@ -109,7 +109,7 @@ describe("Assessment page UX", () => {
 
   test("keeps referral diagnosis separate from required census category", () => {
     expect(page).toContain('<Field label="Referral Diagnosis"');
-    expect(page).toContain('<Field label="Nutrition care category" required>');
+    expect(page).toMatch(/<Field label="Nutrition care category" required(?:\s|>)/);
     expect(page).not.toContain('label="Primary Diagnosis Category"');
     expect(page).toContain('primary_diagnosis_category');
     expect(page).toContain('<Field label="Specify category" htmlFor="primary_diagnosis_other" required>');
