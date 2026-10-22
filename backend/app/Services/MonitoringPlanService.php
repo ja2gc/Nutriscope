@@ -96,6 +96,11 @@ class MonitoringPlanService
         'triglycerides' => ['label' => 'Triglycerides',    'unit' => 'mg/dL'],
     ];
 
+    public static function micronutrientUnit(string $key): string
+    {
+        return self::MICROS[$key][1] ?? '';
+    }
+
     public function __construct(
         private LabFlagService $labFlags,
         private NutritionPrescriptionService $prescription,

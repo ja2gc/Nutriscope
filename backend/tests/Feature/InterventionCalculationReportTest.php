@@ -19,6 +19,16 @@ class InterventionCalculationReportTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_shared_prescription_display_supplies_missing_known_units_and_preserves_entered_units(): void
+    {
+        foreach (['fiber' => 'g', 'free_sugars' => 'g', 'sodium' => 'mg', 'vitamin_d' => 'mcg'] as $nutrient => $unit) {
+            $html = view('reports.partials.nutrient-prescription', ['nutrient' => $nutrient, 'limit' => ['max' => 25]])->render();
+            $this->assertSame('≤25 '.$unit, trim($html));
+        }
+        $html = view('reports.partials.nutrient-prescription', ['nutrient' => 'sodium', 'limit' => ['min' => 1, 'unit' => 'g']])->render();
+        $this->assertSame('≥1 g', trim($html));
+    }
+
     public function test_report_uses_saved_targets_without_recalculating_or_mutating_history(): void
     {
         $patient = Patient::factory()->create(['first_name' => 'Fictional', 'last_name' => 'Calculation Review']);

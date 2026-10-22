@@ -458,6 +458,8 @@ Links support the specific claims above. Guidelines and original research take p
 
 **Live QA correction:** A separate forward-only migration replaces only exact fingerprints of the six old PatientSeeder education/counseling/strategy templates. Those templates contained old carbohydrate targets, calorie ramps and unverified medication claims. Their reviewed replacements use the converted selection and saved context. Individually edited text, barriers, numeric prescriptions, IDs and dates stay unchanged. Originals are verified in encrypted persistent private storage; active linked report caches expire again. Routine goal selection/copying still never rewrites a field.
 
+Report QA also found missing unit labels on a saved micronutrient prescription. Both clinical reports now fall back to the existing nutrient-unit definitions for absent/blank units, preserving explicit units and all values. Normal preview preparation refreshes active PDFs without changing report identity.
+
 - Current creation, explicit recalculation and preview use the same PHP version-2 path. A direct target edit is an identified manual override. The browser does not run a second current formula.
 - Automatic menu selection uses age at the weight observation, including exact months. Children see General Diet, diabetes types and Custom Plan, with a tooltip. Saved inputs, goal and version remain unchanged by birthdays/new measurements.
 - Notes-only changes, including refeeding, never recalculate values from newer monitoring. Existing goal labels are retained for history and unchanged legacy edits; new drafts require a supported selection.
