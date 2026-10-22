@@ -350,6 +350,8 @@ If a manual final prescription differs, identify the override explicitly: e.g. *
 
 ## 14. Source currency, legacy boundary and implementation verification
 
+Live QA identified old seeded text still containing obsolete numeric targets and feeding ramps after prescription conversion. The follow-up forward-only repair matches the exact six pre-review PatientSeeder template fingerprints before replacing a field with reviewed guidance. Modified/manual text and barriers are preserved; prescribed amounts and dates do not change. Verified encrypted originals precede mutation. Active linked reports refresh through normal preparation; archived report bytes remain frozen. This repair is separate from the routine suggestion/copy UI, which never writes to a field.
+
 The detailed original-to-new mapping, current-code discrepancies, file changes and validation tasks are in [intervention.md](../../intervention.md). Version 2 is implemented in the shared PHP calculation path; local and deployed verification are separate.
 
 - Keep original Mifflin attribution; correct its input use. Age alone does not make a historical equation obsolete.

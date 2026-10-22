@@ -13,6 +13,7 @@ use App\Models\Patient;
 use App\Models\Report;
 use App\Models\User;
 use App\Services\Reports\Generators\PatientMenuPlanGenerator;
+use App\Support\InterventionGuidance;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
@@ -276,5 +277,40 @@ class InterventionCalculationV2Test extends TestCase
         $this->assertNull($plan->fresh()->disease_stage);
         $this->assertSame('1800.00', $plan->fresh()->energy_kcal);
         $this->assertEquals(1800, $plan->fresh()->calculation_snapshot['manual_overrides']['energy_kcal']);
+    }
+
+    public function test_seeded_guidance_repair_replaces_only_exact_old_templates_and_preserves_manual_notes(): void
+    {
+        Storage::fake('private_uploads');
+        $record = $this->record();
+        $old = "1. Achieve minimum 0.5 kg weight gain per week over the next 2 weeks.\n"
+            ."2. Tolerate full soft diet (4 meals + 2 snacks) without nausea or diarrhea by Day 7.\n"
+            ."3. Understand and report warning signs of refeeding syndrome.\n"
+            .'4. Progress energy intake from 1,300 to 1,800 kcal/day by Week 2.';
+        $plan = Intervention::factory()->create(['ncp_record_id' => $record->id, 'goal_type' => 'general_diet',
+            'disease_stage' => null, 'counseling_goals' => $old, 'education_notes' => 'My individual meal advice.',
+            'barriers' => 'Shift work', 'energy_kcal' => 1921,
+        ]);
+        $before = $plan->fresh()->getAttributes();
+        $edited = Intervention::factory()->create(['ncp_record_id' => $record->id, 'counseling_goals' => $old.' Clinician edit.']);
+        $report = Report::factory()->create(['type' => 'ncp_summary', 'audit_ncp_record_id' => $record->id,
+            'status' => 'completed', 'cache_expires_at' => now()->addDay(),
+        ]);
+        $archive = Report::factory()->create(['type' => 'patient_menu_plan', 'audit_ncp_record_id' => $record->id,
+            'status' => 'archived', 'cache_expires_at' => now()->addDay(),
+        ]);
+        $migration = require collect(glob(database_path('migrations/*_refresh_seeded_intervention_guidance.php')))->sole();
+        $migration->up();
+        $this->assertSame(InterventionGuidance::for('general_diet', null)['counseling_goals'], $plan->fresh()->counseling_goals);
+        $this->assertSame($old.' Clinician edit.', $edited->fresh()->counseling_goals);
+        $this->assertTrue($report->fresh()->cache_expires_at->lessThanOrEqualTo(now()));
+        $this->assertTrue($archive->fresh()->cache_expires_at->greaterThan(now()));
+        foreach (['education_notes', 'barriers', 'energy_kcal', 'created_at', 'updated_at'] as $field) {
+            $this->assertSame($before[$field], $plan->fresh()->getAttributes()[$field]);
+        }
+        $after = $plan->fresh()->getAttributes();
+        $migration->up();
+        $this->assertSame($after, $plan->fresh()->getAttributes());
+        $this->assertCount(1, Storage::disk('private_uploads')->allFiles('maintenance'));
     }
 }

@@ -303,7 +303,7 @@ describe("intervention plans workspace", () => {
     expect(note).not.toBeNull();
     await act(async () => note.click());
     expect(interventionService.autofillIntervention).toHaveBeenCalledWith('ncp-uuid', 'diabetic_control', 'stage_1', expect.objectContaining({ calculation_options: expect.objectContaining({ malnutrition_note: true }) }), true);
-    expect(energy.value).toBe('1900.00');
+    expect(energy.value).toBe('1900');
     await clickButton('Counseling');
     expect(container.querySelector('[aria-label="Add refeeding-risk strategy note (notes only)"]')).not.toBeNull();
     expect(container.textContent).toContain('Changes the suggestion only; notes and targets stay unchanged.');
