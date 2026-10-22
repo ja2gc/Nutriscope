@@ -24,33 +24,33 @@ class InterventionGuidance
 
     private const EDUCATION = [
         'general_diet' => 'Choose varied foods in prescribed portions, including vegetables, fruit and protein; limit sweetened drinks and salty foods.',
-        'diabetic_control' => 'Follow prescribed carbohydrate portions and meal timing; choose suitable higher-fiber foods and keep the agreed low-glucose treatment.',
-        'renal_diet' => 'Follow prescribed protein and fluid targets; limit salty foods and restrict potassium or phosphorus only when indicated.',
-        'cardiac_diet' => 'Choose vegetables, whole grains, fish and unsaturated oils; limit salty foods and large portions high in saturated fat.',
-        'high_protein' => 'Include protein across meals and enough energy for recovery, within tolerance and any other clinical limits.',
-        'liver_disease' => 'Eat regularly with adequate protein and an advised evening snack; avoid alcohol, unsafe raw animal foods and unpasteurized milk.',
-        'custom' => 'Follow the individual prescription, including any confirmed food or fluid limits.',
+        'diabetic_control' => 'Follow your meal portions for rice, bread, fruit and other carbohydrate foods; know what to eat or drink if your blood sugar drops.',
+        'renal_diet' => 'Follow your kidney team\'s advice on protein and drinks; use less salt and avoid other foods only when your team advises it.',
+        'cardiac_diet' => 'Choose vegetables, whole grains and fish; limit salty packaged foods, fatty meats and butter.',
+        'high_protein' => 'Include protein foods you can safely eat at meals; eat enough to support healing, following your care plan.',
+        'liver_disease' => 'Eat regular meals with enough protein and an evening snack if advised; avoid alcohol, raw or undercooked meat or seafood, and raw milk.',
+        'custom' => 'Follow the food and drink plan made for you by your care team.',
     ];
 
     private const TYPE_NOTES = [
-        'type_1' => 'Coordinate carbohydrate intake, insulin and activity with the diabetes team; this plan does not change insulin doses.',
-        'type_2' => 'Review carbohydrate portions, activity and glucose trends; weight direction follows assessed needs.',
-        'ckd_1_2' => 'Preserve adequate intake; early CKD alone does not require broad food restrictions.',
-        'ckd_3_5_non_dialysis' => 'Follow the confirmed protein target and review kidney function, intake and labs.',
-        'hemodialysis' => 'Confirm dry weight and dialysis-team protein, mineral and fluid orders.',
-        'hypertension' => 'Reduce sodium from salty seasonings and processed foods within the prescribed target.',
-        'dyslipidemia' => 'Replace some saturated fat with unsaturated fats and choose suitable fiber-rich foods.',
-        'heart_failure' => 'Follow actual sodium/fluid orders and report worsening swelling, breathlessness or sudden weight change.',
-        'postoperative_recovery' => 'Meet recovery targets with tolerated meals/snacks and follow surgical texture and route orders.',
-        'wound_healing' => 'Meet assessed energy/protein needs; use supplements only when indicated or prescribed.',
-        'compensated' => 'Avoid prolonged fasting and review intake and muscle loss.',
-        'decompensated' => 'Confirm usable weight with fluid retention; do not restrict protein solely for encephalopathy.',
+        'type_1' => 'Match meals and activity to the insulin plan agreed with your diabetes team; ask them before changing insulin doses.',
+        'type_2' => 'Follow your meal portions, stay active as advised and track blood sugar; ask your care team about a suitable weight goal.',
+        'ckd_1_2' => 'Eat enough to stay well; early kidney disease alone does not mean you must avoid many foods.',
+        'ckd_3_5_non_dialysis' => 'Follow the protein portions in your plan and attend kidney checkups and blood tests.',
+        'hemodialysis' => 'Spread protein foods across your meals and follow any salt or drink limits set by your dialysis team.',
+        'hypertension' => 'Use less salt, salty sauces and packaged foods to help manage blood pressure.',
+        'dyslipidemia' => 'Choose suitable high-fiber foods such as oats and beans; use oils such as olive or canola instead of some butter or fatty meat.',
+        'heart_failure' => 'Follow your advised salt and drink limits; tell your care team about worse swelling, shortness of breath or sudden weight change.',
+        'postoperative_recovery' => 'Eat meals and snacks you can manage; follow your surgical team\'s advice on when, what and how to eat.',
+        'wound_healing' => 'Eat enough food and include protein at meals; take nutrition supplements only if your care team recommends them.',
+        'compensated' => 'Avoid long gaps between meals and tell your care team if you are eating less or losing strength.',
+        'decompensated' => 'Keep eating the protein foods in your plan; ask your care team about salt and drink limits if you have swelling.',
     ];
 
     private const CONTEXT_NOTES = [
-        'energy' => 'Follow the confirmed energy target and review weight, intake and tolerance at follow-up.',
-        'surplus' => 'The total target includes +{amount} kcal/day; review weight, intake and tolerance.',
-        'deficit' => 'The total target includes −{amount} kcal/day; review weight, intake and tolerance.',
+        'energy' => 'Follow the portions in your meal plan; discuss appetite or weight changes with your care team.',
+        'surplus' => 'Eat the extra portions in your plan; tell your care team if you feel too full or your weight changes.',
+        'deficit' => 'Follow the portions in your plan; choose water instead of sugary drinks and tell your care team if you feel very hungry.',
     ];
 
     private const FOODS = [
@@ -75,10 +75,10 @@ class InterventionGuidance
         $strategy = array_filter([self::TYPE_NOTES[$type ?? ''] ?? null]);
         $precautions = [];
         if (! empty($context['refeeding_risk'])) {
-            $precautions[] = 'advance intake under clinical supervision with electrolyte monitoring; displayed calories are the final target';
+            $precautions[] = 'your care team will guide gradual feeding increases and check your blood mineral levels';
         }
         if (($context['fluid_mode'] ?? null) === 'restricted') {
-            $precautions[] = 'count all sources toward the fluid maximum';
+            $precautions[] = 'count drinks and water in foods toward your daily fluid limit';
         }
         if ($precautions) {
             $strategy[] = ucfirst(implode('; ', $precautions)).'.';
@@ -94,22 +94,22 @@ class InterventionGuidance
         }
         $education = self::EDUCATION[$goal] ?? self::EDUCATION['custom'];
         $reviews = [];
-        if (($context['nutrition_status'] ?? null) === 'malnutrition_or_muscle_loss') {
-            $reviews[] = 'poor intake and muscle loss';
+        if ($context['malnutrition_note'] ?? (($context['nutrition_status'] ?? null) === 'malnutrition_or_muscle_loss')) {
+            $reviews[] = 'appetite or strength changes';
         }
         if (! empty($context['pediatric'])) {
-            $reviews[] = 'growth and age-appropriate feeding';
+            $reviews[] = 'growth and safe feeding';
         }
         if (! empty($context['maternal'])) {
-            $reviews[] = 'pregnancy/lactation needs and food safety';
+            $reviews[] = 'pregnancy or breastfeeding';
         }
         if (($context['age_months'] ?? 216) < 6) {
-            $education = 'Follow the pediatric breastmilk or infant-formula plan; do not use ordinary food menus or change milk concentration without clinical instructions.';
+            $education = 'Follow your baby\'s breastmilk or infant-formula plan; do not start solid foods or change how you mix formula unless your care team advises it.';
             $foods = ['choose' => 'Breastmilk or infant formula as clinically directed', 'limit' => 'Ordinary solid-food menus and unprescribed feeding changes'];
         }
 
         if ($reviews) {
-            $education .= ' Review '.implode(', ', $reviews).' with the care team.';
+            $education .= ' Discuss '.implode(', ', $reviews).' with your care team.';
         }
 
         return [

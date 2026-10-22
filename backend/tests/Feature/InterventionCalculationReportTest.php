@@ -47,7 +47,7 @@ class InterventionCalculationReportTest extends TestCase
         $report = new Report(['type' => 'patient_menu_plan', 'parameters' => ['intervention_plan_id' => $plan->uuid]]);
         $data = app(PatientMenuPlanGenerator::class)->data($report);
         $html = view('reports.patient-menu-plan', [...$data, 'report' => $report, 'branding' => new ReportBranding, 'signatories' => []])->render();
-        $this->assertStringContainsString('1,881.00 kcal', $html);
+        $this->assertStringContainsString('1,881 kcal', $html);
         $this->assertStringContainsString('fixed adjustment 300 kcal', $html);
         $this->assertStringContainsString('calculated final 1,581 kcal/day', $html);
         $this->assertStringContainsString('Remaining upper allowance', $html);

@@ -49,7 +49,7 @@ export default function PrescriptionCalculationPanel({ trace, expanded, onToggle
         <div id={panelId} className="space-y-4 border-t border-warm-200 p-3">
           <section aria-labelledby={`${panelId}-context`}>
             <h4 id={`${panelId}-context`} className="text-xs font-extrabold uppercase tracking-wider text-warm-500">
-              Baseline calculation
+              Measurements
             </h4>
             <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-3 rounded-lg border border-warm-200 bg-white p-3 sm:grid-cols-3 lg:grid-cols-5">
               {trace.context.map((item) => (

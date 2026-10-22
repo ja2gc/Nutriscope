@@ -31,7 +31,7 @@ import {
 } from "@/lib/interventionGoalState";
 import { buildPrescriptionCalculationTrace } from "@/lib/prescriptionCalculationTrace";
 import GoalSelectorModal, { GOALS } from "./_components/GoalSelectorModal";
-import { goalLabelFor, typeLabelFor } from "./_components/goals";
+import { goalLabelFor, goalsForPatient, typeLabelFor } from "./_components/goals";
 import type { GuidanceSuggestion } from "@/services/interventionService";
 import { Button } from "@/components/ui/Button";
 import NutritionPrescriptionForm from "./_components/NutritionPrescriptionForm";
@@ -46,7 +46,6 @@ import { NcpBreadcrumb } from "@/components/ncp/NcpBreadcrumb";
 import {
   INTERVENTION_GUIDANCE_TOTAL_MAX,
   interventionGuidanceCharacters,
-  mergeGeneratedGuidance,
 } from "@/lib/interventionGuidance";
 
 type Tab = "plans" | "nd" | "education" | "counseling";
@@ -198,9 +197,6 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
   const [calculationDirty, setCalculationDirty] = useState(false);
   const [ageAtMeasurement, setAgeAtMeasurement] = useState<number | null>(null);
   const [guidance, setGuidance] = useState<GuidanceSuggestion | null>(null);
-  const generatedGuidance = useRef<Partial<GuidanceSuggestion>>({});
-  const guidanceValues = useRef({ education_notes: "", counseling_goals: "", strategies: "" });
-  const [pendingGuidance, setPendingGuidance] = useState<Partial<GuidanceSuggestion>>({});
   const calculationRequest = useRef(0);
 
   const [educationNotes, setEducationNotes]   = useState("");
@@ -222,9 +218,6 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
     setBarriers(iv?.barriers ?? "");
     setStrategies(iv?.strategies ?? "");
     setGuidance(iv?.guidance ?? null);
-    generatedGuidance.current = iv?.guidance ?? {};
-    guidanceValues.current = { education_notes: iv?.education_notes ?? "", counseling_goals: iv?.counseling_goals ?? "", strategies: iv?.strategies ?? "" };
-    setPendingGuidance({});
     setCalculationDirty(false);
     setPrescNote(undefined);
     setCalculationWarning(null);
@@ -374,18 +367,6 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
     if (!isPlaceholder) void loadMetrics();
   }, [isPlaceholder, loadMetrics]);
 
-  const applyGuidance = (suggestion?: GuidanceSuggestion) => {
-    if (!suggestion) return;
-    const merged = mergeGeneratedGuidance(guidanceValues.current, generatedGuidance.current, suggestion);
-    guidanceValues.current = merged.values;
-    setEducationNotes(merged.values.education_notes);
-    setCounselingGoals(merged.values.counseling_goals);
-    setStrategies(merged.values.strategies);
-    setPendingGuidance(merged.pending);
-    generatedGuidance.current = suggestion;
-    setGuidance(suggestion);
-  };
-
   const calculationPayload = (form: PrescriptionForm): Partial<Intervention> => ({
     recalculate: form.recalculate ?? false,
     energy_adjustment_mode: form.energy_adjustment_mode ?? "none",
@@ -396,6 +377,11 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
   });
 
   const calculateTargets = async (goal: string, stage: string | null, form: PrescriptionForm) => {
+    const available = goalsForPatient((ageAtMeasurement ?? patientMetrics?.ageYears ?? 18) < 18).find(item => item.value === goal);
+    if (!available || (available.stages ? !available.stages.some(item => item.value === stage) : Boolean(stage))) {
+      setCalculationWarning("Choose a current goal and type to recalculate. Saved targets remain editable.");
+      return;
+    }
     const requestId = ++calculationRequest.current;
     setSaving(true);
     setCalculationWarning(null);
@@ -418,7 +404,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
       setIntervention(current => current ? { ...current, source_monitoring_id: result.source_monitoring_id ?? null,
         source_monitoring_date: result.source_monitoring_date ?? null } : current);
       setPrescNote(prescriptionNote(result));
-      applyGuidance(result.guidance);
+      setGuidance(result.guidance ?? null);
       setCalculationDirty(false);
       setDirty(true);
     } catch (error) {
@@ -427,7 +413,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
       setCalculationWarning(error instanceof Error ? error.message : "Calculation unavailable. Review the inputs.");
       try {
         const notes = await autofillIntervention(ncpId, goal, stage, calculationPayload(form), true);
-        if (requestId === calculationRequest.current) applyGuidance(notes.guidance);
+        if (requestId === calculationRequest.current) setGuidance(notes.guidance ?? null);
       } catch { /* The calculation error remains visible. */ }
     } finally {
       if (requestId === calculationRequest.current) setSaving(false);
@@ -452,16 +438,16 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
 
   const handlePrescriptionChange = (form: PrescriptionForm) => {
     const options = (value: PrescriptionForm) => {
-      const { refeeding_risk: _risk, nutrition_status, ...clinical } = value.calculation_options ?? {};
-      void _risk;
+      const { refeeding_risk: _risk, malnutrition_note: _note, nutrition_status, ...clinical } = value.calculation_options ?? {};
+      void _risk; void _note;
       return intervention?.goal_type === "liver_disease" ? { ...clinical, nutrition_status } : clinical;
     };
     const controlsChanged = form.energy_adjustment_mode !== prescription.energy_adjustment_mode ||
-      form.energy_adjustment_kcal !== prescription.energy_adjustment_kcal || form.fluid_mode !== prescription.fluid_mode ||
-      JSON.stringify(options(form)) !== JSON.stringify(options(prescription)) ||
-      (form.fluid_mode === "restricted" && form.fluid_ml !== prescription.fluid_ml);
+      form.energy_adjustment_kcal !== prescription.energy_adjustment_kcal ||
+      JSON.stringify(options(form)) !== JSON.stringify(options(prescription));
     if (controlsChanged) setCalculationDirty(true);
-    const notesChanged = JSON.stringify(form.calculation_options) !== JSON.stringify(prescription.calculation_options);
+    const notesChanged = JSON.stringify(form.calculation_options) !== JSON.stringify(prescription.calculation_options)
+      || form.fluid_mode !== prescription.fluid_mode;
     setPrescription(form);
     setDirty(true);
     const energyEdited = form.energy_kcal !== prescription.energy_kcal;
@@ -473,7 +459,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
         payload.energy_adjustment_kcal = 0;
       }
       void autofillIntervention(ncpId, intervention.goal_type, intervention.disease_stage, payload, true)
-        .then(result => { if (requestId === calculationRequest.current) applyGuidance(result.guidance); })
+        .then(result => { if (requestId === calculationRequest.current) setGuidance(result.guidance ?? null); })
         .catch(error => { if (requestId === calculationRequest.current) setGoalError(error instanceof Error ? error.message : "Could not update guidance."); });
     }
   };
@@ -602,10 +588,15 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
   const stageLabel = typeLabelFor(intervention?.goal_type, intervention?.disease_stage);
   const requiredMicros: string[] = [];
   const isPediatric = (prescription.calculation_snapshot?.inputs.ageYears ?? ageAtMeasurement ?? patientMetrics?.ageYears ?? 18) < 18;
+  const availableGoal = goalsForPatient(isPediatric).find(goal => goal.value === intervention?.goal_type);
+  const calculationBlockedReason = intervention?.goal_type && (!availableGoal ||
+    (availableGoal.stages ? !availableGoal.stages.some(stage => stage.value === intervention.disease_stage) : Boolean(intervention.disease_stage)))
+    ? "Choose a current goal and type to recalculate. Saved targets remain editable." : undefined;
   const calculationTrace = intervention?.goal_type
     ? buildPrescriptionCalculationTrace({
         goalType: intervention.goal_type, stage: intervention.disease_stage, goalLabel, stageLabel,
         prescription, snapshot: prescription.calculation_snapshot,
+        clinicalNotes: guidance?.education_notes ? [guidance.education_notes] : availableGoal ? [availableGoal.description] : [],
       }) : null;
 
   if (isPlaceholder) return <PlaceholderState />;
@@ -747,6 +738,22 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
               ) : (
                 <p className="text-sm text-warm-500">No goal selected.</p>
               )}
+              {intervention?.goal_type === "liver_disease" && !isPediatric && <div className="mt-3">
+                <label htmlFor="nutrition-status" className="mb-1 block text-sm font-semibold text-warm-700">Nutritional status</label>
+                <select id="nutrition-status" disabled={editorMode === "readonly"} value={prescription.calculation_options?.nutrition_status ?? "unconfirmed"}
+                  onChange={event => handlePrescriptionChange({ ...prescription, calculation_options: { ...prescription.calculation_options,
+                    nutrition_status: event.target.value as "adequate" | "malnutrition_or_muscle_loss" | "unconfirmed" } })}
+                  className="w-full rounded-lg border border-warm-200 bg-white px-3 py-2 text-base">
+                  <option value="unconfirmed">Select assessed status</option><option value="adequate">No identified malnutrition or muscle loss</option>
+                  <option value="malnutrition_or_muscle_loss">Malnutrition or muscle loss</option>
+                </select>
+              </div>}
+              {!isPediatric && !["none", ""].includes(patientMetrics?.pregnancyLactationStatus ?? "none") &&
+                ["renal_diet", "high_protein", "liver_disease"].includes(intervention?.goal_type ?? "") && <label className="mt-3 flex items-start gap-2 text-sm text-warm-700">
+                  <input type="checkbox" disabled={editorMode === "readonly"} checked={prescription.calculation_options?.maternal_confirmed ?? false}
+                    onChange={event => handlePrescriptionChange({ ...prescription, calculation_options: { ...prescription.calculation_options, maternal_confirmed: event.target.checked } })} />
+                  Maternal additions reviewed for this clinical goal
+                </label>}
             </div>
 
             {/* [B] Prescription */}
@@ -754,9 +761,8 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
               values={prescription}
               defaultWeightTarget={editorMode === 'edit' && patientMetrics?.isAdult ? Math.round(calcIBW(patientMetrics.heightCm, patientMetrics.sex) * 10) / 10 : null}
               onChange={handlePrescriptionChange}
-              hasMaternalStatus={!["none", ""].includes(patientMetrics?.pregnancyLactationStatus ?? "none")}
               goalType={intervention?.goal_type}
-              isPediatric={isPediatric}
+              calculationBlockedReason={calculationBlockedReason}
               calculationDirty={calculationDirty}
               onCalculate={() => { if (intervention?.goal_type) void calculateTargets(intervention.goal_type, intervention.disease_stage, prescription); }}
               onSave={savePlan}
@@ -801,35 +807,19 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
           </div>
 
         {/* Education */}
-        {Object.values(pendingGuidance).some(Boolean) && editorMode === "edit" && (
-          <details className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-            <summary className="cursor-pointer text-sm font-bold text-amber-900">Updated guidance available — your edits were kept</summary>
-            {(["education_notes", "counseling_goals", "strategies"] as const).filter(field => pendingGuidance[field]).map(field => (
-              <div key={field} className="mt-3 space-y-2">
-                <p className="text-sm text-warm-800">{pendingGuidance[field]}</p>
-                <Button variant="secondary" onClick={() => {
-                  const value = pendingGuidance[field]!;
-                  guidanceValues.current[field] = value;
-                  if (field === "education_notes") setEducationNotes(value);
-                  else if (field === "counseling_goals") setCounselingGoals(value);
-                  else setStrategies(value);
-                  setPendingGuidance(current => ({ ...current, [field]: undefined }));
-                  setDirty(true);
-                }}>Use suggested {field.replaceAll("_", " ")}</Button>
-              </div>
-            ))}
-          </details>
-        )}
-
         {tab === "education" && (
           <EducationTab
             value={educationNotes}
-            onChange={(v) => { guidanceValues.current.education_notes = v; setEducationNotes(v); setDirty(true); }}
+            suggestion={guidance?.education_notes}
+            onChange={(v) => { setEducationNotes(v); setDirty(true); }}
             onSave={savePlan}
             saving={saving}
             readOnly={editorMode === "readonly"}
             showSave={false}
             totalCharacters={guidanceCharacters}
+            malnutritionNote={prescription.calculation_options?.malnutrition_note ?? (prescription.calculation_options?.nutrition_status === "malnutrition_or_muscle_loss")}
+            onMalnutritionNoteChange={checked => handlePrescriptionChange({ ...prescription,
+              calculation_options: { ...prescription.calculation_options, malnutrition_note: checked } })}
           />
         )}
 
@@ -837,17 +827,21 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
         {tab === "counseling" && (
           <CounselingTab
             goals={counselingGoals} barriers={barriers} strategies={strategies}
+            goalsSuggestion={guidance?.counseling_goals} strategiesSuggestion={guidance?.strategies}
             onChange={(field, val) => {
               setDirty(true);
-              if (field === 'counseling_goals') { guidanceValues.current.counseling_goals = val; setCounselingGoals(val); }
+              if (field === 'counseling_goals') { setCounselingGoals(val); }
               if (field === 'barriers') setBarriers(val);
-              if (field === 'strategies') { guidanceValues.current.strategies = val; setStrategies(val); }
+              if (field === 'strategies') { setStrategies(val); }
             }}
             onSave={savePlan}
             saving={saving}
             readOnly={editorMode === "readonly"}
             showSave={false}
             totalCharacters={guidanceCharacters}
+            refeedingNote={prescription.calculation_options?.refeeding_risk}
+            onRefeedingNoteChange={checked => handlePrescriptionChange({ ...prescription,
+              calculation_options: { ...prescription.calculation_options, refeeding_risk: checked } })}
           />
         )}
 

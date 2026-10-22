@@ -64,7 +64,7 @@ class InterventionPlanService
         }
         $changed = $existing === null || ! empty($attributes['recalculate']);
         unset($attributes['recalculate']);
-        foreach (['goal_type', 'disease_stage', 'energy_adjustment_mode', 'energy_adjustment_kcal', 'fluid_mode'] as $field) {
+        foreach (['goal_type', 'disease_stage', 'energy_adjustment_mode', 'energy_adjustment_kcal'] as $field) {
             $previous = $existing?->getAttribute($field);
             $next = $attributes[$field] ?? null;
             if ($field === 'energy_adjustment_mode') {
@@ -79,7 +79,7 @@ class InterventionPlanService
             }
         }
         $numericOptions = function (array $options) use ($merged): array {
-            unset($options['refeeding_risk']);
+            unset($options['refeeding_risk'], $options['malnutrition_note']);
             if (($merged['goal_type'] ?? null) !== 'liver_disease') {
                 unset($options['nutrition_status']);
             }
@@ -88,10 +88,6 @@ class InterventionPlanService
         };
         if (array_key_exists('calculation_options', $attributes)
             && $numericOptions($attributes['calculation_options'] ?? []) != $numericOptions($existing?->calculation_options ?? [])) {
-            $changed = true;
-        }
-        if (($merged['fluid_mode'] ?? null) === 'restricted'
-            && array_key_exists('fluid_ml', $attributes) && $attributes['fluid_ml'] != $existing?->fluid_ml) {
             $changed = true;
         }
         $snapshot = $existing?->calculation_snapshot;

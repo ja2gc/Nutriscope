@@ -30,9 +30,7 @@ export default function InterventionPlanEditor({
     year: "numeric",
     timeZone: "Asia/Manila",
   }).format(new Date(value));
-  const source = plan?.source_monitoring_date
-    ? `Monitoring — ${displayDate(plan.source_monitoring_date)}`
-    : "Original Assessment";
+  const measurementDate = plan?.calculation_snapshot?.measurement_date ?? plan?.source_monitoring_date;
 
   return (
     <section aria-label={mode === "edit" && !plan?.id ? "New intervention plan" : "Saved intervention plan"} className="space-y-5">
@@ -44,7 +42,7 @@ export default function InterventionPlanEditor({
           {plan?.id && plan.created_at && (
             <p className="mt-1 text-sm font-semibold text-warm-700">{displayDate(plan.created_at)}</p>
           )}
-          <p className="mt-1 text-xs text-warm-500">Calculation source: {source}</p>
+          {measurementDate && <p className="mt-1 text-xs text-warm-500">Measurements: {displayDate(measurementDate)}</p>}
         </div>
         {mode === 'readonly' && <span className="rounded-full border border-warm-200 px-3 py-1 text-xs font-bold text-warm-500">View only</span>}
         {mode === "edit" && (

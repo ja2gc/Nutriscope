@@ -43,7 +43,7 @@ This is **7 goals and 12 type choices**, replacing 9 goals and 30 stages. Reuse 
 
 Sources: [KDIGO 2024, CKD classification and §3.3.1][kdigo], [VA cirrhosis stages](https://www.hepatitis.va.gov/HEPATITIS/cirrhosis/background/stages.asp).
 
-## 2. Independent energy and fluid controls
+## 2. Energy adjustment and existing fluid field
 
 ### Energy
 
@@ -61,7 +61,7 @@ Apply the adjustment once from the original baseline on every recalculation. An 
 
 ### Fluid
 
-**Fluid:** Estimated Fluid Needs / Prescribed Fluid Limit. Retain the existing `fluid_ml` amount and distinguish an estimate from a **maximum**.
+Reuse the existing `fluid_ml` amount and blank/maximum/minimum bound selector. Do not add a fluid-mode dropdown. A maximum denotes an explicitly entered prescribed limit; the underlying mode is metadata. Editing fluid never refreshes other targets from newer measurements.
 
 - A confirmed limit takes precedence and persists through goal, type and energy changes. Do not clear it or replace it with an estimate.
 - No universal 1,500/2,000-mL Heart Failure limit, 750-mL dialysis order, or ascites-triggered limit.
@@ -121,7 +121,7 @@ These defaults are **local product choices for eligible adults**, not universal 
 | Liver Disease Diet: either stage | `confirmed kcal/kg coefficient × confirmed clinical kg`; local starting coefficient **32.5**, subject to assessment | A proposed midpoint within ESPEN's 30–35 nutrition-support range, especially its malnutrition/muscle-depletion context; not a validated universal dose for every compensated or decompensated patient |
 | Custom Plan | Clinician-entered energy/protein/macros; no inferred energy baseline | Show which values were entered and which were calculated. Do not manufacture a disease-specific formula |
 
-**Cirrhosis protein:** ESPEN specifies 1.2 g/kg for non-malnourished compensated patients and 1.5 for malnutrition/sarcopenia. Apply assessed nutrition status independently of the stage. For decompensated cirrhosis without established nutrition status, request confirmation of the appropriate protein coefficient within clinical guidance; do not infer 1.5 from that label alone. Both stages can calculate automatically once coefficient and weight are confirmed. Neither stage automatically restricts protein for encephalopathy.
+**Cirrhosis protein:** ESPEN specifies 1.2 g/kg for non-malnourished compensated patients and 1.5 for malnutrition/sarcopenia. Apply assessed nutrition status independently of the stage. For decompensated cirrhosis without established nutrition status, request confirmation of the appropriate protein coefficient within clinical guidance; do not infer 1.5 from that label alone. Automatic liver protein requires the source-supported assessed context. Otherwise choose Custom Plan and enter the individual final targets in the existing fields. Neither stage automatically restricts protein for encephalopathy.
 
 **Renal protocol difference:** KDOQI 2020 includes lower-protein supervised options for metabolically stable CKD; KDIGO 2024 recommends approximately 0.8 g/kg for adult G3–G5. This design adopts the latter default, not a blended stage ladder. KDIGO advises avoiding high protein above 1.3 g/kg in patients at risk of progression. A different renal prescription must record its rationale/protocol.
 
@@ -237,20 +237,20 @@ Each generated Education, Counseling goals and Strategies field contains **at mo
 | Goal | Exact base text |
 |---|---|
 | general_diet | Choose varied foods in prescribed portions, including vegetables, fruit and protein; limit sweetened drinks and salty foods. |
-| diabetic_control | Follow prescribed carbohydrate portions and meal timing; choose suitable higher-fiber foods and keep the agreed low-glucose treatment. |
-| renal_diet | Follow prescribed protein and fluid targets; limit salty foods and restrict potassium or phosphorus only when indicated. |
-| cardiac_diet | Choose vegetables, whole grains, fish and unsaturated oils; limit salty foods and large portions high in saturated fat. |
-| high_protein | Include protein across meals and enough energy for recovery, within tolerance and any other clinical limits. |
-| liver_disease | Eat regularly with adequate protein and an advised evening snack; avoid alcohol, unsafe raw animal foods and unpasteurized milk. |
-| custom | Follow the individual prescription, including any confirmed food or fluid limits. |
+| diabetic_control | Follow your meal portions for rice, bread, fruit and other carbohydrate foods; know what to eat or drink if your blood sugar drops. |
+| renal_diet | Follow your kidney team's advice on protein and drinks; use less salt and avoid other foods only when your team advises it. |
+| cardiac_diet | Choose vegetables, whole grains and fish; limit salty packaged foods, fatty meats and butter. |
+| high_protein | Include protein foods you can safely eat at meals; eat enough to support healing, following your care plan. |
+| liver_disease | Eat regular meals with enough protein and an evening snack if advised; avoid alcohol, raw or undercooked meat or seafood, and raw milk. |
+| custom | Follow the food and drink plan made for you by your care team. |
 
-When relevant, append one short sentence asking the team to review poor intake/muscle loss, growth/age-appropriate feeding, or pregnancy/lactation needs and food safety. Include only confirmed contexts. Before six months, replace the base text with: “Follow the pediatric breastmilk or infant-formula plan; do not use ordinary food menus or change milk concentration without clinical instructions.”
+Address the patient directly. Append one short sentence about relevant appetite/strength changes, growth/safe feeding, or pregnancy/breastfeeding. Include only confirmed contexts. Before six months, replace the base text with: “Follow your baby's breastmilk or infant-formula plan; do not start solid foods or change how you mix formula unless your care team advises it.”
 
 ### Counseling goals
 
-- No Adjustment: “Follow the confirmed energy target and review weight, intake and tolerance at follow-up.”
-- Add Surplus: “The total target includes +{amount} kcal/day; review weight, intake and tolerance.”
-- Add Deficit: “The total target includes −{amount} kcal/day; review weight, intake and tolerance.”
+- No Adjustment: “Follow the portions in your meal plan; discuss appetite or weight changes with your care team.”
+- Add Surplus: “Eat the extra portions in your plan; tell your care team if you feel too full or your weight changes.”
+- Add Deficit: “Follow the portions in your plan; choose water instead of sugary drinks and tell your care team if you feel very hungry.”
 
 Do not retain an adjustment claim if a manually entered final energy target replaces the calculated target.
 
@@ -258,25 +258,25 @@ Do not retain an adjustment claim if a manually entered final energy target repl
 
 | Type | Exact base text |
 |---|---|
-| Type 1 Diabetes | Coordinate carbohydrate intake, insulin and activity with the diabetes team; this plan does not change insulin doses. |
-| Type 2 Diabetes | Review carbohydrate portions, activity and glucose trends; weight direction follows assessed needs. |
-| CKD Stages 1–2 | Preserve adequate intake; early CKD alone does not require broad food restrictions. |
-| CKD Stages 3–5 Without Dialysis | Follow the confirmed protein target and review kidney function, intake and labs. |
-| Hemodialysis | Confirm dry weight and dialysis-team protein, mineral and fluid orders. |
-| Hypertension | Reduce sodium from salty seasonings and processed foods within the prescribed target. |
-| Dyslipidemia | Replace some saturated fat with unsaturated fats and choose suitable fiber-rich foods. |
-| Heart Failure | Follow actual sodium/fluid orders and report worsening swelling, breathlessness or sudden weight change. |
-| Postoperative Recovery | Meet recovery targets with tolerated meals/snacks and follow surgical texture and route orders. |
-| Wound Healing | Meet assessed energy/protein needs; use supplements only when indicated or prescribed. |
-| Compensated Cirrhosis | Avoid prolonged fasting and review intake and muscle loss. |
-| Decompensated Cirrhosis | Confirm usable weight with fluid retention; do not restrict protein solely for encephalopathy. |
+| Type 1 Diabetes | Match meals and activity to the insulin plan agreed with your diabetes team; ask them before changing insulin doses. |
+| Type 2 Diabetes | Follow your meal portions, stay active as advised and track blood sugar; ask your care team about a suitable weight goal. |
+| CKD Stages 1–2 | Eat enough to stay well; early kidney disease alone does not mean you must avoid many foods. |
+| CKD Stages 3–5 Without Dialysis | Follow the protein portions in your plan and attend kidney checkups and blood tests. |
+| Hemodialysis | Spread protein foods across your meals and follow any salt or drink limits set by your dialysis team. |
+| Hypertension | Use less salt, salty sauces and packaged foods to help manage blood pressure. |
+| Dyslipidemia | Choose suitable high-fiber foods such as oats and beans; use oils such as olive or canola instead of some butter or fatty meat. |
+| Heart Failure | Follow your advised salt and drink limits; tell your care team about worse swelling, shortness of breath or sudden weight change. |
+| Postoperative Recovery | Eat meals and snacks you can manage; follow your surgical team's advice on when, what and how to eat. |
+| Wound Healing | Eat enough food and include protein at meals; take nutrition supplements only if your care team recommends them. |
+| Compensated Cirrhosis | Avoid long gaps between meals and tell your care team if you are eating less or losing strength. |
+| Decompensated Cirrhosis | Keep eating the protein foods in your plan; ask your care team about salt and drink limits if you have swelling. |
 
 Append at most one precaution sentence, only when relevant:
-- Refeeding risk: “Advance intake under clinical supervision with electrolyte monitoring; displayed calories are the final target.”
-- Prescribed fluid limit: “Count all sources toward the fluid maximum.”
+- Refeeding risk: “Your care team will guide gradual feeding increases and check your blood mineral levels.”
+- Prescribed fluid limit: “Count drinks and water in foods toward your daily fluid limit.”
 - Both: combine those clauses into one concise sentence.
 
-Refeeding and gradual-change notes never change numeric targets. Source boundaries remain those in §§5–9 and the food sources in §11.
+The malnutrition checkbox sits beside Education; the refeeding-risk checkbox sits beside Strategies in Counseling. Both change suggestions only; neither edits saved/free-text notes or numeric targets. Refeeding and gradual-change notes never change numeric targets. Source boundaries remain those in §§5–9 and the food sources in §11.
 
 ## 11. Food recommendation and avoidance content
 
@@ -316,8 +316,8 @@ Sources: [ADA][ada], [NKF][kidney-foods], [AHA 2026][aha], [NIDDK][liver-foods],
 
 Retain **1,200 characters per field and 2,200 combined** across `education_notes`, `counseling_goals`, `barriers` and `strategies`. Count composed text, separators and interpolated values consistently. Frontend and backend both count Unicode code points, including in the existing field counters.
 
-- Automatically populate empty/unedited generated fields after a selection. On goal/type changes, replace only text still matching the previous generated suggestion.
-- Preserve manual edits; offer the new concise suggestion without overwriting or duplicating old advice.
+- Selecting a goal/type prepares a concise suggestion below each relevant Education, Behavioral Goals and Strategies field. Suggestions use the existing Shopping List collapsible/copy pattern and start collapsed. Copy writes only to the clipboard; users can also select text normally. Do not automatically populate or replace fields. Deleting/editing notes leaves the suggestion available for copying again; repeated copies never append or alter field contents.
+- Preserve every existing field value. Show Copy success and a selectable-text fallback on clipboard failure. Pasted text follows existing per-field counters and combined save validation; copying does not consume any character budget.
 - Leave barriers blank unless actually assessed. Templates must not claim a patient agreed to counseling or followed a plan.
 - Keep generated education ≤300, counseling ≤120, strategies ≤300 and combined text ≤700, with at most two sentences per generated field. These are composition budgets, not new hard limits.
 - Compose shared advice once, selected-type text once and only relevant conditional notes. All maximum combinations, including maternal/fluid/refeeding/pediatric contexts and the longest valid number, must fit or require RND review.
@@ -330,7 +330,7 @@ Executable coverage in `InterventionGuidanceTest` checks every supported type wi
 
 Use saved inputs and the saved calculation version. For a legacy plan without a trace, say details were not recorded; do not reconstruct a precise historical formula from today's measurements.
 
-Show two result groups: **Baseline calculation** and **Final target**. The baseline group explains the formula, inputs, units, weight basis and activity estimate. The final group shows any applicable maternal addition, the selected fixed surplus/deficit and the final prescription. Include source/date/version, protein basis, macro rounding and fluid estimate/order meaning in the relevant details. If a target is manually overridden, show that fact alongside the calculated value. Notes contribute **zero** to arithmetic. Do not display starting-dose, feeding-stage, daily progression or stepped intermediate targets.
+Show two result groups: **Measurements** and **Final target**. The baseline group explains the formula, inputs, units, weight basis and activity estimate. The final group shows any applicable maternal addition, the selected fixed surplus/deficit and the final prescription. Show the saved age, sex, measurements, weight basis, activity factor/category, energy/protein factors, growth and maternal additions actually used. Keep references beside formulas and selected-goal guidance in Clinical notes. Hide calculation versions and conversion history. Display energy/fluid as whole numbers, measurements/age/grams with at most one decimal and coefficients/activity factors with up to three decimals; omit trailing zeros. Stored inputs retain full precision. If a target is manually overridden, show that fact alongside the calculated value. Notes contribute **zero** to arithmetic. Do not display starting-dose, feeding-stage, daily progression or stepped intermediate targets.
 
 All examples below are fictional arithmetic checks, not recommended patient prescriptions.
 
@@ -516,7 +516,8 @@ Entries before 21 October 2026 describe historical decisions, not endorsement of
 
 | Date | Change |
 |---|---|
-| 2026-10-21 | **Clinical/source audit and approved seven-goal design.** Replaced disputed calculation guidance with explicit source scope, proposed local defaults, independent energy/fluid controls, pediatric limitations, concise per-type notes and conditional food advice. Added saved calculation/provenance requirements. Version 2 implementation now uses the shared PHP calculator, persisted inputs and independent controls. Version-1 fixtures remain frozen; no historical bulk conversion is run. |
+| 2026-10-22 | **Approved refinement.** Energy direction and kcal amount are the only added routine prescription controls; existing final fields handle other overrides. Note checkboxes sit beside their text fields; patient suggestions contain no calorie homework and never write to fields automatically. One-time conversion recalculates plans without snapshots from their recorded measurement source, preserving IDs/dates and all existing note fields. Missing evidence uses Custom Plan without inferred diagnoses/doses. Encrypted originals are verified on persistent private storage before mutation; existing menu quantities are rescaled. Active linked report caches expire for normal reprepare; archived bytes stay frozen. No reseeding or conversion/version UI. |
+| 2026-10-21 | **Clinical/source audit and approved seven-goal design.** Replaced disputed calculation guidance with explicit source scope, proposed local defaults, independent energy/fluid controls, pediatric limitations, concise per-type notes and conditional food advice. Added saved calculation/provenance requirements. Version 2 implementation now uses the shared PHP calculator, persisted inputs and independent controls. Version-1 fixtures remain frozen; the later user-approved one-time conversion supersedes the initial no-conversion decision. |
 | 2026-10-03 | **Census download, fluid display, and menu-calendar boundary reconciled.** Census adds all nutritional-status totals and a direct identity-free selected-view PDF; fluid displays required, food-provided, and remaining drinking amounts without affecting meal generation; Menu Calendar retains only the letterhead, saved weekly menu, applicable snack rows, and signatories. No new clinical or nutrition source was introduced. |
 | 2026-10-02 | **Census and PES presentation override reconciled.** Census year/month summaries show age/sex, risk, and aggregate Nutrition care category totals. The category remains separate from confirmed medical diagnosis. PES cards show Assessment evidence but not source labels; server-side source gating remains authoritative. No new clinical or nutrition source was introduced. |
 | 2026-09-29 | **Dated-plan workflow and print boundary reconciled.** Complete immutable Intervention Plans replace active revision consumers; Monitoring remains visit data only; each plan owns zero or one menu; reports use newest-plan or selected-plan semantics. Added the 1,200-per-field/2,200-combined guidance limit and long-bond menu-first print contract. No new clinical source was introduced. |
@@ -550,4 +551,4 @@ Entries before 21 October 2026 describe historical decisions, not endorsement of
 
 ---
 
-*This reference records the revised clinical design and its limits. The shared PHP version-2 service is the current runtime authority; `prescription-targets.json` version 1 records legacy behavior only. Historical calculations retain their original version.*
+*This reference records the revised clinical design and its limits. The shared PHP version-2 service is the current runtime authority; `prescription-targets.json` version 1 records legacy behavior only. The explicitly approved one-time conversion updates old plans from their recorded measurement source; ordinary edits and birthdays never recalculate historical plans.*

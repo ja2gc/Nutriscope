@@ -58,7 +58,7 @@ class StoreInterventionRequest extends FormRequest
             'energy_adjustment_mode' => ['nullable', Rule::in(['none', 'surplus', 'deficit'])],
             'energy_adjustment_kcal' => ['nullable', 'integer', 'between:0,10000', 'required_if:energy_adjustment_mode,surplus,deficit'],
             'fluid_mode' => ['nullable', Rule::in(['estimated', 'restricted'])],
-            'calculation_options' => ['nullable', 'array:energy_per_kg,protein_per_kg,clinical_weight_kg,protein_weight_kg,weight_basis,nutrition_status,maternal_confirmed,refeeding_risk,fat_fraction'],
+            'calculation_options' => ['nullable', 'array:energy_per_kg,protein_per_kg,clinical_weight_kg,protein_weight_kg,weight_basis,nutrition_status,maternal_confirmed,refeeding_risk,malnutrition_note,fat_fraction'],
             'calculation_options.energy_per_kg' => ['nullable', 'numeric', 'gt:0', 'max:100'],
             'calculation_options.protein_per_kg' => ['nullable', 'numeric', 'gt:0', 'max:5'],
             'calculation_options.clinical_weight_kg' => ['nullable', 'numeric', 'between:1,400'],
@@ -67,6 +67,7 @@ class StoreInterventionRequest extends FormRequest
             'calculation_options.nutrition_status' => ['nullable', Rule::in(['adequate', 'malnutrition_or_muscle_loss', 'unconfirmed'])],
             'calculation_options.maternal_confirmed' => ['nullable', 'boolean'],
             'calculation_options.refeeding_risk' => ['nullable', 'boolean'],
+            'calculation_options.malnutrition_note' => ['nullable', 'boolean'],
             'calculation_options.fat_fraction' => ['nullable', 'numeric', 'gt:0', 'lt:1'],
         ];
     }
@@ -117,7 +118,7 @@ class StoreInterventionRequest extends FormRequest
 
                 $goalType = $this->input('goal_type');
                 $stage = $this->input('disease_stage');
-                if ($existing instanceof Intervention && $goalType === $existing->goal_type && $stage === $existing->disease_stage) {
+                if ($this->acceptsSavedGoalSelection()) {
                     return;
                 }
 
@@ -130,9 +131,17 @@ class StoreInterventionRequest extends FormRequest
                 }
 
                 if (! InterventionGoalCatalog::stageIsValid($goalType, $stage)) {
-                    $validator->errors()->add('disease_stage', 'The selected disease stage is invalid for the intervention goal.');
+                    $validator->errors()->add('disease_stage', 'Choose a current goal and type before calculating. Existing saved targets can still be edited without recalculation.');
                 }
             },
         ];
+    }
+
+    protected function acceptsSavedGoalSelection(): bool
+    {
+        $existing = $this->route('intervention');
+
+        return $existing instanceof Intervention && $this->input('goal_type') === $existing->goal_type
+            && $this->input('disease_stage') === $existing->disease_stage;
     }
 }

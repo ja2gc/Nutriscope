@@ -40,7 +40,7 @@ describe("PrescriptionCalculationPanel", () => {
 
     expect(html).toContain("Show calculations");
     expect(html).toContain('aria-expanded="false"');
-    expect(html).not.toContain("Baseline calculation");
+    expect(html).not.toContain("Measurements");
   });
 
   test("renders condensed context and one value per nutrient when expanded", () => {
@@ -50,7 +50,7 @@ describe("PrescriptionCalculationPanel", () => {
 
     expect(html).toContain("Hide calculations");
     expect(html).toContain('aria-expanded="true"');
-    expect(html).toContain("Baseline calculation");
+    expect(html).toContain("Measurements");
     expect(html).toContain("Final target");
     expect(html).toContain("1400 kcal");
     expect(html).toContain("BMR × PAL");

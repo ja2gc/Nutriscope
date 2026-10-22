@@ -17,6 +17,7 @@ export interface CalculationOptions {
   nutrition_status?: "adequate" | "malnutrition_or_muscle_loss" | "unconfirmed";
   maternal_confirmed?: boolean;
   refeeding_risk?: boolean;
+  malnutrition_note?: boolean;
   fat_fraction?: number;
 }
 

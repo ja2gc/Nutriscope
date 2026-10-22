@@ -21,6 +21,23 @@ const build = (changes: Partial<PrescriptionFormState> = {}, saved: CalculationS
     prescription: { ...prescription, ...changes }, snapshot: saved });
 
 describe("persisted prescription calculation trace", () => {
+  test("keeps patient goal guidance separate from calculation references", () => {
+    const trace = buildPrescriptionCalculationTrace({ goalType: "general_diet", stage: null,
+      prescription, snapshot, clinicalNotes: ["Choose varied foods in prescribed portions."] });
+    expect(trace.notes).toEqual(["Choose varied foods in prescribed portions."]);
+    expect(trace.context.find(row => row.label === "Reference")?.value).toContain("Mifflin");
+  });
+  test("limits display precision without changing stored inputs and exposes every equation variable", () => {
+    const saved = { ...snapshot, inputs: { weightKg: 60.512345, heightCm: 155.12345, ageYears: 51.5972602739726, sex: 'Female' as const, activityFactor: 1.375 }, baseline_energy_kcal: 1385.7164383561644 };
+    const trace = build({}, saved);
+    expect(trace.context.find(row => row.label === 'Age')?.value).toBe('51.6 years');
+    expect(trace.context.find(row => row.label === 'Activity factor')?.value).toBe('1.375');
+    expect(trace.context.find(row => row.label === 'Sex')?.value).toBe('Female');
+    expect(trace.context.find(row => row.label === 'Baseline estimated maintenance')?.value).toBe('1,386 kcal/day');
+    expect(JSON.stringify(trace)).not.toMatch(/\d\.\d{4,}|Calculation version/);
+    expect(saved.inputs.ageYears).toBe(51.5972602739726);
+    expect(trace.context.find(row => row.label === 'Baseline estimated maintenance')?.formulaName).toContain('51.6');
+  });
   test("shows baseline and the selected fixed deficit exactly once", () => {
     const trace = build();
     expect(trace.context.find(row => row.label === "Baseline estimated maintenance")?.value).toBe("1,881 kcal/day");
@@ -41,7 +58,7 @@ describe("persisted prescription calculation trace", () => {
       metrics: { weightKg: 100, heightCm: 185, ageYears: 60, sex: "Male", isAdult: true, activityFactor: 1.9 },
       prescription });
     expect(trace.targets.find(row => row.key === "energy_kcal")?.status).toBe("manual");
-    expect(trace.notes.join(" ")).toContain("without reconstructing");
+    expect(trace.notes).toEqual([]);
     expect(trace.context).not.toContainEqual(expect.objectContaining({ value: "100 kg" }));
   });
   test("shows only confirmed nutrient limits and falls back to nutrient units", () => {
@@ -58,8 +75,8 @@ describe("persisted prescription calculation trace", () => {
       calculated: { energy_kcal: 1345, protein_g: 34, fat_g: 37, carbs_g: 219, fluid_ml: 1500 },
     });
     expect(trace.context.find(row => row.label === "Baseline EER, growth included")?.formulaName).toContain("15 (normal growth)");
-    expect(trace.targets.find(row => row.key === "protein_g")?.calculation).toBe("1345 × 0.1 ÷ 4 = 34 g (rounded)");
-    expect(trace.notes.join(" ")).toContain("growth");
+    expect(trace.targets.find(row => row.key === "protein_g")?.calculation).toBe("1,345 × 0.1 ÷ 4 = 34 g");
+    expect(trace.context.find(row => row.label === "Growth allowance")?.value).toBe("15 kcal");
   });
   test("includes maternal additions once and keeps refeeding text out of arithmetic", () => {
     const trace = build({ calculation_options: { refeeding_risk: true } }, {
@@ -67,12 +84,12 @@ describe("persisted prescription calculation trace", () => {
       calculated: { ...snapshot.calculated, energy_kcal: 2181, protein_g: 97 },
     });
     expect(trace.targets.find(row => row.key === "energy_kcal")?.calculation).toBe("1,881 + 300 + 0 = 2,181 kcal");
-    expect(trace.targets.find(row => row.key === "protein_g")?.calculation).toBe("1 × 70 + 27 = 97 g (rounded)");
-    expect(trace.notes.join(" ")).toContain("notes only");
+    expect(trace.targets.find(row => row.key === "protein_g")?.calculation).toBe("1 × 70 + 27 = 97 g");
+    expect(trace.notes.join(" ")).not.toMatch(/rounding|notes only|Mifflin/);
   });
   test("does not fabricate zero measurements for manual plans", () => {
     const trace = build({}, { version: 2, method: "Clinician-entered prescription", inputs: {}, calculated: {} });
-    expect(trace.context.find(row => row.label === "Age at measurement")?.value).toBe("Not recorded");
+    expect(trace.context.find(row => row.label === "Age")?.value).toBe("Not recorded");
     expect(JSON.stringify(trace)).not.toContain("0 years");
   });
 });

@@ -31,7 +31,7 @@
         @endphp
         @if(isset($calculation['baseline_energy_kcal'], $calculation['calculated']['energy_kcal']))
             <div style="margin-top:2px;">
-                Baseline: {{ number_format($calculation['baseline_energy_kcal'], 2) }} kcal
+                Baseline: {{ number_format($calculation['baseline_energy_kcal']) }} kcal
                 + maternal addition {{ number_format($calculation['maternal_energy_kcal'] ?? 0) }} kcal
                 {{ ($calculation['signed_adjustment_kcal'] ?? 0) < 0 ? '−' : '+' }} fixed adjustment {{ number_format(abs($calculation['signed_adjustment_kcal'] ?? 0)) }} kcal
                 = calculated final {{ number_format($calculation['calculated']['energy_kcal']) }} kcal/day.

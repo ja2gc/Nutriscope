@@ -4,13 +4,18 @@ namespace Tests\Feature;
 
 use App\Models\Assessment;
 use App\Models\Diagnosis;
+use App\Models\FoodItem;
 use App\Models\Intervention;
+use App\Models\MealPlan;
 use App\Models\Monitoring;
 use App\Models\NcpRecord;
 use App\Models\Patient;
+use App\Models\Report;
 use App\Models\User;
+use App\Services\Reports\Generators\PatientMenuPlanGenerator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class InterventionCalculationV2Test extends TestCase
@@ -46,7 +51,7 @@ class InterventionCalculationV2Test extends TestCase
         $this->postJson("$url/autofill", $options)->assertOk()
             ->assertJsonPath('data.energy_kcal', 2181)
             ->assertJsonPath('data.fluid_ml', 1700)
-            ->assertJsonPath('data.guidance.strategies', 'Advance intake under clinical supervision with electrolyte monitoring; displayed calories are the final target; count all sources toward the fluid maximum.');
+            ->assertJsonPath('data.guidance.strategies', 'Your care team will guide gradual feeding increases and check your blood mineral levels; count drinks and water in foods toward your daily fluid limit.');
         $saved = $this->postJson($url, $options)->assertCreated()
             ->assertJsonPath('data.calculation_snapshot.version', 2)
             ->assertJsonPath('data.energy_adjustment_kcal', 300);
@@ -70,12 +75,12 @@ class InterventionCalculationV2Test extends TestCase
         $this->postJson("/api/rnd/ncp-records/{$record->uuid}/interventions", [
             'goal_type' => 'general_diet', 'energy_kcal' => 1900,
             'energy_adjustment_mode' => 'deficit', 'energy_adjustment_kcal' => 300,
-            'counseling_goals' => 'The total target includes −300 kcal/day; review weight, intake and tolerance.',
+            'counseling_goals' => 'Follow the portions in your plan; choose water instead of sugary drinks and tell your care team if you feel very hungry.',
             'calculation_snapshot' => ['version' => 999, 'baseline_energy_kcal' => 1],
         ])->assertCreated()->assertJsonPath('data.calculation_snapshot.version', 2)
             ->assertJsonPath('data.calculation_snapshot.manual_overrides.energy_kcal', 1900)
             ->assertJsonPath('data.calculation_snapshot.calculated.energy_kcal', 1581)
-            ->assertJsonPath('data.counseling_goals', 'Follow the confirmed energy target and review weight, intake and tolerance at follow-up.');
+            ->assertJsonPath('data.counseling_goals', 'Follow the portions in your meal plan; discuss appetite or weight changes with your care team.');
     }
 
     public function test_invalid_adjustments_and_missing_fluid_limit_are_rejected(): void
@@ -162,5 +167,114 @@ class InterventionCalculationV2Test extends TestCase
             ->assertJsonPath('data.goal_type', 'general_diet');
         $this->postJson("$url/autofill", ['goal_type' => 'general_diet', 'calculation_options' => ['weight_basis' => 'dry']])
             ->assertUnprocessable()->assertJsonValidationErrors('calculation_options.weight_basis');
+    }
+
+    public function test_guidance_only_accepts_an_existing_legacy_selection_without_recalculating(): void
+    {
+        $record = $this->record();
+        $plan = Intervention::factory()->create(['ncp_record_id' => $record->id,
+            'goal_type' => 'diabetic_control', 'disease_stage' => 'stage_1', 'energy_kcal' => 1600,
+        ]);
+        $before = $plan->fresh()->getAttributes();
+        $url = "/api/rnd/ncp-records/{$record->uuid}/interventions/autofill";
+        $payload = ['goal_type' => 'diabetic_control', 'disease_stage' => 'stage_1',
+            'guidance_only' => true, 'calculation_options' => ['refeeding_risk' => true],
+        ];
+        $this->postJson($url, $payload)->assertOk()
+            ->assertJsonMissingPath('data.energy_kcal')
+            ->assertJsonPath('data.guidance.strategies', 'Your care team will guide gradual feeding increases and check your blood mineral levels.');
+        $this->assertSame($before, $plan->fresh()->getAttributes());
+        $this->postJson($url, [...$payload, 'guidance_only' => false])->assertUnprocessable();
+        $this->postJson($url, [...$payload, 'disease_stage' => 'unknown'])->assertUnprocessable();
+        $plan->update(['goal_type' => 'malnutrition', 'disease_stage' => 'moderate']);
+        $this->postJson($url, [...$payload, 'goal_type' => 'malnutrition', 'disease_stage' => 'moderate'])->assertOk();
+    }
+
+    public function test_direct_fluid_edit_does_not_refresh_other_targets_from_new_monitoring(): void
+    {
+        $record = $this->record();
+        $url = "/api/rnd/ncp-records/{$record->uuid}/interventions";
+        $id = $this->postJson($url, ['goal_type' => 'general_diet'])->assertCreated()->json('data.id');
+        Monitoring::factory()->create(['ncp_record_id' => $record->id, 'weight' => 90, 'observed_at' => '2026-11-21']);
+        $this->patchJson("$url/$id", ['fluid_ml' => 1700, 'fluid_mode' => 'restricted', 'nutrient_operators' => ['fluid_ml' => 'max']])
+            ->assertOk()->assertJsonPath('data.energy_kcal', '1881.00')
+            ->assertJsonPath('data.calculation_snapshot.inputs.weightKg', 70)
+            ->assertJsonPath('data.fluid_mode', 'restricted')
+            ->assertJsonPath('data.calculation_snapshot.fluid_mode', 'estimated')
+            ->assertJsonPath('data.calculation_snapshot.manual_overrides.fluid_ml', 1700)
+            ->assertJsonPath('data.nutrient_operators.fluid_ml', 'max');
+    }
+
+    public function test_one_time_conversion_recalculates_old_plans_from_their_saved_measurements_and_is_repeatable(): void
+    {
+        Storage::fake('private_uploads');
+        $record = $this->record();
+        $record->patient->update(['medical_diagnosis' => 'Type 2 Diabetes Mellitus with Hypertension']);
+        $visit = Monitoring::factory()->create(['ncp_record_id' => $record->id, 'weight' => 60, 'height' => 170,
+            'edema_present' => false, 'physical_activity_level' => 'sedentary', 'pregnancy_lactation_status' => 'none',
+            'observed_at' => '2026-10-11',
+        ]);
+        $diabetes = Intervention::factory()->create(['ncp_record_id' => $record->id, 'source_monitoring_id' => $visit->id,
+            'goal_type' => 'diabetic_control', 'disease_stage' => 'stage_1', 'energy_kcal' => 800,
+            'education_notes' => 'Take the packed lunch agreed at your visit.',
+        ]);
+        $malnutrition = Intervention::factory()->create(['ncp_record_id' => $record->id,
+            'goal_type' => 'malnutrition', 'disease_stage' => 'moderate', 'energy_kcal' => 900,
+        ]);
+        Monitoring::factory()->create(['ncp_record_id' => $record->id, 'weight' => 90, 'observed_at' => '2026-11-21']);
+        $created = $diabetes->created_at->toDateTimeString();
+        $menu = MealPlan::factory()->create(['intervention_id' => $diabetes->id, 'patient_id' => $record->patient_id]);
+        $food = FoodItem::factory()->create();
+        $slot = $menu->days()->create(['day_of_week' => 'Monday', 'meal_type' => 'breakfast']);
+        $item = $slot->items()->create(['food_item_id' => $food->id, 'quantity' => 100, 'unit' => 'g',
+            'nutrient_snapshot' => ['name' => 'Fictional portion', 'serving_size' => 100, 'calories' => 400, 'protein' => 10, 'carbs' => 70, 'fat' => 5],
+        ]);
+        $report = Report::factory()->create(['type' => 'patient_menu_plan', 'audit_ncp_record_id' => $record->id,
+            'status' => 'completed', 'cache_expires_at' => now()->addDay(),
+        ]);
+        $parameterReport = Report::factory()->create(['type' => 'patient_menu_plan', 'audit_ncp_record_id' => null,
+            'parameters' => ['intervention_plan_id' => $diabetes->uuid],
+            'status' => 'completed', 'cache_expires_at' => now()->addDay(),
+        ]);
+        $migration = require database_path('migrations/2026_10_22_075626_recalculate_legacy_intervention_prescriptions.php');
+        $migration->up();
+        $this->assertSame('type_2', $diabetes->fresh()->disease_stage);
+        $this->assertSame('1761.00', $diabetes->fresh()->energy_kcal);
+        $this->assertSame('Take the packed lunch agreed at your visit.', $diabetes->fresh()->education_notes);
+        $this->assertSame($created, $diabetes->fresh()->created_at->toDateTimeString());
+        $this->assertSame('2026-10-11', $diabetes->fresh()->calculation_snapshot['measurement_date']);
+        $this->assertSame('general_diet', $malnutrition->fresh()->goal_type);
+        $this->assertNull($malnutrition->fresh()->disease_stage);
+        $this->assertSame('1881.00', $malnutrition->fresh()->energy_kcal);
+        $this->assertTrue($malnutrition->fresh()->calculation_options['malnutrition_note']);
+        $this->assertTrue($report->fresh()->cache_expires_at->lessThanOrEqualTo(now()));
+        $this->assertTrue($parameterReport->fresh()->cache_expires_at->lessThanOrEqualTo(now()));
+        $this->assertFalse($menu->fresh()->needs_rescaling);
+        $this->assertSame($food->id, $item->fresh()->food_item_id);
+        $this->assertSame(1, $slot->items()->count());
+        $data = app(PatientMenuPlanGenerator::class)->data(new Report([
+            'type' => 'patient_menu_plan', 'parameters' => ['intervention_plan_id' => $diabetes->uuid],
+        ]));
+        $this->assertSame(1761.0, $data['prescription']['energy_kcal']);
+        $after = $diabetes->fresh()->getAttributes();
+        $migration->up();
+        $this->assertSame($after, $diabetes->fresh()->getAttributes());
+        $this->assertCount(1, Storage::disk('private_uploads')->allFiles('maintenance'));
+    }
+
+    public function test_conversion_keeps_unidentified_diabetes_as_an_individual_plan_instead_of_guessing_type(): void
+    {
+        Storage::fake('private_uploads');
+        $record = $this->record();
+        $record->patient->update(['medical_diagnosis' => 'Diabetes, type not recorded']);
+        $plan = Intervention::factory()->create(['ncp_record_id' => $record->id,
+            'goal_type' => 'diabetic_control', 'disease_stage' => 'stage_1', 'energy_kcal' => 1800,
+        ]);
+        $migration = require database_path('migrations/2026_10_22_075626_recalculate_legacy_intervention_prescriptions.php');
+        $migration->up();
+        $this->assertSame('custom', $plan->fresh()->goal_type);
+        $this->assertNull($plan->fresh()->disease_stage);
+        $this->assertSame('1800.00', $plan->fresh()->energy_kcal);
+        $this->assertEquals(1800, $plan->fresh()->calculation_snapshot['manual_overrides']['energy_kcal']);
     }
 }

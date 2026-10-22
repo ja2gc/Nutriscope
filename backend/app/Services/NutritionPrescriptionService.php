@@ -319,7 +319,7 @@ class NutritionPrescriptionService
             default => 1.0,
         };
         if ($proteinCoefficient === null) {
-            throw new InvalidArgumentException('Confirm cirrhosis nutritional status or enter the assessed protein coefficient.');
+            throw new InvalidArgumentException('Confirm assessed cirrhosis nutritional status. If a standard protein target is unsuitable or unconfirmed, choose Custom Plan and enter the prescribed targets.');
         }
         $fatFraction = (float) ($m['fatFraction'] ?? 0.25);
         if (! is_finite($coefficient) || ! is_numeric($proteinCoefficient) || ! is_finite((float) $proteinCoefficient) || ! is_finite($fatFraction) || $coefficient <= 0 || $coefficient > 100 || $proteinCoefficient <= 0 || $proteinCoefficient > 5 || $fatFraction <= 0 || $fatFraction >= 1) {

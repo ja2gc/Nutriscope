@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\Assessment;
+use App\Models\Intervention;
+use App\Models\Monitoring;
 use App\Models\NcpRecord;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
@@ -22,15 +24,15 @@ class InterventionCalculationContextService
     }
 
     /** @return array<string, mixed> */
-    private function build(NcpRecord $ncpRecord): array
+    private function build(NcpRecord $ncpRecord, ?Monitoring $monitoring = null, bool $useLatest = true): array
     {
         $ncpRecord->loadMissing(['assessment', 'patient']);
         $assessment = $ncpRecord->assessment;
-        $monitoring = $ncpRecord->monitorings()
+        $monitoring = $useLatest ? $ncpRecord->monitorings()
             ->orderByDesc('observed_at')
             ->orderByDesc('created_at')
             ->orderByDesc('id')
-            ->first();
+            ->first() : $monitoring;
         $fields = [
             'weight',
             'height',
@@ -75,9 +77,9 @@ class InterventionCalculationContextService
         return $context;
     }
 
-    public function calculate(NcpRecord $ncpRecord, array $attributes): array
+    public function calculate(NcpRecord $ncpRecord, array $attributes, ?Intervention $savedPlan = null): array
     {
-        $context = $this->for($ncpRecord);
+        $context = $savedPlan === null ? $this->for($ncpRecord) : $this->build($ncpRecord, $savedPlan->sourceMonitoring, false);
         if (($attributes['goal_type'] ?? null) === 'custom') {
             if (! in_array($attributes['energy_adjustment_mode'] ?? 'none', [null, 'none'], true)) {
                 throw ValidationException::withMessages(['energy_adjustment_mode' => ['Custom Plan uses an individually entered final prescription.']]);

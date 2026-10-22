@@ -286,6 +286,54 @@ describe("intervention plans workspace", () => {
     expect(container.textContent).not.toContain("old assessment restriction");
   });
 
+  it("keeps legacy targets editable and puts note-only controls in their matching tabs", async () => {
+    const saved = await interventionService.fetchInterventionPlan('ncp-uuid', 'plan-newest');
+    vi.mocked(interventionService.fetchInterventionPlan).mockResolvedValueOnce({ ...saved, goal_type: 'diabetic_control', disease_stage: 'stage_1' });
+    searchParams = new URLSearchParams('plan=plan-newest');
+    await renderPage();
+    await clickButton('Food / Nutrient Delivery');
+    expect(container.textContent).toContain('Saved targets remain editable.');
+    const calculate = [...container.querySelectorAll('button')].find(button => button.textContent === 'Calculate targets');
+    expect(calculate?.disabled).toBe(true);
+    const energy = container.querySelector<HTMLInputElement>('[aria-label="Energy"]')!;
+    expect(energy.disabled).toBe(false);
+    expect(container.querySelector('[aria-label="Add malnutrition education note (notes only)"]')).toBeNull();
+    await clickButton('Education');
+    const note = container.querySelector<HTMLInputElement>('[aria-label="Add malnutrition education note (notes only)"]')!;
+    expect(note).not.toBeNull();
+    await act(async () => note.click());
+    expect(interventionService.autofillIntervention).toHaveBeenCalledWith('ncp-uuid', 'diabetic_control', 'stage_1', expect.objectContaining({ calculation_options: expect.objectContaining({ malnutrition_note: true }) }), true);
+    expect(energy.value).toBe('1900.00');
+    await clickButton('Counseling');
+    expect(container.querySelector('[aria-label="Add refeeding-risk strategy note (notes only)"]')).not.toBeNull();
+    expect(container.textContent).toContain('Changes the suggestion only; notes and targets stay unchanged.');
+  });
+
+  it("keeps suggested notes separate from prefilled fields and repeated copying", async () => {
+    const saved = await interventionService.fetchInterventionPlan('ncp-uuid', 'plan-newest');
+    vi.mocked(interventionService.fetchInterventionPlan).mockResolvedValueOnce({ ...saved, guidance: {
+      education_notes: 'Eat regular meals.', counseling_goals: 'Follow your portions.', strategies: 'Pack lunch.',
+    } });
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    searchParams = new URLSearchParams('plan=plan-newest');
+    await renderPage();
+    await clickButton('Education');
+    const field = container.querySelector<HTMLTextAreaElement>('[aria-label="Education notes"]')!;
+    expect(field.value).toBe('Meal timing');
+    expect(field.className).toContain('bg-white');
+    expect(container.textContent).not.toContain('Generate notes');
+    await clickButton('Show suggestion');
+    await clickButton('Copy');
+    await clickButton('Copied');
+    expect(writeText).toHaveBeenLastCalledWith('Eat regular meals.');
+    expect(field.value).toBe('Meal timing');
+    expect(interventionService.updateIntervention).not.toHaveBeenCalled();
+    await clickButton('Counseling');
+    expect(container.querySelectorAll('[aria-expanded="false"]').length).toBeGreaterThanOrEqual(2);
+    expect(container.querySelector<HTMLTextAreaElement>('[aria-label="Identified Barriers"]')?.value).toBe('Shift work');
+  });
+
   it("posts one complete plan then keeps its returned UUID editable", async () => {
     vi.mocked(interventionService.autofillIntervention).mockResolvedValueOnce({ energy_kcal: 2200, protein_g: 90, carbs_g: 300, fat_g: 70, fluid_ml: 2400, source_type: "monitoring", source_monitoring_id: "monitoring-uuid", source_monitoring_date: "2026-09-28" });
     await renderPage();
