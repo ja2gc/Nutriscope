@@ -13,8 +13,6 @@ interface Props {
   readOnly?: boolean;
   showSave?: boolean;
   totalCharacters: number;
-  refeedingNote?: boolean;
-  onRefeedingNoteChange?: (checked: boolean) => void;
 }
 
 function Area({ label, value, onChange, readOnly, suggestion }: { label: string; value: string; onChange: (v: string) => void; readOnly: boolean; suggestion?: string }) {
@@ -28,21 +26,13 @@ function Area({ label, value, onChange, readOnly, suggestion }: { label: string;
   );
 }
 
-export default function CounselingTab({ goals, barriers, strategies, goalsSuggestion, strategiesSuggestion, onChange, onSave, saving, readOnly = false, showSave = true, totalCharacters, refeedingNote, onRefeedingNoteChange }: Props) {
+export default function CounselingTab({ goals, barriers, strategies, goalsSuggestion, strategiesSuggestion, onChange, onSave, saving, readOnly = false, showSave = true, totalCharacters }: Props) {
   return (
     <div className="space-y-4">
       <Area label="Behavioral Goals" suggestion={goalsSuggestion}
         value={goals} onChange={(v) => onChange('counseling_goals', v)} readOnly={readOnly} />
       <Area label="Identified Barriers"
         value={barriers} onChange={(v) => onChange('barriers', v)} readOnly={readOnly} />
-      {!readOnly && onRefeedingNoteChange && <div className="space-y-1">
-        <label className="flex items-center gap-2 text-sm text-warm-700">
-          <input type="checkbox" aria-label="Add refeeding-risk strategy note (notes only)" checked={refeedingNote ?? false}
-            onChange={event => onRefeedingNoteChange(event.target.checked)} />
-          Include assessed refeeding-risk guidance in suggestion
-        </label>
-        <p className="text-xs text-warm-500">Changes the suggestion only; notes and targets stay unchanged.</p>
-      </div>}
       <Area label="Strategies" suggestion={strategiesSuggestion}
         value={strategies} onChange={(v) => onChange('strategies', v)} readOnly={readOnly} />
       <GuidanceCharacterCount total={totalCharacters} />

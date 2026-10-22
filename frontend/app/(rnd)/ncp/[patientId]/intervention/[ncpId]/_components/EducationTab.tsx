@@ -14,21 +14,11 @@ interface Props {
   readOnly?: boolean;
   showSave?: boolean;
   totalCharacters: number;
-  malnutritionNote?: boolean;
-  onMalnutritionNoteChange?: (checked: boolean) => void;
 }
 
-export default function EducationTab({ value, suggestion, onChange, onSave, saving, readOnly = false, showSave = true, totalCharacters, malnutritionNote, onMalnutritionNoteChange }: Props) {
+export default function EducationTab({ value, suggestion, onChange, onSave, saving, readOnly = false, showSave = true, totalCharacters }: Props) {
   return (
     <div className="space-y-4">
-      {!readOnly && onMalnutritionNoteChange && <div className="space-y-1">
-        <label className="flex items-center gap-2 text-sm text-warm-700">
-          <input type="checkbox" aria-label="Add malnutrition education note (notes only)" checked={malnutritionNote ?? false}
-            onChange={event => onMalnutritionNoteChange(event.target.checked)} />
-          Include assessed malnutrition guidance in suggestion
-        </label>
-        <p className="text-xs text-warm-500">Changes the suggestion only; notes and targets stay unchanged.</p>
-      </div>}
       <CharacterCountTextarea
         value={value}
         onChange={onChange}

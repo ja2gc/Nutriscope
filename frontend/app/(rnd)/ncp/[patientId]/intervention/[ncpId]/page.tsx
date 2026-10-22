@@ -817,9 +817,6 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
             readOnly={editorMode === "readonly"}
             showSave={false}
             totalCharacters={guidanceCharacters}
-            malnutritionNote={prescription.calculation_options?.malnutrition_note ?? (prescription.calculation_options?.nutrition_status === "malnutrition_or_muscle_loss")}
-            onMalnutritionNoteChange={checked => handlePrescriptionChange({ ...prescription,
-              calculation_options: { ...prescription.calculation_options, malnutrition_note: checked } })}
           />
         )}
 
@@ -839,9 +836,6 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
             readOnly={editorMode === "readonly"}
             showSave={false}
             totalCharacters={guidanceCharacters}
-            refeedingNote={prescription.calculation_options?.refeeding_risk}
-            onRefeedingNoteChange={checked => handlePrescriptionChange({ ...prescription,
-              calculation_options: { ...prescription.calculation_options, refeeding_risk: checked } })}
           />
         )}
 

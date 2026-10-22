@@ -286,7 +286,7 @@ describe("intervention plans workspace", () => {
     expect(container.textContent).not.toContain("old assessment restriction");
   });
 
-  it("keeps legacy targets editable and puts note-only controls in their matching tabs", async () => {
+  it("keeps legacy targets editable without suggestion inclusion checkboxes", async () => {
     const saved = await interventionService.fetchInterventionPlan('ncp-uuid', 'plan-newest');
     vi.mocked(interventionService.fetchInterventionPlan).mockResolvedValueOnce({ ...saved, goal_type: 'diabetic_control', disease_stage: 'stage_1' });
     searchParams = new URLSearchParams('plan=plan-newest');
@@ -299,14 +299,12 @@ describe("intervention plans workspace", () => {
     expect(energy.disabled).toBe(false);
     expect(container.querySelector('[aria-label="Add malnutrition education note (notes only)"]')).toBeNull();
     await clickButton('Education');
-    const note = container.querySelector<HTMLInputElement>('[aria-label="Add malnutrition education note (notes only)"]')!;
-    expect(note).not.toBeNull();
-    await act(async () => note.click());
-    expect(interventionService.autofillIntervention).toHaveBeenCalledWith('ncp-uuid', 'diabetic_control', 'stage_1', expect.objectContaining({ calculation_options: expect.objectContaining({ malnutrition_note: true }) }), true);
+    expect(container.querySelector('[aria-label="Add malnutrition education note (notes only)"]')).toBeNull();
     expect(energy.value).toBe('1900');
     await clickButton('Counseling');
-    expect(container.querySelector('[aria-label="Add refeeding-risk strategy note (notes only)"]')).not.toBeNull();
-    expect(container.textContent).toContain('Changes the suggestion only; notes and targets stay unchanged.');
+    expect(container.querySelector('[aria-label="Add refeeding-risk strategy note (notes only)"]')).toBeNull();
+    expect(container.textContent).not.toContain('Include assessed');
+    expect(interventionService.autofillIntervention).not.toHaveBeenCalled();
   });
 
   it("keeps suggested notes separate from prefilled fields and repeated copying", async () => {

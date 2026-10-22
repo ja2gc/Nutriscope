@@ -12,6 +12,7 @@ test("shows a collapsible selectable suggestion and copies without editing field
   const root = createRoot(host);
   await act(async () => root.render(<GuidanceSuggestion label="Education" text="Eat regular meals." />));
   expect(host.querySelector('[aria-expanded="false"]')).not.toBeNull();
+  expect(host.firstElementChild?.className).toContain('border-warm-200');
   await act(async () => (host.querySelector('[aria-expanded]') as HTMLButtonElement).click());
   expect(host.textContent).toContain("Eat regular meals.");
   const copy = host.querySelector('[aria-label="Copy suggested Education note"]') as HTMLButtonElement;
@@ -20,6 +21,7 @@ test("shows a collapsible selectable suggestion and copies without editing field
   expect(writeText).toHaveBeenCalledTimes(2);
   expect(writeText).toHaveBeenLastCalledWith("Eat regular meals.");
   expect(host.querySelector("textarea")).toBeNull();
+  expect(host.querySelector("input, [contenteditable] ")).toBeNull();
   writeText.mockRejectedValueOnce(new Error("Denied"));
   await act(async () => copy.click());
   expect(host.textContent).toContain("Select and copy the note text.");
