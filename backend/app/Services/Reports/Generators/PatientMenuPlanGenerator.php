@@ -119,8 +119,10 @@ class PatientMenuPlanGenerator implements ReportGenerator
         $snapshot = $this->currentSnapshot($interventionPlan);
         $dailyFoodFluid = round(array_sum($fluidByDay) / count(self::WEEK));
         $fluidTarget = (float) ($snapshot['fluid_ml'] ?? 0);
-        $maternalStatus = $interventionPlan->sourceMonitoring?->pregnancy_lactation_status
-            ?? $interventionPlan->ncpRecord?->assessment?->pregnancy_lactation_status;
+        $calculation = $snapshot['calculation_snapshot'] ?? [];
+        $maternalStatus = ! empty($calculation['maternal_protein_g'])
+            && empty($calculation['manual_overrides']['energy_kcal']) && empty($calculation['manual_overrides']['protein_g'])
+            ? ($calculation['inputs']['pregnancyLactationStatus'] ?? null) : null;
         $meals = array_values(array_filter(
             self::MEALS,
             fn (string $meal): bool => ! in_array($meal, ['AM Snack', 'PM Snack'], true)
@@ -145,11 +147,15 @@ class PatientMenuPlanGenerator implements ReportGenerator
                 'micronutrient_limits' => $snapshot['micronutrient_limits'] ?? [],
                 'nutrient_operators' => $snapshot['nutrient_operators'] ?? [],
                 'weight_target' => $snapshot['weight_target'] ?? [],
+                'calculation_snapshot' => $snapshot['calculation_snapshot'] ?? null,
+                'fluid_mode' => $snapshot['fluid_mode'] ?? null,
             ],
             'fluid_balance' => [
                 'required_fluid_ml' => $fluidTarget,
                 'food_fluid_ml' => $dailyFoodFluid,
                 'remaining_ml' => max(0, round($fluidTarget - $dailyFoodFluid)),
+                'exceeds_limit_days' => ($snapshot['fluid_mode'] ?? null) === 'restricted'
+                    ? array_keys(array_filter($fluidByDay, fn (float $value): bool => $value > $fluidTarget)) : [],
             ],
             'patient_guidance' => [
                 'education' => $snapshot['education_notes'] ?? null,
@@ -232,6 +238,7 @@ class PatientMenuPlanGenerator implements ReportGenerator
             'energy_kcal', 'protein_g', 'carbs_g', 'fat_g', 'fluid_ml',
             'micronutrient_limits', 'nutrient_operators', 'weight_target', 'education_notes', 'counseling_goals', 'strategies',
             'barriers',
+            'energy_adjustment_mode', 'energy_adjustment_kcal', 'fluid_mode', 'calculation_snapshot',
         ])->mapWithKeys(fn (string $field): array => [$field => $plan->getAttribute($field)])->all();
     }
 

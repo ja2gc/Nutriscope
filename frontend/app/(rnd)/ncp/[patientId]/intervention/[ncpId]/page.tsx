@@ -10,7 +10,6 @@ import {
   AutofillError, Intervention, type AutofillResult, type InterventionPlanSummary,
 } from "@/services/interventionService";
 import type { PaginationMeta } from "@/components/ui/Pagination";
-import { EDUCATION_TEMPLATES } from "@/lib/educationTemplates";
 import { fetchAssessment, type Assessment } from "@/services/assessmentService";
 import {
   fetchPatientById,
@@ -21,7 +20,7 @@ import {
 import { fetchDiagnoses } from "@/services/diagnosisService";
 import { fetchMonitoringContext } from "@/services/monitoringService";
 import {
-  autofillPrescription, Prescription, PatientMetrics, ACTIVITY_FACTORS, microKeys, calcIBW,
+  PatientMetrics, ACTIVITY_FACTORS, microKeys, calcIBW,
 } from "@/lib/nutritionCalculations";
 import {
   buildGoalPrescriptionForm,
@@ -32,6 +31,8 @@ import {
 } from "@/lib/interventionGoalState";
 import { buildPrescriptionCalculationTrace } from "@/lib/prescriptionCalculationTrace";
 import GoalSelectorModal, { GOALS } from "./_components/GoalSelectorModal";
+import { goalLabelFor, typeLabelFor } from "./_components/goals";
+import type { GuidanceSuggestion } from "@/services/interventionService";
 import { Button } from "@/components/ui/Button";
 import NutritionPrescriptionForm from "./_components/NutritionPrescriptionForm";
 import RecommendAvoidPanel from "./_components/RecommendAvoidPanel";
@@ -45,6 +46,7 @@ import { NcpBreadcrumb } from "@/components/ncp/NcpBreadcrumb";
 import {
   INTERVENTION_GUIDANCE_TOTAL_MAX,
   interventionGuidanceCharacters,
+  mergeGeneratedGuidance,
 } from "@/lib/interventionGuidance";
 
 type Tab = "plans" | "nd" | "education" | "counseling";
@@ -83,6 +85,11 @@ function interventionToForm(iv: Intervention): PrescriptionForm {
   const micronutrientLimits = iv.micronutrient_limits ?? {};
   return {
     weight_target: iv.weight_target ?? undefined,
+    energy_adjustment_mode: iv.energy_adjustment_mode ?? "none",
+    energy_adjustment_kcal: iv.energy_adjustment_kcal ? String(iv.energy_adjustment_kcal) : "",
+    fluid_mode: iv.fluid_mode,
+    calculation_options: iv.calculation_options ?? {},
+    calculation_snapshot: iv.calculation_snapshot,
     nutrient_operators: iv.nutrient_operators ?? {},
     energy_kcal: iv.energy_kcal != null ? String(iv.energy_kcal) : "",
     protein_g:   iv.protein_g   != null ? String(iv.protein_g)   : "",
@@ -122,8 +129,13 @@ function emptyIntervention(): Intervention {
 }
 
 function newPlanDraft(latest: Intervention | null): Intervention {
+  const supported = latest && GOALS.some(goal => goal.value === latest.goal_type &&
+    (goal.stages ? goal.stages.some(type => type.value === latest.disease_stage) : !latest.disease_stage));
   return {
     ...(latest ?? emptyIntervention()),
+    goal_type: supported ? latest.goal_type : null,
+    disease_stage: supported ? latest.disease_stage : null,
+    calculation_snapshot: null,
     id: "",
     source_monitoring_id: null,
     source_monitoring_date: null,
@@ -183,6 +195,14 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
   const [goalError, setGoalError]               = useState<string | null>(null);
   const [calculationWarning, setCalculationWarning] = useState<string | null>(null);
 
+  const [calculationDirty, setCalculationDirty] = useState(false);
+  const [ageAtMeasurement, setAgeAtMeasurement] = useState<number | null>(null);
+  const [guidance, setGuidance] = useState<GuidanceSuggestion | null>(null);
+  const generatedGuidance = useRef<Partial<GuidanceSuggestion>>({});
+  const guidanceValues = useRef({ education_notes: "", counseling_goals: "", strategies: "" });
+  const [pendingGuidance, setPendingGuidance] = useState<Partial<GuidanceSuggestion>>({});
+  const calculationRequest = useRef(0);
+
   const [educationNotes, setEducationNotes]   = useState("");
   const [counselingGoals, setCounselingGoals] = useState("");
   const [barriers, setBarriers]               = useState("");
@@ -201,6 +221,11 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
     setCounselingGoals(iv?.counseling_goals ?? "");
     setBarriers(iv?.barriers ?? "");
     setStrategies(iv?.strategies ?? "");
+    setGuidance(iv?.guidance ?? null);
+    generatedGuidance.current = iv?.guidance ?? {};
+    guidanceValues.current = { education_notes: iv?.education_notes ?? "", counseling_goals: iv?.counseling_goals ?? "", strategies: iv?.strategies ?? "" };
+    setPendingGuidance({});
+    setCalculationDirty(false);
     setPrescNote(undefined);
     setCalculationWarning(null);
     setGoalError(null);
@@ -215,22 +240,28 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
     setEditorMode("edit");
     setEditorError(null);
 
-    if (!draft.goal_type) return;
+    if (!draft.goal_type) {
+      if (latest?.goal_type) setCalculationWarning("Select a supported goal for this new plan. The previous plan is unchanged.");
+      return;
+    }
 
     try {
-      const filled = await autofillIntervention(ncpId, draft.goal_type, draft.disease_stage);
+      const filled = await autofillIntervention(ncpId, draft.goal_type, draft.disease_stage, draft);
       setIntervention((current) => current ? {
         ...current,
         source_monitoring_id: filled.source_monitoring_id ?? null,
         source_monitoring_date: filled.source_monitoring_date ?? null,
       } : current);
+      setGuidance(filled.guidance ?? null);
+      setPrescription(current => ({ ...current, calculation_snapshot: filled.calculation_snapshot }));
       if (!latest) {
-        setPrescription(buildGoalPrescriptionForm(draft.goal_type, filled));
+        setPrescription(current => ({ ...current, ...buildGoalPrescriptionForm(draft.goal_type!, filled) }));
         setPrescNote(prescriptionNote(filled));
       }
     } catch (error) {
       const missing = error instanceof AutofillError ? error.missingFields : [];
       const missingText = missing.length ? ` Missing: ${missing.map(formatMissingField).join(", ")}.` : "";
+      setCalculationDirty(true);
       setCalculationWarning(`Prescription calculation incomplete.${missingText}`);
     }
   }, [applyIntervention, ncpId]);
@@ -306,35 +337,19 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
         setWorkflowBlock(null);
       }
 
-      // Derive age from patient DOB
-      let ageYears = 30;
-      if (p?.dob) {
-        const b = new Date(p.dob);
-        const now = new Date();
-        let age = now.getFullYear() - b.getFullYear();
-        const m = now.getMonth() - b.getMonth();
-        if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age -= 1;
-        ageYears = Math.max(0, age);
-      }
-      const sex = (p?.sex as "Male" | "Female") ?? "Male";
-
+      const ageYears = effective && "age_years" in effective ? effective.age_years : null;
+      setAgeAtMeasurement(ageYears == null ? null : Number(ageYears));
+      const sex = effective && "sex" in effective ? effective.sex : p?.sex;
       const calculationWeight = effective?.edema_present ? effective?.dry_weight_kg : effective?.weight;
-      if (calculationWeight && effective?.height) {
+      if (calculationWeight && effective?.height && ageYears != null && (sex === "Male" || sex === "Female")) {
         const palKey = effective.physical_activity_level ?? "sedentary";
-        const activityFactor = ACTIVITY_FACTORS[palKey]?.factor ?? 1.2;
         setPatientMetrics({
-          weightKg: parseFloat(String(calculationWeight)),
-          heightCm: parseFloat(String(effective.height)),
-          ageYears: effective && "age_years" in effective && effective.age_years != null ? effective.age_years : ageYears,
-          sex: effective && "sex" in effective && effective.sex ? effective.sex as "Male" | "Female" : sex,
-          isAdult: (effective && "age_years" in effective && effective.age_years != null ? effective.age_years : ageYears) >= 18,
-          activityFactor,
-          // PDRI pregnancy/lactation add-on — keeps the live preview in step with
-          // the backend engine (which reads the same assessment field).
-          pregnancyLactationStatus:
-            effective.pregnancy_lactation_status ?? "none",
+          weightKg: Number(calculationWeight), heightCm: Number(effective.height),
+          ageYears: Number(ageYears), sex, isAdult: Number(ageYears) >= 18,
+          activityFactor: ACTIVITY_FACTORS[palKey]?.factor ?? 1.2,
+          pregnancyLactationStatus: effective.pregnancy_lactation_status ?? "none",
         });
-      }
+      } else setPatientMetrics(null);
       setFoodDislikes(Array.isArray(effective?.food_dislikes)
         ? effective.food_dislikes.map((d: string) => d.toLowerCase())
         : []);
@@ -359,53 +374,116 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
     if (!isPlaceholder) void loadMetrics();
   }, [isPlaceholder, loadMetrics]);
 
-  const handleGoalConfirm = async (goalType: string, stage: string | null) => {
-    setGoalError(null);
-    setCalculationWarning(null);
-    setGoalModalOpen(false);
-    if (editorMode !== "edit") return;
+  const applyGuidance = (suggestion?: GuidanceSuggestion) => {
+    if (!suggestion) return;
+    const merged = mergeGeneratedGuidance(guidanceValues.current, generatedGuidance.current, suggestion);
+    guidanceValues.current = merged.values;
+    setEducationNotes(merged.values.education_notes);
+    setCounselingGoals(merged.values.counseling_goals);
+    setStrategies(merged.values.strategies);
+    setPendingGuidance(merged.pending);
+    generatedGuidance.current = suggestion;
+    setGuidance(suggestion);
+  };
 
-    setIntervention((current) => ({
-      ...(current ?? emptyIntervention()),
-      goal_type: goalType,
-      disease_stage: stage,
-    }));
-    setDirty(true);
+  const calculationPayload = (form: PrescriptionForm): Partial<Intervention> => ({
+    recalculate: form.recalculate ?? false,
+    energy_adjustment_mode: form.energy_adjustment_mode ?? "none",
+    energy_adjustment_kcal: form.energy_adjustment_mode === "none" ? 0 : Number(form.energy_adjustment_kcal),
+    fluid_mode: form.fluid_mode,
+    fluid_ml: form.fluid_ml ? Number(form.fluid_ml) : null,
+    calculation_options: form.calculation_options,
+  });
 
-    let preview: Prescription | null = null;
-    let form = buildGoalPrescriptionForm(goalType, null);
-    if (patientMetrics && patientMetrics.pregnancyLactationStatus !== "pregnant_unspecified") {
-      preview = autofillPrescription(goalType, stage, patientMetrics);
-      form = buildGoalPrescriptionForm(goalType, preview);
-      setPrescNote(prescriptionNote(preview));
-    }
-    setPrescription(form);
-
-    if (!educationNotes.trim() && EDUCATION_TEMPLATES[goalType]) {
-      setEducationNotes(EDUCATION_TEMPLATES[goalType]);
-    }
-
+  const calculateTargets = async (goal: string, stage: string | null, form: PrescriptionForm) => {
+    const requestId = ++calculationRequest.current;
     setSaving(true);
+    setCalculationWarning(null);
     try {
-      const authoritative = await autofillIntervention(ncpId, goalType, stage);
-      setPrescription(buildGoalPrescriptionForm(goalType, authoritative));
-      setPrescNote(prescriptionNote(authoritative));
-      setIntervention((current) => current ? {
-        ...current,
-        source_monitoring_id: authoritative.source_monitoring_id ?? null,
-        source_monitoring_date: authoritative.source_monitoring_date ?? null,
-      } : current);
-    } catch (err) {
-      const missing = err instanceof AutofillError ? err.missingFields : [];
-      const missingText = missing.length ? ` Missing: ${missing.map(formatMissingField).join(", ")}.` : "";
-      setCalculationWarning(`Prescription calculation incomplete.${missingText}`);
-      if (!preview) setPrescNote("Complete the required assessment values before calculation.");
+      const result = await autofillIntervention(ncpId, goal, stage, calculationPayload(form));
+      if (requestId !== calculationRequest.current) return;
+      setPrescription({ ...form, ...(goal === "custom" ? {} : buildGoalPrescriptionForm(goal, result)),
+        calculation_snapshot: result.calculation_snapshot,
+        fluid_mode: result.fluid_mode,
+        fluid_ml: result.fluid_ml == null ? form.fluid_ml : String(result.fluid_ml),
+        micronutrient_limits: form.micronutrient_limits,
+        displayed_nutrients: form.displayed_nutrients,
+        nutrient_operators: { ...form.nutrient_operators, ...result.nutrient_operators },
+        recalculate: true,
+        energy_adjustment_mode: form.energy_adjustment_mode ?? "none",
+        energy_adjustment_kcal: form.energy_adjustment_kcal,
+        calculation_options: form.calculation_options,
+        weight_target: form.weight_target,
+      });
+      setIntervention(current => current ? { ...current, source_monitoring_id: result.source_monitoring_id ?? null,
+        source_monitoring_date: result.source_monitoring_date ?? null } : current);
+      setPrescNote(prescriptionNote(result));
+      applyGuidance(result.guidance);
+      setCalculationDirty(false);
+      setDirty(true);
+    } catch (error) {
+      if (requestId !== calculationRequest.current) return;
+      setCalculationDirty(true);
+      setCalculationWarning(error instanceof Error ? error.message : "Calculation unavailable. Review the inputs.");
+      try {
+        const notes = await autofillIntervention(ncpId, goal, stage, calculationPayload(form), true);
+        if (requestId === calculationRequest.current) applyGuidance(notes.guidance);
+      } catch { /* The calculation error remains visible. */ }
     } finally {
-      setSaving(false);
+      if (requestId === calculationRequest.current) setSaving(false);
+    }
+  };
+
+  const handleGoalConfirm = async (goalType: string, stage: string | null) => {
+    if (editorMode !== "edit") return;
+    setGoalError(null);
+    setGoalModalOpen(false);
+    setIntervention(current => ({ ...(current ?? emptyIntervention()), goal_type: goalType, disease_stage: stage }));
+    const form: PrescriptionForm = {
+      ...prescription, calculation_snapshot: null,
+      energy_adjustment_mode: goalType === "custom" ? "none" : prescription.energy_adjustment_mode ?? "none",
+      energy_adjustment_kcal: goalType === "custom" ? "" : prescription.energy_adjustment_kcal,
+      calculation_options: { ...prescription.calculation_options, energy_per_kg: undefined, protein_per_kg: undefined },
+    };
+    setPrescription(form);
+    setDirty(true);
+    await calculateTargets(goalType, stage, form);
+  };
+
+  const handlePrescriptionChange = (form: PrescriptionForm) => {
+    const options = (value: PrescriptionForm) => {
+      const { refeeding_risk: _risk, nutrition_status, ...clinical } = value.calculation_options ?? {};
+      void _risk;
+      return intervention?.goal_type === "liver_disease" ? { ...clinical, nutrition_status } : clinical;
+    };
+    const controlsChanged = form.energy_adjustment_mode !== prescription.energy_adjustment_mode ||
+      form.energy_adjustment_kcal !== prescription.energy_adjustment_kcal || form.fluid_mode !== prescription.fluid_mode ||
+      JSON.stringify(options(form)) !== JSON.stringify(options(prescription)) ||
+      (form.fluid_mode === "restricted" && form.fluid_ml !== prescription.fluid_ml);
+    if (controlsChanged) setCalculationDirty(true);
+    const notesChanged = JSON.stringify(form.calculation_options) !== JSON.stringify(prescription.calculation_options);
+    setPrescription(form);
+    setDirty(true);
+    const energyEdited = form.energy_kcal !== prescription.energy_kcal;
+    if ((notesChanged || energyEdited) && intervention?.goal_type && !controlsChanged) {
+      const requestId = ++calculationRequest.current;
+      const payload = calculationPayload(form);
+      if (form.calculation_snapshot?.calculated.energy_kcal != null && Number(form.energy_kcal) !== form.calculation_snapshot.calculated.energy_kcal) {
+        payload.energy_adjustment_mode = "none";
+        payload.energy_adjustment_kcal = 0;
+      }
+      void autofillIntervention(ncpId, intervention.goal_type, intervention.disease_stage, payload, true)
+        .then(result => { if (requestId === calculationRequest.current) applyGuidance(result.guidance); })
+        .catch(error => { if (requestId === calculationRequest.current) setGoalError(error instanceof Error ? error.message : "Could not update guidance."); });
     }
   };
 
   const savePlan = async (): Promise<string | null> => {
+    if (calculationDirty) {
+      setEditorError("Calculate targets after changing the goal or calculation inputs before saving.");
+      setTab("nd");
+      return null;
+    }
     const targetError = weightTargetError(prescription.weight_target);
     if (targetError) { setEditorError(targetError); setTab('nd'); return null; }
     if (!intervention?.goal_type) {
@@ -413,7 +491,8 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
       setTab("nd");
       return null;
     }
-    if (guidanceCharacters > INTERVENTION_GUIDANCE_TOTAL_MAX) {
+    const guidanceChanged = educationNotes !== (intervention?.education_notes ?? "") || counselingGoals !== (intervention?.counseling_goals ?? "") || barriers !== (intervention?.barriers ?? "") || strategies !== (intervention?.strategies ?? "");
+    if (guidanceChanged && guidanceCharacters > INTERVENTION_GUIDANCE_TOTAL_MAX) {
       setEditorError(`Shorten education and counseling guidance by ${guidanceCharacters - INTERVENTION_GUIDANCE_TOTAL_MAX} characters before saving.`);
       return null;
     }
@@ -423,6 +502,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
     try {
       const persist = selectedPlanId ? (id: string, payload: Partial<Intervention>) => updateIntervention(id, selectedPlanId, payload) : createIntervention;
       const created = await persist(ncpId, {
+        ...calculationPayload(prescription),
         goal_type: intervention.goal_type,
         disease_stage: intervention.disease_stage,
         energy_kcal: prescription.energy_kcal ? parseFloat(prescription.energy_kcal) : null,
@@ -518,29 +598,15 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
     }
   };
 
-  const goalLabel  = GOALS.find((g) => g.value === intervention?.goal_type)?.label;
-  const stageLabel = GOALS
-    .find((g) => g.value === intervention?.goal_type)
-    ?.stages?.find((s) => s.value === intervention?.disease_stage)?.label;
-  const recommendedPrescription = intervention?.goal_type && intervention.goal_type !== "custom" && patientMetrics
-    && patientMetrics.pregnancyLactationStatus !== "pregnant_unspecified"
-    ? autofillPrescription(intervention.goal_type, intervention.disease_stage, patientMetrics)
-    : null;
-  const requiredMicros = recommendedPrescription
-    ? buildGoalPrescriptionForm(intervention?.goal_type ?? "", recommendedPrescription).displayed_nutrients
-    : [];
-  const calculationTrace = intervention?.goal_type && patientMetrics
-    && patientMetrics.pregnancyLactationStatus !== "pregnant_unspecified"
+  const goalLabel = goalLabelFor(intervention?.goal_type);
+  const stageLabel = typeLabelFor(intervention?.goal_type, intervention?.disease_stage);
+  const requiredMicros: string[] = [];
+  const isPediatric = (prescription.calculation_snapshot?.inputs.ageYears ?? ageAtMeasurement ?? patientMetrics?.ageYears ?? 18) < 18;
+  const calculationTrace = intervention?.goal_type
     ? buildPrescriptionCalculationTrace({
-        goalType: intervention.goal_type,
-        stage: intervention.disease_stage,
-        goalLabel,
-        stageLabel,
-        metrics: patientMetrics,
-        prescription,
-        requiredMicros,
-      })
-    : null;
+        goalType: intervention.goal_type, stage: intervention.disease_stage, goalLabel, stageLabel,
+        prescription, snapshot: prescription.calculation_snapshot,
+      }) : null;
 
   if (isPlaceholder) return <PlaceholderState />;
   if (!loading && !workflowLoading && workflowBlock) {
@@ -686,14 +752,19 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
             {/* [B] Prescription */}
             <NutritionPrescriptionForm
               values={prescription}
-              defaultWeightTarget={editorMode === 'edit' && patientMetrics ? Math.round(calcIBW(patientMetrics.heightCm, patientMetrics.sex) * 10) / 10 : null}
-              onChange={(v) => { setPrescription(v); setDirty(true); }}
+              defaultWeightTarget={editorMode === 'edit' && patientMetrics?.isAdult ? Math.round(calcIBW(patientMetrics.heightCm, patientMetrics.sex) * 10) / 10 : null}
+              onChange={handlePrescriptionChange}
+              hasMaternalStatus={!["none", ""].includes(patientMetrics?.pregnancyLactationStatus ?? "none")}
+              goalType={intervention?.goal_type}
+              isPediatric={isPediatric}
+              calculationDirty={calculationDirty}
+              onCalculate={() => { if (intervention?.goal_type) void calculateTargets(intervention.goal_type, intervention.disease_stage, prescription); }}
               onSave={savePlan}
               saving={saving}
               note={prescNote}
               requiredMicros={requiredMicros}
               goalLabel={goalLabel}
-              calculationTrace={editorMode === "edit" ? calculationTrace : null}
+              calculationTrace={calculationTrace}
               readOnly={editorMode === "readonly"}
               showSave={false}
             />
@@ -702,7 +773,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
             {intervention?.goal_type && (
               <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm space-y-3">
                 <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Food Recommendations</h3>
-                <RecommendAvoidPanel goalType={intervention.goal_type} />
+                <RecommendAvoidPanel guide={guidance?.foods} allergens={allergens} isYoungInfant={isPediatric && (prescription.calculation_snapshot?.inputs.ageMonths ?? (prescription.calculation_snapshot?.inputs.ageYears ?? patientMetrics?.ageYears ?? 18) * 12) < 6} />
               </div>
             )}
 
@@ -730,10 +801,30 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
           </div>
 
         {/* Education */}
+        {Object.values(pendingGuidance).some(Boolean) && editorMode === "edit" && (
+          <details className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <summary className="cursor-pointer text-sm font-bold text-amber-900">Updated guidance available — your edits were kept</summary>
+            {(["education_notes", "counseling_goals", "strategies"] as const).filter(field => pendingGuidance[field]).map(field => (
+              <div key={field} className="mt-3 space-y-2">
+                <p className="text-sm text-warm-800">{pendingGuidance[field]}</p>
+                <Button variant="secondary" onClick={() => {
+                  const value = pendingGuidance[field]!;
+                  guidanceValues.current[field] = value;
+                  if (field === "education_notes") setEducationNotes(value);
+                  else if (field === "counseling_goals") setCounselingGoals(value);
+                  else setStrategies(value);
+                  setPendingGuidance(current => ({ ...current, [field]: undefined }));
+                  setDirty(true);
+                }}>Use suggested {field.replaceAll("_", " ")}</Button>
+              </div>
+            ))}
+          </details>
+        )}
+
         {tab === "education" && (
           <EducationTab
             value={educationNotes}
-            onChange={(v) => { setEducationNotes(v); setDirty(true); }}
+            onChange={(v) => { guidanceValues.current.education_notes = v; setEducationNotes(v); setDirty(true); }}
             onSave={savePlan}
             saving={saving}
             readOnly={editorMode === "readonly"}
@@ -748,9 +839,9 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
             goals={counselingGoals} barriers={barriers} strategies={strategies}
             onChange={(field, val) => {
               setDirty(true);
-              if (field === 'counseling_goals') setCounselingGoals(val);
+              if (field === 'counseling_goals') { guidanceValues.current.counseling_goals = val; setCounselingGoals(val); }
               if (field === 'barriers') setBarriers(val);
-              if (field === 'strategies') setStrategies(val);
+              if (field === 'strategies') { guidanceValues.current.strategies = val; setStrategies(val); }
             }}
             onSave={savePlan}
             saving={saving}
@@ -768,6 +859,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
       {goalModalOpen && editorMode === "edit" && (
         <GoalSelectorModal
           onConfirm={handleGoalConfirm}
+          isPediatric={isPediatric}
           onClose={() => setGoalModalOpen(false)}
           initialGoal={intervention?.goal_type}
           initialStage={intervention?.disease_stage}

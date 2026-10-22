@@ -28,6 +28,8 @@ use App\Models\Supplier;
 use App\Models\User;
 use App\Services\FSS\PurchaseOrderLifecycleService;
 use App\Services\FSS\ShoppingListPopulationService;
+use App\Support\InterventionGoalCatalog;
+use App\Support\InterventionGuidance;
 use Carbon\CarbonImmutable;
 use Database\Seeders\AdminUserSeeder;
 use Database\Seeders\AiUsageLimitSeeder;
@@ -134,6 +136,9 @@ class DemoSeederCurrentContractTest extends TestCase
                 $this->assertCount(1, $record->interventions);
                 $this->assertNotEmpty($record->diagnoses);
                 $intervention = $record->interventions->sole();
+                $this->assertContains($intervention->goal_type, InterventionGoalCatalog::goalTypes());
+                $this->assertTrue(InterventionGoalCatalog::stageIsValid($intervention->goal_type, $intervention->disease_stage));
+                $this->assertLessThanOrEqual(2200, InterventionGuidance::characterCount($intervention->toArray()));
                 $this->assertNotNull($intervention->mealPlan);
                 $this->assertNotNull($intervention->uuid);
                 $this->assertNull($intervention->mealPlan->intervention_revision_id);
@@ -481,7 +486,7 @@ class DemoSeederCurrentContractTest extends TestCase
             ->where('nutrient_or_food_tag', 'fiber')
             ->where('rule_type', 'recommend')
             ->sole();
-        $this->assertSame(25.0, (float) $dmFiber->threshold);
+        $this->assertNull($dmFiber->threshold);
         $this->assertSame('Dietary fiber supports glycemic control and should be individualized within the prescription.', $dmFiber->reason);
         $this->assertFalse(ClinicalRule::query()
             ->where('condition', 'DM')

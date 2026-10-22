@@ -15,6 +15,7 @@ use App\Models\RecipeIngredient;
 use App\Models\Report;
 use App\Models\ReportBranding;
 use App\Models\User;
+use App\Services\NutritionPrescriptionService;
 use App\Services\Reports\Generators\PatientMenuPlanGenerator;
 use App\Services\Reports\ReportBrowser;
 use App\Services\Reports\ReportService;
@@ -347,6 +348,13 @@ class PatientMenuPlanGeneratorTest extends TestCase
             'ncp_record_id' => $plan->intervention->ncp_record_id,
             'pregnancy_lactation_status' => 'pregnant_t2',
         ]);
+        $result = (new NutritionPrescriptionService)->autofill('general_diet', null, [
+            'weightKg' => 60, 'heightCm' => 160, 'ageYears' => 30, 'sex' => 'Female',
+            'activityFactor' => 1.2, 'pregnancyLactationStatus' => 'pregnant_t2',
+        ]);
+        $plan->intervention->update(array_intersect_key($result, array_flip([
+            'energy_kcal', 'protein_g', 'carbs_g', 'fat_g', 'fluid_ml', 'calculation_snapshot',
+        ])));
         $report = new Report([
             'title' => 'Nutrition Intervention Plan',
             'type' => 'patient_menu_plan',
@@ -372,7 +380,7 @@ class PatientMenuPlanGeneratorTest extends TestCase
         $this->assertStringNotContainsString('USDA source', $plain);
     }
 
-    public function test_report_uses_current_lactating_status_for_maternal_note(): void
+    public function test_report_does_not_infer_maternal_additions_from_current_assessment(): void
     {
         $plan = $this->makePlan();
         Assessment::factory()->create([
@@ -385,10 +393,7 @@ class PatientMenuPlanGeneratorTest extends TestCase
             'parameters' => ['meal_plan_id' => $plan->id],
         ]));
 
-        $this->assertSame(
-            'Final targets include the confirmed lactation adjustment.',
-            $data['maternal_note'],
-        );
+        $this->assertNull($data['maternal_note']);
     }
 
     public function test_report_omits_empty_snack_rows_and_keeps_populated_snack_rows(): void

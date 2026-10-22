@@ -113,6 +113,7 @@ vi.mock("@/services/interventionService", () => ({
     carbs_g: 250,
     fat_g: 60,
     fluid_ml: 2000,
+    calculation_snapshot: { version: 2, method: "Clinician-entered prescription", measurement_date: "2026-09-28", inputs: { weightKg: 60.8, heightCm: 170, ageYears: 36 }, calculated: {} },
     source_type: "monitoring",
     source_monitoring_id: "monitoring-uuid",
     source_monitoring_date: "2026-09-28",

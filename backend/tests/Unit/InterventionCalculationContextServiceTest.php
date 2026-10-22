@@ -45,7 +45,7 @@ class InterventionCalculationContextServiceTest extends TestCase
         $this->assertSame('moderate', $context['physical_activity_level']);
         $this->assertSame('lactating', $context['pregnancy_lactation_status']);
         $this->assertSame(['shellfish'], $context['allergies']);
-        $this->assertSame(30, $context['age_years']);
+        $this->assertSame(30.0, $context['age_years']);
         $this->assertSame('Female', $context['sex']);
     }
 

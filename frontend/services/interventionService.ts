@@ -8,7 +8,65 @@ export interface MicronutrientLimit {
   unit: string;
 }
 
+export interface CalculationOptions {
+  energy_per_kg?: number;
+  protein_per_kg?: number;
+  clinical_weight_kg?: number;
+  protein_weight_kg?: number;
+  weight_basis?: "measured" | "dry" | "clinician_selected";
+  nutrition_status?: "adequate" | "malnutrition_or_muscle_loss" | "unconfirmed";
+  maternal_confirmed?: boolean;
+  refeeding_risk?: boolean;
+  fat_fraction?: number;
+}
+
+export interface CalculationSnapshot {
+  protein_fraction?: number;
+  eer_coefficients?: number[];
+  growth_energy_kcal?: number;
+  pediatric_activity_category?: string | null;
+  version: number;
+  method: string;
+  source?: string;
+  measurement_date?: string | null;
+  inputs: { weightKg?: number; heightCm?: number; ageYears?: number; ageMonths?: number; sex?: string; activityFactor?: number; pregnancyLactationStatus?: string };
+  weight_kg?: number;
+  protein_weight_kg?: number;
+  weight_basis?: string;
+  resting_energy_kcal?: number | null;
+  baseline_energy_kcal?: number | null;
+  baseline_kind?: string;
+  energy_per_kg?: number | null;
+  protein_per_kg?: number;
+  fat_fraction?: number;
+  energy_adjustment_mode?: string;
+  energy_adjustment_kcal?: number;
+  signed_adjustment_kcal?: number;
+  maternal_energy_kcal?: number;
+  maternal_protein_g?: number;
+  maternal_water_guidance_ml?: number;
+  fluid_mode?: string;
+  fluid_formula?: string;
+  calculated: Record<string, number | null>;
+  manual_overrides?: Record<string, number>;
+}
+
+export interface FoodGuide { choose: string; limit: string; context: string }
+export interface GuidanceSuggestion {
+  education_notes: string;
+  counseling_goals: string;
+  strategies: string;
+  foods?: FoodGuide;
+}
+
 export interface Intervention {
+  recalculate?: boolean;
+  energy_adjustment_mode?: "none" | "surplus" | "deficit" | null;
+  energy_adjustment_kcal?: number | null;
+  fluid_mode?: "estimated" | "restricted" | null;
+  calculation_options?: CalculationOptions | null;
+  calculation_snapshot?: CalculationSnapshot | null;
+  guidance?: GuidanceSuggestion;
   weight_target?: { target?: number; min?: number; max?: number } | null;
   nutrient_operators?: Record<string, 'min' | 'max'> | null;
   id: string;
@@ -54,7 +112,7 @@ export interface InterventionPlanPage {
 export interface RecommendResult {
   recommend: { tag: string; condition: string; reason: string }[];
   avoid:     { tag: string; condition: string; reason: string }[];
-  limits:    { tag: string; condition: string; reason: string; threshold: number; unit: string }[];
+  limits:    { tag: string; condition: string; reason: string; threshold: number | null; unit: string }[];
 }
 
 const plansBase = (ncpId: string) => `/api/rnd/ncp-records/${ncpId}/interventions`;
@@ -115,11 +173,15 @@ export async function createIntervention(ncpId: string, payload: Partial<Interve
 
 /** Authoritative prescription from the backend engine (Phase 2/2.4 — source of truth). */
 export interface AutofillResult {
-  energy_kcal: number;
-  protein_g: number;
-  carbs_g: number;
-  fat_g: number;
-  fluid_ml: number;
+  energy_kcal: number | null;
+  protein_g: number | null;
+  carbs_g: number | null;
+  fat_g: number | null;
+  fluid_ml: number | null;
+  fluid_mode?: "estimated" | "restricted";
+  nutrient_operators?: Record<string, "min" | "max">;
+  calculation_snapshot?: CalculationSnapshot;
+  guidance?: GuidanceSuggestion;
   fiber_g?: number;
   sodium_max_mg?: number;
   free_sugar_max_pct?: number;
@@ -130,7 +192,7 @@ export interface AutofillResult {
     final: { energy_kcal: number; protein_g: number; fluid_ml: number };
     source_key: string;
   };
-  calculation_status?: "ok" | "warning" | "incomplete" | "invalid_goal_stage" | "maternal_status_confirmation_required";
+  calculation_status?: "ok" | "warning" | "incomplete" | "invalid_goal_stage" | "maternal_status_confirmation_required" | "manual_targets_required";
   safety_warnings?: { key: string; severity: "warning" | "critical"; message: string }[];
   note?: string;
   source_type?: "assessment" | "monitoring";
@@ -149,19 +211,26 @@ export class AutofillError extends Error {
 }
 
 /**
- * POST /interventions/autofill — returns the spec-correct prescription computed
- * by the PHP engine. The TS mirror is for instant preview only; persisted values
- * should come from here so the frontend can never drift from the backend.
+ * Current calculation previews and their provenance come from the PHP engine.
  */
 export async function autofillIntervention(
   ncpId: string,
   goalType: string,
   diseaseStage: string | null,
+  options: Partial<Intervention> = {},
+  guidanceOnly = false,
 ): Promise<AutofillResult> {
   const res = await apiFetch(`${plansBase(ncpId)}/autofill`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ goal_type: goalType, disease_stage: diseaseStage }),
+    body: JSON.stringify({
+      goal_type: goalType, disease_stage: diseaseStage,
+      energy_adjustment_mode: options.energy_adjustment_mode,
+      energy_adjustment_kcal: options.energy_adjustment_kcal,
+      fluid_mode: options.fluid_mode, fluid_ml: options.fluid_ml,
+      calculation_options: options.calculation_options,
+      ...(guidanceOnly ? { guidance_only: true } : {}),
+    }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -169,7 +238,7 @@ export async function autofillIntervention(
       (err as { message?: string }).message || 'Failed to autofill prescription.',
       Array.isArray((err as { missing_fields?: unknown }).missing_fields)
         ? (err as { missing_fields: string[] }).missing_fields
-        : [],
+        : Object.keys((err as { errors?: Record<string, unknown> }).errors ?? {}),
     );
   }
   return (await res.json()).data;

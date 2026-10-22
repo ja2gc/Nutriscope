@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\InterventionGuidance;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -13,6 +14,20 @@ class InterventionResource extends JsonResource
             'id' => $this->uuid,
             'goal_type' => $this->goal_type,
             'disease_stage' => $this->disease_stage,
+            'energy_adjustment_mode' => $this->energy_adjustment_mode,
+            'energy_adjustment_kcal' => $this->energy_adjustment_kcal,
+            'fluid_mode' => $this->fluid_mode,
+            'calculation_options' => $this->calculation_options,
+            'calculation_snapshot' => $this->calculation_snapshot,
+            'guidance' => InterventionGuidance::for($this->goal_type ?? 'custom', $this->disease_stage, [
+                ...($this->calculation_options ?? []),
+                'energy_adjustment_mode' => empty($this->calculation_snapshot['manual_overrides']['energy_kcal']) ? ($this->energy_adjustment_mode ?? 'none') : 'none',
+                'energy_adjustment_kcal' => $this->energy_adjustment_kcal ?? 0,
+                'fluid_mode' => $this->fluid_mode,
+                'pediatric' => ($this->calculation_snapshot['inputs']['ageYears'] ?? 18) < 18,
+                'age_months' => $this->calculation_snapshot['inputs']['ageMonths'] ?? (($this->calculation_snapshot['inputs']['ageYears'] ?? 18) * 12),
+                'maternal' => ! in_array($this->calculation_snapshot['inputs']['pregnancyLactationStatus'] ?? 'none', [null, 'none'], true),
+            ]),
             'displayed_nutrients' => $this->displayed_nutrients,
             'energy_kcal' => $this->energy_kcal,
             'protein_g' => $this->protein_g,

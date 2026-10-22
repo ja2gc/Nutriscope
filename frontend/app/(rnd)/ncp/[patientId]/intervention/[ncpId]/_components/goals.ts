@@ -1,7 +1,3 @@
-// Pure intervention-goal catalog (no React) so it can be unit-tested and shared.
-// disease_stage values MUST match the backend engine (NutritionPrescriptionService)
-// and docs/logic/intervention-goals.md — stages drive stage-specific calculations.
-
 export interface GoalOption {
   value: string;
   label: string;
@@ -10,6 +6,21 @@ export interface GoalOption {
 }
 
 export const GOALS: GoalOption[] = [
+  { value: "general_diet", label: "General Diet", description: "Balanced nutrition and individual energy needs" },
+  { value: "diabetic_control", label: "Diabetic Control", description: "Carbohydrate portions and glucose management",
+    stages: [{ value: "type_1", label: "Type 1 Diabetes" }, { value: "type_2", label: "Type 2 Diabetes" }] },
+  { value: "renal_diet", label: "Renal Diet", description: "Protein, minerals and fluids based on treatment",
+    stages: [{ value: "ckd_1_2", label: "CKD Stages 1–2" }, { value: "ckd_3_5_non_dialysis", label: "CKD Stages 3–5 Without Dialysis" }, { value: "hemodialysis", label: "Hemodialysis" }] },
+  { value: "cardiac_diet", label: "Cardiac Diet", description: "Heart health and prescribed sodium or fluid limits",
+    stages: [{ value: "hypertension", label: "Hypertension" }, { value: "dyslipidemia", label: "Dyslipidemia" }, { value: "heart_failure", label: "Heart Failure" }] },
+  { value: "high_protein", label: "High Protein", description: "Assessed protein and energy needs for recovery",
+    stages: [{ value: "postoperative_recovery", label: "Postoperative Recovery" }, { value: "wound_healing", label: "Wound Healing" }] },
+  { value: "liver_disease", label: "Liver Disease Diet", description: "Cirrhosis care based on nutritional status",
+    stages: [{ value: "compensated", label: "Compensated Cirrhosis" }, { value: "decompensated", label: "Decompensated Cirrhosis" }] },
+  { value: "custom", label: "Custom Plan", description: "Individual targets entered by the RND" },
+];
+
+export const LEGACY_GOALS: GoalOption[] = [
   {
     value: "renal_diet",
     label: "Renal Diet",
@@ -103,6 +114,21 @@ export const GOALS: GoalOption[] = [
   },
 ];
 
+
+
+export function goalsForPatient(isPediatric: boolean): GoalOption[] {
+  return isPediatric ? GOALS.filter(goal => ["general_diet", "diabetic_control", "custom"].includes(goal.value)) : GOALS;
+}
+
+export function goalLabelFor(value?: string | null): string | undefined {
+  return GOALS.find(goal => goal.value === value)?.label ?? LEGACY_GOALS.find(goal => goal.value === value)?.label;
+}
+
+export function typeLabelFor(goal?: string | null, type?: string | null): string | undefined {
+  return GOALS.find(item => item.value === goal)?.stages?.find(item => item.value === type)?.label
+    ?? LEGACY_GOALS.find(item => item.value === goal)?.stages?.find(item => item.value === type)?.label;
+}
+
 export function visibleStagesForGoal(goalValue: string): GoalOption["stages"] | null {
-  return GOALS.find((goal) => goal.value === goalValue)?.stages ?? null;
+  return GOALS.find(goal => goal.value === goalValue)?.stages ?? null;
 }

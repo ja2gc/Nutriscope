@@ -69,9 +69,9 @@ class InterventionMealPlanTemplateSeederTest extends TestCase
         $this->assertSame(0, $new->days->whereIn('meal_type', ['am_snack', 'pm_snack'])->flatMap->items->count());
         $this->assertCount(21, $new->days->flatMap->items->filter(fn ($item) => $item->recipe?->category === 'carb'));
         $this->assertCount(21, $legacy->fresh()->load('days.items.recipe')->days->flatMap->items->filter(fn ($item) => $item->recipe?->category === 'carb'));
-        $this->assertSame(23, MealPlanTemplate::count());
+        $this->assertSame(25, MealPlanTemplate::count());
         $migration->up();
-        $this->assertSame(23, MealPlanTemplate::count());
+        $this->assertSame(25, MealPlanTemplate::count());
     }
 
     public function test_recipe_seeder_uses_menu_taxonomy_and_preserves_existing_recipe_ids(): void
@@ -165,7 +165,7 @@ class InterventionMealPlanTemplateSeederTest extends TestCase
         $secondIds = MealPlanTemplate::query()->where('name', 'like', 'Demo — %')->orderBy('name')->pluck('id')->all();
 
         $this->assertSame($firstIds, $secondIds);
-        $this->assertCount(22, $secondIds);
+        $this->assertCount(24, $secondIds);
         $this->assertTrue(MealPlanTemplate::query()->whereKey($manual->id)->exists());
 
         $templates = MealPlanTemplate::query()

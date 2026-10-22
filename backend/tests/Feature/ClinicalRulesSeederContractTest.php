@@ -54,8 +54,8 @@ class ClinicalRulesSeederContractTest extends TestCase
             ->where('rule_type', 'recommend')
             ->sole();
 
-        $this->assertSame(1.2, (float) $liverProtein->threshold);
-        $this->assertStringContainsString('not be restricted', strtolower($liverProtein->reason));
+        $this->assertNull($liverProtein->threshold);
+        $this->assertStringContainsString('not routinely restrict', strtolower($liverProtein->reason));
         $this->assertTrue(ClinicalRule::query()
             ->where('condition', 'liver_disease')
             ->where('stage', 'all')

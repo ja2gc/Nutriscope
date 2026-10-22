@@ -12,6 +12,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class MealPlanService
 {
@@ -203,6 +204,7 @@ class MealPlanService
     ): array|MealPlan {
         $intervention ??= $ncpRecord->intervention()->firstOrFail();
         abort_unless($intervention->ncp_record_id === $ncpRecord->id, 404);
+        $this->assertFoodMenuSupported($intervention);
         $goalType = (string) ($intervention->goal_type ?? '');
         $assessmentAllergens = $ncpRecord->assessment?->allergies ?? [];
         $allergens = array_map(fn ($value): string => strtolower(trim((string) $value)), array_merge(
@@ -401,6 +403,15 @@ class MealPlanService
     /**
      * Automatic placement uses the canonical Menu Item category.
      */
+    public function assertFoodMenuSupported(Intervention $intervention): void
+    {
+        $snapshot = $intervention->calculation_snapshot;
+        $months = $snapshot['inputs']['ageMonths'] ?? (isset($snapshot['inputs']['ageYears']) ? $snapshot['inputs']['ageYears'] * 12 : null);
+        if ($months !== null && $months < 6) {
+            throw ValidationException::withMessages(['intervention' => ['Use the pediatric feeding plan for infants under six months. Ordinary food menus are unavailable.']]);
+        }
+    }
+
     private function filterByMealType(Collection $recipes, string $slotType): Collection
     {
         return $recipes->where('category', $this->isSnackSlot($slotType) ? 'snack' : 'meal')->values();

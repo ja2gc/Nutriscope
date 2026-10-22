@@ -10,6 +10,16 @@ test('weight targets accept one decimal and complete ordered ranges only', () =>
 });
 
 describe("buildGoalPrescriptionForm", () => {
+  test("leaves unsupported pediatric totals blank and retains the confirmed fluid limit", () => {
+    const form = buildGoalPrescriptionForm("general_diet", {
+      energy_kcal: null, protein_g: null, carbs_g: null, fat_g: null, fluid_ml: 1600,
+      fluid_mode: "restricted", nutrient_operators: { fluid_ml: "max" },
+    });
+    expect(form.energy_kcal).toBe("");
+    expect(form.protein_g).toBe("");
+    expect(form.fluid_ml).toBe("1600");
+    expect(form.nutrient_operators?.fluid_ml).toBe("max");
+  });
   test("replaces the previous goal's targets with the new goal's targets", () => {
     const previous = buildGoalPrescriptionForm("weight_loss", {
       energy_kcal: 1800,

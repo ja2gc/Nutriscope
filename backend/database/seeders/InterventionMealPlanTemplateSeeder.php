@@ -291,15 +291,15 @@ class InterventionMealPlanTemplateSeeder extends Seeder
     {
         return [
             'renal_diet' => [
-                'label' => 'Renal Diet', 'stage' => 'stage_4',
-                'description' => 'Moderate-protein, lower-sodium Filipino pattern for CKD stage 4; potassium, phosphorus, and fluid still require patient-specific review.',
+                'label' => 'Renal Diet', 'stage' => 'ckd_3_5_non_dialysis',
+                'description' => 'Moderate-protein, lower-sodium Filipino pattern for stable CKD without dialysis; potassium, phosphorus, and fluid still require patient-specific review.',
                 'breakfasts' => ['Pandesal with Egg', 'Lugaw with Egg (Soft Diet)'],
                 'mains' => ['Boiled Chicken Breast', 'Steamed Tilapia', 'Paksiw na Bangus', 'Chicken Breast with Pechay'],
                 'snacks' => ['Pineapple Snack', 'Guava Snack'],
                 'carbs' => ['Steamed White Rice'], 'carb_quantity_g' => 150,
             ],
             'diabetic_control' => [
-                'label' => 'Diabetic Control', 'stage' => 'stage_2',
+                'label' => 'Diabetic Control', 'stage' => 'type_2',
                 'description' => 'Consistent-carbohydrate Filipino pattern emphasizing vegetables, lean protein, and unsweetened high-fiber choices.',
                 'breakfasts' => ['Oatmeal with Banana', 'Pandesal with Egg'],
                 'mains' => ['Ampalaya with Tokwa', 'Pinakbet (Hospital Version)', 'Chicken Breast with Pechay', 'Paksiw na Bangus'],
@@ -307,7 +307,7 @@ class InterventionMealPlanTemplateSeeder extends Seeder
                 'carbs' => ['Steamed Brown Rice', 'Sweet Potato / Kamote'], 'carb_quantity_g' => 150,
             ],
             'cardiac_diet' => [
-                'label' => 'Cardiac Diet', 'stage' => 'moderate',
+                'label' => 'Cardiac Diet', 'stage' => 'hypertension',
                 'description' => 'Lower-sodium, lean-protein Filipino pattern with vegetables and higher-fiber carbohydrate choices.',
                 'breakfasts' => ['Oatmeal with Banana', 'Pandesal with Egg'],
                 'mains' => ['Steamed Tilapia', 'Paksiw na Bangus', 'Bulanglang (Vegetable Soup)', 'Chicken Breast with Pechay'],
@@ -315,7 +315,8 @@ class InterventionMealPlanTemplateSeeder extends Seeder
                 'carbs' => ['Steamed Brown Rice', 'Sweet Potato / Kamote'], 'carb_quantity_g' => 150,
             ],
             'weight_loss' => [
-                'label' => 'Weight Loss', 'stage' => 'class_1',
+                'goal_type' => 'general_diet',
+                'label' => 'Weight Loss', 'stage' => null,
                 'description' => 'Energy-controlled pattern centered on lean protein, vegetables, fruit, and practical portions.',
                 'breakfasts' => ['Oatmeal with Banana', 'Pandesal with Egg'],
                 'mains' => ['Boiled Chicken Breast', 'Steamed Tilapia', 'Mixed Vegetable Plate', 'Ampalaya with Tokwa'],
@@ -323,7 +324,8 @@ class InterventionMealPlanTemplateSeeder extends Seeder
                 'carbs' => ['Sweet Potato / Kamote', 'Steamed Brown Rice'], 'carb_quantity_g' => 100,
             ],
             'weight_gain' => [
-                'label' => 'Weight Gain', 'stage' => 'moderate',
+                'goal_type' => 'general_diet',
+                'label' => 'Weight Gain', 'stage' => null,
                 'description' => 'Energy-dense pattern with regular meals, carbohydrate choices, and planned between-meal nourishment.',
                 'breakfasts' => ['Champorado (Chocolate Rice Porridge)', 'Pandesal with Egg', 'Arroz Caldo (Chicken Rice Soup)'],
                 'mains' => ['Roasted Pork Loin', 'Tinolang Manok (Chicken Ginger Soup)', 'Ginisang Monggo with Sardines', 'Steamed Milkfish (Bangus)'],
@@ -331,7 +333,7 @@ class InterventionMealPlanTemplateSeeder extends Seeder
                 'carbs' => ['Steamed White Rice', 'Sweet Potato / Kamote'], 'carb_quantity_g' => 200,
             ],
             'high_protein' => [
-                'label' => 'High Protein', 'stage' => 'moderate_stress',
+                'label' => 'High Protein', 'stage' => 'postoperative_recovery',
                 'description' => 'Protein-forward Filipino pattern for increased needs, with energy sources that help spare dietary protein.',
                 'breakfasts' => ['Lugaw with Chicken (Soft Diet)', 'Pandesal with Egg'],
                 'mains' => ['Boiled Chicken Breast', 'Steamed Tilapia', 'Steamed Milkfish (Bangus)', 'Ginisang Monggo with Sardines'],
@@ -347,12 +349,22 @@ class InterventionMealPlanTemplateSeeder extends Seeder
                 'carbs' => ['Steamed White Rice', 'Sweet Potato / Kamote'], 'carb_quantity_g' => 150,
             ],
             'malnutrition' => [
-                'label' => 'Malnutrition', 'stage' => 'severe',
+                'goal_type' => 'general_diet',
+                'label' => 'Malnutrition', 'stage' => null,
                 'description' => 'Energy- and protein-dense rehabilitation pattern using frequent, culturally familiar meals and snacks.',
                 'breakfasts' => ['Lugaw with Chicken (Soft Diet)', 'Pandesal with Egg', 'Arroz Caldo (Chicken Rice Soup)'],
                 'mains' => ['Boiled Chicken Breast', 'Ginisang Monggo with Sardines', 'Steamed Milkfish (Bangus)', 'Roasted Pork Loin'],
                 'snacks' => ['Crackers and Milk Snack', 'Fresh Mango Serving'],
                 'carbs' => ['Steamed White Rice', 'Sweet Potato / Kamote'], 'carb_quantity_g' => 200,
+            ],
+            'general_diet' => [
+                'label' => 'General Diet', 'stage' => null,
+                'description' => 'Balanced Filipino base pattern using separate main, carbohydrate, and vegetable components; the RND prescription and limits remain authoritative.',
+                'breakfasts' => ['Oatmeal with Banana', 'Pandesal with Egg'],
+                'mains' => ['Boiled Chicken Breast', 'Steamed Tilapia', 'Steamed Milkfish (Bangus)', 'Plain Ginisang Monggo'],
+                'snacks' => ['Guava Snack', 'Papaya Snack'],
+                'carbs' => ['Sweet Potato / Kamote', 'Sweet Corn (Cooked)', 'Steamed Brown Rice'], 'carb_quantity_g' => 150,
+                'vegetables' => ['Bok Choy / Pechay (Cooked)', 'Eggplant / Talong (Cooked)', 'Squash / Kalabasa (Cooked)'],
             ],
             'custom' => [
                 'label' => 'Custom Balanced Filipino', 'stage' => null,

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\RND;
 
+use App\Models\Intervention;
 use App\Support\InterventionGoalCatalog;
 use App\Support\InterventionGuidance;
 use Illuminate\Foundation\Http\FormRequest;
@@ -17,8 +18,18 @@ class StoreInterventionRequest extends FormRequest
 
     public function rules(): array
     {
+        $existing = $this->route('intervention');
+        $goals = InterventionGoalCatalog::goalTypes();
+        if ($existing instanceof Intervention && $existing->goal_type) {
+            $goals[] = $existing->goal_type;
+        }
+        $guidanceMax = fn (string $field): string => 'max:'.($existing instanceof Intervention && $this->input($field) === $existing->getAttribute($field)
+            ? max(InterventionGuidance::FIELD_MAX, mb_strlen((string) $existing->getAttribute($field))) : InterventionGuidance::FIELD_MAX);
+
         return [
-            'goal_type' => ['nullable', 'string', Rule::in(InterventionGoalCatalog::goalTypes())],
+            ...self::calculationRules(),
+            'recalculate' => ['nullable', 'boolean'],
+            'goal_type' => ['nullable', 'string', Rule::in($goals)],
             'disease_stage' => ['nullable', 'string', 'max:255'],
             'displayed_nutrients' => ['nullable', 'array'],
             'energy_kcal' => ['nullable', 'numeric', 'between:0,10000', 'decimal:0,2'],
@@ -34,10 +45,29 @@ class StoreInterventionRequest extends FormRequest
             'nutrient_operators.*' => ['required', Rule::in(['min', 'max'])],
             'weight_target' => ['nullable', 'array:target,min,max'],
             'weight_target.*' => ['required', 'numeric', 'between:1,400', 'decimal:0,1', 'regex:/^\d{1,3}(?:\.\d)?$/'],
-            'education_notes' => ['nullable', 'string', 'max:'.InterventionGuidance::FIELD_MAX],
-            'counseling_goals' => ['nullable', 'string', 'max:'.InterventionGuidance::FIELD_MAX],
-            'barriers' => ['nullable', 'string', 'max:'.InterventionGuidance::FIELD_MAX],
-            'strategies' => ['nullable', 'string', 'max:'.InterventionGuidance::FIELD_MAX],
+            'education_notes' => ['nullable', 'string', $guidanceMax('education_notes')],
+            'counseling_goals' => ['nullable', 'string', $guidanceMax('counseling_goals')],
+            'barriers' => ['nullable', 'string', $guidanceMax('barriers')],
+            'strategies' => ['nullable', 'string', $guidanceMax('strategies')],
+        ];
+    }
+
+    public static function calculationRules(): array
+    {
+        return [
+            'energy_adjustment_mode' => ['nullable', Rule::in(['none', 'surplus', 'deficit'])],
+            'energy_adjustment_kcal' => ['nullable', 'integer', 'between:0,10000', 'required_if:energy_adjustment_mode,surplus,deficit'],
+            'fluid_mode' => ['nullable', Rule::in(['estimated', 'restricted'])],
+            'calculation_options' => ['nullable', 'array:energy_per_kg,protein_per_kg,clinical_weight_kg,protein_weight_kg,weight_basis,nutrition_status,maternal_confirmed,refeeding_risk,fat_fraction'],
+            'calculation_options.energy_per_kg' => ['nullable', 'numeric', 'gt:0', 'max:100'],
+            'calculation_options.protein_per_kg' => ['nullable', 'numeric', 'gt:0', 'max:5'],
+            'calculation_options.clinical_weight_kg' => ['nullable', 'numeric', 'between:1,400'],
+            'calculation_options.protein_weight_kg' => ['nullable', 'numeric', 'between:1,400'],
+            'calculation_options.weight_basis' => ['nullable', Rule::in(['measured', 'dry', 'clinician_selected'])],
+            'calculation_options.nutrition_status' => ['nullable', Rule::in(['adequate', 'malnutrition_or_muscle_loss', 'unconfirmed'])],
+            'calculation_options.maternal_confirmed' => ['nullable', 'boolean'],
+            'calculation_options.refeeding_risk' => ['nullable', 'boolean'],
+            'calculation_options.fat_fraction' => ['nullable', 'numeric', 'gt:0', 'lt:1'],
         ];
     }
 
@@ -45,6 +75,15 @@ class StoreInterventionRequest extends FormRequest
     {
         return [
             function (Validator $validator): void {
+                if ($validator->errors()->isNotEmpty()) {
+                    return;
+                }
+                if (in_array($this->input('energy_adjustment_mode'), ['surplus', 'deficit'], true) && (float) $this->input('energy_adjustment_kcal', 0) <= 0) {
+                    $validator->errors()->add('energy_adjustment_kcal', 'Enter a positive whole-number kcal adjustment.');
+                }
+                if ($this->input('fluid_mode') === 'restricted' && (float) $this->input('fluid_ml', 0) <= 0) {
+                    $validator->errors()->add('fluid_ml', 'Enter a positive prescribed fluid limit.');
+                }
                 $weight = $this->input('weight_target');
                 if (is_array($weight) && (isset($weight['target'])
                     ? count($weight) !== 1 : ! isset($weight['min'], $weight['max']))) {
@@ -66,7 +105,10 @@ class StoreInterventionRequest extends FormRequest
                         $validator->errors()->add("micronutrient_limits.{$key}", 'Minimum must not exceed maximum.');
                     }
                 }
-                if (InterventionGuidance::characterCount($this->all()) > InterventionGuidance::TOTAL_MAX) {
+                $existing = $this->route('intervention');
+                $guidanceChanged = ! ($existing instanceof Intervention) || collect(InterventionGuidance::FIELDS)->contains(fn (string $field): bool => $this->exists($field) && $this->input($field) !== $existing->getAttribute($field));
+                $guidanceValues = array_replace($existing instanceof Intervention ? $existing->only(InterventionGuidance::FIELDS) : [], $this->all());
+                if ($guidanceChanged && InterventionGuidance::characterCount($guidanceValues) > InterventionGuidance::TOTAL_MAX) {
                     $validator->errors()->add(
                         'education_notes',
                         'Education and counseling guidance must not exceed '.number_format(InterventionGuidance::TOTAL_MAX).' characters in total.',
@@ -75,6 +117,9 @@ class StoreInterventionRequest extends FormRequest
 
                 $goalType = $this->input('goal_type');
                 $stage = $this->input('disease_stage');
+                if ($existing instanceof Intervention && $goalType === $existing->goal_type && $stage === $existing->disease_stage) {
+                    return;
+                }
 
                 if ($goalType === null || $goalType === '') {
                     if ($stage !== null && $stage !== '') {

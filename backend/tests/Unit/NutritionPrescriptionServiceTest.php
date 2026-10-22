@@ -7,9 +7,9 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
- * Authoritative golden-vector guard. Asserts the PHP engine reproduces every
- * frozen case in docs/logic/prescription-targets.json. If this fails, the
- * backend has drifted from the spec (and from the frontend mirror).
+ * Frozen version-1 regression guard for autofillLegacy.
+ * Current API arithmetic is tested separately in NutritionPrescriptionV2Test;
+ * these historical vectors are not a certification of clinical validity.
  */
 class NutritionPrescriptionServiceTest extends TestCase
 {
@@ -50,7 +50,7 @@ class NutritionPrescriptionServiceTest extends TestCase
             'activityFactor' => NutritionPrescriptionService::ACTIVITY_FACTORS[$p['activity']],
         ];
 
-        $got = $svc->autofill($goal, $stage, $metrics);
+        $got = $svc->autofillLegacy($goal, $stage, $metrics);
 
         foreach (['energy_kcal', 'protein_g', 'carbs_g', 'fat_g', 'fluid_ml'] as $k) {
             $this->assertSame(
@@ -90,7 +90,7 @@ class NutritionPrescriptionServiceTest extends TestCase
             ];
             foreach ($goals as $goal => $stages) {
                 foreach ($stages as $stage) {
-                    $energy = $svc->autofill($goal, $stage, $metrics)['energy_kcal'];
+                    $energy = $svc->autofillLegacy($goal, $stage, $metrics)['energy_kcal'];
                     $this->assertLessThanOrEqual(
                         4500, $energy,
                         "Implausible energy {$energy} kcal for {$goal}/{$stage} @ {$activity} (70kg/183cm)."
@@ -105,7 +105,7 @@ class NutritionPrescriptionServiceTest extends TestCase
     {
         $svc = new NutritionPrescriptionService;
 
-        $rx = $svc->autofill('malnutrition', 'severe', [
+        $rx = $svc->autofillLegacy('malnutrition', 'severe', [
             'weightKg' => 52.0,
             'heightCm' => 170.0,
             'ageYears' => 38,
@@ -135,8 +135,8 @@ class NutritionPrescriptionServiceTest extends TestCase
             'isAdult' => true,
             'activityFactor' => 1.2,
         ];
-        $baseline = $service->autofill('diabetic_control', 'stage_1', $metrics);
-        $maternal = $service->autofill('diabetic_control', 'stage_1', [
+        $baseline = $service->autofillLegacy('diabetic_control', 'stage_1', $metrics);
+        $maternal = $service->autofillLegacy('diabetic_control', 'stage_1', [
             ...$metrics,
             'pregnancyLactationStatus' => 'pregnant_t1',
         ]);
@@ -170,8 +170,8 @@ class NutritionPrescriptionServiceTest extends TestCase
         ];
 
         foreach ($goals as $goal => $stage) {
-            $baseline = $service->autofill($goal, $stage, $metrics);
-            $maternal = $service->autofill($goal, $stage, [
+            $baseline = $service->autofillLegacy($goal, $stage, $metrics);
+            $maternal = $service->autofillLegacy($goal, $stage, [
                 ...$metrics,
                 'pregnancyLactationStatus' => 'lactating',
             ]);

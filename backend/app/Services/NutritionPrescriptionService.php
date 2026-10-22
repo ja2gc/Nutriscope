@@ -2,14 +2,15 @@
 
 namespace App\Services;
 
+use App\Support\InterventionGoalCatalog;
+use InvalidArgumentException;
+
 /**
  * Nutrition prescription engine — AUTHORITATIVE source of truth.
  *
- * Implements docs/logic/prescription-targets.json EXACTLY. The frontend
- * (frontend/lib/nutritionCalculations.ts) is a live-preview mirror; persisted
- * prescriptions must come from THIS service. The 90 frozen golden cases in the
- * spec are asserted against this class in tests/Unit/NutritionPrescriptionServiceTest.php
- * to guarantee the two runtimes never drift.
+ * Version 2 powers current previews and saved calculation snapshots.
+ * autofillLegacy retains the frozen version 1 contract for regression tests;
+ * it is not selected by current API requests or used to reconstruct history.
  *
  * Pure computation — no database, no Eloquent. Inputs are primitives.
  */
@@ -60,7 +61,7 @@ class NutritionPrescriptionService
     }
 
     /** Mifflin-St Jeor BMR (kcal/day). */
-    public function bmr(float $weightKg, float $heightCm, int $age, string $sex): float
+    public function bmr(float $weightKg, float $heightCm, float $age, string $sex): float
     {
         $base = 10 * $weightKg + 6.25 * $heightCm - 5 * $age;
 
@@ -166,7 +167,7 @@ class NutritionPrescriptionService
      * This guarantees the 90 frozen golden cases (none set pregnancyLactationStatus) are unaffected.
      * @return array{energy_kcal:int,protein_g:int,carbs_g:int,fat_g:int,fluid_ml:int,fiber_g?:int,sodium_max_mg?:int,free_sugar_max_pct?:float,cholesterol_max_mg?:int,note?:string}
      */
-    public function autofill(string $goalType, ?string $stage, array $m): array
+    public function autofillLegacy(string $goalType, ?string $stage, array $m): array
     {
         if (empty($m['isAdult'])) {
             return $this->autofillPediatric($m);
@@ -228,6 +229,215 @@ class NutritionPrescriptionService
         }
 
         return $result;
+    }
+
+    /** Revised contract v2. Progression and free-text notes never enter arithmetic. */
+    public function autofill(string $goalType, ?string $stage, array $m): array
+    {
+        if (! InterventionGoalCatalog::stageIsValid($goalType, $stage)) {
+            throw new InvalidArgumentException('Select a current goal and type before calculation.');
+        }
+        foreach (['weightKg', 'heightCm', 'ageYears'] as $key) {
+            if (! isset($m[$key]) || ! is_numeric($m[$key]) || ! is_finite((float) $m[$key]) || $m[$key] < 0) {
+                throw new InvalidArgumentException('Confirm weight, height and age before calculation.');
+            }
+        }
+        if ($m['weightKg'] <= 0 || $m['heightCm'] <= 0 || ! in_array($m['sex'] ?? null, ['Male', 'Female'], true)) {
+            throw new InvalidArgumentException('Confirm positive measurements and equation sex.');
+        }
+        $weight = (float) ($m['clinicalWeightKg'] ?? $m['weightKg']);
+        $proteinWeight = (float) ($m['proteinWeightKg'] ?? $weight);
+        $mode = $m['energyAdjustmentMode'] ?? 'none';
+        $amount = $mode === 'none' ? 0 : ($m['energyAdjustmentKcal'] ?? 0);
+        if (! in_array($mode, ['none', 'surplus', 'deficit'], true)
+            || ! is_numeric($amount) || ! is_finite((float) $amount)
+            || ($mode !== 'none' && ($amount <= 0 || floor((float) $amount) !== (float) $amount))) {
+            throw new InvalidArgumentException('Enter a positive whole-number kcal adjustment.');
+        }
+        $signed = $mode === 'deficit' ? -(int) $amount : (int) $amount;
+        $adult = (float) $m['ageYears'] >= 18;
+        if (! in_array($goalType, InterventionGoalCatalog::goalTypesForAge((float) $m['ageYears']), true)) {
+            throw new InvalidArgumentException('This adult treatment preset is unavailable for pediatric patients. Choose General Diet, Diabetic Control or Custom Plan.');
+        }
+        $activity = (float) ($m['activityFactor'] ?? 1.2);
+        if (! is_finite($weight) || ! is_finite($proteinWeight) || $weight <= 0 || $weight > 400 || $proteinWeight <= 0 || $proteinWeight > 400 || ! is_finite($activity) || $activity <= 0) {
+            throw new InvalidArgumentException('Confirm a usable calculation weight and activity estimate.');
+        }
+        $resting = $adult
+            ? $this->bmr((float) $m['weightKg'], (float) $m['heightCm'], (float) $m['ageYears'], $m['sex'])
+            : $this->pediatricRestingEnergy((float) $m['weightKg'], (float) $m['ageYears'], $m['sex']);
+        $snapshot = [
+            'version' => 2, 'goal_type' => $goalType, 'disease_stage' => $stage,
+            'measurement_date' => $m['measurementDate'] ?? null,
+            'inputs' => array_intersect_key($m, array_flip([
+                'weightKg', 'heightCm', 'ageYears', 'ageMonths', 'sex', 'activityFactor', 'weightBasis',
+                'clinicalWeightKg', 'proteinWeightKg', 'nutritionStatus', 'pregnancyLactationStatus',
+            ])),
+            'weight_kg' => $weight, 'protein_weight_kg' => $proteinWeight,
+            'weight_basis' => $m['weightBasis'] ?? 'measured',
+            'resting_energy_kcal' => $resting,
+            'baseline_energy_kcal' => null,
+            'energy_adjustment_mode' => $mode, 'energy_adjustment_kcal' => (int) $amount,
+            'signed_adjustment_kcal' => $signed,
+            'maternal_energy_kcal' => 0, 'maternal_protein_g' => 0,
+            'method' => $adult ? 'Mifflin–St Jeor × confirmed adult activity estimate' : 'Schofield resting estimate only',
+            'source' => $adult ? 'Mifflin 1990; local adult activity estimate' : 'ESPGHAN/ESPEN/ESPR 2018, energy Table 1',
+        ];
+        $fluidMode = $m['fluidMode'] ?? 'estimated';
+        $fluid = $fluidMode === 'restricted' ? ($m['fluidLimitMl'] ?? null)
+            : ($adult ? round($weight * 32.5) : round($this->hollidaySegar((float) $m['weightKg'])));
+        if (! in_array($fluidMode, ['estimated', 'restricted'], true) || ! is_numeric($fluid) || ! is_finite((float) $fluid) || $fluid <= 0 || $fluid > 10000) {
+            throw new InvalidArgumentException('Enter a positive prescribed fluid limit up to 10,000 mL/day.');
+        }
+        $snapshot['fluid_mode'] = $fluidMode;
+        $snapshot['fluid_formula'] = $fluidMode === 'restricted' ? 'Prescribed maximum; all sources'
+            : ($adult ? '32.5 mL/kg; local routine estimate, individualize for illness' : 'Holliday–Segar daily maintenance reference');
+        if (! $adult && $goalType !== 'custom') {
+            return $this->pediatricReference($m, $snapshot, (int) $fluid, $fluidMode, $signed);
+        }
+        $manual = $goalType === 'custom';
+        if ($manual && $mode !== 'none') {
+            throw new InvalidArgumentException('Enter an individualized final prescription for pediatric or Custom Plan care; automatic energy adjustment is unavailable.');
+        }
+        if ($manual) {
+            $snapshot['method'] = ! $adult ? $snapshot['method'] : 'Clinician-entered prescription';
+            $snapshot['calculated'] = ['energy_kcal' => null, 'protein_g' => null, 'carbs_g' => null, 'fat_g' => null, 'fluid_ml' => (int) $fluid];
+
+            return [...$snapshot['calculated'], 'calculation_snapshot' => $snapshot,
+                'calculation_status' => 'manual_targets_required', 'fluid_mode' => $fluidMode,
+                'nutrient_operators' => $fluidMode === 'restricted' ? ['fluid_ml' => 'max'] : [],
+                'note' => ! $adult ? 'Resting energy is an estimate, not a total intake prescription. Confirm pediatric targets and growth needs.' : 'Enter the individualized prescription.'];
+        }
+        $clinical = in_array($goalType, ['renal_diet', 'high_protein', 'liver_disease'], true);
+        $coefficient = (float) ($m['energyPerKg'] ?? ($goalType === 'liver_disease' ? 32.5 : 30));
+        $proteinCoefficient = $m['proteinPerKg'] ?? match (true) {
+            $goalType === 'renal_diet' && $stage === 'ckd_3_5_non_dialysis' => 0.8,
+            $goalType === 'renal_diet' && $stage === 'hemodialysis', $goalType === 'high_protein' => 1.2,
+            $goalType === 'liver_disease' && ($m['nutritionStatus'] ?? null) === 'malnutrition_or_muscle_loss' => 1.5,
+            $goalType === 'liver_disease' && $stage === 'compensated' && ($m['nutritionStatus'] ?? null) === 'adequate' => 1.2,
+            $goalType === 'liver_disease' => null,
+            default => 1.0,
+        };
+        if ($proteinCoefficient === null) {
+            throw new InvalidArgumentException('Confirm cirrhosis nutritional status or enter the assessed protein coefficient.');
+        }
+        $fatFraction = (float) ($m['fatFraction'] ?? 0.25);
+        if (! is_finite($coefficient) || ! is_numeric($proteinCoefficient) || ! is_finite((float) $proteinCoefficient) || ! is_finite($fatFraction) || $coefficient <= 0 || $coefficient > 100 || $proteinCoefficient <= 0 || $proteinCoefficient > 5 || $fatFraction <= 0 || $fatFraction >= 1) {
+            throw new InvalidArgumentException('Confirm clinically appropriate energy, protein and fat coefficients.');
+        }
+        $baseline = $clinical ? $coefficient * $weight : $resting * $activity;
+        $maternalStatus = $m['pregnancyLactationStatus'] ?? 'none';
+        if ($maternalStatus === 'pregnant_unspecified') {
+            throw new InvalidArgumentException('Confirm pregnancy trimester before calculation.');
+        }
+        $maternal = match ($maternalStatus) {
+            'pregnant_t1' => [0, 27, 300],
+            'pregnant_t2', 'pregnant_t3' => [300, 27, 300],
+            'lactating' => [500, 27, 700],
+            default => [0, 0, 0],
+        };
+        if ($clinical && $maternalStatus !== 'none' && empty($m['maternalConfirmed'])) {
+            throw new InvalidArgumentException('Confirm maternal additions are appropriate for this clinical prescription.');
+        }
+        $energy = (int) round($baseline + $maternal[0] + $signed);
+        $protein = (int) round($proteinCoefficient * $proteinWeight + $maternal[1]);
+        $fat = (int) round($energy * $fatFraction / 9);
+        $residual = $energy - 4 * $protein - 9 * $fat;
+        if ($energy <= 0 || $energy > 10000 || $residual < 0) {
+            throw new InvalidArgumentException('The energy adjustment and protein/fat targets are incompatible. Enter a coherent final prescription.');
+        }
+        $calculated = ['energy_kcal' => $energy, 'protein_g' => $protein, 'carbs_g' => (int) round($residual / 4), 'fat_g' => $fat, 'fluid_ml' => (int) $fluid];
+        $snapshot = [...$snapshot, 'baseline_energy_kcal' => $baseline,
+            'baseline_kind' => $clinical ? 'clinical_target' : 'estimated_maintenance',
+            'method' => $clinical ? 'Confirmed kcal/kg clinical target' : $snapshot['method'],
+            'source' => match ($goalType) {
+                'renal_diet' => 'KDOQI 2020 energy; KDIGO 2024 G3–G5 protein; local defaults',
+                'high_protein' => 'ESPEN hospital nutrition 2021, recommendation 15; local defaults',
+                'liver_disease' => 'ESPEN liver nutrition 2020, points 71–74; local energy midpoint',
+                default => $snapshot['source'],
+            },
+            'energy_per_kg' => $clinical ? $coefficient : null,
+            'protein_per_kg' => (float) $proteinCoefficient, 'fat_fraction' => $fatFraction,
+            'maternal_energy_kcal' => $maternal[0], 'maternal_protein_g' => $maternal[1],
+            'maternal_water_guidance_ml' => $maternal[2], 'calculated' => $calculated,
+        ];
+        if ($maternalStatus !== 'none') {
+            $snapshot['source'] .= '; FNRI-DOST PDRI 2015, Tables 1–2 (revised 2018), maternal additions';
+        }
+        $extrapolated = ! $clinical && ($m['ageYears'] < 19 || $m['ageYears'] > 78);
+
+        return [...$calculated, 'calculation_snapshot' => $snapshot, 'calculation_status' => $extrapolated ? 'warning' : 'ok',
+            ...($extrapolated ? ['note' => 'Age is outside the original Mifflin study range of 19–78 years. Review the extrapolated estimate before prescribing.'] : []),
+            'fluid_mode' => $fluidMode, 'nutrient_operators' => $fluidMode === 'restricted' ? ['fluid_ml' => 'max'] : []];
+    }
+
+    private function pediatricRestingEnergy(float $weight, float $age, string $sex): float
+    {
+        [$coefficient, $constant] = $sex === 'Male'
+            ? ($age < 3 ? [59.5, -30] : ($age < 10 ? [22.7, 504] : [17.7, 658]))
+            : ($age < 3 ? [58.3, -31] : ($age < 10 ? [20.3, 486] : [13.4, 692]));
+
+        return $coefficient * $weight + $constant;
+    }
+
+    /** NASEM 2023 Table 5-15; PDRI 2015 Table 1 local macro midpoints. */
+    private function pediatricReference(array $m, array $snapshot, int $fluid, string $fluidMode, int $signed): array
+    {
+        $age = (float) $m['ageYears'];
+        $months = (float) ($m['ageMonths'] ?? $age * 12);
+        $male = $m['sex'] === 'Male';
+        $weight = (float) $m['weightKg'];
+        $height = (float) $m['heightCm'];
+        $category = $m['pediatricActivityCategory'] ?? null;
+        if ($age < 3) {
+            $terms = $male ? [-716.45, -1.0, 17.82, 15.06] : [-69.15, 80.0, 2.65, 54.15];
+            $growth = $male ? ($months < 3 ? 200 : ($months < 6 ? 50 : 20))
+                : ($months < 3 ? 180 : ($months < 6 ? 60 : ($months < 12 ? 20 : 15)));
+        } else {
+            $equations = $male ? [
+                'inactive' => [-447.51, 3.68, 13.01, 13.15],
+                'low_active' => [19.12, 3.68, 8.62, 20.28],
+                'active' => [-388.19, 3.68, 12.66, 20.46],
+                'very_active' => [-671.75, 3.68, 15.38, 23.25],
+            ] : [
+                'inactive' => [55.59, -22.25, 8.43, 17.07],
+                'low_active' => [-297.54, -22.25, 12.77, 14.73],
+                'active' => [-189.55, -22.25, 11.74, 18.34],
+                'very_active' => [-709.59, -22.25, 18.22, 14.25],
+            ];
+            if (! isset($equations[$category ?? ''])) {
+                throw new InvalidArgumentException('Confirm an activity category for the pediatric energy estimate.');
+            }
+            $terms = $equations[$category];
+            $growth = $age < 4 ? ($male ? 20 : 15) : ($age < 9 ? 15 : ($age < 14 ? ($male ? 25 : 30) : 20));
+        }
+        [$constant, $ageCoefficient, $heightCoefficient, $weightCoefficient] = $terms;
+        $baseline = $constant + $ageCoefficient * $age + $heightCoefficient * $height + $weightCoefficient * $weight + $growth;
+        $energy = (int) round($baseline + $signed);
+        $proteinFraction = $months < 6 ? 0.05 : 0.10;
+        $fatFraction = $months < 6 ? 0.50 : ($months < 12 ? 0.35 : ($age < 3 ? 0.30 : 0.25));
+        $protein = (int) round($energy * $proteinFraction / 4);
+        $fat = (int) round($energy * $fatFraction / 9);
+        $carbs = (int) round(($energy - $protein * 4 - $fat * 9) / 4);
+        if ($energy <= 0 || $energy > 10000 || $carbs < 0) {
+            throw new InvalidArgumentException('Measurements or adjustment produce an incompatible pediatric estimate. Review the prescription.');
+        }
+        if (($m['pregnancyLactationStatus'] ?? 'none') !== 'none') {
+            throw new InvalidArgumentException('Adolescent pregnancy or lactation requires an individualized maternal prescription in Custom Plan.');
+        }
+        $calculated = ['energy_kcal' => $energy, 'protein_g' => $protein, 'fat_g' => $fat, 'carbs_g' => $carbs, 'fluid_ml' => $fluid];
+        $snapshot = [...$snapshot, 'baseline_kind' => 'pediatric_eer',
+            'method' => 'NASEM 2023 pediatric estimated energy requirement',
+            'source' => 'NASEM 2023 Table 5-15; PDRI 2015 Table 1 macro distribution; local percentage choices',
+            'baseline_energy_kcal' => $baseline, 'pediatric_activity_category' => $age < 3 ? null : $category,
+            'eer_coefficients' => $terms, 'growth_energy_kcal' => $growth,
+            'protein_fraction' => $proteinFraction, 'fat_fraction' => $fatFraction,
+            'calculated' => $calculated,
+        ];
+
+        return [...$calculated, 'calculation_snapshot' => $snapshot, 'calculation_status' => 'warning',
+            'fluid_mode' => $fluidMode, 'nutrient_operators' => $fluidMode === 'restricted' ? ['fluid_ml' => 'max'] : [],
+            'note' => 'General pediatric energy and growth estimate; review clinical needs and growth. Macro percentages are local choices within PDRI ranges, not disease-specific treatment doses.'];
     }
 
     /**

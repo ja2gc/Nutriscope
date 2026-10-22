@@ -191,20 +191,20 @@ class NcpInterventionTest extends TestCase
             'physical_activity_level' => 'sedentary',
         ]);
 
-        // renal_diet/stage_1 is flat-rate (age-independent): matches frozen golden case A.
+        // Current early CKD uses measured weight; no automatic mineral orders.
         $response = $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/interventions/autofill", [
                 'goal_type' => 'renal_diet',
-                'disease_stage' => 'stage_1',
+                'disease_stage' => 'ckd_1_2',
             ]);
 
         $response->assertOk()
             ->assertJsonPath('data.energy_kcal', 2400)
-            ->assertJsonPath('data.protein_g', 53)
+            ->assertJsonPath('data.protein_g', 80)
             ->assertJsonPath('data.fat_g', 67)
-            ->assertJsonPath('data.carbs_g', 396)
+            ->assertJsonPath('data.carbs_g', 369)
             ->assertJsonPath('data.fluid_ml', 2600)
-            ->assertJsonPath('data.sodium_max_mg', 2000);
+            ->assertJsonMissingPath('data.sodium_max_mg');
     }
 
     public function test_autofill_uses_latest_monitoring_context_and_reports_source(): void
@@ -234,7 +234,7 @@ class NcpInterventionTest extends TestCase
         $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/interventions/autofill", [
                 'goal_type' => 'renal_diet',
-                'disease_stage' => 'stage_1',
+                'disease_stage' => 'ckd_1_2',
             ])
             ->assertOk()
             ->assertJsonPath('data.energy_kcal', 1800)
@@ -252,11 +252,11 @@ class NcpInterventionTest extends TestCase
 
         $response = $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/interventions/autofill", [
-                'goal_type' => 'renal_diet', 'disease_stage' => 'stage_1',
+                'goal_type' => 'renal_diet', 'disease_stage' => 'ckd_1_2',
             ]);
 
         $response->assertStatus(422)
-            ->assertJsonPath('missing_fields', ['weight', 'height']);
+            ->assertJsonValidationErrors(['weight', 'height']);
     }
 
     public function test_autofill_rejects_unknown_goal_type(): void
@@ -274,10 +274,10 @@ class NcpInterventionTest extends TestCase
         $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/interventions/autofill", [
                 'goal_type' => 'bad_goal',
-                'disease_stage' => 'stage_1',
+                'disease_stage' => 'ckd_1_2',
             ])
             ->assertStatus(422)
-            ->assertJsonPath('message', 'Invalid intervention goal or disease stage.');
+            ->assertJsonValidationErrors('goal_type');
     }
 
     public function test_autofill_requires_activity_level_for_tee_based_goals(): void
@@ -295,11 +295,10 @@ class NcpInterventionTest extends TestCase
 
         $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/interventions/autofill", [
-                'goal_type' => 'weight_loss',
-                'disease_stage' => 'class_1',
+                'goal_type' => 'general_diet',
             ])
             ->assertStatus(422)
-            ->assertJsonPath('missing_fields', ['physical_activity_level']);
+            ->assertJsonValidationErrors('physical_activity_level');
     }
 
     public function test_autofill_requires_trimester_confirmation_for_legacy_pregnancy(): void
@@ -318,11 +317,10 @@ class NcpInterventionTest extends TestCase
         $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/interventions/autofill", [
                 'goal_type' => 'diabetic_control',
-                'disease_stage' => 'stage_1',
+                'disease_stage' => 'type_1',
             ])
             ->assertUnprocessable()
-            ->assertJsonPath('calculation_status', 'maternal_status_confirmation_required')
-            ->assertJsonPath('missing_fields', ['pregnancy_lactation_status'])
+            ->assertJsonValidationErrors('pregnancy_lactation_status')
             ->assertJsonPath('message', 'Confirm the pregnancy trimester before automatic maternal targets are available.');
     }
 
@@ -344,13 +342,12 @@ class NcpInterventionTest extends TestCase
         $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/interventions/autofill", [
                 'goal_type' => 'cardiac_diet',
-                'disease_stage' => 'severe',
+                'disease_stage' => 'heart_failure',
             ])
             ->assertOk()
-            ->assertJsonPath('data.maternal_modifier.modifier.energy_kcal', 300)
-            ->assertJsonPath('data.maternal_modifier.modifier.protein_g', 27)
-            ->assertJsonPath('data.maternal_modifier.final.fluid_ml', 1500)
-            ->assertJsonPath('data.maternal_modifier.source_key', 'FNRI_PDRI_2015_REV_2018_SUMMARY_TABLES');
+            ->assertJsonPath('data.calculation_snapshot.maternal_energy_kcal', 300)
+            ->assertJsonPath('data.calculation_snapshot.maternal_protein_g', 27)
+            ->assertJsonPath('data.fluid_ml', 1950);
     }
 
     public function test_autofill_returns_severe_nutrition_lab_warnings_for_low_electrolytes(): void
@@ -374,8 +371,8 @@ class NcpInterventionTest extends TestCase
 
         $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/interventions/autofill", [
-                'goal_type' => 'malnutrition',
-                'disease_stage' => 'severe',
+                'goal_type' => 'general_diet',
+                'calculation_options' => ['refeeding_risk' => true],
             ])
             ->assertOk()
             ->assertJsonPath('data.calculation_status', 'warning')
@@ -428,7 +425,7 @@ class NcpInterventionTest extends TestCase
         $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/interventions", [
                 'goal_type' => 'bad_goal',
-                'disease_stage' => 'stage_1',
+                'disease_stage' => 'ckd_1_2',
             ])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['goal_type']);
@@ -443,8 +440,8 @@ class NcpInterventionTest extends TestCase
 
         $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/interventions", [
-                'goal_type' => 'weight_gain',
-                'disease_stage' => 'stage_1',
+                'goal_type' => 'high_protein',
+                'disease_stage' => 'ckd_1_2',
             ])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['disease_stage']);
@@ -495,7 +492,7 @@ class NcpInterventionTest extends TestCase
         $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/interventions", [
                 'goal_type' => 'renal_diet',
-                'disease_stage' => 'stage_1',
+                'disease_stage' => 'ckd_1_2',
                 'energy_kcal' => 1800.0,
                 'protein_g' => 70.0,
                 'carbs_g' => 250.0,
@@ -802,19 +799,13 @@ class NcpInterventionTest extends TestCase
                 ->getJson("/api/rnd/ncp-records/{$ncp->uuid}/interventions/recommendations");
         };
 
-        // renal_diet -> CKD
-        $this->assertContains('potassium', array_column($recs('renal_diet')->json('data.limits'), 'tag'));
-
-        // cardiac_diet -> hypertension + dyslipidemia (both conditions resolved)
-        $cardiacTags = array_column($recs('cardiac_diet')->json('data.limits'), 'tag');
-        $this->assertContains('sodium', $cardiacTags);
-        $this->assertContains('saturated_fat', $cardiacTags);
-
-        // malnutrition -> malnutrition (previously broken: 'Malnutrition' vs 'malnutrition')
-        $this->assertContains('protein', array_column($recs('malnutrition')->json('data.recommend'), 'tag'));
+        // Generic condition rules cannot become individual mineral orders.
+        $this->assertSame([], $recs('renal_diet')->json('data.limits'));
+        $this->assertSame([], $recs('cardiac_diet')->json('data.limits'));
+        $this->assertContains('food_pattern', array_column($recs('general_diet')->json('data.recommend'), 'tag'));
     }
 
-    public function test_recommendations_returns_empty_for_custom_goal(): void
+    public function test_recommendations_returns_general_guidance_for_custom_goal(): void
     {
         $rnd = $this->rnd();
         $patient = $this->patient();
@@ -829,8 +820,8 @@ class NcpInterventionTest extends TestCase
             ->getJson("/api/rnd/ncp-records/{$ncp->uuid}/interventions/recommendations");
 
         $response->assertOk()
-            ->assertJsonPath('data.recommend', [])
-            ->assertJsonPath('data.avoid', []);
+            ->assertJsonPath('data.recommend.0.tag', 'food_pattern')
+            ->assertJsonPath('data.limits', []);
     }
 
     public function test_recommendations_include_lab_refinements_for_abnormal_potassium(): void
@@ -855,7 +846,8 @@ class NcpInterventionTest extends TestCase
             ->getJson("/api/rnd/ncp-records/{$ncp->uuid}/interventions/recommendations");
 
         $response->assertOk();
-        $this->assertContains('potassium', array_column($response->json('data.limits'), 'tag'));
+        $this->assertSame([], $response->json('data.limits'));
+        $response->assertJsonPath('data.lab_review.potassium.status', 'HIGH');
     }
 
     public function test_recommendations_returns_404_when_no_intervention(): void

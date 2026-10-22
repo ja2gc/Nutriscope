@@ -3,29 +3,13 @@
 return [
 
     /*
-    |--------------------------------------------------------------------------
-    | goal_type → clinical_rules.condition[] mapping
-    |--------------------------------------------------------------------------
-    |
-    | Drives the intervention "recommendations" endpoint: an intervention's
-    | goal_type is translated to the clinical condition(s) whose food
-    | recommend/avoid/limit rules apply, then RecommendService reads those rows
-    | from the clinical_rules table. The food-disease rules themselves live in
-    | clinical_rules (never hardcoded); this map is only the goal→condition lookup.
-    |
-    | Condition values MUST match clinical_rules.condition exactly. Seeded values:
-    |   CKD, DM, dyslipidemia, gout, hypertension, liver_disease, malnutrition.
-    |
-    | goal_type values are defined in docs/logic/intervention-goals.md (Appendix).
-    | Purely calculation-based goals (weight_loss, weight_gain, high_protein, custom)
-    | carry no inherent disease food-rules — recommendations for a comorbidity are
-    | driven by that comorbidity's own goal. They map to [] (empty).
-    |
-    | NOTE (confirm with a dietitian): cardiac_diet → [hypertension, dyslipidemia]
-    | reflects the cardiac diet's sodium + lipid focus (intervention-goals.md §4).
+    | Legacy condition lookup for existing integrations.
+    | Current intervention advice uses InterventionGuidance and the actual
+    | individual prescription, not automatic disease-wide nutrient orders.
     */
 
     'goal_type_conditions' => [
+        'general_diet' => [],
         'renal_diet' => ['CKD'],
         'diabetic_control' => ['DM'],
         'cardiac_diet' => ['hypertension', 'dyslipidemia'],
@@ -48,20 +32,12 @@ return [
     */
 
     'intervention_goal_stages' => [
-        'renal_diet' => [
-            'stage_1', 'stage_2', 'stage_3', 'stage_4',
-            'stage_5_predialysis', 'hemodialysis', 'peritoneal',
-        ],
-        'diabetic_control' => ['stage_1', 'stage_2', 'stage_3'],
-        'cardiac_diet' => ['mild', 'moderate', 'severe'],
-        'weight_loss' => ['overweight', 'class_1', 'class_2', 'class_3'],
-        'weight_gain' => ['mild', 'moderate', 'severe'],
-        'high_protein' => ['mild_stress', 'moderate_stress', 'severe_stress', 'burns'],
-        'liver_disease' => [
-            'compensated', 'decompensated',
-            'encephalopathy_grade_1_2', 'encephalopathy_grade_3_4',
-        ],
-        'malnutrition' => ['moderate', 'severe'],
+        'general_diet' => [],
+        'diabetic_control' => ['type_1', 'type_2'],
+        'renal_diet' => ['ckd_1_2', 'ckd_3_5_non_dialysis', 'hemodialysis'],
+        'cardiac_diet' => ['hypertension', 'dyslipidemia', 'heart_failure'],
+        'high_protein' => ['postoperative_recovery', 'wound_healing'],
+        'liver_disease' => ['compensated', 'decompensated'],
         'custom' => [],
     ],
 

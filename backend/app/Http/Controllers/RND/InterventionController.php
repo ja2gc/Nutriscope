@@ -4,10 +4,10 @@ namespace App\Http\Controllers\RND;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PaginatedRequest;
+use App\Http\Requests\RND\AutofillInterventionRequest;
 use App\Http\Requests\RND\StoreInterventionRequest;
 use App\Http\Resources\InterventionPlanSummaryResource;
 use App\Http\Resources\InterventionResource;
-use App\Models\Assessment;
 use App\Models\Intervention;
 use App\Models\NcpRecord;
 use App\Policies\AuditPolicy;
@@ -16,19 +16,14 @@ use App\Services\InterventionCalculationContextService;
 use App\Services\InterventionPlanService;
 use App\Services\LabFlagService;
 use App\Services\NcpAppointmentWorkflow;
-use App\Services\NutritionPrescriptionService;
-use App\Services\RecommendService;
-use App\Support\InterventionGoalCatalog;
+use App\Support\InterventionGuidance;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Support\Carbon;
 
 class InterventionController extends Controller
 {
     public function __construct(
         private ClinicalCompletenessService $completeness,
-        private LabFlagService $labFlags,
         private AuditPolicy $auditPolicy,
         private NcpAppointmentWorkflow $appointments,
         private InterventionPlanService $plans,
@@ -37,123 +32,55 @@ class InterventionController extends Controller
     /**
      * POST /api/rnd/ncp-records/{ncpRecord}/interventions/autofill
      *
-     * AUTHORITATIVE prescription calculation. Derives patient metrics from the
-     * assessment + patient record and returns the spec-correct prescription.
-     * The frontend mirror is for live preview only; persisted values should come
-     * from here. Body: { goal_type, disease_stage? }.
+     * Derives a current calculation and provenance from saved measurements.
+     * Guidance-only requests never change numeric targets.
      */
     public function autofill(
-        Request $request,
+        AutofillInterventionRequest $request,
         NcpRecord $ncpRecord,
-        NutritionPrescriptionService $svc,
         InterventionCalculationContextService $contextService,
     ): JsonResponse {
         $this->authorizeNcp($ncpRecord);
-        $latestPlan = $ncpRecord->latestIntervention;
-        $goalType = $request->input('goal_type') ?? $latestPlan?->goal_type;
-        $stage = $request->input('disease_stage') ?? $latestPlan?->disease_stage;
+        $attributes = $request->validated();
+        if ($request->boolean('guidance_only')) {
+            $context = $contextService->for($ncpRecord);
 
-        if (! $goalType) {
-            return response()->json(['message' => 'goal_type is required.'], 422);
-        }
-
-        if (! InterventionGoalCatalog::stageIsValid($goalType, $stage)) {
-            return response()->json([
-                'message' => 'Invalid intervention goal or disease stage.',
-                'calculation_status' => 'invalid_goal_stage',
-                'errors' => [
-                    'goal_type' => ['The selected intervention goal is invalid.'],
-                    'disease_stage' => ['The selected disease stage is invalid for the intervention goal.'],
+            return response()->json(['data' => ['guidance' => InterventionGuidance::for(
+                $attributes['goal_type'], $attributes['disease_stage'] ?? null, [
+                    ...($attributes['calculation_options'] ?? []),
+                    'energy_adjustment_mode' => $attributes['energy_adjustment_mode'] ?? 'none',
+                    'energy_adjustment_kcal' => ($attributes['energy_adjustment_mode'] ?? 'none') === 'none' ? 0 : ($attributes['energy_adjustment_kcal'] ?? 0),
+                    'fluid_mode' => $attributes['fluid_mode'] ?? null,
+                    'pediatric' => ($context['age_years'] ?? 18) < 18,
+                    'age_months' => $context['age_months'],
+                    'maternal' => ! in_array($context['pregnancy_lactation_status'], [null, 'none'], true),
                 ],
-            ], 422);
+            )]]);
         }
-
-        $assessment = $ncpRecord->assessment()->first();
-        $patient = $ncpRecord->patient;
-        $context = $contextService->for($ncpRecord);
-
-        $missingFields = [];
-        if ($context['weight'] === null) {
-            $missingFields[] = 'weight';
+        $rx = $contextService->calculate($ncpRecord, $attributes);
+        if (! empty($attributes['calculation_options']['refeeding_risk'])) {
+            $context = $contextService->for($ncpRecord);
+            $flags = app(LabFlagService::class)->flag($context['lab_values'], $context['sex']);
+            foreach (['potassium', 'phosphate', 'magnesium', 'calcium'] as $electrolyte) {
+                if (isset($flags[$electrolyte])) {
+                    $rx['safety_warnings'][] = ['key' => strtolower($flags[$electrolyte]['status']).'_'.$electrolyte,
+                        'severity' => 'warning', 'message' => ucfirst($electrolyte).' is out of range. Review intake and clinical monitoring with the care team.'];
+                }
+            }
+            if (! empty($rx['safety_warnings'])) {
+                $rx['calculation_status'] = 'warning';
+            }
         }
-        if ($context['height'] === null) {
-            $missingFields[] = 'height';
-        }
-        if ($context['edema_present'] && $context['dry_weight_kg'] === null) {
-            $missingFields[] = 'dry_weight_kg';
-        }
-        if ($this->requiresActivityFactor($goalType, $stage)
-            && blank($context['physical_activity_level'])
-        ) {
-            $missingFields[] = 'physical_activity_level';
-        }
-
-        if ($missingFields !== []) {
-            return response()->json([
-                'message' => 'Assessment fields required before autofill: '.implode(', ', $missingFields).'.',
-                'missing_fields' => $missingFields,
-                'calculation_status' => 'incomplete',
-            ], 422);
-        }
-
-        if ($context['pregnancy_lactation_status'] === 'pregnant_unspecified') {
-            return response()->json([
-                'message' => 'Confirm the pregnancy trimester before automatic maternal targets are available.',
-                'missing_fields' => ['pregnancy_lactation_status'],
-                'calculation_status' => 'maternal_status_confirmation_required',
-            ], 422);
-        }
-
-        $missingPatientFields = [];
-        if (! $patient || ! $patient->dob) {
-            $missingPatientFields[] = 'dob';
-        }
-        if (! $patient || ! $patient->sex) {
-            $missingPatientFields[] = 'sex';
-        }
-        if ($missingPatientFields !== []) {
-            return response()->json([
-                'message' => 'Patient fields required before autofill: '.implode(', ', $missingPatientFields).'.',
-                'missing_fields' => $missingPatientFields,
-                'calculation_status' => 'incomplete',
-            ], 422);
-        }
-
-        $age = (int) Carbon::parse($patient->dob)->age;
-
-        // Phase 5.2: use normalised PAL key so any UI spelling maps to ACTIVITY_FACTORS
-        $rawActivity = strtolower(trim((string) $context['physical_activity_level']));
-        $activityKey = Assessment::ACTIVITY_LEVEL_MAP[$rawActivity] ?? 'sedentary';
-        $activityFactor = NutritionPrescriptionService::ACTIVITY_FACTORS[$activityKey] ?? 1.2;
-
-        $calculationWeight = $context['edema_present']
-            ? (float) $context['dry_weight_kg']
-            : (float) $context['weight'];
-
-        $metrics = [
-            'weightKg' => $calculationWeight,
-            'heightCm' => (float) $context['height'],
-            'ageYears' => $age,
-            'sex' => $patient->sex,
-            'isAdult' => $age >= 18,
-            'activityFactor' => $activityFactor,
-        ];
-
-        $pregnancyStatus = $context['pregnancy_lactation_status'];
-        if ($pregnancyStatus && $pregnancyStatus !== 'none') {
-            $metrics['pregnancyLactationStatus'] = $pregnancyStatus;
-        }
-
-        $rx = $svc->autofill($goalType, $stage, $metrics);
-        $rx['source_type'] = $context['source_type'];
-        $rx['source_monitoring_id'] = $context['source_monitoring_id'];
-        $rx['source_monitoring_date'] = $context['source_monitoring_date'];
-
-        $warnings = $this->safetyWarnings($goalType, $stage, $assessment, $patient?->sex);
-        $rx['calculation_status'] = $warnings === [] ? 'ok' : 'warning';
-        if ($warnings !== []) {
-            $rx['safety_warnings'] = $warnings;
-        }
+        $snapshot = $rx['calculation_snapshot'];
+        $rx['guidance'] = InterventionGuidance::for($attributes['goal_type'], $attributes['disease_stage'] ?? null, [
+            ...($attributes['calculation_options'] ?? []),
+            'energy_adjustment_mode' => $attributes['energy_adjustment_mode'] ?? 'none',
+            'energy_adjustment_kcal' => $snapshot['energy_adjustment_kcal'],
+            'fluid_mode' => $rx['fluid_mode'],
+            'pediatric' => ($snapshot['inputs']['ageYears'] ?? 18) < 18,
+            'age_months' => $snapshot['inputs']['ageMonths'] ?? (($snapshot['inputs']['ageYears'] ?? 18) * 12),
+            'maternal' => ($snapshot['inputs']['pregnancyLactationStatus'] ?? 'none') !== 'none',
+        ]);
 
         return response()->json(['data' => $rx]);
     }
@@ -227,7 +154,7 @@ class InterventionController extends Controller
         return $this->audited(function () use ($request, $ncpRecord, $intervention): JsonResponse {
             NcpRecord::whereKey($ncpRecord->id)->lockForUpdate()->firstOrFail();
             abort_unless((int) $ncpRecord->latestIntervention()->value('id') === $intervention->id, 403, 'Historical plans are view only.');
-            $intervention->update($request->validated());
+            $intervention->update($this->plans->prepareAttributes($ncpRecord, $request->validated(), $intervention));
             if ($intervention->mealPlan) {
                 $intervention->mealPlan->update(['needs_rescaling' => true, 'scaled_at' => null]);
             }
@@ -275,78 +202,33 @@ class InterventionController extends Controller
     {
         $this->authorizeNcp($ncpRecord);
         $intervention = $ncpRecord->latestIntervention()->firstOrFail();
+        $guidance = InterventionGuidance::for($intervention->goal_type ?? 'custom', $intervention->disease_stage, $intervention->calculation_options ?? []);
+        $limits = [];
+        foreach ($intervention->micronutrient_limits ?? [] as $tag => $limit) {
+            foreach (['target', 'min', 'max'] as $operator) {
+                if (isset($limit[$operator])) {
+                    $limits[] = ['tag' => $tag, 'condition' => $intervention->goal_type,
+                        'reason' => 'Confirmed individual prescription', 'threshold' => $limit[$operator],
+                        'unit' => $limit['unit'] ?? '', 'operator' => $operator];
+                }
+            }
+        }
 
-        $conditions = $this->mapGoalTypeToConditions($intervention->goal_type ?? '');
-        $stages = $intervention->disease_stage ? [$intervention->disease_stage] : null;
+        return response()->json(['data' => [
+            'recommend' => [['tag' => 'food_pattern', 'condition' => $intervention->goal_type, 'reason' => $guidance['foods']['choose']]],
+            'avoid' => [['tag' => 'individual_limits', 'condition' => $intervention->goal_type, 'reason' => $guidance['foods']['limit']]],
+            'limits' => $limits,
+            'foods' => $guidance['foods'],
+            'lab_review' => app(LabFlagService::class)->flag(
+                app(InterventionCalculationContextService::class)->for($ncpRecord)['lab_values'],
+                $ncpRecord->patient?->sex,
+            ),
+        ]]);
 
-        $assessment = $ncpRecord->assessment()->with('biochemicalData')->first();
-        $labValues = $assessment?->biochemicalData?->toArray() ?? [];
-        $labFlags = $this->labFlags->flag($labValues, $ncpRecord->patient?->sex);
-
-        $result = app(RecommendService::class)
-            ->getRecommendations($conditions, $stages, $labFlags);
-
-        return response()->json(['data' => $result]);
     }
 
     private function authorizeNcp(NcpRecord $ncpRecord): void
     {
         abort_unless($this->auditPolicy->viewNcpTrail(request()->user(), $ncpRecord), 403);
-    }
-
-    /**
-     * Translate an intervention goal_type to the clinical_rules condition(s) whose
-     * food rules apply. Data-driven via config/clinical.php (condition strings must
-     * match clinical_rules.condition) — not hardcoded here. Unknown goal_types and
-     * purely calculation-based goals resolve to no conditions.
-     */
-    private function mapGoalTypeToConditions(string $goalType): array
-    {
-        return config("clinical.goal_type_conditions.{$goalType}", []);
-    }
-
-    private function requiresActivityFactor(string $goalType, ?string $stage): bool
-    {
-        return match ($goalType) {
-            'diabetic_control', 'cardiac_diet', 'weight_loss', 'custom' => true,
-            'weight_gain' => $stage !== 'severe',
-            default => false,
-        };
-    }
-
-    /**
-     * Labs are optional, but if present they must surface risk-relevant warnings.
-     *
-     * @return array<int,array{key:string,severity:string,message:string}>
-     */
-    private function safetyWarnings(string $goalType, ?string $stage, $assessment, ?string $sex): array
-    {
-        if (! in_array($goalType, ['malnutrition', 'weight_gain'], true) || $stage !== 'severe') {
-            return [];
-        }
-
-        $assessment->loadMissing('biochemicalData');
-        $flags = $this->labFlags->flag($assessment->biochemicalData?->toArray() ?? [], $sex);
-        $messages = [
-            'potassium' => 'Potassium is out of range. Severe nutrition risk requires close potassium monitoring.',
-            'phosphate' => 'Phosphate is out of range. Severe nutrition risk requires close phosphate monitoring.',
-            'magnesium' => 'Magnesium is out of range. Severe nutrition risk requires close magnesium monitoring.',
-            'calcium' => 'Calcium is out of range. Review hydration, renal status, medications, and supplementation before advancing feeding.',
-        ];
-
-        $warnings = [];
-        foreach (['potassium', 'phosphate', 'magnesium', 'calcium'] as $key) {
-            if (! isset($flags[$key])) {
-                continue;
-            }
-
-            $warnings[] = [
-                'key' => strtolower($flags[$key]['status']).'_'.$key,
-                'severity' => 'warning',
-                'message' => $messages[$key],
-            ];
-        }
-
-        return $warnings;
     }
 }

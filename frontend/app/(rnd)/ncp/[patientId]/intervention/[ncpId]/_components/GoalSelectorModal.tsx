@@ -10,29 +10,32 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/Button";
+import { InfoHint } from "@/components/ui/InfoHint";
 
 // GOALS data lives in a pure, testable module. Re-exported here so existing
 // imports (`import GoalSelectorModal, { GOALS } from ".../GoalSelectorModal"`) keep working.
 export { GOALS } from "./goals";
 export type { GoalOption } from "./goals";
-import { GOALS, visibleStagesForGoal } from "./goals";
+import { goalsForPatient, visibleStagesForGoal } from "./goals";
 
 interface Props {
+  isPediatric?: boolean;
   onConfirm: (goalType: string, stage: string | null) => void;
   onClose: () => void;
   initialGoal?: string | null;
   initialStage?: string | null;
 }
 
-export default function GoalSelectorModal({ onConfirm, onClose, initialGoal, initialStage }: Props) {
+export default function GoalSelectorModal({ onConfirm, onClose, initialGoal, initialStage, isPediatric = false }: Props) {
   const [selected, setSelected] = useState<string>(initialGoal ?? "");
   const [stage, setStage]       = useState<string>(initialStage ?? "");
 
-  const goal = GOALS.find((g) => g.value === selected);
+  const availableGoals = goalsForPatient(isPediatric);
+  const goal = availableGoals.find((g) => g.value === selected);
   const visibleStages = visibleStagesForGoal(selected);
 
   const handleConfirm = () => {
-    if (!selected) return;
+    if (!goal || (goal.stages && !goal.stages.some(option => option.value === stage))) return;
     onConfirm(selected, goal?.stages ? stage || null : null);
   };
 
@@ -41,8 +44,14 @@ export default function GoalSelectorModal({ onConfirm, onClose, initialGoal, ini
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 flex flex-col max-h-[85vh]">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-warm-100">
-          <h2 className="text-base font-extrabold text-warm-900 uppercase tracking-wider">Set Intervention Goal</h2>
-          <button onClick={onClose} className="text-warm-400 hover:text-warm-700 cursor-pointer transition-colors">
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-extrabold text-warm-900 uppercase tracking-wider">Set Intervention Goal</h2>
+            {isPediatric && <InfoHint label="About pediatric goal options" title="Pediatric goals">
+              Options match age at the assessment or monitoring measurement. Adult treatment presets are hidden.
+              Use Custom Plan for other assessed needs. Saved plans do not change as the patient ages.
+            </InfoHint>}
+          </div>
+          <button aria-label="Close goal selector" onClick={onClose} className="text-warm-400 hover:text-warm-700 cursor-pointer transition-colors">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -50,7 +59,7 @@ export default function GoalSelectorModal({ onConfirm, onClose, initialGoal, ini
         <div className="overflow-y-auto flex-1 p-6 space-y-4">
           <p className="text-xs font-bold text-warm-400 uppercase tracking-widest">Select a goal</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-            {GOALS.map((g) => {
+            {availableGoals.map((g) => {
               const isSelected = selected === g.value;
               return (
                 <button
@@ -78,7 +87,7 @@ export default function GoalSelectorModal({ onConfirm, onClose, initialGoal, ini
           {visibleStages && (
             <div className="pt-2 transition-all duration-150">
               <p className="text-xs font-bold text-warm-400 uppercase tracking-widest mb-2">
-                Disease Stage / Severity
+                Type
               </p>
               <Select value={stage} onValueChange={setStage}>
                 <SelectTrigger className="w-full text-base border-warm-200 focus:ring-emerald-500/20">
@@ -102,7 +111,7 @@ export default function GoalSelectorModal({ onConfirm, onClose, initialGoal, ini
           <Button
             variant="primary"
             onClick={handleConfirm}
-            disabled={!selected || (!!visibleStages && !stage)}
+            disabled={!goal || (!!visibleStages && !visibleStages.some(option => option.value === stage))}
             className="w-auto px-5 py-2 text-sm"
           >
             Save Goal

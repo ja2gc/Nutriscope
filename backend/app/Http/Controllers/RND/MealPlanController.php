@@ -128,6 +128,7 @@ class MealPlanController extends Controller
     private function assertInterventionEditable(NcpRecord $ncpRecord, int $interventionId): void
     {
         abort_unless((int) $ncpRecord->latestIntervention()->value('id') === $interventionId, 403, 'Historical intervention menus are read-only.');
+        $this->mealPlanService->assertFoodMenuSupported($ncpRecord->interventions()->findOrFail($interventionId));
     }
 
     private function assertPlanWritable(NcpRecord $ncpRecord, MealPlan $mealPlan): void
@@ -736,6 +737,8 @@ class MealPlanController extends Controller
         $result = $this->recommendService->getRecommendations(
             $request->conditions,
             $request->stages ?? null,
+            [],
+            $ncpRecord->latestIntervention?->micronutrient_limits ?? [],
         );
 
         return response()->json(['data' => $result]);

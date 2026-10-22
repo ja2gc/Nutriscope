@@ -14,7 +14,7 @@ class RecommendService
      * @param  array<string,array{value:float,status:string}>  $labFlags
      * @return array{recommend: array, avoid: array, limits: array}
      */
-    public function getRecommendations(array $conditions, ?array $stages = null, array $labFlags = []): array
+    public function getRecommendations(array $conditions, ?array $stages = null, array $labFlags = [], array $prescriptionLimits = []): array
     {
         $rules = ClinicalRule::forConditions($conditions, $stages);
 
@@ -34,9 +34,10 @@ class RecommendService
             } elseif ($rule->rule_type === 'avoid') {
                 $avoid[] = $entry;
             } elseif ($rule->rule_type === 'limit') {
+                $confirmed = $prescriptionLimits[$rule->nutrient_or_food_tag] ?? [];
                 $limits[] = array_merge($entry, [
-                    'threshold' => $rule->threshold,
-                    'unit' => $rule->unit,
+                    'threshold' => $confirmed['max'] ?? $confirmed['target'] ?? null,
+                    'unit' => $confirmed['unit'] ?? $rule->unit,
                 ]);
             }
         }
@@ -48,7 +49,7 @@ class RecommendService
                     'tag' => 'potassium',
                     'condition' => 'lab_refinement',
                     'reason' => 'Potassium is above reference range; limit high-potassium foods until clinically reviewed.',
-                    'threshold' => 0,
+                    'threshold' => null,
                     'unit' => 'mg',
                 ];
             } elseif ($key === 'potassium' && $status === 'LOW') {
@@ -62,7 +63,7 @@ class RecommendService
                     'tag' => 'phosphate',
                     'condition' => 'lab_refinement',
                     'reason' => 'Phosphate is above reference range; review phosphorus additives and renal status.',
-                    'threshold' => 0,
+                    'threshold' => null,
                     'unit' => 'mg',
                 ];
             } elseif ($key === 'phosphate' && $status === 'LOW') {
@@ -76,7 +77,7 @@ class RecommendService
                     'tag' => 'calcium',
                     'condition' => 'lab_refinement',
                     'reason' => 'Calcium is above reference range; avoid unnecessary calcium supplementation until reviewed.',
-                    'threshold' => 0,
+                    'threshold' => null,
                     'unit' => 'mg',
                 ];
             } elseif ($key === 'magnesium' && $status === 'LOW') {

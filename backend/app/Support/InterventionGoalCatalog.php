@@ -20,6 +20,11 @@ class InterventionGoalCatalog
         return array_keys(self::stages());
     }
 
+    public static function goalTypesForAge(float $ageYears): array
+    {
+        return $ageYears < 18 ? ['general_diet', 'diabetic_control', 'custom'] : self::goalTypes();
+    }
+
     public static function goalExists(?string $goalType): bool
     {
         return is_string($goalType) && array_key_exists($goalType, self::stages());

@@ -1,6 +1,13 @@
 import { microKeys, microLimitsFromRx } from "@/lib/nutritionCalculations";
+import type { CalculationOptions, CalculationSnapshot } from "@/services/interventionService";
 
 export interface PrescriptionFormState {
+  recalculate?: boolean;
+  energy_adjustment_mode?: "none" | "surplus" | "deficit";
+  energy_adjustment_kcal?: string;
+  fluid_mode?: "estimated" | "restricted" | null;
+  calculation_options?: CalculationOptions;
+  calculation_snapshot?: CalculationSnapshot | null;
   weight_target?: { target?: number | string; min?: number | string; max?: number | string };
   nutrient_operators?: Record<string, 'min' | 'max'>;
   energy_kcal: string;
@@ -22,11 +29,14 @@ export function weightTargetError(weight: PrescriptionFormState['weight_target']
 }
 
 export interface GoalAutofillResult {
-  energy_kcal: number;
-  protein_g: number;
-  carbs_g: number;
-  fat_g: number;
-  fluid_ml: number;
+  energy_kcal: number | null;
+  protein_g: number | null;
+  carbs_g: number | null;
+  fat_g: number | null;
+  fluid_ml: number | null;
+  fluid_mode?: "estimated" | "restricted";
+  nutrient_operators?: Record<string, "min" | "max">;
+  calculation_snapshot?: CalculationSnapshot;
   sodium_max_mg?: number;
   fiber_g?: number;
   cholesterol_max_mg?: number;
@@ -34,6 +44,8 @@ export interface GoalAutofillResult {
 }
 
 export const emptyPrescriptionForm = (): PrescriptionFormState => ({
+  energy_adjustment_mode: "none", energy_adjustment_kcal: "", fluid_mode: "estimated",
+  calculation_options: {}, calculation_snapshot: null,
   energy_kcal: "",
   protein_g: "",
   carbs_g: "",
@@ -59,15 +71,18 @@ export function buildGoalPrescriptionForm(
     return emptyPrescriptionForm();
   }
 
-  const micronutrient_limits = microLimitsFromRx(result, result.energy_kcal);
+  const micronutrient_limits = microLimitsFromRx(result as Parameters<typeof microLimitsFromRx>[0], result.energy_kcal ?? 0);
   const displayed_nutrients = nutrientKeysWithValues(micronutrient_limits);
 
   return {
-    energy_kcal: String(result.energy_kcal),
-    protein_g: String(result.protein_g),
-    carbs_g: String(result.carbs_g),
-    fat_g: String(result.fat_g),
-    fluid_ml: String(result.fluid_ml),
+    energy_kcal: result.energy_kcal == null ? "" : String(result.energy_kcal),
+    protein_g: result.protein_g == null ? "" : String(result.protein_g),
+    carbs_g: result.carbs_g == null ? "" : String(result.carbs_g),
+    fat_g: result.fat_g == null ? "" : String(result.fat_g),
+    fluid_ml: result.fluid_ml == null ? "" : String(result.fluid_ml),
+    fluid_mode: result.fluid_mode,
+    nutrient_operators: result.nutrient_operators,
+    calculation_snapshot: result.calculation_snapshot,
     micronutrient_limits,
     displayed_nutrients,
   };

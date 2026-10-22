@@ -9,6 +9,7 @@ use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\User;
 use App\Services\RecommendService;
+use Database\Seeders\ClinicalRulesSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -79,6 +80,28 @@ class RecommendServiceTest extends TestCase
 
         $this->assertContains('sugar', $avoidTags);
         $this->assertContains('whole_grain', $recommendTags);
+    }
+
+    public function test_only_confirmed_prescription_limits_supply_numbers(): void
+    {
+        $this->seedRules();
+        $service = app(RecommendService::class);
+        $generic = $service->getRecommendations(['CKD'], null, ['potassium' => ['status' => 'HIGH']]);
+        $this->assertSame([null, null, null], array_column($generic['limits'], 'threshold'));
+        $individual = $service->getRecommendations(['CKD'], null, [], ['potassium' => ['max' => 1800, 'unit' => 'mg']]);
+        $this->assertSame(1800, collect($individual['limits'])->firstWhere('tag', 'potassium')['threshold']);
+    }
+
+    public function test_clinical_rules_seed_twice_without_duplicates_or_overwriting_other_rules(): void
+    {
+        $custom = ClinicalRule::create(['condition' => 'hospital_specific', 'stage' => 'all', 'nutrient_or_food_tag' => 'custom_food', 'rule_type' => 'recommend', 'reason' => 'Individual hospital rule']);
+        $this->seed(ClinicalRulesSeeder::class);
+        $count = ClinicalRule::count();
+        $this->seed(ClinicalRulesSeeder::class);
+        $this->assertSame($count, ClinicalRule::count());
+        $this->assertSame('Individual hospital rule', $custom->fresh()->reason);
+        $this->assertFalse(ClinicalRule::where('condition', 'DM')->where('nutrient_or_food_tag', 'simple_sugar')->where('rule_type', 'avoid')->exists());
+        $this->assertFalse(ClinicalRule::whereNotNull('threshold')->exists());
     }
 
     public function test_recommend_endpoint_returns_structured_response(): void

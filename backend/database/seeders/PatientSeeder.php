@@ -17,6 +17,7 @@ use App\Models\ScreeningDocument;
 use App\Models\User;
 use App\Services\MealPlanService;
 use App\Services\RiskScoreCalculator;
+use App\Support\InterventionGuidance;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -314,11 +315,11 @@ class PatientSeeder extends Seeder
         Intervention::create([
             'ncp_record_id' => $record->id,
             'goal_type' => 'diabetic_control',
-            'disease_stage' => 'stage_1',
+            'disease_stage' => 'type_2',
             'energy_kcal' => 1600.00,
             'protein_g' => 70.00,
-            'carbs_g' => 200.00,
-            'fat_g' => 53.00,
+            'carbs_g' => 231.00,
+            'fat_g' => 44.00,
             'fluid_ml' => 1800.00,
             'micronutrient_limits' => [
                 'sodium' => ['max' => 2000, 'unit' => 'mg'],
@@ -326,34 +327,8 @@ class PatientSeeder extends Seeder
             'displayed_nutrients' => ['fiber', 'sodium', 'free_sugars'],
             'session_type' => 'initial',
             'next_followup_date' => $anchor->copy()->addDays(30)->toDateString(),
-            'education_notes' => "NUTRITION EDUCATION — DIABETIC MEAL PLANNING\n\n"
-                                ."1. How Food Affects Blood Sugar\n"
-                                ."   Carbohydrates raise blood sugar most. The goal is consistent, controlled carb intake — not elimination.\n\n"
-                                ."2. Carbohydrate Counting\n"
-                                ."   Target: 150–165 g carbs/day distributed across 3 meals and 1–2 snacks.\n"
-                                ."   Examples: 1 cup cooked rice = ~45 g carbs; 1 slice white bread = ~15 g carbs.\n\n"
-                                ."3. The Plate Method\n"
-                                ."   ½ plate: non-starchy vegetables (kangkong, ampalaya, pechay)\n"
-                                ."   ¼ plate: lean protein (fish, chicken, tofu)\n"
-                                ."   ¼ plate: complex carbs (brown rice, oatmeal)\n\n"
-                                ."4. Foods to Minimize\n"
-                                ."   Sugary drinks, white rice (large portions), sweets, fried foods, patis and toyo (high sodium).\n\n"
-                                ."5. Timing Matters\n"
-                                ."   Eat at regular intervals. Never skip meals — this causes blood sugar swings.\n\n"
-                                .'Next session: Review blood glucose log, HbA1c trend, and medication timing with meals.',
-            'counseling_goals' => "1. Reduce daily carbohydrate intake from ~280 g to 150–165 g/day within 4 weeks.\n"
-                                ."2. Eliminate sugar-sweetened beverages — replace with water, unsweetened tea, or calamansi water.\n"
-                                ."3. Incorporate at least 25 g fiber/day through vegetables and whole grains.\n"
-                                .'4. Reduce sodium intake to ≤2,000 mg/day.',
-            'barriers' => "1. Cultural preference for white rice — family meals centered around high-carb dishes.\n"
-                                ."2. Limited budget — brown rice and whole grains are perceived as expensive.\n"
-                                ."3. Sweet food cravings — patient reports difficulty resisting sweet snacks at home.\n"
-                                .'4. Limited cooking skills for low-GI meal preparation.',
-            'strategies' => "1. Plate method visual guide provided — practice replacing ¼ of rice portion with vegetables.\n"
-                                ."2. Gradual rice reduction: mix ¼ brown rice with ¾ white rice as first step.\n"
-                                ."3. Sweet craving alternatives: fresh mango or papaya instead of sweetened beverages.\n"
-                                ."4. Filipino recipe modifications: less sugar in Tinola, less rice per serving in Adobo.\n"
-                                .'5. Sodium reduction: replace patis with calamansi and herbs.',
+            ...array_intersect_key(InterventionGuidance::for('diabetic_control', 'type_2'), array_flip(['education_notes', 'counseling_goals', 'strategies'])),
+            'barriers' => 'Rice portions, food budget and limited cooking skills make the agreed plan harder to follow.',
         ]);
 
         // Meal plan — diabetic menu for the week after admission.
@@ -583,54 +558,26 @@ class PatientSeeder extends Seeder
             'ai_generated' => false,
         ]);
 
-        // Intervention — Malnutrition / Nutritional Rehabilitation
-        // Start: 20 kcal/kg = 52×20 = 1040 kcal (refeeding caution)
-        // Target by Week 2: 35 kcal/kg = 52×35 = 1820 kcal
-        // Protein: 1.5 g/kg = 52×1.5 = 78 g
+        // Demo final prescription: 35 × 52 = 1,820 kcal; 1.5 × 52 = 78 g protein.
+        // The clinician-supervised progression is guidance only, never the saved target.
         Intervention::create([
             'ncp_record_id' => $record->id,
-            'goal_type' => 'malnutrition',
-            'disease_stage' => 'moderate',
-            'energy_kcal' => 1300.00,
+            'goal_type' => 'general_diet',
+            'disease_stage' => null,
+            'calculation_options' => ['nutrition_status' => 'malnutrition_or_muscle_loss', 'refeeding_risk' => true],
+            'energy_kcal' => 1820.00,
             'protein_g' => 78.00,
-            'carbs_g' => 178.00,
-            'fat_g' => 43.00,
+            'carbs_g' => 262.00,
+            'fat_g' => 51.00,
             'fluid_ml' => 2000.00,
             'micronutrient_limits' => null,
             'displayed_nutrients' => [],
             'session_type' => 'initial',
             'next_followup_date' => $anchor->copy()->addDays(50)->toDateString(),
-            'education_notes' => "NUTRITION EDUCATION — NUTRITIONAL REHABILITATION\n\n"
-                                ."1. Your Current Status\n"
-                                .'   You have moderate protein-energy malnutrition. '
-                                ."Your body has not been getting enough food and protein to maintain muscle and immune function.\n\n"
-                                ."2. Feeding Plan — Start Slowly\n"
-                                ."   Week 1: ~1,300 kcal/day in 4–5 small meals\n"
-                                ."   Week 2: Increase to ~1,800 kcal/day as tolerated\n"
-                                ."   Week 3+: Progress toward full target based on weight gain and tolerance\n\n"
-                                ."3. Thiamine First (Refeeding Safety)\n"
-                                .'   You are receiving Vitamin B1 (Thiamine) before increasing food intake. '
-                                ."This prevents a serious complication called refeeding syndrome.\n\n"
-                                ."4. Warning Signs — Tell your nurse or RND immediately\n"
-                                .'   Muscle cramps, numbness/tingling in hands or feet, fast heartbeat, unusual weakness, swelling in legs. '
-                                ."These may signal dangerous electrolyte shifts.\n\n"
-                                ."5. Food Priorities\n"
-                                ."   Protein at every meal: eggs, chicken, fish, tokwa, monggo.\n"
-                                ."   Energy-dense foods: lugaw with egg, peanut butter pandesal, evaporated milk.\n\n"
-                                .'Next session (2 weeks): Weight check, electrolyte labs review, food tolerance assessment, diet upgrade.',
-            'counseling_goals' => "1. Achieve minimum 0.5 kg weight gain per week over the next 2 weeks.\n"
-                                ."2. Tolerate full soft diet (4 meals + 2 snacks) without nausea or diarrhea by Day 7.\n"
-                                ."3. Understand and report warning signs of refeeding syndrome.\n"
-                                .'4. Progress energy intake from 1,300 to 1,800 kcal/day by Week 2.',
-            'barriers' => "1. Financial constraint — primary barrier to adequate food intake.\n"
-                                ."2. Lives alone with no support system for meal preparation.\n"
-                                ."3. Nausea and early satiety limiting meal portion tolerance.\n"
-                                .'4. Prior diarrheal illness may have compromised nutrient absorption.',
-            'strategies' => "1. Refer to Medical Social Worker for financial assistance and food support programs.\n"
-                                ."2. Provide list of affordable high-protein Filipino foods (eggs, tokwa, monggo, sardines).\n"
-                                ."3. Small frequent meals every 3–4 hours — avoid large portions that trigger nausea.\n"
-                                ."4. Fortify lugaw with egg, evaporated milk, or peanut butter to increase energy density.\n"
-                                .'5. Electrolyte monitoring (phosphate, K+, Mg2+) on Day 3 and Day 5 post-refeeding start.',
+            ...array_intersect_key(InterventionGuidance::for('general_diet', null, [
+                'nutrition_status' => 'malnutrition_or_muscle_loss', 'refeeding_risk' => true,
+            ]), array_flip(['education_notes', 'counseling_goals', 'strategies'])),
+            'barriers' => 'Limited food budget, living alone, nausea and early fullness reduce intake.',
         ]);
 
         // Meal plan — nutritional-rehabilitation menu.

@@ -1,39 +1,19 @@
 import { describe, expect, test } from "vitest";
-import { GOALS, visibleStagesForGoal } from "./goals";
+import { GOALS, goalsForPatient, goalLabelFor, visibleStagesForGoal } from "./goals";
 
-describe("GOALS data", () => {
-  test("diabetic_control exposes stage_1/stage_2/stage_3 (engine + doc require them)", () => {
-    const diabetic = GOALS.find((g) => g.value === "diabetic_control");
-    expect(diabetic).toBeDefined();
-    const stageValues = diabetic?.stages?.map((s) => s.value) ?? [];
-    expect(stageValues).toEqual(["stage_1", "stage_2", "stage_3"]);
+describe("intervention goal catalog", () => {
+  test("offers only the seven approved common goals", () => {
+    expect(GOALS.map(goal => goal.value)).toEqual(["general_diet", "diabetic_control", "renal_diet", "cardiac_diet", "high_protein", "liver_disease", "custom"]);
+    expect(GOALS.flatMap(goal => goal.stages ?? [])).toHaveLength(12);
   });
-
-  test("every goal except custom has at least one stage", () => {
-    for (const g of GOALS) {
-      if (g.value === "custom") continue;
-      expect(g.stages?.length ?? 0).toBeGreaterThan(0);
-    }
-  });
-
-  test("weight-loss stages use Asia-Pacific BMI labels", () => {
-    const weightLoss = GOALS.find((goal) => goal.value === "weight_loss");
-
-    expect(weightLoss?.stages).toEqual([
-      { value: "overweight", label: "Overweight (BMI 23-24.9)" },
-      { value: "class_1", label: "Obese Class I (BMI 25-29.9)" },
-      { value: "class_2", label: "Obese Class II (BMI 30-34.9)" },
-      { value: "class_3", label: "Obese Class II, severe (BMI >=35)" },
-    ]);
-  });
-
-  test("reveals stages only for the selected goal", () => {
-    expect(visibleStagesForGoal("")).toBeNull();
+  test("diabetes types are independent of body weight", () => {
+    expect(visibleStagesForGoal("diabetic_control")?.map(type => type.value)).toEqual(["type_1", "type_2"]);
+    expect(visibleStagesForGoal("general_diet")).toBeNull();
     expect(visibleStagesForGoal("custom")).toBeNull();
-    expect(visibleStagesForGoal("diabetic_control")?.map((stage) => stage.value)).toEqual([
-      "stage_1",
-      "stage_2",
-      "stage_3",
-    ]);
+  });
+  test("pediatric options are age appropriate without altering legacy labels", () => {
+    expect(goalsForPatient(true).map(goal => goal.value)).toEqual(["general_diet", "diabetic_control", "custom"]);
+    expect(goalsForPatient(false)).toEqual(GOALS);
+    expect(goalLabelFor("malnutrition")).toBe("Malnutrition");
   });
 });

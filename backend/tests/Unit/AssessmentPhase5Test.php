@@ -101,13 +101,13 @@ class AssessmentPhase5Test extends BaseTestCase
         $svc = new NutritionPrescriptionService;
         $metrics = $this->baseMetrics(); // no pregnancyLactationStatus key
 
-        $base = $svc->autofill('default', null, $metrics);
+        $base = $svc->autofillLegacy('default', null, $metrics);
 
         $metrics['pregnancyLactationStatus'] = null;
-        $withNull = $svc->autofill('default', null, $metrics);
+        $withNull = $svc->autofillLegacy('default', null, $metrics);
 
         $metrics['pregnancyLactationStatus'] = 'none';
-        $withNone = $svc->autofill('default', null, $metrics);
+        $withNone = $svc->autofillLegacy('default', null, $metrics);
 
         $this->assertSame($base['energy_kcal'], $withNull['energy_kcal']);
         $this->assertSame($base['energy_kcal'], $withNone['energy_kcal']);
@@ -118,7 +118,7 @@ class AssessmentPhase5Test extends BaseTestCase
     public function test_confirmed_maternal_statuses_apply_sourced_modifiers_and_trace(): void
     {
         $svc = new NutritionPrescriptionService;
-        $base = $svc->autofill('default', null, $this->baseMetrics());
+        $base = $svc->autofillLegacy('default', null, $this->baseMetrics());
 
         foreach ([
             'pregnant_t1' => [0, 27],
@@ -126,7 +126,7 @@ class AssessmentPhase5Test extends BaseTestCase
             'pregnant_t3' => [300, 27],
             'lactating' => [500, 27],
         ] as $status => [$energyModifier, $proteinModifier]) {
-            $result = $svc->autofill('default', null, array_merge(
+            $result = $svc->autofillLegacy('default', null, array_merge(
                 $this->baseMetrics(),
                 ['pregnancyLactationStatus' => $status]
             ));
@@ -143,7 +143,7 @@ class AssessmentPhase5Test extends BaseTestCase
     public function test_pregnancy_note_appended_to_result(): void
     {
         $svc = new NutritionPrescriptionService;
-        $result = $svc->autofill('default', null, array_merge(
+        $result = $svc->autofillLegacy('default', null, array_merge(
             $this->baseMetrics(),
             ['pregnancyLactationStatus' => 'pregnant_t2']
         ));
@@ -157,7 +157,7 @@ class AssessmentPhase5Test extends BaseTestCase
     public function test_lactating_note_appended_to_result(): void
     {
         $svc = new NutritionPrescriptionService;
-        $result = $svc->autofill('default', null, array_merge(
+        $result = $svc->autofillLegacy('default', null, array_merge(
             $this->baseMetrics(),
             ['pregnancyLactationStatus' => 'lactating']
         ));
@@ -171,7 +171,7 @@ class AssessmentPhase5Test extends BaseTestCase
     {
         // liver_disease already has a note — ensure both notes are preserved
         $svc = new NutritionPrescriptionService;
-        $result = $svc->autofill('liver_disease', null, array_merge(
+        $result = $svc->autofillLegacy('liver_disease', null, array_merge(
             $this->baseMetrics(),
             ['pregnancyLactationStatus' => 'pregnant_t2']
         ));
@@ -183,7 +183,7 @@ class AssessmentPhase5Test extends BaseTestCase
     public function test_pregnancy_macros_remain_self_consistent(): void
     {
         $svc = new NutritionPrescriptionService;
-        $result = $svc->autofill('default', null, array_merge(
+        $result = $svc->autofillLegacy('default', null, array_merge(
             $this->baseMetrics(),
             ['pregnancyLactationStatus' => 'pregnant_t2']
         ));
@@ -198,7 +198,7 @@ class AssessmentPhase5Test extends BaseTestCase
     public function test_maternal_modifier_preserves_goal_restricted_fluid_and_recalculates_macros(): void
     {
         $svc = new NutritionPrescriptionService;
-        $result = $svc->autofill('cardiac_diet', 'severe', array_merge(
+        $result = $svc->autofillLegacy('cardiac_diet', 'severe', array_merge(
             $this->baseMetrics(),
             ['pregnancyLactationStatus' => 'pregnant_t2']
         ));
@@ -213,8 +213,8 @@ class AssessmentPhase5Test extends BaseTestCase
     public function test_stress_factor_input_does_not_change_tee(): void
     {
         $svc = new NutritionPrescriptionService;
-        $baseline = $svc->autofill('default', null, $this->baseMetrics());
-        $withLegacyStress = $svc->autofill('default', null, array_merge($this->baseMetrics(), ['stressFactor' => 2.0]));
+        $baseline = $svc->autofillLegacy('default', null, $this->baseMetrics());
+        $withLegacyStress = $svc->autofillLegacy('default', null, array_merge($this->baseMetrics(), ['stressFactor' => 2.0]));
 
         $this->assertSame($baseline, $withLegacyStress);
     }
@@ -233,7 +233,7 @@ class AssessmentPhase5Test extends BaseTestCase
             'activityFactor' => NutritionPrescriptionService::ACTIVITY_FACTORS['sedentary'],
         ];
         // No pregnancyLactationStatus key → gate must not fire
-        $result = $svc->autofill('renal_diet', 'stage_1', $metrics);
+        $result = $svc->autofillLegacy('renal_diet', 'stage_1', $metrics);
         $this->assertSame(2400, $result['energy_kcal']);
         $this->assertSame(53, $result['protein_g']);
     }

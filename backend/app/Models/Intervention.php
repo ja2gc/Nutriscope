@@ -26,7 +26,8 @@ class Intervention extends Model
         'micronutrient_limits', 'education_notes', 'counseling_goals',
         'nutrient_operators', 'weight_target',
         'barriers', 'strategies', 'session_type',
-        'next_followup_date',
+        'next_followup_date', 'energy_adjustment_mode', 'energy_adjustment_kcal', 'fluid_mode',
+        'calculation_options', 'calculation_snapshot',
     ];
 
     protected $casts = [
@@ -34,6 +35,9 @@ class Intervention extends Model
         'micronutrient_limits' => 'array',
         'nutrient_operators' => 'array',
         'weight_target' => 'array',
+        'energy_adjustment_kcal' => 'integer',
+        'calculation_options' => 'array',
+        'calculation_snapshot' => 'array',
         'next_followup_date' => 'date',
         'energy_kcal' => 'decimal:2',
         'protein_g' => 'decimal:2',
@@ -61,6 +65,7 @@ class Intervention extends Model
             'micronutrient_limits', 'education_notes', 'counseling_goals', 'barriers',
             'nutrient_operators', 'weight_target',
             'strategies', 'session_type', 'next_followup_date',
+            'energy_adjustment_mode', 'energy_adjustment_kcal', 'fluid_mode', 'calculation_options', 'calculation_snapshot',
         ];
     }
 

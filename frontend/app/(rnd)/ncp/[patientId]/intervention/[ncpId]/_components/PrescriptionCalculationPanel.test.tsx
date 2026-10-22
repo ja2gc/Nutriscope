@@ -29,14 +29,6 @@ const trace: CalculationTrace = {
       status: "matches",
     },
   ],
-  maternalModifier: {
-    status: "Pregnant — second trimester",
-    baseline: "1800 kcal + 54 g protein",
-    modifier: "+300 kcal + 27 g protein",
-    final: "2100 kcal + 81 g protein",
-    waterGuidance: "+300 mL/day reference only; fluid target unchanged",
-    sourceLabel: "FNRI-DOST PDRI 2015 Summary Tables 1–2 (revised September 2018)",
-  },
   notes: [],
 };
 
@@ -48,7 +40,7 @@ describe("PrescriptionCalculationPanel", () => {
 
     expect(html).toContain("Show calculations");
     expect(html).toContain('aria-expanded="false"');
-    expect(html).not.toContain("Patient &amp; Assessment Context");
+    expect(html).not.toContain("Baseline calculation");
   });
 
   test("renders condensed context and one value per nutrient when expanded", () => {
@@ -58,15 +50,10 @@ describe("PrescriptionCalculationPanel", () => {
 
     expect(html).toContain("Hide calculations");
     expect(html).toContain('aria-expanded="true"');
-    expect(html).toContain("Patient &amp; Assessment Context");
-    expect(html).toContain("Nutrition Prescription");
+    expect(html).toContain("Baseline calculation");
+    expect(html).toContain("Final target");
     expect(html).toContain("1400 kcal");
     expect(html).toContain("BMR × PAL");
-    expect(html).toContain("Goal-calculated baseline");
-    expect(html).toContain("Maternal modifier");
-    expect(html).toContain("FNRI-DOST PDRI 2015 Summary Tables 1–2");
-    expect(html).toContain("Water guidance");
-    expect(html).toContain("fluid target unchanged");
     expect(html).not.toContain("Prescribed</p>");
     expect(html).not.toContain("Calculated</p>");
     expect(html).not.toContain("Flagged");

@@ -17,7 +17,7 @@ const statusClasses: Record<CalculationTargetStatus, string> = {
 };
 
 const statusText: Record<CalculationTargetStatus, string> = {
-  matches: "Recommended",
+  matches: "Calculated",
   modified: "Modified",
   manual: "Manual",
   missing: "Missing",
@@ -49,7 +49,7 @@ export default function PrescriptionCalculationPanel({ trace, expanded, onToggle
         <div id={panelId} className="space-y-4 border-t border-warm-200 p-3">
           <section aria-labelledby={`${panelId}-context`}>
             <h4 id={`${panelId}-context`} className="text-xs font-extrabold uppercase tracking-wider text-warm-500">
-              Patient &amp; Assessment Context
+              Baseline calculation
             </h4>
             <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-3 rounded-lg border border-warm-200 bg-white p-3 sm:grid-cols-3 lg:grid-cols-5">
               {trace.context.map((item) => (
@@ -64,28 +64,10 @@ export default function PrescriptionCalculationPanel({ trace, expanded, onToggle
             </dl>
           </section>
 
-          {trace.maternalModifier && (
-            <section aria-labelledby={`${panelId}-maternal`} className="rounded-lg border border-brand-orange-200 bg-brand-orange-50 p-3">
-              <h4 id={`${panelId}-maternal`} className="text-xs font-extrabold uppercase tracking-wider text-brand-orange-700">
-                Maternal modifier
-              </h4>
-              <p className="mt-2 text-sm text-brand-orange-900">
-                <span className="font-bold">Goal-calculated baseline:</span> {trace.maternalModifier.baseline}
-                <span className="mx-1">+</span>
-                <span className="font-bold">Modifier:</span> {trace.maternalModifier.modifier}
-                <span className="mx-1">=</span>
-                <span className="font-bold">Final:</span> {trace.maternalModifier.final}
-              </p>
-              <p className="mt-1 text-xs text-brand-orange-800">
-                {trace.maternalModifier.status} · {trace.maternalModifier.sourceLabel}
-              </p>
-              <p className="mt-1 text-xs text-brand-orange-800">Water guidance: {trace.maternalModifier.waterGuidance}.</p>
-            </section>
-          )}
 
           <section aria-labelledby={`${panelId}-prescription`}>
             <h4 id={`${panelId}-prescription`} className="text-xs font-extrabold uppercase tracking-wider text-warm-500">
-              Nutrition Prescription
+              Final target
             </h4>
             <div className="mt-2 overflow-hidden rounded-lg border border-warm-200 bg-white">
               <div className="hidden grid-cols-[minmax(7rem,0.7fr)_minmax(12rem,1.3fr)_minmax(14rem,1.5fr)_minmax(7rem,0.6fr)] gap-3 border-b border-warm-200 bg-warm-50 px-3 py-2 text-xs font-bold text-warm-500 md:grid">

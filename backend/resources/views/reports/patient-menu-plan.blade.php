@@ -26,12 +26,27 @@
             <div>Target weight: @include('reports.partials.nutrient-prescription', ['limit' => [...$prescription['weight_target'], 'unit' => 'kg']])</div>
         @endif
         <div class="muted" style="margin-top:2px;">Daily prescription: ≤ maximum, ≥ minimum; unmarked amounts are targets. These are not the nutrient totals of this menu.</div>
+        @php
+            $calculation = $prescription['calculation_snapshot'] ?? null;
+        @endphp
+        @if(isset($calculation['baseline_energy_kcal'], $calculation['calculated']['energy_kcal']))
+            <div style="margin-top:2px;">
+                Baseline: {{ number_format($calculation['baseline_energy_kcal'], 2) }} kcal
+                + maternal addition {{ number_format($calculation['maternal_energy_kcal'] ?? 0) }} kcal
+                {{ ($calculation['signed_adjustment_kcal'] ?? 0) < 0 ? '−' : '+' }} fixed adjustment {{ number_format(abs($calculation['signed_adjustment_kcal'] ?? 0)) }} kcal
+                = calculated final {{ number_format($calculation['calculated']['energy_kcal']) }} kcal/day.
+                @if(isset($calculation['manual_overrides']['energy_kcal'])) Clinician override: {{ number_format($prescription['energy_kcal']) }} kcal/day. @endif
+            </div>
+        @endif
         <div class="muted" style="margin-top:2px;">
             Fluid prescription: @include('reports.partials.nutrient-prescription', ['limit' => [($prescription['nutrient_operators']['fluid_ml'] ?? 'target') => $fluid_balance['required_fluid_ml'], 'unit' => 'mL/day']]) ·
             Fluid from planned foods: {{ number_format($fluid_balance['food_fluid_ml']) }} mL/day average ·
-            Remaining drinking fluid: {{ number_format($fluid_balance['remaining_ml']) }} mL/day.
+            {{ ($prescription['fluid_mode'] ?? null) === 'restricted' ? 'Remaining upper allowance' : 'Remaining drinking fluid' }}: {{ number_format($fluid_balance['remaining_ml']) }} mL/day.
         </div>
         <div class="muted" style="margin-top:2px;">Estimated fluid from this menu if followed. Remaining drinking fluid follows the same target or limit as the prescription.</div>
+        @if(!empty($fluid_balance['exceeds_limit_days']))
+            <div style="margin-top:2px;">Food fluid exceeds the prescribed maximum on {{ implode(', ', $fluid_balance['exceeds_limit_days']) }}. Review the menu with the care team.</div>
+        @endif
         @if($maternal_note)
             <div class="muted" style="margin-top:2px;">{{ $maternal_note }}</div>
         @endif
