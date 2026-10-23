@@ -62,7 +62,8 @@ jobs:
         run: |
           bash ops/tests/deploy.test.sh
           docker compose --env-file backend/.env.production.example \
-            -f docker-compose.yml -f docker-compose.prod.yml --profile release \
+            -f docker-compose.yml -f docker-compose.prod.yml \
+            -f ops/compose-validation.yml --profile release \
             config --no-env-resolution --quiet
 
       - name: Build images on runner

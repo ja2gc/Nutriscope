@@ -1,12 +1,13 @@
 # Operations
 
-Verified against committed source: `548c0e3268a8b7d26b598caf287fa11f6d236725` plus the deployment/resource changes in this working tree (2026-10-23).
+Verified against committed source: `59836bdef23642b1642848270bdcdf634b09afd7` plus the CI Compose validation fix in this working tree (2026-10-23).
 
 Purpose: find deployment, jobs, files, reports and recovery owners.
 
 - Hosting: [VPS setup](../../operations/vps-setup.md); accounts and migration: [turnover](../../operations/turnover.md); secrets/settings: [environment](environment.md), [integrations](integrations.md).
 - [Production Compose](../../../docker-compose.prod.yml) declares HTTP, backups/default worker, scheduler and one-off release roles. [bootstrap/app.php](../../../backend/bootstrap/app.php) is the schedule authority for menu maintenance, follow-ups, report files/census, backups and audit retention.
 - [Deploy workflow](../../../.github/workflows/deploy.yml) builds images on the Actions runner and transfers them over fingerprint-verified SSH. [ops/deploy.sh](../../../ops/deploy.sh) owns image loading, revision/health checks, rollback tags and successful-deploy image retention. Run its isolated failure-path tests with `bash ops/tests/deploy.test.sh`.
+- [CI Compose override](../../../ops/compose-validation.yml) removes production env-file references only for offline configuration validation. Never include it in a production command; normal deployment still requires the production env file.
 - [StoredObjectStorage](../../../backend/app/Services/StoredObjectStorage.php), [filesystems config](../../../backend/config/filesystems.php) and [upload limits](../../../backend/config/uploads.php) own durable file routing and limits.
 - [ReportController](../../../backend/app/Http/Controllers/ReportController.php), [Reports](../../../backend/app/Services/Reports) and [report config](../../../backend/config/nutriscope-reports.php) own rendering, archives and cache. [ReportPreview](../../../frontend/components/ReportPreview.tsx) is the browser consumer.
 - [Backup services](../../../backend/app/Services/Backup), [backup settings](../../../backend/config/nutriscope-backups.php) and [backup filesystem](../../../backend/config/filesystems.php) own recovery paths; see [backup/recovery](../../operations/backup-recovery.md).

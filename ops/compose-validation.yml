@@ -1,0 +1,11 @@
+# CI validation only. Never include this override in a production command.
+# Older Compose versions check env-file existence before --no-env-resolution.
+services:
+  backend:
+    env_file: !reset []
+  backend_worker:
+    env_file: !reset []
+  backend_scheduler:
+    env_file: !reset []
+  backend_release:
+    env_file: !reset []

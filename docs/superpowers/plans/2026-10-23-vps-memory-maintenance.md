@@ -113,3 +113,12 @@ need workload acceptance after rollout; a short smoke test is not capacity proof
   rollout, workload capacity test, provider alert creation, legacy cache removal,
   or Docker restart is claimed. Configure the verified host fingerprint in Actions
   and approve production rollout separately.
+
+### Rollout validation correction
+
+The approved deployment rerun passed fingerprint validation and all 12 shell
+tests, then CI Compose failed because the production env file does not exist on
+the Actions runner. Local Compose 5.1.3 does not reproduce that older-version
+existence check. `ops/compose-validation.yml` explicitly resets env-file references
+for CI validation; it is never part of production commands. Verify the merged
+CI model has no env-file references before rerunning the workflow.
