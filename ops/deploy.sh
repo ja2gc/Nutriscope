@@ -45,7 +45,7 @@ for service in backend frontend; do
 done
 
 # The existing release includes migrations. Never automatically roll back data.
-dc --profile release run --rm --no-build --pull never backend_release
+dc --profile release run --rm --pull never backend_release
 dc up -d --no-build --pull never backend backend_worker backend_scheduler frontend
 for url in http://127.0.0.1:8080/up http://127.0.0.1:3000/login; do
     curl --fail --silent --show-error --output /dev/null --max-time 15 \

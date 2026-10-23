@@ -30,7 +30,12 @@ for scenario in healthy mismatch release_failure start_failure health_failure ru
             'image inspect '*nutriscope-backend:latest) echo new-backend ;;
             'image inspect '*nutriscope-frontend:latest) echo new-frontend ;;
             'image load') cat > /dev/null ;;
-            'compose '*"run "*) [[ "$SCENARIO" != release_failure ]] || return 1 ;;
+            'compose '*"run "*)
+                if [[ " $* " == *' --no-build '* ]]; then
+                    echo 'unknown flag: --no-build' >&2
+                    return 1
+                fi
+                [[ "$SCENARIO" != release_failure ]] || return 1 ;;
             'compose '*"up "*)
                 [[ "$SCENARIO" != start_failure ]] || return 1
                 touch "$TRACE.started" ;;
@@ -56,7 +61,7 @@ for scenario in healthy mismatch release_failure start_failure health_failure ru
     if [[ "$scenario" == healthy || "$scenario" == same_revision ]]; then
         [[ "$result" == 0 ]] || { cat "$sandbox/result"; exit 1; }
         grep -q 'image prune --force --filter label=io.nutriscope.app=true --filter until=168h' "$TRACE"
-        grep -q 'run --rm --no-build --pull never backend_release' "$TRACE"
+        grep -q 'run --rm --pull never backend_release' "$TRACE"
         grep -q 'up -d --no-build --pull never' "$TRACE"
         if [[ "$scenario" == same_revision ]]; then
             if grep -q 'image tag .*:rollback' "$TRACE"; then exit 1; fi
