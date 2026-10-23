@@ -3,12 +3,15 @@
 namespace Tests\Feature;
 
 use App\Models\Budget;
+use App\Models\BudgetLedger;
 use App\Models\FsItem;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderAttachment;
+use App\Models\Report;
 use App\Models\ShoppingList;
 use App\Models\Supplier;
 use App\Models\User;
+use App\Services\Reports\Generators\ProcurementPackGenerator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -396,6 +399,133 @@ class PurchaseOrderExecutionLockTest extends TestCase
             ->assertJsonPath('data.vendor_groups.0.items.0.actual_unit_price', '20.00')
             ->assertJsonMissingPath('data.vendor_groups.0.items.0.actual_values_confirmed')
             ->assertJsonMissingPath('data.vendor_groups.0.evidence_requirements.actual_values_reviewed');
+    }
+
+    public function test_receipt_total_round_trip_preserves_items_and_manual_mode_until_reset(): void
+    {
+        [$po, $group] = $this->convertedPo();
+        $line = $group->items()->firstOrFail();
+        $fss = User::factory()->fss()->create();
+        $endpoint = "/api/fss/purchase-order-vendor-groups/{$group->uuid}";
+
+        $this->actingAs($fss)->getJson("/api/fss/purchase-orders/{$po->uuid}")
+            ->assertOk()->assertJsonPath('data.vendor_groups.0.use_calculated_total', true);
+
+        $this->patchJson($endpoint, [
+            'use_calculated_total' => false, 'total_amount' => 101,
+            'items' => [['id' => $line->id, 'actual_qty' => 5, 'actual_unit_price' => 20]],
+        ])->assertOk()
+            ->assertJsonPath('data.vendor_groups.0.total_amount', '101.00')
+            ->assertJsonPath('data.vendor_groups.0.use_calculated_total', false)
+            ->assertJsonPath('data.vendor_groups.0.items.0.actual_total', 100);
+
+        $this->getJson("/api/fss/purchase-orders/{$po->uuid}")
+            ->assertOk()->assertJsonPath('data.vendor_groups.0.use_calculated_total', false);
+        $this->patchJson($endpoint, ['or_number' => 'SYNTHETIC-OR'])
+            ->assertOk()->assertJsonPath('data.vendor_groups.0.total_amount', '101.00');
+        $this->patchJson($endpoint, ['items' => [['id' => $line->id, 'actual_qty' => 6]]])
+            ->assertOk()->assertJsonPath('data.vendor_groups.0.total_amount', '101.00');
+        $this->assertSame('6.000', $line->fresh()->actual_qty);
+        $this->assertSame('20.000000', $line->fresh()->actual_unit_price);
+        $this->assertSame('5.000000', $line->fresh()->qty);
+
+        $this->patchJson($endpoint, ['use_calculated_total' => true])
+            ->assertOk()->assertJsonPath('data.vendor_groups.0.total_amount', '120.00')
+            ->assertJsonPath('data.vendor_groups.0.use_calculated_total', true);
+        $this->patchJson($endpoint, ['items' => [['id' => $line->id, 'actual_qty' => 7]]])
+            ->assertOk()->assertJsonPath('data.vendor_groups.0.total_amount', '140.00');
+    }
+
+    public function test_equal_and_zero_manual_receipt_totals_remain_manual(): void
+    {
+        [$po, $group] = $this->convertedPo();
+        $endpoint = "/api/fss/purchase-order-vendor-groups/{$group->uuid}";
+        foreach ([100, 0] as $amount) {
+            $this->actingAs($this->rnd)->patchJson($endpoint, [
+                'use_calculated_total' => false, 'total_amount' => $amount,
+            ])->assertOk()->assertJsonPath('data.vendor_groups.0.use_calculated_total', false);
+            $this->getJson("/api/fss/purchase-orders/{$po->uuid}")
+                ->assertOk()->assertJsonPath('data.vendor_groups.0.use_calculated_total', false);
+            $this->patchJson($endpoint, ['or_number' => 'UNCHANGED-ITEMS'])
+                ->assertOk()->assertJsonPath('data.vendor_groups.0.total_amount', number_format($amount, 2, '.', ''));
+        }
+    }
+
+    public function test_receipt_only_round_trip_does_not_resubmit_or_round_stored_item_price(): void
+    {
+        [$po, $group] = $this->convertedPo();
+        $line = $group->items()->firstOrFail();
+        $line->update(['actual_qty' => 4.375, 'actual_unit_price' => 52.345678]);
+        $this->actingAs($this->rnd)->getJson("/api/fss/purchase-orders/{$po->uuid}")
+            ->assertOk()->assertJsonPath('data.vendor_groups.0.items.0.actual_unit_price', '52.35');
+        $this->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
+            'use_calculated_total' => false, 'total_amount' => 230,
+        ])->assertOk()->assertJsonPath('data.vendor_groups.0.total_amount', '230.00');
+        $this->assertSame('52.345678', $line->fresh()->actual_unit_price);
+        $this->assertSame('4.375', $line->fresh()->actual_qty);
+    }
+
+    public function test_whole_group_vendor_change_preserves_manual_receipt_total(): void
+    {
+        [$po, $group] = $this->convertedPo();
+        $supplier = Supplier::factory()->create();
+        $this->actingAs($this->rnd)->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
+            'use_calculated_total' => false, 'total_amount' => 101,
+        ])->assertOk();
+        $this->patchJson("/api/fss/purchase-order-vendor-groups/{$group->uuid}", [
+            'supplier_id' => $supplier->uuid,
+        ])->assertOk()->assertJsonPath('data.vendor_groups.0.total_amount', '101.00')
+            ->assertJsonPath('data.vendor_groups.0.use_calculated_total', false);
+        $this->assertSame('101.00', $po->fresh()->vendorGroups->sole()->total_amount);
+    }
+
+    public function test_receipt_total_validation_and_received_locks(): void
+    {
+        [$po, $group] = $this->convertedPo();
+        $endpoint = "/api/fss/purchase-order-vendor-groups/{$group->uuid}";
+        foreach ([null, -1, 'bad', 1.001, 100000000] as $amount) {
+            $this->actingAs($this->rnd)->patchJson($endpoint, [
+                'use_calculated_total' => false, 'total_amount' => $amount,
+            ])->assertUnprocessable()->assertJsonValidationErrors('total_amount');
+        }
+        $this->patchJson($endpoint, ['total_amount' => 101])->assertUnprocessable();
+        $group->update(['status' => 'received', 'received_at' => now()]);
+        $this->patchJson($endpoint, ['use_calculated_total' => false, 'total_amount' => 101])
+            ->assertUnprocessable();
+        $group->update(['status' => 'pending', 'received_at' => null]);
+        $po->update(['lifecycle_status' => 'completed', 'final_locked_at' => now()]);
+        $this->patchJson($endpoint, ['use_calculated_total' => false, 'total_amount' => 101])
+            ->assertUnprocessable();
+        $this->assertSame('100.00', $group->fresh()->total_amount);
+    }
+
+    public function test_manual_receipt_total_flows_to_completion_budget_and_procurement_report(): void
+    {
+        Storage::fake('report_cache');
+        Storage::fake('private_uploads');
+        [$po, $group] = $this->convertedPo();
+        $line = $group->items()->firstOrFail();
+        $line->update(['fs_item_id' => null, 'actual_qty' => 5, 'actual_unit_price' => 20]);
+        foreach (['receipt', 'proof'] as $type) {
+            $group->attachments()->create([
+                'purchase_order_id' => $po->id, 'type' => $type, 'path' => 'synthetic/'.$type.'.png',
+            ]);
+        }
+        $endpoint = "/api/fss/purchase-order-vendor-groups/{$group->uuid}";
+        $this->actingAs($this->rnd)->patchJson($endpoint, [
+            'use_calculated_total' => false, 'total_amount' => 101,
+        ])->assertOk();
+        $this->patchJson($endpoint, ['status' => 'received'])->assertOk();
+        $this->assertSame('completed', $po->fresh()->lifecycle_status);
+        $this->assertSame('101.00', $po->fresh()->total_amount);
+        $this->assertDatabaseHas((new BudgetLedger)->getTable(), ['purchase_order_id' => $po->id, 'amount' => 101]);
+        $report = Report::query()->where('type', 'procurement_pack')
+            ->where('parameters->purchase_order_id', $po->id)->sole();
+        $pack = app(ProcurementPackGenerator::class)->data($report)['packs'][0];
+        $this->assertSame(101.0, $pack['grand_total']);
+        $this->assertSame(1.0, $pack['receipt_adjustment']);
+        $this->assertSame(101.0, $pack['summary']['amount']);
+        $this->assertSame('5.000', $line->fresh()->actual_qty);
     }
 
     public function test_rnd_saves_or_number_and_actual_values_in_one_vendor_update(): void

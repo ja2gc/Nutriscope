@@ -1,6 +1,6 @@
 # NutriScope developer map
 
-Verified against committed source: `53230ce3f4e471b243d0fe0a8ef0b5fbfa89a891` (2026-10-23).
+Verified against committed source: `d873ea2f3fec63a089bc70c6948f1611ae553d7b` plus the receipt-total change in this working tree (2026-10-23).
 
 NutriScope manages patient nutrition care, clinical meal planning, food-service operations and administration. Start with the task below, then follow its source links.
 
@@ -44,6 +44,8 @@ Prefer browsing by area? Open the [grouped developer index](docs/developers/READ
 | Update help or presentation instructions | docs/FAQ.md; docs/ROLE-HOW-TO.md; Storyboarding/ | [Documentation index](docs/README.md) |
 
 Read [AGENTS.md](AGENTS.md) before changes. Update only affected guides in the same change, with the source revision verified. Guides describe the current implementation. Live accounts, installed schemas, DNS and backup recovery need separate authorized verification.
+
+Vendor receipt-total mode and amount are owned by `PurchaseOrderVendorGroup` and the vendor-group update action; see [food-service data](docs/developers/food-service/data.md). This is separate from per-item Actual Total, which derives quantity.
 
 ## If your task is not listed
 

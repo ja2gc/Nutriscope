@@ -81,6 +81,7 @@ export interface POVendorGroup {
   can_change_vendor: boolean;
   vendor_change_blocker: string | null;
   total_amount: string | null;
+  use_calculated_total?: boolean;
   received_at: string | null;
   stocked_at: string | null;
   items?: POItem[] | null;
@@ -260,6 +261,8 @@ export async function updatePurchaseOrder(id: string, patch: Partial<Pick<Purcha
   }), "Failed to update PO.");
 }
 export async function updateVendorGroup(groupId: string, patch: {
+  use_calculated_total?: boolean;
+  total_amount?: number;
   supplier_id?: string;
   item_id?: number;
   or_number?: string | null;

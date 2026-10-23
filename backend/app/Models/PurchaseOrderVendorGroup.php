@@ -25,6 +25,7 @@ class PurchaseOrderVendorGroup extends Model
 
     protected $casts = [
         'total_amount' => 'decimal:2',
+        'receipt_total_override' => 'decimal:2',
         'received_at' => 'datetime',
         'stocked_at' => 'datetime',
     ];
@@ -32,6 +33,17 @@ class PurchaseOrderVendorGroup extends Model
     public function purchaseOrder(): BelongsTo
     {
         return $this->belongsTo(PurchaseOrder::class);
+    }
+
+    public function recalculateTotal(): void
+    {
+        $this->load('items');
+        $this->total_amount = $this->receipt_total_override ?? round((float) $this->items->sum(
+            fn ($item) => $item->actual_qty !== null && $item->actual_unit_price !== null
+                ? (float) $item->actual_qty * (float) $item->actual_unit_price
+                : (float) $item->total_value,
+        ), 2);
+        $this->save();
     }
 
     public function supplier(): BelongsTo

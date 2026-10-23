@@ -197,6 +197,8 @@ In vendor create/edit, demonstrate **Contact details → Add contact**, choose a
 
 **Purpose:** Record the real quantities, prices, vendors, receipts, and proof for the released purchase order.
 
+**Receipt-total check:** Show **Actual receipt total** with **Use calculated total** checked. Enter a different amount to demonstrate cash rounding: the checkbox unchecks and item quantities/prices stay unchanged. Change an item and confirm the manual receipt amount stays fixed; check **Use calculated total** again to restore live totals. The adjacent help explains this behavior. Save and reopen to verify the selected mode. Per-item **Actual Total** still derives quantity; it is separate from the overall receipt amount.
+
 **Before this scene:** Refer to **Scene 7 — Create and Release the Purchase Order**. A **vendor group** means the items currently assigned to one vendor inside the purchase order.
 
 **On-screen actions**

@@ -349,6 +349,8 @@ class PurchaseOrderController extends Controller
             'supplier_id' => ['nullable', 'string', 'exists:suppliers,uuid'],
             'item_id' => ['nullable', 'integer', 'exists:purchase_order_items,id'],
             'or_number' => ['nullable', 'string', 'max:255'],
+            'use_calculated_total' => ['sometimes', 'boolean'],
+            'total_amount' => ['required_if:use_calculated_total,false', 'prohibited_unless:use_calculated_total,false', 'numeric', 'decimal:0,2', 'min:0', 'max:99999999.99'],
             'status' => ['nullable', 'string', 'in:pending,received'],
             'items' => ['nullable', 'array'],
             'items.*.id' => ['required_with:items', 'integer', 'exists:purchase_order_items,id'],
@@ -377,6 +379,9 @@ class PurchaseOrderController extends Controller
         }
 
         if (isset($data['supplier_id'])) {
+            if (array_key_exists('use_calculated_total', $data)) {
+                abort(422, 'Save the receipt total separately from changing the vendor.');
+            }
             $supplier = Supplier::query()->where('uuid', $data['supplier_id'])->firstOrFail();
             $purchaseOrder = $lifecycle->reassignVendor($vendorGroup, $supplier, $data['item_id'] ?? null);
 
@@ -400,7 +405,7 @@ class PurchaseOrderController extends Controller
                     abort(422, 'Completed purchase orders are locked.');
                 }
                 $wasReceived = $vendorGroup->status === 'received' || $vendorGroup->received_at !== null;
-                if ($wasReceived && (isset($data['items']) || isset($data['status']))) {
+                if ($wasReceived && (isset($data['items']) || isset($data['status']) || array_key_exists('use_calculated_total', $data))) {
                     abort(422, 'Received vendor groups are locked.');
                 }
                 $vendorGroup->fill(collect($data)->only(['or_number'])->all());
@@ -494,12 +499,14 @@ class PurchaseOrderController extends Controller
                     $receivedTransition = true;
                 }
 
-                $vendorGroup->total_amount = round((float) $vendorGroup->items->sum(
-                    fn ($item) => $item->actual_qty !== null && $item->actual_unit_price !== null
-                        ? (float) $item->actual_qty * (float) $item->actual_unit_price
-                        : (float) $item->total_value,
-                ), 2);
-                $vendorGroup->save();
+                if (array_key_exists('use_calculated_total', $data)) {
+                    $vendorGroup->receipt_total_override = $data['use_calculated_total']
+                        ? null : $data['total_amount'];
+                    if ($vendorGroup->isDirty('receipt_total_override')) {
+                        $vendorChangedFields = [...$vendorChangedFields, 'total_amount'];
+                    }
+                }
+                $vendorGroup->recalculateTotal();
                 if ($correctionCount > 0) {
                     $this->auditLogger->withoutModelEvents(fn () => $vendorGroup->purchaseOrder->recalcTotal());
                 }

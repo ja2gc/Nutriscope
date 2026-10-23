@@ -166,6 +166,11 @@ class PurchaseOrderLifecycleService
                 ]);
             }
 
+            $movingAll = $movingItem === null || $sourceGroup->items()->count() === 1;
+            if ($movingAll && ($sourceGroup->receipt_total_override !== null || $destination->receipt_total_override !== null)) {
+                $destination->receipt_total_override = round((float) $sourceGroup->total_amount + (float) $destination->total_amount, 2);
+            }
+
             if ($movingItem) {
                 $movingItem->update(['vendor_group_id' => $destination->id]);
             } else {
@@ -197,13 +202,7 @@ class PurchaseOrderLifecycleService
 
     private function recalculateVendorGroupTotal(PurchaseOrderVendorGroup $vendorGroup): void
     {
-        $vendorGroup->load('items');
-        $vendorGroup->total_amount = round((float) $vendorGroup->items->sum(
-            fn ($item) => $item->actual_qty !== null && $item->actual_unit_price !== null
-                ? (float) $item->actual_qty * (float) $item->actual_unit_price
-                : (float) $item->total_value,
-        ), 2);
-        $vendorGroup->save();
+        $vendorGroup->recalculateTotal();
     }
 
     private function fiscalYear(ShoppingList $shoppingList): int

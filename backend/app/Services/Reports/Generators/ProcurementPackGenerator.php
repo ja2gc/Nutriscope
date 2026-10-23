@@ -140,6 +140,11 @@ class ProcurementPackGenerator implements ReportGenerator
         ])->all();
 
         $grandTotal = (float) collect($statementItems)->sum('total_value');
+        $receiptAdjustment = $group?->receipt_total_override !== null
+            ? round((float) $group->receipt_total_override - $grandTotal, 2) : 0.0;
+        if ($group?->receipt_total_override !== null) {
+            $grandTotal = (float) $group->receipt_total_override;
+        }
         $date = optional($po->order_date)->format('F j, Y') ?? '';
         $inclusive = $po->shoppingList?->period_start && $po->shoppingList?->period_end
             ? $po->shoppingList->period_start->format('m/d/y').'-'.$po->shoppingList->period_end->format('m/d/y')
@@ -161,6 +166,7 @@ class ProcurementPackGenerator implements ReportGenerator
             'air_items' => $airItems,
             'statement_items' => $statementItems,
             'grand_total' => round($grandTotal, 2),
+            'receipt_adjustment' => $receiptAdjustment,
             'order_date' => $date,
             // Uploaded receipt / proof-of-purchase photos, embedded as an appendix.
             'attachments' => $attachments->map(fn ($a) => [

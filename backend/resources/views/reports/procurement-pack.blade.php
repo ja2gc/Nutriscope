@@ -77,6 +77,9 @@
                         <td class="right">{{ number_format($it['total_value'], 2) }}</td>
                     </tr>
                 @endforeach
+                @if(($pack['receipt_adjustment'] ?? 0) != 0)
+                    <tr><td colspan="4">Receipt adjustment</td><td class="right">₱ {{ number_format($pack['receipt_adjustment'], 2) }}</td></tr>
+                @endif
                 <tr class="totals"><td colspan="4">GRAND TOTAL</td><td class="right">₱ {{ number_format($pack['grand_total'], 2) }}</td></tr>
             </tbody>
         </table>

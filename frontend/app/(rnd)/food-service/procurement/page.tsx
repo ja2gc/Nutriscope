@@ -27,6 +27,7 @@ import { ImageUploadGallery, type UploadImage } from "@/components/ui/ImageUploa
 import { DatePicker } from "@/components/ui/DatePicker";
 import { numericStepBase } from "@/components/ui/NumericInput";
 import { InfoHint } from "@/components/ui/InfoHint";
+import { Checkbox } from "@/components/ui/checkbox";
 import { VendorChangeControls } from "@/components/foodservice/VendorChangeControls";
 import { PurchaseValueComparison } from "@/components/foodservice/PurchaseValueComparison";
 import { ShoppingListCopyCard } from "@/components/foodservice/ShoppingListCopyCard";
@@ -612,12 +613,21 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
   const [deletingImageId, setDeletingImageId] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
   const [actualError, setActualError] = useState<string | null>(null);
+  const [useCalculatedTotal, setUseCalculatedTotal] = useState(true);
+  const [receiptTotal, setReceiptTotal] = useState("");
   const [actualDraft, setActualDraft] = useState<Record<number, { qty: string; price: string; total: string; totalEdited: boolean }>>({});
   const group = po.vendor_groups?.find((g) => g.id === groupId) ?? null;
   const locked = po.lifecycle_status !== "open_execution";
+  const receiptLocked = locked || group?.status === "received" || Boolean(group?.received_at);
+  const calculatedReceiptTotal = (group?.items ?? []).reduce((sum, item) => {
+    const draft = actualDraft[item.id];
+    return sum + (draft?.totalEdited ? num(draft.total) : num(draft?.qty ?? item.actual_qty) * num(draft?.price ?? item.actual_unit_price));
+  }, 0).toFixed(2);
   const hasUnsavedChanges = Boolean(group && (
     orDraft.trim() !== (group.or_number ?? "").trim()
-    || (!locked && (group.items ?? []).some((item) => {
+    || (!receiptLocked && (useCalculatedTotal !== (group.use_calculated_total ?? true)
+      || (!useCalculatedTotal && (receiptTotal.trim() === "" || !Number.isFinite(Number(receiptTotal)) || Number(receiptTotal) !== num(group.total_amount)))))
+    || (!receiptLocked && (group.items ?? []).some((item) => {
       const draft = actualDraft[item.id];
       if (!draft) return false;
       const priceChanged = !Number.isFinite(Number(draft.price)) || Number(draft.price) !== num(item.actual_unit_price);
@@ -632,13 +642,15 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
   useEffect(() => {
     if ((group?.id ?? null) === initializedGroup.current) return;
     initializedGroup.current = group?.id ?? null;
+    setUseCalculatedTotal(group?.use_calculated_total ?? true);
+    setReceiptTotal(group?.total_amount ?? "");
     setActualDraft(Object.fromEntries((group?.items ?? []).map((item) => [item.id, {
       qty: String(num(item.actual_qty)),
       price: String(num(item.actual_unit_price)),
       total: String(num(item.actual_total)),
       totalEdited: false,
     }])));
-  }, [group?.id, group?.items]);
+  }, [group?.id, group?.items, group?.total_amount, group?.use_calculated_total]);
 
   const vendorGuard = useUnsavedChanges({ dirty: hasUnsavedChanges, onSave: () => saveActuals(false), title: "Unsaved vendor changes" });
   const requestLeave = vendorGuard.requestLeave;
@@ -654,6 +666,11 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
 
   async function saveActuals(markReceived = false): Promise<boolean> {
     if (!group) return false;
+    if (receiptLocked) return saveGroup({ or_number: orDraft.trim() || null });
+    if (!useCalculatedTotal && (!/^\d+(?:\.\d{1,2})?$/.test(receiptTotal) || Number(receiptTotal) > 99999999.99)) {
+      setActualError("Enter a non-negative receipt total with at most two decimal places.");
+      return false;
+    }
     const items = (group.items ?? []).map((item) => {
       const draft = actualDraft[item.id];
       return {
@@ -670,7 +687,14 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
       setActualError("Enter a valid quantity, unit price, and total for each item.");
       return false;
     }
-    return saveGroup({ or_number: orDraft.trim() || null, items, ...(markReceived ? { status: "received" as const } : {}) });
+    const itemValuesChanged = (group.items ?? []).some((item) => {
+      const draft = actualDraft[item.id];
+      return draft && (draft.totalEdited || Number(draft.qty) !== num(item.actual_qty) || Number(draft.price) !== num(item.actual_unit_price));
+    });
+    return saveGroup({ or_number: orDraft.trim() || null, ...(markReceived || itemValuesChanged ? { items } : {}),
+      use_calculated_total: useCalculatedTotal,
+      ...(!useCalculatedTotal ? { total_amount: Number(receiptTotal) } : {}),
+      ...(markReceived ? { status: "received" as const } : {}) });
   }
   async function uploadGroupFiles(type: "receipt" | "proof", files: File[]) {
     if (!group || files.length === 0) return;
@@ -756,7 +780,7 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
                   <td className="px-3 py-2">
                     <div className="flex min-h-8 items-center font-semibold text-warm-800">{item.description}</div>
                   </td>
-                  <td className="px-3 py-2"><input aria-label={`Actual quantity for ${item.description}`} type="number" min={numericStepBase(quantityValue)} step="0.1" disabled={locked}
+                  <td className="px-3 py-2"><input aria-label={`Actual quantity for ${item.description}`} type="number" min={numericStepBase(quantityValue)} step="0.1" disabled={receiptLocked}
                     value={quantityValue}
                     onChange={(e) => setActualDraft((current) => {
                       const currentDraft = current[item.id] ?? { qty: String(num(item.actual_qty)), price: String(num(item.actual_unit_price)), total: String(num(item.actual_total)), totalEdited: false };
@@ -765,7 +789,7 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
                     className="w-24 rounded border border-warm-200 px-2 py-1 disabled:bg-warm-50" /></td>
                   <td className="px-3 py-2 text-warm-600" aria-label={`Unit for ${item.description}`}><div className="flex min-h-8 items-center">{item.purchase_unit ?? item.unit}</div></td>
                   <td className="px-3 py-2">
-                    <input aria-label={`Actual unit cost for ${item.description}`} type="number" min={numericStepBase(draft?.price ?? String(num(item.actual_unit_price)))} step="0.1" disabled={locked}
+                    <input aria-label={`Actual unit cost for ${item.description}`} type="number" min={numericStepBase(draft?.price ?? String(num(item.actual_unit_price)))} step="0.1" disabled={receiptLocked}
                       value={draft?.price ?? String(num(item.actual_unit_price))}
                       onChange={(e) => setActualDraft((current) => {
                         const currentDraft = current[item.id] ?? { qty: String(num(item.actual_qty)), price: String(num(item.actual_unit_price)), total: String(num(item.actual_total)), totalEdited: false };
@@ -773,7 +797,7 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
                       })}
                       className="w-24 rounded border border-warm-200 px-2 py-1 disabled:bg-warm-50" />
                   </td>
-                  <td className="px-3 py-2"><input type="number" min={numericStepBase(draft?.totalEdited ? draft.total : (actualQty * actualPrice).toFixed(2))} step="0.1" disabled={locked}
+                  <td className="px-3 py-2"><input type="number" min={numericStepBase(draft?.totalEdited ? draft.total : (actualQty * actualPrice).toFixed(2))} step="0.1" disabled={receiptLocked}
                     aria-label={`Actual Total for ${item.description}`}
                     value={draft?.totalEdited ? draft.total : (actualQty * actualPrice).toFixed(2)}
                     onChange={(e) => setActualDraft((current) => {
@@ -795,14 +819,29 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
                 </tr>;
               })}
             </tbody>
-            <tfoot className="bg-warm-50 border-t border-warm-200"><tr><td colSpan={4} className="px-3 py-3 text-right font-bold text-warm-600">Receipt Total</td><td className="px-3 py-3 font-mono font-bold text-emerald-700">{peso((group.items ?? []).reduce((sum, item) => {
-              const draft = actualDraft[item.id];
-              return sum + (draft?.totalEdited ? num(draft.total) : num(draft?.qty ?? item.actual_qty) * num(draft?.price ?? item.actual_unit_price));
-            }, 0))}</td><td /></tr></tfoot>
+            <tfoot className="bg-warm-50 border-t border-warm-200"><tr><td colSpan={4} className="px-3 py-3 text-right font-bold text-warm-600">Calculated item total</td><td className="px-3 py-3 font-mono font-bold text-emerald-700">{peso(Number(calculatedReceiptTotal))}</td><td /></tr></tfoot>
           </table>
         </div>
 
-        {!locked && <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-warm-200 bg-white p-4">
+        <div className="rounded-2xl border border-warm-200 bg-white p-4">
+          <div className="mb-2 flex items-center gap-1">
+            <label htmlFor="actual-receipt-total" className="text-sm font-bold text-warm-700">Actual receipt total</label>
+            <InfoHint label="About actual receipt total" title="Actual receipt total">Edit this amount when the vendor’s final charge differs from the item total, such as cash rounding. Item quantities and unit prices stay unchanged. Check Use calculated total to resume automatic updates.</InfoHint>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+            <div className="flex items-center gap-2"><span aria-hidden="true">₱</span><input id="actual-receipt-total" aria-label="Actual receipt total" type="number" min="0" max="99999999.99" step="0.01"
+              disabled={receiptLocked} value={receiptLocked ? num(group.total_amount).toFixed(2) : useCalculatedTotal ? calculatedReceiptTotal : receiptTotal}
+              onChange={(event) => { setReceiptTotal(event.target.value); setUseCalculatedTotal(false); }}
+              className="min-h-11 w-40 rounded-lg border border-warm-200 px-3 py-2 text-base disabled:bg-warm-50" /></div>
+            <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-warm-700">
+              <Checkbox aria-label="Use calculated total" checked={useCalculatedTotal} disabled={receiptLocked}
+                onCheckedChange={(checked) => { setUseCalculatedTotal(checked === true); if (!checked) setReceiptTotal(calculatedReceiptTotal); }} />
+              Use calculated total
+            </label>
+          </div>
+        </div>
+
+        {!receiptLocked && <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-warm-200 bg-white p-4">
           <Button variant="primary" onClick={() => saveActuals(true)} loading={busy}
             disabled={!group.evidence_requirements?.receipt_uploaded || !group.evidence_requirements?.proof_uploaded}>
             Mark vendor received

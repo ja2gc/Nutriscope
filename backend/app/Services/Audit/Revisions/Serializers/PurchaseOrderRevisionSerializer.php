@@ -48,6 +48,7 @@ class PurchaseOrderRevisionSerializer implements AuditRevisionSerializer
             'or_number' => $group->or_number,
             'status' => (string) $group->status,
             'total' => (float) $group->total_amount,
+            'use_calculated_total' => $group->receipt_total_override === null,
             'received_at' => $group->received_at?->toISOString(),
             'stocked_at' => $group->stocked_at?->toISOString(),
         ])->all();
@@ -159,11 +160,13 @@ class PurchaseOrderRevisionSerializer implements AuditRevisionSerializer
                 new AuditHistoryTableDto('groups', 'Vendor groups', [
                     'supplier' => 'Supplier', 'or_number' => 'OR number', 'status' => 'Status',
                     'total' => 'Total', 'received_at' => 'Received at', 'stocked_at' => 'Stocked at',
+                    'use_calculated_total' => 'Use calculated total',
                 ], array_map(fn (array $group) => new AuditHistoryTableRowDto($group['key'], [
                     'supplier' => new AuditValueDto('text', $group['supplier']),
                     'or_number' => new AuditValueDto('reference', $group['or_number']),
                     'status' => new AuditValueDto('enum', $group['status']),
                     'total' => new AuditValueDto('currency', $group['total'], currency: 'PHP'),
+                    'use_calculated_total' => new AuditValueDto('boolean', $group['use_calculated_total'] ?? null),
                     'received_at' => new AuditValueDto('datetime', $group['received_at']),
                     'stocked_at' => new AuditValueDto('datetime', $group['stocked_at']),
                 ]), $snapshot['groups'])),
@@ -218,6 +221,13 @@ class PurchaseOrderRevisionSerializer implements AuditRevisionSerializer
 
     private function validGroup(mixed $v): bool
     {
+        if (is_array($v) && array_key_exists('use_calculated_total', $v)) {
+            if (! is_bool($v['use_calculated_total'])) {
+                return false;
+            }
+            unset($v['use_calculated_total']);
+        }
+
         return is_array($v) && $this->exact($v, ['key', 'reference', 'supplier_reference', 'supplier', 'or_number', 'status', 'total', 'received_at', 'stocked_at']) && Str::isUuid($v['key']) && Str::isUuid($v['reference']) && $this->uuidOrNull($v['supplier_reference']) && $this->textOrNull($v['supplier']) && $this->textOrNull($v['or_number']) && $this->token($v['status']) && $this->number($v['total']) && $this->datetime($v['received_at']) && $this->datetime($v['stocked_at']);
     }
 

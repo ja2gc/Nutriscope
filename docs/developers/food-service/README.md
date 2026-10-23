@@ -1,6 +1,6 @@
 # Food service
 
-Verified against committed source: `53230ce3f4e471b243d0fe0a8ef0b5fbfa89a891` (2026-10-23).
+Verified against committed source: `d873ea2f3fec63a089bc70c6948f1611ae553d7b` plus the receipt-total change in this working tree (2026-10-23).
 
 Purpose: maintain operational menus, shopping, purchasing and budgets separately from clinical meal planning.
 
@@ -11,6 +11,7 @@ This group covers planning through execution across RND web and FSS mobile. Foll
 | Menu costs and generated shopping quantities | [MenuCycleCostService](../../../backend/app/Services/MenuCycleCostService.php), [ShoppingListPopulationService](../../../backend/app/Services/FSS/ShoppingListPopulationService.php) |
 | PO readiness, vendor changes and completion | [PurchaseOrderLifecycleService](../../../backend/app/Services/FSS/PurchaseOrderLifecycleService.php) |
 | Confirmed receiving | [ReceivingService](../../../backend/app/Services/FSS/ReceivingService.php) |
+| Automatic/manual receipt totals | [PurchaseOrderVendorGroup](../../../backend/app/Models/PurchaseOrderVendorGroup.php), vendor-group update in [PurchaseOrderController](../../../backend/app/Http/Controllers/FSS/PurchaseOrderController.php); [data meaning](data.md#vendor-receipt-total) |
 | Fiscal-year balance and completion ledger | [Budget](../../../backend/app/Models/Budget.php), [BudgetLedgerListener](../../../backend/app/Listeners/BudgetLedgerListener.php) |
 | Attendance/service completion | [ConsumptionService](../../../backend/app/Services/FSS/ConsumptionService.php) |
 | Clients | [procurementService](../../../frontend/services/procurementService.ts), [menuCycleService](../../../frontend/services/menuCycleService.ts), [mobile foodService](../../../mobile/lib/foodService.ts) |

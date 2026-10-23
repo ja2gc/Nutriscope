@@ -62,3 +62,12 @@ test('mobile actual PO fields show two decimals and keep full precision until ed
   assert.match(source, /actual_qty:\s*draft\.qtyEdited\s*\?\s*Number\(draft\.qty\)\s*:\s*Number\(item\.actual_qty\)/);
   assert.match(source, /actual_unit_price:\s*draft\.priceEdited\s*\?\s*Number\(draft\.price\)\s*:\s*Number\(item\.actual_unit_price\)/);
 });
+
+test('mobile receipt total supports a saved accessible automatic mode independent of item scaling', () => {
+  assert.match(source, /accessibilityRole="checkbox"/);
+  assert.match(source, /accessibilityLabel="Use calculated total"/);
+  assert.match(source, /accessibilityLabel="Actual receipt total"/);
+  assert.match(source, /use_calculated_total: useCalculatedTotal/);
+  assert.match(source, /setReceiptTotal\(value\); setUseCalculatedTotal\(false\)/);
+  assert.match(source, /useCalculatedTotal \? calculatedReceiptTotal : receiptTotal/);
+});

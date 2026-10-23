@@ -5,6 +5,8 @@ import { useLocalSearchParams, useNavigation } from 'expo-router';
 import {
   AlertCircle,
   Camera,
+  Check,
+  CircleHelp,
   ChevronLeft,
   ChevronRight,
   Image as ImageIcon,
@@ -95,6 +97,7 @@ interface PurchaseOrderAttachment {
 }
 
 interface VendorGroup {
+  use_calculated_total?: boolean;
   id: string;
   supplier_id: number | null;
   supplier: Supplier | null;
@@ -580,6 +583,8 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
   const locked = isLocked(po);
   const actualsLocked = locked || group.status === 'received' || Boolean(group.received_at);
   const [orNumber, setOrNumber] = useState(group.or_number ?? '');
+  const [useCalculatedTotal, setUseCalculatedTotal] = useState(group.use_calculated_total ?? true);
+  const [receiptTotal, setReceiptTotal] = useState(String(group.total_amount ?? ''));
   const [error, setError] = useState<string | null>(null);
   const [actuals, setActuals] = useState<Record<number, ActualDraft>>(
     Object.fromEntries((group.items ?? []).map((item) => [item.id, initialActual(item)])),
@@ -587,7 +592,16 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
   const [vendorScope, setVendorScope] = useState<'all' | number | null>(null);
   const [vendorPage, setVendorPage] = useState(1);
   const vendorPager = paginateItems(suppliers.filter((supplier) => supplier.id !== group.supplier?.id), vendorPage);
-  const hasUnsavedChanges = orNumber.trim() !== (group.or_number ?? '').trim() || (!actualsLocked && (group.items ?? []).some((item) => {
+  const calculatedReceiptTotal = (group.items ?? []).reduce((sum, item) => {
+    const draft = actuals[item.id] ?? initialActual(item);
+    const qty = draft.qtyEdited ? Number(draft.qty) : Number(item.actual_qty);
+    const price = draft.priceEdited ? Number(draft.price) : Number(item.actual_unit_price);
+    return sum + (draft.totalEdited ? Number(draft.total) : qty * price);
+  }, 0).toFixed(2);
+  const hasUnsavedChanges = orNumber.trim() !== (group.or_number ?? '').trim()
+    || (!actualsLocked && (useCalculatedTotal !== (group.use_calculated_total ?? true)
+      || (!useCalculatedTotal && (!receiptTotal.trim() || !Number.isFinite(Number(receiptTotal)) || Number(receiptTotal) !== Number(group.total_amount)))))
+    || (!actualsLocked && (group.items ?? []).some((item) => {
     const draft = actuals[item.id] ?? initialActual(item);
     if (draft.priceEdited && (!Number.isFinite(Number(draft.price)) || Number(draft.price) !== Number(item.actual_unit_price))) return true;
     if (draft.totalEdited) return !Number.isFinite(Number(draft.total)) || Number(draft.total) !== Number(item.actual_total);
@@ -596,6 +610,8 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
 
   useEffect(() => {
     setOrNumber(group.or_number ?? '');
+    setUseCalculatedTotal(group.use_calculated_total ?? true);
+    setReceiptTotal(String(group.total_amount ?? ''));
     setActuals(Object.fromEntries((group.items ?? []).map((item) => [item.id, initialActual(item)])));
     setError(null);
     setVendorPage(1);
@@ -603,9 +619,17 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
 
   const updateMutation = useMutation({
     mutationFn: async () => {
+      const itemValuesChanged = (group.items ?? []).some((item) => {
+        const draft = actuals[item.id] ?? initialActual(item);
+        return draft.qtyEdited || draft.priceEdited || draft.totalEdited;
+      });
       const payload = {
         or_number: orNumber.trim() || null,
-        ...(!actualsLocked ? { items: (group.items ?? []).map((item) => {
+        ...(!actualsLocked ? {
+          use_calculated_total: useCalculatedTotal,
+          ...(!useCalculatedTotal ? { total_amount: Number(receiptTotal) } : {}),
+        } : {}),
+        ...(!actualsLocked && itemValuesChanged ? { items: (group.items ?? []).map((item) => {
           const draft = actuals[item.id] ?? initialActual(item);
           return {
             id: item.id,
@@ -631,6 +655,10 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
   });
 
   const saveActuals = async (): Promise<boolean> => {
+    if (!actualsLocked && !useCalculatedTotal && (!/^\d+(?:\.\d{1,2})?$/.test(receiptTotal) || Number(receiptTotal) > 99999999.99)) {
+      setError('Enter a non-negative receipt total with at most two decimal places.');
+      return false;
+    }
     const invalid = !actualsLocked && (group.items ?? []).find((item) => {
       const draft = actuals[item.id] ?? initialActual(item);
       const qty = draft.qtyEdited ? Number(draft.qty) : Number(item.actual_qty);
@@ -840,6 +868,29 @@ function VendorDetail({ po, group, suppliers, supplierLoadFailed, onRetrySupplie
             </View>
             );
           })}
+        </View>
+
+        <View className="rounded-xl border border-gray-100 bg-white px-4 py-3 mb-4">
+          <View className="flex-row items-center justify-between gap-2">
+            <Text className="flex-1 text-sm font-semibold text-gray-900">Actual receipt total</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="About actual receipt total" className="min-h-12 min-w-12 items-center justify-center"
+              onPress={() => Alert.alert('Actual receipt total', 'Edit this amount when the vendor’s final charge differs from the item total, such as cash rounding. Item quantities and unit prices stay unchanged. Check Use calculated total to resume automatic updates.')}>
+              <CircleHelp size={20} color="#6b7280" />
+            </Pressable>
+          </View>
+          <TextInput accessibilityLabel="Actual receipt total" keyboardType="decimal-pad" editable={!actualsLocked}
+            value={actualsLocked ? Number(group.total_amount ?? 0).toFixed(2) : useCalculatedTotal ? calculatedReceiptTotal : receiptTotal}
+            onChangeText={(value) => { setReceiptTotal(value); setUseCalculatedTotal(false); }}
+            className="min-h-12 rounded-lg border border-gray-200 px-3 py-2 text-base text-gray-900" />
+          <Pressable accessibilityRole="checkbox" accessibilityLabel="Use calculated total" disabled={actualsLocked}
+            accessibilityState={{ checked: useCalculatedTotal, disabled: actualsLocked }}
+            className="min-h-12 flex-row items-center gap-3 py-2"
+            onPress={() => { if (useCalculatedTotal) setReceiptTotal(calculatedReceiptTotal); setUseCalculatedTotal(!useCalculatedTotal); }}>
+            <View className={`h-5 w-5 items-center justify-center rounded border ${useCalculatedTotal ? 'border-emerald-700 bg-emerald-700' : 'border-gray-400'}`}>
+              {useCalculatedTotal && <Check size={16} color="white" />}
+            </View>
+            <Text className="flex-1 text-sm text-gray-700">Use calculated total</Text>
+          </Pressable>
         </View>
 
         <View className="gap-4">

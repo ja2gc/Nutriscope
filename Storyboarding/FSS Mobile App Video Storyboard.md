@@ -157,6 +157,8 @@ Use this as both the recording checklist and narration script. The main recordin
 
 **Purpose:** Confirm what a vendor actually delivered and attach the required buying evidence.
 
+**Receipt-total check:** Show **Actual receipt total** with **Use calculated total** checked. Enter the amount charged when it differs because of cash rounding; the checkbox unchecks without scaling items. Check it again to restore live item totals. Tap the adjacent help, save, and reopen to confirm the mode. Per-item **Actual Total** continues to derive quantity. This native control requires an updated app build.
+
 **Before this scene:** RND must first release the purchase order. Refer to **RND Food Service Operations Video Storyboard, Scene 7 — Create and Release the Purchase Order**. To review it from Home first, refer to **Scene 3 — Check Today's Work**. A **vendor group** is the set of purchase-order items assigned to one vendor.
 
 **On-screen actions**

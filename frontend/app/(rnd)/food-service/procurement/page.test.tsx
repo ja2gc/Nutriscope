@@ -569,8 +569,50 @@ describe("Food Service procurement display", () => {
     await act(async () => { save?.click(); await Promise.resolve(); await Promise.resolve(); });
     expect(mockUpdateVendorGroup).toHaveBeenCalledWith("vendor-group-1", {
       or_number: "OR-9001",
+      use_calculated_total: true,
       items: [{ id: 1, actual_qty: 13.5, actual_unit_price: 52.3456 }],
     });
+  });
+
+  test("receipt total starts automatic, freezes on edit and resumes live totals when checked", async () => {
+    await renderPage();
+    await openPurchaseOrder();
+    const open = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find((button) => button.textContent?.trim() === 'Open');
+    await act(async () => { open?.click(); });
+    const checkbox = () => container.querySelector<HTMLButtonElement>('[role="checkbox"][aria-label="Use calculated total"]')!;
+    const receipt = () => container.querySelector<HTMLInputElement>('[aria-label="Actual receipt total"]')!;
+    expect(checkbox()?.getAttribute('aria-checked')).toBe('true');
+    expect(receipt()?.value).toBe((12.3456 * 52.3456).toFixed(2));
+    const quantity = container.querySelector<HTMLInputElement>('[aria-label="Actual quantity for Rice"]')!;
+    await act(async () => { setInputValue(receipt(), '650'); });
+    expect(checkbox().getAttribute('aria-checked')).toBe('false');
+    expect(quantity.value).toBe('12.35');
+    await act(async () => { setInputValue(quantity, '14'); });
+    expect(receipt().value).toBe('650');
+    await act(async () => { checkbox().click(); });
+    expect(checkbox().getAttribute('aria-checked')).toBe('true');
+    expect(receipt().value).toBe((14 * 52.3456).toFixed(2));
+    await act(async () => { setInputValue(quantity, '15'); });
+    expect(receipt().value).toBe((15 * 52.3456).toFixed(2));
+  });
+
+  test("saves manual receipt amount independently of item quantities and explains cash rounding", async () => {
+    await renderPage();
+    await openPurchaseOrder();
+    const open = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find((button) => button.textContent?.trim() === 'Open');
+    await act(async () => { open?.click(); });
+    const receipt = container.querySelector<HTMLInputElement>('[aria-label="Actual receipt total"]')!;
+    expect(receipt).not.toBeNull();
+    await act(async () => { setInputValue(receipt, '650'); });
+    const help = container.querySelector<HTMLButtonElement>('[aria-label="About actual receipt total"]');
+    await act(async () => { help?.click(); });
+    expect(document.body.textContent).toContain('cash rounding');
+    const save = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find((button) => button.textContent?.trim() === 'Save');
+    await act(async () => { save?.click(); await Promise.resolve(); });
+    expect(mockUpdateVendorGroup).toHaveBeenCalledWith('vendor-group-1', expect.objectContaining({
+      use_calculated_total: false, total_amount: 650,
+    }));
+    expect(mockUpdateVendorGroup.mock.calls[0][1]).not.toHaveProperty('items');
   });
 
   test("asks before leaving dirty vendor details and skips prompt when unchanged", async () => {
@@ -638,6 +680,7 @@ describe("Food Service procurement display", () => {
     expect(mockUpdateVendorGroup).toHaveBeenCalledWith("vendor-group-1", {
       or_number: null,
       items: [{ id: 1, receipt_total: 550, actual_unit_price: 52.3456 }],
+      use_calculated_total: true,
     });
   });
 
@@ -669,7 +712,7 @@ describe("Food Service procurement display", () => {
     expect(container.querySelector<HTMLDetailsElement>("tbody tr details")?.open).toBe(false);
     expect(container.querySelector("tbody tr details summary")?.textContent).toBe("Calculation details");
     expect(container.querySelector<HTMLInputElement>('input[aria-label="Actual Total for Rice"]')).not.toBeNull();
-    expect(container.textContent).toContain("Receipt Total");
+    expect(container.textContent).toContain("Actual receipt total");
     const unit = Array.from(container.querySelectorAll<HTMLTableCellElement>("tbody td"))
       .find((cell) => cell.textContent?.trim() === "kg");
     expect(unit?.querySelector("input, select")).toBeNull();

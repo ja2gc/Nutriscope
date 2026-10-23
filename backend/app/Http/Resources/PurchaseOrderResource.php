@@ -88,6 +88,7 @@ class PurchaseOrderResource extends JsonResource
                 'can_change_vendor' => $this->vendorChangeBlocker($g) === null,
                 'vendor_change_blocker' => $this->vendorChangeBlocker($g),
                 'total_amount' => $g->total_amount,
+                'use_calculated_total' => $g->receipt_total_override === null,
                 'received_at' => $g->received_at?->toISOString(),
                 'stocked_at' => $g->stocked_at?->toISOString(),
                 'items' => $g->relationLoaded('items') ? $g->items->map(fn ($i) => [
