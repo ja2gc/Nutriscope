@@ -1,6 +1,6 @@
 # Set up a replacement VPS
 
-Verified against committed source: `53230ce3f4e471b243d0fe0a8ef0b5fbfa89a891` (2026-10-23).
+Verified against committed source: `548c0e3268a8b7d26b598caf287fa11f6d236725` plus the deployment/resource changes in this working tree (2026-10-23).
 
 Purpose: operator runbook for the existing Compose roles on a fresh Ubuntu 24.04 LTS VPS. This is a documented target setup, **not evidence that a new host was configured or tested**. They change the target host unless marked read-only.
 
@@ -78,20 +78,41 @@ dc config --quiet
 
 config --quiet validates without printing resolved secret values. Never paste plain docker compose config output. Preserve the same project identity on later deployments or Compose may select different named volumes. Record volume names privately before a move.
 
-## 3. Build, restore/initialize and start
+## 3. Load images, restore/initialize and start
 
 The following start services and may write data. Take the approved branch:
 - **Move existing data:** pause old writers, capture/restore a coherent MySQL+file set at the compatible revision and preserve keys, following [turnover](turnover.md). Complete that reviewed transfer before release migrations. Do not seed demo data.
 - **Fresh installation:** the empty DB requires migrations and a reviewed reference-data/admin setup. [DatabaseSeeder](../../backend/database/seeders/DatabaseSeeder.php) includes demo identities and patients; do not run it wholesale. There is no verified turnkey institution-only bootstrap command in this runbook: approve the initial admin/reference-data list before acceptance.
 
+Build the reviewed revision on an existing Linux amd64 build machine or Actions
+runner, not the small production VPS. This uses the existing Dockerfiles and no
+registry. Confirm the destination CPU architecture before switching VPS providers.
+On the builder, in the reviewed checkout:
+
 ```sh
-dc up -d mysql redis
-dc --profile release build backend
-dc build frontend
-# AFTER the chosen data plan, backup and migration review:
-dc --profile release run --rm backend_release
-dc up -d backend backend_worker backend_scheduler frontend
+release_sha=$(git rev-parse HEAD)
+docker build --pull --label io.nutriscope.app=true --label "org.opencontainers.image.revision=$release_sha" -t nutriscope-backend:latest backend
+docker build --pull --label io.nutriscope.app=true --label "org.opencontainers.image.revision=$release_sha" --build-arg LARAVEL_API_URL=http://backend/api -t nutriscope-frontend:latest frontend
+docker image save nutriscope-backend:latest nutriscope-frontend:latest | gzip -1 > images.tar.gz
 ```
+
+Transfer only this archive over independently verified SSH. Do not transfer a
+working directory, env file, database, or private key with the images. On the
+destination, in the same reviewed source revision, with the archive in `.deploy/`:
+
+```sh
+gzip -dc .deploy/images.tar.gz | sudo docker image load
+sudo docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' nutriscope-backend:latest nutriscope-frontend:latest
+dc up -d mysql redis
+# AFTER the chosen data plan, backup and migration review:
+dc --profile release run --rm --no-build --pull never backend_release
+dc up -d --no-build --pull never backend backend_worker backend_scheduler frontend
+rm -f -- .deploy/images.tar.gz
+```
+
+Require both printed image revisions to equal the reviewed source SHA before
+running the release. These are operator instructions, not authorization to run
+them against production.
 
 [Release script](../../backend/docker-release.sh) caches config/routes/views, runs migrate --force, seeds FoodServiceMenuTemplateSeeder and runs demographic-census catch-up. It is a data-changing release step, not just a build. Review its suitability before each migration/transfer.
 
@@ -168,8 +189,85 @@ Keep the old host recoverable until [turnover acceptance](turnover.md) passes. V
 
 ## 7. Future releases
 
-The [deploy workflow](../../.github/workflows/deploy.yml) runs on main pushes, checks frontend types, SSHes into ~/Nutriscope, fast-forwards origin/main, builds, runs the release and starts services. Even docs-only pushes currently trigger this workflow; publishing documentation is not automatically production-neutral.
+The [deploy workflow](../../.github/workflows/deploy.yml) runs on main pushes and
+checks frontend types. It builds both images on the Actions runner, stamps their
+source SHA, and transfers one compressed archive into `~/Nutriscope/.deploy/`.
+The serialized SSH deployment rejects stale runs whose SHA no longer equals
+`origin/main`, fast-forwards the checkout to that exact SHA and invokes
+[ops/deploy.sh](../../ops/deploy.sh). There are no production build commands.
+Even docs-only pushes currently trigger this workflow; publishing documentation
+is not automatically production-neutral.
 
-Configure DROPLET_HOST, DROPLET_USER, DROPLET_SSH_KEY and DB_ROOT_PASSWORD in repository Actions secrets, even when the replacement VPS is not DigitalOcean. Review SSH host trust and account privileges. Ensure its Docker project name, directory and permissions match the setup above. Run frontend type/lint/test/build checks before publishing application changes; build itself skips TypeScript validation.
+Configure `DROPLET_HOST`, `DROPLET_USER`, `DROPLET_SSH_KEY`,
+`DROPLET_HOST_FINGERPRINT` and `DB_ROOT_PASSWORD` in repository Actions secrets,
+even when the replacement VPS is not DigitalOcean. The fingerprint must be the
+independently verified `SHA256:...` SSH host fingerprint; it is required for both
+transfer and execution. Never substitute a client identity fingerprint. Changing
+providers requires re-verifying this fingerprint. Ensure Docker project identity,
+directory and account permissions match the setup above. The fingerprint secret
+must be configured before the first deployment of this workflow. No new registry
+or provider account is required. Run frontend type/lint/test/build checks before
+publishing application changes; build itself skips TypeScript validation.
+
+The deploy script checks current health, preserves the running frontend/backend
+images as `:rollback`, loads the archive, verifies image revision labels, runs the
+existing release, and starts containers with `--no-build --pull never`. It checks
+both local HTTP services and all four running app image IDs before maintenance.
+Redeploying the same revision preserves existing rollback tags. Failed release,
+startup, revision or health checks stop deployment and skip image cleanup. The
+fixed transfer archive is removed on success/failure after the SSH script starts;
+a failed transfer can leave one archive, overwritten by the next transfer.
+
+After success, image cleanup removes only **dangling** images labeled
+`io.nutriscope.app=true` older than 168 hours. Tagged current/rollback images and
+running containers remain protected by Docker. Volumes, backups, uploads, build
+cache and older unlabeled images are outside this cleanup. Do not add blanket
+`system prune`, `image prune --all`, or volume cleanup. Rollback tags are images,
+not a database rollback or a complete recovery procedure; review schema
+compatibility before using them.
+
+### Runtime bounds and rollout acceptance
+
+Production Compose uses Docker's `local` log driver with three 10m files per
+container. Laravel uses its existing stderr channel so those logs rotate too.
+This does not govern host Nginx/systemd logs or remove existing application log
+files. New Docker log settings take effect when containers are recreated.
+
+Initial memory ceilings are HTTP 768m, worker/release 512m, scheduler 192m,
+frontend 384m, MySQL 768m and Redis 128m. Docker's default swap behavior remains
+enabled when host swap is available. These are isolation ceilings, not reserved
+memory or a guarantee that simultaneous peaks fit in 2 GiB. Database startup,
+reports, backups and concurrent requests need representative acceptance checks.
+Keep swap available; do not disable the OOM killer. Increase capacity or adjust
+the existing Compose limits if measured demand exceeds available host memory.
+
+[Apache prefork](../../backend/apache-prefork.conf) starts two workers, retains
+up to four, limits concurrent workers to four and recycles after 500 connections.
+PHP's existing 256M limit and queue worker's hourly recycling remain unchanged.
+Do not multiply per-process RSS to estimate actual memory: shared pages overlap.
+
+**Read-only checks before/after an approved rollout:** `free -m`,
+`vmstat 1 5` (ignore its first, since-boot rate row),
+`cat /proc/pressure/memory`, `docker stats --no-stream`, and filtered container
+OOM/restart counters. Use the existing provider monitoring to watch sustained
+available-memory decline, swap I/O, memory stalls and disk growth; configure
+operator alerts there rather than adding another monitoring service. Alerts are
+an operator setup step and are not created by this repository. Check a busy
+period and the next release, not only idle health. Run `bash ops/tests/deploy.test.sh`
+to exercise deploy ordering and failures without production or secrets.
+
+### One-time existing-host maintenance
+
+Off-host builds prevent new production build-cache growth. They do not remove
+the existing cache, legacy images, or prove that dockerd releases retained memory.
+Separately approve a scoped review of old build cache/images and, if justified,
+a controlled Docker restart with a service recovery check. Neither is automated
+by this change. A cache disk cleanup is not evidence of a memory fix.
+
+References checked 2026-10-23: [Docker build practices](https://docs.docker.com/build/building/best-practices/),
+[memory limits and swap](https://docs.docker.com/engine/containers/resource_constraints/),
+[rotating local logs](https://docs.docker.com/engine/logging/drivers/local/),
+[image prune filters](https://docs.docker.com/reference/cli/docker/image/prune/),
+and [Apache memory/concurrency guidance](https://httpd.apache.org/docs/2.4/en/misc/perf-tuning.html).
 
 Changing only backend secrets: recreate backend, backend_worker and backend_scheduler with the approved new environment; a restart alone retains old values. Preserve APP_KEY and archive passwords. No deploy/push is performed by maintaining this guide.

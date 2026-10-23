@@ -1,11 +1,12 @@
 # Operations
 
-Verified against committed source: `53230ce3f4e471b243d0fe0a8ef0b5fbfa89a891` (2026-10-23).
+Verified against committed source: `548c0e3268a8b7d26b598caf287fa11f6d236725` plus the deployment/resource changes in this working tree (2026-10-23).
 
 Purpose: find deployment, jobs, files, reports and recovery owners.
 
 - Hosting: [VPS setup](../../operations/vps-setup.md); accounts and migration: [turnover](../../operations/turnover.md); secrets/settings: [environment](environment.md), [integrations](integrations.md).
 - [Production Compose](../../../docker-compose.prod.yml) declares HTTP, backups/default worker, scheduler and one-off release roles. [bootstrap/app.php](../../../backend/bootstrap/app.php) is the schedule authority for menu maintenance, follow-ups, report files/census, backups and audit retention.
+- [Deploy workflow](../../../.github/workflows/deploy.yml) builds images on the Actions runner and transfers them over fingerprint-verified SSH. [ops/deploy.sh](../../../ops/deploy.sh) owns image loading, revision/health checks, rollback tags and successful-deploy image retention. Run its isolated failure-path tests with `bash ops/tests/deploy.test.sh`.
 - [StoredObjectStorage](../../../backend/app/Services/StoredObjectStorage.php), [filesystems config](../../../backend/config/filesystems.php) and [upload limits](../../../backend/config/uploads.php) own durable file routing and limits.
 - [ReportController](../../../backend/app/Http/Controllers/ReportController.php), [Reports](../../../backend/app/Services/Reports) and [report config](../../../backend/config/nutriscope-reports.php) own rendering, archives and cache. [ReportPreview](../../../frontend/components/ReportPreview.tsx) is the browser consumer.
 - [Backup services](../../../backend/app/Services/Backup), [backup settings](../../../backend/config/nutriscope-backups.php) and [backup filesystem](../../../backend/config/filesystems.php) own recovery paths; see [backup/recovery](../../operations/backup-recovery.md).
@@ -16,7 +17,9 @@ Keep MySQL, Redis and backend/frontend published ports private to loopback. Host
 
 Use user www-data for manually entered mutating Artisan commands in running containers. Release entrypoint already drops privileges for its CLI. A DB rollback does not reverse object operations; image rollback does not roll back schema/data.
 
-Docker cleanup/pruning is not routine maintenance permission. Never remove volumes or ignored directories without checking ownership, purpose and backups. Local output/ and tmp/ are Git-ignored working directories.
+Production Compose bounds each container's logs with Docker's `local` driver (three 10m files), routes Laravel logs through its existing stderr channel, and sets memory ceilings. [Apache prefork settings](../../../backend/apache-prefork.conf) cap the HTTP worker pool at four and recycle children after 500 connections. These are initial limits for isolation, not a load-tested capacity guarantee; see [VPS operations](../../operations/vps-setup.md#7-future-releases) for tuning and rollout checks. Existing hourly queue recycling stays in place.
+
+After successful health/image verification, the deploy script removes only dangling images labeled `io.nutriscope.app=true` older than 168 hours. Current and `:rollback` image tags are retained, including on same-revision redeploys. It never prunes volumes, build cache, or legacy unlabeled images. Broader Docker cleanup is not routine maintenance permission. Never remove volumes or ignored directories without checking ownership, purpose and backups. Local output/ and tmp/ are Git-ignored working directories; `.deploy/` holds the temporary image transfer archive.
 
 Related: [platform contract](../../operations/platform-requirements.md), [Android releases](../../mobile-apk-release.md).
 

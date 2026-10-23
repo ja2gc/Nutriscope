@@ -1,6 +1,6 @@
 # NutriScope developer map
 
-Verified against committed source: `d873ea2f3fec63a089bc70c6948f1611ae553d7b` plus the receipt-total change in this working tree (2026-10-23).
+Verified against committed source: `548c0e3268a8b7d26b598caf287fa11f6d236725` plus the receipt-total and deployment/resource changes in this working tree (2026-10-23).
 
 NutriScope manages patient nutrition care, clinical meal planning, food-service operations and administration. Start with the task below, then follow its source links.
 
@@ -13,7 +13,7 @@ Prefer browsing by area? Open the [grouped developer index](docs/developers/READ
 | mobile/ | Expo food-service screens, auth and API clients |
 | docs/ | Current system guides and focused domain references |
 | Storyboarding/ | Canonical role-specific presentation sequences |
-| nginx/, .github/ | Proxy snippets and deployment/release workflows |
+| nginx/, .github/, ops/ | Proxy snippets, deployment/release workflows, image deployment and retention |
 | .agents/ | Repository rules loaded explicitly by AGENTS.md |
 
 ## If you want to...
@@ -39,7 +39,7 @@ Prefer browsing by area? Open the [grouped developer index](docs/developers/READ
 | Change report templates, branding or exports | backend/app/Services/Reports/; backend/app/Http/Controllers/ReportBrandingController.php | [Operations](docs/developers/operations/README.md) |
 | Change notifications, announcements or SOP | backend/app/Services/NotificationService.php; backend/app/Http/Controllers/SopController.php | [Backend](docs/developers/platform/backend.md), [role modules](docs/README.md) |
 | Change accounts, password recovery or audit | backend/app/Http/Controllers/Admin/UserController.php; backend/app/Models/User.php; backend/config/audit.php | [Backend](docs/developers/platform/backend.md), [audit reference](docs/architecture/audit-logging.md) |
-| Move to a cheaper VPS; set up DNS/certificates | docker-compose.yml; docker-compose.prod.yml; nginx/mobile-api.locations.conf | [VPS setup](docs/operations/vps-setup.md), [turnover](docs/operations/turnover.md) |
+| Move to a cheaper VPS; set up DNS/certificates or deployment retention | docker-compose.yml; docker-compose.prod.yml; ops/deploy.sh; .github/workflows/deploy.yml; nginx/mobile-api.locations.conf | [VPS setup](docs/operations/vps-setup.md), [turnover](docs/operations/turnover.md) |
 | Build and publish an app update using EAS Cloud | mobile/app.json; mobile/eas.json; .github/workflows/release-mobile.yml | [Android releases](docs/mobile-apk-release.md) |
 | Update help or presentation instructions | docs/FAQ.md; docs/ROLE-HOW-TO.md; Storyboarding/ | [Documentation index](docs/README.md) |
 

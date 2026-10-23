@@ -1,5 +1,14 @@
+x-logging: &bounded-logging
+    driver: local
+    options:
+      max-size: "10m"
+      max-file: "3"
+
 x-backend-common: &backend-common
     image: nutriscope-backend
+    pull_policy: never
+    mem_limit: 512m
+    logging: *bounded-logging
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -9,6 +18,7 @@ x-backend-common: &backend-common
     environment:
       MAIL_MAILER: "resend-api"
       ANTHROPIC_MODEL: "claude-haiku-5-5"
+      LOG_CHANNEL: "stderr"
     volumes:
       - nutriscope_private_uploads:/var/www/html/storage/app/private-uploads
     depends_on:
@@ -21,12 +31,19 @@ x-backend-common: &backend-common
 
 services:
   mysql:
+    mem_limit: 768m
+    logging: *bounded-logging
     environment:
       MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD is required for production}"
       MYSQL_ALLOW_EMPTY_PASSWORD: !reset null
 
+  redis:
+    mem_limit: 128m
+    logging: *bounded-logging
+
   backend:
     <<: *backend-common
+    mem_limit: 768m
     ports:
       - "127.0.0.1:8080:80"
 
@@ -36,6 +53,7 @@ services:
 
   backend_scheduler:
     <<: *backend-common
+    mem_limit: 192m
     command: php artisan schedule:work
 
   backend_release:
@@ -46,6 +64,10 @@ services:
     restart: "no"
 
   frontend:
+    image: nutriscope-frontend
+    pull_policy: never
+    mem_limit: 384m
+    logging: *bounded-logging
     build:
       context: ./frontend
       dockerfile: Dockerfile

@@ -1,4 +1,4 @@
-name: Deploy to DigitalOcean
+name: Deploy to VPS
 
 on:
   push:
@@ -6,6 +6,10 @@ on:
       - main
     paths-ignore:
       - mobile/release.json
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   frontend_typecheck:
@@ -39,51 +43,70 @@ jobs:
       cancel-in-progress: false
 
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Check out release source
+        uses: actions/checkout@v5
+
+      - name: Verify deployment configuration
         env:
-          DB_ROOT_PASSWORD: ${{ secrets.DB_ROOT_PASSWORD }}
+          SSH_HOST_FINGERPRINT: ${{ secrets.DROPLET_HOST_FINGERPRINT }}
+        run: |
+          [[ "$SSH_HOST_FINGERPRINT" == SHA256:* ]] || {
+            echo 'Set DROPLET_HOST_FINGERPRINT to the independently verified SSH host fingerprint.' >&2
+            exit 1
+          }
+
+      - name: Test deployment failure paths
+        env:
+          DB_ROOT_PASSWORD: validation-only
+          COMPOSE_DISABLE_ENV_FILE: "1"
+        run: |
+          bash ops/tests/deploy.test.sh
+          docker compose --env-file backend/.env.production.example \
+            -f docker-compose.yml -f docker-compose.prod.yml --profile release \
+            config --no-env-resolution --quiet
+
+      - name: Build images on runner
+        run: |
+          docker build --pull --label io.nutriscope.app=true \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --tag nutriscope-backend:latest backend
+          docker build --pull --label io.nutriscope.app=true \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --build-arg LARAVEL_API_URL=http://backend/api \
+            --tag nutriscope-frontend:latest frontend
+          docker image save nutriscope-backend:latest nutriscope-frontend:latest | gzip -1 > images.tar.gz
+
+      - name: Transfer images over verified SSH
+        uses: appleboy/scp-action@v1.0.0
         with:
           host: ${{ secrets.DROPLET_HOST }}
           username: ${{ secrets.DROPLET_USER }}
           key: ${{ secrets.DROPLET_SSH_KEY }}
-          envs: DB_ROOT_PASSWORD
-          command_timeout: 60m
+          fingerprint: ${{ secrets.DROPLET_HOST_FINGERPRINT }}
+          source: images.tar.gz
+          target: Nutriscope/.deploy
+          overwrite: true
+          timeout: 120s
+          command_timeout: 20m
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          DB_ROOT_PASSWORD: ${{ secrets.DB_ROOT_PASSWORD }}
+          RELEASE_SHA: ${{ github.sha }}
+        with:
+          host: ${{ secrets.DROPLET_HOST }}
+          username: ${{ secrets.DROPLET_USER }}
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          fingerprint: ${{ secrets.DROPLET_HOST_FINGERPRINT }}
+          envs: DB_ROOT_PASSWORD,RELEASE_SHA
+          command_timeout: 30m
           script: |
             set -eu
             cd Nutriscope
-            # Read-only production preflight before fetching or replacing code/images.
-            printf 'Preflight revision: '
-            git rev-parse HEAD
-            printf 'CPU cores: '
-            nproc
-            uptime
-            free -h
-            df -h .
-            docker system df
-            if command -v ss >/dev/null 2>&1; then ss -s; fi
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
-            for image in nutriscope-backend nutriscope-frontend; do
-              docker image inspect --format '{{.RepoTags}} {{.Id}}' "$image" || true
-            done
-            printf 'Current local health HTTP status: '
-            curl --silent --output /dev/null --write-out '%{http_code}\n' --max-time 10 http://127.0.0.1:8080/up || true
-            for service in backend frontend mysql redis; do
-              count=$(docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --since 10m --no-color "$service" 2>&1 | grep -Eic '(^|[^a-z])(error|fatal|panic|unhealthy)([^a-z]|$)' || true)
-              printf '%s recent error-like log lines: %s\n' "$service" "$count"
-            done
+            trap 'rm -f -- .deploy/images.tar.gz' EXIT
             git fetch origin main
-            git merge --ff-only origin/main
-            export DOCKER_BUILDKIT=1
-            export COMPOSE_DOCKER_CLI_BUILD=1
-            export COMPOSE_PARALLEL_LIMIT=1
-            # Requires backend/.env.production to exist on the server.
-            # Base file provides mysql/redis; prod overlay adds backend/frontend.
-            docker image inspect nutriscope-backend >/dev/null 2>&1 && docker tag nutriscope-backend nutriscope-backend:rollback || true
-            docker image inspect nutriscope-frontend >/dev/null 2>&1 && docker tag nutriscope-frontend nutriscope-frontend:rollback || true
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile release build backend
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml build frontend
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile release run --rm backend_release
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans
-            curl --fail --silent --show-error --retry 12 --retry-all-errors --retry-delay 5 http://127.0.0.1:8080/up >/dev/null
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
+            test "$(git rev-parse origin/main)" = "$RELEASE_SHA"
+            git merge --ff-only "$RELEASE_SHA"
+            test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+            bash ops/deploy.sh "$RELEASE_SHA"
