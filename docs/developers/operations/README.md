@@ -1,6 +1,6 @@
 # Operations
 
-Verified against committed source: `59836bdef23642b1642848270bdcdf634b09afd7` plus the CI Compose validation fix in this working tree (2026-10-23).
+Verified against committed source: `d265fdc3171c089197f70fd803d7497ee571ac3f` (2026-10-24).
 
 Purpose: find deployment, jobs, files, reports and recovery owners.
 

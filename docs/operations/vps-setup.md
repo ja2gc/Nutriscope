@@ -1,6 +1,6 @@
 # Set up a replacement VPS
 
-Verified against committed source: `548c0e3268a8b7d26b598caf287fa11f6d236725` plus the deployment/resource changes in this working tree (2026-10-23).
+Verified against committed source: `d265fdc3171c089197f70fd803d7497ee571ac3f` (2026-10-24).
 
 Purpose: operator runbook for the existing Compose roles on a fresh Ubuntu 24.04 LTS VPS. This is a documented target setup, **not evidence that a new host was configured or tested**. They change the target host unless marked read-only.
 
@@ -105,7 +105,7 @@ gzip -dc .deploy/images.tar.gz | sudo docker image load
 sudo docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' nutriscope-backend:latest nutriscope-frontend:latest
 dc up -d mysql redis
 # AFTER the chosen data plan, backup and migration review:
-dc --profile release run --rm --no-build --pull never backend_release
+dc --profile release run --rm --pull never backend_release
 dc up -d --no-build --pull never backend backend_worker backend_scheduler frontend
 rm -f -- .deploy/images.tar.gz
 ```
