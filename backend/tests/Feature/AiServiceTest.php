@@ -164,12 +164,13 @@ class AiServiceTest extends TestCase
             $schema = $body['output_config']['format']['schema'];
             $draft = $schema['properties']['suggestions']['items'];
             $this->assertFalse($draft['additionalProperties']);
-            $this->assertSame('^.{1,75}$', $draft['properties']['e']['pattern']);
-            $this->assertSame('^.{1,75}$', $draft['properties']['s']['pattern']);
-            $this->assertSame('^.{0,100}$', $draft['properties']['n']['pattern']);
-            $this->assertSame(1, preg_match('/'.$draft['properties']['e']['pattern'].'/u', str_repeat('a', 75)));
-            $this->assertSame(0, preg_match('/'.$draft['properties']['e']['pattern'].'/u', str_repeat('a', 76)));
-            $this->assertSame(0, preg_match('/'.$draft['properties']['n']['pattern'].'/u', str_repeat('a', 101)));
+            foreach (['e', 's', 'p', 'n'] as $field) {
+                $this->assertArrayNotHasKey('pattern', $draft['properties'][$field]);
+                $this->assertSame(
+                    $field === 'n' ? 'Maximum 100 characters.' : 'Between 1 and 75 characters.',
+                    $draft['properties'][$field]['description'],
+                );
+            }
             $this->assertSame(['id', 'e', 'ek', 's', 'sk'], $draft['required']);
             $this->assertArrayNotHasKey('source_id', $draft['properties']);
 

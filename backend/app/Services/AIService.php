@@ -48,7 +48,7 @@ class AIService
 - Format: Output JSON object only.
 PROMPT;
             $userPrompt = "input_json:\n{$encoded}";
-            $phrase = ['type' => 'string', 'pattern' => '^.{1,75}$'];
+            $phrase = ['type' => 'string', 'description' => 'Between 1 and 75 characters.'];
             $evidenceKeys = ['type' => 'array', 'items' => ['type' => 'string'], 'minItems' => 1];
             $schema = [
                 'type' => 'object', 'additionalProperties' => false, 'required' => ['suggestions'],
@@ -58,7 +58,7 @@ PROMPT;
                     'properties' => [
                         'id' => ['type' => 'string'], 'e' => $phrase, 'ek' => $evidenceKeys,
                         's' => $phrase, 'sk' => $evidenceKeys, 'p' => $phrase,
-                        'n' => ['type' => 'string', 'pattern' => '^.{0,100}$'],
+                        'n' => ['type' => 'string', 'description' => 'Maximum 100 characters.'],
                     ],
                 ]]],
             ];
