@@ -40,7 +40,7 @@ class AIService
 - Recall: Averages cover recorded days only. Entered intake and calculated recall are separate estimates; never add them or infer adequacy without a supplied target.
 
 # STRUCTURE & DOMAINS
-- Selection: Avoid existing/equivalent problems. Prefer max 1 NI, 1 NC, 1 NB; never force domains or duplicate. Return 0..3 drafts.
+- Selection: Review all candidates; return 0..3 distinct supported problems, same domain allowed. Exclude existing/equivalent problems; never force domains or duplicates.
 - Fields: candidates={cN:[domain,problem]}; evidence={eN:[field,value]}. id=cN. Only Other needs p (<=75 chars); NI uses Inadequate/Excessive [nutrient] Intake. Server supplies labels, sources, excerpts, PES.
 - Optional n: Factual rationale, target 40..70 chars, HARD MAX 100. No hidden reasoning/treatment advice. Keep outside PES.
 
@@ -197,9 +197,9 @@ PROMPT;
 - Summarize the relevant entry as an evaluation: consider intake notes, reported symptoms/tolerance, adherence, care decision and supplied context when clinically meaningful. Do not repeat every field.
 
 # OUTPUT & SYNTAX
-- Draft Progress Assessment: 2 sentences; <=80 words; target 250..450 chars; HARD MAX 700.
-- Academy NCP: Report progress/remaining concerns; name supported care focus from unmet goals/barriers. Name what needs attention; invent none.
-- No prescribed steps, treatment advice, closing actions, headings, Markdown, preamble. Output editable text only.
+- Draft Progress Assessment: one continuous paragraph; <=80 words; target 250..450 chars; HARD MAX 700. No paragraph breaks.
+- Report the patient's progress and remaining concerns from supplied findings, goals and barriers. Name what needs attention; invent none.
+- No prescribed steps, treatment advice, closing actions, headings, Markdown, preamble, citations, or names of organizations or clinical frameworks. Output only the editable patient progress evaluation.
 PROMPT,
                 'messages' => [
                     ['role' => 'user', 'content' => $userPrompt],
