@@ -2,7 +2,6 @@
 
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 import { ArrowLeft } from "lucide-react";
-import { createPortal } from 'react-dom';
 import { FoodRecallCalculator, type FoodRecallHandle } from '@/components/ncp/FoodRecallCalculator';
 import { FoodRecallNutrientFields } from '@/components/ncp/FoodRecallNutrientFields';
 import type { FoodRecallPlan } from '@/lib/foodRecall';
@@ -44,7 +43,6 @@ interface LogVisitFormProps {
   onCancel: () => void;
   leaveRef?: Ref<EditorLeaveHandle>;
   entry?: MonitoringEntry | null;
-  recallContainer?: HTMLElement | null;
 }
 
 const INTAKE_META: Record<string, { label: string; unit: string }> = {
@@ -194,7 +192,7 @@ function ToggleGroup<T extends string>({ label, options, value, onChange, requir
   );
 }
 
-export default function LogVisitForm({ ncpId, plan, context, intervention, onSubmit, onCancel, leaveRef, entry, recallContainer }: LogVisitFormProps) {
+export default function LogVisitForm({ ncpId, plan, context, intervention, onSubmit, onCancel, leaveRef, entry }: LogVisitFormProps) {
   const readOnly = Boolean(entry);
   const [foodRecall, setFoodRecall] = useState<FoodRecallPlan | null>(entry?.food_recall ?? null);
   const acceptedRecall = useRef<FoodRecallPlan | null>(foodRecall);
@@ -442,6 +440,7 @@ export default function LogVisitForm({ ncpId, plan, context, intervention, onSub
         </Section>
 
         <Section title="Dietary Intake and Tolerance">
+          {recall}
           <div className="max-w-2xl">
             <label>
               <FieldLabel>Dietary Restrictions</FieldLabel>
@@ -512,7 +511,6 @@ export default function LogVisitForm({ ncpId, plan, context, intervention, onSub
           <Button type="button" variant="ghost" onClick={() => guard.requestLeave(onCancel)} className="sm:!w-auto">Cancel</Button>
         </div>}
       </form>
-      {recallContainer ? createPortal(recall, recallContainer) : recall}
     </div>
   );
 }
