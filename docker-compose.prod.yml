@@ -49,15 +49,19 @@ services:
 
   backend_worker:
     <<: *backend-common
+    stop_signal: SIGTERM
+    stop_grace_period: 21m
     command: php artisan queue:work redis --queue=backups,default --sleep=3 --tries=3 --backoff=5 --timeout=1200 --max-time=3600
 
   backend_scheduler:
     <<: *backend-common
     mem_limit: 192m
+    stop_signal: SIGTERM
     command: php artisan schedule:work
 
   backend_release:
     <<: *backend-common
+    stop_signal: SIGTERM
     command: /usr/local/bin/docker-release.sh
     profiles:
       - release

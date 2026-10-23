@@ -1,6 +1,6 @@
 # Operations
 
-Verified against committed source: `d265fdc3171c089197f70fd803d7497ee571ac3f` (2026-10-24).
+Verified against committed source: `14a954e0a1167d781cf007a61c610dff297f952a` plus the CLI stop-signal correction in this working tree (2026-10-24).
 
 Purpose: find deployment, jobs, files, reports and recovery owners.
 
@@ -12,7 +12,7 @@ Purpose: find deployment, jobs, files, reports and recovery owners.
 - [ReportController](../../../backend/app/Http/Controllers/ReportController.php), [Reports](../../../backend/app/Services/Reports) and [report config](../../../backend/config/nutriscope-reports.php) own rendering, archives and cache. [ReportPreview](../../../frontend/components/ReportPreview.tsx) is the browser consumer.
 - [Backup services](../../../backend/app/Services/Backup), [backup settings](../../../backend/config/nutriscope-backups.php) and [backup filesystem](../../../backend/config/filesystems.php) own recovery paths; see [backup/recovery](../../operations/backup-recovery.md).
 
-The worker timeout is 1200 seconds; the production example uses REDIS_QUEUE_RETRY_AFTER=1260. Check the effective combination before changing it. Scheduler tasks include retention/deletion and recovery-test dispatch; starting a scheduler has side effects.
+The worker timeout is 1200 seconds; the production example uses REDIS_QUEUE_RETRY_AFTER=1260. Check the effective combination before changing it. CLI roles (worker, scheduler and release) explicitly use SIGTERM, overriding the shared Apache image's SIGWINCH; HTTP keeps Apache's graceful signal. The worker has a 21-minute stop grace period so an existing job can finish before Docker forces termination. Scheduler tasks include retention/deletion and recovery-test dispatch; starting a scheduler has side effects.
 
 Keep MySQL, Redis and backend/frontend published ports private to loopback. Host Nginx terminates HTTPS. Primary private uploads have a named volume; report-cache and legacy public storage are not durable shared mounts in current Compose. Inventory all file locations before replacing containers or moving hosts.
 
