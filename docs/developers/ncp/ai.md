@@ -1,6 +1,6 @@
 # AI features
 
-Verified against committed source: `53230ce3f4e471b243d0fe0a8ef0b5fbfa89a891` (2026-10-23).
+Verified against committed source: `efe1f69184859aeb0f19ce414666466452f83d25` (2026-10-23).
 
 Purpose: maintain assisted PES wording and monitoring narration. AI does not own deterministic clinical calculations.
 
@@ -15,6 +15,8 @@ Purpose: maintain assisted PES wording and monitoring narration. AI does not own
 ## Change prompts, evidence or limits
 
 [PesSuggestionService](../../../backend/app/Services/Diagnosis/PesSuggestionService.php) and neighboring Diagnosis services gate evidence, validate candidates and retain drafts. [MonitoringController](../../../backend/app/Http/Controllers/RND/MonitoringController.php) owns monitoring review flow. Preserve evidence attribution, response bounds and editable-review behavior.
+
+The PES provider schema describes phrase lengths without regex range constraints, which the provider rejects. `PesSuggestionService::component` enforces the actual limits after the response: generated etiology, signs and Other problem wording must be nonempty and at most 75 characters; optional notes above 100 characters are withheld. Keep these server checks when changing the provider schema. Monitoring uses plain text without this JSON schema and independently rejects empty, truncated or over-600-character responses.
 
 [Admin limits](../../../backend/app/Http/Controllers/Admin/AiUsageLimitController.php) and [usage client](../../../frontend/services/aiUsageLimitService.ts) expose limits; AIService checks recorded usage before requests. These thresholds do not reserve spending for concurrent calls.
 
