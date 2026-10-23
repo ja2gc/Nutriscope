@@ -1,6 +1,6 @@
 # Web
 
-Verified against committed source: `53230ce3f4e471b243d0fe0a8ef0b5fbfa89a891` (2026-10-23).
+Verified against committed source: `52a01780ca5abecd6d4fc9346416a6c941bf2a77` (2026-10-23).
 
 Purpose: find Next.js screens, existing controls and API transport.
 
@@ -9,6 +9,7 @@ Purpose: find Next.js screens, existing controls and API transport.
 - [components/ui](../../../frontend/components/ui) contains existing Input, NumericInput, Button, Card, PageHeader, ImageFilePicker and ImageUploadGallery controls. [uploadValidation](../../../frontend/lib/uploadValidation.ts) checks caller-supplied limits. Profile cropping and clinical PDF attachments have different workflows.
 - [hooks](../../../frontend/hooks) includes useDebouncedValue and useUnsavedChanges. Keep domain state local unless actual matching callers justify reuse.
 - NCP pages under [app/(rnd)/ncp](<../../../frontend/app/(rnd)/ncp>) use clinical components and headers. Food-service screens under [app/(rnd)/food-service](<../../../frontend/app/(rnd)/food-service>) use their own operational services.
+- [Sidebar](../../../frontend/components/layout/Sidebar.tsx) remembers the selected NCP cycle per signed-in user through [ncpWorkflow](../../../frontend/lib/ncpWorkflow.ts). Opening a patient profile selects its current cycle, or latest past cycle when none is current. Loading, failures and patients without cycles keep step links on that profile rather than opening an empty placeholder or using another patient's remembered cycle. Explicit cycle-step URLs remain authoritative; leaving a profile cancels its pending selection update.
 - [ReportPreview](../../../frontend/components/ReportPreview.tsx) owns browser PDF presentation.
 
 Change a screen by tracing its service and API handler through Laravel. Reuse matching controls; preserve differing file limits, validation rules, permissions and submit behavior. Browser checks improve UX; Laravel remains authoritative.

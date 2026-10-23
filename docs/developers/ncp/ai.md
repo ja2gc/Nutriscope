@@ -1,6 +1,6 @@
 # AI features
 
-Verified against committed source: `78b284c96ffac589a1cb047c7330e110d854d478` plus the current monitoring changes (2026-10-23).
+Verified against committed source: `52a01780ca5abecd6d4fc9346416a6c941bf2a77` (2026-10-23).
 
 Purpose: maintain assisted PES wording and monitoring narration. AI does not own deterministic clinical calculations.
 
@@ -16,10 +16,18 @@ Purpose: maintain assisted PES wording and monitoring narration. AI does not own
 
 [PesSuggestionService](../../../backend/app/Services/Diagnosis/PesSuggestionService.php) and neighboring Diagnosis services gate evidence, validate candidates and retain drafts. [MonitoringController](../../../backend/app/Http/Controllers/RND/MonitoringController.php) owns monitoring review flow. Preserve evidence attribution, response bounds and editable-review behavior.
 
+Diagnosis reviews reuse the existing `PesSuggestionState` metadata to remember completed reviews against relevant evidence, including reviews whose provider output was unusable or whose drafts all failed validation. An unchanged request reuses the outcome without another provider call. The UI displays **No supported evidence left.** when nothing supported remains; connection failures and provider HTTP failures remain retryable errors. This review cache follows evidence changes rather than a daily expiry. Invalid drafts are withheld, never saved as approved diagnoses. Extra provider results are bounded to three before validation; previously pending drafts may remain visible across generations.
+
+Every completed, metered diagnosis request consumes one of the existing three daily generations per patient, even when its output is withheld. Usage logs retain provider-reported tokens; cached reads consume neither another generation nor more tokens. Failed upstream requests release the reserved generation. Global token caps remain separate from the per-patient counter.
+
+Duplicate checks combine saved problem text, manual problem selections and the originating candidate identity of approved AI diagnoses. Common intake spelling variants are normalized while preserving intake direction and distinct nutrients. Generic **Other** categories remain label-based so one saved custom problem does not suppress every custom problem. Saved problems and approved draft references are checked again when resolving pending drafts for approval.
+
+Food recall notes reuse Assessment's `dietary_intake` field. [FoodRecallService](../../../backend/app/Services/FoodRecallService.php) supplies a de-identified portion-scaled average per recorded day, recorded weekday/weekend counts and explicit nutrient units; manually recorded `intake_nutrients` remain separate estimates. Unknown amounts or units are omitted, not converted to zero. Both summaries participate in review invalidation. Numeric intake summaries are corroborating context and cannot independently establish a concerning cause or sign. Normal findings remain counterevidence. The Evidence used presentation is retained; AI draft **Extra Notes** uses the manual form's label.
+
 The PES provider schema describes phrase lengths without regex range constraints, which the provider rejects. `PesSuggestionService::component` enforces the actual limits after the response: generated etiology, signs and Other problem wording must be nonempty and at most 75 characters; optional notes above 100 characters are withheld. Keep these server checks when changing the provider schema. Monitoring uses plain text without this JSON schema and independently rejects empty, truncated or over-700-character responses. The provider allowance is 400 output tokens; the prompt requests two concise sentences, normally 250–450 characters, combining supported progress and concerns without listing exact numerical changes. Input includes entry context, notes, symptoms, adherence and optional recall intake estimates. Editing excludes the saved visit from its own baseline. Changes to the latest saved entry invalidate pending generation keys.
 
 [Admin limits](../../../backend/app/Http/Controllers/Admin/AiUsageLimitController.php) and [usage client](../../../frontend/services/aiUsageLimitService.ts) expose limits; AIService checks recorded usage before requests. These thresholds do not reserve spending for concurrent calls.
 
-Tests: [AiServiceTest](../../../backend/tests/Feature/AiServiceTest.php), [AiUsageLimitTest](../../../backend/tests/Feature/AiUsageLimitTest.php), [MonitoringAiReviewTest](../../../backend/tests/Feature/MonitoringAiReviewTest.php). Preserve HTTP fakes; never use real patient data or paid calls in automated tests.
+Tests: [PesReviewCacheTest](../../../backend/tests/Feature/PesReviewCacheTest.php), [FoodRecallEvidenceTest](../../../backend/tests/Unit/FoodRecallEvidenceTest.php), [AiServiceTest](../../../backend/tests/Feature/AiServiceTest.php), [AiUsageLimitTest](../../../backend/tests/Feature/AiUsageLimitTest.php), [MonitoringAiReviewTest](../../../backend/tests/Feature/MonitoringAiReviewTest.php). Preserve HTTP fakes; never use real patient data or paid calls in automated tests.
 
 Related: [integrations](../operations/integrations.md), [environment](../operations/environment.md), [clinical](README.md), [testing](../platform/testing.md). Confirm provider model access, budget and synthetic output compatibility before changing it.
