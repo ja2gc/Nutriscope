@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 let pathname = "/ncp/patient-uuid/assessment/ncp-uuid";
 const push = vi.fn();
 let userId = 7;
+let authenticated = true;
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 vi.mock("next/navigation", () => ({
@@ -18,14 +19,16 @@ vi.mock("next/link", () => ({
     <a href={href} {...props}>{children}</a>,
 }));
 vi.mock("@/contexts/AuthContext", () => ({
-  useAuth: () => ({ user: { id: userId, role: "RND" }, logout: vi.fn() }),
+  useAuth: () => ({ user: authenticated ? { id: userId, role: "RND" } : null, logout: vi.fn() }),
 }));
 vi.mock("@/components/ui/Logo", () => ({ Logo: () => <span>Logo</span> }));
 vi.mock("@/components/ncp/NcpVisitBar", () => ({ NcpVisitBar: () => null }));
 vi.mock("@/components/ui/InfoHint", () => ({ InfoHint: () => null }));
+vi.mock("@/services/patientService", () => ({ fetchPatientNcpRecords: vi.fn() }));
 
 import { Sidebar } from "./Sidebar";
 import NcpPatientHeader from "../../app/(rnd)/ncp/_components/NcpPatientHeader";
+import { fetchPatientNcpRecords } from "@/services/patientService";
 
 describe("selected NCP patient navigation", () => {
   let container: HTMLDivElement;
@@ -34,8 +37,10 @@ describe("selected NCP patient navigation", () => {
   beforeEach(() => {
     pathname = "/ncp/patient-uuid/assessment/ncp-uuid";
     userId = 7;
+    authenticated = true;
     push.mockClear();
     sessionStorage.clear();
+    vi.mocked(fetchPatientNcpRecords).mockReset();
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
@@ -54,6 +59,39 @@ describe("selected NCP patient navigation", () => {
   function stepHref(label: string) {
     return [...container.querySelectorAll("a")].find((a) => a.textContent?.trim() === label)?.getAttribute("href");
   }
+
+  it("selects the opened profile's current cycle without requiring a previous step visit", async () => {
+    pathname = "/ncp/patients/new-patient";
+    vi.mocked(fetchPatientNcpRecords).mockResolvedValue({ data: [{ id: "current-cycle" }], meta: {} } as never);
+    await renderSidebar();
+    expect(stepHref("Assessment")).toBe("/ncp/new-patient/assessment/current-cycle");
+    expect(stepHref("Diagnosis")).toBe("/ncp/new-patient/diagnosis/current-cycle");
+    expect(stepHref("Monitoring")).toBe("/ncp/new-patient/monitoring/current-cycle");
+  });
+
+  it("does not dereference a missing remembered cycle while authentication is loading", async () => {
+    authenticated = false;
+    pathname = "/ncp/patients/new-patient";
+    await renderSidebar();
+    expect(fetchPatientNcpRecords).not.toHaveBeenCalled();
+  });
+
+  it("never uses a previous patient's cycle when opening a different profile with no cycle", async () => {
+    await renderSidebar();
+    pathname = "/ncp/patients/no-cycle-patient";
+    vi.mocked(fetchPatientNcpRecords).mockResolvedValue({ data: [], meta: {} } as never);
+    await renderSidebar();
+    expect(stepHref("Assessment")).toBe("/ncp/patients/no-cycle-patient");
+    expect(stepHref("Diagnosis")).toBe("/ncp/patients/no-cycle-patient");
+  });
+
+  it("uses the latest past cycle when the opened patient has no current cycle", async () => {
+    pathname = "/ncp/patients/past-patient";
+    vi.mocked(fetchPatientNcpRecords).mockResolvedValueOnce({ data: [], meta: {} } as never)
+      .mockResolvedValueOnce({ data: [{ id: "past-cycle" }], meta: {} } as never);
+    await renderSidebar();
+    expect(stepHref("Intervention")).toBe("/ncp/past-patient/intervention/past-cycle");
+  });
 
   it("keeps step links after visiting another page and on refresh", async () => {
     await renderSidebar();

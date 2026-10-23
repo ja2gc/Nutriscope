@@ -11,6 +11,70 @@ use InvalidArgumentException;
 
 class FoodRecallService
 {
+    /** Explicitly recorded nutrient amounts, with the units used by the intake form. */
+    public static function intakeEvidence(?array $values): array
+    {
+        $result = [];
+        foreach ($values ?? [] as $key => $value) {
+            $unit = match ($key) {
+                'energy_kcal' => 'kcal', 'protein_g', 'carbs_g', 'fat_g' => 'g', 'fluid_ml' => 'mL',
+                default => str_starts_with($key, 'micro_') ? MonitoringPlanService::micronutrientUnit(substr($key, 6)) : '',
+            };
+            if ($unit !== '' && $value !== null && is_numeric($value) && is_finite((float) $value) && (float) $value >= 0) {
+                $result[$key] = ['value' => round((float) $value, 2), 'unit' => $unit];
+            }
+        }
+
+        return $result;
+    }
+
+    /** Summarize frozen recall portions without sending food identifiers or names to AI. */
+    public function evidenceSummary(?array $plan): ?array
+    {
+        $days = $plan['days'] ?? [];
+        if ($days === [] || count($days) !== ($plan['days_count'] ?? null)) {
+            return null;
+        }
+        $totals = null;
+        $kinds = ['weekday' => 0, 'weekend' => 0];
+        foreach ($days as $day) {
+            if (empty($day['items'])) {
+                return null;
+            }
+            $kinds[($day['kind'] ?? 'weekday') === 'weekend' ? 'weekend' : 'weekday']++;
+            foreach ($day['items'] as $item) {
+                $snapshot = $item['nutrient_snapshot'] ?? [];
+                $prepared = ! empty($item['recipe_id']) && ($item['unit'] ?? '') !== 'serving';
+                try {
+                    $factor = UnitConverter::scalingFactor((float) ($item['quantity'] ?? 0), (string) ($item['unit'] ?? ''),
+                        (float) ($prepared ? ($snapshot['prepared_portion_amount'] ?? 0) : ($snapshot['serving_size'] ?? 0)),
+                        (string) ($prepared ? ($snapshot['prepared_portion_unit'] ?? '') : ($snapshot['serving_unit'] ?? '')));
+                } catch (InvalidArgumentException) {
+                    return null;
+                }
+                $values = [];
+                foreach (['energy_kcal' => 'calories', 'protein_g' => 'protein', 'carbs_g' => 'carbs', 'fat_g' => 'fat'] as $key => $source) {
+                    if (isset($snapshot[$source]) && is_numeric($snapshot[$source])) {
+                        $values[$key] = (float) $snapshot[$source] * $factor;
+                    }
+                }
+                foreach ($plan['displayed_micros'] ?? [] as $key) {
+                    if (isset($snapshot['micronutrients'][$key]) && is_numeric($snapshot['micronutrients'][$key])) {
+                        $values['micro_'.$key] = (float) $snapshot['micronutrients'][$key] * $factor;
+                    }
+                }
+                // A missing amount stays unknown; do not count it as zero in the average.
+                $totals = $totals === null ? array_fill_keys(array_keys($values), 0.0) : array_intersect_key($totals, $values);
+                foreach ($totals as $key => $total) {
+                    $totals[$key] = $total + $values[$key];
+                }
+            }
+        }
+
+        return ['days_count' => count($days), 'day_types' => $kinds,
+            'average_daily' => self::intakeEvidence(array_map(fn ($value) => $value / count($days), $totals ?? []))];
+    }
+
     public static function intakeRules(): array
     {
         return [

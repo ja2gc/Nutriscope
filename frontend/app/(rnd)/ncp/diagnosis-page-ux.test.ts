@@ -27,6 +27,7 @@ describe("NCP explicit save and diagnosis UX", () => {
     expect(page).toContain("CharacterCountTextarea");
     expect(page.match(/maxLength=\{125\}/g)).toHaveLength(3);
     expect(page).toContain("maxLength={500}");
+    expect(page).not.toContain('(reasoning only)');
     for (const label of ["Extra Notes (optional)", "Additional Etiology Notes", "Additional Signs and Symptoms Notes", "PES statement"]) expect(page).toContain(`aria-label="${label}"`);
   });
 
@@ -38,7 +39,7 @@ describe("NCP explicit save and diagnosis UX", () => {
     expect(page).not.toContain(">Source</span>");
     expect(page).not.toContain("s.source.url");
     expect(page).not.toContain("Cached for this unchanged Assessment");
-    expect(page).toContain("No new supported nutrition problems were found.");
+    expect(page).toContain("No supported evidence left.");
     expect(page).toContain("External AI drafts are unavailable");
     expect(page).toContain("dismissPesSuggestion");
     expect(page).toContain("> Dismiss");

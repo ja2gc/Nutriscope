@@ -133,7 +133,7 @@ class AiServiceTest extends TestCase
         $this->assertSame($text, app(AIService::class)->narrateMonitoring([]));
         $this->assertNull(app(AIService::class)->narrateMonitoring([]));
         Http::assertSent(fn ($request) => $request['model'] === 'claude-haiku-5-5'
-            && $request['thinking'] === ['type' => 'disabled'] && $request['max_tokens'] === 300);
+            && $request['thinking'] === ['type' => 'disabled'] && $request['max_tokens'] === 400);
         Http::assertSentCount(2);
         $this->assertDatabaseCount('ai_usage_logs', 2);
     }

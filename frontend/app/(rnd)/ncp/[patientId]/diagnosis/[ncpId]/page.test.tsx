@@ -83,6 +83,8 @@ it("opens a custom intake nutrient without classifying it as a vitamin", async (
   }] });
   await open(); click("AI Review");
   expect((screen.getByRole("button", { name: "Generate AI Suggestions" }) as HTMLButtonElement).disabled).toBe(false);
+  expect(screen.getByText('Extra Notes:')).toBeTruthy();
+  expect(screen.queryByText('Reasoning:')).toBeNull();
   click("Edit");
   expect((screen.getByRole("textbox", { name: "Nutrient / substance (specify)" }) as HTMLInputElement).value).toBe("Sodium");
   expect(screen.queryByRole("textbox", { name: "Vitamins (specify)" })).toBeNull();

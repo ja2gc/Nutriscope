@@ -11,7 +11,9 @@ class PesEligibilityService
         $existing = $this->canonicalProblems($evidence['existing_problem_keys'] ?? []);
         $eligible = [];
         foreach ($this->catalog->cards() as $card) {
-            if (in_array($card['id'], $dismissedCandidateIds, true) || in_array($this->canonicalProblem($card['problem_key']), $existing, true)) {
+            if (in_array($card['id'], $dismissedCandidateIds, true)
+                || in_array($card['id'], $evidence['saved_candidate_ids'] ?? [], true)
+                || in_array($this->canonicalProblem($card['problem_key']), $existing, true)) {
                 continue;
             }
             if (! $this->matches($card['id'], $evidence)) {
@@ -28,6 +30,8 @@ class PesEligibilityService
     public function canonicalProblem(string $problem): string
     {
         $key = trim((string) preg_replace('/[^a-z0-9]+/', ' ', mb_strtolower($problem)));
+        $key = preg_replace(['/\b(carbohydrates|carbs)\b/', '/\b(calorie|calories|caloric)\b/', '/\bproteins\b/', '/\bfats\b/', '/\bfibre\b/'],
+            ['carbohydrate', 'energy', 'protein', 'fat', 'fiber'], $key);
 
         return match (true) {
             preg_match('/\b(unintended|unintentional) weight loss\b/', $key) === 1 => 'unintended weight loss',

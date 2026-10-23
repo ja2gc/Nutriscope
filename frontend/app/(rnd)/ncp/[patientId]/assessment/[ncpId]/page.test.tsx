@@ -23,6 +23,19 @@ beforeEach(() => {
 });
 afterEach(() => { act(() => root.unmount()); document.body.replaceChildren(); vi.resetAllMocks(); });
 
+it('lets the RND describe food recall using the existing saved dietary intake field', async () => {
+  vi.mocked(fetchAssessment).mockResolvedValue({ dietary_intake: 'Skips breakfast on working days.', allergies: [], food_dislikes: [], medications: [] } as never);
+  const params = Promise.resolve({ patientId: 'demo', ncpId: 'demo-cycle' });
+  await act(async () => root.render(<Suspense fallback="Loading"><Page params={params} /></Suspense>));
+  await act(async () => fireEvent.click(screen.getByRole('tab', { name: /Dietary/ })));
+  const notes = screen.getByRole('textbox', { name: 'Food recall notes' }) as HTMLTextAreaElement;
+  expect(notes.value).toBe('Skips breakfast on working days.');
+  act(() => fireEvent.change(notes, { target: { value: 'x'.repeat(251) } }));
+  expect(notes.value).toHaveLength(250);
+  act(() => fireEvent.change(notes, { target: { value: 'Recall describes a working day; breakfast was skipped.' } }));
+  expect(notes.value).toContain('working day');
+});
+
 it("updates the visible WHR when hip changes and never labels a 1cm waist as low risk", async () => {
   const params = Promise.resolve({ patientId: "demo", ncpId: "demo-cycle" });
   await act(async () => root.render(<Suspense fallback="Loading"><Page params={params} /></Suspense>));

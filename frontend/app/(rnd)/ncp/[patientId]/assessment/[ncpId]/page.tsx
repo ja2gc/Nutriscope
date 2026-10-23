@@ -1990,7 +1990,10 @@ export default function NcpAssessmentPage({
           {tabContent[activeTab]}
           <div hidden={activeTab !== 'dietary'} className="mt-4">
             <AssessmentSection legend="Food Recall">
-              {assessment.dietary_intake && <p className="whitespace-pre-wrap text-sm text-warm-600">Previously recorded intake: {assessment.dietary_intake}</p>}
+              <Field label="Food recall notes (optional)">
+                <TextArea ariaLabel="Food recall notes" value={assessment.dietary_intake ?? ''}
+                  onChange={value => updateField('dietary_intake', value)} maxLength={ASSESSMENT_TEXT_LIMITS.dietary_intake} />
+              </Field>
               <FoodRecallNutrientFields values={Object.fromEntries(Object.entries(assessment.intake_nutrients ?? { energy_kcal: null }).map(([key, value]) => [key, value == null ? '' : String(value)]))}
                 onChange={values => updateField('intake_nutrients', Object.fromEntries(Object.entries(values).map(([key, value]) => [key, value.trim() === '' ? null : value])))}
                 renderField={(field, value, onChange) => <Field label={`${field.label} intake (${field.unit})`}><TextInput type="number" ariaLabel={`${field.label} intake`} value={value} onChange={onChange} min={0} max={field.max} step={0.01} /></Field>} />

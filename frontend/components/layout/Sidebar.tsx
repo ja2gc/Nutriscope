@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { fetchPatientNcpRecords } from "@/services/patientService";
 import { Logo } from "@/components/ui/Logo";
 import { clearSelectedNcpCycle, getCycleStepHref, getPlaceholderStepHref, readSelectedNcpCycle, rememberSelectedNcpCycle, type NcpStep } from "@/lib/ncpWorkflow";
 import {
@@ -39,7 +40,9 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
   const routeCycle = ncpMatch && ncpMatch[1] !== "select-patient" && ncpMatch[3] !== "select-ncp"
     ? { patientId: ncpMatch[1], ncpId: ncpMatch[3] }
     : null;
-  const selectedCycle = routeCycle ?? (rememberedCycle?.userId === user?.id ? rememberedCycle : null);
+  const profilePatientId = pathname.match(/^\/ncp\/patients\/([^/]+)\/?$/)?.[1] ?? null;
+  const selectedCycle = routeCycle ?? (rememberedCycle && rememberedCycle.userId === user?.id
+    && (!profilePatientId || rememberedCycle.patientId === profilePatientId) ? rememberedCycle : null);
   const activePatientId = selectedCycle?.patientId ?? null;
   const activeNcpId = selectedCycle?.ncpId ?? null;
 
@@ -51,7 +54,7 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
   );
   const stepHref = (step: NcpStep) => hasRealNcpCycle
     ? getCycleStepHref(activePatientId!, step, activeNcpId!)
-    : getPlaceholderStepHref(step);
+    : profilePatientId ? `/ncp/patients/${profilePatientId}` : getPlaceholderStepHref(step);
 
   useEffect(() => {
     if (user?.role !== "RND") return;
@@ -60,11 +63,29 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
       const [, patientId, , ncpId] = route;
       rememberSelectedNcpCycle(sessionStorage, user.id, patientId, ncpId);
       setRememberedCycle({ userId: user.id, patientId, ncpId });
+    } else if (profilePatientId) {
+      let cancelled = false;
+      setRememberedCycle(null);
+      void (async () => {
+        const current = await fetchPatientNcpRecords(profilePatientId, 1, undefined, { scope: "current" });
+        const record = current.data[0] ?? (await fetchPatientNcpRecords(profilePatientId, 1, undefined, { scope: "past" })).data[0];
+        if (cancelled) return;
+        if (record) {
+          const ncpId = String(record.id);
+          rememberSelectedNcpCycle(sessionStorage, user.id, profilePatientId, ncpId);
+          setRememberedCycle({ userId: user.id, patientId: profilePatientId, ncpId });
+        } else {
+          clearSelectedNcpCycle(sessionStorage, user.id);
+        }
+      })().catch(() => {
+        if (!cancelled) clearSelectedNcpCycle(sessionStorage, user.id);
+      });
+      return () => { cancelled = true; };
     } else {
       const saved = readSelectedNcpCycle(sessionStorage, user.id);
       setRememberedCycle(saved ? { userId: user.id, ...saved } : null);
     }
-  }, [pathname, user?.id, user?.role]);
+  }, [pathname, profilePatientId, user?.id, user?.role]);
 
   useEffect(() => {
     if (pathname.startsWith("/ncp")) {

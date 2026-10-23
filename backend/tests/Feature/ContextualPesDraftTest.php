@@ -232,17 +232,17 @@ class ContextualPesDraftTest extends TestCase
 
     public function test_compact_output_still_rejects_malformed_references_and_invented_causes(): void
     {
-        $record = $this->knowledgeRecord();
-        $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest";
         foreach ([
             ['id' => 'knowledge_deficit_v2', 'e' => 'Kidney failure', 'ek' => ['social_history'], 's' => 'Cannot identify carbohydrate foods', 'sk' => ['knowledge_notes']],
             ['id' => 'knowledge_deficit_v2', 'e' => 'Limited access to nutrition education', 'ek' => 'social_history', 's' => 'Cannot identify carbohydrate foods', 'sk' => ['knowledge_notes']],
             ['id' => 'invented_id', 'e' => 'Limited access to nutrition education', 'ek' => ['social_history'], 's' => 'Cannot identify carbohydrate foods', 'sk' => ['knowledge_notes']],
             ['id' => 'knowledge_deficit_v2', 'e' => 'Limited access to nutrition education', 'ek' => ['social_history'], 's' => str_repeat('x', 76), 'sk' => ['knowledge_notes']],
         ] as $bad) {
+            $record = $this->knowledgeRecord();
+            $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest";
             $this->provider([$bad]);
-            $this->postJson($url)->assertStatus(502);
-            $this->getJson($url)->assertJsonPath('meta.budget.used', 0);
+            $this->postJson($url)->assertOk()->assertJsonPath('data', [])->assertJsonPath('meta.message', 'No supported evidence left.');
+            $this->getJson($url)->assertJsonPath('meta.budget.used', 1);
             Http::assertSentCount(1);
         }
         $this->assertDatabaseCount('ai_usage_logs', 4);
@@ -349,26 +349,18 @@ class ContextualPesDraftTest extends TestCase
         Http::assertSentCount(1);
     }
 
-    public function test_stale_draft_and_unsupported_cause_or_denied_signs_are_rejected_without_spending_allowance(): void
+    public function test_stale_drafts_and_unsupported_causes_or_denied_signs_cannot_be_saved(): void
     {
+        foreach ([['etiology' => 'Kidney failure'], ['signs' => 'No difficulty swallowing'], ['signs' => 'Difficulty swallowing']] as $override) {
+            $record = $this->knowledgeRecord();
+            $record->assessment()->update(['knowledge_notes' => 'Cannot identify carbohydrate foods. No difficulty swallowing.']);
+            $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest";
+            $this->provider([[...$this->knowledgeDraft(), ...$override]]);
+            $this->postJson($url)->assertOk()->assertJsonPath('data', []);
+            $this->getJson($url)->assertJsonPath('meta.budget.remaining', 2)->assertJsonPath('meta.can_generate', false);
+        }
         $record = $this->knowledgeRecord();
         $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest";
-        $bad = $this->knowledgeDraft();
-        $bad['etiology'] = 'Kidney failure';
-        $this->provider([$bad]);
-        $this->postJson($url)->assertStatus(502);
-        $this->getJson($url)->assertJsonPath('meta.budget.remaining', 3);
-        $record->assessment()->update(['knowledge_notes' => 'Cannot identify carbohydrate foods. No difficulty swallowing.']);
-        $bad = $this->knowledgeDraft();
-        $bad['signs'] = 'No difficulty swallowing';
-        $bad['evidence_quotes']['knowledge_notes'] = 'No difficulty swallowing';
-        $this->provider([$bad]);
-        $this->postJson($url)->assertStatus(502);
-        $this->getJson($url)->assertJsonPath('meta.budget.remaining', 3);
-        $bad['signs'] = 'Difficulty swallowing';
-        $this->provider([$bad]);
-        $this->postJson($url)->assertStatus(502);
-        $this->getJson($url)->assertJsonPath('meta.budget.remaining', 3);
         $this->provider([$this->knowledgeDraft()]);
         $id = $this->postJson($url)->assertOk()->json('data.0.draft_id');
         $record->assessment()->update(['knowledge_notes' => 'Understands carbohydrate foods.']);
@@ -531,7 +523,7 @@ class ContextualPesDraftTest extends TestCase
             'etiology_evidence' => ['dietary_intake'], 'signs_evidence' => ['physical_assessment', 'dietary_intake'], 'source_id' => 'academy_ncp_diagnosis_2026',
         ];
         $this->provider([$draft]);
-        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertStatus(502);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonPath('data', []);
         $record->assessment()->update(['physical_assessment' => 'Reduced muscle mass on nutrition-focused physical exam.', 'dietary_intake' => 'Reduced food intake for 3 weeks.']);
         $draft['etiology'] = 'Reduced food intake for 3 weeks';
         $draft['signs'] = 'Reduced muscle mass';

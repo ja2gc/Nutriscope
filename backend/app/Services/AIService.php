@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Exceptions\TokenLimitExceededException;
+use App\Exceptions\UnusableAiDraftException;
 use App\Models\AiUsageLimit;
 use App\Models\AiUsageLog;
 use Illuminate\Support\Facades\Cache;
@@ -36,6 +37,7 @@ class AIService
 - NCP: Require nutrition problem, documented cause, relevant signs. Never infer excess intake from BMI; knowledge deficit from education alone; nutrition impact from smoking alone.
 - Metrics: Assess weight direction, duration, intent, fluid, population context. Gain != unintended loss. WHO adult BMI excludes children/pregnancy. Check fasting/population/lab context. Lab flag/albumin alone != diagnosis.
 - GLIM: Require phenotype (nonvolitional loss >5% in 6mo/>10% beyond; Asian BMI <18.5 if <70yo/<20 if >=70; or assessed muscle loss) AND etiology (sustained reduced intake/assimilation or inflammation). Never infer severity or use tiredness alone.
+- Recall: Averages cover recorded days only. Entered intake and calculated recall are separate estimates; never add them or infer adequacy without a supplied target.
 
 # STRUCTURE & DOMAINS
 - Selection: Avoid existing/equivalent problems. Prefer max 1 NI, 1 NC, 1 NB; never force domains or duplicate. Return 0..3 drafts.
@@ -99,14 +101,16 @@ PROMPT;
                 ]);
                 Cache::forget('admin_dashboard');
 
+                $usageMetadata = ['usage_log_id' => $usage->id, 'input_tokens' => $inputTokens, 'output_tokens' => $outputTokens];
+
                 if (($body['stop_reason'] ?? null) === 'refusal') {
-                    throw new \RuntimeException('The AI service declined this request. No draft was created.');
+                    throw new UnusableAiDraftException('The AI service declined this request. No draft was created.', $usageMetadata);
                 }
                 if (($body['stop_reason'] ?? null) === 'model_context_window_exceeded') {
-                    throw new \RuntimeException('The AI request exceeded the model context window.');
+                    throw new UnusableAiDraftException('The AI request exceeded the model context window.', $usageMetadata);
                 }
                 if (($body['stop_reason'] ?? null) === 'max_tokens') {
-                    throw new \RuntimeException('The AI response was incomplete. Please try again.');
+                    throw new UnusableAiDraftException('The AI response was incomplete. Please try again.', $usageMetadata);
                 }
                 $text = collect($body['content'] ?? [])->firstWhere('type', 'text')['text'] ?? '';
                 // Models sometimes wrap JSON in ```json fences despite instructions —
@@ -118,11 +122,11 @@ PROMPT;
                     Log::warning('AIService draftPes: malformed JSON from model', [
                         'error' => json_last_error_msg(),
                     ]);
-                    throw new \RuntimeException('The AI returned an unexpected PES response.');
+                    throw new UnusableAiDraftException('The AI returned an unexpected PES response.', $usageMetadata);
                 }
 
                 if (! isset($decoded['suggestions']) || ! is_array($decoded['suggestions'])) {
-                    throw new \RuntimeException('The AI returned an unexpected PES response.');
+                    throw new UnusableAiDraftException('The AI returned an unexpected PES response.', $usageMetadata);
                 }
 
                 return ['suggestions' => $decoded['suggestions'], 'usage' => [

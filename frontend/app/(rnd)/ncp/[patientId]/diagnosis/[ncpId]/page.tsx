@@ -918,7 +918,7 @@ export default function NcpDiagnosisPage({
         </div>
       </div>
       <div>
-        <SectionLabel>Additional Etiology Notes (reasoning only)</SectionLabel>
+        <SectionLabel>Additional Etiology Notes</SectionLabel>
         <CharacterCountTextarea
           value={builder.etiologyNotes}
           aria-label="Additional Etiology Notes"
@@ -965,7 +965,7 @@ export default function NcpDiagnosisPage({
         </div>
       </div>
       <div>
-        <SectionLabel>Additional Signs & Symptoms Notes (reasoning only)</SectionLabel>
+        <SectionLabel>Additional Signs & Symptoms Notes</SectionLabel>
         <CharacterCountTextarea
           value={builder.signNotes}
           aria-label="Additional Signs and Symptoms Notes"
@@ -1090,7 +1090,7 @@ export default function NcpDiagnosisPage({
 
       {aiMeta?.message && aiSuggestions.length === 0 && (
         <div className="rounded-xl border border-warm-200 bg-warm-50 px-4 py-3 text-sm text-warm-700">
-          {aiMeta.message || "No new supported nutrition problems were found."}
+          {aiMeta.message || "No supported evidence left."}
         </div>
       )}
 
@@ -1126,7 +1126,7 @@ export default function NcpDiagnosisPage({
                     </ul>
                   </div>
                 </div>
-                {s.extra_notes && <p className="text-xs text-warm-600"><span className="font-semibold">Reasoning: </span>{s.extra_notes}</p>}
+                {s.extra_notes && <p className="text-xs text-warm-600"><span className="font-semibold">Extra Notes: </span>{s.extra_notes}</p>}
                 <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-warm-100">
                   <button
                     type="button"

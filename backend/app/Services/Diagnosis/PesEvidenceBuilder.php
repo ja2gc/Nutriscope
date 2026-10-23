@@ -3,6 +3,7 @@
 namespace App\Services\Diagnosis;
 
 use App\Models\NcpRecord;
+use App\Services\FoodRecallService;
 use App\Services\LabFlagService;
 use Illuminate\Support\Str;
 
@@ -12,7 +13,9 @@ class PesEvidenceBuilder
     {
         $ncpRecord->loadMissing(['patient', 'assessment.biochemicalData', 'diagnoses']);
         $assessment = $ncpRecord->assessment;
-        $existing = $ncpRecord->diagnoses->pluck('problem')->filter()->sort()->values()->all();
+        $existing = $ncpRecord->diagnoses->flatMap(fn ($diagnosis): array => [
+            $diagnosis->problem, ...($diagnosis->builder_data['problem_checks'] ?? []),
+        ])->filter()->sort()->values()->all();
         if ($assessment === null) {
             return ['existing_problem_keys' => $existing];
         }
@@ -72,6 +75,10 @@ class PesEvidenceBuilder
             'waist_cm' => $assessment->waist_cm,
             'hip_cm' => $assessment->hip_cm,
             'existing_problem_keys' => $existing,
+            'saved_candidate_ids' => $ncpRecord->diagnoses->map(fn ($diagnosis) => $diagnosis->ai_provenance['candidate_id'] ?? null)
+                ->filter(fn ($id) => is_string($id) && ! in_array($id, ['intake_other_v2', 'clinical_other_v2', 'behavioral_other_v2'], true))->unique()->values()->all(),
+            'food_recall' => app(FoodRecallService::class)->evidenceSummary($assessment->food_recall),
+            'intake_nutrients' => FoodRecallService::intakeEvidence($assessment->intake_nutrients),
         ];
         foreach (['dietary_intake', 'present_diet', 'knowledge_notes', 'lifestyle', 'social_history', 'medical_history', 'physical_assessment', 'body_composition', 'food_intolerance', 'nutrient_drug_interaction', 'dietary_restrictions', 'supplements', 'rnd_summary'] as $field) {
             $evidence[$field] = $text($assessment->{$field});

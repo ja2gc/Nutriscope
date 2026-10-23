@@ -68,7 +68,7 @@ class PesSuggestionTest extends TestCase
             ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-suggest")
             ->assertOk()
             ->assertJsonPath('data', [])
-            ->assertJsonPath('meta.message', 'No new supported nutrition problems were found.');
+            ->assertJsonPath('meta.message', 'No supported evidence left.');
 
         Http::assertNothingSent();
         $this->assertDatabaseCount('pes_suggestion_states', 0);
@@ -121,7 +121,7 @@ class PesSuggestionTest extends TestCase
         $this->assertDatabaseCount('pes_suggestion_states', 2);
     }
 
-    public function test_unknown_source_is_rejected_and_not_cached(): void
+    public function test_unknown_source_is_withheld_and_review_is_cached(): void
     {
         $ncpRecord = $this->makeRecord(assessment: [
             'weight_loss_percentage' => 6.5,
@@ -137,13 +137,12 @@ class PesSuggestionTest extends TestCase
 
         $this->actingAs($this->rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-suggest")
-            ->assertStatus(502)
-            ->assertJsonStructure(['message']);
+            ->assertOk()->assertJsonPath('data', [])->assertJsonPath('meta.message', 'No supported evidence left.');
 
-        $this->assertDatabaseCount('pes_suggestion_states', 0);
+        $this->assertDatabaseCount('pes_suggestion_states', 1);
     }
 
-    public function test_unknown_evidence_is_rejected_and_not_cached(): void
+    public function test_unknown_evidence_is_withheld_and_review_is_cached(): void
     {
         $ncpRecord = $this->makeRecord(assessment: [
             'weight_loss_percentage' => 6.5,
@@ -159,10 +158,9 @@ class PesSuggestionTest extends TestCase
 
         $this->actingAs($this->rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-suggest")
-            ->assertStatus(502)
-            ->assertJsonStructure(['message']);
+            ->assertOk()->assertJsonPath('data', [])->assertJsonPath('meta.message', 'No supported evidence left.');
 
-        $this->assertDatabaseCount('pes_suggestion_states', 0);
+        $this->assertDatabaseCount('pes_suggestion_states', 1);
     }
 
     public function test_provider_payload_is_deidentified_and_token_bounded(): void
