@@ -1,6 +1,6 @@
 # EAS Cloud and Android app releases
 
-Verified against committed source: `53230ce3f4e471b243d0fe0a8ef0b5fbfa89a891` (2026-10-23).
+Verified against committed source: `14a954e0a1167d781cf007a61c610dff297f952a` (2026-10-24).
 
 Purpose: transfer build ownership and publish updates to the existing sideloaded Android app. Commands below are operator instructions for build and release work.
 
@@ -8,9 +8,9 @@ Purpose: transfer build ownership and publish updates to the existing sideloaded
 
 Create the receiving institution's Expo organization/account. Prefer transferring the existing EAS project through its settings over creating an unrelated project. Confirm access to the project linked by [app.json](../mobile/app.json), preserve the Android package identity and original production signing keystore, and store credentials in an approved secret manager.
 
-Use [Expo project transfer](https://docs.expo.dev/accounts/account-types/#transfer-projects-between-accounts) and [signing credentials](https://docs.expo.dev/app-signing/app-credentials/). Do not generate a different signing key for installed users: they need the same package/signature to install an update. Existing cloud credits/quota, signing access and device-installed versions are Unverified.
+In Expo, open the **existing project → Project settings → General → Transfer project**. The transferring user needs Owner/Admin access on both source and destination; follow the [current transfer requirements](https://docs.expo.dev/accounts/account-types/#transfer-projects-between-accounts). Afterward authenticate as a receiving-team member and verify `project:info` still identifies the existing `extra.eas.projectId`. Keep `android.package` (`live.nutriscope.fss`) and the original production signing certificate. Do not relink to a new project or regenerate the signing key as an ownership shortcut. Check receiving billing/quota and credentials access before removing the outgoing user. If an Expo owner field is introduced/required by the selected project setup, match it to the verified receiving account rather than guessing.
 
-The repository currently has a dated restriction on EAS Cloud builds through 2026-10-31 in [.agents deployment rules](../.agents/rules/deployment-and-release.md). Check the current restriction, quota and human authorization before building; this guide does not override it.
+Use [Expo project transfer](https://docs.expo.dev/accounts/account-types/#transfer-projects-between-accounts) and [signing credentials](https://docs.expo.dev/app-signing/app-credentials/). Do not generate a different signing key for installed users: they need the same package/signature to install an update. Existing cloud credits/quota, signing access and device-installed versions are Unverified.
 
 ## Configure and build
 
@@ -30,13 +30,13 @@ Changing credentials/project settings or building uploads source to an external 
 1. Update expo.version and android.versionCode in [mobile/app.json](../mobile/app.json). Use an increasing human version **and** versionCode: [appUpdate.ts](../mobile/lib/appUpdate.ts) compares the version string, not just versionCode.
 2. Review [eas.json](../mobile/eas.json). preview and production both currently produce APKs; development is a development client and uses a different API endpoint. For the current proxy, EXPO_PUBLIC_API_URL includes /mobile-api, not /api. Never bake secret keys into EXPO_PUBLIC variables.
 3. Run the appropriate [safe checks](developers/platform/testing.md). Preserve backend/web/mobile API compatibility and verify the actual SDK from the lockfile.
-4. Once allowed, request the intended cloud build:
+4. Request the intended cloud build:
 
 ```sh
 npx eas-cli build --platform android --profile production
 ```
 
-[Official build setup](https://docs.expo.dev/build/setup/) and [APK configuration](https://docs.expo.dev/build-reference/apk/) explain current prerequisites. Use --local only on a separately prepared supported Android toolchain; that setup is not verified here. A cloud job succeeding is not device acceptance.
+[Official build setup](https://docs.expo.dev/build/setup/) and [APK configuration](https://docs.expo.dev/build-reference/apk/) explain current prerequisites. A cloud job succeeding is not device acceptance.
 
 ## Publish the verified APK
 
@@ -61,11 +61,15 @@ Replace version_code with a positive increasing integer. Prefer manual dispatch 
 
 The existing workflow uses DROPLET_HOST, DROPLET_USER and DROPLET_SSH_KEY even on a different VPS provider. The [Nginx download locations](../nginx/mobile-api.locations.conf) must be installed on the new host. Publishing instructions are not permission to push or trigger the workflow.
 
+See [repository secret setup and host-authentication limitation](developers/operations/environment.md#which-workflow-reads-which-secret). Unlike the web/backend deploy workflow, APK publication currently does not consume `DROPLET_HOST_FINGERPRINT`; configuring that secret does not pin APK publication's SSH host. Resolve that separately reviewed workflow gap before relying on publication to a replacement host.
+
 ## Verify public distribution
 
 The current contract uses the site's /mobile-app page, /downloads/nutriscope-fss.apk and /downloads/nutriscope-fss.json. Verify metadata version/versionCode/checksum, APK MIME/header/download, desktop QR, phone install and in-app update check.
 
 If changing the domain, update and test all hardcoded consumers: [appUpdate.ts](../mobile/lib/appUpdate.ts), [FssAppAccess](../frontend/components/mobile-app/FssAppAccess.tsx), [release workflow](../.github/workflows/release-mobile.yml), [EAS profiles](../mobile/eas.json), proxy/domain/env settings and any distributed links. Existing APKs still request the old API/update host; keep compatibility/redirects where applicable. Keeping the domain while moving VPS is usually simpler.
+
+Also regenerate and phone-scan the actual [QR SVG](../frontend/public/nutriscope-mobile-qr.svg); its vector paths encode the destination, so a source text replacement elsewhere cannot update it. FssAppAccess's download button is a relative path; its QR is a separate static asset. The release workflow writes an absolute download URL into JSON and verifies absolute public URLs. Change all those consumers in a reviewed domain-migration release. Keep old HTTPS API/update endpoints serving supported installed versions; test authentication rather than assuming redirects preserve it. For a VPS IP change with the same domain, update DNS, shared CI secrets and host/proxy/files; a new APK is not required solely because the origin IP changed. Use the full [change matrix](operations/turnover.md#every-place-to-update-when-addresses-or-accounts-change).
 
 ## EAS Update is a different mechanism
 

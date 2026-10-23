@@ -1,13 +1,13 @@
 # Documentation index
 
-Verified against committed source: `53230ce3f4e471b243d0fe0a8ef0b5fbfa89a891` (2026-10-23).
+Verified against committed source: `14a954e0a1167d781cf007a61c610dff297f952a` (2026-10-24).
 
 Start with [DEVELOPERS.md](../DEVELOPERS.md) for task-to-source routing. The guides below describe current responsibilities; source and authorized runtime evidence outrank older narrative.
 
 | Need | Documentation |
 |---|---|
 | Developer tasks, modules and rules | [Developer map](../DEVELOPERS.md), [AGENTS](../AGENTS.md) |
-| Accounts, keys, deployment and ownership | [Deployment](../deployment.md), [turnover](operations/turnover.md) |
+| Accounts, keys, deployment and ownership | [Operations](developers/operations/README.md), [VPS setup](operations/vps-setup.md), [turnover](operations/turnover.md), [five Actions secrets](developers/operations/environment.md#github-actions-repository-secrets-obtain-enter-and-replace) |
 | Local setup and checks | [Setup](developers/platform/local-setup.md), [testing](developers/platform/testing.md) |
 | EAS Cloud, signing and APK updates | [Android releases](mobile-apk-release.md) |
 | User-facing help and role tasks | [FAQ](FAQ.md), [Role How-To](ROLE-HOW-TO.md) |

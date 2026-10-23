@@ -1,6 +1,6 @@
 # NutriScope developer map
 
-Verified against committed source: `548c0e3268a8b7d26b598caf287fa11f6d236725` plus the receipt-total and deployment/resource changes in this working tree (2026-10-23).
+Verified against committed source: `14a954e0a1167d781cf007a61c610dff297f952a` (2026-10-24).
 
 NutriScope manages patient nutrition care, clinical meal planning, food-service operations and administration. Start with the task below, then follow its source links.
 
@@ -34,6 +34,7 @@ Prefer browsing by area? Open the [grouped developer index](docs/developers/READ
 | Change Claude model, prompts or usage limits | backend/config/services.php; docker-compose.prod.yml; backend/app/Services/AIService.php | [AI](docs/developers/ncp/ai.md) |
 | Set up USDA, email, R2 or Render | backend/config/services.php; backend/config/filesystems.php | [Integrations](docs/developers/operations/integrations.md) |
 | Find environment variable ownership | backend/.env.production.example; frontend/.env.example | [Environment](docs/developers/operations/environment.md) |
+| Transfer personal accounts, set the five Actions secrets or change VPS IP/domain | .github/workflows/deploy.yml; .github/workflows/release-mobile.yml; mobile/eas.json; mobile/lib/appUpdate.ts; frontend/public/nutriscope-mobile-qr.svg | [Secret sources/setup](docs/developers/operations/environment.md#github-actions-repository-secrets-obtain-enter-and-replace), [account/address change matrix](docs/operations/turnover.md#every-place-to-update-when-addresses-or-accounts-change), [provider value sources](docs/developers/operations/integrations.md#replacement-account-value-sources) |
 | Run checks safely | backend/phpunit.xml; frontend/vitest.config.ts | [Testing](docs/developers/platform/testing.md) |
 | Maintain queues, files, reports or backups | backend/bootstrap/app.php; backend/app/Services/Backup/ | [Operations](docs/developers/operations/README.md) |
 | Change report templates, branding or exports | backend/app/Services/Reports/; backend/app/Http/Controllers/ReportBrandingController.php | [Operations](docs/developers/operations/README.md) |

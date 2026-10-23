@@ -1,10 +1,12 @@
 # Set up a replacement VPS
 
-Verified against committed source: `d265fdc3171c089197f70fd803d7497ee571ac3f` (2026-10-24).
+Verified against committed source: `14a954e0a1167d781cf007a61c610dff297f952a` (2026-10-24).
 
 Purpose: operator runbook for the existing Compose roles on a fresh Ubuntu 24.04 LTS VPS. This is a documented target setup, **not evidence that a new host was configured or tested**. They change the target host unless marked read-only.
 
 For an existing system, follow [turnover/cutover](turnover.md) before the data/release steps. Do not treat a move as a fresh empty installation.
+
+Before provisioning, the receiving team needs institution-controlled VPS billing/console access, repository access, registrar/authoritative DNS access and custody of required application/backup/signing keys. Decide whether the domain stays the same. Use the [address/account change matrix](turnover.md#every-place-to-update-when-addresses-or-accounts-change) to record all destinations privately; a new IP alone does not require changing domain-based app URLs. The [five GitHub secret instructions](../developers/operations/environment.md#github-actions-repository-secrets-obtain-enter-and-replace) explain exact sources, entry screens and replacement rules.
 
 ## 1. Prepare the host
 
@@ -61,7 +63,18 @@ cp -n backend/.env.production.example backend/.env.production
 chmod 600 backend/.env.production
 ```
 
-Privately edit backend/.env.production as an operator; never paste it into a ticket/chat. Use the [environment map](../developers/operations/environment.md) and [integration setup](../developers/operations/integrations.md). New installs need a newly generated APP_KEY; moves must preserve the existing one. Provision the backup bucket/password and sender domain before enabling their jobs.
+Privately edit backend/.env.production as an operator; never paste it into a ticket/chat. Use the [environment map](../developers/operations/environment.md) and [integration value sources](../developers/operations/integrations.md#replacement-account-value-sources). New installs need a newly generated APP_KEY; moves must preserve the existing one. Provision the backup bucket/password and sender domain before enabling their jobs.
+
+**State-changing — new installation only, on the trusted Linux operator machine:** generate a key for this backend's AES-256-CBC default without printing it. The directory creation must succeed with a new, unused path before generating the file; stop if the directory already exists.
+
+```sh
+umask 077
+mkdir -m 700 "$HOME/nutriscope-key-setup"
+# Only after the preceding mkdir succeeds:
+openssl rand -base64 -out "$HOME/nutriscope-key-setup/app-key" 32
+```
+
+Using a private editor/secret-manager import, store the file's single generated line with the `base64:` prefix as APP_KEY in the institutional secret manager and protected server environment. Do not log/display the value or commit the temporary file. After confirming secure custody, remove only that temporary key file and empty setup directory through the operator's approved secret-handling process. Do not run this procedure during a migration or overwrite a live APP_KEY.
 
 The example's MySQL root account requires DB_PASSWORD to match DB_ROOT_PASSWORD for a newly initialized volume. Existing MySQL volumes do not change passwords when initialization env changes; use a separately reviewed DB credential-rotation procedure.
 
@@ -153,6 +166,8 @@ sudo systemctl reload nginx
 On an existing host inspect enabled sites first to avoid duplicate names; don't overwrite working configuration. The download directory /var/www/nutriscope-downloads must contain a verified signed APK and metadata, readable by Nginx and writable by the approved publishing account. Do not make it world-writable; grant the account controlled ownership or a dedicated group. An empty directory means downloads are not ready.
 
 ## 5. DNS and HTTPS
+
+Find the new public IP in the receiving provider's server/network dashboard. Find the active DNS editor from the domain's authoritative nameservers; the registrar's DNS editor is irrelevant if another provider hosts the zone. In Cloudflare, select the receiving account/domain and open **DNS → Records**. Edit the intended A record's content to the destination IPv4; review every active AAAA and `www` record too. Preserve provider mail/verification records. A nameserver/account transfer is separate from an A-record edit; see [turnover](turnover.md#where-the-receiving-team-starts).
 
 At the authoritative DNS provider, point the intended VPS hostname's A record to the new IPv4 address. Use AAAA only with working IPv6. For www, use the agreed CNAME/A arrangement. Preserve mail and provider-verification records; see the [DNS inventory](turnover.md#dns-inventory).
 
