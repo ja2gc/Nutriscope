@@ -57,13 +57,19 @@ class MonitoringController extends Controller
     /** Scope each draft's allowance to its clinician, cycle, and current visit history. */
     private function summaryEntryKey(NcpRecord $ncpRecord, string $draftId): string
     {
-        return hash('sha256', auth()->id().':'.$ncpRecord->id.':'.($ncpRecord->monitorings()->max('id') ?? 'initial').':'.$draftId);
+        $latest = $ncpRecord->monitorings()->latest('id')->first();
+
+        return hash('sha256', auth()->id().':'.$ncpRecord->id.':'.json_encode($latest?->getAttributes() ?? 'initial').':'.$draftId);
     }
 
     public function aiReview(MonitoringSummaryRequest $request, NcpRecord $ncpRecord, MonitoringPlanService $planSvc, AIService $ai): JsonResponse
     {
         $this->authorizeNcp($ncpRecord);
         abort_unless($ncpRecord->intervention()->exists(), 422, 'Save an intervention before monitoring.');
+        if ($request->filled('monitoring_id')) {
+            $editing = $ncpRecord->monitorings()->where('uuid', $request->validated('monitoring_id'))->firstOrFail();
+            abort_unless($editing->canMutate(), 409, 'Only the latest saved monitoring entry in an active cycle can be edited.');
+        }
         $key = $this->summaryEntryKey($ncpRecord, $request->validated('draft_id'));
         abort_unless(hash_equals($key, $request->validated('entry_key')), 409, 'The visit history changed. Reload the form before generating.');
         $rlKey = 'ai-review:'.(auth()->id() ?? 'guest');
@@ -151,6 +157,7 @@ class MonitoringController extends Controller
         $data['bmi'] = $this->calculateBmi($data['weight'], $data['height']);
 
         return $this->audited(function () use ($data, $ncpRecord, $notificationLifecycle, $request, $followUpAt, $followUpPurpose) {
+            $ncpRecord->newQuery()->whereKey($ncpRecord->id)->lockForUpdate()->firstOrFail();
             $monitoring = new Monitoring($data);
             $monitoring->ncp_record_id = $ncpRecord->id;
             $monitoring->save();
@@ -180,12 +187,17 @@ class MonitoringController extends Controller
             abort(404);
         }
 
-        abort_if($request->exists('food_recall'), 409, 'Saved monitoring recall plans are view-only.');
-
         $data = $request->validated();
+        if (array_key_exists('food_recall', $data)) {
+            $data['food_recall'] = $this->foodRecalls->normalize($data['food_recall'], $monitoring->food_recall);
+        }
+        unset($data['next_monitoring_at'], $data['next_monitoring_purpose']);
         $data['bmi'] = $this->calculateBmi($data['weight'], $data['height']);
 
         return $this->audited(function () use ($monitoring, $data, $ncpRecord, $request) {
+            $lockedNcp = $ncpRecord->newQuery()->whereKey($ncpRecord->id)->lockForUpdate()->firstOrFail();
+            $monitoring->setRelation('ncpRecord', $lockedNcp);
+            abort_unless($monitoring->canMutate(), 409, 'Only the latest saved monitoring entry in an active cycle can be edited.');
             $monitoring->fill($data);
             $monitoring->save();
             $freshNcp = $ncpRecord->fresh(['monitorings']);
@@ -205,7 +217,14 @@ class MonitoringController extends Controller
             abort(404);
         }
 
-        abort(409, 'Saved monitoring entries cannot be deleted.');
+        return $this->audited(function () use ($monitoring, $ncpRecord) {
+            $lockedNcp = $ncpRecord->newQuery()->whereKey($ncpRecord->id)->lockForUpdate()->firstOrFail();
+            $monitoring->setRelation('ncpRecord', $lockedNcp);
+            abort_unless($monitoring->canMutate(), 409, 'Only the latest saved monitoring entry in an active cycle can be deleted.');
+            $monitoring->delete();
+
+            return response()->noContent();
+        });
     }
 
     private function authorizeNcp(NcpRecord $ncpRecord): void

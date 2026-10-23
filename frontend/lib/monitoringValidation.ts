@@ -1,7 +1,7 @@
 import { ABG_LIMIT, ASSESSMENT_TEXT_LIMITS, FOOD_DISLIKE_LIMIT, FOOD_DISLIKE_MAX_ENTRIES } from "./assessmentValidation";
 import type { MonitoringPayload } from "@/services/monitoringService";
 
-export const MONITORING_TEXT_LIMITS = { intake_notes: 400, symptoms: 400, clinical_summary: 600 } as const;
+export const MONITORING_TEXT_LIMITS = { intake_notes: 400, symptoms: 400, clinical_summary: 700 } as const;
 export const ALLERGY_ENTRY_LIMIT = 160;
 
 export function monitoringTextError(value: Partial<MonitoringPayload>): string | null {

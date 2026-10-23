@@ -210,7 +210,7 @@ function FoodMicrosPopup({ food, onClose }: { food: FoodItem; onClose: () => voi
           <div>
             <h3 className="text-base font-extrabold text-warm-900 truncate max-w-xs">{food.name}</h3>
             <p className="text-xs text-warm-400 mt-0.5">
-              Full nutrient profile · per {food.serving_size ?? 100}{food.serving_unit ?? 'g'} serving
+              Full nutrient profile · per {Number(food.serving_size ?? 100)} {food.serving_unit ?? 'g'} serving
               {food.usda_fdc_id && <span className="ml-2 text-emerald-600 font-semibold">· USDA FDC #{food.usda_fdc_id}</span>}
             </p>
           </div>

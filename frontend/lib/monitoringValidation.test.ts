@@ -9,7 +9,7 @@ describe("monitoring text boundaries", () => {
     expect(monitoringTextError({ food_dislikes: ["x".repeat(51)] })).toBeTruthy();
   });
   it("retains existing limits for monitoring-only notes", () => {
-    for (const [key, limit] of Object.entries({ intake_notes: 400, symptoms: 400, clinical_summary: 600 })) {
+    for (const [key, limit] of Object.entries({ intake_notes: 400, symptoms: 400, clinical_summary: 700 })) {
       expect(monitoringTextError({ [key]: "x".repeat(limit) })).toBeNull();
       expect(monitoringTextError({ [key]: "x".repeat(limit + 1) })).toBeTruthy();
     }

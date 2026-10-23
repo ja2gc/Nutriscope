@@ -13,7 +13,7 @@ import { fetchPatientById } from "@/services/patientService";
 vi.mock("@/services/monitoringService", async (original) => ({
   ...await original<typeof import("@/services/monitoringService")>(),
   fetchMonitorings: vi.fn(), fetchMonitoringPlan: vi.fn(), fetchMonitoringContext: vi.fn(),
-  fetchMonitoringAiBudget: vi.fn(), createMonitoring: vi.fn(),
+  fetchMonitoringAiBudget: vi.fn(), createMonitoring: vi.fn(), updateMonitoring: vi.fn(), deleteMonitoring: vi.fn(),
 }));
 vi.mock("@/services/assessmentService");
 vi.mock("@/services/interventionService");
@@ -56,6 +56,30 @@ async function open() {
   const params = Promise.resolve({ patientId: "demo", ncpId: "cycle-1" });
   await act(async () => root.render(<Suspense fallback="Loading"><Page params={params} /></Suspense>));
 }
+
+it("edits the latest saved visit instead of creating another entry", async () => {
+  vi.mocked(monitoring.fetchMonitorings).mockResolvedValue({ data: [{ ...entry, can_edit: true, can_delete: true }], meta: { current_page: 1, per_page: 5, total: 1, last_page: 1 } });
+  await open();
+  await click(/Edit visit/);
+  expect(screen.queryByText('View only')).toBeNull();
+  const weight = screen.getByRole('spinbutton', { name: 'Weight kg' }) as HTMLInputElement;
+  expect(weight.disabled).toBe(false);
+  act(() => fireEvent.change(weight, { target: { value: '60' } }));
+  await act(async () => { fireEvent.submit(screen.getByRole('button', { name: 'Save Visit' }).closest('form')!); });
+  expect(monitoring.updateMonitoring).toHaveBeenCalledWith('cycle-1', 'visit-1', expect.objectContaining({ weight: 60, clinical_summary: 'Recorded visit summary', next_monitoring_date: '2026-10-28' }));
+  expect(monitoring.createMonitoring).not.toHaveBeenCalled();
+});
+
+it("confirms deletion and reloads visit history", async () => {
+  vi.mocked(monitoring.fetchMonitorings).mockResolvedValue({ data: [{ ...entry, can_edit: true, can_delete: true }], meta: { current_page: 1, per_page: 5, total: 1, last_page: 1 } });
+  await open();
+  await click(/Delete visit/);
+  expect(monitoring.deleteMonitoring).not.toHaveBeenCalled();
+  await click('Delete');
+  expect(monitoring.deleteMonitoring).toHaveBeenCalledWith('cycle-1', 'visit-1');
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(monitoring.fetchMonitorings).toHaveBeenCalledTimes(2);
+});
 
 it("replaces history with the new form and protects edits when returning", async () => {
   await open();

@@ -192,7 +192,7 @@ class NcpSummaryReportTest extends TestCase
     {
         $ncp = $this->makeRecord();
         Intervention::create([
-            'ncp_record_id' => $ncp->id, 'energy_kcal' => 1900, 'protein_g' => 75,
+            'ncp_record_id' => $ncp->id, 'energy_kcal' => 1900.4, 'protein_g' => 75.2,
             'nutrient_operators' => ['protein_g' => 'max'],
             'weight_target' => ['min' => 58, 'max' => 62.5],
             'micronutrient_limits' => ['sodium' => ['max' => 2000, 'unit' => 'mg'], 'fiber' => ['min' => 25, 'max' => 35, 'unit' => 'g']],
@@ -209,6 +209,8 @@ class NcpSummaryReportTest extends TestCase
         $this->assertStringContainsString('35', $html);
         $this->assertStringContainsString('1900', $html);
         $this->assertStringContainsString('≤75', $html);
+        $this->assertStringNotContainsString('75.2', $html);
+        $this->assertStringNotContainsString('1900.4', $html);
         $this->assertStringContainsString('58–62.5', $html);
         $this->assertStringContainsString('≤2000', $html);
         $this->assertStringContainsString('25–35', $html);
@@ -331,10 +333,12 @@ class NcpSummaryReportTest extends TestCase
         $this->assertSame($older->id, $data['monitorings']->first()->id);
         $this->assertStringContainsString('Physical Activity Level (PAL):', $html);
         $this->assertStringNotContainsString('Physical Assessment:', $html);
-        $this->assertStringContainsString('Energy: 1500 / 1800.00 kcal', $html);
-        $this->assertStringContainsString('Protein: 60 / 70.00 g', preg_replace('/\s+/', ' ', strip_tags($html)));
-        $this->assertStringContainsString('Diet compliance: partial', $html);
-        $this->assertStringContainsString('Goal decision: continue', $html);
+        $this->assertStringContainsString('Energy: 1500 / 1800 kcal', $html);
+        $this->assertStringContainsString('Protein: 60 / 70 g', preg_replace('/\s+/', ' ', strip_tags($html)));
+        $this->assertStringNotContainsString('Diet compliance:', $html);
+        $this->assertStringNotContainsString('Goal decision:', $html);
+        $this->assertStringNotContainsString('<th>Symptoms</th>', $html);
+        $this->assertStringNotContainsString('Adequate oral intake.', $html);
     }
 
     public function test_data_uses_current_patient_display_name(): void

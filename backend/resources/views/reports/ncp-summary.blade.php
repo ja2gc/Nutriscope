@@ -3,11 +3,13 @@
 @php
     $join = fn ($v) => is_array($v) ? implode(', ', array_filter($v)) : $v;
     $dash = fn ($v) => ($v === null || $v === '') ? '' : $v;
+    $number = fn ($value) => $value === null ? '' : rtrim(rtrim(number_format((float) $value, 2, '.', ''), '0'), '.');
 @endphp
 
 @section('body')
     <style>
-        table.grid th, table.grid td { padding: 2px 4px; }
+        table.grid th, table.grid td { padding: 4px 5px; }
+        .monitoring-table td { line-height: 1.35; }
         table.meta td { padding: 1px 3px; }
         .section { margin: 6px 0 2px; padding: 2px 5px; }
         .sigs { margin-top: 16px; }
@@ -69,14 +71,14 @@
                 <table class="grid">
                     <tr><th colspan="4">Anthropometrics</th></tr>
                     <tr>
-                        <td><span class="muted">Height</span><br>{{ $assessment?->height }}</td>
-                        <td><span class="muted">Weight</span><br>{{ $assessment?->weight }}</td>
-                        <td><span class="muted">BMI</span><br>{{ $assessment?->bmi }}</td>
-                        <td><span class="muted">Usual Wt.</span><br>{{ $assessment?->usual_weight }}</td>
+                        <td><span class="muted">Height</span><br>{{ $number($assessment?->height) }}</td>
+                        <td><span class="muted">Weight</span><br>{{ $number($assessment?->weight) }}</td>
+                        <td><span class="muted">BMI</span><br>{{ $number($assessment?->bmi) }}</td>
+                        <td><span class="muted">Usual Wt.</span><br>{{ $number($assessment?->usual_weight) }}</td>
                     </tr>
                     <tr>
-                        <td colspan="2"><span class="muted">Wt. Change</span><br>{{ $assessment?->weight_loss_percentage }}{{ $assessment?->weight_loss_percentage ? '%' : '' }} {{ $assessment?->weight_loss_period }}</td>
-                        <td colspan="2"><span class="muted">% IBW</span><br>{{ $assessment?->ibw_percentage }}</td>
+                        <td colspan="2"><span class="muted">Wt. Change</span><br>{{ $number($assessment?->weight_loss_percentage) }}{{ $assessment?->weight_loss_percentage ? '%' : '' }} {{ $assessment?->weight_loss_period }}</td>
+                        <td colspan="2"><span class="muted">% IBW</span><br>{{ $number($assessment?->ibw_percentage) }}</td>
                     </tr>
                 </table>
                 <table class="grid" style="margin-top:4px;">
@@ -98,7 +100,7 @@
                         <tr>
                             @foreach($pair as $name => $val)
                                 <td><span class="muted">{{ $name }}</span></td>
-                                <td>{{ $val }}</td>
+                                <td>{{ $number($val) }}</td>
                             @endforeach
                         </tr>
                     @endforeach
@@ -115,7 +117,7 @@
     <table class="meta">
         <tr>
             <td style="border:0;"><span class="bold">Nutritional Status:</span> {{ $nutritional_status }}</td>
-            <td style="border:0;"><span class="bold">Risk Score:</span> {{ $risk_score }}</td>
+            <td style="border:0;"><span class="bold">Risk Score:</span> {{ $number($risk_score) }}</td>
             <td style="border:0;"><span class="bold">Risk Level:</span> {{ $risk_band }}</td>
         </tr>
     </table>
@@ -132,14 +134,16 @@
     <div class="section">Nutrition Intervention</div>
     <div class="prescription-line">
         @foreach(['energy_kcal' => ['Energy', 'kcal'], 'carbs_g' => ['Carbohydrate', 'g'], 'protein_g' => ['Protein', 'g'], 'fat_g' => ['Fat', 'g'], 'fluid_ml' => ['Fluid', 'mL']] as $key => [$label, $unit])
-            @if(!$loop->first) · @endif<span class="bold">{{ $label }}:</span> @if($intervention?->{$key} !== null)@include('reports.partials.nutrient-prescription', ['limit' => [($intervention->nutrient_operators[$key] ?? 'target') => $intervention->{$key}, 'unit' => $unit]])@else — {{ $unit }}@endif
+            @if(!$loop->first) · @endif<span class="bold">{{ $label }}:</span> @if($intervention?->{$key} !== null)@include('reports.partials.nutrient-prescription', ['limit' => [($intervention->nutrient_operators[$key] ?? 'target') => $intervention->{$key}, 'unit' => $unit], 'precision' => 0])@else — {{ $unit }}@endif
         @endforeach
     </div>
+    <div class="prescription-line">
     @foreach($intervention?->micronutrient_limits ?? [] as $nutrient => $limit)
-        <div class="prescription-line"><span class="bold">{{ Illuminate\Support\Str::headline($nutrient) }}:</span>
+        @if(!$loop->first) · @endif<span><span class="bold">{{ Illuminate\Support\Str::headline($nutrient) }}:</span>
             @include('reports.partials.nutrient-prescription', ['limit' => $limit])
-        </div>
+        </span>
     @endforeach
+    </div>
     @if(!empty($intervention?->weight_target))
         <div class="prescription-line"><span class="bold">Target weight:</span> @include('reports.partials.nutrient-prescription', ['limit' => [...$intervention->weight_target, 'unit' => 'kg']])</div>
     @endif
@@ -158,14 +162,13 @@
 
     {{-- Monitoring & Evaluation (all entries, dated) --}}
     <div class="section">Nutrition Monitoring &amp; Evaluation</div>
-    <table class="grid">
+    <table class="grid monitoring-table">
         <thead>
             <tr>
                 <th style="width:74px;">Date</th>
                 <th style="width:55px;">Weight</th>
                 <th style="width:45px;">BMI</th>
-                <th>Intake / Tolerance</th>
-                <th>Symptoms</th>
+                <th style="width:145px;">Intake</th>
                 <th>Evaluation / Summary</th>
             </tr>
         </thead>
@@ -173,34 +176,27 @@
             @forelse($monitorings as $m)
                 <tr>
                     <td>{{ optional($m->observed_at ?? $m->created_at)->format('M j, Y') }}</td>
-                    <td class="center">{{ $m->weight }}</td>
-                    <td class="center">{{ $m->bmi }}</td>
+                    <td class="center">{{ $number($m->weight) }}</td>
+                    <td class="center">{{ $number($m->bmi) }}</td>
                     <td>
                         @php($intake = is_array($m->lab_values) ? $m->lab_values : [])
                         @if(isset($intake['energy_kcal']))
-                            Energy: {{ $intake['energy_kcal'] }} / @if($intervention?->energy_kcal !== null)@include('reports.partials.nutrient-prescription', ['limit' => [($intervention->nutrient_operators['energy_kcal'] ?? 'target') => $intervention->energy_kcal, 'unit' => 'kcal']])@else — kcal @endif<br>
+                            Energy: {{ number_format($intake['energy_kcal'], 0, '.', '') }} / @if($intervention?->energy_kcal !== null)@include('reports.partials.nutrient-prescription', ['limit' => [($intervention->nutrient_operators['energy_kcal'] ?? 'target') => $intervention->energy_kcal, 'unit' => 'kcal'], 'precision' => 0])@else — kcal @endif<br>
                         @endif
                         @if(isset($intake['protein_g']))
-                            Protein: {{ $intake['protein_g'] }} /
+                            Protein: {{ number_format($intake['protein_g'], 0, '.', '') }} /
                             @if($intervention?->protein_g !== null)
-                                @include('reports.partials.nutrient-prescription', ['limit' => [($intervention->nutrient_operators['protein_g'] ?? 'target') => $intervention->protein_g, 'unit' => 'g']])
+                                @include('reports.partials.nutrient-prescription', ['limit' => [($intervention->nutrient_operators['protein_g'] ?? 'target') => $intervention->protein_g, 'unit' => 'g'], 'precision' => 0])
                             @else
                                 — g
                             @endif
                             <br>
                         @endif
-                        @if($m->intake_notes){{ $m->intake_notes }}@endif
-                        @if(is_array($m->goal_achievement))
-                            @foreach(['compliance' => 'Diet compliance', 'gi_tolerance' => 'GI tolerance', 'continuation_decision' => 'Goal decision'] as $key => $label)
-                                @if(!empty($m->goal_achievement[$key]))<br>{{ $label }}: {{ $m->goal_achievement[$key] }}@endif
-                            @endforeach
-                        @endif
                     </td>
-                    <td>{{ $m->symptoms }}</td>
                     <td>{{ $m->clinical_summary }}</td>
                 </tr>
             @empty
-                <tr><td colspan="6" class="center muted">No monitoring entries yet.</td></tr>
+                <tr><td colspan="5" class="center muted">No monitoring entries yet.</td></tr>
             @endforelse
         </tbody>
     </table>

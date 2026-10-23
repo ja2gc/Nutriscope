@@ -327,8 +327,25 @@ class NcpMonitoringTest extends TestCase
         )->assertNotFound();
         $this->deleteJson("/api/rnd/ncp-records/{$other->uuid}/monitorings/{$monitoring->uuid}")->assertNotFound();
         $this->deleteJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings/{$monitoring->uuid}")
-            ->assertStatus(409)->assertJsonPath('message', 'Saved monitoring entries cannot be deleted.');
-        $this->assertModelExists($monitoring);
+            ->assertNoContent();
+        $this->assertModelMissing($monitoring);
+    }
+
+    public function test_only_latest_saved_entry_can_be_changed_and_deleting_it_unlocks_previous(): void
+    {
+        $rnd = $this->rnd();
+        $ncp = $this->ncpRecord($this->patient(), $rnd);
+        $older = Monitoring::factory()->create(['ncp_record_id' => $ncp->id, ...$this->payload()]);
+        $latest = Monitoring::factory()->create(['ncp_record_id' => $ncp->id, ...$this->payload(['observed_at' => now()->subDay()->toDateString()])]);
+        $base = "/api/rnd/ncp-records/{$ncp->uuid}/monitorings";
+        $this->actingAs($rnd, 'sanctum');
+        $this->patchJson("{$base}/{$older->uuid}", $this->payload())->assertStatus(409);
+        $this->deleteJson("{$base}/{$older->uuid}")->assertStatus(409);
+        $this->deleteJson("{$base}/{$latest->uuid}")->assertNoContent();
+        $this->patchJson("{$base}/{$older->uuid}", $this->payload(['weight' => 65]))->assertOk();
+        $ncp->update(['status' => 'completed']);
+        $this->patchJson("{$base}/{$older->uuid}", $this->payload())->assertStatus(409);
+        $this->deleteJson("{$base}/{$older->uuid}")->assertStatus(409);
     }
 
     public function test_a_visit_can_be_saved_without_reentering_assessment_allergies_or_food_dislikes(): void

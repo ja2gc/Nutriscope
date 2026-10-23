@@ -57,7 +57,7 @@ describe("monitoring workflow UI", () => {
     const html = renderToStaticMarkup(<LogVisitForm context={context} intervention={null} onSubmit={async () => undefined} onCancel={() => undefined} />);
     expect(html).toContain("10/100");
     expect(html).toContain("0/400");
-    expect(html).toContain("0/600");
+    expect(html).toContain("0/700");
     for (const label of ["Dietary Restrictions", "Intake Notes", "Symptoms and Tolerance", "Progress Assessment"]) expect(html).toContain(`aria-label="${label}"`);
     const page = readFileSync(join(process.cwd(), "app/(rnd)/ncp/[patientId]/monitoring/[ncpId]/page.tsx"), "utf8");
     expect(page).toContain("<Tabs");

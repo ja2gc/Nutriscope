@@ -22,11 +22,11 @@ class MonitoringTextLimitsTest extends TestCase
         }
     }
 
-    public function test_progress_assessment_is_required_and_limited_to_600_characters(): void
+    public function test_progress_assessment_is_required_and_limited_to_700_characters(): void
     {
         foreach ([StoreMonitoringRequest::class, UpdateMonitoringRequest::class] as $requestClass) {
             $rules = ['clinical_summary' => (new $requestClass)->rules()['clinical_summary']];
-            foreach (['' => false, '   ' => false, str_repeat('x', 600) => true, str_repeat('x', 601) => false] as $text => $valid) {
+            foreach (['' => false, '   ' => false, str_repeat('x', 700) => true, str_repeat('x', 701) => false] as $text => $valid) {
                 $this->assertSame($valid, Validator::make(['clinical_summary' => $text], $rules)->passes());
             }
         }

@@ -14,14 +14,14 @@ export function AuditChangeList({
 
   return (
     <ul className="space-y-2">
-      {changes.map((change) => {
-        const hidden = clinical || change.redacted;
+      {changes.some((change) => clinical || change.redacted) && <li className="rounded-xl border border-warm-200 bg-warm-50 p-3">
+        <p className="text-sm font-semibold text-warm-600">Values hidden</p>
+        <ul className="mt-2 space-y-1 text-sm text-warm-800">{changes.filter((change) => clinical || change.redacted).map((change) => <li key={change.field}>{change.label}</li>)}</ul>
+      </li>}
+      {changes.filter((change) => !clinical && !change.redacted).map((change) => {
         return (
           <li key={change.field} className="rounded-xl border border-warm-200 bg-warm-50 p-3">
             <p className="text-sm font-semibold text-warm-800 break-words">{change.label}</p>
-            {hidden ? (
-              <p className="mt-1 text-sm text-warm-600">Value hidden; field changed</p>
-            ) : (
               <dl className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <div>
                   <dt className="text-xs font-bold uppercase tracking-wider text-warm-500">Before</dt>
@@ -36,7 +36,6 @@ export function AuditChangeList({
                   </dd>
                 </div>
               </dl>
-            )}
           </li>
         );
       })}

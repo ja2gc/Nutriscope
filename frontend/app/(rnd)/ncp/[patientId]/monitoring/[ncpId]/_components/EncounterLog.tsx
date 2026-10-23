@@ -1,6 +1,6 @@
 "use client";
 
-import { Eye, Pencil } from "lucide-react";
+import { Eye, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import type { MonitoringEntry } from "@/services/monitoringService";
 import { VISIT_TYPES } from "./LogVisitForm";
@@ -9,9 +9,10 @@ interface EncounterLogProps {
   entries: MonitoringEntry[];
   onLogNew: () => void;
   onView: (entry: MonitoringEntry) => void;
+  onDelete?: (entry: MonitoringEntry) => void;
 }
 
-export default function EncounterLog({ entries, onLogNew, onView }: EncounterLogProps) {
+export default function EncounterLog({ entries, onLogNew, onView, onDelete }: EncounterLogProps) {
   return (
     <div className="overflow-hidden rounded-2xl border border-warm-200 bg-white shadow-sm">
       <div className="flex flex-col gap-3 border-b border-warm-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
@@ -37,7 +38,7 @@ export default function EncounterLog({ entries, onLogNew, onView }: EncounterLog
                     <td className="whitespace-nowrap px-5 py-3 font-semibold text-warm-800">{date}</td>
                     <td className="px-5 py-3 text-warm-600">{visitType}</td>
                     <td className="px-5 py-3 text-warm-600 first-letter:uppercase">{decision}</td>
-                    <td className="px-5 py-3 text-right"><Button variant="icon" className="min-h-11 min-w-11" aria-label={`View visit ${date}`} title="View visit" onClick={(event) => { event.stopPropagation(); onView(entry); }}><Eye className="h-4 w-4" aria-hidden="true" /></Button></td>
+                    <td className="whitespace-nowrap px-5 py-3 text-right"><Button variant="icon" className="min-h-11 min-w-11" aria-label={`${entry.can_edit ? 'Edit' : 'View'} visit ${date}`} title={entry.can_edit ? 'Edit visit' : 'View visit'} onClick={(event) => { event.stopPropagation(); onView(entry); }}>{entry.can_edit ? <Pencil className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}</Button>{entry.can_delete && onDelete && <Button variant="icon" className="min-h-11 min-w-11 text-red-700" aria-label={`Delete visit ${date}`} title="Delete visit" onClick={(event) => { event.stopPropagation(); onDelete(entry); }}><Trash2 className="h-4 w-4" aria-hidden="true" /></Button>}</td>
                   </tr>
                 );
               })}

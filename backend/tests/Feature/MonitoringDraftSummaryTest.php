@@ -27,7 +27,7 @@ class MonitoringDraftSummaryTest extends TestCase
             'usage' => ['input_tokens' => 50, 'output_tokens' => 15],
         ], $available ? 200 : 503)]);
         $rnd = User::factory()->create(['role' => 'RND']);
-        $ncp = NcpRecord::factory()->create(['rnd_user_id' => $rnd->id, 'patient_id' => Patient::factory()->create()->id]);
+        $ncp = NcpRecord::factory()->create(['status' => 'active', 'rnd_user_id' => $rnd->id, 'patient_id' => Patient::factory()->create()->id]);
         $assessment = Assessment::factory()->create(['ncp_record_id' => $ncp->id, 'weight' => 60, 'height' => 170, 'bmi' => 20.76]);
         $assessment->biochemicalData()->create(['albumin' => 2.8]);
         Intervention::create(['ncp_record_id' => $ncp->id, 'goal_type' => 'high_protein', 'protein_g' => 80,
@@ -69,14 +69,37 @@ class MonitoringDraftSummaryTest extends TestCase
         $this->postJson($url, $draft)->assertOk()->assertJsonPath('data.narrative', $narrative);
         Http::assertSentCount(1);
         Http::assertSent(fn ($request) => str_starts_with($request['system'], '# CONSTRAINTS & LOGIC')
-            && strlen($request['system']) <= 1200
-            && str_contains($request['system'], '2 sentences; <=60 words')
+            && strlen($request['system']) <= 2400
+            && str_contains($request['system'], '2 sentences; <=80 words')
+            && str_contains($request['system'], 'Omit exact previous/current values')
             && str_contains($request['system'], 'care focus')
             && str_contains($request['system'], 'Name what needs attention')
             && str_contains($request['system'], 'No prescribed steps')
             && str_contains($request['system'], 'No per-indicator value lists')
             && str_contains($request['system'], 'No target: normality/goal attainment unknown')
             && str_contains($request['system'], 'Overshoot != improvement'));
+    }
+
+    public function test_edit_summary_excludes_its_saved_values_and_includes_entry_context(): void
+    {
+        [$ncp, $url, $draft] = $this->context(true, str_repeat('x', 700));
+        $entry = Monitoring::factory()->create(['ncp_record_id' => $ncp->id, 'observed_at' => $draft['observed_at'], 'lab_values' => ['albumin' => 4.5]]);
+        $draft['entry_key'] = $this->getJson($url.'?draft_id='.$draft['draft_id'])->json('data.entry_key');
+        $draft['monitoring_id'] = $entry->uuid;
+        $draft['intake_notes'] = 'Smaller meals reported.';
+        $draft['intake_nutrients'] = ['energy_kcal' => 1200];
+        $draft['lab_values']['bp'] = '130/80';
+        $this->postJson($url, $draft)->assertOk();
+        Http::assertSent(function ($request) {
+            $payload = json_decode($request['messages'][0]['content'], true);
+            $albumin = collect($payload['indicators'])->firstWhere('key', 'albumin');
+
+            return $albumin['previous'] === 2.8
+                && $payload['intake_notes'] === 'Smaller meals reported.'
+                && $payload['symptoms'] === 'Nausea persists.'
+                && $payload['recall_intake_estimate']['energy_kcal'] === 1200
+                && $payload['additional_findings']['bp'] === '130/80';
+        });
     }
 
     public function test_three_generations_are_shared_across_refreshes_and_changed_values(): void
@@ -186,7 +209,7 @@ class MonitoringDraftSummaryTest extends TestCase
 
     public function test_oversized_ai_output_is_rejected_without_truncating_or_using_allowance(): void
     {
-        [$ncp, $url, $draft] = $this->context(true, str_repeat('x', 601));
+        [$ncp, $url, $draft] = $this->context(true, str_repeat('x', 701));
         $this->postJson($url, $draft)->assertStatus(503);
         $this->getJson($url.'?draft_id='.$draft['draft_id'])->assertOk()->assertJsonPath('data.remaining', 3);
         $this->assertDatabaseCount('monitorings', 0);

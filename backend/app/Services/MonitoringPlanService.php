@@ -165,6 +165,10 @@ class MonitoringPlanService
     /** Only populated draft indicators and their last earlier readings leave the application. */
     public function draftComparison(NcpRecord $ncpRecord, array $data): array
     {
+        if (! empty($data['monitoring_id'])) {
+            $ncpRecord->load('monitorings');
+            $ncpRecord->setRelation('monitorings', $ncpRecord->monitorings->reject(fn ($entry) => $entry->uuid === $data['monitoring_id']));
+        }
         $draft = new Monitoring($data);
         $draft->bmi = round((float) $draft->weight / (((float) $draft->height / 100) ** 2), 2);
         $plan = $this->build($ncpRecord, $draft);
@@ -202,6 +206,12 @@ class MonitoringPlanService
             'goal' => $plan['goal_type'], 'indicators' => $indicators,
             'intake_notes' => $data['intake_notes'] ?? null, 'symptoms' => $data['symptoms'] ?? null,
             'observations' => $data['goal_achievement'] ?? [],
+            'recall_intake_estimate' => $data['intake_nutrients'] ?? null,
+            'additional_findings' => array_intersect_key($data['lab_values'] ?? [], array_flip(['bp', 'abg'])),
+            'context' => array_intersect_key($data, array_flip([
+                'edema_present', 'dry_weight_kg', 'physical_activity_level',
+                'pregnancy_lactation_status', 'dietary_restrictions',
+            ])),
         ];
     }
 

@@ -40,7 +40,7 @@ abstract class MonitoringRequest extends FormRequest
             'symptoms' => ['nullable', 'string', 'max:400'],
             'goal_achievement' => ['required', 'array'],
             'goal_achievement.continuation_decision' => ['required', 'string', Rule::in(['continue', 'modify', 'discontinue'])],
-            'clinical_summary' => ['required', 'string', 'max:600'],
+            'clinical_summary' => ['required', 'string', 'max:700'],
             'ai_decision' => ['nullable', 'string'],
             'next_monitoring_date' => ['nullable', 'date', 'after_or_equal:observed_at'],
             'next_monitoring_at' => ['nullable', 'date', 'after_or_equal:observed_at', 'required_with:next_monitoring_purpose'],

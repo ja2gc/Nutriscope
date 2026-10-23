@@ -61,4 +61,10 @@ class Monitoring extends Model
     {
         return $this->hasMany(Intervention::class, 'source_monitoring_id');
     }
+
+    public function canMutate(): bool
+    {
+        return in_array($this->ncpRecord->status, ['draft', 'active'], true)
+            && $this->id === (int) $this->ncpRecord->monitorings()->max('id');
+    }
 }

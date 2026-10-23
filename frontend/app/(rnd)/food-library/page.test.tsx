@@ -67,6 +67,22 @@ afterEach(async () => {
 });
 
 describe("Food Library USDA search", () => {
+  it('removes padded serving decimals without rounding meaningful quantities', async () => {
+    vi.mocked(fetchFoodItems).mockResolvedValueOnce({ data: [
+      { id: 'food-100', name: 'Fictional USDA food', serving_size: '100.000000', serving_unit: 'g', calories: '100', protein: '1', carbs: '2', fat: '3', micronutrients: {}, allergens: [] },
+      { id: 'food-small', name: 'Fictional small serving', serving_size: '0.125000', serving_unit: 'g', calories: '100', protein: '1', carbs: '2', fat: '3', micronutrients: {}, allergens: [] },
+    ], meta: null } as never);
+    container = document.createElement('div'); document.body.appendChild(container); root = createRoot(container);
+    await act(async () => { root.render(<FoodLibraryPage />); });
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 300)); });
+    const micros = Array.from(container.querySelectorAll('button')).filter(button => button.textContent?.trim() === 'Micros');
+    await act(async () => { micros[0].click(); });
+    expect(container.textContent).toContain('per 100 g serving');
+    expect(container.textContent).not.toContain('100.000000');
+    await act(async () => { container.querySelector<HTMLButtonElement>('[aria-label="Close food micronutrients"]')!.click(); });
+    await act(async () => { micros[1].click(); });
+    expect(container.textContent).toContain('per 0.125 g serving');
+  });
   it('asks before switching tabs away from an unsaved template', async () => {
     window.history.replaceState(null, '', '/food-library?tab=templates');
     container = document.createElement('div'); document.body.append(container); root = createRoot(container);

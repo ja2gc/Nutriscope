@@ -9,8 +9,12 @@ class MonitoringResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $canMutate = $this->resource->canMutate();
+
         return [
             'id' => $this->uuid,
+            'can_edit' => $canMutate,
+            'can_delete' => $canMutate,
             'observed_at' => $this->observed_at?->toDateString(),
             'visit_type' => $this->visit_type,
             'weight' => $this->weight,

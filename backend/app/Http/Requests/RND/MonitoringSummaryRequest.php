@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\RND;
 
+use App\Services\FoodRecallService;
 use Illuminate\Validation\Rule;
 
 class MonitoringSummaryRequest extends MonitoringRequest
@@ -9,7 +10,9 @@ class MonitoringSummaryRequest extends MonitoringRequest
     public function rules(): array
     {
         return array_replace(parent::rules(), [
+            ...FoodRecallService::intakeRules(),
             'clinical_summary' => ['prohibited'],
+            'monitoring_id' => ['nullable', 'uuid'],
             'entry_key' => ['required', 'string', 'size:64', 'regex:/^[a-f0-9]+$/D'],
             'draft_id' => ['required', 'uuid'],
             'goal_achievement' => ['nullable', 'array:compliance,gi_tolerance,continuation_decision'],

@@ -64,6 +64,8 @@ export interface MonitoringContext {
 }
 
 export interface MonitoringEntry {
+  can_edit?: boolean;
+  can_delete?: boolean;
   food_recall?: FoodRecallPlan | null;
   id: string;
   observed_at: string | null;
@@ -202,7 +204,7 @@ export async function updateMonitoring(
   const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/monitorings/${monitoringId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ ...payload, ...(payload.food_recall !== undefined ? { food_recall: foodRecallPayload(payload.food_recall) } : {}) }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -277,7 +279,7 @@ export async function fetchMonitoringAiBudget(ncpRecordId: number | string, draf
   return (await res.json()).data;
 }
 
-export async function requestMonitoringAiReview(ncpRecordId: number | string, payload: Omit<MonitoringPayload, "clinical_summary"> & { entry_key: string; draft_id: string }): Promise<AiReviewResult> {
+export async function requestMonitoringAiReview(ncpRecordId: number | string, payload: Omit<MonitoringPayload, "clinical_summary"> & { entry_key: string; draft_id: string; monitoring_id?: string; intake_nutrients?: Record<string, number> | null }): Promise<AiReviewResult> {
   const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/monitorings/ai-review`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -288,6 +290,14 @@ export async function requestMonitoringAiReview(ncpRecordId: number | string, pa
     throw new Error((err as { message?: string }).message || 'AI review failed.');
   }
   return (await res.json()).data;
+}
+
+export async function deleteMonitoring(ncpRecordId: string, monitoringId: string): Promise<void> {
+  const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/monitorings/${monitoringId}`, { method: 'DELETE', headers: { Accept: 'application/json' } });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    throw new Error(error.message || 'Failed to delete monitoring entry.');
+  }
 }
 
 // ─── BMI Helper ───────────────────────────────────────────────────────────────

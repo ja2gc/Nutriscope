@@ -18,7 +18,7 @@ class FoodRecallTest extends TestCase
     private function setupCycle(): array
     {
         $rnd = User::factory()->rnd()->create();
-        $ncp = NcpRecord::factory()->create(['rnd_user_id' => $rnd->id]);
+        $ncp = NcpRecord::factory()->create(['status' => 'active', 'rnd_user_id' => $rnd->id]);
         $food = FoodItem::factory()->create(['name' => 'Recall rice', 'serving_size' => 100, 'serving_unit' => 'g',
             'calories' => 120, 'protein' => 3, 'carbs' => 25, 'fat' => 1, 'micronutrients' => ['sodium' => 2]]);
 
@@ -131,7 +131,7 @@ class FoodRecallTest extends TestCase
             ->assertOk()->assertJsonPath('data.food_recall.days.0.items.0.nutrient_snapshot.calories', 120);
     }
 
-    public function test_monitoring_saves_its_own_recall_and_existing_logs_cannot_replace_it(): void
+    public function test_latest_monitoring_can_update_its_own_recall_while_older_logs_are_protected(): void
     {
         [$rnd, $ncp, $food] = $this->setupCycle();
         Assessment::factory()->create(['ncp_record_id' => $ncp->id]);
@@ -143,8 +143,10 @@ class FoodRecallTest extends TestCase
         $id = $this->actingAs($rnd, 'sanctum')->postJson($url, $payload)->assertCreated()
             ->assertJsonPath('data.food_recall.days_count', 1)->json('data.id');
         $this->assertNull($ncp->assessment->food_recall);
-        $this->patchJson("{$url}/{$id}", $payload)->assertStatus(409);
+        $this->patchJson("{$url}/{$id}", $payload)->assertOk();
         $this->getJson($url)->assertOk()->assertJsonPath('data.0.food_recall.days.0.items.0.nutrient_snapshot.calories', 120);
+        $this->postJson($url, $payload)->assertCreated();
+        $this->patchJson("{$url}/{$id}", $payload)->assertStatus(409);
     }
 
     public function test_replacement_does_not_accumulate_calculations_and_wrong_roles_cannot_save(): void

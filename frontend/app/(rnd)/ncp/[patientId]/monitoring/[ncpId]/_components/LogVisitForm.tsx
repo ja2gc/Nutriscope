@@ -4,7 +4,7 @@ import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "reac
 import { ArrowLeft } from "lucide-react";
 import { FoodRecallCalculator, type FoodRecallHandle } from '@/components/ncp/FoodRecallCalculator';
 import { FoodRecallNutrientFields } from '@/components/ncp/FoodRecallNutrientFields';
-import type { FoodRecallPlan } from '@/lib/foodRecall';
+import { foodRecallAverage, type FoodRecallPlan } from '@/lib/foodRecall';
 import { useEditorChanges, type EditorLeaveHandle } from "@/hooks/useUnsavedChanges";
 
 import { Button } from "@/components/ui/Button";
@@ -193,7 +193,7 @@ function ToggleGroup<T extends string>({ label, options, value, onChange, requir
 }
 
 export default function LogVisitForm({ ncpId, plan, context, intervention, onSubmit, onCancel, leaveRef, entry }: LogVisitFormProps) {
-  const readOnly = Boolean(entry);
+  const readOnly = Boolean(entry && !entry.can_edit);
   const [foodRecall, setFoodRecall] = useState<FoodRecallPlan | null>(entry?.food_recall ?? null);
   const acceptedRecall = useRef<FoodRecallPlan | null>(foodRecall);
   const recallEditor = useRef<FoodRecallHandle>(null);
@@ -247,7 +247,7 @@ export default function LogVisitForm({ ncpId, plan, context, intervention, onSub
     return () => { active = false; };
   }, [ncpId, readOnly, draftId]);
 
-  const bmi = entry ? fieldValue(entry.bmi) : Number(weight) > 0 && Number(height) > 0 ? String(calculateBmi(Number(weight), Number(height))) : "";
+  const bmi = readOnly ? fieldValue(entry?.bmi) : Number(weight) > 0 && Number(height) > 0 ? String(calculateBmi(Number(weight), Number(height))) : "";
 
   function buildPayload(recall = foodRecall): MonitoringPayload {
     const labValues: Record<string, number | string | null> = {};
@@ -285,13 +285,19 @@ export default function LogVisitForm({ ncpId, plan, context, intervention, onSub
       symptoms: symptoms.trim() || null,
       goal_achievement: Object.keys(goalAchievement).length > 0 ? goalAchievement : null,
       clinical_summary: clinicalSummary.trim() || null,
-      next_monitoring_date: nextMonitoringAt ? nextMonitoringAt.slice(0, 10) : null,
+      next_monitoring_date: entry?.next_monitoring_date ?? (nextMonitoringAt ? nextMonitoringAt.slice(0, 10) : null),
       next_monitoring_at: nextMonitoringAt || null,
       next_monitoring_purpose: nextMonitoringAt ? nextMonitoringPurpose.trim() : null,
     });
   }
 
-  const comparisonInputs = JSON.stringify({ ...buildPayload(), clinical_summary: undefined, food_recall: undefined });
+  const recallAverage = foodRecall ? foodRecallAverage(foodRecall) : null;
+  const recallIntake = recallAverage ? Object.fromEntries(Object.entries({
+    energy_kcal: recallAverage.calories, protein_g: recallAverage.protein,
+    carbs_g: recallAverage.carbs, fat_g: recallAverage.fat,
+    ...Object.fromEntries(Object.entries(recallAverage.micronutrients).map(([key, value]) => [`micro_${key}`, value])),
+  }).map(([key, value]) => [key, Math.round(value * 100) / 100])) : null;
+  const comparisonInputs = JSON.stringify({ ...buildPayload(), clinical_summary: undefined, food_recall: undefined, intake_nutrients: recallIntake });
   useEffect(() => {
     latestInputs.current = comparisonInputs;
     latestText.current = clinicalSummary;
@@ -306,7 +312,7 @@ export default function LogVisitForm({ ncpId, plan, context, intervention, onSub
     setAiError(null);
     setSuggestion(null);
     try {
-      const result = await requestMonitoringAiReview(ncpId, { ...payload, entry_key: budget.entry_key, draft_id: draftId });
+       const result = await requestMonitoringAiReview(ncpId, { ...payload, entry_key: budget.entry_key, draft_id: draftId, ...(entry ? { monitoring_id: entry.id } : {}) });
       setBudget({ ...budget, remaining: result.remaining });
       if (latestInputs.current !== comparisonInputs) {
         setAiError(result.remaining > 0
@@ -370,7 +376,7 @@ export default function LogVisitForm({ ncpId, plan, context, intervention, onSub
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-warm-100 px-5 py-4">
         <div className="flex min-w-0 items-center gap-3">
           <button type="button" aria-label="Back to visit history" title="Back to visit history" onClick={() => guard.requestLeave(onCancel)} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border border-warm-200 text-warm-500 hover:bg-warm-50 focus-visible:ring-2 focus-visible:ring-emerald-600"><ArrowLeft className="h-4 w-4" aria-hidden="true" /></button>
-          <h3 className="text-sm font-extrabold uppercase tracking-wider text-warm-700">{readOnly ? "Monitoring Visit" : "Log Monitoring Visit"}</h3>
+          <h3 className="text-sm font-extrabold uppercase tracking-wider text-warm-700">{readOnly ? "Monitoring Visit" : entry ? "Edit Monitoring Visit" : "Log Monitoring Visit"}</h3>
         </div>
         {readOnly && <span className="rounded-full border border-warm-200 px-3 py-1 text-xs font-bold text-warm-500">View only</span>}
       </div>

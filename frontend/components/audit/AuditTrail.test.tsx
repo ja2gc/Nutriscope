@@ -78,7 +78,7 @@ describe("AuditTrail", () => {
     await act(async () => user.click(container.querySelector("button")!));
 
     expect(container.textContent).toContain("Medical diagnosis");
-    expect(container.textContent).toContain("Value hidden; field changed");
+    expect(container.textContent).toContain("Values hidden");
     expect(container.textContent).not.toContain("PRIVATE-OLD");
     expect(container.textContent).not.toContain("PRIVATE-NEW");
   });

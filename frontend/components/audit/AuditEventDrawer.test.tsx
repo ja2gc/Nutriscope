@@ -135,7 +135,7 @@ describe("structured audit event components", () => {
     expect(html).toContain("NS-7K4M-92QX");
     expect(html).toContain("NCP-EXAMPLE");
     expect(html).toContain("Patient");
-    expect(html).toContain("Value hidden; field changed");
+    expect(html).toContain("Values hidden");
     expect(html).not.toContain("Safe request metadata");
     expect(html).not.toContain("No request metadata recorded");
     expect(html).not.toContain("SECRET-OLD");
@@ -190,8 +190,18 @@ describe("structured audit event components", () => {
 
   test("never renders redacted values as placeholder bullets", () => {
     const html = renderToStaticMarkup(<AuditChangeList changes={event.changes} clinical />);
-    expect(html).toContain("Value hidden; field changed");
+    expect(html).toContain("Values hidden");
     expect(html).not.toMatch(/[•●]{2,}/u);
+  });
+
+  test("groups hidden fields under one label while keeping visible changes readable", () => {
+    const hidden = event.changes[0];
+    const html = renderToStaticMarkup(<AuditChangeList changes={[hidden, { ...hidden, field: 'weight', label: 'Weight' }, ...operationalEvent.changes]} clinical={false} />);
+    expect(html.match(/Values hidden/g)).toHaveLength(1);
+    expect(html).toContain('Weight');
+    expect(html).not.toContain('SECRET-OLD');
+    expect(html).not.toContain('SECRET-NEW');
+    expect(html).toContain('Before');
   });
 
   test("renders only actions provided by the backend", () => {

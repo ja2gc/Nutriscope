@@ -75,7 +75,7 @@ describe("purposeful admin audit views", () => {
       expect(drawer).toContain(section);
     }
     expect(drawer).not.toContain("Safe request metadata");
-    expect(changes).toContain("Value hidden; field changed");
+    expect(changes).toContain("Values hidden");
     expect(changes).not.toMatch(/[•●]{2,}/u);
   });
 

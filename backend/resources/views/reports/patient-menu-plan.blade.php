@@ -14,9 +14,9 @@
 
     <div style="margin-top:5px; padding:5px 7px; border:1px solid #d1d5db; background:#f8fafc; font-size:7.5pt;">
         <span class="bold">Daily nutrition prescription:</span>
-        Energy: @include('reports.partials.nutrient-prescription', ['limit' => [($prescription['nutrient_operators']['energy_kcal'] ?? 'target') => number_format($prescription['energy_kcal']), 'unit' => 'kcal']]) ·
+        Energy: @include('reports.partials.nutrient-prescription', ['limit' => [($prescription['nutrient_operators']['energy_kcal'] ?? 'target') => $prescription['energy_kcal'], 'unit' => 'kcal'], 'precision' => 0]) ·
         @foreach(['protein_g' => 'Protein', 'carbs_g' => 'Carbohydrate', 'fat_g' => 'Fat'] as $key => $label)
-            {{ $label }}: @include('reports.partials.nutrient-prescription', ['limit' => [($prescription['nutrient_operators'][$key] ?? 'target') => $prescription[$key], 'unit' => 'g']])@if(!$loop->last) · @endif
+            {{ $label }}: @include('reports.partials.nutrient-prescription', ['limit' => [($prescription['nutrient_operators'][$key] ?? 'target') => $prescription[$key], 'unit' => 'g'], 'precision' => 0])@if(!$loop->last) · @endif
         @endforeach
         @foreach($prescription['micronutrient_limits'] as $nutrient => $limit)
             · {{ Illuminate\Support\Str::headline($nutrient) }}:

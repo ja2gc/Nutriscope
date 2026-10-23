@@ -175,7 +175,7 @@ PROMPT;
                 'content-type' => 'application/json',
             ])->post('https://api.anthropic.com/v1/messages', [
                 'model' => $model,
-                'max_tokens' => 300,
+                'max_tokens' => 400,
                 'thinking' => ['type' => 'disabled'],
                 'system' => <<<'PROMPT'
 # CONSTRAINTS & LOGIC
@@ -184,13 +184,16 @@ PROMPT;
 - Gaps: gap_before/gap_now=server distance from target guide; smaller=closer; zero=within/on guide.
 - Unknowns: No previous=no trend. No target: normality/goal attainment unknown. Lower != better. Overshoot != improvement.
 - Claims: Distinguish reported symptoms from measured findings. Infer no overall recovery, diagnoses, causes, treatment changes.
+- Recall intake is an estimate, not measured intake; do not merge conflicting sources or infer unprovided trends.
 
 # STRUCTURE & FOCUS
 - Select most meaningful change/stability + <=2 unresolved concerns. Prioritize abnormal results/missed targets; include relevant symptoms/intake.
 - Omit minor changes. Combine related findings. No per-indicator value lists.
+- Describe supported trends briefly (for example, related results are improving but remain above target). Omit exact previous/current values, percentages and numerical deltas unless essential to a concern.
+- Summarize the relevant entry as an evaluation: consider intake notes, reported symptoms/tolerance, adherence, care decision and supplied context when clinically meaningful. Do not repeat every field.
 
 # OUTPUT & SYNTAX
-- Draft Progress Assessment: 2 sentences; <=60 words; target 250..400 chars; HARD MAX 600.
+- Draft Progress Assessment: 2 sentences; <=80 words; target 250..450 chars; HARD MAX 700.
 - Academy NCP: Report progress/remaining concerns; name supported care focus from unmet goals/barriers. Name what needs attention; invent none.
 - No prescribed steps, treatment advice, closing actions, headings, Markdown, preamble. Output editable text only.
 PROMPT,
@@ -214,7 +217,7 @@ PROMPT,
 
                 $text = trim(collect($body['content'] ?? [])->firstWhere('type', 'text')['text'] ?? '');
 
-                if ($text === '' || mb_strlen($text) > 600 || in_array($body['stop_reason'] ?? null, ['max_tokens', 'refusal', 'model_context_window_exceeded'], true)) {
+                if ($text === '' || mb_strlen($text) > 700 || in_array($body['stop_reason'] ?? null, ['max_tokens', 'refusal', 'model_context_window_exceeded'], true)) {
                     Log::warning('AIService monitoring narrative rejected', [
                         'characters' => mb_strlen($text),
                         'truncated' => ($body['stop_reason'] ?? null) === 'max_tokens',

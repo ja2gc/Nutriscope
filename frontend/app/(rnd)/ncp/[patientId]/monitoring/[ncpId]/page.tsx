@@ -17,6 +17,8 @@ import {
   fetchMonitoringPlan,
   fetchMonitoringContext,
   createMonitoring,
+  updateMonitoring,
+  deleteMonitoring,
 } from "@/services/monitoringService";
 import { fetchAssessment, Assessment } from "@/services/assessmentService";
 import { fetchIntervention, Intervention } from "@/services/interventionService";
@@ -26,6 +28,7 @@ import NcpPatientHeader from "../../../_components/NcpPatientHeader";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { NcpBreadcrumb } from "@/components/ncp/NcpBreadcrumb";
 import { Tabs } from "@/components/ui/Tabs";
+import { DeleteActionDialog } from "@/components/ui/DeleteActionDialog";
 import ButtonFilterGroup from "@/components/ui/ButtonFilterGroup";
 import type { IndicatorCategory } from "@/services/monitoringPlan";
 
@@ -80,6 +83,9 @@ export default function NcpMonitoringPage({
   const [loading, setLoading]               = useState(true);
   const [showForm, setShowForm]             = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<MonitoringEntry | null>(null);
+  const [deleteEntry, setDeleteEntry] = useState<MonitoringEntry | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const visitLeave = useRef<EditorLeaveHandle>(null);
   function leaveVisit(next: () => void) {
     if (visitLeave.current) visitLeave.current.requestLeave(next);
@@ -145,10 +151,26 @@ export default function NcpMonitoringPage({
   useEffect(() => { loadData(); }, [loadData]);
 
   async function handleLogVisit(payload: MonitoringPayload) {
-    await createMonitoring(ncpId, payload);
+    if (selectedEntry) await updateMonitoring(ncpId, selectedEntry.id, payload);
+    else await createMonitoring(ncpId, payload);
+    setSelectedEntry(null);
     setShowForm(false);
     if (historyPage !== 1) setHistoryPage(1);
     else await loadData();
+  }
+
+  async function handleDeleteVisit() {
+    if (!deleteEntry || deleting) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteMonitoring(ncpId, deleteEntry.id);
+      setDeleteEntry(null);
+      if (historyPage !== 1) setHistoryPage(1);
+      else await loadData();
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Failed to delete visit.');
+    } finally { setDeleting(false); }
   }
 
   // ─── No patient selected ───────────────────────────────────────────────────
@@ -278,10 +300,12 @@ export default function NcpMonitoringPage({
                 {!showForm && !selectedEntry && <>
                   <EncounterLog
                     entries={entries}
+                    onDelete={(entry) => { setDeleteError(null); setDeleteEntry(entry); }}
                     onLogNew={() => setShowForm(true)}
                     onView={setSelectedEntry}
                   />
                   <Pagination meta={historyMeta} page={historyPage} onPageChange={setHistoryPage} />
+                  {deleteEntry && <DeleteActionDialog title="Delete monitoring visit" message="Delete this saved monitoring entry?" busy={deleting} error={deleteError} onClose={() => setDeleteEntry(null)} onConfirm={handleDeleteVisit} />}
                 </>}
 
                 {(showForm || selectedEntry) && context && plan && (
