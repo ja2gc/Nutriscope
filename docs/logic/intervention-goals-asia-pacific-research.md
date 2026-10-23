@@ -489,7 +489,7 @@ can run. Mapped against the current `assessments` schema.
 *Companion to [`intervention-goals.md`](intervention-goals.md). When the clinical owner signs off on the
 decisions in §9, fold the approved changes into that document and bump its changelog.*
 
-> **Implementation tracking:** the engineering work that consumes this research (calc accuracy,
-> backend source of truth, micro/fluid UX, meal-plan tolerance, assessment data, monitoring, inventory)
-> is planned in [`artifacts/superpowers/nutrition-engine-overhaul-plan.md`](../../artifacts/superpowers/nutrition-engine-overhaul-plan.md).
-> The §9 open questions are the **Phase 0 sign-off gate** there — resolve them before Phase 1 coding.
+> **Historical research:** this document preserves rationale and questions, not a current implementation plan.
+> Follow [the current clinical reference](intervention-goals.md) and [clinical maintenance map](../developers/ncp/README.md)
+> for source ownership and regression tests. Revalidate any proposed guideline change with the clinical owner;
+> old phase numbers and unresolved research questions do not automatically schedule application changes.

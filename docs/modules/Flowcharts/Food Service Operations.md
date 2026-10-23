@@ -88,5 +88,5 @@ No live stock balance, leftover calculation, warehouse catalog, temperature log,
 
 - [RND Module](../rnd.md)
 - [FSS Module](../fss.md)
-- [Developer Maintenance Guide](../../developer/food-service-operations-maintenance.md)
+- [Developer Maintenance Guide](../../developers/food-service/reference.md)
 - [Storyboards](../../STORYBOARD.md)

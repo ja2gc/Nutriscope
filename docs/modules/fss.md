@@ -197,9 +197,9 @@ First-login accounts replace the temporary password first, then submit a recover
 - [FAQ](../FAQ.md)
 - [Role How-To Guide](../ROLE-HOW-TO.md)
 - [Storyboards](../STORYBOARD.md)
-- [Native-app consolidation report](../fss-native-app-consolidation-report.md)
-- [FSS Mobile Flowchart](Flowcharts/FSS%20Mobile%20Execution%20Flow.md)
-- [Food Service Flowchart](Flowcharts/Food%20Service%20Operations.md)
+- [Mobile maintenance](../developers/food-service/mobile.md) and [EAS/APK releases](../mobile-apk-release.md)
+- [FSS Mobile Flowchart](<Flowcharts/FSS Mobile Execution Flow.md>)
+- [Food Service Flowchart](<Flowcharts/Food Service Operations.md>)
 
 ## Current Code Evidence
 

@@ -1,5 +1,7 @@
 # NutriScope Design System
 
+Maintenance note (2026-10-23): this directory is a visual/token reference, not a copy of current application behavior. Reuse the actual frontend/components/ui controls first; use the [web maintenance guide](../developers/platform/web.md) and [stack reference](../architecture/stack.md) for implementation and versions. Do not paste a prototype primitive over a production component without checking its consumers.
+
 > Fresh, clinical, alive. The design language for NutriScope — a hospital
 > clinical-nutrition & food-service platform.
 
@@ -23,7 +25,7 @@ hours a day — so the system is calm, legible, and fast, but **lively and green
 never the cold clinical gray of typical hospital software.
 
 ### Sources this system was built from
-- **`frontend/`** — Next.js 15 (App Router) + Tailwind v4 web app. Source of the
+- **`frontend/`** — Next.js App Router + Tailwind v4 web app (versions: current package/lockfile). Source of the
   component library (`components/ui/*`), `theme.ts` token map, login, dashboard,
   food-service & NCP screens, and the `Logo` brand mark.
 - **`mobile/`** — Expo / React Native (NativeWind) FSS app. Source of the mobile

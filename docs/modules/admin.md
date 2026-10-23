@@ -205,7 +205,7 @@ Admin does not:
 - [FAQ](../FAQ.md)
 - [Role How-To Guide](../ROLE-HOW-TO.md)
 - [Storyboards](../STORYBOARD.md)
-- [Admin Flowchart](Flowcharts/Admin%20Operations.md)
+- [Admin Flowchart](<Flowcharts/Admin Operations.md>)
 
 ## Current Code Evidence
 

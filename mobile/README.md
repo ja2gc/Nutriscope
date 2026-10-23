@@ -1,51 +1,12 @@
-# Nutriscope FSS Mobile
+# NutriScope food-service app
 
-React Native app (Expo) for Food Service Staff. RND and Admin use the browser website.
+Verified against committed source: `53230ce3f4e471b243d0fe0a8ef0b5fbfa89a891` (2026-10-23).
 
-## Prerequisites
+Expo provides the native food-service API consumer; RND/Admin use the web console.
 
-- Node.js 20+
-- [Expo Go](https://expo.dev/go) installed on your phone
-- Phone and PC on the **same Wi-Fi network**
-- Windows Firewall allowing inbound TCP on port 8000
+- [Mobile maintenance and API contracts](../docs/developers/food-service/mobile.md)
+- [Local setup](../docs/developers/platform/local-setup.md)
+- [EAS Cloud, signing, ownership transfer and APK updates](../docs/mobile-apk-release.md)
+- [Safe checks](../docs/developers/platform/testing.md)
 
-## Setup
-
-1. Copy `.env.example` to `.env` and set your PC's LAN IP:
-
-```
-EXPO_PUBLIC_API_URL=http://192.168.1.X:8000
-```
-
-Find your LAN IP with `ipconfig` — look for IPv4 Address under your Wi-Fi adapter.
-
-2. Start the Laravel backend (from the repo root, not this folder):
-
-```
-php artisan serve --host=0.0.0.0 --port=8000
-```
-
-The `--host=0.0.0.0` flag makes it reachable from your phone.
-
-3. Start the Expo dev server (from this folder):
-
-```
-npx expo start
-```
-
-4. Scan the development QR code in the terminal with the **Expo Go** app on your phone.
-
-## Staff APK releases
-
-Staff do not use Expo Go in production. The permanent download and QR destination is
-`https://nutriscope.live/mobile-app`; each release replaces the APK behind that same
-address. Follow [`../docs/mobile-apk-release.md`](../docs/mobile-apk-release.md) for
-versioning, signing, checksum, upload, and update-metadata checks.
-
-## Firewall (Windows)
-
-If your phone can't reach the backend, open port 8000:
-
-```
-netsh advfirewall firewall add rule name="Laravel Dev" dir=in action=allow protocol=TCP localport=8000
-```
+The committed manifest and lockfile define the SDK. Phone API URLs must be reachable from the phone. Never put provider secrets in EXPO_PUBLIC variables.

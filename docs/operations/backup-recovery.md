@@ -1,62 +1,33 @@
-# Backup and recovery guide
+# Backup and recovery maintenance
 
-This guide is for an Admin using NutriScope. Raw archives, storage keys, database credentials, and encryption secrets never enter the browser.
+Verified against committed source: `53230ce3f4e471b243d0fe0a8ef0b5fbfa89a891` (2026-10-23).
 
-## Automatic backup settings
+Purpose: distinguish stored backup objects from evidence that the system can recover.
 
-Open **Administration > Backup & Recovery**. Daily, weekly, and monthly schedules are independent and **disabled by default**, so demo deployments create no automatic backups. Admin may enable any combination after storage, encryption, queue, scheduler, and lock readiness checks pass.
+## Current owners
 
-- Daily backup coverage expires after **4 days**.
-- Weekly backup coverage expires after **14 days**.
-- Monthly backup coverage expires after **3 calendar months**.
+- [Backup services](../../backend/app/Services/Backup) orchestrate capture, verification, manifests, protected objects, restoration and environment switching.
+- [Spatie configuration](../../backend/config/backup.php) declares the MySQL archive source/destination and archive encryption. Its ordinary file include list is empty; inspect the separate protected-object pipeline before judging overall file coverage.
+- [Application backup settings](../../backend/config/nutriscope-backups.php) declare queue, recovery-control tables, retention and restore-enabled gate.
+- [Filesystem config](../../backend/config/filesystems.php) separates backups, private_uploads, public/s3 storage and report_cache.
+- [bootstrap/app.php](../../backend/bootstrap/app.php) schedules backup dispatch, retention, monitoring, purge and recovery-test dispatch. Scheduler/worker state affects the result.
 
-The target time is 01:30 Asia/Manila. Enabling a schedule does not create an immediate backup; the page shows its next due time. A coordinator runs every ten minutes and catches up the latest missing due period after downtime. When categories coincide, one archive and manifest satisfy all due categories. Repeated checks do nothing after the current period is satisfied. Disabling a schedule stops future runs only; existing restore points keep assigned retention. Disabling the final active schedule requires confirmation and every setting change is audited. When all are off, the page displays **Automatic backups are disabled.**
+The presence of a bucket/archive, a verified database dump or a successful unit test does **not** establish complete recovery. A whole-server move is also not automatically covered by the application's record-restore scope.
 
-Manual backups use the same encryption, manifest, protected-file, and verification pipeline. They do not satisfy an automatic period and remain available until an Admin deletes them. Manual creation and recovery remain separate from schedule toggles. Expiration applies to backup copies, not application records. Manually deleting a scheduled backup does not create a replacement for that period. Actual counts can be lower after deletions or missed runs.
+## Before relying on a restore point
 
-## What a restore point contains
+Inventory database revision/schema, required protected uploads, legacy file references, conversion originals, object IDs and encryption keys. Verify what the manifest actually includes; inspect exclusions. Report cache is reproducible and separate from durable records. Confirm object bytes exist and can be read with authorized access, not merely that DB rows mention them.
 
-Each restore point combines:
+Rehearse with synthetic data in an isolated temporary target before enabling recovery. Check schema/relationship compatibility, file integrity/access, archive-password availability, resource limits and interruption behavior. Record the exact application revision, procedure, result and remaining gaps without including backup contents or patient data.
 
-- one AES-encrypted MySQL-only archive;
-- an immutable private manifest with stored-object relationships, sizes, and SHA-256 checksums; and
-- incremental checksum-addressed copies of durable private uploads.
+BACKUP_RESTORE_ENABLED remains false in the example until readiness is established. Preserve APP_KEY and passwords needed to decrypt historical backups. R2 credentials and archive encryption passwords are different secrets.
 
-NutriScope verifies archive existence, size, SHA-256, decryption, the expected SQL dump, manifest schema/checksum, and every referenced protected object. It does not copy reproducible report-cache PDFs, `.env`, logs, Redis data, containers, or HTTPS keys.
+## Migration and incident handling
 
-The selected single-Droplet deployment keeps live private uploads on the persistent `nutriscope_private_uploads` Docker volume. Encrypted database archives, manifests, and checksum-addressed protected upload copies are stored outside DigitalOcean in a private Cloudflare R2 bucket. Backup credentials access only that bucket.
+Use [turnover](turnover.md) for writer freeze, coherent DB+file capture and cutover. Exact database/volume restoration commands depend on the approved topology and recovery facts; don't copy unverified destructive instructions into production.
 
-At least every 30 days, NutriScope restores the latest verified point into a disposable MySQL database. Checks are read-only: schema, foreign keys, application/authentication tables, role definitions, supported password hashes, manifest, files, and critical boot integrity. The drill creates no user, password, session, or business fixture and always drops its database. The page shows the latest successful recovery-test date.
+Never delete volumes, purge a bucket or run migrate:fresh to recover a live system. Stop writers, preserve evidence and choose a tested restore or forward fix. Restoring an older DB without matching files/keys can damage consistency.
 
-## Restore points and Recently Deleted
+Establish backup contents, artifact coverage, target relationships, restore capacity and a successful isolated drill before relying on recovery.
 
-- Primary views separate Restore points, Failed, and Recently deleted. Backup activity appears only while work is Queued, Creating, or Verifying. Type filters separate daily, weekly, monthly, manual, and Pre-restore points; one shared automatic archive appears under every unexpired schedule filter it satisfies and stays available until its final expiration date. Each active schedule shows its own countdown and expiration date, alongside the archive's Final expiration. The open page refreshes every minute while idle (every five seconds during backup or restoration activity), updating memberships and counts. Recently deleted and failed views preserve historical schedule categories. Each row shows its type and public reference to distinguish backups created on the same date.
-- **Create backup now** creates a manual restore point with no automatic expiry.
-- **Delete** moves an eligible restore point to Recently deleted and starts a 7-day recovery window. Its confirmation names all affected types: deleting one shared backup removes it from every type it currently satisfies. The latest verified point, an active restoration reference (including its Pre-restore copy), and an unexpired Pre-restore backup do not expose Delete.
-- Failed entries have no usable restore archive. Admins can remove them from the list after confirmation; the destructive audit event remains.
-- **Keep backup** rescues the archive and matching manifest/files; it does not restore application data.
-- **Delete permanently** removes a Recently deleted archive immediately after confirmation. Otherwise, expired Recently deleted items are purged automatically. Both paths remove protected file copies only when no remaining restore point references them.
-
-## Whole-system restoration
-
-Admin selects a verified restore point, reviews the newer-data loss window, enters the current password, and types the exact confirmation phrase. Newer production data will be discarded after switching and retained only in one access-controlled Pre-restore backup (the recovery safety snapshot).
-
-Laravel queues the workflow:
-
-1. Protect the selected point and create/verify one current-system Pre-restore backup (safety snapshot).
-2. Restore the selected archive into one new temporary MySQL database.
-3. Run non-mutating database checks and verify every matching uploaded object.
-4. Show **Ready** only after preparation passes. Production remains unchanged before this point.
-5. Enter shared Redis-backed maintenance mode only when production restoration is explicitly enabled.
-6. Transactionally replace application data from the validated temporary database, activate its matching protected uploads, run health checks, remove temporary recovery data, and mark **Completed**. Backup metadata, recovery history, schedule settings, migrations, Audit Logs, and immutable audit revisions stay current so the recovery itself remains traceable.
-7. On switching or health-check failure, automatically switch back to the Pre-restore backup and mark **Rolled Back**.
-
-Statuses are Requested, Preparing, Checking, Ready, Switching, Completed, Failed, Rolled Back, and Cancelled. Admin may cancel before Switching. The DigitalOcean single-Droplet switcher works only with MySQL, local private-upload storage, Redis-backed shared maintenance mode, and the explicit `BACKUP_RESTORE_ENABLED` guard. Otherwise recovery stops safely at Ready. Failures or required intervention notify the initiating Admin and all recovery actions are audited.
-
-Restoration activity shows Queued, Preparing safety checks, Validating restore point, Ready to switch, or Restoring system. Finished restore points show whether they were used successfully or whether the attempt failed, was cancelled, or rolled back. Each attempt creates its own Pre-restore backup, even if a later step fails. It remains protected until the workflow reaches a terminal status, then for 7 days, followed by the 7-day Recently deleted window. During protection it can support automatic rollback or another Admin-initiated whole-system restoration. There is no Technical Operator website role, review database, individual-record merge, arbitrary-row recovery, or universal Record Trash.
-
-## Saved reports
-
-Opening a report runs one authorized automatic prepare operation. It creates the saved identity when absent and refreshes important source-derived content when changed. Preview and download then stream the same private prepared bytes without mutation. Downloading or printing only creates a local copy.
-
-`created_at`, report identity, creation-time branding/signatories, template version, and appearance version remain fixed. `updated_at` changes only for later content changes. Archive hides an inactive saved report. Phase 1.5 adds no finalized-report workflow and retains no immutable PDF unless an independently existing signed, submitted, finalized, or official-evidence workflow requires it.
+Related: [operations](../developers/operations/README.md), [platform contract](platform-requirements.md), [environment](../developers/operations/environment.md), [testing](../developers/platform/testing.md).

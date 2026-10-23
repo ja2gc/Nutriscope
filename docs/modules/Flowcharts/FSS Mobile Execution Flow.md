@@ -120,7 +120,7 @@ flowchart TD
 ## Related Documents
 
 - [FSS Module](../fss.md)
-- [Food Service Flow](Food%20Service%20Operations.md)
+- [Food Service Flow](<Food Service Operations.md>)
 - [FAQ](../../FAQ.md)
 - [Role How-To](../../ROLE-HOW-TO.md)
 - [Storyboards](../../STORYBOARD.md)

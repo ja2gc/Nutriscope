@@ -1,6 +1,6 @@
 # Backup and Recovery
 
-This is the maintained administrator reference for the Phase 1.5 backup foundation and the Phase 2 DigitalOcean single-Droplet whole-system recovery workflow. Automatic schedules are disabled by default in demo deployments.
+This diagram describes the intended application workflow, not proof of complete recovery or a verified live deployment. For current source ownership, coverage checks, prerequisites and unverified recovery facts, read [backup/recovery maintenance](../../operations/backup-recovery.md). For moving providers read [turnover](../../operations/turnover.md). Verify actual schedule settings before relying on automation.
 
 ## Automatic and Manual Restore Points
 

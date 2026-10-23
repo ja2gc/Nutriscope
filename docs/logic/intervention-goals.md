@@ -3,7 +3,7 @@
 **Reviewed:** 21 October 2026.
 **Status:** Version 2 implemented locally; release and live acceptance are separate checks. This reference separates verified source recommendations from local defaults. Numerical eligibility, overrides and follow-up still require the RND's assessment.
 
-PHP `NutritionPrescriptionService::autofill` is the current calculation authority for previews and saves. The browser displays the server snapshot and never reconstructs a historical formula from current measurements. `prescription-targets.json` and `autofillLegacy` retain version-1 regression behavior only. Historical values, labels and generated report files are not bulk-rewritten. See [the audit and implementation plan](../../intervention.md) for the original-to-new mapping.
+PHP `NutritionPrescriptionService::autofill` is the current calculation authority for previews and saves. The browser displays the server snapshot and never reconstructs a historical formula from current measurements. `prescription-targets.json` and `autofillLegacy` retain version-1 regression behavior only. Historical values, labels and generated report files are not bulk-rewritten. Use the [clinical maintenance map](../developers/ncp/README.md) for current owners and tests; historical planning remains in Git history.
 
 ## Clinical, reporting, and privacy boundary
 
@@ -354,7 +354,7 @@ Live QA identified old seeded text still containing obsolete numeric targets and
 
 Clinical report formatting uses the existing Monitoring Plan micronutrient-unit definitions when a saved unit is absent or blank. Explicitly entered units and prescribed values are preserved. The same shared prescription partial serves the Intervention Plan and NCP Summary; normal preview preparation refreshes active report bytes.
 
-The detailed original-to-new mapping, current-code discrepancies, file changes and validation tasks are in [intervention.md](../../intervention.md). Version 2 is implemented in the shared PHP calculation path; local and deployed verification are separate.
+Version 2 is implemented in the shared PHP calculation path; local and deployed verification are separate. See the [clinical maintenance map](../developers/ncp/README.md) for current owners and regression tests. The retired implementation plan remains in Git history.
 
 - Keep original Mifflin attribution; correct its input use. Age alone does not make a historical equation obsolete.
 - PDRI2015 summary revised2018 remains the verified published local reference used here. A workshop or current PDF copyright is not proof of new numeric tables.

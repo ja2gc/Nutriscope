@@ -262,8 +262,8 @@ RND does not:
 - [FAQ](../FAQ.md)
 - [Role How-To Guide](../ROLE-HOW-TO.md)
 - [Storyboards](../STORYBOARD.md)
-- [Clinical Care Flowchart](Flowcharts/Clinical%20Care%20%28NCP%29%20Operations.md)
-- [Food Service Flowchart](Flowcharts/Food%20Service%20Operations.md)
+- [Clinical Care Flowchart](<Flowcharts/Clinical Care (NCP) Operations.md>)
+- [Food Service Flowchart](<Flowcharts/Food Service Operations.md>)
 
 ## Current Code Evidence
 

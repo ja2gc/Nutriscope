@@ -1,52 +1,26 @@
-# NutriScope platform requirements
+# Platform requirements
 
-This provider-neutral contract defines the production services required after Phase 1.5. Phase 2 selects and configures client-owned providers.
+Verified against committed source: `53230ce3f4e471b243d0fe0a8ef0b5fbfa89a891` (2026-10-23).
 
-## Required services
+Purpose: preserve the current service contract when changing hosting providers.
 
-- **Web:** run Laravel and Next.js continuously. Route `/mobile-api/` to Laravel and `/` to Next.js.
-- **Worker:** continuously process the Laravel `backups,default` queues.
-- **Scheduler:** continuously run `php artisan schedule:work`.
-- **Release:** run `/usr/local/bin/docker-release.sh` once per release. Do not run migrations whenever web starts.
-- **Database:** MySQL 8 with persistent storage and permission to create/drop recovery-test databases.
-- **Cache and queue:** persistent Redis supporting atomic locks. Redis is not a MySQL backup.
-- **Health check:** use Laravel `/up`.
+| Role | Requirement / source |
+|---|---|
+| Backend | Long-running Laravel HTTP service, [Dockerfile](../../backend/Dockerfile) |
+| Frontend | Next.js standalone server, [Dockerfile](../../frontend/Dockerfile); server-side API origin |
+| Database | Persistent MySQL 8; reviewed restore/test grants, no public DB port |
+| Cache and queue | Redis with atomic locks and appropriate durability |
+| Worker | Continuous queue:work redis for backups,default; timeout 1200 seconds |
+| Scheduler | Continuous schedule:work; [actual schedule](../../backend/bootstrap/app.php) includes jobs with data/file/notification effects |
+| Release | One-off [docker-release.sh](../../backend/docker-release.sh); migrations are explicit release work |
+| Proxy / HTTPS | Host Nginx → frontend; /mobile-api/ and /up → backend; [locations](../../nginx/mobile-api.locations.conf) |
+| Primary private files | Persistent named volume or deliberately migrated private S3/R2 bucket |
+| Backup destination | Separate private storage, protected credentials/archive password and tested retention/recovery |
+| APK distribution | Signed APK + metadata in /var/www/nutriscope-downloads, stable HTTPS routes |
+| Outbound integrations | Only the [configured services](../developers/operations/integrations.md); email/AI/USDA and storage access as required |
 
-`docker-compose.prod.yml` expresses the web, worker, scheduler, and release roles. A managed platform may express the same roles differently.
+[Compose](../../docker-compose.yml) plus [production overlay](../../docker-compose.prod.yml) express the current container topology. No OCR/OMR container is required by these files. Report cache is reproducible; private files and database history are not.
 
-The container repairs ownership of durable private uploads and the reproducible report cache at startup. Apache performs its normal privilege drop; Laravel release, worker, and scheduler commands run as `www-data`. Run any mutating Artisan command entered manually against a live container as that same user so it cannot create root-owned files that the web process cannot read or replace. For example: `docker exec --user www-data <backend-container> php artisan db:seed --force`. Use the same prefix for reminder commands and other manual Laravel writes.
+Resource sufficiency, managed-provider equivalents, existing schema/grants and recovery completeness are Unverified. Do not select a VPS using memory/price assumptions without checking build and runtime demand.
 
-## Production configuration
-
-Start from `backend/.env.production.example` and store values only in the platform secret manager. Never put `.env`, archive passwords, SMTP credentials, database administration credentials, or object-storage keys in Git, documentation, screenshots, chat, or the Admin page. Preserve `APP_KEY` during relocation.
-
-Important groups are `APP_*`, `DB_*`, `REDIS_*`, `CACHE_*`, `SESSION_*`, `QUEUE_*`, `MAIL_*`, `PRIVATE_UPLOADS_*`, and `BACKUP_*`.
-
-For the single-Droplet Docker deployment, set `DB_DUMP_SKIP_SSL=true` and `DB_DUMP_SSL_FLAG=skip-ssl`. This disables TLS only for `mysqldump` over the private Docker network because the bundled MariaDB client otherwise rejects the MySQL container's untrusted certificate. It does not weaken HTTPS access to backup storage. Keep the default disabled for a managed or remote database and configure trusted database TLS instead.
-
-## Storage boundaries
-
-- `private_uploads` holds clinical documents, purchase-order evidence, profile photos, private branding, and other durable sensitive files. APIs use authorized streaming. The selected single-Droplet deployment uses the named `nutriscope_private_uploads` Docker volume outside the public web root; a future object-storage deployment must use a private bucket.
-- `report_cache` holds reproducible prepared PDFs for 24 hours. It is excluded from durable manifests and backup retention.
-- `BACKUP_DISK` holds encrypted MySQL archives, immutable manifests, and checksum-addressed protected uploaded-file copies.
-- Backup storage must remain outside the Droplet that holds primary uploads. Backup credentials access only the private backup bucket. If primary uploads later move to object storage, use a separate bucket and credentials that cannot delete backups.
-- Only intentionally public assets use public storage. No binary-file framework stores all uploads in MySQL.
-
-Keep backup storage separate from primary application infrastructure where practical. Phase 2 should add provider versioning, lifecycle protection, snapshots, or bucket locks where supported, but application credentials must not control retention locks.
-
-The selected single-Droplet restoration path requires `APP_MAINTENANCE_DRIVER=cache`, `APP_MAINTENANCE_STORE=redis`, and an explicit `BACKUP_RESTORE_ENABLED=true` only after backup, queue, scheduler, MySQL, Redis, and private-upload readiness pass. It restores validated application rows transactionally into the current MySQL schema and swaps protected uploads from the persistent local volume. Operational backup metadata, recovery history, schedule settings, migration history, Audit Logs, and immutable audit revisions remain current for traceability. A schema-incompatible restore point or one that would orphan preserved recovery actors is rejected before production data changes.
-
-## Network, workers, and HTTPS
-
-Only the public reverse proxy accepts internet traffic. MySQL and Redis remain private. Enable MFA and provider security updates. The worker must be durable; the scheduler must remain active so the ten-minute backup coordinator can catch up after downtime.
-
-Let managed hosting issue a new HTTPS certificate after DNS cutover. Do not copy the old certificate private key. A self-managed host must prove renewal before acceptance.
-
-## Release acceptance
-
-1. Run the release process once and confirm `/up`.
-   The DigitalOcean deployment must fast-forward cleanly, retain the previous backend and frontend images as rollback candidates, and fail when its internal Laravel health check does not pass.
-2. Confirm worker, scheduler heartbeat, Redis locks, MySQL, private uploads, and backup storage readiness.
-3. Sign in with a test account and verify critical RND, FSS, and Admin workflows.
-4. Create one manual restore point and verify its archive, manifest, and protected files.
-5. Run a temporary-database recovery drill before changing DNS.
+Procedures: [VPS setup](vps-setup.md), [turnover](turnover.md), [environment](../developers/operations/environment.md), [backup/recovery](backup-recovery.md).
