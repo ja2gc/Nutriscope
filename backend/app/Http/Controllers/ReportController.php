@@ -229,6 +229,7 @@ class ReportController extends Controller
         $byPrimaryDiagnosisCategory = [];
         $availableMonths = [];
         $allFrozen = true;
+        $hasHistoricalClassification = false;
         for ($number = 1; $number <= 12; $number++) {
             $start = Carbon::parse(sprintf('%04d-%02d-01', $year, $number), $today->getTimezone());
             if ($start->lt($firstMonth) || $start->gt($today->copy()->startOfMonth())) {
@@ -237,7 +238,6 @@ class ReportController extends Controller
             $current = $start->isSameMonth($today);
             $stored = $current ? null : DemographicCensusPeriod::query()
                 ->whereDate('period_start', $start->toDateString())
-                ->where('basis_version', DemographicCensusGenerator::BASIS_VERSION)
                 ->first();
             $status = $stored === null ? 'live' : 'frozen';
             $availableMonths[] = ['month' => $number, 'label' => $start->format('F'), 'status' => $status];
@@ -245,6 +245,7 @@ class ReportController extends Controller
                 continue;
             }
             $allFrozen = $allFrozen && $status === 'frozen';
+            $hasHistoricalClassification = $hasHistoricalClassification || ($stored !== null && $stored->basis_version < 7);
             $census = $stored?->census ?? $generator->currentCensus($start, $start->copy()->endOfMonth());
             $total += (int) ($census['total'] ?? 0);
             foreach ($ageSex as $group => $counts) {
@@ -278,6 +279,7 @@ class ReportController extends Controller
             'unknown_sex' => $total - array_sum(array_column($ageSex, 'total')),
             'by_risk' => $byRisk,
             'by_nutritional_status' => $byStatus,
+            'classification_basis' => $hasHistoricalClassification ? 'historical_or_mixed' : 'asia_pacific_bmi',
             'by_primary_diagnosis_category' => $byPrimaryDiagnosisCategory,
             'available_years' => range($today->year, $firstMonth->year),
             'available_months' => $availableMonths,

@@ -48,6 +48,17 @@ class MonitoringAiReviewTest extends TestCase
             ->assertOk();
 
         $this->assertNotEmpty($res->json('data.narrative'));
+        $this->assertSame(9, $res->json('data.remaining'));
+        $payload = [
+            'entry_key' => $key, 'draft_id' => $draftId, 'observed_at' => now()->toDateString(), 'visit_type' => 'scheduled_follow_up',
+            'weight' => 53, 'height' => 170, 'edema_present' => false, 'physical_activity_level' => 'light',
+            'pregnancy_lactation_status' => 'none', 'allergies' => [], 'food_dislikes' => [], 'dietary_restrictions' => null,
+            'lab_values' => ['albumin' => 3.2],
+        ];
+        $this->postJson($url, $payload)->assertOk()->assertJsonPath('data.cached', true)->assertJsonPath('data.remaining', 9);
+        Http::assertSentCount(1);
+        $this->postJson($url, [...$payload, 'regenerate' => true])->assertOk()->assertJsonPath('data.remaining', 8);
+        Http::assertSentCount(2);
 
         Http::assertSent(function (Request $request) {
             $body = json_encode($request->data());

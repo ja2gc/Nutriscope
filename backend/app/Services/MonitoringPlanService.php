@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\Assessment;
 use App\Models\Monitoring;
 use App\Models\NcpRecord;
+use App\Support\ClinicalAiContext;
 
 /**
  * Builds the per-patient Monitoring Plan — the focused set of indicators a
@@ -148,7 +150,7 @@ class MonitoringPlanService
 
         $indicators = array_merge(
             $this->labIndicators($biochem, $sex, $goalType, $goalStage, $pesStatements, $monitorings),
-            $this->anthroIndicators($assessment, $sex, $monitorings, $ncpRecord->intervention),
+            $this->anthroIndicators($assessment, $sex, $monitorings, $ncpRecord->intervention, $patient?->dob?->diffInYears($monitorings->last()?->observed_at ?? $ncpRecord->created_at), $patient?->dob ? (int) $patient->dob->diffInMonths($monitorings->last()?->observed_at ?? $ncpRecord->created_at) : null),
             $this->intakeIndicators($ncpRecord->intervention, $monitorings),
             $this->microIndicators($ncpRecord->intervention, $monitorings),
         );
@@ -157,7 +159,7 @@ class MonitoringPlanService
             'visits' => $visits,
             'pes_statements' => $pesStatements,
             'goal_type' => $goalType,
-            'nutritional_status' => $assessment?->nutritional_status,
+            'nutritional_status' => Assessment::classifyBmi($assessment?->calculateBmi(), $patient?->dob?->diffInYears($ncpRecord->created_at), (bool) $assessment?->edema_present, $assessment?->pregnancy_lactation_status, $patient?->sex, $patient?->dob ? (int) $patient->dob->diffInMonths($ncpRecord->created_at) : null),
             'indicators' => $indicators,
         ];
     }
@@ -170,11 +172,16 @@ class MonitoringPlanService
             $ncpRecord->setRelation('monitorings', $ncpRecord->monitorings->reject(fn ($entry) => $entry->uuid === $data['monitoring_id']));
         }
         $draft = new Monitoring($data);
-        $draft->bmi = round((float) $draft->weight / (((float) $draft->height / 100) ** 2), 2);
+        $ageYears = $ncpRecord->patient?->dob?->diffInYears($draft->observed_at);
+        $draft->bmi = $ageYears !== null && $ageYears < 5 ? null : round((float) $draft->weight / (((float) $draft->height / 100) ** 2), 2);
         $plan = $this->build($ncpRecord, $draft);
         $included = array_merge(['weight', 'bmi'], array_keys($data['lab_values'] ?? []));
         $indicators = [];
+        $recallTargets = [];
         foreach ($plan['indicators'] as $indicator) {
+            if (isset($data['intake_nutrients'][$indicator['key']]) && ($indicator['target'] !== null || $indicator['reference'] !== null)) {
+                $recallTargets[$indicator['key']] = array_intersect_key($indicator, array_flip(['unit', 'target', 'reference']));
+            }
             $series = $indicator['series'];
             $current = array_pop($series);
             if (! in_array($indicator['key'], $included, true) || $current['value'] === null) {
@@ -202,17 +209,28 @@ class MonitoringPlanService
             ]);
         }
 
-        return [
-            'goal' => $plan['goal_type'], 'indicators' => $indicators,
+        $summary = [
+            'goal' => $plan['goal_type'], 'goal_type_detail' => $ncpRecord->intervention?->disease_stage, 'indicators' => $indicators,
+            'bmi_classification' => Assessment::classifyBmi($draft->bmi, $ageYears, (bool) $draft->edema_present, $draft->pregnancy_lactation_status, $ncpRecord->patient?->sex, $ncpRecord->patient?->dob ? (int) $ncpRecord->patient->dob->diffInMonths($draft->observed_at) : null),
+            'age_group' => $ageYears === null ? 'unknown' : ((int) $ncpRecord->patient->dob->diffInMonths($draft->observed_at) <= 228 ? 'pediatric' : 'adult'),
+            'clinical_context' => ClinicalAiContext::patientEvidence($ncpRecord),
             'intake_notes' => $data['intake_notes'] ?? null, 'symptoms' => $data['symptoms'] ?? null,
             'observations' => $data['goal_achievement'] ?? [],
             'recall_intake_estimate' => $data['intake_nutrients'] ?? null,
+            'recall_targets' => $recallTargets,
             'additional_findings' => array_intersect_key($data['lab_values'] ?? [], array_flip(['bp', 'abg'])),
             'context' => array_intersect_key($data, array_flip([
                 'edema_present', 'dry_weight_kg', 'physical_activity_level',
                 'pregnancy_lactation_status', 'dietary_restrictions',
             ])),
         ];
+        $summary = ClinicalAiContext::redact($summary, $ncpRecord->patient);
+        $guidance = ClinicalAiContext::guidance($summary, 'monitoring');
+        if ($guidance !== '') {
+            $summary['guidance'] = $guidance;
+        }
+
+        return $summary;
     }
 
     /**
@@ -275,14 +293,15 @@ class MonitoringPlanService
     /**
      * @return array<int,array<string,mixed>>
      */
-    private function anthroIndicators($assessment, string $sex, $monitorings, $intervention = null): array
+    private function anthroIndicators($assessment, string $sex, $monitorings, $intervention = null, ?float $ageYears = null, ?int $ageMonths = null): array
     {
         if (! $assessment) {
             return [];
         }
 
         $height = $assessment->height !== null ? (float) $assessment->height : null;
-        $ibw = $height !== null && $height > 0 ? round($this->prescription->ibw($height, $sex), 1) : null;
+        $adult = $ageMonths !== null && $ageMonths > 228;
+        $ibw = $adult && $height !== null && $height > 0 ? round($this->prescription->ibw($height, $sex), 1) : null;
         // Weight — trended against an IBW target band.
         $weightPoints = [['visit' => 'Visit 1', 'value' => $assessment->weight !== null ? (float) $assessment->weight : null]];
         foreach ($monitorings as $i => $m) {
@@ -294,13 +313,15 @@ class MonitoringPlanService
         $weight = $this->finishIndicator('weight', ['label' => 'Weight', 'unit' => 'kg', 'guide_label' => $weightGoal ? 'Weight target' : 'Calculated IBW'], 'anthro', [$weightGoal ? 'prescription' : 'calculated'], $weightRange, $weightTarget, $weightPoints,
             fn ($curr, $prev) => $weightRange ? $this->labStatus($curr, $prev, ['low' => $weightRange['min'], 'high' => $weightRange['max']]) : $this->targetStatus($curr, $prev, $weightTarget));
 
-        // BMI — trended; WHO normal band.
+        // BMI is interpreted only in supported adult contexts; classification is not a diagnosis.
         $bmiPoints = [['visit' => 'Visit 1', 'value' => $assessment->bmi !== null ? (float) $assessment->bmi : null]];
         foreach ($monitorings as $i => $m) {
             $bmiPoints[] = ['visit' => 'Follow-up '.($i + 1), 'value' => $m->bmi !== null ? (float) $m->bmi : null];
         }
-        $bmi = $this->finishIndicator('bmi', ['label' => 'BMI', 'unit' => 'kg/m²'], 'anthro', ['calculated'], ['min' => 18.5, 'max' => 24.9], null, $bmiPoints,
-            fn ($curr, $prev) => $this->labStatus($curr, $prev, ['low' => 18.5, 'high' => 24.9]));
+        $latest = $monitorings->last() ?? $assessment;
+        $canClassify = $adult && Assessment::classifyBmi(collect($bmiPoints)->last()['value'], $ageYears, (bool) $latest->edema_present, $latest->pregnancy_lactation_status, null, $ageMonths) !== null;
+        $bmi = $this->finishIndicator('bmi', ['label' => 'BMI', 'unit' => 'kg/m²', 'guide_label' => $adult ? 'Asia-Pacific adult BMI range' : 'WHO age/sex classification; no fixed target'], 'anthro', ['calculated'], $canClassify ? ['min' => 18.5, 'max' => 22.99] : null, null, $bmiPoints,
+            fn ($curr, $prev) => $canClassify ? $this->labStatus($curr, $prev, ['low' => 18.5, 'high' => 22.99]) : 'no_data');
 
         // %IBW — recomputed each visit from weight when IBW is known.
         $ibwPctPoints = [['visit' => 'Visit 1', 'value' => $assessment->ibw_percentage !== null ? (float) $assessment->ibw_percentage : null]];
@@ -311,7 +332,7 @@ class MonitoringPlanService
         $ibwPct = $this->finishIndicator('ibw_percentage', ['label' => '% IBW', 'unit' => '%'], 'anthro', ['calculated'], ['min' => 90, 'max' => 110], null, $ibwPctPoints,
             fn ($curr, $prev) => $this->labStatus($curr, $prev, ['low' => 90, 'high' => 110]));
 
-        return [$weight, $bmi, $ibwPct];
+        return array_values(array_filter([$weight, $ageYears !== null && $ageYears < 5 ? null : $bmi, $adult ? $ibwPct : null]));
     }
 
     /**

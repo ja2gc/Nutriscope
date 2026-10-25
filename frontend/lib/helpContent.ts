@@ -261,7 +261,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Assessment",
     question: "Is the nutritional risk score final clinical judgment?",
-    answer: "No. The score is decision support based on recorded inputs. Confirm source data and apply clinical judgment before documenting risk or care decisions.",
+    answer: "No. Screening risk, BMI classification and PES diagnosis are separate. WHO sex/month BMI bands apply at 61–228 months; Asia-Pacific afterward. Month 60 shows BMI without a class. Under 5, measurements remain but BMI is omitted because the growth calculator is not implemented. Adult panel estimates are withheld through month 228. The BMI info button explains the reference. MUAC screening applies only at 6–59 months. AI receives relevant anthropometrics without risk scores or legacy screening labels; BMI alone cannot establish malnutrition or severity.",
     keywords: ["screening", "clinical decision", "risk"],
   },
   {
@@ -277,7 +277,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Diagnosis & Intervention",
     question: "Can AI create a diagnosis automatically?",
-    answer: "AI Review interprets saved Assessment evidence in context and returns up to three supported drafts per generation, preferring Intake, Clinical and Behavioral coverage when appropriate. It can return none. Earlier pending drafts may remain while another generation reviews uncovered findings. Three successful generations are allowed per patient daily, shared across users/cycles and resetting at midnight Philippine time. Cached results and failed requests do not count. The button stays visible with its disabled explanation. Edit uses exact matching choices or 75-character Other text; concise reasoning notes remain outside PES. Existing diagnoses and reviewed evidence prevent repeated drafts. RND must accept or save an edited draft.",
+    answer: "AI Review checks eligible nutrition problems once and returns up to three prioritized supported drafts. Referral/medication context and selected clinical guidance assist interpretation; patient names are removed. P/E/S justifications stay in separate notes. Relevant evidence changes or related draft/saved-diagnosis deletion reopen review. No supported evidence left stops generation; rejected output offers an explicit Retry AI Review. Diagnosis allows ten requests per RND per ten minutes, separate from monitoring. Cached reads do not count; unsuccessful generation attempts do. Edit uses matching choices or 75-character Other text. RND must accept or save an edited draft; manual entry remains available.",
     keywords: ["suggestion", "accept", "edit", "checkbox", "dismiss", "manual", "review"],
   },
   {
@@ -309,7 +309,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Monitoring",
     question: "What can I record in Monitoring?",
-    answer: "Record patient-specific follow-up measurements, dietary restrictions, intake/tolerance, symptoms, and next monitoring date. Maintain allergies and food dislikes in Assessment. Progress Assessment is required, up to 700 characters. Generate AI Summary allows three successful generations per draft; cancel/discard and open Log New Visit for a fresh allowance. Retries within the same draft retain its used count. AI compares unsaved values with earlier readings and targets; review/edit before Save Visit. History shows five visits per page. The latest saved entry in an active cycle can be edited or deleted; older entries are View only. Deleting the latest unlocks the preceding saved entry. AI summarizes relevant notes, symptoms, adherence and progress concisely. Progress Trends provides filtered graphs. Create a new dated Intervention Plan when treatment changes.",
+    answer: "Record follow-up measurements, dietary restrictions, intake/tolerance, symptoms and next monitoring date. Maintain allergies and food dislikes in Assessment. Progress Assessment is required, up to 700 characters. Generate AI Summary compares unsaved values with earlier readings, targets and selected goal/clinical context. Identical inputs reuse the result; Regenerate AI Summary requests fresh wording. Monitoring allows ten requests per RND per ten minutes, separate from diagnosis; another draft does not reset it. Cached reuse is free of generation attempts. Existing text changes only through Use this summary. Review before Save Visit. History shows five visits per page. The latest saved entry in an active cycle can be edited or deleted; older entries are View only. Progress Trends provides filtered graphs. Change treatment through a new dated Intervention Plan.",
     keywords: ["visit log", "progress trend", "follow-up"],
   },
   {

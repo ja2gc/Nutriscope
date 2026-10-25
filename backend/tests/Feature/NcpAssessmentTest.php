@@ -14,6 +14,29 @@ class NcpAssessmentTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_under_five_keeps_measurements_but_omits_bmi_and_adult_ibw_without_rewriting_history(): void
+    {
+        $rnd = $this->rnd();
+        $patient = $this->patient();
+        $patient->update(['dob' => now()->subYears(3)->toDateString()]);
+        $ncp = $this->ncpRecord($patient, $rnd);
+        $assessment = Assessment::factory()->create(['ncp_record_id' => $ncp->id, 'weight' => 14, 'height' => 90, 'bmi' => 17.28, 'ibw_percentage' => 40]);
+        $this->actingAs($rnd, 'sanctum')->getJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment")->assertOk()
+            ->assertJsonPath('data.bmi', null)->assertJsonPath('data.bmi_classification', null)->assertJsonPath('data.ibw_percentage', null)
+            ->assertJsonPath('data.weight', '14.00')->assertJsonPath('data.height', '90.00');
+        $this->assertEquals(17.28, $assessment->fresh()->bmi);
+    }
+
+    public function test_assessment_exposes_bmi_classification_separately_from_legacy_screening_status(): void
+    {
+        $rnd = $this->rnd();
+        $ncp = $this->ncpRecord($this->patient(), $rnd);
+        $assessment = Assessment::factory()->create(['ncp_record_id' => $ncp->id, 'weight' => 69, 'height' => 170, 'ibw_percentage' => 65, 'nutritional_status' => 'Severe Malnutrition']);
+        $this->actingAs($rnd, 'sanctum')->getJson("/api/rnd/ncp-records/{$ncp->uuid}/assessment")->assertOk()
+            ->assertJsonPath('data.bmi_classification', 'Overweight')->assertJsonPath('data.nutritional_status', 'Severe Malnutrition');
+        $this->assertSame('Severe Malnutrition', $assessment->fresh()->nutritional_status);
+    }
+
     private function rnd(): User
     {
         return User::forceCreate([

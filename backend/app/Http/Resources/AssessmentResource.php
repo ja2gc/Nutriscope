@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\Assessment;
 use App\Services\RiskScoreCalculator;
 use App\Support\WeightChangePeriod;
 use Illuminate\Http\Request;
@@ -13,6 +14,8 @@ class AssessmentResource extends JsonResource
     {
         $riskResult = resolve(RiskScoreCalculator::class)->calculate($this->resource);
         $ncpRecord = $this->ncpRecord;
+        $ageYears = $ncpRecord?->patient?->dob?->diffInYears($ncpRecord->created_at);
+        $ageMonths = $ncpRecord?->patient?->dob ? (int) $ncpRecord->patient->dob->diffInMonths($ncpRecord->created_at) : null;
         $manualOverride = (bool) ($ncpRecord?->risk_score_manual_override ?? false);
         $manualFactors = $ncpRecord?->risk_score_manual_factors;
         $checkedFactors = $manualOverride ? ($manualFactors ?? []) : $riskResult['checked_factors'];
@@ -29,7 +32,9 @@ class AssessmentResource extends JsonResource
             'knowledge_notes' => $this->knowledge_notes,
             'weight' => $this->weight,
             'height' => $this->height,
-            'bmi' => $this->bmi,
+            'bmi' => $ageYears !== null && $ageYears < 5 ? null : $this->bmi,
+            'bmi_reference_date' => $ncpRecord?->created_at?->toDateString(),
+            'bmi_classification' => Assessment::classifyBmi($this->calculateBmi($ageYears), $ageYears, (bool) $this->edema_present, $this->pregnancy_lactation_status, $ncpRecord?->patient?->sex, $ageMonths),
             'body_composition' => $this->body_composition,
             'medical_history' => $this->medical_history,
             'social_history' => $this->social_history,
@@ -52,7 +57,7 @@ class AssessmentResource extends JsonResource
             'primary_diagnosis_other' => $this->primary_diagnosis_other,
             'functional_assessment' => $this->functional_assessment,
             'energy_intake_status' => $this->energy_intake_status,
-            'ibw_percentage' => $this->ibw_percentage,
+            'ibw_percentage' => $ageMonths !== null && $ageMonths > 228 ? $this->ibw_percentage : null,
             'present_diet' => $this->present_diet,
             'physical_assessment' => $this->physical_assessment,
             'chewing_swallowing_difficulties' => $this->chewing_swallowing_difficulties,

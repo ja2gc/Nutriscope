@@ -43,7 +43,7 @@ class AiDiagnosisController extends Controller
         abort_unless($this->auditPolicy->viewNcpTrail($request->user(), $ncpRecord), 403);
         $data = $request->validated();
         try {
-            $result = $this->pesSuggestions->suggest($ncpRecord, $data['dismissed_candidate_id'] ?? null);
+            $result = $this->pesSuggestions->suggest($ncpRecord, $data['dismissed_candidate_id'] ?? null, $data['dismissed_draft_id'] ?? null, $data['retry_rejected'] ?? false);
         } catch (HttpResponseException $error) {
             throw $error;
         } catch (LockTimeoutException) {

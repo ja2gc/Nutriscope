@@ -171,7 +171,7 @@ class AiServiceTest extends TestCase
                     $draft['properties'][$field]['description'],
                 );
             }
-            $this->assertSame(['id', 'e', 'ek', 's', 'sk'], $draft['required']);
+            $this->assertSame(['id', 'e', 'ek', 's', 'sk', 'n', 'en', 'sn'], $draft['required']);
             $this->assertArrayNotHasKey('source_id', $draft['properties']);
 
             return true;

@@ -15,6 +15,7 @@ class MonitoringSummaryRequest extends MonitoringRequest
             'monitoring_id' => ['nullable', 'uuid'],
             'entry_key' => ['required', 'string', 'size:64', 'regex:/^[a-f0-9]+$/D'],
             'draft_id' => ['required', 'uuid'],
+            'regenerate' => ['sometimes', 'boolean'],
             'goal_achievement' => ['nullable', 'array:compliance,gi_tolerance,continuation_decision'],
             'goal_achievement.compliance' => ['sometimes', Rule::in(['compliant', 'partial', 'non_compliant'])],
             'goal_achievement.gi_tolerance' => ['sometimes', Rule::in(['tolerating', 'not_tolerating'])],

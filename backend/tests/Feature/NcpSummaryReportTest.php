@@ -26,6 +26,20 @@ class NcpSummaryReportTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_report_separates_measured_bmi_classification_from_screening_status_and_saved_pes(): void
+    {
+        $ncp = $this->makeRecord();
+        $ncp->patient()->update(['dob' => '1990-01-01']);
+        $ncp->assessment()->update(['weight' => 69, 'height' => 170, 'bmi' => 23.88, 'nutritional_status' => 'Severe Malnutrition']);
+        $data = app(NcpSummaryGenerator::class)->data(new Report(['type' => 'ncp_summary', 'parameters' => ['ncp_record_id' => $ncp->uuid]]));
+        $this->assertSame('Overweight', $data['nutritional_status']);
+        $this->assertEquals(2, $data['risk_score']);
+        $this->assertStringContainsString('Inadequate energy intake', $data['diagnoses'][0]['pes']);
+        $html = view('reports.ncp-summary', [...$data, 'branding' => new ReportBranding, 'report' => new Report, 'signatories' => []])->render();
+        $this->assertStringContainsString('BMI classification:', $html);
+        $this->assertSame('Severe Malnutrition', $ncp->assessment()->first()->nutritional_status);
+    }
+
     private User $rnd;
 
     protected function setUp(): void

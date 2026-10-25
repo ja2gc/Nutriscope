@@ -7,6 +7,7 @@ use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\PesSuggestionState;
 use App\Models\User;
+use App\Services\Diagnosis\PesRuleCatalog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -43,7 +44,7 @@ class PesSuggestionTest extends TestCase
             ->assertJsonPath('data.0.candidate_id', 'unintended_weight_loss_v1')
             ->assertJsonPath('data.0.label', 'Unintended Weight Loss')
             ->assertJsonPath('meta.cached', false)
-            ->assertJsonPath('meta.catalog_version', '2026-10-20-v2');
+            ->assertJsonPath('meta.catalog_version', app(PesRuleCatalog::class)->version());
 
         $this->assertLessThanOrEqual(3, count($first->json('data')));
 
@@ -74,7 +75,7 @@ class PesSuggestionTest extends TestCase
         $this->assertDatabaseCount('pes_suggestion_states', 0);
     }
 
-    public function test_dismissal_persists_for_the_same_fingerprint(): void
+    public function test_dismissal_reopens_the_related_review_without_automatic_generation(): void
     {
         $ncpRecord = $this->makeRecord(assessment: [
             'weight_loss_percentage' => 6.5,
@@ -90,11 +91,11 @@ class PesSuggestionTest extends TestCase
             'dismissed_candidate_id' => 'unintended_weight_loss_v1',
         ])->assertOk()->assertJsonPath('data', []);
         $this->actingAs($this->rnd, 'sanctum')->postJson($url)
-            ->assertOk()->assertJsonPath('data', []);
+            ->assertOk()->assertJsonCount(1, 'data');
 
         $state = PesSuggestionState::query()->firstOrFail();
-        $this->assertSame(['unintended_weight_loss_v1'], $state->dismissed_candidate_ids);
-        Http::assertSentCount(1);
+        $this->assertSame([], $state->dismissed_candidate_ids);
+        Http::assertSentCount(2);
     }
 
     public function test_assessment_change_invalidates_fingerprint_and_allows_one_new_call(): void
@@ -137,7 +138,7 @@ class PesSuggestionTest extends TestCase
 
         $this->actingAs($this->rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-suggest")
-            ->assertOk()->assertJsonPath('data', [])->assertJsonPath('meta.message', 'No supported evidence left.');
+            ->assertOk()->assertJsonPath('data', [])->assertJsonPath('meta.review_outcome', 'rejected')->assertJsonPath('meta.can_retry', true);
 
         $this->assertDatabaseCount('pes_suggestion_states', 1);
     }
@@ -158,7 +159,7 @@ class PesSuggestionTest extends TestCase
 
         $this->actingAs($this->rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-suggest")
-            ->assertOk()->assertJsonPath('data', [])->assertJsonPath('meta.message', 'No supported evidence left.');
+            ->assertOk()->assertJsonPath('data', [])->assertJsonPath('meta.review_outcome', 'rejected')->assertJsonPath('meta.can_retry', true);
 
         $this->assertDatabaseCount('pes_suggestion_states', 1);
     }

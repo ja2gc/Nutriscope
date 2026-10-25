@@ -17,6 +17,28 @@ class MonitoringPlanServiceTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_client_bmi_reference_does_not_establish_pediatric_goal_attainment(): void
+    {
+        $ncp = $this->makeNcp();
+        $ncp->patient()->update(['dob' => '2016-01-01']);
+        $indicator = $this->indicator(app(MonitoringPlanService::class)->build($ncp->fresh()), 'bmi');
+        $this->assertNull($indicator['reference']);
+        $this->assertNull($this->indicator(app(MonitoringPlanService::class)->build($ncp->fresh()), 'ibw_percentage'));
+        $this->assertSame('no_data', $indicator['latest_status']);
+    }
+
+    public function test_bmi_guide_uses_asia_pacific_bands_and_is_unavailable_for_unsupported_contexts(): void
+    {
+        $ncp = $this->makeNcp();
+        $ncp->assessment()->update(['weight' => 69, 'height' => 170, 'bmi' => 23.88, 'edema_present' => false, 'pregnancy_lactation_status' => 'none']);
+        $indicator = $this->indicator(app(MonitoringPlanService::class)->build($ncp->fresh()), 'bmi');
+        $this->assertSame(['min' => 18.5, 'max' => 22.99], $indicator['reference']);
+        $this->assertNotSame('met', $indicator['latest_status']);
+        $ncp->monitorings()->update(['edema_present' => true]);
+        $indicator = $this->indicator(app(MonitoringPlanService::class)->build($ncp->fresh()), 'bmi');
+        $this->assertNull($indicator['reference']);
+    }
+
     public function test_unchecking_goal_micros_does_not_reinsert_them_but_keeps_logged_values_without_old_limits(): void
     {
         $ncp = $this->makeNcp();

@@ -7,11 +7,11 @@ use App\Models\Diagnosis;
 use App\Models\NcpRecord;
 use App\Models\PesSuggestionState;
 use App\Services\AIService;
+use App\Support\AiReviewAllowance;
+use App\Support\ClinicalAiContext;
 use App\Support\DiagnosisBuilder;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -33,85 +33,76 @@ class PesSuggestionService
         return $this->response($ncpRecord, $this->state($ncpRecord, $evidence), $evidence, true);
     }
 
-    public function suggest(NcpRecord $ncpRecord, ?string $dismissedCandidateId = null): array
+    public function suggest(NcpRecord $ncpRecord, ?string $dismissedCandidateId = null, ?string $dismissedDraftId = null, bool $retryRejected = false): array
     {
-        return Cache::lock('pes-patient-'.$ncpRecord->patient_id, 40)->block(1, function () use ($ncpRecord, $dismissedCandidateId): array {
+        return Cache::lock('pes-patient-'.$ncpRecord->patient_id, 40)->block(1, function () use ($ncpRecord, $dismissedCandidateId, $dismissedDraftId, $retryRejected): array {
             $evidence = $this->evidenceBuilder->build($ncpRecord);
             $state = $this->state($ncpRecord, $evidence);
-            if ($dismissedCandidateId !== null) {
-                $selected = collect($this->activeDrafts($ncpRecord, $evidence))->firstWhere('candidate_id', $dismissedCandidateId);
+            if ($dismissedCandidateId !== null || $dismissedDraftId !== null) {
+                $selected = collect($this->activeDrafts($ncpRecord, $evidence))->firstWhere($dismissedDraftId !== null ? 'draft_id' : 'candidate_id', $dismissedDraftId ?? $dismissedCandidateId);
                 $source = $selected ? $this->history($ncpRecord)->first(fn ($item) => collect($item->validated_response)->contains('draft_id', $selected['draft_id'])) : null;
                 if ($source === null) {
                     throw new \InvalidArgumentException('The selected PES draft is no longer available.');
                 }
-                $source->update(['dismissed_candidate_ids' => array_values(array_unique([...($source->dismissed_candidate_ids ?? []), $dismissedCandidateId]))]);
+                $this->reopen($ncpRecord, $selected['candidate_id'], $selected['label'], $selected['draft_id']);
 
                 return $this->response($ncpRecord, $state, $evidence, true);
             }
-            $eligible = $this->remaining($ncpRecord, $evidence);
+            $eligible = $this->remaining($ncpRecord, $evidence, $retryRejected);
             if ($eligible === []) {
                 return $this->response($ncpRecord, $state, $evidence, true);
             }
-            $date = now('Asia/Manila')->toDateString();
-            $this->reserve($ncpRecord, $date);
+            AiReviewAllowance::reserve('diagnosis');
+            $rejected = false;
+            $reviewEvidence = $evidence;
+            $reviewEvidence['existing_problem_keys'] = array_values(array_unique([
+                ...($evidence['existing_problem_keys'] ?? []),
+                ...array_column($this->activeDrafts($ncpRecord, $evidence), 'label'),
+            ]));
+            [$payload, $candidateRefs, $evidenceRefs] = $this->providerPayload($eligible, $reviewEvidence);
             try {
-                $reviewEvidence = $evidence;
-                $reviewEvidence['existing_problem_keys'] = array_values(array_unique([
-                    ...($evidence['existing_problem_keys'] ?? []),
-                    ...array_column($this->activeDrafts($ncpRecord, $evidence), 'label'),
-                ]));
-                [$payload, $candidateRefs, $evidenceRefs] = $this->providerPayload($eligible, $reviewEvidence);
-                try {
-                    $result = $this->aiService->draftPes($payload);
-                } catch (UnusableAiDraftException $error) {
-                    Log::warning('PES response withheld', ['reason' => $error->getMessage(), 'usage_log_id' => $error->usage['usage_log_id']]);
-                    $result = ['suggestions' => [], 'usage' => $error->usage];
-                }
-                $raw = $result['suggestions'];
-                $validated = [];
-                try {
-                    $validated = $this->validateProviderResponse($raw, $eligible, $reviewEvidence, $candidateRefs, $evidenceRefs);
-                } catch (\RuntimeException $error) {
-                    Log::warning('PES response withheld', ['reason' => $error->getMessage(), 'usage_log_id' => $result['usage']['usage_log_id']]);
-                } finally {
-                    Log::info('PES generation outcome', [
-                        ...$result['usage'], 'returned_drafts' => count($raw),
-                        'accepted_drafts' => count($validated), 'withheld_drafts' => count($raw) - count($validated),
-                    ]);
-                }
-                $previous = $state?->validated_response ?? [];
-                $reviewed = $state?->provider_metadata['reviewed_candidate_ids'] ?? [];
-                $newlyReviewed = $validated === [] || (count($raw) < 3 && count($validated) === count($raw))
-                    ? array_column($eligible, 'candidate_id') : array_column($validated, 'candidate_id');
-                $reviewed = array_values(array_unique([
-                    ...$reviewed,
-                    ...$newlyReviewed,
-                ]));
-                $contexts = $state?->provider_metadata['review_contexts'] ?? [];
-                foreach ($newlyReviewed as $id) {
-                    $issued = collect($validated)->firstWhere('candidate_id', $id);
-                    $extra = array_column($issued['evidence_refs'] ?? [], 'key');
-                    $contexts[$id] = ['hash' => $this->contextHash($id, $evidence, $extra), 'keys' => $extra];
-                }
-                $attributes = [
-                    'validated_response' => [...$previous, ...$validated],
-                    'dismissed_candidate_ids' => $state?->dismissed_candidate_ids ?? [],
-                    'provider_metadata' => ['provider' => 'anthropic', 'reviewed_candidate_ids' => $reviewed, 'review_contexts' => $contexts,
-                        'last_review_empty' => $validated === [], 'model' => config('services.anthropic.model')],
-                ];
-                if ($state === null) {
-                    $state = PesSuggestionState::create([
-                        'ncp_record_id' => $ncpRecord->id,
-                        'fingerprint' => $this->fingerprint($evidence),
-                        'catalog_version' => $this->catalog->version(),
-                        ...$attributes,
-                    ]);
-                } else {
-                    $state->update($attributes);
-                }
-            } catch (\Throwable $error) {
-                DB::table('patient_pes_daily_generations')->where('patient_id', $ncpRecord->patient_id)->where('generation_date', $date)->where('generations', '>', 0)->decrement('generations');
-                throw $error;
+                $result = $this->aiService->draftPes($payload);
+            } catch (UnusableAiDraftException $error) {
+                $rejected = true;
+                Log::warning('PES response withheld', ['reason' => $error->getMessage(), 'usage_log_id' => $error->usage['usage_log_id']]);
+                $result = ['suggestions' => [], 'usage' => $error->usage];
+            }
+            $raw = $result['suggestions'];
+            $validated = [];
+            try {
+                $validated = $this->validateProviderResponse($raw, $eligible, $reviewEvidence, $candidateRefs, $evidenceRefs);
+            } catch (\RuntimeException $error) {
+                $rejected = true;
+                Log::warning('PES response withheld', ['reason' => $error->getMessage(), 'usage_log_id' => $result['usage']['usage_log_id']]);
+            } finally {
+                Log::info('PES generation outcome', [
+                    ...$result['usage'], 'returned_drafts' => count($raw),
+                    'accepted_drafts' => count($validated), 'withheld_drafts' => count($raw) - count($validated),
+                ]);
+            }
+            $previous = $state?->validated_response ?? [];
+            $outcome = $rejected ? 'rejected' : (count($validated) < count($raw) ? 'partial' : ($validated === [] ? 'no_supported' : 'complete'));
+            $newlyReviewed = array_column($eligible, 'candidate_id');
+            $contexts = $state?->provider_metadata['review_contexts'] ?? [];
+            foreach ($newlyReviewed as $id) {
+                $extra = collect($validated)->where('candidate_id', $id)->pluck('evidence_refs')->flatten(1)->pluck('key')->unique()->values()->all();
+                $contexts[$id] = ['hash' => $this->contextHash($id, $evidence, $extra), 'keys' => $extra, 'outcome' => $outcome];
+            }
+            $attributes = [
+                'validated_response' => [...$previous, ...$validated],
+                'dismissed_candidate_ids' => $state?->dismissed_candidate_ids ?? [],
+                'provider_metadata' => ['provider' => 'anthropic', 'review_contexts' => $contexts,
+                    'review_outcome' => $outcome, 'model' => config('services.anthropic.model')],
+            ];
+            if ($state === null) {
+                $state = PesSuggestionState::create([
+                    'ncp_record_id' => $ncpRecord->id,
+                    'fingerprint' => $this->fingerprint($evidence),
+                    'catalog_version' => $this->catalog->version(),
+                    ...$attributes,
+                ]);
+            } else {
+                $state->update($attributes);
             }
 
             return $this->response($ncpRecord, $state, $evidence, false);
@@ -146,27 +137,32 @@ class PesSuggestionService
 
     public function budget(NcpRecord $ncpRecord): array
     {
-        $now = now('Asia/Manila');
-        $used = (int) DB::table('patient_pes_daily_generations')->where('patient_id', $ncpRecord->patient_id)->where('generation_date', $now->toDateString())->value('generations');
-
-        return ['limit' => 3, 'used' => $used, 'remaining' => max(0, 3 - $used), 'resets_at' => $now->copy()->addDay()->startOfDay()->toIso8601String()];
+        return AiReviewAllowance::status('diagnosis');
     }
 
-    private function reserve(NcpRecord $ncpRecord, string $date): void
+    public function reopen(NcpRecord $record, ?string $candidateId, string $label, ?string $draftId = null): void
     {
-        DB::transaction(function () use ($ncpRecord, $date): void {
-            DB::table('patients')->where('id', $ncpRecord->patient_id)->lockForUpdate()->first(['id']);
-            $used = (int) DB::table('patient_pes_daily_generations')->where('patient_id', $ncpRecord->patient_id)->where('generation_date', $date)->value('generations');
-            if ($used >= 3) {
-                throw new HttpResponseException(response()->json([
-                    'message' => 'Daily limit reached: three AI generations for this patient. Try again after midnight Philippine time.',
-                    'meta' => ['budget' => $this->budget($ncpRecord)],
-                ], 429));
+        foreach ($this->history($record) as $state) {
+            $metadata = $state->provider_metadata;
+            $ids = array_filter([$candidateId]);
+            foreach ($state->validated_response as $draft) {
+                if ($this->eligibility->canonicalProblem($draft['label']) === $this->eligibility->canonicalProblem($label)) {
+                    $ids[] = $draft['candidate_id'];
+                }
             }
-            DB::table('patient_pes_daily_generations')->updateOrInsert(
-                ['patient_id' => $ncpRecord->patient_id, 'generation_date' => $date], ['generations' => $used + 1],
-            );
-        });
+            foreach ($this->catalog->cards() as $card) {
+                if ($this->eligibility->canonicalProblem($card['problem_key']) === $this->eligibility->canonicalProblem($label)) {
+                    $ids[] = $card['id'];
+                }
+            }
+            foreach ($ids as $id) {
+                unset($metadata['review_contexts'][$id]);
+            }
+            $state->update(['provider_metadata' => $metadata, 'validated_response' => array_values(array_filter(
+                $state->validated_response,
+                fn ($draft) => $draft['draft_id'] !== $draftId && $this->eligibility->canonicalProblem($draft['label']) !== $this->eligibility->canonicalProblem($label),
+            ))]);
+        }
     }
 
     private function state(NcpRecord $ncpRecord, array $evidence): ?PesSuggestionState
@@ -182,7 +178,10 @@ class PesSuggestionService
     private function contextHash(string $candidateId, array $evidence, array $extra = []): string
     {
         $card = collect($this->catalog->cards())->firstWhere('id', $candidateId);
-        $keys = [...($extra !== [] ? $extra : [...($card['required_evidence'] ?? []), ...($card['corroborating_evidence'] ?? [])]), 'age_group', 'age_70_plus', 'medical_history', 'food_recall', 'intake_nutrients'];
+        $keys = [...$extra, ...($card['required_evidence'] ?? []), ...($card['corroborating_evidence'] ?? []), 'age_group', 'age_70_plus', 'food_recall', 'intake_nutrients'];
+        if (($card['domain'] ?? null) !== 'NB') {
+            $keys = [...$keys, 'medical_history', 'clinical_context'];
+        }
         if (($card['domain'] ?? null) === 'NC') {
             $keys = [...$keys, 'sex', 'edema_present', 'pregnancy_lactation_status', 'bmi', 'height_cm', 'weight_change_direction', 'weight_change_percentage', 'weight_change_period', 'weight_kg', 'usual_weight_kg'];
         }
@@ -190,12 +189,12 @@ class PesSuggestionService
         return $this->fingerprint(array_intersect_key($evidence, array_fill_keys($keys, true)));
     }
 
-    private function remaining(NcpRecord $record, array $evidence): array
+    private function remaining(NcpRecord $record, array $evidence, bool $retryRejected = false): array
     {
         $covered = [];
         foreach ($this->history($record) as $previous) {
             foreach ($previous->provider_metadata['review_contexts'] ?? [] as $id => $context) {
-                if ($context['hash'] === $this->contextHash($id, $evidence, $context['keys'] ?? [])) {
+                if (! ($retryRejected && ($context['outcome'] ?? '') === 'rejected') && $context['hash'] === $this->contextHash($id, $evidence, $context['keys'] ?? [])) {
                     $covered[] = $id;
                 }
             }
@@ -247,8 +246,11 @@ class PesSuggestionService
         $visible = $this->activeDrafts($record, $evidence);
         $budget = $this->budget($record);
         $remaining = $this->remaining($record, $evidence);
+        $canRetry = count($this->remaining($record, $evidence, true)) > count($remaining);
+        $outcome = $canRetry ? 'rejected' : ($state?->provider_metadata['review_outcome'] ?? null);
         $reason = match (true) {
-            $budget['remaining'] === 0 => 'Daily limit reached (3/3). Available again after midnight Philippine time.',
+            $budget['remaining'] === 0 => 'Ten requests per ten minutes reached. Try again when the allowance resets.',
+            $canRetry => 'The response did not pass evidence checks. Retry explicitly or update the Assessment.',
             $remaining === [] => self::EMPTY_MESSAGE.' Update the Assessment when new findings are available.',
             default => null,
         };
@@ -256,8 +258,8 @@ class PesSuggestionService
         return ['data' => $visible, 'meta' => [
             'cached' => $cached, 'fingerprint' => $this->fingerprint($evidence),
             'catalog_version' => $this->catalog->version(), 'budget' => $budget,
-            'can_generate' => $reason === null, 'disabled_reason' => $reason,
-            'message' => $visible === [] ? ($remaining === [] || ($state?->provider_metadata['last_review_empty'] ?? false) ? self::EMPTY_MESSAGE : null) : null,
+            'can_generate' => $reason === null, 'can_retry' => $canRetry && $budget['remaining'] > 0, 'review_outcome' => $outcome, 'disabled_reason' => $reason,
+            'message' => $visible === [] ? ($canRetry ? $reason : ($remaining === [] ? self::EMPTY_MESSAGE : null)) : null,
         ]];
     }
 
@@ -268,9 +270,9 @@ class PesSuggestionService
         $existing = $evidence['existing_problem_keys'] ?? [];
         unset($evidence['existing_problem_keys']);
         $required = ['age_group', 'age_70_plus', 'sex', 'edema_present', 'pregnancy_lactation_status', 'medical_history',
-            'appetite', 'weight_change_direction', 'weight_change_percentage', 'weight_change_period', 'weight_kg', 'usual_weight_kg',
-            'height_cm', 'bmi', 'food_recall', 'intake_nutrients', 'physical_assessment', 'present_diet',
-            'chewing_swallowing_difficulties', 'gi_symptoms'];
+            'appetite', 'weight_change_direction', 'weight_change_percentage', 'weight_change_period',
+            'bmi', 'bmi_classification', 'food_recall', 'intake_nutrients', 'physical_assessment', 'present_diet',
+            'chewing_swallowing_difficulties', 'gi_symptoms', 'clinical_context'];
         foreach ($eligible as $candidate) {
             $required = [...$required, ...array_keys($candidate['evidence'])];
         }
@@ -280,12 +282,16 @@ class PesSuggestionService
             foreach ($eligible as $candidate) {
                 $required = [...$required, ...array_keys($candidate['evidence'])];
             }
-            $measurements = ['nutritional_status', 'ibw_percentage', 'muac_mm', 'waist_cm', 'hip_cm', 'laboratory_values', 'laboratory_flags'];
+            $measurements = ['ibw_percentage', 'muac_mm', 'waist_cm', 'hip_cm', 'laboratory_values', 'laboratory_flags'];
             foreach (array_diff($measurements, $required) as $key) {
                 unset($evidence[$key]);
             }
         }
         $payload = ['evidence' => [], 'existing_problems' => $existing, 'candidates' => []];
+        $guidance = ClinicalAiContext::guidance($evidence, 'diagnosis');
+        if ($guidance !== '') {
+            $payload['guidance'] = $guidance;
+        }
         $candidateRefs = $evidenceRefs = [];
         foreach ($eligible as $candidate) {
             $ref = 'c'.(count($candidateRefs) + 1);
@@ -320,7 +326,7 @@ class PesSuggestionService
                 $id = array_key_exists('id', $draft)
                     ? (is_string($draft['id']) ? ($candidateRefs[$draft['id']] ?? null) : null)
                     : ($draft['candidate_id'] ?? null);
-                if (! is_string($id) || isset($seen[$id]) || ! $byId->has($id)) {
+                if (! is_string($id) || ! $byId->has($id) || (isset($seen[$id]) && $byId[$id]['problem_key'] !== 'Other')) {
                     throw new \RuntimeException('The AI returned an unsupported or duplicate PES draft.');
                 }
                 $candidate = $byId[$id];
@@ -340,7 +346,7 @@ class PesSuggestionService
                         'etiology' => $draft['e'], 'signs' => $draft['s'],
                         'etiology_evidence' => $draft['ek'], 'signs_evidence' => $draft['sk'],
                         'evidence_used' => array_values(array_unique([...$draft['ek'], ...$draft['sk']])),
-                        'extra_notes' => $draft['n'] ?? '', 'etiology_notes' => '', 'sign_notes' => '',
+                        'extra_notes' => $draft['n'] ?? '', 'etiology_notes' => $draft['en'] ?? '', 'sign_notes' => $draft['sn'] ?? '',
                     ];
                 }
                 if (($draft['domain'] ?? null) !== $candidate['domain'] || ($draft['source_id'] ?? null) !== $candidate['source']['id']) {
@@ -362,7 +368,7 @@ class PesSuggestionService
                 if ($candidate['domain'] === 'NI' && (! preg_match('/^(Inadequate|Excessive) (.{1,50}) Intake$/u', $label))) {
                     throw new \RuntimeException('Use the supported intake direction and nutrient format.');
                 }
-                if (preg_match('/^(diabetes(?: mellitus)?|hypertension|cancer|chronic kidney disease|heart failure)$/i', $label)) {
+                if (preg_match('/\b(diabetes(?: mellitus)?|hypertension|cancer|chronic kidney disease|CKD|heart failure|renal failure|cirrhosis|hepatitis|pneumonia|COPD|asthma|stroke|sepsis|anemia|anaemia)\b/i', $label)) {
                     throw new \RuntimeException('Medical diagnoses cannot replace nutrition problems.');
                 }
                 if (in_array($canonical, $problems, true) || in_array($id, $evidence['saved_candidate_ids'] ?? [], true)) {
@@ -389,8 +395,11 @@ class PesSuggestionService
                     }
                     $roles[$role] = $roleKeys;
                 }
-                $causes = array_filter($roles['etiology_evidence'], fn ($key): bool => $this->eligibility->hasConcern($evidence[$key])
-                    && in_array($key, ['appetite', 'dietary_intake', 'present_diet', 'knowledge_notes', 'lifestyle', 'social_history', 'medical_history', 'physical_assessment', 'body_composition', 'food_intolerance', 'nutrient_drug_interaction', 'dietary_restrictions', 'supplements', 'chewing_swallowing_difficulties', 'gi_symptoms', 'energy_intake_status'], true)
+                $causeEvidence = $evidence;
+                // Care grouping and medication names supply context, not an established causal effect.
+                $causeEvidence['clinical_context'] = $evidence['clinical_context']['referral_diagnosis'] ?? null;
+                $causes = array_filter($roles['etiology_evidence'], fn ($key): bool => $this->eligibility->hasConcern($causeEvidence[$key])
+                    && in_array($key, ['appetite', 'dietary_intake', 'present_diet', 'knowledge_notes', 'lifestyle', 'social_history', 'medical_history', 'clinical_context', 'physical_assessment', 'body_composition', 'food_intolerance', 'nutrient_drug_interaction', 'dietary_restrictions', 'supplements', 'chewing_swallowing_difficulties', 'gi_symptoms', 'energy_intake_status'], true)
                 );
                 if ($causes === []) {
                     throw new \RuntimeException('The AI inferred a cause without a documented concern.');
@@ -398,10 +407,10 @@ class PesSuggestionService
                 $signConcerns = array_filter($roles['signs_evidence'], function ($key) use ($evidence): bool {
                     return match ($key) {
                         'bmi' => in_array($evidence['age_group'] ?? null, ['adult', 'elderly'], true)
-                            && (($evidence['bmi'] ?? 0) >= 25 || (($evidence['bmi'] ?? 0) > 0 && $evidence['bmi'] < (($evidence['age_70_plus'] ?? false) ? 20 : 18.5))),
+                            && (($evidence['bmi'] ?? 0) >= 23 || (($evidence['bmi'] ?? 0) > 0 && $evidence['bmi'] < (($evidence['age_70_plus'] ?? false) ? 20 : 18.5))),
                         'weight_loss_percentage', 'weight_change_percentage' => ($evidence['weight_change_direction'] ?? 'unknown') === 'loss' && ($evidence[$key] ?? 0) > 0,
                         'laboratory_flags' => ! empty($evidence[$key]),
-                        'age_group', 'age_70_plus', 'sex', 'weight_kg', 'usual_weight_kg', 'height_cm', 'weight_change_direction', 'weight_change_period', 'pregnancy_lactation_status', 'physical_activity_level', 'functional_assessment', 'medication_count', 'laboratory_values', 'nutritional_status', 'ibw_percentage', 'muac_mm', 'waist_cm', 'hip_cm', 'food_recall', 'intake_nutrients' => false,
+                        'age_group', 'age_70_plus', 'sex', 'weight_kg', 'usual_weight_kg', 'height_cm', 'weight_change_direction', 'weight_change_period', 'pregnancy_lactation_status', 'physical_activity_level', 'functional_assessment', 'medication_count', 'laboratory_values', 'bmi_classification', 'ibw_percentage', 'muac_mm', 'waist_cm', 'hip_cm', 'food_recall', 'intake_nutrients', 'clinical_context' => false,
                         default => $this->eligibility->hasConcern($evidence[$key]),
                     };
                 });
@@ -413,13 +422,35 @@ class PesSuggestionService
                 if (! $this->eligibility->hasConcern($etiology) || ! $this->eligibility->hasConcern($signs)) {
                     throw new \RuntimeException('Normal or denied findings cannot establish a cause or signs.');
                 }
-                if (! $this->groundedWording($etiology, $roles['etiology_evidence'], $evidence)
+                if (! $this->groundedWording($etiology, $roles['etiology_evidence'], $causeEvidence)
                     || ! $this->groundedWording($signs, $roles['signs_evidence'], $evidence)) {
                     throw new \RuntimeException('The AI wording adds claims not supported by its cited findings.');
                 }
+                if ($candidate['domain'] === 'NI' && ! $this->eligibility->supportsIntakeProblem($label, $signs)) {
+                    throw new \RuntimeException('The signs do not support the selected intake nutrient and direction.');
+                }
+                if ($canonical === 'underweight' && (($evidence['bmi_classification'] ?? null) !== 'Underweight' || ! in_array('bmi', $roles['signs_evidence'], true))) {
+                    throw new \RuntimeException('Underweight requires the supported adult BMI finding.');
+                }
+                if ($candidate['problem_key'] === 'Other' && $candidate['domain'] !== 'NI'
+                    && $canonical !== 'underweight' && ! preg_match('/\b(malnutrition|undernutrition)\b/', $canonical)) {
+                    $nutritionTerms = $candidate['domain'] === 'NB'
+                        ? '/\b(food|nutrition|diet|meal|eating|activity|exercise|education|adherence|monitoring)\b/i'
+                        : '/\b(nutrition|nutritional|intake|absorption|gastrointestinal|swallowing|chewing|weight|growth|muscle)\b/i';
+                    $findings = array_diff($keys, ['clinical_context', 'medical_history']);
+                    if (! preg_match($nutritionTerms, $label) || ! $this->groundedWording($label, $findings, $evidence)) {
+                        throw new \RuntimeException('The custom problem lacks corresponding nutrition evidence.');
+                    }
+                }
                 $notes = [];
+                $noteEvidence = [...$evidence, 'rationale_context' => $label.' Evidence supports problem; documented cause barrier; specific reported finding gap; qualifies signs symptoms.'];
+                $fallbacks = ['extra_notes' => 'Supported by: '.$signs, 'etiology_notes' => 'Documented cause: '.$etiology, 'sign_notes' => 'Recorded sign: '.$signs];
                 foreach (['extra_notes', 'etiology_notes', 'sign_notes'] as $field) {
-                    $notes[$field] = $this->component($draft[$field] ?? '', 100, true);
+                    $note = $this->component(is_string($draft[$field] ?? null) ? $draft[$field] : '', 100, true);
+                    preg_match_all('/\d+(?:\.\d+)?/', $note, $numbers);
+                    $newNumbers = array_filter($numbers[0], fn ($number) => ! preg_match('/(?<!\d)'.preg_quote($number, '/').'(?!\d)/', json_encode(array_intersect_key($evidence, array_fill_keys($keys, true)))));
+                    $notes[$field] = $newNumbers === [] && $this->groundedWording($note, [...$keys, 'rationale_context'], $noteEvidence)
+                        ? $note : $fallbacks[$field];
                 }
                 foreach ([$label, $etiology, $signs] as $wording) {
                     preg_match_all('/\d+(?:\.\d+)?/', $wording, $numbers);
@@ -456,18 +487,8 @@ class PesSuggestionService
         if ($validated === [] && $draftError !== null) {
             throw $draftError;
         }
-        $balanced = [];
-        foreach (['NI', 'NC', 'NB'] as $domain) {
-            foreach ($validated as $index => $draft) {
-                if ($draft['domain'] === $domain) {
-                    $balanced[] = $draft;
-                    unset($validated[$index]);
-                    break;
-                }
-            }
-        }
 
-        return [...$balanced, ...array_values($validated)];
+        return $validated;
     }
 
     private function affirmativeFinding(array $values, string $pattern): bool

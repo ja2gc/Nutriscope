@@ -113,7 +113,9 @@ class DiagnosisController extends Controller
             }
             $options = DiagnosisBuilder::options()[$domain];
             foreach (['problem_checks' => 'problems', 'etiology_checks' => 'etiologies', 'sign_checks' => 'signs'] as $key => $list) {
-                if (array_diff($data['builder_data'][$key] ?? [], $options[$list]) !== []) {
+                $legacy = $key === 'sign_checks' && $existing?->domain === $domain
+                    ? array_intersect($existing->builder_data['sign_checks'] ?? [], ['BMI ≥ 25 (overweight / obesity)', 'BMI > 25 (overweight) or > 30 (obese)']) : [];
+                if (array_diff($data['builder_data'][$key] ?? [], [...$options[$list], ...$legacy]) !== []) {
                     throw ValidationException::withMessages(["builder_data.{$key}" => 'Choose a listed option or use Other.']);
                 }
             }
@@ -167,7 +169,13 @@ class DiagnosisController extends Controller
             ], 422);
         }
 
-        $this->audited(fn () => $diagnosis->delete());
+        $this->audited(function () use ($ncpRecord, $diagnosis): void {
+            app(PesSuggestionService::class)->reopen(
+                $ncpRecord, $diagnosis->ai_provenance['candidate_id'] ?? null,
+                $diagnosis->problem, $diagnosis->ai_provenance['draft_id'] ?? null,
+            );
+            $diagnosis->delete();
+        });
 
         return response()->noContent();
     }

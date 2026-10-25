@@ -57,7 +57,7 @@ class AssessmentController extends Controller
         return $this->audited(function () use ($data, $ncpRecord, $biochemicalData, $manualOverride, $manualFactors, $request) {
             $assessment = new Assessment($data);
             $assessment->ncp_record_id = $ncpRecord->id;
-            $assessment->bmi = $assessment->calculateBmi();
+            $assessment->bmi = $assessment->calculateBmi($ncpRecord->patient?->dob?->diffInYears($ncpRecord->created_at));
             $assessment->save();
 
             if ($biochemicalData) {
@@ -107,7 +107,7 @@ class AssessmentController extends Controller
 
         return $this->audited(function () use ($assessment, $data, $biochemicalData, $ncpRecord, $manualOverride, $manualFactors, $request) {
             $assessment->fill($data);
-            $assessment->bmi = $assessment->calculateBmi();
+            $assessment->bmi = $assessment->calculateBmi($ncpRecord->patient?->dob?->diffInYears($ncpRecord->created_at));
             $assessment->save();
 
             if ($biochemicalData !== null) {

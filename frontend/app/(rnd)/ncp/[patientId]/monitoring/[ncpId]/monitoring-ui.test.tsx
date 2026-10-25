@@ -53,6 +53,15 @@ const entry: MonitoringEntry = {
 };
 
 describe("monitoring workflow UI", () => {
+  it('does not describe unchanged or changed weight as progress from a classification alone', () => {
+    for (const status of ['Overweight', 'Severe Malnutrition']) {
+      for (const weight of [59, 60.8, 62]) {
+        const html = renderToStaticMarkup(<GoalProgressTracker category="anthro" plan={null} entries={[{ ...entry, weight, bmi: 24 }]} baselineWeight={60.8} baselineBmi={22} baselineLabs={null} nutritionalStatus={status} />);
+        expect(html).not.toMatch(/>Met<|>Not Met<|>In Progress</);
+        expect(html).not.toContain('18.5–24.9');
+      }
+    }
+  });
   it("shows compact counters and reuses non-sticky tabs", () => {
     const html = renderToStaticMarkup(<LogVisitForm context={context} intervention={null} onSubmit={async () => undefined} onCancel={() => undefined} />);
     expect(html).toContain("10/100");

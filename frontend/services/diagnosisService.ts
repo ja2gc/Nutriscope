@@ -70,6 +70,8 @@ export interface PesDraftMeta {
   message: string | null;
   budget: { limit: number; used: number; remaining: number; resets_at: string };
   can_generate: boolean;
+  can_retry?: boolean;
+  review_outcome?: "complete" | "partial" | "no_supported" | "rejected" | null;
   disabled_reason: string | null;
 }
 
@@ -148,11 +150,11 @@ export async function deleteDiagnosis(ncpRecordId: number | string, diagnosisId:
   }
 }
 
-export async function aiSuggestDiagnoses(ncpRecordId: number | string): Promise<PesDraftResult> {
+export async function aiSuggestDiagnoses(ncpRecordId: number | string, retryRejected = false): Promise<PesDraftResult> {
   const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/diagnoses/ai-suggest`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: undefined,
+    body: retryRejected ? JSON.stringify({ retry_rejected: true }) : undefined,
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -171,12 +173,12 @@ export async function fetchPesDraftStatus(ncpRecordId: number | string): Promise
 
 export async function dismissPesSuggestion(
   ncpRecordId: number | string,
-  candidateId: string,
+  draftId: string,
 ): Promise<PesDraftResult> {
   const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/diagnoses/ai-suggest`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ dismissed_candidate_id: candidateId }),
+    body: JSON.stringify({ dismissed_draft_id: draftId }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

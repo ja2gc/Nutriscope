@@ -56,11 +56,11 @@ describe("CensusPanel", () => {
     expect(container.textContent).toContain("By nutrition care category");
     expect(container.textContent).not.toContain("By primary diagnosis category");
     expect(container.textContent).toContain("Diabetes");
-    expect(container.textContent).toContain("By nutritional status");
+    expect(container.textContent).toContain("By recorded nutritional status");
     expect(container.textContent).toContain("Moderate Malnutrition");
     expect(container.textContent).toContain("Mild Malnutrition / Underweight");
     expect(container.textContent).toContain("Obese Class II (Severe)");
-    expect(container.querySelector('section[aria-label="By nutritional status"]')?.textContent).not.toContain("Unspecified");
+    expect(container.querySelector('section[aria-label="By recorded nutritional status"]')?.textContent).not.toContain("Unspecified");
     expect(container.textContent).not.toContain("Includes current data");
     expect(container.querySelector("[data-census-screen]")).not.toBeNull();
     expect(document.body.querySelector(":scope > [data-census-print]")).toBeNull();
@@ -90,7 +90,7 @@ describe("CensusPanel", () => {
     const root = createRoot(container);
 
     await act(async () => { root.render(<CensusPanel apiPrefix="rnd" />); });
-    const status = container.querySelector('section[aria-label="By nutritional status"]');
+    const status = container.querySelector('section[aria-label="By recorded nutritional status"]');
     expect(status?.querySelector("dl")?.textContent).not.toContain("Unspecified");
     expect(status?.textContent).toContain("Not classified: 1");
     await act(async () => root.unmount());

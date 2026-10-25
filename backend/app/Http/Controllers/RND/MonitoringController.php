@@ -18,12 +18,13 @@ use App\Services\MonitoringPlanService;
 use App\Services\MonitoringSummaryService;
 use App\Services\NcpAppointmentWorkflow;
 use App\Services\NotificationLifecycleService;
+use App\Support\AiReviewAllowance;
+use App\Support\ClinicalAiContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\RateLimiter;
 
 class MonitoringController extends Controller
 {
@@ -51,10 +52,10 @@ class MonitoringController extends Controller
         $data = $request->validate(['draft_id' => ['required', 'uuid']]);
         $key = $this->summaryEntryKey($ncpRecord, $data['draft_id']);
 
-        return response()->json(['data' => ['entry_key' => $key, 'remaining' => max(0, 3 - Cache::get('monitoring-summary:'.$key, 0))]]);
+        return response()->json(['data' => ['entry_key' => $key, ...AiReviewAllowance::status('monitoring')]]);
     }
 
-    /** Scope each draft's allowance to its clinician, cycle, and current visit history. */
+    /** Bind the unsaved draft to its clinician, cycle and visit history. */
     private function summaryEntryKey(NcpRecord $ncpRecord, string $draftId): string
     {
         $latest = $ncpRecord->monitorings()->latest('id')->first();
@@ -72,25 +73,23 @@ class MonitoringController extends Controller
         }
         $key = $this->summaryEntryKey($ncpRecord, $request->validated('draft_id'));
         abort_unless(hash_equals($key, $request->validated('entry_key')), 409, 'The visit history changed. Reload the form before generating.');
-        $rlKey = 'ai-review:'.(auth()->id() ?? 'guest');
-        if (RateLimiter::tooManyAttempts($rlKey, 5)) {
-            return response()->json(['message' => 'Too many generation requests. Try again shortly.'], 429);
-        }
-        RateLimiter::hit($rlKey, 60);
-        $cacheKey = 'monitoring-summary:'.$key;
-        $response = Cache::lock($cacheKey.':lock', 60)->get(function () use ($key, $cacheKey, $request, $ncpRecord, $planSvc, $ai) {
-            $used = Cache::get($cacheKey, 0);
-            if ($used >= 3) {
-                return response()->json(['message' => 'All three generations for this entry have been used. You can write or edit the summary.', 'remaining' => 0], 429);
+        $summary = $planSvc->draftComparison($ncpRecord, $request->validated());
+        $cacheKey = 'monitoring-summary:'.auth()->id().':'.$ncpRecord->id.':'.hash('sha256', json_encode([
+            ClinicalAiContext::version(), $summary, config('services.anthropic.model'), 'monitoring-v5',
+        ]));
+        $response = Cache::lock($cacheKey.':lock', 60)->get(function () use ($key, $cacheKey, $request, $ncpRecord, $summary, $ai) {
+            if (! $request->boolean('regenerate') && ($cached = Cache::get($cacheKey)) !== null) {
+                return response()->json(['data' => ['narrative' => $cached, 'cached' => true, ...AiReviewAllowance::status('monitoring')]]);
             }
-            $narrative = $ai->narrateMonitoring($planSvc->draftComparison($ncpRecord, $request->validated()));
+            AiReviewAllowance::reserve('monitoring');
+            $narrative = $ai->narrateMonitoring($summary);
             if ($narrative === null) {
                 return response()->json(['message' => 'Summary generation is unavailable. Try again or write the summary manually.'], 503);
             }
             abort_unless(hash_equals($key, $this->summaryEntryKey($ncpRecord, $request->validated('draft_id'))), 409, 'The visit history changed during generation. Reload the form.');
-            Cache::forever($cacheKey, $used + 1);
+            Cache::put($cacheKey, $narrative, now()->addDay());
 
-            return response()->json(['data' => ['narrative' => $narrative, 'remaining' => 2 - $used]]);
+            return response()->json(['data' => ['narrative' => $narrative, 'cached' => false, ...AiReviewAllowance::status('monitoring')]]);
         });
 
         return $response ?: response()->json(['message' => 'A summary is already being generated for this entry.'], 429);
@@ -154,7 +153,7 @@ class MonitoringController extends Controller
         if ($followUpAt !== null) {
             $data['next_monitoring_date'] = CarbonImmutable::parse($followUpAt)->toDateString();
         }
-        $data['bmi'] = $this->calculateBmi($data['weight'], $data['height']);
+        $data['bmi'] = $this->calculateBmi($data['weight'], $data['height'], $ncpRecord->patient?->dob?->diffInYears($data['observed_at']));
 
         return $this->audited(function () use ($data, $ncpRecord, $notificationLifecycle, $request, $followUpAt, $followUpPurpose) {
             $ncpRecord->newQuery()->whereKey($ncpRecord->id)->lockForUpdate()->firstOrFail();
@@ -192,7 +191,7 @@ class MonitoringController extends Controller
             $data['food_recall'] = $this->foodRecalls->normalize($data['food_recall'], $monitoring->food_recall);
         }
         unset($data['next_monitoring_at'], $data['next_monitoring_purpose']);
-        $data['bmi'] = $this->calculateBmi($data['weight'], $data['height']);
+        $data['bmi'] = $this->calculateBmi($data['weight'], $data['height'], $ncpRecord->patient?->dob?->diffInYears($data['observed_at'] ?? $monitoring->observed_at));
 
         return $this->audited(function () use ($monitoring, $data, $ncpRecord, $request) {
             $lockedNcp = $ncpRecord->newQuery()->whereKey($ncpRecord->id)->lockForUpdate()->firstOrFail();
@@ -241,8 +240,11 @@ class MonitoringController extends Controller
         return response()->json(['data' => $context->prefillForMonitoring($ncpRecord)]);
     }
 
-    private function calculateBmi(float|int|string $weight, float|int|string $height): float
+    private function calculateBmi(float|int|string $weight, float|int|string $height, ?float $ageYears): ?float
     {
+        if ($ageYears !== null && $ageYears < 5) {
+            return null;
+        }
         $heightMeters = (float) $height / 100;
 
         return round((float) $weight / ($heightMeters * $heightMeters), 2);

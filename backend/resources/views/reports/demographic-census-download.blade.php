@@ -19,7 +19,7 @@
 
     <table style="border:0; margin-top:8px; table-layout:fixed;"><tr>
         <td style="border:0; padding-right:5px; vertical-align:top;">
-            <div class="section">By nutritional status</div>
+            <div class="section">{{ ($summary['classification_basis'] ?? '') === 'asia_pacific_bmi' ? 'Adult BMI classification' : 'By recorded nutritional status' }}</div>
             <table class="grid">@foreach($summary['by_nutritional_status'] as $label => $count)@if($label !== 'Unspecified')<tr><td>{{ $label }}</td><td class="right bold">{{ $count }}</td></tr>@endif @endforeach</table>
             @if(($summary['by_nutritional_status']['Unspecified'] ?? 0) > 0)<p class="muted">Not classified: {{ $summary['by_nutritional_status']['Unspecified'] }}</p>@endif
         </td>

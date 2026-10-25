@@ -247,7 +247,17 @@ export default function LogVisitForm({ ncpId, plan, context, intervention, onSub
     return () => { active = false; };
   }, [ncpId, readOnly, draftId]);
 
-  const bmi = readOnly ? fieldValue(entry?.bmi) : Number(weight) > 0 && Number(height) > 0 ? String(calculateBmi(Number(weight), Number(height))) : "";
+  useEffect(() => {
+    if (!ncpId || readOnly || !budget?.resets_at || budget.remaining > 0) return;
+    let active = true;
+    const delay = Math.max(1000, Date.parse(budget.resets_at) - Date.now() + 1000);
+    const timer = window.setTimeout(() => {
+      fetchMonitoringAiBudget(ncpId, draftId).then(value => { if (active) setBudget(value); }).catch(() => undefined);
+    }, delay);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [ncpId, readOnly, draftId, budget?.resets_at, budget?.remaining]);
+
+  const bmi = context?.age_years != null && context.age_years < 5 ? "" : readOnly ? fieldValue(entry?.bmi) : Number(weight) > 0 && Number(height) > 0 ? String(calculateBmi(Number(weight), Number(height))) : "";
 
   function buildPayload(recall = foodRecall): MonitoringPayload {
     const labValues: Record<string, number | string | null> = {};
@@ -303,7 +313,7 @@ export default function LogVisitForm({ ncpId, plan, context, intervention, onSub
     latestText.current = clinicalSummary;
   }, [comparisonInputs, clinicalSummary]);
 
-  async function generateSummary() {
+  async function generateSummary(regenerate = false) {
     if (!ncpId || !budget || budget.remaining <= 0 || aiLoading) return;
     const payload = JSON.parse(comparisonInputs) as Omit<MonitoringPayload, "clinical_summary">;
     const validationError = monitoringTextError(payload);
@@ -312,12 +322,12 @@ export default function LogVisitForm({ ncpId, plan, context, intervention, onSub
     setAiError(null);
     setSuggestion(null);
     try {
-       const result = await requestMonitoringAiReview(ncpId, { ...payload, entry_key: budget.entry_key, draft_id: draftId, ...(entry ? { monitoring_id: entry.id } : {}) });
-      setBudget({ ...budget, remaining: result.remaining });
+       const result = await requestMonitoringAiReview(ncpId, { ...payload, entry_key: budget.entry_key, draft_id: draftId, ...(entry ? { monitoring_id: entry.id } : {}), ...(regenerate ? { regenerate: true } : {}) });
+      setBudget({ ...budget, remaining: result.remaining, resets_at: result.resets_at ?? budget.resets_at });
       if (latestInputs.current !== comparisonInputs) {
         setAiError(result.remaining > 0
           ? "Entry values changed during generation. Generate again using the current values."
-          : "Entry values changed during generation. Write or review your summary manually; this entry has no generations left.");
+          : "Entry values changed during generation. Write or review your summary manually; the request allowance resets within ten minutes.");
       } else if (latestText.current.trim()) {
         setSuggestion({ text: result.narrative, inputs: comparisonInputs });
       } else {
@@ -479,8 +489,9 @@ export default function LogVisitForm({ ncpId, plan, context, intervention, onSub
             <CharacterCountTextarea aria-label="Progress Assessment" autoGrow required value={clinicalSummary} onChange={setClinicalSummary} maxLength={MONITORING_TEXT_LIMITS.clinical_summary} rows={3} className="w-full resize-none overflow-hidden rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
           </label>
           {!readOnly && <div className="flex flex-wrap items-center gap-3">
-            <Button type="button" variant="ghost" disabled={!budget || budget.remaining <= 0 || submitting} loading={aiLoading} onClick={generateSummary}>Generate AI Summary</Button>
-            {budget && <span className="text-xs text-warm-500" role="status">{budget.remaining} generations left for this entry</span>}
+            <Button type="button" variant="ghost" disabled={!budget || budget.remaining <= 0 || submitting} loading={aiLoading} onClick={() => generateSummary()}>Generate AI Summary</Button>
+            {(generatedFor === comparisonInputs || suggestion?.inputs === comparisonInputs) && <Button type="button" variant="ghost" disabled={!budget || budget.remaining <= 0 || submitting || aiLoading} onClick={() => generateSummary(true)}>Regenerate AI Summary</Button>}
+            {budget && <span className="text-xs text-warm-500" role="status">{budget.remaining}/10 monitoring requests left in this 10-minute window</span>}
           </div>}
           {aiError && <p className="text-sm text-red-700" role="alert">{aiError}</p>}
           {suggestion && (

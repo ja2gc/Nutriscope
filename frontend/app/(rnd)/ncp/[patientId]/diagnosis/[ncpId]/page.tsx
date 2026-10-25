@@ -112,7 +112,7 @@ const NI_SIGNS = [
   "Estimated intake > 125% of estimated needs",
   "Unintentional weight loss > 5% in 3 months",
   "BMI < 18.5 (underweight)",
-  "BMI > 25 (overweight) or > 30 (obese)",
+  "BMI ≥ 23 (overweight) or ≥ 25 (obesity), Asia-Pacific",
   "Serum albumin < 3.5 g/dL",
   "Low hemoglobin / hematocrit",
   "Muscle wasting noted on physical exam",
@@ -121,7 +121,7 @@ const NI_SIGNS = [
 ];
 
 const NC_SIGNS = [
-  "BMI ≥ 25 (overweight / obesity)",
+  "BMI ≥ 23 (Asia-Pacific overweight / obesity)",
   "Swallowing / chewing difficulty documented",
   "Food-medication interaction documented",
   "Suboptimal energy intake documented",
@@ -435,12 +435,12 @@ export default function NcpDiagnosisPage({
   useEffect(() => {
     if (isPlaceholder) return;
     const refresh = () => { void refreshAiStatus().catch(() => setAiUnavailable("Could not refresh AI draft status.")); };
-    const reset = aiMeta?.budget?.resets_at;
+    const reset = aiMeta?.budget?.used ? aiMeta.budget.resets_at : null;
     const delay = reset ? Math.max(1000, new Date(reset).getTime() - Date.now() + 1000) : null;
     const timer = delay !== null ? setTimeout(refresh, Math.min(delay, 2147483647)) : undefined;
     window.addEventListener("focus", refresh);
     return () => { if (timer !== undefined) clearTimeout(timer); window.removeEventListener("focus", refresh); };
-  }, [aiMeta?.budget?.resets_at, isPlaceholder, refreshAiStatus]);
+  }, [aiMeta?.budget?.resets_at, aiMeta?.budget?.used, isPlaceholder, refreshAiStatus]);
 
   const updateBuilder = (patch: Partial<BuilderState>) => setBuilder(prev => ({ ...prev, ...patch }));
 
@@ -516,7 +516,7 @@ export default function NcpDiagnosisPage({
       setAiLoading(true);
       setError(null);
       setAiUnavailable(null);
-      const result = await aiSuggestDiagnoses(ncpId);
+      const result = await aiSuggestDiagnoses(ncpId, Boolean(aiMeta?.can_retry));
       setAiSuggestions(result.data);
       setAiDraftsPage(1);
       setAiMeta(result.meta);
@@ -542,7 +542,7 @@ export default function NcpDiagnosisPage({
       } else {
         setDiagnosesPage(1);
       }
-      setAiSuggestions(prev => prev.filter(draft => draft.candidate_id !== s.candidate_id));
+      setAiSuggestions(prev => prev.filter(draft => draft.draft_id !== s.draft_id));
       setAiDraftsPage(1);
       setSuccess("PES draft accepted and saved.");
       setTimeout(() => setSuccess(null), 3000);
@@ -558,7 +558,7 @@ export default function NcpDiagnosisPage({
     try {
       setAiLoading(true);
       setError(null);
-      const result = await dismissPesSuggestion(ncpId, s.candidate_id);
+      const result = await dismissPesSuggestion(ncpId, s.draft_id);
       setAiSuggestions(result.data);
       setAiDraftsPage(1);
       setAiMeta(result.meta);
@@ -948,7 +948,7 @@ export default function NcpDiagnosisPage({
       <div>
         <SectionLabel>Select Signs & Symptoms (As Evidenced By)</SectionLabel>
         <div className="space-y-1 bg-warm-50/60 rounded-xl p-4 border border-warm-200">
-          {getSigns(builder.domain).map(s => (
+          {Array.from(new Set([...getSigns(builder.domain), ...builder.signChecks])).map(s => (
             <Checkbox
               key={s}
               checked={builder.signChecks.includes(s)}
@@ -1061,26 +1061,26 @@ export default function NcpDiagnosisPage({
         <div className="mb-2 flex items-center gap-1 text-sm font-bold uppercase tracking-wider text-emerald-600">
           <span>AI Suggestions</span>
           <InfoHint label="How PES drafts work" title="How PES drafts work">
-            Each generation returns up to three drafts from saved Assessment findings. Normal findings alone do not establish a diagnosis. Review every draft before saving.
+            Reviews saved findings once and returns up to three supported nutrition diagnoses. Relevant evidence changes or deletion reopen review. Referral diagnoses provide context. Review every draft before saving.
           </InfoHint>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={handleAiSuggest}
-            disabled={aiLoading || !hasAssessment || !aiMeta?.can_generate || Boolean(aiUnavailable)}
+            disabled={aiLoading || !hasAssessment || !(aiMeta?.can_generate || aiMeta?.can_retry) || Boolean(aiUnavailable)}
             aria-describedby="ai-generation-state"
             title={aiMeta?.disabled_reason ?? aiUnavailable ?? undefined}
             className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-xs font-extrabold uppercase tracking-wider text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-warm-300"
           >
             {aiLoading && <RefreshCw className="h-3.5 w-3.5 animate-spin" />}
-            {aiLoading ? "Generating suggestions..." : "Generate AI Suggestions"}
+            {aiLoading ? "Generating suggestions..." : aiMeta?.can_retry ? "Retry AI Review" : "Generate AI Suggestions"}
           </button>
           {(aiMeta?.disabled_reason || aiUnavailable) && <InfoHint label="Why AI generation is unavailable" title="AI generation unavailable">{aiMeta?.disabled_reason ?? aiUnavailable}</InfoHint>}
           {aiUnavailable && <button type="button" onClick={() => { void refreshAiStatus().catch(() => setAiUnavailable("Could not load AI draft status. Try again shortly.")); }} className="min-h-11 text-xs font-semibold text-emerald-700 underline">Refresh status</button>}
         </div>
         <p id="ai-generation-state" role="status" className="mt-2 text-xs text-warm-600">
-          {aiMeta?.budget && <span>{aiMeta.budget.used}/{aiMeta.budget.limit} generations used today for this patient. </span>}
+          {aiMeta?.budget && <span>{aiMeta.budget.used}/{aiMeta.budget.limit} diagnosis requests used in this 10-minute window. </span>}
           {aiUnavailable ?? aiMeta?.disabled_reason}
         </p>
         {!hasAssessment && (
@@ -1104,7 +1104,7 @@ export default function NcpDiagnosisPage({
           {visibleAiDrafts.map(s => {
             const pes = `${s.label} related to ${s.etiology} as evidenced by ${s.signs}`;
             return (
-              <div key={s.candidate_id} className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm space-y-3">
+              <div key={s.draft_id} className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm space-y-3">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <DomainBadge domain={s.domain} />
                   <span className="text-xs font-bold text-orange-600 uppercase tracking-wider">AI draft for RND review</span>
@@ -1127,6 +1127,8 @@ export default function NcpDiagnosisPage({
                   </div>
                 </div>
                 {s.extra_notes && <p className="text-xs text-warm-600"><span className="font-semibold">Extra Notes: </span>{s.extra_notes}</p>}
+                {s.builder_data.etiology_notes && <p className="text-xs text-warm-600"><span className="font-semibold">Additional Etiology Notes: </span>{s.builder_data.etiology_notes}</p>}
+                {s.builder_data.sign_notes && <p className="text-xs text-warm-600"><span className="font-semibold">Additional Signs and Symptoms Notes: </span>{s.builder_data.sign_notes}</p>}
                 <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-warm-100">
                   <button
                     type="button"

@@ -2,6 +2,14 @@ import { formatPatientAge, getPatientAgeParts } from "./patientAge";
 
 export const CIRCUMFERENCE_BOUNDS = { min: 20, max: 250 } as const;
 
+/** WHO 6–59-month MUAC screening only; not a complete nutrition assessment. */
+export function getMuacScreening(muacMm: number | null, ageMonths: number | null): { label: string; color: string } | null {
+  if (muacMm === null || !Number.isFinite(muacMm) || muacMm <= 0 || ageMonths === null || !Number.isFinite(ageMonths) || ageMonths < 6 || ageMonths >= 60) return null;
+  if (muacMm < 115) return { label: 'Very low MUAC', color: 'text-red-600' };
+  if (muacMm < 125) return { label: 'Low MUAC', color: 'text-amber-600' };
+  return { label: 'Above screening cutoff', color: 'text-warm-500' };
+}
+
 export function getWaistHipAssessment({ waistCm, hipCm, sex, ageYears, pregnancyLactationStatus }: {
   waistCm?: number | string | null;
   hipCm?: number | string | null;

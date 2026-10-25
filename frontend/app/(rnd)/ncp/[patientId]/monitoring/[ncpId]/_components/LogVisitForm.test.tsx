@@ -141,7 +141,7 @@ describe("draft monitoring summary", () => {
     expect(summary.value).toContain("Intake improved");
     fireEvent.change(summary, { target: { value: "Reviewed summary." } });
     expect(summary.value).toBe("Reviewed summary.");
-    expect(screen.getByText("2 generations left for this entry")).toBeTruthy();
+    expect(screen.getByText("2/10 monitoring requests left in this 10-minute window")).toBeTruthy();
     expect(screen.getByText(/25–35 g/)).toBeTruthy();
     expect(screen.getByRole("spinbutton", { name: /Energy intake/ })).toBeTruthy();
   });
@@ -162,7 +162,7 @@ describe("draft monitoring summary", () => {
 
   it("keeps manual entry available after the server allowance is exhausted", async () => {
     await open(0);
-    await screen.findByText("0 generations left for this entry");
+    await screen.findByText("0/10 monitoring requests left in this 10-minute window");
     expect((screen.getByRole("button", { name: "Generate AI Summary" }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole("textbox", { name: "Progress Assessment" }) as HTMLTextAreaElement).disabled).toBe(false);
   });

@@ -16,11 +16,11 @@ import {
 import { fetchPatientById, Patient, updatePatient, PatientUpdateData } from "@/services/patientService";
 import {
   calcIBW, calcPercentIBW, calcBMR, calcTEE, calcBmrWeight,
-  classifyBmi, classifyNutritionalStatus, ACTIVITY_FACTORS,
+  classifyBmi, ACTIVITY_FACTORS,
 } from "@/lib/nutritionCalculations";
 import { CALCULATION_INPUT_HELPERS } from "@/lib/assessmentCalculationInputs";
-import { CIRCUMFERENCE_BOUNDS, getAnthropometricSafetyWarning, getWaistHipAssessment } from "@/lib/anthropometricSafety";
-import { formatDateInputValue, formatPatientAge } from "@/lib/patientAge";
+import { CIRCUMFERENCE_BOUNDS, getAnthropometricSafetyWarning, getWaistHipAssessment, getMuacScreening } from "@/lib/anthropometricSafety";
+import { formatDateInputValue, formatPatientAge, getPatientAgeParts } from "@/lib/patientAge";
 import { changedPersonNameFields } from "@/lib/personName";
 import {
   Assessment, AssessmentValidationError, fetchAssessment, saveAssessment,
@@ -754,24 +754,16 @@ export default function NcpAssessmentPage({
   // ─── BMI Auto-Calc ──────────────────────────────────────────────────
   const weight = Number(assessment.weight) || 0;
   const height = Number(assessment.height) || 0;
-  const computedBmi = calcBmi(weight || null, height || null);
-  const computedBmiClassification = computedBmi !== null ? classifyBmi(computedBmi) : null;
 
   // ─── Auto-Calc Panel Derived Values ────────────────────────────────
   const patientSex = (patient?.sex as "Male" | "Female") ?? "Male";
   const patientDobStr = screeningDraft?.dob || patient?.dob || null;
-  const patientAgeYears = patientDobStr
-    ? (() => {
-      const b = new Date(patientDobStr);
-      const now = new Date();
-      let age = now.getFullYear() - b.getFullYear();
-      const m = now.getMonth() - b.getMonth();
-      if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age -= 1;
-      return age;
-    })()
-    : 30;
+  const assessmentAge = getPatientAgeParts(patientDobStr, assessment.bmi_reference_date ? new Date(`${assessment.bmi_reference_date}T00:00:00`) : new Date());
+  const patientAgeYears = assessmentAge?.years ?? 0;
+  const adultEstimatesSupported = assessmentAge !== null && assessmentAge.totalMonths > 228 && (patient?.sex === 'Male' || patient?.sex === 'Female');
+  const computedBmi = assessmentAge !== null && assessmentAge.totalMonths >= 60 ? calcBmi(weight || null, height || null) : null;
 
-  const computedIBW = weight > 0 && height > 0 ? calcIBW(height, patientSex) : null;
+  const computedIBW = adultEstimatesSupported && weight > 0 && height > 0 ? calcIBW(height, patientSex) : null;
   const computedPercentIBW = computedIBW !== null && weight > 0 ? calcPercentIBW(weight, computedIBW) : null;
   const palKey = assessment.physical_activity_level ?? "sedentary";
   const palFactor = ACTIVITY_FACTORS[palKey]?.factor ?? 1.2;
@@ -780,9 +772,8 @@ export default function NcpAssessmentPage({
     ? calcBMR(computedBmrWt, height, patientAgeYears, patientSex)
     : null;
   const computedTEE = computedBMR !== null ? Math.round(calcTEE(computedBMR, palFactor)) : null;
-  const computedNutritionalStatus = computedBmi !== null && computedPercentIBW !== null
-    ? classifyNutritionalStatus(computedBmi, computedPercentIBW)
-    : null;
+  const computedBmiClassification = computedBmi !== null
+    ? classifyBmi(computedBmi, assessmentAge?.years ?? null, assessment.edema_present ?? false, assessment.pregnancy_lactation_status ?? 'none', patient?.sex, assessmentAge?.totalMonths) : null;
   const { ratio: computedWHR, risk: whrRisk, error: whrError } = getWaistHipAssessment({
     waistCm: assessment.waist_cm, hipCm: assessment.hip_cm,
     sex: patient?.sex ?? null, ageYears: patientDobStr ? patientAgeYears : null,
@@ -814,20 +805,7 @@ export default function NcpAssessmentPage({
 
   // ─── MUAC Classification ────────────────────────────────────────────
   const muacValue = Number(assessment.muac_mm) || 0;
-  const isAdultPatient = patientAgeYears >= 18;
-  const muacClassification = muacValue > 0
-    ? (() => {
-      if (isAdultPatient) {
-        if (muacValue >= 210) return { label: "Normal", color: "text-emerald-600" };
-        if (muacValue >= 190) return { label: "Moderate Malnutrition", color: "text-amber-600" };
-        return { label: "Severe Malnutrition", color: "text-red-600" };
-      }
-      // Pediatric 6–59 months
-      if (muacValue >= 125) return { label: "Normal", color: "text-emerald-600" };
-      if (muacValue >= 115) return { label: "MAM", color: "text-amber-600" };
-      return { label: "SAM", color: "text-red-600" };
-    })()
-    : null;
+  const muacClassification = getMuacScreening(muacValue, getPatientAgeParts(patientDobStr, assessment.bmi_reference_date ? new Date(`${assessment.bmi_reference_date}T00:00:00`) : new Date())?.totalMonths ?? null);
 
   // ─── Risk Score (live, derived from current form state) ────────────
   const riskResult = deriveRiskScore({
@@ -876,7 +854,7 @@ export default function NcpAssessmentPage({
         muacClassification: muacClassification?.label ?? null,
         whr: computedWHR === null ? null : Number(computedWHR.toFixed(3)),
         whrRisk,
-        nutritionalStatus: computedNutritionalStatus?.label ?? assessment.nutritional_status,
+        nutritionalStatus: computedBmiClassification?.severity === 'unknown' ? null : computedBmiClassification?.label,
       },
       labs,
       risk: riskScore > 0 || effectiveRiskFactors.length > 0
@@ -1223,12 +1201,12 @@ export default function NcpAssessmentPage({
         </div>
         {/* BMI — from weight + height */}
         <div className={`rounded-xl border p-2.5 ${computedBmi !== null ? "bg-white border-warm-200" : "bg-warm-50 border-warm-100"}`}>
-          <p className="text-xs font-bold text-warm-400 uppercase tracking-wider">BMI</p>
+          <div className="flex h-4 items-center gap-1.5"><p className="text-xs font-bold text-warm-400 uppercase tracking-wider">BMI</p><InfoHint label="BMI classification reference" title="BMI reference">WHO 2007: sex-specific bands, 61–228 months (5–19 years). Asia-Pacific: older ages. Under 5: growth calculator not implemented; measurements retained. Month 60: BMI only. Unknown age or pediatric sex, edema or pregnancy/lactation: no class. BMI class is not a malnutrition diagnosis.</InfoHint></div>
           <p className={`text-xl font-black font-mono mt-0.5 ${computedBmi !== null ? "text-warm-900" : "text-warm-300"}`}>
-            {computedBmi !== null ? computedBmi.toFixed(1) : "—"}
+            {computedBmi !== null ? computedBmi.toFixed(2) : "—"}
           </p>
           <p className={`mt-0.5 text-xs font-bold ${computedBmiClassification?.colorClass.split(" ").find((token) => token.startsWith("text-")) ?? "text-warm-400"}`}>
-            {computedBmiClassification ? computedBmiClassification.label : "Enter weight & height"}
+            {computedBmiClassification ? computedBmiClassification.label : assessmentAge !== null && assessmentAge.totalMonths < 60 ? "Not calculated under age 5" : "Enter weight & height"}
           </p>
         </div>
         {/* BMR — from weight + height + age + sex (+ PAL for TEE) */}
@@ -1261,14 +1239,14 @@ export default function NcpAssessmentPage({
           </p>
         </div>
         {/* MUAC — from muac_mm */}
-        <div className={`rounded-xl border p-2.5 ${muacClassification !== null ? "bg-white border-warm-200" : "bg-warm-50 border-warm-100"}`}>
+        <div className={`rounded-xl border p-2.5 ${muacValue > 0 ? "bg-white border-warm-200" : "bg-warm-50 border-warm-100"}`}>
           <p className="text-xs font-bold text-warm-400 uppercase tracking-wider">MUAC</p>
-          <p className={`text-xl font-black font-mono mt-0.5 ${muacClassification !== null ? "text-warm-900" : "text-warm-300"}`}>
+          <p className={`text-xl font-black font-mono mt-0.5 ${muacValue > 0 ? "text-warm-900" : "text-warm-300"}`}>
             {muacValue > 0 ? `${muacValue} mm` : "—"}
           </p>
           {muacClassification !== null
             ? <p className={`text-xs font-bold mt-0.5 ${muacClassification.color}`}>{muacClassification.label}</p>
-            : <p className="text-xs text-warm-400 mt-0.5">Enter MUAC (mm)</p>
+            : <p className="text-xs text-warm-400 mt-0.5">{muacValue > 0 ? 'Age-specific assessment needed' : 'Enter MUAC (mm)'}</p>
           }
         </div>
         {/* WHR — from waist_cm ÷ hip_cm */}

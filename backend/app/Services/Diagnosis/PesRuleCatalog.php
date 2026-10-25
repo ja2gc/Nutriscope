@@ -2,9 +2,11 @@
 
 namespace App\Services\Diagnosis;
 
+use App\Support\ClinicalAiContext;
+
 class PesRuleCatalog
 {
-    public const VERSION = '2026-10-20-v2';
+    public const VERSION = '2026-10-25-v6';
 
     private const ACADEMY_SOURCE = [
         'id' => 'academy_ncp_diagnosis_2026',
@@ -15,18 +17,18 @@ class PesRuleCatalog
         'url' => 'https://www.eatrightpro.org/practice/nutrition-care-process/ncp-overview/nutrition-diagnosis',
     ];
 
-    private const WHO_OBESITY_SOURCE = [
-        'id' => 'who_obesity_fact_sheet_2025',
-        'issuer' => 'World Health Organization',
-        'title' => 'Obesity and overweight',
-        'version' => 'web edition accessed 2026-10-20',
-        'location' => 'Definition of overweight and obesity — Adults',
-        'url' => 'https://www.who.int/news-room/fact-sheets/detail/obesity-and-overweight',
+    private const ASIA_PACIFIC_SOURCE = [
+        'id' => 'asia_pacific_bmi_2026',
+        'issuer' => 'World Obesity Federation',
+        'title' => 'Obesity Classification',
+        'version' => 'web table checked 2026-10-25; Asia-Pacific report (WHO, IASO, IOTF 2000)',
+        'location' => 'Asia-Pacific BMI classification table',
+        'url' => 'https://www.worldobesity.org/about/about-obesity/obesity-classification',
     ];
 
     public function version(): string
     {
-        return self::VERSION;
+        return self::VERSION.':'.ClinicalAiContext::version();
     }
 
     public function cards(): array
@@ -37,7 +39,7 @@ class PesRuleCatalog
                 'unintended_weight_loss_v1',
                 'Unintended Weight Loss',
                 ['weight_loss_percentage', 'weight_change_period'],
-                ['appetite', 'present_diet'],
+                ['appetite', 'present_diet', 'weight_kg', 'usual_weight_kg'],
                 ['weight_loss_percentage:non_positive'],
                 self::ACADEMY_SOURCE,
             ),
@@ -45,9 +47,9 @@ class PesRuleCatalog
                 'overweight_obesity_v1',
                 'Overweight / Obesity',
                 ['bmi', 'age_group'],
-                ['weight_kg', 'height_cm'],
-                ['age_group:pediatric', 'bmi:below_25'],
-                self::WHO_OBESITY_SOURCE,
+                ['bmi_classification'],
+                ['age_group:pediatric', 'bmi:below_23'],
+                self::ASIA_PACIFIC_SOURCE,
             ),
             $this->card(
                 'swallowing_chewing_difficulty_v1',
@@ -113,7 +115,7 @@ class PesRuleCatalog
             $cards[] = $card;
         }
         $cards[] = $this->card('altered_labs_v2', 'Altered Nutrition-Related Laboratory Values', ['laboratory_flags'], ['laboratory_values', 'medical_history', 'dietary_intake', 'supplements', 'nutrient_drug_interaction'], [], self::ACADEMY_SOURCE);
-        $cards[] = $this->card('clinical_other_v2', 'Other', ['physical_assessment', 'medical_history', 'body_composition', 'food_intolerance'], ['dietary_intake', 'present_diet', 'appetite', 'weight_change_direction', 'weight_change_percentage', 'weight_change_period', 'edema_present', 'pregnancy_lactation_status', 'nutritional_status', 'muac_mm', 'ibw_percentage'], [], self::ACADEMY_SOURCE);
+        $cards[] = $this->card('clinical_other_v2', 'Other', ['physical_assessment', 'medical_history', 'body_composition', 'food_intolerance'], ['dietary_intake', 'present_diet', 'appetite', 'weight_change_direction', 'weight_change_percentage', 'weight_change_period', 'edema_present', 'pregnancy_lactation_status', 'bmi_classification', 'muac_mm', 'ibw_percentage'], [], self::ACADEMY_SOURCE);
 
         return $cards;
     }

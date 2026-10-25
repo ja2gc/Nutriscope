@@ -14,6 +14,11 @@ function input(overrides: Partial<AssessmentSummaryInput> = {}): AssessmentSumma
 }
 
 describe("buildAssessmentSummary", () => {
+  test('never substitutes a legacy screening label for a BMI classification', () => {
+    const result = buildAssessmentSummary(input({ assessment: { nutritional_status: 'Severe Malnutrition' }, anthropometrics: { bmi: 22 } }));
+    expect(result).toContain('BMI 22');
+    expect(result).not.toContain('Severe Malnutrition');
+  });
   test('includes recorded recall nutrients and omits selected blank nutrients', () => {
     const result = buildAssessmentSummary(input({ assessment: { intake_nutrients: { energy_kcal: 1800, protein_g: 65, micro_sodium: 1200, micro_iron: null } } }));
     expect(result).toContain('Energy 1800 kcal');

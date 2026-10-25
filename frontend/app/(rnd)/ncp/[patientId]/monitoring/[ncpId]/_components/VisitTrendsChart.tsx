@@ -245,9 +245,6 @@ function WeightBmiChart({ entries }: { entries: MonitoringEntry[] }) {
                 <XAxis dataKey="date" tick={tickStyle} tickLine={false} axisLine={false} />
                 <YAxis tick={tickStyle} tickLine={false} axisLine={false} domain={["auto", "auto"]} />
                 <Tooltip content={<ChartTooltip />} />
-                {/* WHO normal range: 18.5–24.9 */}
-                <ReferenceLine ifOverflow="extendDomain" y={18.5} stroke="#fbbf24" strokeDasharray="4 3" strokeWidth={1} />
-                <ReferenceLine ifOverflow="extendDomain" y={24.9} stroke="#fbbf24" strokeDasharray="4 3" strokeWidth={1} />
                 <Line
                   type="monotone"
                   dataKey="bmi"

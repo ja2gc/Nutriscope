@@ -15,6 +15,19 @@ class NcpDiagnosisTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_editing_a_saved_legacy_bmi_choice_preserves_its_original_wording(): void
+    {
+        $rnd = $this->rnd();
+        $ncp = $this->ncpRecord($this->patient(), $rnd);
+        $this->assessment($ncp);
+        $sign = 'BMI ≥ 25 (overweight / obesity)';
+        $builder = ['problem_checks' => ['Overweight / Obesity'], 'etiology_checks' => [], 'etiology_other' => 'Documented cause', 'sign_checks' => [$sign], 'sign_other' => ''];
+        $diagnosis = Diagnosis::forceCreate(['ncp_record_id' => $ncp->id, 'domain' => 'NC', 'problem' => 'Overweight / Obesity', 'etiology' => 'Documented cause', 'signs_symptoms' => $sign, 'pes_statement' => Diagnosis::buildPes('Overweight / Obesity', 'Documented cause', $sign), 'builder_data' => $builder]);
+        $this->actingAs($rnd, 'sanctum')->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/diagnoses/{$diagnosis->uuid}", ['domain' => 'NC', 'builder_data' => $builder])
+            ->assertOk()->assertJsonPath('data.signs_symptoms', $sign);
+        $this->assertSame([$sign], $diagnosis->fresh()->builder_data['sign_checks']);
+    }
+
     private function rnd(): User
     {
         return User::forceCreate([

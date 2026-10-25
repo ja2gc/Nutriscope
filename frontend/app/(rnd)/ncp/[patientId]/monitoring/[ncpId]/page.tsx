@@ -339,7 +339,7 @@ export default function NcpMonitoringPage({
                   baselineWeight={assessment?.weight ? Number(assessment.weight) : null}
                   baselineBmi={assessment?.bmi ? Number(assessment.bmi) : null}
                   baselineLabs={biochemicalData}
-                  nutritionalStatus={assessment?.nutritional_status ?? null}
+                  nutritionalStatus={assessment?.bmi_classification ?? null}
                 />
                 <VisitTrendsChart plan={plan} entries={entries} intervention={intervention} category={category} />
               </div>
@@ -376,11 +376,11 @@ export default function NcpMonitoringPage({
                     </span>
                   </div>
                 )}
-                {assessment?.nutritional_status && (
+                {assessment?.bmi_classification && (
                   <div className="flex justify-between py-2.5 gap-3">
-                    <span className="font-semibold text-warm-400 shrink-0">Starting Status</span>
+                    <span className="font-semibold text-warm-400 shrink-0">Starting BMI class</span>
                     <span className="font-semibold text-warm-700 text-right leading-tight">
-                      {assessment.nutritional_status}
+                      {assessment.bmi_classification}
                     </span>
                   </div>
                 )}

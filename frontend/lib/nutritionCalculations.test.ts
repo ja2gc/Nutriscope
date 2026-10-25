@@ -283,26 +283,25 @@ describe('autofillPediatric growth allowance', () => {
 // ── classifyNutritionalStatus ─────────────────────────────────────────────────
 
 describe('classifyNutritionalStatus', () => {
-  test('returns Severe Malnutrition for BMI < 16', () => {
+  test('returns Underweight without a diagnosis or severity for BMI < 16', () => {
     const result = classifyNutritionalStatus(15.5, 65);
-    assert.equal(result.label, 'Severe Malnutrition');
-    assert.equal(result.severity, 'severe_malnutrition');
+    assert.equal(result.label, 'Underweight');
+    assert.equal(result.severity, 'underweight');
   });
 
-  test('returns Severe Malnutrition for %IBW < 70 even if BMI is borderline', () => {
-    // %IBW < 70 should override
+  test('does not let %IBW < 70 override the BMI classification', () => {
     const result = classifyNutritionalStatus(17.0, 68);
-    assert.equal(result.label, 'Severe Malnutrition');
+    assert.equal(result.label, 'Underweight');
   });
 
-  test('returns Moderate Malnutrition for BMI 16-16.9', () => {
+  test('returns Underweight for BMI 16-16.9', () => {
     const result = classifyNutritionalStatus(16.5, 75);
-    assert.equal(result.label, 'Moderate Malnutrition');
+    assert.equal(result.label, 'Underweight');
   });
 
-  test('returns Mild Malnutrition for BMI 17-18.4', () => {
+  test('returns Underweight for BMI 17-18.4', () => {
     const result = classifyNutritionalStatus(17.5, 87);
-    assert.equal(result.label, 'Mild Malnutrition / Underweight');
+    assert.equal(result.label, 'Underweight');
   });
 
   test('returns Normal for BMI 18.5-24.9', () => {
@@ -316,32 +315,33 @@ describe('classifyNutritionalStatus', () => {
   test('returns Overweight for AP BMI 23-24.9', () => {
     const result = classifyNutritionalStatus(24.0, 110);
     assert.equal(result.label, 'Overweight');
-    assert.equal(result.suggestedStage, 'overweight');
+    assert.equal(result.suggestedStage, undefined);
   });
 
   test('returns Obese Class I for AP BMI 25-29.9', () => {
     const result = classifyNutritionalStatus(27.0, 112);
     assert.equal(result.label, 'Obese Class I');
-    assert.equal(result.suggestedGoal, 'weight_loss');
-    assert.equal(result.suggestedStage, 'class_1');
+    assert.equal(result.suggestedGoal, undefined);
+    assert.equal(result.suggestedStage, undefined);
   });
 
   test('returns Obese Class II for AP BMI 30-34.9', () => {
     const result = classifyNutritionalStatus(32.0, 125);
     assert.equal(result.label, 'Obese Class II');
-    assert.equal(result.suggestedStage, 'class_2');
+    assert.equal(result.suggestedStage, undefined);
   });
 
-  test('returns Obese Class II (Severe) for AP BMI >= 35', () => {
+  test('keeps Obese Class II without inferring severity for AP BMI >= 35', () => {
     const result = classifyNutritionalStatus(37.0, 140);
-    assert.equal(result.label, 'Obese Class II (Severe)');
-    assert.equal(result.suggestedStage, 'class_3');
+    assert.equal(result.label, 'Obese Class II');
+    assert.equal(result.suggestedStage, undefined);
   });
 
-  test('returns suggestedGoal for malnutrition stages', () => {
-    const severe = classifyNutritionalStatus(15.0, 65);
-    assert.equal(severe.suggestedGoal, 'malnutrition');
-    assert.equal(severe.suggestedStage, 'severe');
+  test('does not turn low %IBW into a malnutrition diagnosis or goal', () => {
+    const result = classifyNutritionalStatus(22, 65);
+    assert.equal(result.label, 'Normal');
+    assert.equal(result.suggestedGoal, undefined);
+    assert.equal(result.suggestedStage, undefined);
   });
 });
 
@@ -351,6 +351,24 @@ describe('classifyBmi', () => {
     assert.equal(classifyBmi(24).label, 'Overweight');
     assert.equal(classifyBmi(27).label, 'Obese Class I');
     assert.equal(classifyBmi(32).label, 'Obese Class II');
-    assert.equal(classifyBmi(37).label, 'Obese Class II (Severe)');
+    assert.equal(classifyBmi(37).label, 'Obese Class II');
+  });
+  test('matches adult Asia-Pacific boundaries and rejects unsupported contexts', () => {
+    for (const [bmi, label] of [[18.49, 'Underweight'], [18.5, 'Normal'], [22.99, 'Normal'], [23, 'Overweight'], [24.99, 'Overweight'], [25, 'Obese Class I'], [29.99, 'Obese Class I'], [30, 'Obese Class II']] as const) assert.equal(classifyBmi(bmi, 35).label, label);
+    for (const bmi of [NaN, Infinity, 0, -1]) assert.equal(classifyBmi(bmi, 35).severity, 'unknown');
+    assert.equal(classifyBmi(27, null).severity, 'unknown');
+    assert.equal(classifyBmi(27, 17).severity, 'unknown');
+    assert.equal(classifyBmi(14, 2).severity, 'unknown');
+    assert.equal(classifyBmi(27, 35, true).severity, 'unknown');
+    assert.equal(classifyBmi(27, 35, false, 'pregnant_t2').severity, 'unknown');
+    assert.equal(classifyBmi(27, 35, false, 'lactating').severity, 'unknown');
+  });
+  test('uses WHO sex/month thresholds without extrapolation or adult cutoffs', () => {
+    for (const [bmi, label] of [[12.117, 'Severe thinness'], [12.118, 'Thinness'], [13.031, 'Normal'], [16.645, 'Normal'], [16.646, 'Overweight'], [18.259, 'Overweight'], [18.260, 'Obesity']] as const) assert.equal(classifyBmi(bmi, 5, false, 'none', 'Male', 61).label, label);
+    assert.equal(classifyBmi(16.8, 5, false, 'none', 'Female', 61).label, 'Normal');
+    assert.equal(classifyBmi(16.8, 5, false, 'none', null, 61).severity, 'unknown');
+    assert.equal(classifyBmi(16.8, 5, false, 'none', 'Male', 60).severity, 'unknown');
+    assert.equal(classifyBmi(24, 19, false, 'none', 'Male', 228).label, 'Normal');
+    assert.equal(classifyBmi(24, 19, false, 'none', 'Male', 229).label, 'Overweight');
   });
 });

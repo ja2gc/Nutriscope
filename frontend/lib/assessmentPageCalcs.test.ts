@@ -111,11 +111,11 @@ describe('Auto-calc panel: TEE from PAL selection', () => {
 // ── Nutritional status chip ───────────────────────────────────────────────────
 
 describe('Auto-calc panel: nutritional status chip (classifyNutritionalStatus)', () => {
-  test('BMI 38 → Obese Class II (Severe) with weight_loss goal hint', () => {
+  test('BMI 38 remains Obese Class II without a severity or goal inference', () => {
     const result = classifyNutritionalStatus(38, 130);
-    assert.equal(result.label, 'Obese Class II (Severe)');
-    assert.equal(result.suggestedGoal, 'weight_loss');
-    assert.equal(result.suggestedStage, 'class_3');
+    assert.equal(result.label, 'Obese Class II');
+    assert.equal(result.suggestedGoal, undefined);
+    assert.equal(result.suggestedStage, undefined);
   });
 
   test('BMI 22, %IBW 100 → Normal with no goal hint', () => {
@@ -125,13 +125,12 @@ describe('Auto-calc panel: nutritional status chip (classifyNutritionalStatus)',
     assert.equal(result.suggestedGoal, undefined);
   });
 
-  test('weight 42 kg, height 165 cm female → %IBW ≈ 74 → Moderate Malnutrition', () => {
+  test('weight 42 kg, height 165 cm female produces Underweight without diagnosing malnutrition', () => {
     const ibw = calcIBW(165, 'Female');   // ≈ 56.7 kg
     const pct = calcPercentIBW(42, ibw);  // ≈ 74%
     const bmi = Math.round((42 / (1.65 * 1.65)) * 100) / 100; // ≈ 15.47
     const result = classifyNutritionalStatus(bmi, pct);
-    // bmi < 16 → Severe Malnutrition
-    assert.equal(result.label, 'Severe Malnutrition');
+    assert.equal(result.label, 'Underweight');
   });
 
   test('WHR auto-display: waist 90 cm, hip 100 cm → WHR 0.90 (borderline male)', () => {

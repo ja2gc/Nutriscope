@@ -73,12 +73,12 @@
                     <tr>
                         <td><span class="muted">Height</span><br>{{ $number($assessment?->height) }}</td>
                         <td><span class="muted">Weight</span><br>{{ $number($assessment?->weight) }}</td>
-                        <td><span class="muted">BMI</span><br>{{ $number($assessment?->bmi) }}</td>
+                        <td><span class="muted">BMI</span><br>{{ $number(($assessment_age_months ?? 0) >= 60 ? $assessment?->bmi : null) }}</td>
                         <td><span class="muted">Usual Wt.</span><br>{{ $number($assessment?->usual_weight) }}</td>
                     </tr>
                     <tr>
                         <td colspan="2"><span class="muted">Wt. Change</span><br>{{ $number($assessment?->weight_loss_percentage) }}{{ $assessment?->weight_loss_percentage ? '%' : '' }} {{ $assessment?->weight_loss_period }}</td>
-                        <td colspan="2"><span class="muted">% IBW</span><br>{{ $number($assessment?->ibw_percentage) }}</td>
+                        <td colspan="2"><span class="muted">% IBW</span><br>{{ $number(($assessment_age_months ?? 0) > 228 ? $assessment?->ibw_percentage : null) }}</td>
                     </tr>
                 </table>
                 <table class="grid" style="margin-top:4px;">
@@ -113,10 +113,10 @@
     </table>
 
     {{-- Status / risk --}}
-    <div class="section">Nutritional Status &amp; Risk</div>
+    <div class="section">BMI Classification &amp; Screening Risk</div>
     <table class="meta">
         <tr>
-            <td style="border:0;"><span class="bold">Nutritional Status:</span> {{ $nutritional_status }}</td>
+            <td style="border:0;"><span class="bold">BMI classification:</span> {{ $nutritional_status }}</td>
             <td style="border:0;"><span class="bold">Risk Score:</span> {{ $number($risk_score) }}</td>
             <td style="border:0;"><span class="bold">Risk Level:</span> {{ $risk_band }}</td>
         </tr>
@@ -177,7 +177,7 @@
                 <tr>
                     <td>{{ optional($m->observed_at ?? $m->created_at)->format('M j, Y') }}</td>
                     <td class="center">{{ $number($m->weight) }}</td>
-                    <td class="center">{{ $number($m->bmi) }}</td>
+                    <td class="center">{{ $number(($m->ncpRecord?->patient?->dob?->diffInYears($m->observed_at ?? $m->created_at) ?? 0) >= 5 ? $m->bmi : null) }}</td>
                     <td>
                         @php($intake = is_array($m->lab_values) ? $m->lab_values : [])
                         @if(isset($intake['energy_kcal']))

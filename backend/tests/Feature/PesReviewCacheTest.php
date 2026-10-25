@@ -64,7 +64,7 @@ class PesReviewCacheTest extends TestCase
         $this->provider([$bad]);
         $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest";
         $this->postJson($url)->assertOk()->assertJsonPath('data', [])
-            ->assertJsonPath('meta.message', 'No supported evidence left.')
+            ->assertJsonPath('meta.review_outcome', 'rejected')->assertJsonPath('meta.can_retry', true)
             ->assertJsonPath('meta.can_generate', false)->assertJsonPath('meta.budget.used', 1);
         $this->postJson($url)->assertOk()->assertJsonPath('meta.budget.used', 1);
         Http::assertSentCount(1);
@@ -88,7 +88,7 @@ class PesReviewCacheTest extends TestCase
         $record = $this->record();
         $this->provider(['unexpected' => $this->draft()]);
         $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest";
-        $this->postJson($url)->assertOk()->assertJsonPath('data', [])->assertJsonPath('meta.message', 'No supported evidence left.');
+        $this->postJson($url)->assertOk()->assertJsonPath('data', [])->assertJsonPath('meta.review_outcome', 'rejected')->assertJsonPath('meta.can_retry', true);
         $this->postJson($url)->assertOk();
         Http::assertSentCount(1);
     }
@@ -101,7 +101,7 @@ class PesReviewCacheTest extends TestCase
             'usage' => ['input_tokens' => 100, 'output_tokens' => 50],
         ])]);
         $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest";
-        $this->postJson($url)->assertOk()->assertJsonPath('data', [])->assertJsonPath('meta.message', 'No supported evidence left.');
+        $this->postJson($url)->assertOk()->assertJsonPath('data', [])->assertJsonPath('meta.review_outcome', 'rejected')->assertJsonPath('meta.can_retry', true);
         $this->postJson($url)->assertOk();
         Http::assertSentCount(1);
         $this->assertDatabaseCount('ai_usage_logs', 1);
@@ -116,7 +116,7 @@ class PesReviewCacheTest extends TestCase
         ]);
         $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest";
         $this->postJson($url)->assertStatus(502);
-        $this->getJson($url)->assertOk()->assertJsonPath('meta.budget.used', 0)->assertJsonPath('meta.can_generate', true);
+        $this->getJson($url)->assertOk()->assertJsonPath('meta.budget.used', 1)->assertJsonPath('meta.can_generate', true);
         $this->postJson($url)->assertOk();
         Http::assertSentCount(2);
     }

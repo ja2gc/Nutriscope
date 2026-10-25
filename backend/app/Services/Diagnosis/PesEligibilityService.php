@@ -16,10 +16,10 @@ class PesEligibilityService
                 || in_array($this->canonicalProblem($card['problem_key']), $existing, true)) {
                 continue;
             }
-            if (! $this->matches($card['id'], $evidence)) {
+            if (! $this->matches($card['id'], $evidence, $card['problem_key'])) {
                 continue;
             }
-            $keys = array_unique([...$card['required_evidence'], ...$card['corroborating_evidence'], 'age_group', 'sex', 'edema_present', 'pregnancy_lactation_status', 'weight_change_direction', 'weight_change_percentage', 'usual_weight_kg', 'weight_kg', 'weight_change_period']);
+            $keys = array_unique([...$card['required_evidence'], ...$card['corroborating_evidence'], 'age_group', 'sex', 'edema_present', 'pregnancy_lactation_status', 'weight_change_direction', 'weight_change_percentage', 'weight_change_period']);
             $candidateEvidence = array_intersect_key($evidence, array_fill_keys($keys, true));
             $eligible[] = ['candidate_id' => $card['id'], 'domain' => $card['domain'], 'problem_key' => $card['problem_key'], 'evidence' => $candidateEvidence, 'source' => $card['source']];
         }
@@ -81,17 +81,56 @@ class PesEligibilityService
         return true;
     }
 
-    private function matches(string $id, array $evidence): bool
+    /** Intake labels need a documented nutrient and direction, not an unrelated abnormal field. */
+    public function supportsIntakeProblem(string $label, string $finding): bool
+    {
+        if (! preg_match('/^(Inadequate|Excessive) (.+) Intake$/i', $label, $parts)) {
+            return false;
+        }
+        $nutrient = match (strtolower($parts[2])) {
+            'energy', 'oral' => 'energy|calori\\w*|oral|food|meals?|(?:poor|reduced|decreased|inadequate|insufficient|excessive) intake',
+            'carbohydrates', 'carbohydrate' => 'carbohydrates?|carbs?',
+            'fluid' => 'fluids?|water',
+            'fiber' => 'fib(?:er|re)',
+            default => preg_quote($parts[2], '/'),
+        };
+        $direction = strtolower($parts[1]) === 'inadequate'
+            ? 'inadequate|insufficient|sub.?optimal|below|less|low|poor|reduced|decreased|half|miss(?:es|ed|ing)|skip\\w*'
+            : 'excessive|excess|above|exceed\\w*|high|too much|more than';
+        foreach (preg_split('/[.!?;\n]+/', $finding) as $part) {
+            if ($this->hasConcern($part) && ! preg_match('/\b(adequate|sufficient|normal|denies|denied|no|not)\b/i', $part)
+                && preg_match('/\b(?:'.$nutrient.')\b/i', $part) && preg_match('/\b(?:'.$direction.')\b/i', $part)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function matches(string $id, array $evidence, string $label): bool
     {
         $text = fn (string $key): bool => $this->hasConcern($evidence[$key] ?? null);
-        if (str_starts_with($id, 'inadequate_') || str_starts_with($id, 'excessive_') || $id === 'intake_other_v2') {
+        if (str_starts_with($id, 'inadequate_') || str_starts_with($id, 'excessive_')) {
+            return $this->supportsIntakeProblem($label, $evidence['dietary_intake'] ?? '');
+        }
+        if ($id === 'intake_other_v2') {
             return $text('dietary_intake');
         }
 
         return match ($id) {
+            'knowledge_deficit_v2' => $text('knowledge_notes'),
+            'food_insecurity_v2' => $text('social_history') && preg_match('/\b(food|meals?|groceries)\b/i', $evidence['social_history'] ?? '')
+                && preg_match('/\b(food insecur|(?:cannot|unable|struggl\w*|not enough|lack of|limited)\b.{0,35}\b(?:afford|food|meals)|financial\b.{0,30}\bfood|food\b.{0,30}\b(?:money|access|unavailable))/i', $evidence['social_history'] ?? ''),
+            'physical_inactivity_v2' => in_array($evidence['physical_activity_level'] ?? '', ['sedentary', 'inactive'], true)
+                || ($text('lifestyle') && preg_match('/\b(inactiv\w*|sedentary|no (?:planned )?physical activity|no exercise|does not exercise)\b/i', $evidence['lifestyle'] ?? '')),
+            'readiness_v2' => $text('lifestyle') && preg_match('/\b(not ready|unwilling|refus\w*|ambivalent)\b/i', $evidence['lifestyle'] ?? ''),
+            'self_monitoring_v2' => $text('knowledge_notes') && preg_match('/\b(monitor|record|log|track)\w*\b/i', $evidence['knowledge_notes'] ?? ''),
+            'adherence_v2' => ($text('lifestyle') || $text('dietary_intake')) && preg_match('/\b(adher\w*|complian\w*|prescribed|recommended|agreed plan)\b/i', ($evidence['lifestyle'] ?? '').' '.($evidence['dietary_intake'] ?? '')),
+            'food_beliefs_v2' => ($text('knowledge_notes') || $text('lifestyle')) && preg_match('/\b(believ\w*|belief|myth|fear|taboo)\b/i', ($evidence['knowledge_notes'] ?? '').' '.($evidence['lifestyle'] ?? '')),
+            'food_choices_v2' => $text('dietary_intake'),
             'unintended_weight_loss_v1' => ($evidence['weight_change_direction'] ?? 'unknown') === 'loss'
                 && ($evidence['weight_loss_percentage'] ?? 0) > 0 && ! empty($evidence['weight_change_period']),
-            'overweight_obesity_v1' => ($evidence['bmi'] ?? 0) >= 25 && in_array($evidence['age_group'] ?? null, ['adult', 'elderly'], true)
+            'overweight_obesity_v1' => ($evidence['bmi'] ?? 0) >= 23 && in_array($evidence['age_group'] ?? null, ['adult', 'elderly'], true)
                 && ($evidence['pregnancy_lactation_status'] ?? 'none') === 'none' && ! ($evidence['edema_present'] ?? false),
             'swallowing_chewing_difficulty_v1' => $text('chewing_swallowing_difficulties'),
             'altered_gi_function_v1' => $text('gi_symptoms'),

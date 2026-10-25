@@ -5,6 +5,8 @@
 // Persisted prescriptions MUST come from the backend autofill endpoint — this module
 // exists so the RND sees an instant value while typing.
 
+import whoBmi from './who-bmi-for-age.json' with { type: 'json' };
+
 export type Sex = 'Male' | 'Female';
 
 // ── Adult ──────────────────────────────────────────────────────────────────
@@ -389,65 +391,42 @@ export interface NutritionalStatusResult {
   suggestedStage?: string;
 }
 
-/** BMI-only view of the existing Asia-Pacific classification bands. */
-export function classifyBmi(bmi: number): NutritionalStatusResult {
-  return classifyNutritionalStatus(bmi, 100);
-}
-
-/**
- * Classifies nutritional status from BMI and %IBW using **WHO Asia-Pacific** cut-points (D1).
- * Uses the more severe of the two indicators (clinical convention).
- * Malnutrition bands follow intervention-goals.md §9; overweight/obese side follows AP + D2 remap.
- * `ageYears` is optional (reserved for GLIM age-banded low-BMI refinement).
- */
-export function classifyNutritionalStatus(
-  bmi: number,
-  percentIBW: number,
-  ageYears?: number,
-): NutritionalStatusResult {
-  void ageYears;
-  // Malnutrition — %IBW primary, BMI confirms (§9 classification bands)
-  if (percentIBW < 70 || bmi < 16.0) {
-    return { label: 'Severe Malnutrition', severity: 'severe_malnutrition',
-      colorClass: 'bg-red-100 text-red-800 border-red-200',
-      suggestedGoal: 'malnutrition', suggestedStage: 'severe' };
+/** BMI classification only. Callers with patient data supply population/fluid context. */
+export function classifyBmi(bmi: number, ageYears?: number | null, edemaPresent = false, maternalStatus = 'none', sex?: string | null, ageMonths?: number | null): NutritionalStatusResult {
+  const unavailable = { label: 'BMI classification unavailable', severity: 'unknown', colorClass: 'text-warm-400' };
+  if (!Number.isFinite(bmi) || bmi <= 0 || ageYears === null || (ageYears !== undefined && (!Number.isFinite(ageYears) || ageYears < 5)) || edemaPresent || maternalStatus !== 'none') {
+    return unavailable;
   }
-  if (percentIBW < 85 || bmi < 17.0) {
-    return { label: 'Moderate Malnutrition', severity: 'moderate_malnutrition',
-      colorClass: 'bg-red-50 text-red-700 border-red-100',
-      suggestedGoal: 'malnutrition', suggestedStage: 'moderate' };
+  const months = ageMonths ?? (ageYears === undefined ? Infinity : Math.floor(ageYears * 12));
+  if (months <= 228) {
+    if (months < 61 || (sex !== 'Male' && sex !== 'Female')) return unavailable;
+    const [severe, thin, overweight, obesity] = whoBmi[sex][months - 61];
+    const label = bmi < severe ? 'Severe thinness' : bmi < thin ? 'Thinness' : bmi > obesity ? 'Obesity' : bmi > overweight ? 'Overweight' : 'Normal';
+    return { label, severity: label === 'Normal' ? 'normal' : 'pediatric', colorClass: label === 'Normal' ? 'text-green-700' : 'text-amber-700' };
   }
-  if (percentIBW < 90 || bmi < 18.5) {
-    return { label: 'Mild Malnutrition / Underweight', severity: 'mild_malnutrition',
-      colorClass: 'bg-amber-50 text-amber-700 border-amber-100',
-      suggestedGoal: 'weight_gain', suggestedStage: 'mild' };
+  if (bmi < 18.5) {
+    return { label: 'Underweight', severity: 'underweight', colorClass: 'bg-amber-50 text-amber-700 border-amber-100' };
   }
-  // Normal (Asia-Pacific: 18.5–22.9)
-  if (bmi < 23.0 && percentIBW <= 120) {
+  if (bmi < 23.0) {
     return { label: 'Normal', severity: 'normal',
       colorClass: 'bg-green-50 text-green-700 border-green-100' };
   }
-  // Overweight (AP 23.0–24.9) → weight_loss / overweight
   if (bmi < 25.0) {
     return { label: 'Overweight', severity: 'overweight',
       colorClass: 'bg-amber-50 text-amber-700 border-amber-100',
-      suggestedGoal: 'weight_loss', suggestedStage: 'overweight' };
+    };
   }
-  // Obese Class I (AP 25.0–29.9) → class_1
   if (bmi < 30.0) {
     return { label: 'Obese Class I', severity: 'obese_1',
       colorClass: 'bg-orange-50 text-orange-700 border-orange-100',
-      suggestedGoal: 'weight_loss', suggestedStage: 'class_1' };
+    };
   }
-  // Obese Class II (AP ≥30) — split at 35 for weight_loss staging (D2)
-  if (bmi < 35.0) {
-    return { label: 'Obese Class II', severity: 'obese_2',
-      colorClass: 'bg-orange-100 text-orange-800 border-orange-200',
-      suggestedGoal: 'weight_loss', suggestedStage: 'class_2' };
-  }
-  return { label: 'Obese Class II (Severe)', severity: 'obese_2_severe',
-    colorClass: 'bg-red-100 text-red-800 border-red-200',
-    suggestedGoal: 'weight_loss', suggestedStage: 'class_3' };
+  return { label: 'Obese Class II', severity: 'obese_2', colorClass: 'bg-orange-100 text-orange-800 border-orange-200' };
+}
+
+/** Compatibility for existing callers; %IBW never overrides a BMI class or establishes malnutrition. */
+export function classifyNutritionalStatus(bmi: number, _percentIBW: number, ageYears?: number): NutritionalStatusResult {
+  return classifyBmi(bmi, ageYears);
 }
 
 // ── Micronutrient auto-flag ────────────────────────────────────────────────

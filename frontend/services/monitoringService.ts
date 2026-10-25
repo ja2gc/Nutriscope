@@ -270,8 +270,8 @@ export async function fetchMonitoringPlan(ncpRecordId: number | string): Promise
   return (await res.json()).data;
 }
 
-export interface AiSummaryBudget { entry_key: string; remaining: number; }
-export interface AiReviewResult { narrative: string; remaining: number; }
+export interface AiSummaryBudget { entry_key: string; remaining: number; resets_at?: string; }
+export interface AiReviewResult { narrative: string; remaining: number; resets_at?: string; cached?: boolean; }
 
 export async function fetchMonitoringAiBudget(ncpRecordId: number | string, draftId: string): Promise<AiSummaryBudget> {
   const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/monitorings/ai-review?draft_id=${encodeURIComponent(draftId)}`);
@@ -279,7 +279,7 @@ export async function fetchMonitoringAiBudget(ncpRecordId: number | string, draf
   return (await res.json()).data;
 }
 
-export async function requestMonitoringAiReview(ncpRecordId: number | string, payload: Omit<MonitoringPayload, "clinical_summary"> & { entry_key: string; draft_id: string; monitoring_id?: string; intake_nutrients?: Record<string, number> | null }): Promise<AiReviewResult> {
+export async function requestMonitoringAiReview(ncpRecordId: number | string, payload: Omit<MonitoringPayload, "clinical_summary"> & { entry_key: string; draft_id: string; monitoring_id?: string; regenerate?: boolean; intake_nutrients?: Record<string, number> | null }): Promise<AiReviewResult> {
   const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/monitorings/ai-review`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -361,21 +361,6 @@ export function getLabStatus(
     if (improving) return 'in_progress';
   }
 
-  return 'not_met';
-}
-
-export function getWeightStatus(
-  currentWeight: number,
-  baselineWeight: number | null,
-  nutritionalStatus: string | null
-): GoalStatus {
-  if (baselineWeight === null) return 'no_data';
-  if (currentWeight === baselineWeight) return 'no_data';
-  if (nutritionalStatus?.includes('Malnutrition')) {
-    if (currentWeight > baselineWeight) return 'met';
-    return 'not_met';
-  }
-  if (currentWeight < baselineWeight) return 'met';
   return 'not_met';
 }
 

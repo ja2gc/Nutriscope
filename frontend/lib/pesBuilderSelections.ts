@@ -5,7 +5,7 @@ const selections: Record<string, { etiology: string; sign: string }> = {
   },
   overweight_obesity_v1: {
     etiology: "Energy intake exceeding needs",
-    sign: "BMI ≥ 25 (overweight / obesity)",
+    sign: "BMI ≥ 23 (Asia-Pacific overweight / obesity)",
   },
   swallowing_chewing_difficulty_v1: {
     etiology: "Mechanical eating difficulty",

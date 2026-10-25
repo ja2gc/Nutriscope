@@ -10,6 +10,7 @@ class MonitoringResource extends JsonResource
     public function toArray(Request $request): array
     {
         $canMutate = $this->resource->canMutate();
+        $ageYears = $this->ncpRecord?->patient?->dob?->diffInYears($this->observed_at ?? $this->created_at);
 
         return [
             'id' => $this->uuid,
@@ -26,7 +27,7 @@ class MonitoringResource extends JsonResource
             'allergies' => $this->allergies,
             'dietary_restrictions' => $this->dietary_restrictions,
             'food_dislikes' => $this->food_dislikes,
-            'bmi' => $this->bmi,
+            'bmi' => $ageYears !== null && $ageYears < 5 ? null : $this->bmi,
             'lab_values' => $this->lab_values,
             'intake_notes' => $this->intake_notes,
             'food_recall' => $this->food_recall,

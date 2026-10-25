@@ -17,7 +17,7 @@
       "Estimated intake > 125% of estimated needs",
       "Unintentional weight loss > 5% in 3 months",
       "BMI < 18.5 (underweight)",
-      "BMI > 25 (overweight) or > 30 (obese)",
+      "BMI ≥ 23 (overweight) or ≥ 25 (obesity), Asia-Pacific",
       "Serum albumin < 3.5 g/dL",
       "Low hemoglobin / hematocrit",
       "Muscle wasting noted on physical exam",
@@ -52,7 +52,7 @@
       "Surgical intervention affecting nutrition"
     ],
     "signs": [
-      "BMI ≥ 25 (overweight / obesity)",
+      "BMI ≥ 23 (Asia-Pacific overweight / obesity)",
       "Swallowing / chewing difficulty documented",
       "Food-medication interaction documented",
       "Suboptimal energy intake documented",

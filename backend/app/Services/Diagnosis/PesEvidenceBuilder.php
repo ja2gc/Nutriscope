@@ -2,9 +2,11 @@
 
 namespace App\Services\Diagnosis;
 
+use App\Models\Assessment;
 use App\Models\NcpRecord;
 use App\Services\FoodRecallService;
 use App\Services\LabFlagService;
+use App\Support\ClinicalAiContext;
 use Illuminate\Support\Str;
 
 class PesEvidenceBuilder
@@ -20,37 +22,32 @@ class PesEvidenceBuilder
             return ['existing_problem_keys' => $existing];
         }
         $patient = $ncpRecord->patient;
-        $identifiers = array_filter([
-            $patient?->name, $patient?->first_name, $patient?->last_name, $patient?->hospital_number,
-            $patient?->patient_code, $patient?->address, $patient?->contact, $patient?->physician,
-        ], static fn ($value): bool => is_string($value) && mb_strlen($value) >= 3);
-        $text = static function (?string $value, int $limit = 600) use ($identifiers): ?string {
+        $text = static function (?string $value, int $limit = 600) use ($patient): ?string {
             if ($value === null) {
                 return null;
             }
-            foreach ($identifiers as $identifier) {
-                $value = str_ireplace($identifier, '[redacted]', $value);
-            }
-            $value = preg_replace('/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b|(?:\+?\d[\d ()-]{8,}\d)/i', '[redacted]', $value);
-            $value = trim((string) preg_replace('/[\p{C}\s]+/u', ' ', $value));
+            $value = ClinicalAiContext::redact($value, $patient);
 
             return $value === '' ? null : Str::limit($value, $limit, '');
         };
         $symptom = static fn (?string $answer, ?string $details): ?string => $answer === 'No' ? 'No' : $text($answer === 'Yes' ? $details : $answer);
         $existing = array_values(array_filter(array_map($text, $existing)));
         $age = $patient?->dob && $ncpRecord->created_at ? (int) $patient->dob->diffInYears($ncpRecord->created_at) : null;
+        $ageMonths = $patient?->dob && $ncpRecord->created_at ? (int) $patient->dob->diffInMonths($ncpRecord->created_at) : null;
         $current = $assessment->weight !== null ? (float) $assessment->weight : null;
         $usual = $assessment->usual_weight !== null ? (float) $assessment->usual_weight : null;
         $hasWeights = $current > 0 && $usual > 0;
         $direction = $hasWeights ? ($current < $usual ? 'loss' : ($current > $usual ? 'gain' : 'stable')) : 'unknown';
         $change = $hasWeights ? round(abs($usual - $current) / $usual * 100, 2) : null;
         $evidence = [
-            'age_group' => $age === null ? 'unknown' : ($age < 18 ? 'pediatric' : ($age >= 60 ? 'elderly' : 'adult')),
+            'clinical_context' => ClinicalAiContext::patientEvidence($ncpRecord),
+            'age_group' => $age === null ? 'unknown' : ($ageMonths <= 228 ? 'pediatric' : ($age >= 60 ? 'elderly' : 'adult')),
             'age_70_plus' => $age === null ? null : $age >= 70,
             'sex' => in_array($patient?->sex, ['Male', 'Female'], true) ? $patient->sex : 'unknown',
             'weight_kg' => $current, 'usual_weight_kg' => $usual,
             'height_cm' => $assessment->height !== null ? (float) $assessment->height : null,
-            'bmi' => $assessment->calculateBmi(),
+            'bmi' => $assessment->calculateBmi($age),
+            'bmi_classification' => Assessment::classifyBmi($assessment->calculateBmi($age), $age, (bool) $assessment->edema_present, $assessment->pregnancy_lactation_status, $patient?->sex, $ageMonths),
             'weight_change_direction' => $direction,
             'weight_change_percentage' => $change,
             'weight_loss_percentage' => $direction === 'loss' ? $change : null,
@@ -69,8 +66,7 @@ class PesEvidenceBuilder
             'pregnancy_lactation_status' => $assessment->pregnancy_lactation_status,
             'physical_activity_level' => $assessment->physical_activity_level,
             'functional_assessment' => $text($assessment->functional_assessment),
-            'nutritional_status' => $assessment->nutritional_status,
-            'ibw_percentage' => $assessment->ibw_percentage,
+            'ibw_percentage' => $ageMonths !== null && $ageMonths > 228 ? $assessment->ibw_percentage : null,
             'muac_mm' => $assessment->muac_mm,
             'waist_cm' => $assessment->waist_cm,
             'hip_cm' => $assessment->hip_cm,
@@ -96,6 +92,6 @@ class PesEvidenceBuilder
             }
         }
 
-        return array_filter($evidence, static fn ($value): bool => $value !== null && $value !== '' && $value !== []);
+        return array_filter(ClinicalAiContext::redact($evidence, $patient), static fn ($value): bool => $value !== null && $value !== '' && $value !== []);
     }
 }

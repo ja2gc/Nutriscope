@@ -2,6 +2,7 @@
 
 namespace App\Services\Reports\Generators;
 
+use App\Models\Assessment;
 use App\Models\Diagnosis;
 use App\Models\NcpRecord;
 use App\Models\Report;
@@ -83,7 +84,8 @@ class NcpSummaryGenerator implements ReportGenerator
             ],
             'assessment' => $assessment,
             'biochem' => $assessment?->biochemicalData,
-            'nutritional_status' => $assessment?->nutritional_status,
+            'nutritional_status' => Assessment::classifyBmi($assessment?->calculateBmi(), $patient?->dob?->diffInYears($ncp->created_at), (bool) $assessment?->edema_present, $assessment?->pregnancy_lactation_status, $patient?->sex, $patient?->dob ? (int) $patient->dob->diffInMonths($ncp->created_at) : null) ?? 'Not classified',
+            'assessment_age_months' => $patient?->dob ? (int) $patient->dob->diffInMonths($ncp->created_at) : null,
             'risk_score' => $ncp->risk_score,
             'risk_band' => self::riskBand($ncp->risk_score !== null ? (float) $ncp->risk_score : null),
             'diagnoses' => $ncp->diagnoses->map(fn (Diagnosis $d) => [

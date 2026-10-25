@@ -56,14 +56,23 @@ describe("assessment-based PES drafts", () => {
       meta: { cached: true, fingerprint: "abc", catalog_version: "2026-09-21-v1", message: "No sufficiently supported PES draft was found." },
     }), { status: 200 }));
 
-    await dismissPesSuggestion(77, "unintended_weight_loss_v1");
+    await dismissPesSuggestion(77, "synthetic-draft-id");
 
     expect(apiFetch).toHaveBeenCalledWith(
       "/api/rnd/ncp-records/77/diagnoses/ai-suggest",
       expect.objectContaining({
         method: "POST",
-        body: JSON.stringify({ dismissed_candidate_id: "unintended_weight_loss_v1" }),
+        body: JSON.stringify({ dismissed_draft_id: "synthetic-draft-id" }),
       }),
+    );
+  });
+
+  test("retries rejected output only on explicit request", async () => {
+    vi.mocked(apiFetch).mockResolvedValue(new Response(JSON.stringify({ data: [], meta: {} })));
+    await aiSuggestDiagnoses(77, true);
+    expect(apiFetch).toHaveBeenLastCalledWith(
+      "/api/rnd/ncp-records/77/diagnoses/ai-suggest",
+      expect.objectContaining({ body: JSON.stringify({ retry_rejected: true }) }),
     );
   });
 });

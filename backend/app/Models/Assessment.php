@@ -139,8 +139,11 @@ class Assessment extends Model
     /**
      * Auto-calculate BMI when weight and height are set.
      */
-    public function calculateBmi(): ?float
+    public function calculateBmi(?float $ageYears = null): ?float
     {
+        if ($ageYears !== null && $ageYears < 5) {
+            return null;
+        }
         if ($this->weight && $this->height && $this->height > 0) {
             $heightM = $this->height / 100;
 
@@ -148,5 +151,40 @@ class Assessment extends Model
         }
 
         return null;
+    }
+
+    /** WHO monthly bands or Asia-Pacific adult bands; never a clinical malnutrition diagnosis. */
+    public static function classifyBmi(?float $bmi, ?float $ageYears, bool $edemaPresent = false, ?string $maternalStatus = 'none', ?string $sex = null, ?int $ageMonths = null): ?string
+    {
+        if ($bmi === null || ! is_finite($bmi) || $bmi <= 0 || $ageYears === null || ! is_finite($ageYears) || $ageYears < 5
+            || $edemaPresent || ($maternalStatus ?? 'none') !== 'none') {
+            return null;
+        }
+
+        $months = $ageMonths ?? (int) floor($ageYears * 12);
+        if ($months <= 228) {
+            if ($months < 61 || ! in_array($sex, ['Male', 'Female'], true)) {
+                return null;
+            }
+            static $reference;
+            $reference ??= json_decode(file_get_contents(resource_path('who-bmi-for-age.json')), true, flags: JSON_THROW_ON_ERROR);
+            [$severe, $thin, $overweight, $obesity] = $reference[$sex][$months - 61];
+
+            return match (true) {
+                $bmi < $severe => 'Severe thinness',
+                $bmi < $thin => 'Thinness',
+                $bmi > $obesity => 'Obesity',
+                $bmi > $overweight => 'Overweight',
+                default => 'Normal',
+            };
+        }
+
+        return match (true) {
+            $bmi < 18.5 => 'Underweight',
+            $bmi < 23 => 'Normal',
+            $bmi < 25 => 'Overweight',
+            $bmi < 30 => 'Obese Class I',
+            default => 'Obese Class II',
+        };
     }
 }

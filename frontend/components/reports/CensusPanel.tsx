@@ -66,8 +66,8 @@ export function CensusPanel({ apiPrefix }: { apiPrefix: "rnd" | "admin" }) {
           </section>
 
           <div className="grid gap-x-10 gap-y-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-            <section aria-label="By nutritional status">
-              <h3 className="mb-2 text-base font-bold text-warm-800">By nutritional status</h3>
+            <section aria-label={summary.classification_basis === 'asia_pacific_bmi' ? 'Adult BMI classification' : 'By recorded nutritional status'}>
+              <h3 className="mb-2 text-base font-bold text-warm-800">{summary.classification_basis === 'asia_pacific_bmi' ? 'Adult BMI classification' : 'By recorded nutritional status'}</h3>
               <dl className="text-sm">
                 {nutritionalStatusEntries.map(([status, count]) => <div key={status} className="flex items-baseline justify-between gap-4 border-b border-warm-100 py-1.5">
                   <dt className="text-warm-700">{status}</dt><dd className="font-semibold tabular-nums text-warm-900">{count}</dd>

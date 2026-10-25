@@ -98,7 +98,7 @@ export function buildAssessmentSummary(input: AssessmentSummaryInput): string {
   const weight = formatNumber(assessment.weight);
   const dryWeight = formatNumber(assessment.dry_weight_kg);
   if (weight) anthropometricParts.push(`${weight} kg`);
-  const nutritionalStatus = cleanText(anthropometrics.nutritionalStatus ?? assessment.nutritional_status);
+  const nutritionalStatus = cleanText(anthropometrics.nutritionalStatus);
   if (anthropometrics.bmi !== null && anthropometrics.bmi !== undefined) {
     anthropometricParts.push(`BMI ${anthropometrics.bmi}${nutritionalStatus ? ` (${nutritionalStatus})` : ""}`);
   }
@@ -112,7 +112,7 @@ export function buildAssessmentSummary(input: AssessmentSummaryInput): string {
     anthropometricParts.push(`${anthropometrics.weightChangePercent}% weight ${direction}${period ? ` over ${period}` : ""}`);
   }
   const muac = formatNumber(assessment.muac_mm);
-  if (muac && anthropometrics.muacClassification && !/^normal$/i.test(anthropometrics.muacClassification)) {
+  if (muac && anthropometrics.muacClassification && !/^(normal|above screening cutoff)$/i.test(anthropometrics.muacClassification)) {
     anthropometricParts.push(`MUAC ${muac} mm (${anthropometrics.muacClassification})`);
   }
   if (anthropometrics.whr !== null && anthropometrics.whr !== undefined && /high/i.test(anthropometrics.whrRisk ?? "")) {

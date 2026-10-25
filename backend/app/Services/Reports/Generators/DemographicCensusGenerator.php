@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Builder;
  */
 class DemographicCensusGenerator
 {
-    public const BASIS_VERSION = 6;
+    public const BASIS_VERSION = 7;
 
     /** Visit workflow was introduced during September 2026. Earlier assessed cycles have no visit record. */
     private const LEGACY_VISIT_CUTOFF = '2026-09-08 00:00:00';
@@ -23,8 +23,7 @@ class DemographicCensusGenerator
     public const AGE_GROUPS = ['0-4', '5-9', '10-14', '15-18', '19-29', '30-39', '40-59', '60+'];
 
     public const NUTRITIONAL_STATUSES = [
-        'Severe Malnutrition', 'Moderate Malnutrition', 'Mild Malnutrition / Underweight',
-        'Normal', 'Overweight', 'Obese Class I', 'Obese Class II', 'Obese Class II (Severe)',
+        'Underweight', 'Normal', 'Overweight', 'Obese Class I', 'Obese Class II',
         'Unspecified',
     ];
 
@@ -46,7 +45,7 @@ class DemographicCensusGenerator
                     'sex' => $cycle->patient?->sex,
                     'ward' => $cycle->patient?->ward,
                     'primary_diagnosis_category' => $cycle->assessment?->primary_diagnosis_category,
-                    'nutritional_status' => self::adultNutritionalStatus($cycle->assessment, $age),
+                    'nutritional_status' => self::adultNutritionalStatus($cycle->assessment, $age, $cycle->patient?->dob ? (int) $cycle->patient->dob->diffInMonths($cycle->created_at) : null),
                     'risk_level' => self::riskLevel(
                         $cycle->risk_score === null ? null : (float) $cycle->risk_score,
                     ),
@@ -92,32 +91,9 @@ class DemographicCensusGenerator
         };
     }
 
-    private static function adultNutritionalStatus(?Assessment $assessment, ?float $age): string
+    private static function adultNutritionalStatus(?Assessment $assessment, ?float $age, ?int $ageMonths): string
     {
-        if ($assessment === null || $age === null || $age < 19) {
-            return 'Unspecified';
-        }
-
-        $bmiValue = $assessment->bmi ?? $assessment->calculateBmi();
-        if (! is_numeric($bmiValue) || (float) $bmiValue <= 0) {
-            return 'Unspecified';
-        }
-
-        $bmi = (float) $bmiValue;
-        $ibw = is_numeric($assessment->ibw_percentage) && (float) $assessment->ibw_percentage > 0
-            ? (float) $assessment->ibw_percentage
-            : 100.0;
-
-        return match (true) {
-            $ibw < 70 || $bmi < 16 => 'Severe Malnutrition',
-            $ibw < 85 || $bmi < 17 => 'Moderate Malnutrition',
-            $ibw < 90 || $bmi < 18.5 => 'Mild Malnutrition / Underweight',
-            $bmi < 23 && $ibw <= 120 => 'Normal',
-            $bmi < 25 => 'Overweight',
-            $bmi < 30 => 'Obese Class I',
-            $bmi < 35 => 'Obese Class II',
-            default => 'Obese Class II (Severe)',
-        };
+        return Assessment::classifyBmi($assessment?->calculateBmi(), $age, (bool) $assessment?->edema_present, $assessment?->pregnancy_lactation_status, null, $ageMonths) ?? 'Unspecified';
     }
 
     public static function ageGroup(?int $age): string

@@ -4,16 +4,54 @@ namespace Tests\Unit;
 
 use App\Services\Diagnosis\PesEligibilityService;
 use App\Services\Diagnosis\PesRuleCatalog;
+use App\Support\ClinicalAiContext;
+use App\Support\DiagnosisBuilder;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class PesEligibilityServiceTest extends TestCase
 {
+    public function test_asia_pacific_bmi_sign_maps_to_a_current_builder_choice(): void
+    {
+        $sign = 'BMI ≥ 23 (Asia-Pacific overweight / obesity)';
+        $builder = DiagnosisBuilder::fromDraft('NC', 'Overweight / Obesity', 'Documented cause', $sign);
+        $this->assertSame([$sign], $builder['sign_checks']);
+        $this->assertSame('', $builder['sign_other']);
+    }
+
+    public function test_knowledge_concern_does_not_open_unrelated_behavioral_candidates(): void
+    {
+        $ids = array_column(app(PesEligibilityService::class)->eligible([
+            'knowledge_notes' => 'Cannot identify carbohydrate foods.',
+            'social_history' => 'Limited access to nutrition education.',
+        ]), 'candidate_id');
+        $this->assertContains('knowledge_deficit_v2', $ids);
+        foreach (['physical_inactivity_v2', 'food_insecurity_v2', 'readiness_v2', 'self_monitoring_v2', 'adherence_v2', 'food_beliefs_v2'] as $id) {
+            $this->assertNotContains($id, $ids);
+        }
+    }
+
+    public function test_intake_candidates_require_the_corresponding_nutrient_and_direction(): void
+    {
+        $service = app(PesEligibilityService::class);
+        $ids = array_column($service->eligible(['dietary_intake' => 'Consumes half of usual meals; protein intake is adequate.']), 'candidate_id');
+        $this->assertContains('inadequate_energy_v2', $ids);
+        $this->assertContains('inadequate_oral_v2', $ids);
+        foreach (['excessive_energy_v2', 'inadequate_protein_v2', 'excessive_protein_v2', 'inadequate_fat_v2', 'excessive_carbohydrates_v2'] as $id) {
+            $this->assertNotContains($id, $ids);
+        }
+        $this->assertTrue($service->supportsIntakeProblem('Inadequate Protein Intake', 'Protein intake below prescribed needs'));
+        $this->assertFalse($service->supportsIntakeProblem('Excessive Protein Intake', 'Protein intake below prescribed needs'));
+        $this->assertFalse($service->supportsIntakeProblem('Inadequate Protein Intake', 'Protein intake is adequate'));
+        $this->assertFalse($service->supportsIntakeProblem('Inadequate Energy Intake', 'Protein intake below prescribed needs'));
+        $this->assertTrue($service->supportsIntakeProblem('Inadequate Oral Intake', 'Poor intake for three weeks'));
+    }
+
     public function test_rule_cards_have_versioned_verified_contracts(): void
     {
         $catalog = app(PesRuleCatalog::class);
 
-        $this->assertSame('2026-10-20-v2', $catalog->version());
+        $this->assertSame('2026-10-25-v6:'.ClinicalAiContext::version(), $catalog->version());
         $this->assertEqualsCanonicalizing(['NI', 'NC', 'NB'], array_values(array_unique(array_column($catalog->cards(), 'domain'))));
 
         foreach ($catalog->cards() as $card) {
@@ -33,6 +71,14 @@ class PesEligibilityServiceTest extends TestCase
             }
             $this->assertStringStartsWith('https://', $card['source']['url']);
         }
+    }
+
+    public function test_behavioral_signals_distinguish_food_access_from_other_costs_and_recognize_inactivity(): void
+    {
+        $service = app(PesEligibilityService::class);
+        $this->assertNotContains('food_insecurity_v2', array_column($service->eligible(['social_history' => 'Cannot afford prescribed medications.']), 'candidate_id'));
+        $this->assertContains('food_insecurity_v2', array_column($service->eligible(['social_history' => 'Cannot afford food and misses meals.']), 'candidate_id'));
+        $this->assertContains('physical_inactivity_v2', array_column($service->eligible(['lifestyle' => 'Long working hours; no planned physical activity.']), 'candidate_id'));
     }
 
     #[DataProvider('eligibleEvidenceProvider')]
@@ -86,7 +132,7 @@ class PesEligibilityServiceTest extends TestCase
 
         $this->assertSame([], $service->eligible([
             'weight_loss_percentage' => 0,
-            'bmi' => 24.9,
+            'bmi' => 22.99,
             'age_group' => 'adult',
             'energy_intake_status' => 'No change',
         ]));

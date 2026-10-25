@@ -12,10 +12,12 @@ describe("saveAssessment", () => {
     }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await saveAssessment("synthetic-ncp", { ibw_percentage: 134.932545 }, false);
+    await saveAssessment("synthetic-ncp", { ibw_percentage: 134.932545, bmi_classification: 'Obese Class I', bmi_reference_date: '2026-10-25' }, false);
 
     const body = JSON.parse(fetchMock.mock.calls[0][1]?.body as string);
     expect(body.ibw_percentage).toBe(134.93);
+    expect(body).not.toHaveProperty('bmi_classification');
+    expect(body).not.toHaveProperty('bmi_reference_date');
   });
 
   test('saves recall sources and portions with the assessment without posting nutrient snapshots', async () => {

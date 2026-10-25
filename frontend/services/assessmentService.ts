@@ -47,6 +47,9 @@ export interface Assessment {
   rnd_summary: string | null;
   usual_weight: number | string | null;
   nutritional_status: "Normal" | "Moderate Malnutrition" | "Severe Malnutrition" | null;
+  /** Derived Asia-Pacific adult BMI class; independent of legacy screening status. */
+  bmi_classification?: "Underweight" | "Normal" | "Overweight" | "Obese Class I" | "Obese Class II" | null;
+  bmi_reference_date?: string | null;
   weight_loss_percentage: number | string | null;
   weight_change_period_value: number | null;
   weight_change_period_unit: "weeks" | "months" | null;
@@ -158,6 +161,8 @@ export async function saveAssessment(
   if (data.intake_nutrients) payload.intake_nutrients = Object.fromEntries(Object.entries(data.intake_nutrients).map(([key, value]) => [key, value == null || value === '' ? null : Number(value)]));
   delete payload.weight_loss_period;
   delete payload.stress_factor;
+  delete payload.bmi_classification;
+  delete payload.bmi_reference_date;
   if (typeof payload.ibw_percentage === "number") {
     payload.ibw_percentage = Number(payload.ibw_percentage.toFixed(2));
   }

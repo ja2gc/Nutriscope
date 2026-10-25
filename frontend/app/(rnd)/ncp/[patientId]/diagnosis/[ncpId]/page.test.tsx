@@ -28,7 +28,7 @@ beforeEach(() => {
   vi.mocked(diagnoses.fetchDiagnosesPage).mockResolvedValue({ data: [], meta: { current_page: 1, per_page: 10, total: 0, last_page: 1 } });
   vi.mocked(diagnoses.fetchPesDraftStatus).mockResolvedValue({ data: [], meta: {
     cached: true, fingerprint: "snapshot", catalog_version: "v2", message: null,
-    budget: { limit: 3, used: 0, remaining: 3, resets_at: "2099-10-21T00:00:00+08:00" }, can_generate: true, disabled_reason: null,
+    budget: { limit: 10, used: 0, remaining: 10, resets_at: "2099-10-21T00:00:00+08:00" }, can_generate: true, disabled_reason: null,
   } });
 });
 afterEach(() => { act(() => root.unmount()); document.body.replaceChildren(); vi.resetAllMocks(); });
@@ -56,16 +56,16 @@ it("saves clinical Other components in PES while keeping all reasoning notes sep
   }));
 });
 
-it("keeps the generation button visible and disabled with an explanation after three uses", async () => {
+it("keeps the generation button visible and disabled with an explanation after ten requests", async () => {
   const response = await vi.mocked(diagnoses.fetchPesDraftStatus)("fictional-cycle");
   vi.mocked(diagnoses.fetchPesDraftStatus).mockResolvedValue({ ...response, meta: { ...response.meta,
-    budget: { ...response.meta.budget, used: 3, remaining: 0 }, can_generate: false,
-    disabled_reason: "Daily limit reached (3/3). Available again after midnight Philippine time.",
+    budget: { ...response.meta.budget, used: 10, remaining: 0 }, can_generate: false,
+    disabled_reason: "Ten requests per ten minutes reached. Try again when the allowance resets.",
   } });
   await open(); click("AI Review");
   expect((screen.getByRole("button", { name: "Generate AI Suggestions" }) as HTMLButtonElement).disabled).toBe(true);
   expect(screen.getByRole("button", { name: "Why AI generation is unavailable" })).toBeTruthy();
-  expect(screen.getByRole("status").textContent).toContain("3/3 generations used today");
+  expect(screen.getByRole("status").textContent).toContain("10/10 diagnosis requests used in this 10-minute window");
   expect(diagnoses.aiSuggestDiagnoses).not.toHaveBeenCalled();
 });
 
@@ -88,4 +88,17 @@ it("opens a custom intake nutrient without classifying it as a vitamin", async (
   click("Edit");
   expect((screen.getByRole("textbox", { name: "Nutrient / substance (specify)" }) as HTMLInputElement).value).toBe("Sodium");
   expect(screen.queryByRole("textbox", { name: "Vitamins (specify)" })).toBeNull();
+});
+
+it("offers an explicit retry for rejected output without generating on page open", async () => {
+  const response = await vi.mocked(diagnoses.fetchPesDraftStatus)("fictional-cycle");
+  vi.mocked(diagnoses.fetchPesDraftStatus).mockResolvedValue({ ...response, meta: {
+    ...response.meta, can_generate: false, can_retry: true, review_outcome: "rejected",
+    disabled_reason: "The response did not pass evidence checks. Retry explicitly or update the Assessment.",
+  } });
+  vi.mocked(diagnoses.aiSuggestDiagnoses).mockResolvedValue(response);
+  await open(); click("AI Review");
+  expect(diagnoses.aiSuggestDiagnoses).not.toHaveBeenCalled();
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Retry AI Review" })); });
+  expect(diagnoses.aiSuggestDiagnoses).toHaveBeenCalledExactlyOnceWith("fictional-cycle", true);
 });

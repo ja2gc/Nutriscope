@@ -2,6 +2,8 @@
 
 Verified against committed source: `53230ce3f4e471b243d0fe0a8ef0b5fbfa89a891` (2026-10-23).
 
+Classification paths additionally verified against `79ee23b53a0ba047faa791cdb8e5b7fcb1211429` plus this working tree (2026-10-25): `Assessment::classifyBmi`, its derived API field, diagnosis/monitoring evidence and current census/NCP report presentation. See [data meaning](data.md) and [AI maintenance](ai.md).
+
 Purpose: locate nutrition calculations and NCP workflow authority.
 
 This group includes clinical backend rules, NCP web workflows, clinical food/recipe/meal-plan logic and AI-assisted wording. Start with [data meaning](data.md) for fields/units/history or [AI maintenance](ai.md) for provider/model/prompt changes. Shared accounts, announcements, help and dashboards live in [shared features](../shared/README.md).

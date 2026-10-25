@@ -5,7 +5,6 @@ namespace App\Services\Reports;
 use App\Models\DemographicCensusPeriod;
 use App\Services\Reports\Generators\DemographicCensusGenerator;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 
 class StoreMonthlyDemographicCensuses
 {
@@ -22,7 +21,7 @@ class StoreMonthlyDemographicCensuses
         $cursor = Carbon::parse($firstCycle, $now->getTimezone())->startOfMonth();
         $lastCompletedMonth = $now->copy()->startOfMonth()->subMonth();
         $stored = 0;
-        $rebuilt = $this->rebuildOutdatedBasisPeriods($lastCompletedMonth, $now);
+        $rebuilt = 0;
         $skipped = 0;
 
         while ($cursor->lessThanOrEqualTo($lastCompletedMonth)) {
@@ -51,28 +50,5 @@ class StoreMonthlyDemographicCensuses
         }
 
         return compact('stored', 'rebuilt', 'skipped');
-    }
-
-    private function rebuildOutdatedBasisPeriods(Carbon $lastCompletedMonth, Carbon $now): int
-    {
-        $periods = DemographicCensusPeriod::query()
-            ->where('basis_version', '<', DemographicCensusGenerator::BASIS_VERSION)
-            ->whereDate('period_start', '<=', $lastCompletedMonth->toDateString())
-            ->get();
-
-        foreach ($periods as $period) {
-            $census = $this->generator->currentCensus($period->period_start, $period->period_end);
-            DB::table('demographic_census_periods')
-                ->where('id', $period->id)
-                ->update([
-                    'census' => json_encode($census, JSON_THROW_ON_ERROR),
-                    'source_count' => $census['total'],
-                    'basis_version' => DemographicCensusGenerator::BASIS_VERSION,
-                    'frozen_at' => $now,
-                    'updated_at' => $now,
-                ]);
-        }
-
-        return $periods->count();
     }
 }

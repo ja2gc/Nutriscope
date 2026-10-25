@@ -7,7 +7,6 @@ import {
   MonitoringLabValues,
   LAB_REFERENCE_RANGES,
   getLabStatus,
-  getWeightStatus,
   GoalStatus,
 } from "@/services/monitoringService";
 import type { IndicatorCategory, MonitoringPlan } from "@/services/monitoringPlan";
@@ -132,7 +131,6 @@ export default function GoalProgressTracker({
   baselineWeight,
   baselineBmi,
   baselineLabs,
-  nutritionalStatus,
 }: GoalProgressTrackerProps) {
   // Plan-driven: render the patient-specific tracked set when available.
   if (plan && plan.indicators.length > 0) {
@@ -215,11 +213,7 @@ export default function GoalProgressTracker({
                 baseline={baselineWeight}
                 current={currentWeight}
                 referenceLabel="—"
-                status={
-                  currentWeight !== null
-                    ? getWeightStatus(currentWeight, baselineWeight, nutritionalStatus)
-                    : 'no_data'
-                }
+                status="no_data"
                 sparkValues={weightValues}
                 lowerIsBetter={false}
               />
@@ -232,18 +226,9 @@ export default function GoalProgressTracker({
                 unit="kg/m²"
                 baseline={baselineBmi}
                 current={currentBmi}
-                referenceLabel="18.5–24.9"
-                status={
-                  currentBmi !== null
-                    ? currentBmi >= 18.5 && currentBmi <= 24.9
-                      ? 'met'
-                      : baselineBmi !== null && Math.abs(currentBmi - 22) < Math.abs(baselineBmi - 22)
-                        ? 'in_progress'
-                        : 'not_met'
-                    : 'no_data'
-                }
+                referenceLabel="—"
+                status="no_data"
                 sparkValues={bmiValues}
-                reference={{ min: 18.5, max: 24.9 }}
                 lowerIsBetter={false}
               />
             )}

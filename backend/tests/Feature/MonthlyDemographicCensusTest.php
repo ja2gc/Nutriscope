@@ -16,6 +16,22 @@ use Tests\TestCase;
 
 class MonthlyDemographicCensusTest extends TestCase
 {
+    public function test_previous_classification_snapshot_remains_readable_as_historical_data(): void
+    {
+        Carbon::setTestNow('2026-07-15 12:00:00');
+        $cycle = NcpRecord::factory()->create(['created_at' => '2026-05-10 08:00:00']);
+        Assessment::factory()->create(['ncp_record_id' => $cycle->id]);
+        $census = DemographicCensusGenerator::aggregate([]);
+        $census['total'] = 5;
+        $census['by_status'] = ['Severe Malnutrition' => 5];
+        $snapshot = DemographicCensusPeriod::query()->create(['period_start' => '2026-05-01', 'period_end' => '2026-05-31', 'census' => $census, 'source_count' => 5, 'basis_version' => 6, 'frozen_at' => '2026-06-01 00:05:00']);
+        $before = $snapshot->fresh()->getRawOriginal('census');
+        $this->actingAs(User::factory()->rnd()->create(), 'sanctum')->getJson('/api/rnd/reports/demographic_census/summary?year=2026&month=5')
+            ->assertOk()->assertJsonPath('data.total', 5)->assertJsonPath('data.status', 'frozen')
+            ->assertJsonPath('data.classification_basis', 'historical_or_mixed')->assertJsonPath('data.by_nutritional_status.Severe Malnutrition', 5);
+        $this->assertSame($before, $snapshot->fresh()->getRawOriginal('census'));
+    }
+
     public function test_census_age_group_boundaries_match_declared_buckets(): void
     {
         $expected = [
@@ -31,7 +47,7 @@ class MonthlyDemographicCensusTest extends TestCase
         $this->assertSame('Unspecified', DemographicCensusGenerator::ageGroup(null));
     }
 
-    public function test_census_derives_age_from_dob_and_keeps_under_19_out_of_adult_bmi_status(): void
+    public function test_census_derives_age_from_dob_and_uses_the_same_adult_boundary_as_assessment_and_ai(): void
     {
         $this->travelTo(Carbon::parse('2026-05-01 12:00:00'));
 
@@ -51,6 +67,8 @@ class MonthlyDemographicCensusTest extends TestCase
             Assessment::factory()->create([
                 'ncp_record_id' => $cycle->id,
                 'bmi' => 30,
+                'weight' => 86.7,
+                'height' => 170,
                 'ibw_percentage' => 100,
             ]);
         }
@@ -309,14 +327,11 @@ class MonthlyDemographicCensusTest extends TestCase
 
         $this->assertSame(1, $census['total']);
         $this->assertSame([
-            'Severe Malnutrition' => 0,
-            'Moderate Malnutrition' => 0,
-            'Mild Malnutrition / Underweight' => 0,
+            'Underweight' => 0,
             'Normal' => 1,
             'Overweight' => 0,
             'Obese Class I' => 0,
             'Obese Class II' => 0,
-            'Obese Class II (Severe)' => 0,
             'Unspecified' => 0,
         ], $census['by_status']);
         $this->assertSame(['Low' => 1, 'Moderate' => 0, 'High' => 0], $census['by_risk']);
@@ -386,14 +401,11 @@ class MonthlyDemographicCensusTest extends TestCase
 
         $this->assertSame(2, $census['total']);
         $this->assertSame([
-            'Severe Malnutrition' => 0,
-            'Moderate Malnutrition' => 0,
-            'Mild Malnutrition / Underweight' => 0,
+            'Underweight' => 0,
             'Normal' => 0,
             'Overweight' => 1,
             'Obese Class I' => 0,
             'Obese Class II' => 0,
-            'Obese Class II (Severe)' => 0,
             'Unspecified' => 1,
         ], $census['by_status']);
         $this->assertSame(['Low' => 1, 'Moderate' => 0, 'High' => 1], $census['by_risk']);
@@ -442,7 +454,7 @@ class MonthlyDemographicCensusTest extends TestCase
             'paper_orientation' => 'landscape',
         ])->render();
 
-        $this->assertLessThan(strpos($html, 'By risk level'), strpos($html, 'By nutritional status'));
+        $this->assertLessThan(strpos($html, 'By risk level'), strpos($html, 'By recorded nutritional status'));
         $this->assertStringNotContainsString('<td>Unspecified</td>', $html);
         $this->assertStringContainsString('Not classified: 1', $html);
         $this->assertStringNotContainsString('Includes current data', $html);
@@ -497,7 +509,7 @@ class MonthlyDemographicCensusTest extends TestCase
         $this->assertSame(5, $census['total']);
     }
 
-    public function test_catch_up_rebuilds_previous_basis_snapshots_once(): void
+    public function test_catch_up_preserves_previous_basis_snapshots_and_their_frozen_dates(): void
     {
         Carbon::setTestNow('2026-07-02 12:00:00');
         $patient = Patient::factory()->create(['admission_date' => '2026-05-01']);
@@ -519,9 +531,9 @@ class MonthlyDemographicCensusTest extends TestCase
         $this->artisan('reports:demographic-census-catch-up')->assertSuccessful();
         $may = DemographicCensusPeriod::query()->whereDate('period_start', '2026-05-01')->firstOrFail();
 
-        $this->assertSame(1, $may->source_count);
-        $this->assertSame(1, $may->census['total']);
-        $this->assertSame(DemographicCensusGenerator::BASIS_VERSION, $may->basis_version);
+        $this->assertSame(0, $may->source_count);
+        $this->assertSame(0, $may->census['total']);
+        $this->assertSame(4, $may->basis_version);
 
         $frozenAt = $may->frozen_at->copy();
         Carbon::setTestNow('2026-07-03 12:00:00');

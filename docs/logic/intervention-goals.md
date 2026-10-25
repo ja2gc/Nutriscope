@@ -1,6 +1,7 @@
 # NutriScope — Intervention Goals: Clinical and Calculation Reference
 
 **Reviewed:** 21 October 2026.
+**Follow-up source and implementation audit:** 25 October 2026, against source revision `79ee23b53a0ba047faa791cdb8e5b7fcb1211429`. This audit clarifies existing defaults and implementation limits; it does not introduce automatic clinical suitability selection.
 **Status:** Version 2 implemented locally; release and live acceptance are separate checks. This reference separates verified source recommendations from local defaults. Numerical eligibility, overrides and follow-up still require the RND's assessment.
 
 PHP `NutritionPrescriptionService::autofill` is the current calculation authority for previews and saves. The browser displays the server snapshot and never reconstructs a historical formula from current measurements. `prescription-targets.json` and `autofillLegacy` retain version-1 regression behavior only. Historical values, labels and generated report files are not bulk-rewritten. Use the [clinical maintenance map](../developers/ncp/README.md) for current owners and tests; historical planning remains in Git history.
@@ -8,6 +9,8 @@ PHP `NutritionPrescriptionService::autofill` is the current calculation authorit
 ## Clinical, reporting, and privacy boundary
 
 Assessment, nutrition diagnosis, intervention and monitoring are separate Nutrition Care Process steps. A physician diagnosis, Nutrition care category, PES diagnosis and intervention goal are distinct records.
+
+Current BMI classification uses [WHO 2007 sex-specific monthly bands](https://www.who.int/toolkits/growth-reference-data-for-5to19-years/indicators/bmi-for-age) at 61–228 completed months, then Asia-Pacific bands: Underweight <18.5, Normal 18.5–<23, Overweight 23–<25, Obese Class I 25–<30, and Obese Class II >=30 kg/m². Month 60 has BMI without a class; under-five BMI and pediatric adult-panel estimates are omitted. This bounded classification policy does not change the separate prescription engine's existing adult/pediatric boundary. `Assessment::classifyBmi` owns backend classification; the web mirrors it. Missing required age/sex, measurements, edema and pregnancy/lactation withhold classification. BMI/%IBW do not establish malnutrition or severity; >=35 is not an additional BMI class. Current reports separate BMI classification from screening risk; frozen census history remains unchanged. Adult source: [World Obesity Federation's Asia-Pacific table](https://www.worldobesity.org/about/about-obesity/obesity-classification), reproducing the WHO/IASO/IOTF 2000 report. Foundational reference dates are retained rather than described as new standards.
 
 - Confirm the goal from the assessment. Never infer a diagnosis or Nutrition care category solely from the selected diet.
 - Keep confirmed comorbidities and malnutrition diagnosis/severity in clinical context. A single primary goal does not exclude another condition.
@@ -125,6 +128,10 @@ These defaults are **local product choices for eligible adults**, not universal 
 
 **Renal protocol difference:** KDOQI 2020 includes lower-protein supervised options for metabolically stable CKD; KDIGO 2024 recommends approximately 0.8 g/kg for adult G3–G5. This design adopts the latter default, not a blended stage ladder. KDIGO advises avoiding high protein above 1.3 g/kg in patients at risk of progression. A different renal prescription must record its rationale/protocol.
 
+**Current implementation limits:** `NutritionPrescriptionService::autofill` selects renal protein from the chosen type; it does not determine metabolic stability or change renal protein from `nutritionStatus`. Liver protein uses the explicitly supplied `calculation_options.nutrition_status`, while the default liver energy coefficient remains 32.5 for both types. These are baseline prefills requiring assessed suitability, not automatic eligibility decisions. Clinical kcal/kg baselines are prescribed starting targets, not measurements of maintenance expenditure.
+
+The calculation context currently loads measurements, edema/dry weight, activity, maternal status and food restrictions, plus explicitly supplied calculation options. It does not automatically derive clinical nutritional status from assessment or diagnoses. In particular, `AssessmentController::saveRiskScore` writes `Assessment.nutritional_status` from `RiskScoreCalculator`, including its manual-factor path. Despite the stored malnutrition labels, this field is a screening-derived classification, not independent confirmation of malnutrition or sarcopenia. Missing clinical findings do not establish stability or adequate nutrition. See [NCP data meaning](../developers/ncp/data.md) for field ownership.
+
 **Wounds and recovery:** WHS pressure-ulcer guidance has 30–35 kcal/kg and 1.25–1.50 g/kg protein in the setting of inadequate intake and nutrition support. It does not establish the dose for every wound. Use wound assessment and a confirmed target. Do not add fixed high-dose zinc/vitamins without deficiency assessment or an order.
 
 Sources: [ESPEN hospital nutrition, recommendation 15][hospital], [KDIGO §3.3.1][kdigo], [KDOQI 3.0.3–3.1.1][kdoqi], [ADA 2026 nutrition][ada], [ESPEN liver practical points 71–74][liver], [WHS 2023 update §§2.4–2.5][whs], [ESPEN surgery 2025][surgery].
@@ -132,6 +139,8 @@ Sources: [ESPEN hospital nutrition, recommendation 15][hospital], [KDIGO §3.3.1
 ## 6. Macros, micronutrients and rounding
 
 Set protein from the assessed condition and selected weight basis. For routine non-infant adult calculations, a **25% energy fat prefill** is a local starting choice within PDRI's adult 15–30% range; it is not an ADA-mandated diabetes distribution. Carbohydrate is the residual after protein and fat. Display any departure from the selected reference distribution for RND review; do not force a disease-specific protein target to fit a general-population percentage.
+
+**Implementation gap verified 25 October 2026:** the inspected calculator rejects incompatible energy/protein/fat arithmetic, but the calculation and display path does not implement the reference-distribution warning described above. That warning remains a requirement, not verified current behavior.
 
 Use one declared rounding sequence in PHP, preview and trace:
 
@@ -209,6 +218,8 @@ These rounded published coefficients differ slightly from legacy high-precision 
 - Do not apply adult calorie deficits, CKD protein restrictions or Hamwi target weights automatically. KDIGO specifically advises against protein restriction in children with CKD.
 - Use WHO growth assessment with age-appropriate definitions. For ages 5–19, BMI-for-age overweight is >+1 SD and obesity >+2 SD; height-for-age stunting is not an acute wasting diagnosis.
 - WHO 2023 wasting/nutritional-oedema guidance supersedes the 2013 guideline for its under-5 scope. It does not supply a universal adolescent catch-up formula.
+
+Implementation limit: the application does not yet compute WHO pediatric growth z-scores. Do not describe recorded raw BMI as an automatic BMI-for-age classification. Existing MUAC screening is restricted to known ages 6–59 months, using the standing 115/125-mm cutoffs and non-diagnostic screening labels. Older children, adults and unknown ages retain the measurement without applying these cutoffs. An above-cutoff MUAC does not exclude malnutrition. WHO's [September 2026 implementation guidance](https://www.who.int/publications/i/item/9789240122840) supports the 2023 guideline; the current screening bounds were checked against [WHO identification guidance](https://www.who.int/tools/elena/interventions/sam-identification) and the [2023 recommendation definitions](https://www.ncbi.nlm.nih.gov/books/NBK601655/).
 
 Sources: [Pediatric energy guideline, Table 1][pediatric], [FAO infant energy](https://www.fao.org/4/y5686e/y5686e05.htm), [PDRI][pdri], [KDIGO pediatric practice point 3.3.1.4][kdigo], [WHO BMI-for-age](https://www.who.int/toolkits/growth-reference-data-for-5to19-years/indicators/bmi-for-age), [WHO 2023 wasting guidance](https://www.who.int/publications/i/item/9789240082830).
 
@@ -372,11 +383,11 @@ Version 2 is implemented in the shared PHP calculation path; local and deployed 
 [mifflin]: https://pubmed.ncbi.nlm.nih.gov/2305711/?format=pubmed
 [pdri]: https://www.fnri.dost.gov.ph/images/images/news/PDRI-2018.pdf
 [kdigo]: https://kdigo.org/wp-content/uploads/2024/03/KDIGO-2024-CKD-Guideline.pdf
-[kdoqi]: https://www.sciencedirect.com/science/article/abs/pii/S0272638620307265
+[kdoqi]: https://www.andeal.org/topic.cfm?cat=5558&menu=5279
 [ada]: https://doi.org/10.2337/dc26-S005
 [aha]: https://professional.heart.org/en/guidelines-statements/2026-dietary-guidance-to-improve-cardiovascular-health-a-scientific-statementcir0000000000001435
 [hf]: https://www.heart.org/en/health-topics/heart-failure/treatment-options-for-heart-failure/lifestyle-changes-for-heart-failure
-[liver]: https://www.espen.org/files/ESPEN-Guidelines/ESPEN_practical_guideline_Clinical_nutrition_in_liver_disease.pdf
+[liver]: https://academy.espen.org/files/ESPEN-Guidelines/ESPEN_practical_guideline_Clinical_nutrition_in_liver_disease.pdf
 [hospital]: https://www.espen.org/files/ESPEN-Guidelines/ESPEN_guideline_on_hospital_nutrition.pdf
 [surgery]: https://www.espen.org/files/ESPEN-guideline-on-clinical-nutrition-in-surgery-Update-2025.pdf
 [whs]: https://doi.org/10.1111/WRR.13130
@@ -386,6 +397,8 @@ Version 2 is implemented in the shared PHP calculation path; local and deployed 
 [liver-foods]: https://www.niddk.nih.gov/health-information/liver-disease/cirrhosis/eating-diet-nutrition
 
 Source access: full official PDFs were checked for PDRI, KDIGO, ESPEN liver/hospital/pediatric/surgery; WHS publisher text and KDOQI publisher-indexed recommendation text were checked. Some direct publisher, FDA and legacy URLs were blocked/unavailable. Such access limits do not prove a source false and do not support unverified claims. The exact applicable recommendations, rather than generic source homepages, govern the statements above.
+
+Follow-up access on 25 October 2026: KDIGO 2024, ESPEN hospital/liver/surgery PDFs, NASEM 2023 Table 5-15, the Academy's official 2020 CKD macronutrient recommendations and official NNC PDRI-based tables were accessible. The KDOQI journal URL returned 403; [the original publication record](https://pubmed.ncbi.nlm.nih.gov/32829751/) identifies DOI `10.1053/j.ajkd.2020.05.006`. The source link above now points to the Academy's accessible recommendation text. FNRI's original summary PDF returned 503. [NNC's official tables, p. 5](https://www.nnc.gov.ph/phocadownloadpap/FINAL_2017%20NM%20Talking%20Points.pdf) independently confirm the macro ranges and maternal energy additions; the maternal +27 g protein addition was not independently reverified in this follow-up. [NASEM 2023 Table 5-15, pp. 99–100](https://www.nationalacademies.org/read/26818/chapter/7) matches the implemented pediatric EER coefficients and growth additions. Prior source-access claims above describe the earlier review, not successful retrieval of every source on this date.
 
 ---
 

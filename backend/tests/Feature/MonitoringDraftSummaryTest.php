@@ -9,6 +9,7 @@ use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -17,6 +18,25 @@ use Tests\TestCase;
 class MonitoringDraftSummaryTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_monitoring_sends_current_bmi_classification_and_preserves_weight_comparisons_without_risk(): void
+    {
+        [$ncp, $url, $draft] = $this->context();
+        $ncp->patient()->update(['dob' => '1990-01-01']);
+        $ncp->assessment()->update(['nutritional_status' => 'Severe Malnutrition']);
+        $this->postJson($url, $draft)->assertOk();
+        Http::assertSent(function ($request): bool {
+            $payload = json_decode($request['messages'][0]['content'], true);
+            $this->assertSame('Normal', $payload['bmi_classification']);
+            $weight = collect($payload['indicators'])->firstWhere('key', 'weight');
+            $this->assertSame(60, $weight['previous']);
+            $this->assertSame(61, $weight['current']);
+            $this->assertArrayNotHasKey('nutritional_status', $payload);
+            $this->assertArrayNotHasKey('risk_score', $payload);
+
+            return true;
+        });
+    }
 
     private function context(bool $available = true, string $narrative = 'Intake has improved; protein remains below target.'): array
     {
@@ -48,7 +68,7 @@ class MonitoringDraftSummaryTest extends TestCase
     public function test_unsaved_values_compare_with_assessment_and_only_populated_indicators_are_sent(): void
     {
         [$ncp, $url, $draft] = $this->context();
-        $this->postJson($url, $draft)->assertOk()->assertJsonPath('data.remaining', 2);
+        $this->postJson($url, $draft)->assertOk()->assertJsonPath('data.remaining', 9);
         $this->assertDatabaseCount('monitorings', 0);
         Http::assertSent(function ($request) {
             $payload = json_decode($request['messages'][0]['content'], true);
@@ -70,9 +90,9 @@ class MonitoringDraftSummaryTest extends TestCase
         Http::assertSentCount(1);
         Http::assertSent(fn ($request) => str_starts_with($request['system'], '# CONSTRAINTS & LOGIC')
             && strlen($request['system']) <= 2400
-            && str_contains($request['system'], '2 sentences; <=80 words')
+            && str_contains($request['system'], 'One continuous paragraph; <=80 words')
             && str_contains($request['system'], 'Omit exact previous/current values')
-            && str_contains($request['system'], 'care focus')
+            && str_contains($request['system'], 'Referral/medications/guidance are context')
             && str_contains($request['system'], 'Name what needs attention')
             && str_contains($request['system'], 'No prescribed steps')
             && str_contains($request['system'], 'No per-indicator value lists')
@@ -102,30 +122,31 @@ class MonitoringDraftSummaryTest extends TestCase
         });
     }
 
-    public function test_three_generations_are_shared_across_refreshes_and_changed_values(): void
+    public function test_ten_requests_are_shared_across_refreshes_and_changed_values(): void
     {
         [$ncp, $url, $draft] = $this->context();
-        foreach ([2, 1, 0] as $remaining) {
+        foreach (range(9, 0) as $remaining) {
             $this->postJson($url, $draft)->assertOk()->assertJsonPath('data.remaining', $remaining);
             $draft['weight']++;
             $this->getJson($url.'?draft_id='.$draft['draft_id'])->assertOk()->assertJsonPath('data.remaining', $remaining);
         }
         $this->postJson($url, $draft)->assertStatus(429);
-        Http::assertSentCount(3);
+        Http::assertSentCount(10);
         $this->assertDatabaseCount('monitorings', 0);
     }
 
-    public function test_a_new_draft_has_its_own_allowance_after_an_unsaved_draft_is_abandoned(): void
+    public function test_a_new_draft_shares_the_rnd_allowance_and_reuses_unchanged_inputs(): void
     {
         [$ncp, $url, $draft] = $this->context();
-        $this->postJson($url, $draft)->assertOk()->assertJsonPath('data.remaining', 2);
+        $this->postJson($url, $draft)->assertOk()->assertJsonPath('data.remaining', 9);
         $nextDraftId = (string) Str::uuid();
         $next = $this->getJson($url.'?draft_id='.$nextDraftId)->assertOk()
-            ->assertJsonPath('data.remaining', 3)->json('data');
+            ->assertJsonPath('data.remaining', 9)->json('data');
         $this->assertNotSame($draft['entry_key'], $next['entry_key']);
-        $this->getJson($url.'?draft_id='.$draft['draft_id'])->assertOk()->assertJsonPath('data.remaining', 2);
+        $this->getJson($url.'?draft_id='.$draft['draft_id'])->assertOk()->assertJsonPath('data.remaining', 9);
         $this->postJson($url, [...$draft, 'draft_id' => $nextDraftId, 'entry_key' => $next['entry_key']])
-            ->assertOk()->assertJsonPath('data.remaining', 2);
+            ->assertOk()->assertJsonPath('data.remaining', 9)->assertJsonPath('data.cached', true);
+        Http::assertSentCount(1);
         $this->assertDatabaseCount('monitorings', 0);
     }
 
@@ -172,13 +193,13 @@ class MonitoringDraftSummaryTest extends TestCase
         Http::assertSentCount(1);
     }
 
-    public function test_failed_generation_does_not_use_allowance_and_invalid_inputs_never_reach_ai(): void
+    public function test_failed_generation_uses_an_attempt_but_invalid_inputs_never_reach_ai(): void
     {
         [$ncp, $url, $draft] = $this->context(false);
         $this->postJson($url, array_replace($draft, ['weight' => -2]))->assertUnprocessable();
         Http::assertNothingSent();
         $this->postJson($url, $draft)->assertStatus(503);
-        $this->getJson($url.'?draft_id='.$draft['draft_id'])->assertOk()->assertJsonPath('data.remaining', 3);
+        $this->getJson($url.'?draft_id='.$draft['draft_id'])->assertOk()->assertJsonPath('data.remaining', 9);
     }
 
     public function test_other_role_cannot_generate_and_stale_entry_keys_are_rejected(): void
@@ -189,29 +210,53 @@ class MonitoringDraftSummaryTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_parallel_generation_is_blocked_and_a_saved_visit_starts_a_new_allowance(): void
+    public function test_parallel_generation_is_blocked_and_a_saved_visit_keeps_the_allowance(): void
     {
         [$ncp, $url, $draft] = $this->context();
-        $lock = Cache::lock('monitoring-summary:'.$draft['entry_key'].':lock', 60);
-        $this->assertTrue($lock->get());
-        $this->postJson($url, $draft)->assertStatus(429);
-        Http::assertNothingSent();
-        $lock->release();
-        $this->postJson($url, $draft)->assertOk()->assertJsonPath('data.remaining', 2);
+        Http::swap(new Factory);
+        Http::preventStrayRequests();
+        Http::fake(['api.anthropic.com/*' => function () use ($url, $draft) {
+            $this->postJson($url, $draft)->assertStatus(429);
+
+            return Http::response(['content' => [['type' => 'text', 'text' => 'Recorded intake remains below target.']], 'usage' => ['input_tokens' => 50, 'output_tokens' => 10]]);
+        }]);
+        $this->postJson($url, $draft)->assertOk()->assertJsonPath('data.remaining', 9);
+        Http::assertSentCount(1);
         $save = $draft;
         unset($save['entry_key']);
         $save['clinical_summary'] = 'Reviewed summary.';
         $save['goal_achievement'] = ['continuation_decision' => 'continue'];
         $this->postJson("/api/rnd/ncp-records/{$ncp->uuid}/monitorings", $save)->assertCreated();
-        $budget = $this->getJson($url.'?draft_id='.$draft['draft_id'])->assertOk()->assertJsonPath('data.remaining', 3)->json('data');
+        $budget = $this->getJson($url.'?draft_id='.$draft['draft_id'])->assertOk()->assertJsonPath('data.remaining', 9)->json('data');
         $this->assertNotSame($draft['entry_key'], $budget['entry_key']);
     }
 
-    public function test_oversized_ai_output_is_rejected_without_truncating_or_using_allowance(): void
+    public function test_oversized_ai_output_is_rejected_without_truncating_and_counts_the_attempt(): void
     {
         [$ncp, $url, $draft] = $this->context(true, str_repeat('x', 701));
         $this->postJson($url, $draft)->assertStatus(503);
-        $this->getJson($url.'?draft_id='.$draft['draft_id'])->assertOk()->assertJsonPath('data.remaining', 3);
+        $this->getJson($url.'?draft_id='.$draft['draft_id'])->assertOk()->assertJsonPath('data.remaining', 9);
         $this->assertDatabaseCount('monitorings', 0);
+    }
+
+    public function test_recall_gets_only_relevant_prescription_guides_without_merging_entered_intake(): void
+    {
+        [$ncp, $url, $draft] = $this->context();
+        $ncp->intervention()->first()->update(['energy_kcal' => 1800, 'fat_g' => 60]);
+        $draft['intake_nutrients'] = ['protein_g' => 40, 'energy_kcal' => 1200, 'micro_fiber' => 20];
+        $draft['lab_values']['protein_g'] = 90;
+        $this->postJson($url, $draft)->assertOk();
+        Http::assertSent(function ($request) {
+            $payload = json_decode($request['messages'][0]['content'], true);
+            $this->assertSame(40, $payload['recall_intake_estimate']['protein_g']);
+            $this->assertSame(90, collect($payload['indicators'])->firstWhere('key', 'protein_g')['current']);
+            $this->assertSame(80, $payload['recall_targets']['protein_g']['target']);
+            $this->assertSame('g', $payload['recall_targets']['protein_g']['unit']);
+            $this->assertSame(1800, $payload['recall_targets']['energy_kcal']['target']);
+            $this->assertSame(25, $payload['recall_targets']['micro_fiber']['reference']['min']);
+            $this->assertArrayNotHasKey('fat_g', $payload['recall_targets']);
+
+            return true;
+        });
     }
 }
