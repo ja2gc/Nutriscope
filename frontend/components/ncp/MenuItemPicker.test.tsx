@@ -56,6 +56,46 @@ test('keeps search and pagination outside the scrollable results', async () => {
   } finally { await act(async () => root.unmount()); container.remove(); }
 });
 
+test('keeps prior results visible but disabled while the next page loads', async () => {
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  const container = document.createElement('div'); document.body.append(container);
+  const root = createRoot(container);
+  const shared = { query: '', onQueryChange: () => {}, onSelect: () => {}, onClose: () => {} };
+  try {
+    await act(async () => root.render(<MenuItemPicker {...shared} loading={false} items={[{ id: 'old', name: 'Old result' }]} />));
+    await act(async () => root.render(<MenuItemPicker {...shared} loading items={[]} />));
+
+    const oldResult = container.querySelector<HTMLButtonElement>('[aria-label="Add Old result"]');
+    expect(oldResult).not.toBeNull();
+    expect(oldResult?.disabled).toBe(true);
+    expect(container.querySelector('[data-picker-results] [role="status"]')?.textContent).toBe('Searching…');
+
+    await act(async () => root.render(<MenuItemPicker {...shared} loading={false} items={[{ id: 'new', name: 'New result' }]} />));
+    expect(container.querySelector('[aria-label="Add Old result"]')).toBeNull();
+    expect(container.querySelector('[aria-label="Add New result"]')).not.toBeNull();
+  } finally { await act(async () => root.unmount()); container.remove(); }
+});
+
+test('keeps results disabled immediately after a filter change', async () => {
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  const container = document.createElement('div'); document.body.append(container);
+  const root = createRoot(container);
+  try {
+    await act(async () => root.render(<MenuItemPicker query="" onQueryChange={() => {}} loading={false} items={[{ id: 'old', name: 'Old result' }]} filters={<button type="button" aria-pressed="false">Meals</button>} onSelect={() => {}} onClose={() => {}} />));
+    await act(async () => container.querySelector<HTMLButtonElement>('button[aria-pressed="false"]')!.click());
+
+    const oldResult = container.querySelector<HTMLButtonElement>('[aria-label="Add Old result"]');
+    expect(oldResult?.disabled).toBe(true);
+    expect(container.querySelector('[data-picker-results] [role="status"]')?.textContent).toBe('Searching…');
+
+    await act(async () => root.render(<MenuItemPicker query="" onQueryChange={() => {}} loading items={[]} filters={<button type="button" aria-pressed="true">Meals</button>} onSelect={() => {}} onClose={() => {}} />));
+    await act(async () => root.render(<MenuItemPicker query="" onQueryChange={() => {}} loading={false} items={[{ id: 'new', name: 'New result' }]} filters={<button type="button" aria-pressed="true">Meals</button>} onSelect={() => {}} onClose={() => {}} />));
+
+    expect(container.querySelector('[aria-label="Add Old result"]')).toBeNull();
+    expect(container.querySelector<HTMLButtonElement>('[aria-label="Add New result"]')?.disabled).toBe(false);
+  } finally { await act(async () => root.unmount()); container.remove(); }
+});
+
 test('uses the existing picker for supplies with a readable plural label', async () => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
   const container = document.createElement('div'); document.body.append(container);
