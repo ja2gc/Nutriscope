@@ -64,7 +64,7 @@ class PesSuggestionService
                 $result = $this->aiService->draftPes($payload);
             } catch (UnusableAiDraftException $error) {
                 $rejected = true;
-                Log::warning('PES response withheld', ['reason' => $error->getMessage(), 'usage_log_id' => $error->usage['usage_log_id']]);
+                Log::error('PES response withheld', ['reason' => $error->getMessage(), 'usage_log_id' => $error->usage['usage_log_id']]);
                 $result = ['suggestions' => [], 'usage' => $error->usage];
             }
             $raw = $result['suggestions'];
@@ -73,7 +73,7 @@ class PesSuggestionService
                 $validated = $this->validateProviderResponse($raw, $eligible, $reviewEvidence, $candidateRefs, $evidenceRefs);
             } catch (\RuntimeException $error) {
                 $rejected = true;
-                Log::warning('PES response withheld', ['reason' => $error->getMessage(), 'usage_log_id' => $result['usage']['usage_log_id']]);
+                Log::error('PES response withheld', ['reason' => $error->getMessage(), 'usage_log_id' => $result['usage']['usage_log_id']]);
             } finally {
                 Log::info('PES generation outcome', [
                     ...$result['usage'], 'returned_drafts' => count($raw),

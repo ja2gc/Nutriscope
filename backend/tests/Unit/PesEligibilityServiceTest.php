@@ -51,7 +51,7 @@ class PesEligibilityServiceTest extends TestCase
     {
         $catalog = app(PesRuleCatalog::class);
 
-        $this->assertSame('2026-10-26-v7:'.ClinicalAiContext::version(), $catalog->version());
+        $this->assertSame('2026-10-26-v8:'.ClinicalAiContext::version(), $catalog->version());
         $this->assertEqualsCanonicalizing(['NI', 'NC', 'NB'], array_values(array_unique(array_column($catalog->cards(), 'domain'))));
 
         foreach ($catalog->cards() as $card) {

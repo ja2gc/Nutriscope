@@ -40,14 +40,14 @@ class AIService
 
 # STRUCTURE & DOMAINS
 - Review all once; return 0..3 prioritized distinct supported problems; any domain. Exclude existing/equivalents. Different Other problems may share id.
-- candidates=cN:[domain,problem]; evidence=eN:[field,value]. id=cN; p only for Other (<=75 chars). NI: Inadequate/Excessive [nutrient] Intake.
+- candidates=cN:[domain,problem]; evidence=eN:[field,value]. id=cN. Always include p: supplied problem, or one supported nutrition term for Other, <=75 chars. NI: Inadequate/Excessive [nutrient] Intake.
 - n/en/sn: P/E/S clinical justification, evidence + why, <=100 chars each. No new facts/advice/hidden reasoning. Outside PES.
 
 # CITATION & SYNTAX
-- e/s: ONE source phrase each, <=75 chars. ek/sk: 1..8 supplied eN refs. Preserve quantities/negation/context. JSON only.
+- e/s: copy a short phrase from ONE cited finding, <=75 chars (aim <=8 words). Do not paraphrase or add jargon. Numeric finding: label + supplied value/unit. ek/sk: 1..8 supplied refs. Preserve negation/quantities. JSON only.
 PROMPT;
             $userPrompt = "input_json:\n{$encoded}";
-            $phrase = ['type' => 'string', 'description' => 'Between 1 and 75 characters.'];
+            $phrase = ['type' => 'string', 'pattern' => '^.{1,75}$', 'description' => 'Between 1 and 75 characters.'];
             $evidenceKeys = ['type' => 'array', 'items' => ['type' => 'string'], 'minItems' => 1];
             if (! empty($payload['evidence'])) {
                 $evidenceKeys['items']['enum'] = array_keys($payload['evidence']);
@@ -60,13 +60,13 @@ PROMPT;
                 'type' => 'object', 'additionalProperties' => false, 'required' => ['suggestions'],
                 'properties' => ['suggestions' => ['type' => 'array', 'items' => [
                     'type' => 'object', 'additionalProperties' => false,
-                    'required' => ['id', 'e', 'ek', 's', 'sk', 'n', 'en', 'sn'],
+                    'required' => ['id', 'p', 'e', 'ek', 's', 'sk', 'n', 'en', 'sn'],
                     'properties' => [
                         'id' => $candidateId, 'e' => $phrase, 'ek' => $evidenceKeys,
                         's' => $phrase, 'sk' => $evidenceKeys, 'p' => $phrase,
-                        'n' => ['type' => 'string', 'description' => 'Maximum 100 characters.'],
-                        'en' => ['type' => 'string', 'description' => 'Maximum 100 characters.'],
-                        'sn' => ['type' => 'string', 'description' => 'Maximum 100 characters.'],
+                        'n' => ['type' => 'string', 'pattern' => '^.{0,100}$', 'description' => 'Maximum 100 characters.'],
+                        'en' => ['type' => 'string', 'pattern' => '^.{0,100}$', 'description' => 'Maximum 100 characters.'],
+                        'sn' => ['type' => 'string', 'pattern' => '^.{0,100}$', 'description' => 'Maximum 100 characters.'],
                     ],
                 ]]],
             ];

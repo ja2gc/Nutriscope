@@ -1,6 +1,6 @@
 # AI features
 
-Verified against source: `3b02d5bbe25b292ae0c978cb3a8ca6ae00ab28c9` plus diagnosis deletion/retry corrections in this working tree (2026-10-26).
+Verified against source: `db129aa7792485860da3d0981b033d4d392c14c9` plus the native diagnosis output-contract correction in this working tree (2026-10-26).
 
 Purpose: maintain assisted PES wording and monitoring narration. AI does not own deterministic clinical calculations.
 
@@ -21,6 +21,8 @@ Diagnosis reviews reuse `PesSuggestionState` metadata. One pass evaluates eligib
 Review outcomes are `complete`, `no_supported`, `partial`, or `rejected`. Malformed, entirely rejected and partially accepted output stay cached; **Retry AI Review** requires explicit `retry_rejected` and preserves valid pending drafts. Static rejection reasons are logged without patient findings. A completed candidate/evidence context hash is the skip flag, rather than a field-level medical conclusion. Generate remains clickable for exhausted evidence: POST returns **No supported evidence left.** as a warning, without another provider call or allowance charge. Loading, missing assessment, unavailable status/service and quota exhaustion remain disabled. Provider HTTP failures do not close review. The catalog/review version includes the context-library version; bump the catalog when review behavior changes. Version 7 reopens reviews completed under the previous deletion/partial-rejection behavior; saved diagnoses remain protected.
 
 Version changes invalidate older review states and pending drafts, requiring fresh generation under the current checks. Approved diagnoses remain saved. Within a version, unchanged valid pending drafts survive unrelated edits.
+
+The native provider schema requires p for every draft: the supplied problem label, or a supported custom nutrition term for Other. Simple anchored patterns constrain p/e/s to 1–75 characters and n/en/sn to 0–100 before output reaches validation. The prompt requests short source-grounded e/s phrases rather than unsupported rewriting; numeric findings retain their supplied labels, values and units. Clinical evidence/domain/measurement checks remain mandatory and unchanged. These are supported [Anthropic regex constraints](https://platform.claude.com/docs/en/build-with-claude/structured-outputs#json-schema-limitations), rather than unsupported minLength/maxLength parameters. Entirely withheld generations log the existing static rejection reason at error level so production logging can expose the failure without clinical values. Catalog v8 invalidates results generated under the older format.
 
 Behavioral review hashes include the candidate's required/corroborating findings and cited fields. Uncited referral/medication context does not independently reopen these reviews; cited clinical context still does. Intake/clinical candidates retain conservative clinical-context invalidation. Stored `review_contexts` and `review_outcome` are authoritative; no separate reviewed-ID or empty-result flag is written. Accepted drafts retain provider priority order.
 
