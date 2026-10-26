@@ -277,7 +277,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Diagnosis & Intervention",
     question: "Can AI create a diagnosis automatically?",
-    answer: "AI Review checks eligible nutrition problems once and returns up to three prioritized supported drafts. Referral/medication context and selected clinical guidance assist interpretation; patient names are removed. P/E/S justifications stay in separate notes. Relevant evidence changes or related draft/saved-diagnosis deletion reopen review. No supported evidence left stops generation; rejected output offers an explicit Retry AI Review. Diagnosis allows ten requests per RND per ten minutes, separate from monitoring. Cached reads do not count; unsuccessful generation attempts do. Edit uses matching choices or 75-character Other text. RND must accept or save an edited draft; manual entry remains available.",
+    answer: "AI Review returns up to three prioritized supported nutrition drafts. Referral/medication context and selected guidance assist interpretation; patient names are removed. P/E/S justifications stay in separate notes. Relevant evidence changes or related deletion reopen review, including older custom diagnoses. Generate stays clickable when evidence is exhausted and shows a warning without token use. Rejected or partially rejected output offers Retry AI Review; valid drafts remain. Diagnosis allows ten attempts per RND per ten minutes, separate from monitoring. Cached checks do not count; unsuccessful attempts do. Edit uses matching choices or 75-character Other text. RND must accept or save; manual entry remains available.",
     keywords: ["suggestion", "accept", "edit", "checkbox", "dismiss", "manual", "review"],
   },
   {

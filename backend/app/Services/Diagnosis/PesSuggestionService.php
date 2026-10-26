@@ -44,7 +44,7 @@ class PesSuggestionService
                 if ($source === null) {
                     throw new \InvalidArgumentException('The selected PES draft is no longer available.');
                 }
-                $this->reopen($ncpRecord, $selected['candidate_id'], $selected['label'], $selected['draft_id']);
+                $this->reopen($ncpRecord, $selected['candidate_id'], $selected['label'], $selected['draft_id'], $selected['domain']);
 
                 return $this->response($ncpRecord, $state, $evidence, true);
             }
@@ -140,27 +140,32 @@ class PesSuggestionService
         return AiReviewAllowance::status('diagnosis');
     }
 
-    public function reopen(NcpRecord $record, ?string $candidateId, string $label, ?string $draftId = null): void
+    public function reopen(NcpRecord $record, ?string $candidateId, string $label, ?string $draftId = null, ?string $domain = null): void
     {
+        $cards = $this->catalog->cards();
+        $problems = $this->eligibility->canonicalProblems([$label]);
         foreach ($this->history($record) as $state) {
             $metadata = $state->provider_metadata;
-            $ids = array_filter([$candidateId]);
+            $ids = collect($cards)->contains('id', $candidateId) ? [$candidateId] : [];
             foreach ($state->validated_response as $draft) {
-                if ($this->eligibility->canonicalProblem($draft['label']) === $this->eligibility->canonicalProblem($label)) {
+                if (in_array($this->eligibility->canonicalProblem($draft['label']), $problems, true)) {
                     $ids[] = $draft['candidate_id'];
                 }
             }
-            foreach ($this->catalog->cards() as $card) {
-                if ($this->eligibility->canonicalProblem($card['problem_key']) === $this->eligibility->canonicalProblem($label)) {
+            foreach ($cards as $card) {
+                if (($domain === null || $card['domain'] === $domain) && in_array($this->eligibility->canonicalProblem($card['problem_key']), $problems, true)) {
                     $ids[] = $card['id'];
                 }
+            }
+            if ($ids === [] && $domain !== null) {
+                $ids = array_column(array_filter($cards, fn ($card) => $card['domain'] === $domain && $card['problem_key'] === 'Other'), 'id');
             }
             foreach ($ids as $id) {
                 unset($metadata['review_contexts'][$id]);
             }
             $state->update(['provider_metadata' => $metadata, 'validated_response' => array_values(array_filter(
                 $state->validated_response,
-                fn ($draft) => $draft['draft_id'] !== $draftId && $this->eligibility->canonicalProblem($draft['label']) !== $this->eligibility->canonicalProblem($label),
+                fn ($draft) => $draft['draft_id'] !== $draftId && ! in_array($this->eligibility->canonicalProblem($draft['label']), $problems, true),
             ))]);
         }
     }
@@ -194,7 +199,7 @@ class PesSuggestionService
         $covered = [];
         foreach ($this->history($record) as $previous) {
             foreach ($previous->provider_metadata['review_contexts'] ?? [] as $id => $context) {
-                if (! ($retryRejected && ($context['outcome'] ?? '') === 'rejected') && $context['hash'] === $this->contextHash($id, $evidence, $context['keys'] ?? [])) {
+                if (! ($retryRejected && in_array($context['outcome'] ?? '', ['rejected', 'partial'], true)) && $context['hash'] === $this->contextHash($id, $evidence, $context['keys'] ?? [])) {
                     $covered[] = $id;
                 }
             }
@@ -247,7 +252,7 @@ class PesSuggestionService
         $budget = $this->budget($record);
         $remaining = $this->remaining($record, $evidence);
         $canRetry = count($this->remaining($record, $evidence, true)) > count($remaining);
-        $outcome = $canRetry ? 'rejected' : ($state?->provider_metadata['review_outcome'] ?? null);
+        $outcome = $state?->provider_metadata['review_outcome'] ?? ($canRetry ? 'rejected' : null);
         $reason = match (true) {
             $budget['remaining'] === 0 => 'Ten requests per ten minutes reached. Try again when the allowance resets.',
             $canRetry => 'The response did not pass evidence checks. Retry explicitly or update the Assessment.',
@@ -482,6 +487,7 @@ class PesSuggestionService
                 ];
             } catch (\RuntimeException $error) {
                 $draftError = $error;
+                Log::warning('PES draft withheld', ['reason' => $error->getMessage()]);
             }
         }
         if ($validated === [] && $draftError !== null) {

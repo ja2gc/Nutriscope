@@ -64,7 +64,7 @@ it("keeps the generation button visible and disabled with an explanation after t
   } });
   await open(); click("AI Review");
   expect((screen.getByRole("button", { name: "Generate AI Suggestions" }) as HTMLButtonElement).disabled).toBe(true);
-  expect(screen.getByRole("button", { name: "Why AI generation is unavailable" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "AI review status" })).toBeTruthy();
   expect(screen.getByRole("status").textContent).toContain("10/10 diagnosis requests used in this 10-minute window");
   expect(diagnoses.aiSuggestDiagnoses).not.toHaveBeenCalled();
 });
@@ -101,4 +101,20 @@ it("offers an explicit retry for rejected output without generating on page open
   expect(diagnoses.aiSuggestDiagnoses).not.toHaveBeenCalled();
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Retry AI Review" })); });
   expect(diagnoses.aiSuggestDiagnoses).toHaveBeenCalledExactlyOnceWith("fictional-cycle", true);
+});
+
+it("keeps Generate clickable after evidence is exhausted and warns on each requested check", async () => {
+  const response = await vi.mocked(diagnoses.fetchPesDraftStatus)("fictional-cycle");
+  const exhausted = { ...response, meta: { ...response.meta, can_generate: false, can_retry: false,
+    message: 'No supported evidence left.', disabled_reason: 'No supported evidence left. Update the Assessment when new findings are available.' } };
+  vi.mocked(diagnoses.fetchPesDraftStatus).mockResolvedValue(exhausted);
+  vi.mocked(diagnoses.aiSuggestDiagnoses).mockResolvedValue(exhausted);
+  await open(); click('AI Review');
+  const button = screen.getByRole('button', { name: 'Generate AI Suggestions' }) as HTMLButtonElement;
+  expect(button.disabled).toBe(false);
+  expect(diagnoses.aiSuggestDiagnoses).not.toHaveBeenCalled();
+  await act(async () => { fireEvent.click(button); });
+  expect(screen.getByRole('alert').textContent).toContain('No supported evidence left.');
+  expect(button.disabled).toBe(false);
+  expect(diagnoses.aiSuggestDiagnoses).toHaveBeenCalledExactlyOnceWith('fictional-cycle', false);
 });

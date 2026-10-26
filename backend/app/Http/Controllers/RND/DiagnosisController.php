@@ -173,6 +173,7 @@ class DiagnosisController extends Controller
             app(PesSuggestionService::class)->reopen(
                 $ncpRecord, $diagnosis->ai_provenance['candidate_id'] ?? null,
                 $diagnosis->problem, $diagnosis->ai_provenance['draft_id'] ?? null,
+                $diagnosis->domain,
             );
             $diagnosis->delete();
         });

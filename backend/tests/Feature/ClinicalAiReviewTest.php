@@ -212,14 +212,48 @@ class ClinicalAiReviewTest extends TestCase
         Http::assertSentCount(1);
     }
 
-    public function test_partially_accepted_review_closes_all_candidates_without_automatic_refill(): void
+    public function test_partially_accepted_review_allows_deliberate_retry_without_automatic_refill(): void
     {
         $record = $this->record();
         $this->provider([$this->draft(), [...$this->draft(), 'candidate_id' => 'unknown']]);
         $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest";
-        $this->postJson($url)->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('meta.review_outcome', 'partial')->assertJsonPath('meta.can_generate', false);
+        $this->postJson($url)->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('meta.review_outcome', 'partial')->assertJsonPath('meta.can_generate', false)->assertJsonPath('meta.can_retry', true);
         $this->postJson($url)->assertOk()->assertJsonCount(1, 'data');
         Http::assertSentCount(1);
+        $this->postJson($url, ['retry_rejected' => true])->assertOk()->assertJsonCount(1, 'data');
+        Http::assertSentCount(2);
+    }
+
+    public function test_deleting_two_legacy_custom_diagnoses_reopens_their_domain_and_allows_both_again(): void
+    {
+        $record = $this->record();
+        $record->assessment()->update(['dietary_intake' => 'Excessive sodium intake from salted meals; inadequate iron intake from few iron foods.']);
+        $this->provider([]);
+        $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses";
+        $this->postJson($url.'/ai-suggest')->assertOk();
+        $saved = [];
+        foreach (['Excessive Sodium Intake', 'Inadequate Iron Intake'] as $label) {
+            $saved[] = Diagnosis::create(['ncp_record_id' => $record->id, 'domain' => 'NI', 'problem' => $label,
+                'etiology' => 'Limited access to nutrition education', 'signs_symptoms' => 'Recorded intake pattern',
+                'pes_statement' => $label.' related to limited nutrition education as evidenced by recorded intake.',
+                'ai_generated' => true, 'ai_provenance' => ['candidate_id' => 'legacy_intake_v1', 'catalog_version' => 'old']]);
+        }
+        Diagnosis::factory()->create(['ncp_record_id' => $record->id, 'problem' => 'Physical Inactivity', 'ai_generated' => false]);
+        $this->getJson($url.'/ai-suggest')->assertOk()->assertJsonPath('meta.can_generate', false);
+        foreach ($saved as $diagnosis) {
+            $this->deleteJson($url.'/'.$diagnosis->uuid)->assertNoContent();
+        }
+        $this->getJson($url.'/ai-suggest')->assertOk()->assertJsonPath('meta.can_generate', true);
+        Http::assertSentCount(1);
+        $base = [...$this->draft(), 'candidate_id' => 'intake_other_v2', 'domain' => 'NI',
+            'evidence_used' => ['social_history', 'dietary_intake'], 'signs_evidence' => ['dietary_intake']];
+        $this->provider([
+            [...$base, 'problem_key' => 'Excessive Sodium Intake', 'signs' => 'Excessive sodium intake from salted meals'],
+            [...$base, 'problem_key' => 'Inadequate Iron Intake', 'signs' => 'Inadequate iron intake from few iron foods'],
+        ]);
+        $this->postJson($url.'/ai-suggest')->assertOk()->assertJsonCount(2, 'data');
+        Http::assertSentCount(1);
+        $this->assertDatabaseCount('ai_usage_logs', 2);
     }
 
     public function test_missing_or_unsupported_notes_use_concise_grounded_details_without_rejecting_valid_pes(): void

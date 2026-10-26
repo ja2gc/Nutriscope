@@ -362,6 +362,7 @@ export default function NcpDiagnosisPage({
   const [aiLoading, setAiLoading] = useState(false);
   const [aiMeta, setAiMeta] = useState<PesDraftMeta | null>(null);
   const [aiUnavailable, setAiUnavailable] = useState<string | null>(null);
+  const [aiWarning, setAiWarning] = useState<string | null>(null);
   const [hasAssessment, setHasAssessment] = useState(false);
   const [assessmentContext, setAssessmentContext] = useState<Assessment | null>(null);
   const [interventionGoal, setInterventionGoal] = useState<string | null>(null);
@@ -379,6 +380,7 @@ export default function NcpDiagnosisPage({
       ]);
       if (ai.status === "fulfilled") {
         setAiSuggestions(ai.value.data); setAiMeta(ai.value.meta); setAiUnavailable(null);
+        if (ai.value.meta.can_generate || ai.value.meta.can_retry) setAiWarning(null);
       } else {
         setAiMeta(null); setAiUnavailable("Could not load AI draft status. Refresh to try again.");
       }
@@ -430,6 +432,7 @@ export default function NcpDiagnosisPage({
   const refreshAiStatus = useCallback(async () => {
     const result = await fetchPesDraftStatus(ncpId);
     setAiSuggestions(result.data); setAiMeta(result.meta); setAiUnavailable(null);
+    if (result.meta.can_generate || result.meta.can_retry) setAiWarning(null);
   }, [ncpId]);
 
   useEffect(() => {
@@ -516,10 +519,14 @@ export default function NcpDiagnosisPage({
       setAiLoading(true);
       setError(null);
       setAiUnavailable(null);
+      setAiWarning(null);
       const result = await aiSuggestDiagnoses(ncpId, Boolean(aiMeta?.can_retry));
       setAiSuggestions(result.data);
       setAiDraftsPage(1);
       setAiMeta(result.meta);
+      if (!result.meta.can_generate && !result.meta.can_retry && (result.meta.cached || result.data.length === 0 || result.meta.review_outcome === 'no_supported')) {
+        setAiWarning(result.meta.message ?? result.meta.disabled_reason ?? 'No supported evidence left.');
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "External AI drafts are unavailable.";
       if (message.includes("External AI drafts are unavailable")) {
@@ -1068,7 +1075,7 @@ export default function NcpDiagnosisPage({
           <button
             type="button"
             onClick={handleAiSuggest}
-            disabled={aiLoading || !hasAssessment || !(aiMeta?.can_generate || aiMeta?.can_retry) || Boolean(aiUnavailable)}
+            disabled={aiLoading || !hasAssessment || !aiMeta || aiMeta.budget.remaining === 0 || Boolean(aiUnavailable)}
             aria-describedby="ai-generation-state"
             title={aiMeta?.disabled_reason ?? aiUnavailable ?? undefined}
             className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-xs font-extrabold uppercase tracking-wider text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-warm-300"
@@ -1076,7 +1083,7 @@ export default function NcpDiagnosisPage({
             {aiLoading && <RefreshCw className="h-3.5 w-3.5 animate-spin" />}
             {aiLoading ? "Generating suggestions..." : aiMeta?.can_retry ? "Retry AI Review" : "Generate AI Suggestions"}
           </button>
-          {(aiMeta?.disabled_reason || aiUnavailable) && <InfoHint label="Why AI generation is unavailable" title="AI generation unavailable">{aiMeta?.disabled_reason ?? aiUnavailable}</InfoHint>}
+          {(aiMeta?.disabled_reason || aiUnavailable) && <InfoHint label="AI review status" title="AI review status">{aiMeta?.disabled_reason ?? aiUnavailable}</InfoHint>}
           {aiUnavailable && <button type="button" onClick={() => { void refreshAiStatus().catch(() => setAiUnavailable("Could not load AI draft status. Try again shortly.")); }} className="min-h-11 text-xs font-semibold text-emerald-700 underline">Refresh status</button>}
         </div>
         <p id="ai-generation-state" role="status" className="mt-2 text-xs text-warm-600">
@@ -1088,9 +1095,9 @@ export default function NcpDiagnosisPage({
         )}
       </div>
 
-      {aiMeta?.message && aiSuggestions.length === 0 && (
-        <div className="rounded-xl border border-warm-200 bg-warm-50 px-4 py-3 text-sm text-warm-700">
-          {aiMeta.message || "No supported evidence left."}
+      {(aiWarning || (aiMeta?.message && aiSuggestions.length === 0)) && (
+        <div role={aiWarning ? 'alert' : undefined} className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {aiWarning ?? aiMeta?.message}
         </div>
       )}
 
