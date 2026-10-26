@@ -19,7 +19,7 @@ artifacts/tsbuild/
 skills-lock.json
 e2e_demo/
 compose-run.log
-docs/superpowers/plan/deferred/
+docs/superpowers/
 .worktrees/
 
 # Local test evidence and recovery scratch files
