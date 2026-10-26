@@ -164,10 +164,11 @@ class AiServiceTest extends TestCase
             $schema = $body['output_config']['format']['schema'];
             $draft = $schema['properties']['suggestions']['items'];
             $this->assertFalse($draft['additionalProperties']);
-            foreach (['e', 's', 'p', 'n'] as $field) {
-                $this->assertSame($field === 'n' ? '^.{0,100}$' : '^.{1,75}$', $draft['properties'][$field]['pattern'] ?? null);
+            foreach (['e', 's', 'p', 'n', 'en', 'sn'] as $field) {
+                $this->assertArrayNotHasKey('pattern', $draft['properties'][$field]);
+                $this->assertArrayNotHasKey('maxLength', $draft['properties'][$field]);
                 $this->assertSame(
-                    $field === 'n' ? 'Maximum 100 characters.' : 'Between 1 and 75 characters.',
+                    in_array($field, ['n', 'en', 'sn'], true) ? 'Maximum 100 characters.' : 'Between 1 and 75 characters.',
                     $draft['properties'][$field]['description'],
                 );
             }

@@ -47,7 +47,7 @@ class AIService
 - e/s: copy a short phrase from ONE cited finding, <=75 chars (aim <=8 words). Do not paraphrase or add jargon. Numeric finding: label + supplied value/unit. ek/sk: 1..8 supplied refs. Preserve negation/quantities. JSON only.
 PROMPT;
             $userPrompt = "input_json:\n{$encoded}";
-            $phrase = ['type' => 'string', 'pattern' => '^.{1,75}$', 'description' => 'Between 1 and 75 characters.'];
+            $phrase = ['type' => 'string', 'description' => 'Between 1 and 75 characters.'];
             $evidenceKeys = ['type' => 'array', 'items' => ['type' => 'string'], 'minItems' => 1];
             if (! empty($payload['evidence'])) {
                 $evidenceKeys['items']['enum'] = array_keys($payload['evidence']);
@@ -64,9 +64,9 @@ PROMPT;
                     'properties' => [
                         'id' => $candidateId, 'e' => $phrase, 'ek' => $evidenceKeys,
                         's' => $phrase, 'sk' => $evidenceKeys, 'p' => $phrase,
-                        'n' => ['type' => 'string', 'pattern' => '^.{0,100}$', 'description' => 'Maximum 100 characters.'],
-                        'en' => ['type' => 'string', 'pattern' => '^.{0,100}$', 'description' => 'Maximum 100 characters.'],
-                        'sn' => ['type' => 'string', 'pattern' => '^.{0,100}$', 'description' => 'Maximum 100 characters.'],
+                        'n' => ['type' => 'string', 'description' => 'Maximum 100 characters.'],
+                        'en' => ['type' => 'string', 'description' => 'Maximum 100 characters.'],
+                        'sn' => ['type' => 'string', 'description' => 'Maximum 100 characters.'],
                     ],
                 ]]],
             ];

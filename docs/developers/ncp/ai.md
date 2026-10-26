@@ -1,6 +1,6 @@
 # AI features
 
-Verified against source: `db129aa7792485860da3d0981b033d4d392c14c9` plus the native diagnosis output-contract correction in this working tree (2026-10-26).
+Verified against source: `d065bad442841997bc2e45576fee7048c903ae79` plus the provider schema-compatibility correction in this working tree (2026-10-26).
 
 Purpose: maintain assisted PES wording and monitoring narration. AI does not own deterministic clinical calculations.
 
@@ -22,7 +22,7 @@ Review outcomes are `complete`, `no_supported`, `partial`, or `rejected`. Malfor
 
 Version changes invalidate older review states and pending drafts, requiring fresh generation under the current checks. Approved diagnoses remain saved. Within a version, unchanged valid pending drafts survive unrelated edits.
 
-The native provider schema requires p for every draft: the supplied problem label, or a supported custom nutrition term for Other. Simple anchored patterns constrain p/e/s to 1–75 characters and n/en/sn to 0–100 before output reaches validation. The prompt requests short source-grounded e/s phrases rather than unsupported rewriting; numeric findings retain their supplied labels, values and units. Clinical evidence/domain/measurement checks remain mandatory and unchanged. These are supported [Anthropic regex constraints](https://platform.claude.com/docs/en/build-with-claude/structured-outputs#json-schema-limitations), rather than unsupported minLength/maxLength parameters. Entirely withheld generations log the existing static rejection reason at error level so production logging can expose the failure without clinical values. Catalog v8 invalidates results generated under the older format.
+The native provider schema requires p for every draft: the supplied problem label, or a supported custom nutrition term for Other. Field descriptions and the prompt specify p/e/s at 1–75 characters and n/en/sn at 0–100. Short source-grounded e/s phrases reduce unsupported rewriting; numeric findings retain supplied labels, values and units. Server length/evidence/domain/measurement checks remain mandatory. Do not add regex length ranges: the deployed provider rejected them with HTTP 400, despite [documented support for some simple ranges](https://platform.claude.com/docs/en/build-with-claude/structured-outputs#json-schema-limitations). Entirely withheld generations log the existing static rejection reason at error level without clinical values. Catalog v8 invalidates results generated under the older format.
 
 Behavioral review hashes include the candidate's required/corroborating findings and cited fields. Uncited referral/medication context does not independently reopen these reviews; cited clinical context still does. Intake/clinical candidates retain conservative clinical-context invalidation. Stored `review_contexts` and `review_outcome` are authoritative; no separate reviewed-ID or empty-result flag is written. Accepted drafts retain provider priority order.
 
