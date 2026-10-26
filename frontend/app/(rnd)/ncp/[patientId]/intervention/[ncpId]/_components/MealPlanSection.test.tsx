@@ -505,3 +505,25 @@ it("edits saved ingredient amounts using the frozen nutrient basis without fetch
     expect(updateMealPlanItem).toHaveBeenCalledWith('ncp-1', 'plan-1', 'day-1', 'frozen-item', { quantity: 1.2, ingredients: [{ food_item_id: 'food-1', quantity: 500, unit: 'g' }] });
   } finally { await act(async () => root.unmount()); }
 });
+
+it('filters intervention menu items by category', async () => {
+  vi.mocked(fetchRecipes).mockResolvedValue({ data: [{ id: 'meal-choice', name: 'Rice bowl', category: 'meal', servings: 1 }] as never, meta: { current_page: 1, per_page: 10, total: 20, last_page: 2 } as never });
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container);
+  await act(async () => root.render(<MealPlanSection ncpId="ncp-1" interventionPlanId="intervention-1" prescriptionTargets={{ energy: 2000, protein: 75, carbs: 250, fat: 65, fluid: 2000 }} />));
+  try {
+    await act(async () => container.querySelector<HTMLButtonElement>('[data-menu-editor-add][aria-label="Add item to Monday breakfast"]')!.click());
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
+    const picker = container.querySelector('[role="dialog"]')!;
+    for (const label of ['All', 'Meals', 'Snacks', 'Carbs']) expect(Array.from(picker.querySelectorAll('button')).some(button => button.textContent?.trim() === label)).toBe(true);
+    await act(async () => picker.querySelector<HTMLButtonElement>('[aria-label="Next page"]')!.click());
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 200)); });
+    expect(fetchRecipes).toHaveBeenLastCalledWith('', 'all', 2);
+    await act(async () => Array.from(picker.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Snacks')!.click());
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 200)); });
+    expect(fetchRecipes).toHaveBeenLastCalledWith('', 'snack', 1);
+    const search = picker.querySelector<HTMLInputElement>('input[type="search"]')!;
+    await act(async () => fireEvent.input(search, { target: { value: 'rice' } }));
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 200)); });
+    expect(fetchRecipes).toHaveBeenLastCalledWith('rice', 'snack', 1);
+  } finally { await act(async () => root.unmount()); }
+});

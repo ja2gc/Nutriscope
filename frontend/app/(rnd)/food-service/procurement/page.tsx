@@ -11,6 +11,8 @@ import {
 import { Button } from "@/components/ui/Button";
 import { DeleteActionDialog } from "@/components/ui/DeleteActionDialog";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
+import ButtonFilterGroup from "@/components/ui/ButtonFilterGroup";
+import { MenuItemPicker } from "@/components/ncp/MenuItemPicker";
 import {
   ShoppingList, PurchaseOrder, POAttachment, ShoppingListItem, ShoppingListDraftItem,
   listShoppingLists, getShoppingList, generateByDates, deleteShoppingList,
@@ -21,7 +23,7 @@ import {
   MissingMenuDaysError,
 } from "@/services/procurementService";
 import { listAllSuppliers, Supplier } from "@/services/supplierService";
-import { searchCatalog, type CatalogItem } from "@/services/fsCatalogService";
+import { listCatalog, type CatalogItem } from "@/services/fsCatalogService";
 import { SuppliersPanel } from "@/components/foodservice/SuppliersPanel";
 import { ImageUploadGallery, type UploadImage } from "@/components/ui/ImageUploadGallery";
 import { DatePicker } from "@/components/ui/DatePicker";
@@ -91,6 +93,11 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
   const [busy, setBusy] = useState(false);
   const [itemSearch, setItemSearch] = useState("");
   const [itemResults, setItemResults] = useState<CatalogItem[]>([]);
+  const [itemPickerOpen, setItemPickerOpen] = useState(false);
+  const [itemPickerPage, setItemPickerPage] = useState(1);
+  const [itemPickerMeta, setItemPickerMeta] = useState<PaginationMeta | null>(null);
+  const [itemPickerLoading, setItemPickerLoading] = useState(false);
+  const [groceryFilter, setGroceryFilter] = useState<"" | "non_auto" | "auto">("");
   const [selectedItem, setSelectedItem] = useState<CatalogItem | null>(null);
   const [addQty, setAddQty] = useState("1");
   const [addUnitPrice, setAddUnitPrice] = useState("0");
@@ -101,7 +108,6 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [addingItem, setAddingItem] = useState(false);
-  const itemSearchRequest = useRef(0);
   const [itemDrafts, setItemDrafts] = useState<Record<string, { qty?: string; price?: string; total?: string }>>({});
 
   const load = useCallback(() => {
@@ -112,6 +118,26 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
       setSavedSnapshot(shoppingSnapshot(initialDraft));
     }
   }, [id, initialDraft]);
+
+  useEffect(() => {
+    if (!itemPickerOpen || !list) return;
+    let active = true;
+    setItemPickerLoading(true);
+    setItemError("");
+    const timer = window.setTimeout(async () => {
+      const kind = list.procurement_track === "supplies" ? "supply" : "ingredient";
+      const grocery = kind === "supply" ? "" : groceryFilter;
+      try {
+        const result = await listCatalog(kind, itemPickerPage, itemSearch.trim(), grocery);
+        if (active) { setItemResults(result.data); setItemPickerMeta(result.meta); }
+      } catch (cause) {
+        if (active) { setItemResults([]); setItemError(cause instanceof Error ? cause.message : "Failed to search Inventory."); }
+      } finally {
+        if (active) setItemPickerLoading(false);
+      }
+    }, 180);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [itemPickerOpen, itemPickerPage, itemSearch, groceryFilter, list]);
   useEffect(() => { load(); }, [load]);
 
   function patchItem(itemId: string, patch: Parameters<typeof updateListItem>[1]) {
@@ -175,48 +201,24 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
     });
   }
 
-  async function searchItems(q: string) {
-    const requestId = ++itemSearchRequest.current;
-    setItemSearch(q);
+  function openItemPicker() {
+    const isSupplies = list?.procurement_track === "supplies";
+    setItemPickerOpen(true);
+    setItemPickerPage(1);
+    setItemPickerMeta(null);
+    setItemSearch("");
+    setItemResults([]);
     setSelectedItem(null);
-    if (q.trim().length < 2) { setItemResults([]); return; }
     setItemError("");
-    try {
-      const result = await searchCatalog(
-        q,
-        list?.procurement_track === "supplies" ? "supply" : "ingredient",
-      );
-      if (requestId === itemSearchRequest.current) setItemResults(result.slice(0, 5));
-    } catch (e) {
-      if (requestId === itemSearchRequest.current) {
-        setItemResults([]);
-        setItemError(e instanceof Error ? e.message : "Failed to search Inventory.");
-      }
-    }
-  }
-
-  async function showInitialItemSuggestions() {
-    if (list?.procurement_track === "supplies" || itemSearch.trim() || selectedItem) return;
-
-    const requestId = ++itemSearchRequest.current;
-    setItemError("");
-    try {
-      const result = await searchCatalog("", "ingredient", 5, "non_auto");
-      if (requestId === itemSearchRequest.current) {
-        setItemResults(result);
-      }
-    } catch (e) {
-      if (requestId === itemSearchRequest.current) {
-        setItemResults([]);
-        setItemError(e instanceof Error ? e.message : "Failed to search Inventory.");
-      }
-    }
+    setGroceryFilter(isSupplies ? "" : "non_auto");
   }
 
   function selectManualItem(item: CatalogItem) {
     setSelectedItem(item);
     setItemSearch(item.name);
     setItemResults([]);
+    setItemPickerOpen(false);
+    setItemError("");
     setAddUnitPrice(String(item.unit_cost ?? item.purchase_price ?? "0"));
     setAddUnitPriceEdited(false);
     setAddSupplier(item.default_supplier_id ?? "");
@@ -249,6 +251,7 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
       };
       setList({ ...list, items: [...list.items, created] });
       setItemSearch("");
+      setItemPickerOpen(false);
       setSelectedItem(null);
       setAddQty("1");
       setAddUnitPrice("0");
@@ -455,39 +458,28 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
         <div className="bg-white border border-warm-200 rounded-2xl p-4 shadow-sm">
           <div className="text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-3">Add {isSupplies ? "supply" : "food"} item</div>
           <div className="flex flex-wrap items-end gap-3">
-            <div className="relative min-w-48 flex-1" onMouseLeave={() => { ++itemSearchRequest.current; setItemResults([]); }} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) { ++itemSearchRequest.current; setItemResults([]); } }} onKeyDown={(event) => { if (event.key === 'Escape') { ++itemSearchRequest.current; setItemResults([]); } }}>
+            <div className="min-w-48 flex-1">
               <label htmlFor="shopping-list-item-search" className="block text-xs font-extrabold text-warm-500 uppercase mb-1">Search {isSupplies ? "supplies" : "ingredients"}</label>
               <div className="flex items-center gap-2 px-3 py-2 border border-warm-200 rounded-lg">
                 <Search className="h-3.5 w-3.5 text-warm-400" />
                 <input
                   id="shopping-list-item-search"
                   value={itemSearch}
-                  onChange={(e) => searchItems(e.target.value)}
-                  onFocus={showInitialItemSuggestions}
+                  readOnly
+                  onClick={openItemPicker}
+                  onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openItemPicker(); } }}
                   className="w-full text-base outline-none"
                 />
               </div>
-              {itemResults.length > 0 && (
-                <div className="absolute z-20 mt-1 w-full bg-white border border-warm-200 rounded-xl shadow-lg overflow-hidden">
-                  {itemResults.map((item) => (
-                    <button key={item.id} type="button" onClick={() => selectManualItem(item)}
-                      className="w-full text-left px-3 py-2 hover:bg-warm-50 border-b border-warm-100 last:border-0 cursor-pointer">
-                      <span className="block text-sm font-bold text-warm-900">{item.name}</span>
-                      <span className="text-xs text-warm-400">
-                        {item.base_unit} · {item.unit_cost ? peso(num(item.unit_cost)) : "no price"}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
             <Button variant="secondary" onClick={addManualItem} loading={addingItem} disabled={!selectedItem || addingItem} className="px-4 py-2 flex items-center gap-2">
               <Plus className="h-4 w-4" /> Add
             </Button>
           </div>
-          {itemError && <p role="alert" className="mt-2 text-xs font-semibold text-red-600">{itemError}</p>}
+          {itemError && !itemPickerOpen && <p role="alert" className="mt-2 text-xs font-semibold text-red-600">{itemError}</p>}
         </div>
       )}
+      {itemPickerOpen && <MenuItemPicker title={`Add ${isSupplies ? "supply" : "food"} item`} itemLabel={isSupplies ? "Supply" : "Ingredient"} query={itemSearch} onQueryChange={(value) => { setItemSearch(value); setSelectedItem(null); setItemPickerPage(1); setItemResults([]); }} filters={isSupplies ? undefined : <div className="[&_button]:min-h-11"><ButtonFilterGroup label="Grocery" size="sm" value={groceryFilter} onChange={(value) => { setGroceryFilter(value as typeof groceryFilter); setItemPickerPage(1); setItemResults([]); }} options={[{ value: "", label: "All" }, { value: "non_auto", label: "Non-auto grocery" }, { value: "auto", label: "Auto grocery" }]} /></div>} loading={itemPickerLoading} error={itemError || null} items={itemResults.map((item) => ({ id: item.id, name: item.name, detail: `${item.base_unit} · ${item.unit_cost ? peso(num(item.unit_cost)) : "no price"}` }))} onSelect={(id) => { const item = itemResults.find((result) => result.id === id); if (item) selectManualItem(item); }} onClose={() => setItemPickerOpen(false)} meta={itemPickerMeta} page={itemPickerPage} onPageChange={setItemPickerPage} />}
 
       {/* Cart table */}
       <div className="min-w-0 w-full max-w-full bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">

@@ -2,6 +2,7 @@
 
 import { useEditorChanges } from "@/hooks/useUnsavedChanges";
 import { MenuItemPicker } from "@/components/ncp/MenuItemPicker";
+import ButtonFilterGroup from "@/components/ui/ButtonFilterGroup";
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   Plus, X, Loader2, Trash2, BookmarkPlus,
@@ -176,6 +177,7 @@ export default function MealPlanSection({
   const [pickerOpen, setPickerOpen]           = useState(false);
   const [pickerTarget, setPickerTarget]       = useState<{ dayId: string; mealType: string } | null>(null);
   const [recipeQuery, setRecipeQuery]         = useState('');
+  const [recipeCategory, setRecipeCategory]   = useState('all');
   const [recipeResults, setRecipeResults]     = useState<Recipe[]>([]);
   const [recipePage, setRecipePage]           = useState(1);
   const [recipeMeta, setRecipeMeta]           = useState<PaginationMeta | null>(null);
@@ -191,7 +193,7 @@ export default function MealPlanSection({
       setPickerLoading(true);
       setPickerError(null);
       try {
-        const result = await fetchRecipes(recipeQuery, 'all', recipePage);
+        const result = await fetchRecipes(recipeQuery, recipeCategory, recipePage);
         if (!cancelled) { setRecipeResults(result.data); setRecipeMeta(result.meta ?? null); }
       } catch (error) {
         if (!cancelled) setPickerError(error instanceof Error ? error.message : 'Could not load Menu Items. Try again.');
@@ -200,7 +202,7 @@ export default function MealPlanSection({
       }
     }, 160);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [pickerOpen, recipePage, recipeQuery]);
+  }, [pickerOpen, recipeCategory, recipePage, recipeQuery]);
 
   const markPlanNeedsScaling = (planId: string) => {
     setPlans((current) => current.map((plan) => plan.id === planId
@@ -604,7 +606,7 @@ export default function MealPlanSection({
   // ── Picker helpers ──────────────────────────────────────────────────────────
 
   const openPicker = (dayId: string, mealType: string) => {
-    setPickerTarget({ dayId, mealType }); setPickerLoading(true); setPickerOpen(true);
+    setPickerTarget({ dayId, mealType }); setPickerLoading(true); setPickerOpen(true); setRecipeCategory('all');
     setRecipeQuery(''); setRecipeResults([]); setRecipePage(1); setRecipeMeta(null); setPickerError(null);
   };
 
@@ -965,7 +967,7 @@ export default function MealPlanSection({
       )}
 
       {/* ── Food Picker Modal ───────────────────────────────────────────────── */}
-      {!readOnly && pickerOpen && <MenuItemPicker query={recipeQuery} onQueryChange={(value) => { setPickerLoading(true); setRecipeQuery(value); setRecipePage(1); setRecipeResults([]); }} loading={pickerLoading} error={pickerError} items={recipeResults.map((item) => ({ id: item.id, name: item.name, detail: `${item.category} · Recipe makes ${item.servings} ${item.servings === 1 ? "serving" : "servings"}` }))} onSelect={(id) => { const recipe = recipeResults.find((item) => item.id === id); if (recipe) void addFromRecipe(recipe); }} onClose={() => setPickerOpen(false)} busyId={adding === null ? null : String(adding)} meta={recipeMeta} page={recipePage} onPageChange={setRecipePage} />}
+      {!readOnly && pickerOpen && <MenuItemPicker query={recipeQuery} onQueryChange={(value) => { setPickerLoading(true); setRecipeQuery(value); setRecipePage(1); setRecipeResults([]); }} filters={<div className="[&_button]:min-h-11"><ButtonFilterGroup label="Category" size="sm" value={recipeCategory} onChange={(value) => { setRecipeCategory(value); setRecipePage(1); setRecipeResults([]); setPickerLoading(true); }} options={[{ value: 'all', label: 'All' }, { value: 'meal', label: 'Meals' }, { value: 'snack', label: 'Snacks' }, { value: 'carb', label: 'Carbs' }]} /></div>} loading={pickerLoading} error={pickerError} items={recipeResults.map((item) => ({ id: item.id, name: item.name, detail: `${item.category} · Recipe makes ${item.servings} ${item.servings === 1 ? "serving" : "servings"}` }))} onSelect={(id) => { const recipe = recipeResults.find((item) => item.id === id); if (recipe) void addFromRecipe(recipe); }} onClose={() => setPickerOpen(false)} busyId={adding === null ? null : String(adding)} meta={recipeMeta} page={recipePage} onPageChange={setRecipePage} />}
 
       {/* ── Save Template Modal ─────────────────────────────────────────────── */}
       {!readOnly && saveTemplateOpen && (

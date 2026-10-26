@@ -9,7 +9,7 @@ import {
   listPurchaseOrders, listShoppingLists, updateShoppingList, updateVendorGroup,
   type PurchaseOrder, type ShoppingList,
 } from "@/services/procurementService";
-import { searchCatalog, type CatalogItem } from "@/services/fsCatalogService";
+import { listCatalog, type CatalogItem } from "@/services/fsCatalogService";
 import { ShoppingListCopyCard } from "@/components/foodservice/ShoppingListCopyCard";
 import ProcurementPage from "./page";
 
@@ -30,7 +30,7 @@ vi.mock("@/services/procurementService", async (importOriginal) => ({
 }));
 vi.mock("@/services/fsCatalogService", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/services/fsCatalogService")>(),
-  searchCatalog: vi.fn(),
+  listCatalog: vi.fn(),
 }));
 vi.mock("@/services/supplierService", () => ({ listAllSuppliers: vi.fn().mockResolvedValue([]) }));
 
@@ -41,7 +41,7 @@ const mockGetPurchaseOrder = vi.mocked(getPurchaseOrder);
 const mockGetShoppingList = vi.mocked(getShoppingList);
 const mockListPurchaseOrders = vi.mocked(listPurchaseOrders);
 const mockListShoppingLists = vi.mocked(listShoppingLists);
-const mockSearchCatalog = vi.mocked(searchCatalog);
+const mockListCatalog = vi.mocked(listCatalog);
 const mockUpdateShoppingList = vi.mocked(updateShoppingList);
 const mockUpdateVendorGroup = vi.mocked(updateVendorGroup);
 const meta = { current_page: 1, per_page: 10, total: 1, last_page: 1 };
@@ -107,7 +107,7 @@ describe("Food Service procurement display", () => {
     mockGetShoppingList.mockResolvedValue(makeList());
     mockCreateShoppingList.mockResolvedValue(makeList());
     mockGenerateByDates.mockResolvedValue(makeList({ id: "generated-list", name: "Weekly menu", list_type: "suggested" }));
-    mockSearchCatalog.mockResolvedValue([rice]);
+    mockListCatalog.mockResolvedValue({ data: [rice], meta: { current_page: 1, per_page: 10, total: 11, last_page: 2 } });
     mockUpdateShoppingList.mockResolvedValue(makeList({ name: "Renamed list" }));
     mockUpdateVendorGroup.mockResolvedValue(makePo());
     originalClipboard = navigator.clipboard;
@@ -211,6 +211,11 @@ describe("Food Service procurement display", () => {
     mockListShoppingLists.mockResolvedValue({ data: [list], meta });
     mockGetShoppingList.mockResolvedValue(list);
     await renderPage();
+    if (list.procurement_track === "supplies") {
+      const suppliesTab = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
+        .find((button) => button.textContent?.trim() === "Supplies Lists");
+      await act(async () => { suppliesTab?.click(); });
+    }
     const open = container.querySelector<HTMLButtonElement>(`button[aria-label="Open list: ${list.name}"]`);
     await act(async () => { open?.click(); await Promise.resolve(); await Promise.resolve(); });
   }
@@ -423,12 +428,12 @@ describe("Food Service procurement display", () => {
   });
 
   test("adds a selected Inventory item through the existing public-id flow", async () => {
-    mockSearchCatalog.mockResolvedValue([{ ...rice, default_supplier_id: 'inventory-vendor-uuid', vendor: 'Inventory vendor' }]);
+    mockListCatalog.mockResolvedValue({ data: [{ ...rice, default_supplier_id: 'inventory-vendor-uuid', vendor: 'Inventory vendor' }], meta: { current_page: 1, per_page: 10, total: 1, last_page: 1 } });
     await openList();
     const search = container.querySelector<HTMLInputElement>('#shopping-list-item-search');
-    await act(async () => { if (search) setInputValue(search, "Rice"); await Promise.resolve(); });
-    const option = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
-      .find((candidate) => candidate.textContent?.includes("Rice"));
+    await act(async () => { search?.click(); });
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
+    const option = container.querySelector<HTMLButtonElement>('[role="dialog"] [aria-label="Add Rice"]');
     await act(async () => { option?.click(); });
     const add = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
       .find((candidate) => candidate.textContent?.trim() === "Add");
@@ -442,11 +447,50 @@ describe("Food Service procurement display", () => {
     expect(container.querySelector('[role="alert"]')).toBeNull();
   });
 
+  test('loads initial food suggestions with grocery filters and keeps inventory defaults', async () => {
+    mockListCatalog.mockResolvedValue({ data: [{ ...rice, default_supplier_id: 'inventory-vendor-uuid', vendor: 'Inventory vendor' }], meta: { current_page: 1, per_page: 10, total: 11, last_page: 2 } });
+    await openList(makeList({ list_type: 'suggested', period_start: '2026-10-04', period_end: '2026-10-04', days_span: 1, estimate_population: 100 }));
+    await act(async () => container.querySelector<HTMLInputElement>('#shopping-list-item-search')!.click());
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
+    expect(mockListCatalog).toHaveBeenLastCalledWith('ingredient', 1, '', 'non_auto');
+    const picker = container.querySelector('[role="dialog"]')!;
+    for (const label of ['All', 'Non-auto grocery', 'Auto grocery']) expect(Array.from(picker.querySelectorAll('button')).some(button => button.textContent?.trim() === label)).toBe(true);
+    await act(async () => picker.querySelector<HTMLButtonElement>('[aria-label="Next page"]')!.click());
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
+    expect(mockListCatalog).toHaveBeenLastCalledWith('ingredient', 2, '', 'non_auto');
+    await act(async () => Array.from(picker.querySelectorAll('button')).find(button => button.textContent?.trim() === 'All')!.click());
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
+    expect(mockListCatalog).toHaveBeenLastCalledWith('ingredient', 1, '', '');
+    await act(async () => picker.querySelector<HTMLButtonElement>('[aria-label="Add Rice"]')!.click());
+    const add = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(button => button.textContent?.trim() === 'Add');
+    await act(async () => { add?.click(); await Promise.resolve(); });
+    const save = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(button => button.textContent?.trim() === 'Save Shopping List');
+    await act(async () => { save?.click(); await Promise.resolve(); });
+    const confirm = Array.from(container.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'))
+      .find(button => button.textContent?.trim() === 'Save Shopping List');
+    await act(async () => { confirm?.click(); await Promise.resolve(); });
+    expect(mockUpdateShoppingList).toHaveBeenCalledWith('list-1', expect.objectContaining({ items: [expect.objectContaining({ fs_item_uuid: 'rice-public-uuid', purchase_price: 50, supplier_id: 'inventory-vendor-uuid' })] }));
+  });
+
+  test('loads supply items without grocery filters', async () => {
+    const supply = { ...rice, id: 'supply-1', name: 'Paper cups', kind: 'supply' as const };
+    mockListCatalog.mockResolvedValue({ data: [supply], meta: { current_page: 1, per_page: 10, total: 1, last_page: 1 } });
+    await openList(makeList({ procurement_track: 'supplies' }));
+    await act(async () => container.querySelector<HTMLInputElement>('#shopping-list-item-search')!.click());
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
+    expect(mockListCatalog).toHaveBeenLastCalledWith('supply', 1, '', '');
+    const picker = container.querySelector('[role="dialog"]')!;
+    expect(picker.textContent).toContain('Search Supplies');
+    expect(Array.from(picker.querySelectorAll('button')).some(button => button.textContent?.trim() === 'Auto grocery')).toBe(false);
+    expect(picker.querySelector('[aria-label="Add Paper cups"]')).not.toBeNull();
+  });
+
   test("empty Shopping List search suggests Non-Auto Grocery items first", async () => {
     await openList();
     const search = container.querySelector<HTMLInputElement>('#shopping-list-item-search');
-    await act(async () => { search?.focus(); await Promise.resolve(); });
-    expect(mockSearchCatalog).toHaveBeenCalledWith("", "ingredient", 5, "non_auto");
+    await act(async () => { search?.click(); });
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
+    expect(mockListCatalog).toHaveBeenCalledWith("ingredient", 1, "", "non_auto");
   });
 
   test("adds an Inventory item to a Suggested draft before its first Save", async () => {
@@ -470,9 +514,9 @@ describe("Food Service procurement display", () => {
       .find((button) => button.textContent?.trim() === "Generate");
     await act(async () => { generate?.click(); await Promise.resolve(); });
     const search = container.querySelector<HTMLInputElement>('#shopping-list-item-search');
-    await act(async () => { if (search) setInputValue(search, "Rice"); await Promise.resolve(); });
-    const option = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
-      .find((button) => button.textContent?.includes("Rice"));
+    await act(async () => { search?.click(); });
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
+    const option = container.querySelector<HTMLButtonElement>('[role="dialog"] [aria-label="Add Rice"]');
     await act(async () => { option?.click(); });
     const add = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
       .find((button) => button.textContent?.trim() === "Add");
@@ -493,9 +537,9 @@ describe("Food Service procurement display", () => {
     mockUpdateShoppingList.mockRejectedValue(new Error("Inventory item could not be added."));
     await openList();
     const search = container.querySelector<HTMLInputElement>('#shopping-list-item-search');
-    await act(async () => { if (search) setInputValue(search, "Rice"); await Promise.resolve(); });
-    const option = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
-      .find((candidate) => candidate.textContent?.includes("Rice"));
+    await act(async () => { search?.click(); });
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
+    const option = container.querySelector<HTMLButtonElement>('[role="dialog"] [aria-label="Add Rice"]');
     await act(async () => { option?.click(); });
     const add = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
       .find((candidate) => candidate.textContent?.trim() === "Add");

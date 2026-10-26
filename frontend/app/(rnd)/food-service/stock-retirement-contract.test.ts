@@ -13,7 +13,8 @@ describe("food-service stock retirement", () => {
       read("app/(rnd)/food-service/procurement/page.tsx"),
     ].join("\n");
 
-    expect(sources).toContain("searchCatalog");
+    expect(sources).toContain("listCatalog");
+    expect(sources).toContain("MenuItemPicker");
     const retiredPickerNames = [
       ["list", "Inventory", "Rows"].join(""),
       ["search", "Inventory"].join(""),
@@ -23,8 +24,8 @@ describe("food-service stock retirement", () => {
     retiredPickerNames.forEach((name) => expect(sources).not.toContain(name));
 
     const catalogService = read("services/fsCatalogService.ts");
-    expect(catalogService).toContain('limit: String(limit)');
-    expect(catalogService).toContain('limit = 5');
+    expect(catalogService).toContain('page: String(page), limit: String(perPage)');
+    expect(catalogService).toContain('perPage = 10');
   });
 
   test("runtime source has no retired stock contract names", () => {

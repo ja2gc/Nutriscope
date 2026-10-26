@@ -3,6 +3,7 @@
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
+import { fireEvent } from '@testing-library/dom';
 import { MealTemplatesTab } from "./MealTemplatesTab";
 import { saveLibraryMealPlanTemplate } from "@/services/mealPlanService";
 import { fetchRecipes, type Recipe } from "@/services/foodLibraryService";
@@ -158,4 +159,27 @@ it("keeps the target cell and query when item search fails and recovers on anoth
   expect(picker.textContent).toContain('Wednesday Dinner');
   expect(picker.querySelector('[role="alert"]')).toBeNull();
   expect(picker.textContent).toContain(recipeChoice.name);
+});
+
+it('filters template menu items by category', async () => {
+  vi.mocked(fetchRecipes).mockResolvedValue({ data: [recipeChoice], meta: { current_page: 1, per_page: 10, total: 20, last_page: 2 } as never });
+  const container = document.createElement('div'); document.body.append(container); root = createRoot(container);
+  await act(async () => root.render(<MealTemplatesTab />));
+  await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Edit Measured week"]')!.click());
+  await act(async () => container.querySelector<HTMLButtonElement>('[data-menu-editor-add][aria-label="Add item to Tuesday Lunch"]')!.click());
+  try {
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
+    const picker = container.querySelector('[role="dialog"]')!;
+    for (const label of ['All', 'Meals', 'Snacks', 'Carbs']) expect(Array.from(picker.querySelectorAll('button')).some(button => button.textContent?.trim() === label)).toBe(true);
+    await act(async () => picker.querySelector<HTMLButtonElement>('[aria-label="Next page"]')!.click());
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
+    expect(fetchRecipes).toHaveBeenLastCalledWith('', 'all', 2, 10);
+    await act(async () => Array.from(picker.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Carbs')!.click());
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
+    expect(fetchRecipes).toHaveBeenLastCalledWith('', 'carb', 1, 10);
+    const search = picker.querySelector<HTMLInputElement>('input[type="search"]')!;
+    await act(async () => fireEvent.input(search, { target: { value: 'rice' } }));
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
+    expect(fetchRecipes).toHaveBeenLastCalledWith('rice', 'carb', 1, 10);
+  } finally { await act(async () => root.unmount()); }
 });

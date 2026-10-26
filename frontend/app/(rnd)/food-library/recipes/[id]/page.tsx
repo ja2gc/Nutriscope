@@ -2,11 +2,13 @@
 
 import { numericStepBase } from "@/components/ui/NumericInput";
 import { quantityInputValue } from "@/lib/foodServiceFormat";
-import React, { use, useCallback, useEffect, useRef, useState } from "react";
+import React, { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useEditorChanges } from "@/hooks/useUnsavedChanges";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MenuItemProfile, MENU_ITEM_NUTRIENT_UNITS as NUTRIENT_UNITS } from "@/components/ncp/MenuItemProfile";
+import { MenuItemPicker } from "@/components/ncp/MenuItemPicker";
+import type { PaginationMeta } from "@/components/ui/Pagination";
 import { CookingPot, ArrowLeft, Search, Plus, X, Loader2, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { InfoHint } from "@/components/ui/InfoHint";
@@ -18,9 +20,6 @@ const RECIPE_CATEGORIES = ["meal", "carb", "snack"];
 interface IngredientRow {
   key: number;
   food: FoodItem | null;
-  foodSearch: string;
-  searchResults: FoodItem[];
-  showDropdown: boolean;
   quantity: string;
   unit: string;
 }
@@ -78,7 +77,13 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
   const [prepNotes, setPrepNotes] = useState("");
   const [ingredients, setIngredients] = useState<IngredientRow[]>([]);
   const [showMicros, setShowMicros] = useState(false);
-  const searchRequests = useRef<Record<number, number>>({});
+  const [pickerRowKey, setPickerRowKey] = useState<number | null>(null);
+  const [ingredientQuery, setIngredientQuery] = useState("");
+  const [ingredientResults, setIngredientResults] = useState<FoodItem[]>([]);
+  const [ingredientMeta, setIngredientMeta] = useState<PaginationMeta | null>(null);
+  const [ingredientPage, setIngredientPage] = useState(1);
+  const [ingredientLoading, setIngredientLoading] = useState(false);
+  const [ingredientSearchError, setIngredientSearchError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchRecipeById(id)
@@ -92,44 +97,49 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
           ? r.ingredients.map((ing) => ({
               key: rowKey++,
               food: ing.food_item as FoodItem | null,
-              foodSearch: ing.food_item?.name ?? "",
-              searchResults: [],
-              showDropdown: false,
               quantity: ing.quantity ?? "",
               unit: canonicalClinicalUnit(ing.unit ?? ""),
             }))
-          : [{ key: rowKey++, food: null, foodSearch: "", searchResults: [], showDropdown: false, quantity: "", unit: "g" }]
+          : [{ key: rowKey++, food: null, quantity: "", unit: "g" }]
         );
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load."))
       .finally(() => setLoading(false));
   }, [id]);
 
-  const searchFoods = useCallback(async (query: string, key: number) => {
-    const request = (searchRequests.current[key] ?? 0) + 1;
-    searchRequests.current[key] = request;
-    if (query.length < 2) {
-      setIngredients((previous) => previous.map((row) => row.key === key ? { ...row, searchResults: [], showDropdown: false } : row));
-      return;
-    }
-    try {
-      const result = await fetchFoodItems(query, "all", 1);
-      if (searchRequests.current[key] !== request) return;
-      setIngredients((previous) => previous.map((row) => row.key === key ? { ...row, searchResults: result.data.slice(0, 5), showDropdown: true } : row));
-    } catch (cause) {
-      if (searchRequests.current[key] !== request) return;
-      setError(cause instanceof Error ? cause.message : 'Ingredient search failed. Try again.');
-      setIngredients((previous) => previous.map((row) => row.key === key ? { ...row, searchResults: [], showDropdown: false } : row));
-    }
-  }, []);
+  useEffect(() => {
+    if (pickerRowKey === null) return;
+    let cancelled = false;
+    setIngredientLoading(true);
+    setIngredientSearchError(null);
+    const timer = window.setTimeout(async () => {
+      try {
+        const result = await fetchFoodItems(ingredientQuery.trim(), "all", ingredientPage);
+        if (!cancelled) { setIngredientResults(result.data); setIngredientMeta(result.meta ?? null); }
+      } catch (cause) {
+        if (!cancelled) setIngredientSearchError(cause instanceof Error ? cause.message : "Ingredient search failed. Try again.");
+      } finally {
+        if (!cancelled) setIngredientLoading(false);
+      }
+    }, 180);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [ingredientPage, ingredientQuery, pickerRowKey]);
+
+  function openIngredientPicker(key: number) {
+    setPickerRowKey(key);
+    setIngredientQuery("");
+    setIngredientPage(1);
+    setIngredientResults([]);
+    setIngredientMeta(null);
+    setIngredientSearchError(null);
+  }
 
   const updateRow = (idx: number, patch: Partial<IngredientRow>) =>
     setIngredients((prev) => prev.map((r, i) => i === idx ? { ...r, ...patch } : r));
 
-  const selectFood = (idx: number, food: FoodItem) => {
-    const key = ingredients[idx].key;
-    searchRequests.current[key] = (searchRequests.current[key] ?? 0) + 1;
-    updateRow(idx, { food, foodSearch: food.name, showDropdown: false, searchResults: [], unit: canonicalClinicalUnit(food.serving_unit ?? "") });
+  const selectFood = (key: number, food: FoodItem) => {
+    setIngredients((previous) => previous.map((row) => row.key === key ? { ...row, food, unit: canonicalClinicalUnit(food.serving_unit ?? "") } : row));
+    setPickerRowKey(null);
   };
 
   const macros = calcMacros(ingredients);
@@ -239,7 +249,7 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
         <div className="bg-white border border-warm-200 rounded-2xl p-6 space-y-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2"><h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Ingredients</h3><InfoHint label="Ingredient unit families">{CLINICAL_UNIT_HINT}</InfoHint></div>
-            <button type="button" onClick={() => setIngredients((prev) => [...prev, { key: rowKey++, food: null, foodSearch: "", searchResults: [], showDropdown: false, quantity: "", unit: "g" }])}
+            <button type="button" onClick={() => setIngredients((prev) => [...prev, { key: rowKey++, food: null, quantity: "", unit: "g" }])}
               className="flex items-center gap-1.5 px-3 py-1.5 border border-warm-300 rounded-lg text-warm-600 hover:bg-warm-50 cursor-pointer transition-colors text-xs font-bold uppercase tracking-wider">
               <Plus className="h-3 w-3" /> Add Item
             </button>
@@ -247,29 +257,12 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
           <div className="space-y-3">
             {ingredients.map((row, idx) => (
               <div key={row.key} className="flex gap-2 items-start">
-                <div className="relative flex-1">
-                  <div className="flex items-center gap-2 w-full px-3 py-2 border border-warm-300 rounded-lg bg-white">
-                    <Search className="h-3.5 w-3.5 text-warm-400 shrink-0" />
-                    <input
-                      type="text"
-                      aria-label={`Ingredient ${idx + 1}`}
-                      value={row.foodSearch}
-                      onChange={async (e) => { const v = e.target.value; updateRow(idx, { foodSearch: v, food: v ? row.food : null }); await searchFoods(v, idx); }}
-                      className="flex-1 text-base text-warm-900 outline-none placeholder:text-warm-400 bg-transparent"
-                    />
-                    {row.food && <span className="text-xs text-emerald-600 font-bold shrink-0">{row.food.calories} kcal</span>}
-                  </div>
-                  {row.showDropdown && row.searchResults.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 z-30 mt-1 bg-white border border-warm-200 rounded-xl shadow-lg overflow-hidden">
-                      {row.searchResults.map((food) => (
-                        <button key={food.id} type="button" onClick={() => selectFood(idx, food)}
-                          className="w-full text-left px-3 py-2 hover:bg-warm-50 transition-colors border-b border-warm-100 last:border-0 cursor-pointer">
-                          <div className="text-sm font-bold text-warm-900">{food.name}</div>
-                          <div className="text-xs text-warm-400">{food.calories} kcal · P {food.protein ?? 0}g · C {food.carbs ?? 0}g · F {food.fat ?? 0}g</div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                <div className="flex-1">
+                  <button type="button" aria-label={`Choose ingredient ${idx + 1}`} onClick={() => openIngredientPicker(row.key)} className="flex min-h-11 w-full items-center gap-2 rounded-lg border border-warm-300 bg-white px-3 py-2 text-left text-base text-warm-900 hover:bg-warm-50">
+                    <Search className="h-3.5 w-3.5 shrink-0 text-warm-400" />
+                    <span className="min-w-0 flex-1 truncate">{row.food?.name ?? "Select ingredient"}</span>
+                    {row.food && <span className="shrink-0 text-xs font-bold text-emerald-600">{row.food.calories} kcal</span>}
+                  </button>
                 </div>
                 <input aria-label={`Ingredient ${idx + 1} quantity`} type="number" value={quantityInputValue(row.quantity)} onChange={(e) => updateRow(idx, { quantity: e.target.value })} min={numericStepBase(quantityInputValue(row.quantity))} max="100000" step="0.1" required
                   className="w-20 px-3 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" />
@@ -347,6 +340,7 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
           </div>
         );
       })()}
+      {pickerRowKey !== null && <MenuItemPicker title="Add Ingredient" itemLabel="Ingredient" query={ingredientQuery} onQueryChange={(value) => { setIngredientQuery(value); setIngredientPage(1); setIngredientResults([]); }} loading={ingredientLoading} error={ingredientSearchError} items={ingredientResults.map((food) => ({ id: food.id, name: food.name, detail: `${food.calories} kcal · P ${food.protein ?? 0}g · C ${food.carbs ?? 0}g · F ${food.fat ?? 0}g` }))} onSelect={(foodId) => { const food = ingredientResults.find((item) => item.id === foodId); if (food) selectFood(pickerRowKey, food); }} onClose={() => setPickerRowKey(null)} meta={ingredientMeta} page={ingredientPage} onPageChange={setIngredientPage} />}
     </div>
   );
 }

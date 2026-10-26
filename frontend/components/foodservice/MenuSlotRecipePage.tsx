@@ -6,6 +6,7 @@ import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { useParams } from "next/navigation";
 import { AlertTriangle, ArrowLeft, LockKeyhole, RotateCcw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import ButtonFilterGroup from "@/components/ui/ButtonFilterGroup";
 import { MenuItemPicker } from "@/components/ncp/MenuItemPicker";
 import type { PaginationMeta } from "@/components/ui/Pagination";
 import { numericStepBase } from "@/components/ui/NumericInput";
@@ -60,6 +61,7 @@ export function MenuSlotRecipePage({ backHref, lineId }: { backHref: string; lin
   const [searchError, setSearchError] = useState("");
   const [searchPage, setSearchPage] = useState(1);
   const [searchMeta, setSearchMeta] = useState<PaginationMeta | null>(null);
+  const [groceryFilter, setGroceryFilter] = useState<"" | "non_auto" | "auto">("");
 
   useEffect(() => {
     let active = true;
@@ -91,13 +93,13 @@ export function MenuSlotRecipePage({ backHref, lineId }: { backHref: string; lin
     setSearching(true);
     setSearchError("");
     const timer = window.setTimeout(() => {
-      listCatalog("ingredient", searchPage, query.trim())
+      listCatalog("ingredient", searchPage, query.trim(), groceryFilter)
         .then((result) => { if (active) { setResults(result.data); setSearchMeta(result.meta); } })
         .catch((cause) => { if (active) setSearchError(cause instanceof Error ? cause.message : "Ingredient search failed."); })
         .finally(() => { if (active) setSearching(false); });
     }, 200);
     return () => { active = false; window.clearTimeout(timer); };
-  }, [pickerOpen, searchPage, query]);
+  }, [pickerOpen, searchPage, query, groceryFilter]);
 
   function addIngredient(item: CatalogItem) {
     if (ingredientIds.has(item.id)) return;
@@ -232,8 +234,8 @@ export function MenuSlotRecipePage({ backHref, lineId }: { backHref: string; lin
             })}
           </div>
 
-          {canEdit && <Button type="button" variant="secondary" aria-label="Add Ingredient" className="mt-4" onClick={() => { setSearching(true); setQuery(""); setSearchPage(1); setPickerOpen(true); }}>Add ingredient</Button>}
-          {pickerOpen && <MenuItemPicker itemLabel="Ingredient" title="Add Ingredient" query={query} onQueryChange={(value) => { setSearching(true); setQuery(value); setSearchPage(1); }} loading={searching} error={searchError} items={results.filter((item) => !ingredientIds.has(item.id)).map((item) => ({ id: item.id, name: item.name, detail: item.base_unit }))} meta={searchMeta} page={searchPage} onPageChange={(page) => { setSearching(true); setSearchPage(page); }} onSelect={(id) => { const item = results.find((result) => result.id === id); if (item) addIngredient(item); }} onClose={() => setPickerOpen(false)} />}
+          {canEdit && <Button type="button" variant="secondary" aria-label="Add Ingredient" className="mt-4" onClick={() => { setSearching(true); setQuery(""); setGroceryFilter(""); setSearchPage(1); setPickerOpen(true); }}>Add ingredient</Button>}
+          {pickerOpen && <MenuItemPicker itemLabel="Ingredient" title="Add Ingredient" query={query} onQueryChange={(value) => { setSearching(true); setQuery(value); setSearchPage(1); setResults([]); }} filters={<div className="[&_button]:min-h-11"><ButtonFilterGroup label="Grocery" size="sm" value={groceryFilter} onChange={(value) => { setSearching(true); setGroceryFilter(value as typeof groceryFilter); setSearchPage(1); setResults([]); }} options={[{ value: "", label: "All" }, { value: "non_auto", label: "Non-auto grocery" }, { value: "auto", label: "Auto grocery" }]} /></div>} loading={searching} error={searchError} items={results.filter((item) => !ingredientIds.has(item.id)).map((item) => ({ id: item.id, name: item.name, detail: item.base_unit }))} meta={searchMeta} page={searchPage} onPageChange={(page) => { setSearching(true); setSearchPage(page); }} onSelect={(id) => { const item = results.find((result) => result.id === id); if (item) addIngredient(item); }} onClose={() => setPickerOpen(false)} />}
         </section>
 
         <section className="rounded-2xl border border-warm-200 bg-white p-4 shadow-sm sm:p-5">

@@ -85,8 +85,6 @@ export interface ComputeResult {
 
 export interface RecipeOption { id: string; name: string; category: string | null; servings: number; portion_label?: string | null; cost?: string }
 
-export interface FsItemOption { id: string; name: string; category: string | null; unit: string; unit_cost: number }
-
 export interface RecipeProfile {
   recipe_id: number;
   name: string;
@@ -267,19 +265,13 @@ async function json<T>(res: Response, fallback: string): Promise<T> {
 }
 
 // ─── Recipes (picker source) ──────────────────────────────────────────────────
-export async function listRecipeOptions(search: string): Promise<RecipeOption[]> {
-  const params = new URLSearchParams({ search, per_page: "5" });
+export async function listRecipeOptions(search: string, page = 1, perPage = 5): Promise<{ data: RecipeOption[]; meta: PaginationMeta }> {
+  const params = new URLSearchParams({ page: String(page), per_page: String(perPage) });
+  if (search.trim()) params.set("search", search.trim());
   const res = await apiFetch(`/api/fss/food-service-recipes?${params}`);
-  if (!res.ok) return [];
-  return (await res.json()).data ?? [];
-}
-
-// ─── Single catalog items (picker source) ─────────────────────────────────────
-export async function listFsItemOptions(search: string): Promise<FsItemOption[]> {
-  const params = new URLSearchParams({ search, per_page: "5" });
-  const res = await apiFetch(`/api/fss/fs-items?${params}`);
-  if (!res.ok) return [];
-  return (await res.json()).data ?? [];
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.message ?? "Failed to load menu items.");
+  return { data: body.data ?? [], meta: body.meta ?? { current_page: page, per_page: perPage, total: 0, last_page: 1 } };
 }
 
 // ─── Cycles ───────────────────────────────────────────────────────────────────

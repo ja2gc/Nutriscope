@@ -159,13 +159,30 @@ describe("MenuSlotRecipePage", () => {
     await act(async () => { riceResult?.click(); });
     await act(async () => { container.querySelector<HTMLButtonElement>('button[type="submit"]')?.click(); await Promise.resolve(); });
 
-    expect(searchMock).toHaveBeenCalledWith("ingredient", 1, "Rice");
+    expect(searchMock).toHaveBeenCalledWith("ingredient", 1, "Rice", "");
     expect(updateMock).toHaveBeenCalledWith("cycle-1", "Monday", "lunch", expect.objectContaining({
       ingredients: [
         { fs_item_id: "item-1", quantity: 3, unit: "kg", adjust_to_taste: false },
         { fs_item_id: "inventory-rice-uuid", quantity: 1, unit: "kg", adjust_to_taste: false },
       ],
     }));
+  });
+
+  test('filters menu slot ingredients by grocery behavior and resets pagination', async () => {
+    const user = userEvent.setup();
+    searchMock.mockResolvedValue({ data: [], meta: { current_page: 1, last_page: 2, per_page: 10, total: 11 } });
+    await act(async () => { root.render(<MenuSlotRecipePage backHref="/food-service/menu-cycle?cycle=cycle-1" />); });
+    await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label="Add Ingredient"]')!.click());
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 250)); });
+    const picker = container.querySelector('[role="dialog"]')!;
+    expect(searchMock).toHaveBeenLastCalledWith('ingredient', 1, '', '');
+    for (const label of ['All', 'Non-auto grocery', 'Auto grocery']) expect(Array.from(picker.querySelectorAll('button')).some(button => button.textContent?.trim() === label)).toBe(true);
+    await act(async () => user.click(picker.querySelector('[aria-label="Next page"]')!));
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 250)); });
+    expect(searchMock).toHaveBeenLastCalledWith('ingredient', 2, '', '');
+    await act(async () => user.click(Array.from(picker.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Auto grocery')!));
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 250)); });
+    expect(searchMock).toHaveBeenLastCalledWith('ingredient', 1, '', 'auto');
   });
 
   test("limits scaled quantity display to two decimals", async () => {

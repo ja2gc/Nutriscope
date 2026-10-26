@@ -10,6 +10,7 @@ import {
   LayoutTemplate, ChevronLeft, AlertTriangle, Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import ButtonFilterGroup from "@/components/ui/ButtonFilterGroup";
 import { DeleteActionDialog } from "@/components/ui/DeleteActionDialog";
 import { MenuEditorSlots, MenuEditorActions, MenuEditorAction } from "@/components/ncp/MenuEditorSlots";
 import { MenuSnackVisibility, useMenuSnackVisibility } from "@/components/ncp/MenuSnackVisibility";
@@ -21,12 +22,13 @@ import { addCalendarDays, manilaCalendarToday } from "@/lib/calendarDate";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   DAYS, MEALS, MEAL_LABELS, Day, Meal,
-  CycleListItem, MenuCycle, RecipeOption, FsItemOption, TemplateListItem, TemplateDetail, MenuSnapshot,
+  CycleListItem, MenuCycle, RecipeOption, TemplateListItem, TemplateDetail, MenuSnapshot,
   listCycles, getCycle, saveCycle, deleteCycle,
-  listRecipeOptions, listFsItemOptions, listTemplates, getTemplate, saveTemplate, deleteTemplate,
+  listRecipeOptions, listTemplates, getTemplate, saveTemplate, deleteTemplate,
   getRecipeProfile, getFsItemProfile, type MenuSlotProfile,
 } from "@/services/menuCycleService";
 import { setServedPopulation, listServiceLogs } from "@/services/consumptionService";
+import { listCatalog, type CatalogItem } from "@/services/fsCatalogService";
 
 const cellKey = (d: Day, m: Meal) => `${d}|${m}`;
 // Actual calendar date for a weekday column of a Monday-anchored cycle week.
@@ -348,11 +350,14 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
   const [editingServed, setEditingServed] = useState<Day | null>(null);
   const [savingServed, setSavingServed] = useState<string | null>(null);
   const [recipes, setRecipes] = useState<RecipeOption[]>([]);
-  const [items, setItems] = useState<FsItemOption[]>([]);
+  const [items, setItems] = useState<CatalogItem[]>([]);
   const [savedId, setSavedId] = useState<string | null>(cycleId === "new" ? null : cycleId);
 
   const [activeCell, setActiveCell] = useState<string | null>(null);
   const [pickerSearch, setPickerSearch] = useState("");
+  const [pickerPage, setPickerPage] = useState(1);
+  const [pickerMeta, setPickerMeta] = useState<PaginationMeta | null>(null);
+  const [groceryFilter, setGroceryFilter] = useState<"" | "non_auto" | "auto">("");
   const [pickerLoading, setPickerLoading] = useState(false);
   const [pickerError, setPickerError] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -403,12 +408,12 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
     setProfileCell(null); setTemplatePickerOpen(false);
   }
 
-  // Search only while picker is open. Empty queries do not download whole catalogs.
+  // Load the active page from both paginated menu-item sources.
   useEffect(() => {
-    const search = pickerSearch.trim();
-    if (!activeCell || !search) {
+    if (!activeCell) {
       setRecipes([]);
       setItems([]);
+      setPickerMeta(null);
       setPickerLoading(false);
       setPickerError(false);
       return;
@@ -418,11 +423,15 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
     const timer = window.setTimeout(() => {
       setPickerLoading(true);
       setPickerError(false);
-      Promise.all([listRecipeOptions(search), listFsItemOptions(search)])
-        .then(([recipeOptions, itemOptions]) => {
+      Promise.all([
+        listRecipeOptions(pickerSearch.trim(), pickerPage, 5),
+        listCatalog("ingredient", pickerPage, pickerSearch.trim(), groceryFilter, 5),
+      ])
+        .then(([recipeResult, itemResult]) => {
           if (!cancelled) {
-            setRecipes(recipeOptions);
-            setItems(itemOptions);
+            setRecipes(recipeResult.data);
+            setItems(itemResult.data);
+            setPickerMeta({ current_page: pickerPage, per_page: 10, total: recipeResult.meta.total + itemResult.meta.total, last_page: Math.max(recipeResult.meta.last_page, itemResult.meta.last_page) });
           }
         })
         .catch(() => {
@@ -439,7 +448,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [activeCell, pickerSearch]);
+  }, [activeCell, pickerPage, pickerSearch, groceryFilter]);
 
   // Load existing cycle or template.
   useEffect(() => {
@@ -526,7 +535,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
     }] }));
     setActiveCell(null); setPickerSearch("");
   }
-  function assignItem(key: string, it: FsItemOption) {
+  function assignItem(key: string, it: CatalogItem) {
     setGrid((g) => ({ ...g, [key]: [...(g[key] ?? []), {
       line_order: (g[key]?.length ?? 0) + 1, recipe_id: null, fs_item_id: it.id, recipe_name: it.name, servings: 0,
       servings_override: null, quantity: 1, estimate_population: null, po_snapshot: null,
@@ -685,9 +694,6 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
     router.push(`${base}/${id}/lines/${lineId}`);
   }
 
-  const filteredRecipes = recipes.filter((r) => !pickerSearch || r.name.toLowerCase().includes(pickerSearch.toLowerCase()));
-  const filteredItems = items.filter((i) => !pickerSearch || i.name.toLowerCase().includes(pickerSearch.toLowerCase()));
-
   function renderWeekGrid(preview?: TemplateDetail) {
     const displayTemplate = isTemplate || Boolean(preview);
     const displayReadOnly = planReadOnly || Boolean(preview);
@@ -791,7 +797,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
                         addLabel="Add item"
                         addAriaLabel={`Add item to ${d} ${MEAL_LABELS[m]}`}
                         readOnly={displayReadOnly}
-                        onAdd={() => { setPickerLoading(!isPicking); setActiveCell(isPicking ? null : key); setPickerSearch(""); }}
+                        onAdd={() => { setPickerLoading(!isPicking); setActiveCell(isPicking ? null : key); setPickerSearch(""); setPickerPage(1); setGroceryFilter(""); setRecipes([]); setItems([]); }}
                       />
 
 
@@ -803,10 +809,10 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
           </tbody>
         </table>
       </div>
-      {activeCell && !displayReadOnly && <MenuItemPicker title={activeCell.replace('|', ' ')} query={pickerSearch} onQueryChange={(value) => { setPickerLoading(true); setPickerSearch(value); }} loading={pickerLoading} error={pickerError ? "Could not load Menu Items. Try again." : null} items={[
-        ...filteredRecipes.map((recipe) => ({ id: `recipe:${recipe.id}`, name: recipe.name, detail: `Recipe makes ${recipe.servings} ${recipe.servings === 1 ? 'serving' : 'servings'}` })),
-        ...filteredItems.map((item) => ({ id: `item:${item.id}`, name: item.name, detail: item.category ?? 'Menu Item' })),
-      ]} onSelect={(id) => { const recipe = filteredRecipes.find((item) => `recipe:${item.id}` === id); const item = filteredItems.find((item) => `item:${item.id}` === id); if (recipe) assign(activeCell, recipe); else if (item) assignItem(activeCell, item); }} onClose={() => setActiveCell(null)} />}
+      {activeCell && !displayReadOnly && <MenuItemPicker title={activeCell.replace('|', ' ')} query={pickerSearch} onQueryChange={(value) => { setPickerLoading(true); setPickerSearch(value); setPickerPage(1); setRecipes([]); setItems([]); }} filters={<div className="[&_button]:min-h-11"><ButtonFilterGroup label="Grocery" size="sm" value={groceryFilter} onChange={(value) => { setPickerLoading(true); setGroceryFilter(value as typeof groceryFilter); setPickerPage(1); setRecipes([]); setItems([]); }} options={[{ value: "", label: "All" }, { value: "non_auto", label: "Non-auto grocery" }, { value: "auto", label: "Auto grocery" }]} /></div>} loading={pickerLoading} error={pickerError ? "Could not load Menu Items. Try again." : null} items={[
+        ...recipes.map((recipe) => ({ id: `recipe:${recipe.id}`, name: recipe.name, detail: `Recipe makes ${recipe.servings} ${recipe.servings === 1 ? 'serving' : 'servings'}` })),
+        ...items.map((item) => ({ id: `item:${item.id}`, name: item.name, detail: item.category ?? 'Menu Item' })),
+      ]} onSelect={(id) => { const recipe = recipes.find((item) => `recipe:${item.id}` === id); const item = items.find((item) => `item:${item.id}` === id); if (recipe) assign(activeCell, recipe); else if (item) assignItem(activeCell, item); }} onClose={() => setActiveCell(null)} meta={pickerMeta} page={pickerPage} onPageChange={(page) => { setPickerLoading(true); setPickerPage(page); setRecipes([]); setItems([]); }} />}
       </div>
     );
   }

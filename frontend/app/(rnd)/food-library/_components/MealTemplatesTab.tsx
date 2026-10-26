@@ -7,6 +7,7 @@ import { MenuEditorSlots, MenuEditorActions, MenuEditorAction } from "@/componen
 import { RecipeMenuItemProfile } from "@/components/ncp/MenuItemProfile";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { MenuItemPicker } from "@/components/ncp/MenuItemPicker";
+import ButtonFilterGroup from "@/components/ui/ButtonFilterGroup";
 import { useUnsavedChanges, type EditorLeaveHandle } from "@/hooks/useUnsavedChanges";
 import { ArrowLeft } from "lucide-react";
 import { formatMealPlanAmount as formatTemplateDisplayNumber } from "@/lib/mealPlanNutrition";
@@ -32,6 +33,7 @@ function TemplateEditor({ initial, onClose, onSaved, leaveRef }: {
   const [day, setDay] = useState("Monday");
   const [meal, setMeal] = useState("breakfast");
   const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("all");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
@@ -69,7 +71,7 @@ function TemplateEditor({ initial, onClose, onSaved, leaveRef }: {
     setSearchError(null);
     const timer = window.setTimeout(async () => {
       try {
-        const result = await fetchRecipes(query.trim(), "all", page, 10);
+        const result = await fetchRecipes(query.trim(), category, page, 10);
         if (!cancelled) { setMatches(result.data); setMeta(result.meta ?? null); }
       } catch (cause) {
         if (!cancelled) setSearchError(cause instanceof Error ? cause.message : "Search failed. Try again.");
@@ -78,7 +80,7 @@ function TemplateEditor({ initial, onClose, onSaved, leaveRef }: {
       }
     }, 200);
     return () => { window.clearTimeout(timer); cancelled = true; };
-  }, [query, page, pickerOpen]);
+  }, [query, category, page, pickerOpen]);
 
   function closePicker() {
     setPickerOpen(false);
@@ -174,10 +176,10 @@ function TemplateEditor({ initial, onClose, onSaved, leaveRef }: {
             addLabel="Add item"
             addAriaLabel={`Add item to ${cellDay} ${MEALS.find(([key]) => key === cellMeal)?.[1]}`}
             readOnly={draft.readOnly}
-            onAdd={(event) => { pickerTrigger.current = event.currentTarget; setDay(cellDay); setMeal(cellMeal); setQuery(""); setPage(1); setMatches([]); setPickerOpen(true); }}
+            onAdd={(event) => { pickerTrigger.current = event.currentTarget; setDay(cellDay); setMeal(cellMeal); setQuery(""); setCategory("all"); setPage(1); setMatches([]); setPickerOpen(true); }}
           />; }} />
         </div>
-        {pickerOpen && <MenuItemPicker title={`${day} ${MEALS.find(([key]) => key === meal)?.[1]}`} query={query} onQueryChange={(value) => { setQuery(value); setPage(1); setMatches([]); }} loading={searching} error={searchError} items={matches.map((item) => ({ id: item.id, name: item.name, detail: `${item.category} · Recipe makes ${formatTemplateDisplayNumber(item.servings)} ${item.servings === 1 ? "serving" : "servings"}` }))} onSelect={(id) => { const item = matches.find((entry) => entry.id === id); if (item) addItem(item); }} onClose={closePicker} meta={meta} page={page} onPageChange={setPage} />}
+        {pickerOpen && <MenuItemPicker title={`${day} ${MEALS.find(([key]) => key === meal)?.[1]}`} query={query} onQueryChange={(value) => { setQuery(value); setPage(1); setMatches([]); }} filters={<div className="[&_button]:min-h-11"><ButtonFilterGroup label="Category" size="sm" value={category} onChange={(value) => { setCategory(value); setPage(1); setMatches([]); setSearching(true); }} options={[{ value: "all", label: "All" }, { value: "meal", label: "Meals" }, { value: "snack", label: "Snacks" }, { value: "carb", label: "Carbs" }]} /></div>} loading={searching} error={searchError} items={matches.map((item) => ({ id: item.id, name: item.name, detail: `${item.category} · Recipe makes ${formatTemplateDisplayNumber(item.servings)} ${item.servings === 1 ? "serving" : "servings"}` }))} onSelect={(id) => { const item = matches.find((entry) => entry.id === id); if (item) addItem(item); }} onClose={closePicker} meta={meta} page={page} onPageChange={setPage} />}
       </div>
     </section>
   );

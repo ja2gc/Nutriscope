@@ -1,6 +1,6 @@
 "use client";
 
-import React, { use, useCallback, useEffect, useState } from "react";
+import React, { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useEditorChanges } from "@/hooks/useUnsavedChanges";
 import { useRouter } from "next/navigation";
@@ -9,9 +9,12 @@ import { Button } from "@/components/ui/Button";
 import { numericStepBase } from "@/components/ui/NumericInput";
 import { quantityInputValue } from "@/lib/foodServiceFormat";
 import { InfoHint } from "@/components/ui/InfoHint";
+import ButtonFilterGroup from "@/components/ui/ButtonFilterGroup";
+import type { PaginationMeta } from "@/components/ui/Pagination";
+import { MenuItemPicker } from "@/components/ncp/MenuItemPicker";
 import { InventoryCorrectionEditor } from "@/components/foodservice/InventoryCorrectionEditor";
 import { compatibleRecipeUnits, foodServiceIngredientCost } from "@/lib/foodServiceUnits";
-import { searchCatalog, type CatalogItem } from "@/services/fsCatalogService";
+import { listCatalog, type CatalogItem } from "@/services/fsCatalogService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -20,9 +23,6 @@ type RecipeCatalogItem = Pick<CatalogItem, "id" | "name" | "unit_cost" | "base_u
 interface IngredientRow {
   key: number;
   catalogItem: RecipeCatalogItem | null;
-  search: string;
-  results: CatalogItem[];
-  showDropdown: boolean;
   quantity: string;
   unit: string;
   adjust_to_taste: boolean;
@@ -103,6 +103,14 @@ function StandardEditFSSRecipePage({ id }: { id: string }) {
   const [prepNotes, setPrepNotes] = useState("");
   const [previewServings, setPreviewServings] = useState(""); // blank = baseline; read-only scale preview
   const [ingredients, setIngredients] = useState<IngredientRow[]>([]);
+  const [pickerRowKey, setPickerRowKey] = useState<number | null>(null);
+  const [pickerQuery, setPickerQuery] = useState("");
+  const [pickerResults, setPickerResults] = useState<CatalogItem[]>([]);
+  const [pickerMeta, setPickerMeta] = useState<PaginationMeta | null>(null);
+  const [pickerPage, setPickerPage] = useState(1);
+  const [groceryFilter, setGroceryFilter] = useState<"" | "non_auto" | "auto">("");
+  const [pickerLoading, setPickerLoading] = useState(false);
+  const [pickerError, setPickerError] = useState<string | null>(null);
 
   useEffect(() => {
     loadRecipe(id)
@@ -119,34 +127,46 @@ function StandardEditFSSRecipePage({ id }: { id: string }) {
                 catalogItem: ing.fs_item
                   ? { id: ing.fs_item.id, name: ing.fs_item.name, unit_cost: ing.fs_item.unit_cost, base_unit: ing.fs_item.base_unit, include_in_generated_lists: ing.fs_item.include_in_generated_lists }
                   : null,
-                search: ing.fs_item?.name ?? "",
-                results: [],
-                showDropdown: false,
                 quantity: ing.quantity === null ? "" : String(ing.quantity),
                 unit: ing.unit,
                 adjust_to_taste: ing.adjust_to_taste ?? false,
               }))
-            : [{ key: rowKey++, catalogItem: null, search: "", results: [], showDropdown: false, quantity: "", unit: "g", adjust_to_taste: false }]
+            : [{ key: rowKey++, catalogItem: null, quantity: "", unit: "g", adjust_to_taste: false }]
         );
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load."))
       .finally(() => setLoading(false));
   }, [id]);
 
-  const doSearch = useCallback(async (q: string, idx: number) => {
-    if (q.length < 2) {
-      setIngredients((prev) => prev.map((r, i) => i === idx ? { ...r, results: [], showDropdown: false } : r));
-      return;
-    }
-    const items = await searchCatalog(q, "ingredient");
-    setIngredients((prev) => prev.map((r, i) => i === idx ? { ...r, results: items, showDropdown: true } : r));
-  }, []);
+  useEffect(() => {
+    if (pickerRowKey === null) return;
+    let cancelled = false;
+    setPickerLoading(true);
+    setPickerError(null);
+    const timer = window.setTimeout(async () => {
+      try {
+        const result = await listCatalog("ingredient", pickerPage, pickerQuery.trim(), groceryFilter);
+        if (!cancelled) { setPickerResults(result.data); setPickerMeta(result.meta); }
+      } catch (cause) {
+        if (!cancelled) setPickerError(cause instanceof Error ? cause.message : "Ingredient search failed. Try again.");
+      } finally {
+        if (!cancelled) setPickerLoading(false);
+      }
+    }, 180);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [pickerPage, pickerQuery, pickerRowKey, groceryFilter]);
+
+  function openPicker(key: number) {
+    setPickerRowKey(key); setPickerQuery(""); setPickerResults([]); setPickerMeta(null); setPickerPage(1); setGroceryFilter(""); setPickerError(null);
+  }
 
   const updateRow = (idx: number, patch: Partial<IngredientRow>) =>
     setIngredients((prev) => prev.map((r, i) => i === idx ? { ...r, ...patch } : r));
 
-  const selectItem = (idx: number, item: CatalogItem) =>
-    updateRow(idx, { catalogItem: item, search: item.name, showDropdown: false, results: [], unit: item.base_unit });
+  const selectItem = (key: number, item: CatalogItem) => {
+    setIngredients((prev) => prev.map((row) => row.key === key ? { ...row, catalogItem: item, unit: item.base_unit } : row));
+    setPickerRowKey(null);
+  };
 
   const totalCost = calcCost(ingredients);
   const servingsNum = parseInt(servings) || 1;
@@ -319,7 +339,7 @@ function StandardEditFSSRecipePage({ id }: { id: string }) {
               <InfoHint label="About recipe ingredients">Every ingredient has a baseline amount and scales with servings. Non-Auto stays out of automatic shopping lists. Mark seasonings to adjust to taste.</InfoHint>
             </h3>
             <button type="button"
-              onClick={() => setIngredients((prev) => [...prev, { key: rowKey++, catalogItem: null, search: "", results: [], showDropdown: false, quantity: "", unit: "g", adjust_to_taste: false }])}
+              onClick={() => setIngredients((prev) => [...prev, { key: rowKey++, catalogItem: null, quantity: "", unit: "g", adjust_to_taste: false }])}
               className="flex items-center gap-1.5 px-3 py-1.5 border border-warm-300 rounded-lg text-warm-600 hover:bg-warm-50 cursor-pointer transition-colors text-xs font-bold uppercase tracking-wider">
               <Plus className="h-3 w-3" /> Add Row
             </button>
@@ -338,31 +358,12 @@ function StandardEditFSSRecipePage({ id }: { id: string }) {
             {ingredients.map((row, idx) => (
               <div key={row.key} className="grid grid-cols-[1fr_80px_72px_80px_28px] gap-2 items-start">
                 {/* Ingredient search */}
-                <div className="relative">
-                  <div className="flex items-center gap-2 w-full px-3 py-2 border border-warm-300 rounded-lg bg-white">
-                    <Search className="h-3.5 w-3.5 text-warm-400 shrink-0" />
-                    <input
-                      type="text"
-                      value={row.search}
-                      onChange={async (e) => {
-                        const v = e.target.value;
-                        updateRow(idx, { search: v, catalogItem: v ? row.catalogItem : null });
-                        await doSearch(v, idx);
-                      }}
-                      className="flex-1 text-base text-warm-900 outline-none placeholder:text-warm-400 bg-transparent"
-                    />
-                  </div>
-                  {row.showDropdown && row.results.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 z-30 mt-1 bg-white border border-warm-200 rounded-xl shadow-lg overflow-hidden">
-                      {row.results.map((item) => (
-                        <button key={item.id} type="button" onClick={() => selectItem(idx, item)}
-                          className="w-full text-left px-3 py-2 hover:bg-warm-50 transition-colors border-b border-warm-100 last:border-0 cursor-pointer">
-                          <div className="text-sm font-bold text-warm-900">{item.name}</div>
-                          <div className="text-xs text-warm-400">₱{item.unit_cost.toFixed(2)}/{item.base_unit}</div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                <div>
+                  <button type="button" aria-label={`Choose ingredient ${idx + 1}`} onClick={() => openPicker(row.key)} className="flex min-h-11 w-full items-center gap-2 rounded-lg border border-warm-300 bg-white px-3 py-2 text-left text-base text-warm-900 hover:bg-warm-50">
+                    <Search className="h-3.5 w-3.5 shrink-0 text-warm-400" />
+                    <span className="min-w-0 flex-1 truncate">{row.catalogItem?.name ?? "Select ingredient"}</span>
+                    {row.catalogItem && <span className="shrink-0 text-xs text-warm-400">₱{row.catalogItem.unit_cost.toFixed(2)}/{row.catalogItem.base_unit}</span>}
+                  </button>
                   {row.catalogItem && <label className="mt-2 flex items-center gap-2 text-xs font-semibold text-warm-600"><input type="checkbox" checked={row.adjust_to_taste} onChange={(e) => updateRow(idx, { adjust_to_taste: e.target.checked })} /> Adjust to taste</label>}
                 </div>
 
@@ -405,6 +406,7 @@ function StandardEditFSSRecipePage({ id }: { id: string }) {
           </Button>
         </div>
       </form>
+      {pickerRowKey !== null && <MenuItemPicker title="Add Ingredient" itemLabel="Ingredient" query={pickerQuery} onQueryChange={(value) => { setPickerQuery(value); setPickerPage(1); setPickerResults([]); }} filters={<div className="[&_button]:min-h-11"><ButtonFilterGroup label="Grocery" size="sm" value={groceryFilter} onChange={(value) => { setGroceryFilter(value as typeof groceryFilter); setPickerPage(1); setPickerResults([]); setPickerLoading(true); }} options={[{ value: "", label: "All" }, { value: "non_auto", label: "Non-auto grocery" }, { value: "auto", label: "Auto grocery" }]} /></div>} loading={pickerLoading} error={pickerError} items={pickerResults.map((item) => ({ id: item.id, name: item.name, detail: `₱${item.unit_cost.toFixed(2)}/${item.base_unit}` }))} onSelect={(itemId) => { const item = pickerResults.find((result) => result.id === itemId); if (item) selectItem(pickerRowKey, item); }} onClose={() => setPickerRowKey(null)} meta={pickerMeta} page={pickerPage} onPageChange={setPickerPage} />}
     </div>
   );
 }

@@ -4,7 +4,8 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { instantiateTemplate, listCycles, getCycle, listTemplates, getTemplate, saveCycle, saveTemplate, getRecipeProfile, getFsItemProfile, type MenuCycle, type TemplateDetail, type CycleListItem, type TemplateListItem } from "@/services/menuCycleService";
+import { instantiateTemplate, listCycles, getCycle, listTemplates, getTemplate, saveCycle, saveTemplate, getRecipeProfile, getFsItemProfile, listRecipeOptions, type MenuCycle, type TemplateDetail, type CycleListItem, type TemplateListItem } from "@/services/menuCycleService";
+import { listCatalog } from "@/services/fsCatalogService";
 import MenuCyclePage, { MenuTemplateDirectory } from "./page";
 const { routerPush } = vi.hoisted(() => ({ routerPush: vi.fn() }));
 
@@ -22,6 +23,7 @@ vi.mock("@/services/menuCycleService", async (importOriginal) => ({
   getCycle: vi.fn(),
   saveCycle: vi.fn(),
   listTemplates: vi.fn(),
+  listRecipeOptions: vi.fn(),
   getTemplate: vi.fn(),
   saveTemplate: vi.fn(),
   instantiateTemplate: vi.fn(),
@@ -29,6 +31,7 @@ vi.mock("@/services/menuCycleService", async (importOriginal) => ({
   getFsItemProfile: vi.fn(),
 }));
 vi.mock("@/services/consumptionService", () => ({ setServedPopulation: vi.fn(), listServiceLogs: vi.fn().mockResolvedValue([]) }));
+vi.mock("@/services/fsCatalogService", () => ({ listCatalog: vi.fn() }));
 
 const mockListCycles = vi.mocked(listCycles);
 const mockGetCycle = vi.mocked(getCycle);
@@ -37,6 +40,8 @@ const mockGetTemplate = vi.mocked(getTemplate);
 const mockInstantiateTemplate = vi.mocked(instantiateTemplate);
 const mockSaveCycle = vi.mocked(saveCycle);
 const mockSaveTemplate = vi.mocked(saveTemplate);
+const mockListRecipeOptions = vi.mocked(listRecipeOptions);
+const mockListCatalog = vi.mocked(listCatalog);
 const meta = { current_page: 1, per_page: 10, total: 0, last_page: 1 };
 const cycle: CycleListItem = {
   id: "cycle-1", name: "Lunch cycle", status: "draft", is_active: false, week_start_date: null,
@@ -69,6 +74,8 @@ describe("Menu Cycle template and name editing", () => {
     mockGetTemplate.mockResolvedValue(template);
     mockSaveCycle.mockImplementation(async (id, payload) => makeCycle(payload.name ?? "Lunch cycle"));
     mockSaveTemplate.mockResolvedValue(template);
+    mockListRecipeOptions.mockReset().mockResolvedValue({ data: [], meta: { current_page: 1, per_page: 5, total: 0, last_page: 1 } });
+    mockListCatalog.mockReset().mockResolvedValue({ data: [], meta: { current_page: 1, per_page: 5, total: 0, last_page: 1 } });
     vi.mocked(getFsItemProfile).mockResolvedValue({ id: 1, fs_item_id: 1, name: "Rice", kind: "ingredient", category: null, unit: "g", unit_cost: 1, quantity: 1, population: 1, servings: 1, total_quantity: 1, total_cost: 1, cost_per_head: 1, prep_notes: "Measured rice", formula: "", ingredient_usage: [{ fs_item_id: 1, name: "Rice", quantity: 1, unit: "g", cost: 1 }] });
   });
 
@@ -88,6 +95,39 @@ describe("Menu Cycle template and name editing", () => {
       .find((candidate) => candidate.textContent?.includes("Add week"));
     await act(async () => { button?.click(); });
   }
+
+  test('loads both menu sources before typing and keeps later results reachable when totals differ', async () => {
+    const recipeOne = { id: 'recipe-1', name: 'Chicken recipe', category: 'meal', servings: 5 };
+    const recipeLater = { id: 'recipe-2', name: 'Later recipe', category: 'meal', servings: 4 };
+    const inventoryOne = { id: 'inventory-1', name: 'Rice item', kind: 'ingredient' as const, category: 'grain', base_unit: 'kg', purchase_unit: null, purchase_price: null, units_per_purchase: null, unit_cost: 4, default_supplier_id: null, vendor: null, include_in_generated_lists: true };
+    mockListRecipeOptions.mockImplementation(async (_search, page = 1) => ({ data: (page === 1 ? [recipeOne] : page === 4 ? [recipeLater] : []) as never, meta: { current_page: page, per_page: 5, total: 20, last_page: 4 } }));
+    mockListCatalog.mockImplementation(async (_kind, page = 1, _search, grocery) => ({ data: (page === 1 && grocery === '' ? [inventoryOne] : []) as never, meta: { current_page: page, per_page: 5, total: 6, last_page: 2 } }));
+    const user = userEvent.setup();
+    await renderPage();
+    await openNewCycle();
+    await act(async () => user.click(container.querySelector<HTMLButtonElement>('[data-menu-editor-add][aria-label*="Monday"][aria-label*="Lunch"]')!));
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
+    expect(mockListRecipeOptions).toHaveBeenLastCalledWith('', 1, 5);
+    expect(mockListCatalog).toHaveBeenLastCalledWith('ingredient', 1, '', '', 5);
+    const picker = container.querySelector('[role="dialog"]')!;
+    for (const label of ['All', 'Non-auto grocery', 'Auto grocery']) expect(Array.from(picker.querySelectorAll('button')).some(button => button.textContent?.trim() === label)).toBe(true);
+    expect(picker.querySelector('[aria-label="Add Chicken recipe"]')).not.toBeNull();
+    expect(picker.querySelector('[aria-label="Add Rice item"]')).not.toBeNull();
+    await act(async () => user.click(picker.querySelector('[aria-label="Next page"]')!));
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
+    expect(mockListRecipeOptions).toHaveBeenLastCalledWith('', 2, 5);
+    expect(mockListCatalog).toHaveBeenLastCalledWith('ingredient', 2, '', '', 5);
+    expect(picker.textContent).toContain('Page 2 of 4');
+    await act(async () => user.click(Array.from(picker.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Auto grocery')!));
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
+    expect(mockListRecipeOptions).toHaveBeenLastCalledWith('', 1, 5);
+    expect(mockListCatalog).toHaveBeenLastCalledWith('ingredient', 1, '', 'auto', 5);
+    const search = picker.querySelector<HTMLInputElement>('input[type="search"]')!;
+    await act(async () => user.type(search, 'chicken'));
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
+    expect(mockListRecipeOptions).toHaveBeenLastCalledWith('chicken', 1, 5);
+    expect(mockListCatalog).toHaveBeenLastCalledWith('ingredient', 1, 'chicken', 'auto', 5);
+  });
 
   test("keeps templates outside the Menu Cycle records table", async () => {
     await renderPage();

@@ -6,8 +6,8 @@ describe("shopping-list item picker", () => {
   test("suggests Non-Auto Grocery items when the picker initially opens", () => {
     const source = readFileSync(resolve(process.cwd(), "app/(rnd)/food-service/procurement/page.tsx"), "utf8");
 
-    expect(source).toContain("onFocus={showInitialItemSuggestions}");
-    expect(source).toContain('searchCatalog("", "ingredient", 5, "non_auto")');
-    expect(source).toContain("itemSearchRequest.current");
+    expect(source).toContain('setGroceryFilter(isSupplies ? "" : "non_auto")');
+    expect(source).toContain("listCatalog(kind, itemPickerPage, itemSearch.trim(), grocery)");
+    expect(source).toContain("filters={isSupplies ? undefined");
   });
 });

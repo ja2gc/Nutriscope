@@ -60,25 +60,15 @@ async function unwrap<T>(res: Response, fallback: string): Promise<T> {
 }
 
 /** The reference catalog (ingredients + supplies). Optional kind filter. */
-export async function listCatalog(kind?: FsItemKind, page = 1, search = "", grocery: "auto" | "non_auto" | "" = ""): Promise<{ data: CatalogItem[]; meta: PaginationMeta }> {
-  const qs = new URLSearchParams({ page: String(page), limit: "10" });
+export async function listCatalog(kind?: FsItemKind, page = 1, search = "", grocery: "auto" | "non_auto" | "" = "", perPage = 10): Promise<{ data: CatalogItem[]; meta: PaginationMeta }> {
+  const qs = new URLSearchParams({ page: String(page), limit: String(perPage) });
   if (kind) qs.set("kind", kind);
   if (search.trim()) qs.set("search", search.trim());
   if (grocery) qs.set("grocery", grocery);
   const res = await apiFetch(`/api/fss/fs-items/catalog?${qs}`);
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.message ?? "Failed to load catalog.");
-  return { data: body.data ?? [], meta: body.meta ?? { current_page: page, per_page: 10, total: 0, last_page: 1 } };
-}
-
-/** Search active reference-catalog items for recipe and procurement pickers. */
-export async function searchCatalog(search: string, kind: FsItemKind, limit = 5, grocery?: "auto" | "non_auto"): Promise<CatalogItem[]> {
-  const qs = new URLSearchParams({ search, kind, limit: String(limit) });
-  if (grocery) qs.set("grocery", grocery);
-  return unwrap(
-    await apiFetch(`/api/fss/fs-items/catalog?${qs}`),
-    "Failed to search the catalog.",
-  );
+  return { data: body.data ?? [], meta: body.meta ?? { current_page: page, per_page: perPage, total: 0, last_page: 1 } };
 }
 
 export async function createFsItem(payload: CreateFsItemPayload): Promise<CatalogItem> {
