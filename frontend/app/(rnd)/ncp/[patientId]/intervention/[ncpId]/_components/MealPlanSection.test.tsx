@@ -374,6 +374,8 @@ it("offers Menu Items only and allows a Snack in a manually planned main slot", 
   await act(async () => { addSnack.click(); });
   expect(addMealPlanItem).toHaveBeenCalledWith("ncp-1", "plan-1", "day-1", { recipe_id: "snack-1", quantity: 1, unit: "serving" });
   expect(container.textContent).toContain("Fruit cup");
+  expect(container.querySelector('[aria-label="Add Menu Item"]')).toBeNull();
+  expect(container.querySelector('[role="status"]')?.textContent).toBe("Added Fruit cup to Monday breakfast.");
   await act(async () => root.unmount());
 });
 

@@ -50,7 +50,7 @@ export function MenuItemPicker({ title = 'Add Menu Item', itemLabel = 'Menu Item
       if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     }
   }}>
-    <div ref={panel} className="flex max-h-[calc(100dvh-2rem)] min-h-0 w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-xl [@media(max-height:420px)]:h-[calc(100dvh-1rem)] [@media(max-height:420px)]:max-h-[calc(100dvh-1rem)]">
+    <div ref={panel} className="flex h-[min(42rem,calc(100dvh-2rem))] max-h-[calc(100dvh-2rem)] min-h-0 w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-xl [@media(max-height:420px)]:h-[calc(100dvh-1rem)] [@media(max-height:420px)]:max-h-[calc(100dvh-1rem)]">
       <div className="flex items-center justify-between gap-3 border-b border-warm-100 p-4 [@media(max-height:420px)]:p-3"><h3 className="font-bold text-warm-900">{title}</h3><button type="button" disabled={Boolean(busyId)} aria-label={`Close ${itemLabel} picker`} onClick={onClose} className="rounded-lg p-2 text-warm-500 hover:bg-warm-50 focus-visible:ring-2 focus-visible:ring-emerald-500"><X className="h-4 w-4" /></button></div>
       <div className="shrink-0 space-y-3 p-4 [@media(max-height:420px)]:space-y-2 [@media(max-height:420px)]:p-3">
         {filters && <div data-picker-filters onClickCapture={(event) => {

@@ -44,6 +44,7 @@ test('keeps search and pagination outside the scrollable results', async () => {
 
     expect(dialog.className).toContain('[@media(max-height:420px)]:p-2');
     expect(dialog.querySelector('[class*="max-h-"]')?.className).toContain('max-h-[calc(100dvh-2rem)]');
+    expect(dialog.querySelector('[class*="max-h-"]')?.className).toContain('h-[min(42rem,calc(100dvh-2rem))]');
     expect(dialog.querySelector('[class*="max-h-"]')?.className).toContain('[@media(max-height:420px)]:h-[calc(100dvh-1rem)]');
     expect(dialog.querySelector('[class*="max-h-"]')?.className).toContain('[@media(max-height:420px)]:max-h-[calc(100dvh-1rem)]');
     expect(dialog.querySelector('[data-picker-pagination]')?.className).toContain('[@media(max-height:420px)]:[&>div]:py-2');

@@ -184,6 +184,7 @@ export default function MealPlanSection({
   const [pickerLoading, setPickerLoading]     = useState(false);
   const [adding, setAdding]                   = useState<number | string | null>(null);
   const [pickerError, setPickerError]         = useState<string | null>(null);
+  const [pickerNotice, setPickerNotice]       = useState<string | null>(null);
   const [savingToLibrary, setSavingToLibrary] = useState<string | null>(null);
   const [templateProfile, setTemplateProfile] = useState<{ id: string; name: string; snapshot?: MealPlanItem["nutrient_snapshot"] } | null>(null);
   useEffect(() => {
@@ -607,7 +608,7 @@ export default function MealPlanSection({
 
   const openPicker = (dayId: string, mealType: string) => {
     setPickerTarget({ dayId, mealType }); setPickerLoading(true); setPickerOpen(true); setRecipeCategory('all');
-    setRecipeQuery(''); setRecipeResults([]); setRecipePage(1); setRecipeMeta(null); setPickerError(null);
+    setRecipeQuery(''); setRecipeResults([]); setRecipePage(1); setRecipeMeta(null); setPickerError(null); setPickerNotice(null);
   };
 
   const appendItem = (item: MealPlanItem, plan: MealPlan, dayId: string) => {
@@ -620,6 +621,12 @@ export default function MealPlanSection({
   const addFromRecipe = async (recipe: Recipe) => {
     if (!pickerTarget || !activePlan) return;
     setAdding(`recipe-${recipe.id}`); setPickerError(null);
+    const target = activePlan.days.find((day) => day.id === pickerTarget.dayId);
+    const destination = target ? `${target.day_of_week} ${target.meal_type.replaceAll('_', ' ')}` : 'the weekly menu';
+    const finishAdd = () => {
+      setPickerNotice(`Added ${recipe.name} to ${destination}.${templateDraft ? ' Save the week to keep this change.' : ''}`);
+      setPickerOpen(false);
+    };
     try {
       if (templateDraft) {
         const yieldAmount = Number(recipe.servings);
@@ -636,6 +643,7 @@ export default function MealPlanSection({
           },
         };
         appendItem(item, activePlan, pickerTarget.dayId);
+        finishAdd();
         return;
       }
       appendItem(await addMealPlanItem(ncpId, activePlan.id, pickerTarget.dayId, {
@@ -643,6 +651,7 @@ export default function MealPlanSection({
         quantity: 1,
         unit: 'serving',
       }), activePlan, pickerTarget.dayId);
+      finishAdd();
     } catch (err) {
       setPickerError(err instanceof Error ? err.message : 'Failed to add Menu Item. Please try again.');
     } finally { setAdding(null); }
@@ -836,6 +845,8 @@ export default function MealPlanSection({
           <p className="text-xs text-sky-800">{scaleNotice}</p>
         </div>
       )}
+
+      {pickerNotice && <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">{pickerNotice}</p>}
 
       {loadingPlans && <div className="flex items-center gap-1.5 px-1 text-xs text-warm-400"><Loader2 className="h-3 w-3 animate-spin" />Loading…</div>}
 
