@@ -51,7 +51,7 @@ class PesEligibilityServiceTest extends TestCase
     {
         $catalog = app(PesRuleCatalog::class);
 
-        $this->assertSame('2026-10-26-v8:'.ClinicalAiContext::version(), $catalog->version());
+        $this->assertSame('2026-10-26-v9:'.ClinicalAiContext::version(), $catalog->version());
         $this->assertEqualsCanonicalizing(['NI', 'NC', 'NB'], array_values(array_unique(array_column($catalog->cards(), 'domain'))));
 
         foreach ($catalog->cards() as $card) {
@@ -118,11 +118,6 @@ class PesEligibilityServiceTest extends TestCase
                 'nutrient_drug_interaction' => 'Warfarin and inconsistent vitamin K intake documented',
                 'medication_count' => 1,
             ]],
-            'predicted suboptimal intake' => ['predicted_suboptimal_intake_v1', [
-                'energy_intake_status' => 'Sub-optimal',
-                'appetite' => 'decreased',
-                'present_diet' => 'Mostly liquids',
-            ]],
         ];
     }
 
@@ -175,6 +170,7 @@ class PesEligibilityServiceTest extends TestCase
             'appetite' => 'decreased',
             'present_diet' => 'Mostly liquids',
             'existing_problem_keys' => ['Unintended Weight Loss'],
+            'dietary_intake' => 'Protein intake below prescribed needs.',
         ];
 
         $eligible = app(PesEligibilityService::class)->eligible(
@@ -185,5 +181,6 @@ class PesEligibilityServiceTest extends TestCase
         $this->assertGreaterThanOrEqual(4, count($eligible));
         $this->assertNotContains('unintended_weight_loss_v1', array_column($eligible, 'candidate_id'));
         $this->assertNotContains('swallowing_chewing_difficulty_v1', array_column($eligible, 'candidate_id'));
+        $this->assertNotContains('predicted_suboptimal_intake_v1', array_column($eligible, 'candidate_id'));
     }
 }

@@ -6,7 +6,7 @@ use App\Support\ClinicalAiContext;
 
 class PesRuleCatalog
 {
-    public const VERSION = '2026-10-26-v8';
+    public const VERSION = '2026-10-26-v9';
 
     private const ACADEMY_SOURCE = [
         'id' => 'academy_ncp_diagnosis_2026',
@@ -73,14 +73,6 @@ class PesRuleCatalog
                 ['nutrient_drug_interaction', 'medication_count'],
                 ['present_diet'],
                 ['medication_count:zero'],
-                self::ACADEMY_SOURCE,
-            ),
-            $this->card(
-                'predicted_suboptimal_intake_v1',
-                'Predicted Suboptimal Intake',
-                ['energy_intake_status'],
-                ['appetite', 'present_diet'],
-                ['energy_intake_status:no_change'],
                 self::ACADEMY_SOURCE,
             ),
         ];

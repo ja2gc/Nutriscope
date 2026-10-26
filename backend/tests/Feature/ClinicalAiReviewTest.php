@@ -8,6 +8,7 @@ use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\User;
 use App\Support\AiReviewAllowance;
+use App\Support\DiagnosisBuilder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -190,7 +191,7 @@ class ClinicalAiReviewTest extends TestCase
                 's' => 'Cannot identify carbohydrate foods', 'sk' => [$refs['knowledge_notes']],
                 'n' => 'Cannot identify carbohydrate foods supports knowledge deficit.',
                 'en' => 'Limited access to nutrition education is the documented barrier.',
-                'sn' => 'Cannot identify carbohydrate foods is a specific reported gap.',
+                'sn' => 'Cannot identify carbohydrate foods qualifies the documented knowledge gap.',
             ]]])]], 'usage' => ['input_tokens' => 100, 'output_tokens' => 80]]);
         }]);
         $draft = $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->json('data.0');
@@ -256,16 +257,108 @@ class ClinicalAiReviewTest extends TestCase
         $this->assertDatabaseCount('ai_usage_logs', 2);
     }
 
-    public function test_missing_or_unsupported_notes_use_concise_grounded_details_without_rejecting_valid_pes(): void
+    public function test_missing_or_unsupported_notes_are_withheld_without_repeating_valid_pes(): void
     {
         $record = $this->record();
         $draft = [...$this->draft(), 'extra_notes' => 'Kidney failure requires 700 mg medication.'];
         $this->provider([$draft]);
         $result = $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->json('data.0');
-        $this->assertStringNotContainsString('Kidney', $result['extra_notes']);
-        $this->assertStringContainsString('carbohydrate', $result['extra_notes']);
-        $this->assertNotEmpty($result['builder_data']['etiology_notes']);
-        $this->assertNotEmpty($result['builder_data']['sign_notes']);
+        $this->assertSame('', $result['extra_notes']);
+        $this->assertSame('', $result['builder_data']['etiology_notes']);
+        $this->assertSame('', $result['builder_data']['sign_notes']);
+    }
+
+    public function test_repeated_components_are_not_presented_as_explanations(): void
+    {
+        $record = $this->record();
+        $draft = $this->draft();
+        $this->provider([[...$draft, 'extra_notes' => $draft['problem_key'],
+            'etiology_notes' => $draft['etiology'], 'sign_notes' => 'Recorded sign: '.$draft['signs']]]);
+        $result = $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->json('data.0');
+        $this->assertSame('', $result['extra_notes']);
+        $this->assertSame('', $result['builder_data']['etiology_notes']);
+        $this->assertSame('', $result['builder_data']['sign_notes']);
+    }
+
+    public function test_raw_meal_and_status_as_cause_cannot_form_a_predicted_intake_draft(): void
+    {
+        $record = $this->record();
+        $record->assessment()->update(['energy_intake_status' => 'Sub-optimal', 'appetite_changes' => 'normal',
+            'dietary_intake' => 'Breakfast: 2 cups rice, egg, sweet coffee.']);
+        $this->provider([[...$this->draft(), 'candidate_id' => 'predicted_suboptimal_intake_v1', 'domain' => 'NC',
+            'problem_key' => 'Predicted Suboptimal Intake', 'etiology' => 'Energy intake status: Sub-optimal',
+            'signs' => 'Breakfast 2 cups rice, egg, sweet coffee',
+            'evidence_used' => ['energy_intake_status', 'dietary_intake'],
+            'etiology_evidence' => ['energy_intake_status'], 'signs_evidence' => ['dietary_intake']]]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonCount(0, 'data');
+    }
+
+    public function test_known_problem_cannot_use_an_unrelated_concern_as_its_sign(): void
+    {
+        $record = $this->record();
+        $record->assessment()->update(['lifestyle' => 'No planned physical activity.']);
+        $this->provider([[...$this->draft(), 'signs' => 'No planned physical activity',
+            'evidence_used' => ['social_history', 'lifestyle'], 'signs_evidence' => ['lifestyle']]]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()
+            ->assertJsonCount(0, 'data')->assertJsonPath('meta.review_outcome', 'rejected');
+    }
+
+    public function test_provider_gets_existing_choices_only_for_eligible_domains(): void
+    {
+        $record = $this->record();
+        $this->provider([$this->draft()]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk();
+        Http::assertSent(function ($request): bool {
+            $payload = json_decode(substr($request['messages'][0]['content'], strlen("input_json:\n")), true);
+            $this->assertSame(['NB'], array_keys($payload['choices'] ?? []));
+            $this->assertSame(DiagnosisBuilder::options()['NB']['etiologies'], $payload['choices']['NB']['e']);
+            $this->assertSame(DiagnosisBuilder::options()['NB']['signs'], $payload['choices']['NB']['s']);
+
+            return true;
+        });
+    }
+
+    public function test_intake_status_is_not_an_explanation_for_another_problem(): void
+    {
+        $record = $this->record();
+        $record->assessment()->update(['energy_intake_status' => 'Sub-optimal', 'dietary_intake' => 'Protein intake below prescribed needs.']);
+        $this->provider([[...$this->draft(), 'candidate_id' => 'inadequate_protein_v2', 'domain' => 'NI',
+            'problem_key' => 'Inadequate Protein Intake', 'etiology' => 'Energy intake status: Sub-optimal',
+            'signs' => 'Protein intake below prescribed needs',
+            'evidence_used' => ['energy_intake_status', 'dietary_intake'],
+            'etiology_evidence' => ['energy_intake_status'], 'signs_evidence' => ['dietary_intake']]]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()
+            ->assertJsonCount(0, 'data')->assertJsonPath('meta.review_outcome', 'rejected');
+    }
+
+    public function test_other_intake_cannot_infer_an_intake_direction_from_unrelated_words(): void
+    {
+        $record = $this->record();
+        $record->assessment()->update(['dietary_intake' => 'Carbohydrate intake: 280 g; high glycemic load.']);
+        $this->provider([[...$this->draft(), 'candidate_id' => 'intake_other_v2', 'domain' => 'NI',
+            'problem_key' => 'Excessive Carbohydrates Intake', 'signs' => 'High carbohydrate intake',
+            'evidence_used' => ['social_history', 'dietary_intake'], 'signs_evidence' => ['dietary_intake']]]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()
+            ->assertJsonCount(0, 'data')->assertJsonPath('meta.review_outcome', 'rejected');
+    }
+
+    public function test_supported_presets_keep_distinct_assessment_explanations(): void
+    {
+        $record = $this->record();
+        $record->assessment()->update(['social_history' => 'Limited access to nutrition resources.',
+            'knowledge_notes' => 'Patient unable to identify appropriate food choices.']);
+        $this->provider([[...$this->draft(), 'etiology' => 'Limited access to food or nutrition resources',
+            'signs' => 'Patient unable to identify appropriate food choices',
+            'extra_notes' => 'Unable to identify appropriate food choices supports a nutrition knowledge deficit.',
+            'etiology_notes' => 'Limited access to nutrition resources is the documented barrier.',
+            'sign_notes' => 'Inability to identify appropriate food choices qualifies the knowledge deficit.']]);
+        $result = $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->json('data.0');
+        $this->assertSame(['Limited access to food or nutrition resources'], $result['builder_data']['etiology_checks']);
+        $this->assertSame(['Patient unable to identify appropriate food choices'], $result['builder_data']['sign_checks']);
+        $this->assertSame('', $result['builder_data']['sign_other']);
+        $this->assertStringContainsString('supports', $result['extra_notes']);
+        $this->assertStringContainsString('barrier', $result['builder_data']['etiology_notes']);
+        $this->assertStringContainsString('qualifies', $result['builder_data']['sign_notes']);
     }
 
     public function test_distinct_other_problems_share_evidence_in_one_pass_and_delete_individually(): void

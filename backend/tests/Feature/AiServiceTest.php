@@ -173,7 +173,9 @@ class AiServiceTest extends TestCase
                 );
             }
             $this->assertSame(['id', 'p', 'e', 'ek', 's', 'sk', 'n', 'en', 'sn'], $draft['required']);
-            $this->assertStringContainsString('copy a short phrase', $system);
+            $this->assertStringContainsString('choices[domain]', $system);
+            $this->assertStringContainsString('fact + why', $system);
+            $this->assertStringNotContainsString('copy a short phrase', $system);
             $this->assertArrayNotHasKey('source_id', $draft['properties']);
 
             return true;

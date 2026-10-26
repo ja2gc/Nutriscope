@@ -302,6 +302,10 @@ class PesSuggestionService
             $ref = 'c'.(count($candidateRefs) + 1);
             $candidateRefs[$ref] = $candidate['candidate_id'];
             $payload['candidates'][$ref] = [$candidate['domain'], $candidate['problem_key']];
+            if (! isset($payload['choices'][$candidate['domain']])) {
+                $options = DiagnosisBuilder::options()[$candidate['domain']];
+                $payload['choices'][$candidate['domain']] = ['e' => $options['etiologies'], 's' => $options['signs']];
+            }
         }
         foreach ($evidence as $key => $value) {
             $ref = 'e'.(count($evidenceRefs) + 1);
@@ -373,6 +377,9 @@ class PesSuggestionService
                 if ($candidate['domain'] === 'NI' && (! preg_match('/^(Inadequate|Excessive) (.{1,50}) Intake$/u', $label))) {
                     throw new \RuntimeException('Use the supported intake direction and nutrient format.');
                 }
+                if (preg_match('/\bpredicted\b.*\bintake\b/i', $label)) {
+                    throw new \RuntimeException('Predicted intake terms are not supported by the current Intake builder.');
+                }
                 if (preg_match('/\b(diabetes(?: mellitus)?|hypertension|cancer|chronic kidney disease|CKD|heart failure|renal failure|cirrhosis|hepatitis|pneumonia|COPD|asthma|stroke|sepsis|anemia|anaemia)\b/i', $label)) {
                     throw new \RuntimeException('Medical diagnoses cannot replace nutrition problems.');
                 }
@@ -404,7 +411,7 @@ class PesSuggestionService
                 // Care grouping and medication names supply context, not an established causal effect.
                 $causeEvidence['clinical_context'] = $evidence['clinical_context']['referral_diagnosis'] ?? null;
                 $causes = array_filter($roles['etiology_evidence'], fn ($key): bool => $this->eligibility->hasConcern($causeEvidence[$key])
-                    && in_array($key, ['appetite', 'dietary_intake', 'present_diet', 'knowledge_notes', 'lifestyle', 'social_history', 'medical_history', 'clinical_context', 'physical_assessment', 'body_composition', 'food_intolerance', 'nutrient_drug_interaction', 'dietary_restrictions', 'supplements', 'chewing_swallowing_difficulties', 'gi_symptoms', 'energy_intake_status'], true)
+                    && in_array($key, ['appetite', 'dietary_intake', 'present_diet', 'knowledge_notes', 'lifestyle', 'social_history', 'medical_history', 'clinical_context', 'physical_assessment', 'body_composition', 'food_intolerance', 'nutrient_drug_interaction', 'dietary_restrictions', 'supplements', 'chewing_swallowing_difficulties', 'gi_symptoms'], true)
                 );
                 if ($causes === []) {
                     throw new \RuntimeException('The AI inferred a cause without a documented concern.');
@@ -422,16 +429,22 @@ class PesSuggestionService
                 if ($signConcerns === []) {
                     throw new \RuntimeException('The AI used only normal or contextual values as proof of a problem.');
                 }
+                $signEvidence = array_intersect_key($evidence, array_fill_keys([...$signConcerns,
+                    'age_group', 'age_70_plus', 'sex', 'edema_present', 'pregnancy_lactation_status', 'weight_change_direction', 'weight_change_period', 'medication_count'], true));
+                if (! collect($this->eligibility->eligible($signEvidence))->contains('candidate_id', $id)) {
+                    throw new \RuntimeException('The cited signs do not establish the selected nutrition problem.');
+                }
                 $etiology = $this->component($draft['etiology'] ?? null, 75);
                 $signs = $this->component($draft['signs'] ?? null, 75);
                 if (! $this->eligibility->hasConcern($etiology) || ! $this->eligibility->hasConcern($signs)) {
                     throw new \RuntimeException('Normal or denied findings cannot establish a cause or signs.');
                 }
-                if (! $this->groundedWording($etiology, $roles['etiology_evidence'], $causeEvidence)
+                if (! $this->groundedWording($etiology, array_values($causes), $causeEvidence)
                     || ! $this->groundedWording($signs, $roles['signs_evidence'], $evidence)) {
                     throw new \RuntimeException('The AI wording adds claims not supported by its cited findings.');
                 }
-                if ($candidate['domain'] === 'NI' && ! $this->eligibility->supportsIntakeProblem($label, $signs)) {
+                if ($candidate['domain'] === 'NI' && (! $this->eligibility->supportsIntakeProblem($label, $signs)
+                    || ! $this->eligibility->supportsIntakeProblem($label, $evidence['dietary_intake'] ?? ''))) {
                     throw new \RuntimeException('The signs do not support the selected intake nutrient and direction.');
                 }
                 if ($canonical === 'underweight' && (($evidence['bmi_classification'] ?? null) !== 'Underweight' || ! in_array('bmi', $roles['signs_evidence'], true))) {
@@ -449,13 +462,20 @@ class PesSuggestionService
                 }
                 $notes = [];
                 $noteEvidence = [...$evidence, 'rationale_context' => $label.' Evidence supports problem; documented cause barrier; specific reported finding gap; qualifies signs symptoms.'];
-                $fallbacks = ['extra_notes' => 'Supported by: '.$signs, 'etiology_notes' => 'Documented cause: '.$etiology, 'sign_notes' => 'Recorded sign: '.$signs];
+                $noteKey = static fn (string $text): string => trim((string) preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($text)));
+                $components = array_map($noteKey, [$label, $etiology, $signs]);
+                $usedNotes = [];
                 foreach (['extra_notes', 'etiology_notes', 'sign_notes'] as $field) {
                     $note = $this->component(is_string($draft[$field] ?? null) ? $draft[$field] : '', 100, true);
+                    $noteValue = $noteKey((string) preg_replace('/^(?:supported by|documented cause|recorded sign)\s*:\s*/i', '', $note));
                     preg_match_all('/\d+(?:\.\d+)?/', $note, $numbers);
                     $newNumbers = array_filter($numbers[0], fn ($number) => ! preg_match('/(?<!\d)'.preg_quote($number, '/').'(?!\d)/', json_encode(array_intersect_key($evidence, array_fill_keys($keys, true)))));
-                    $notes[$field] = $newNumbers === [] && $this->groundedWording($note, [...$keys, 'rationale_context'], $noteEvidence)
-                        ? $note : $fallbacks[$field];
+                    $notes[$field] = $newNumbers === [] && ! in_array($noteValue, [...$components, ...$usedNotes], true)
+                        && preg_match('/\b(because|support\w*|indicat\w*|explain\w*|reflect\w*|qualif\w*|evidence|barrier|cause|demonstrat\w*|links?)\b/i', $note)
+                        && $this->groundedWording($note, [...$keys, 'rationale_context'], $noteEvidence) ? $note : '';
+                    if ($notes[$field] !== '') {
+                        $usedNotes[] = $noteValue;
+                    }
                 }
                 foreach ([$label, $etiology, $signs] as $wording) {
                     preg_match_all('/\d+(?:\.\d+)?/', $wording, $numbers);

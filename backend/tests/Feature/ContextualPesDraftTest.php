@@ -262,7 +262,7 @@ class ContextualPesDraftTest extends TestCase
         ]]);
         $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()
             ->assertJsonPath('data.0.builder_data.problem_other', 'Nutrition education access difficulty')
-            ->assertJsonPath('data.0.extra_notes', 'Supported by: Cannot identify carbohydrate foods');
+            ->assertJsonPath('data.0.extra_notes', '');
     }
 
     public function test_behavioral_review_omits_unrelated_measurements_but_keeps_counterevidence(): void
@@ -304,7 +304,7 @@ class ContextualPesDraftTest extends TestCase
         Http::assertSentCount(1);
     }
 
-    public function test_provider_input_is_compact_without_editor_options_or_repeated_source_metadata(): void
+    public function test_provider_input_bounds_shared_domain_choices_without_repeated_source_metadata(): void
     {
         $record = $this->knowledgeRecord();
         $record->assessment()->update([
@@ -320,8 +320,9 @@ class ContextualPesDraftTest extends TestCase
             $prompt = $body['messages'][0]['content'];
             $payload = json_decode(explode("\noutput_json_schema:", substr($prompt, strlen("input_json:\n")))[0], true);
             $inputCharacters = strlen($body['system'].$prompt.json_encode($body['output_config']['format']['schema'] ?? []));
-            $this->assertLessThanOrEqual(4800, $inputCharacters, 'Representative all-domain input must remain compact.');
+            $this->assertLessThanOrEqual(7000, $inputCharacters, 'Representative input includes choices only once per eligible domain.');
             $this->assertArrayNotHasKey('options', $payload);
+            $this->assertSame(['NI', 'NB', 'NC'], array_keys($payload['choices']));
             $this->assertArrayNotHasKey('catalog_version', $payload);
             $fields = array_column($payload['evidence'], 1, 0);
             $this->assertSame('Intentional 4% gain; no unintended loss.', $fields['medical_history']);
@@ -409,7 +410,7 @@ class ContextualPesDraftTest extends TestCase
         $draft['extra_notes'] = str_repeat('Documented evidence. ', 8);
         $this->provider([$draft]);
         $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")
-            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.extra_notes', 'Supported by: Cannot identify carbohydrate foods');
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.extra_notes', '');
     }
 
     public function test_a_component_over_75_preserves_valid_drafts_and_closes_the_review(): void
