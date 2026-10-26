@@ -311,8 +311,27 @@ class ClinicalAiReviewTest extends TestCase
         Http::assertSent(function ($request): bool {
             $payload = json_decode(substr($request['messages'][0]['content'], strlen("input_json:\n")), true);
             $this->assertSame(['NB'], array_keys($payload['choices'] ?? []));
-            $this->assertSame(DiagnosisBuilder::options()['NB']['etiologies'], $payload['choices']['NB']['e']);
-            $this->assertSame(DiagnosisBuilder::options()['NB']['signs'], $payload['choices']['NB']['s']);
+            $this->assertNotEmpty($payload['choices']['NB']['e']);
+            $this->assertSame([], array_diff($payload['choices']['NB']['e'], DiagnosisBuilder::options()['NB']['etiologies']));
+            $this->assertNotContains('Cultural or religious food practices', $payload['choices']['NB']['e']);
+
+            return true;
+        });
+    }
+
+    public function test_offered_presets_exclude_ungrounded_causes_and_unprovided_numeric_thresholds(): void
+    {
+        $record = $this->record();
+        $record->assessment()->update(['dietary_intake' => 'Energy intake below estimated needs.',
+            'medical_history' => 'Type 2 diabetes mellitus.', 'appetite_changes' => 'decreased']);
+        $this->provider([$this->draft()]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk();
+        Http::assertSent(function ($request): bool {
+            $payload = json_decode(substr($request['messages'][0]['content'], strlen("input_json:\n")), true);
+            $this->assertNotContains('Chronic illness (DM, CKD, Cardiac, etc.)', $payload['choices']['NC']['e']);
+            foreach ($payload['choices']['NI']['s'] as $choice) {
+                $this->assertDoesNotMatchRegularExpression('/75/', $choice);
+            }
 
             return true;
         });

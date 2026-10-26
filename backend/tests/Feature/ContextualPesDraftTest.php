@@ -320,7 +320,7 @@ class ContextualPesDraftTest extends TestCase
             $prompt = $body['messages'][0]['content'];
             $payload = json_decode(explode("\noutput_json_schema:", substr($prompt, strlen("input_json:\n")))[0], true);
             $inputCharacters = strlen($body['system'].$prompt.json_encode($body['output_config']['format']['schema'] ?? []));
-            $this->assertLessThanOrEqual(7000, $inputCharacters, 'Representative input includes choices only once per eligible domain.');
+            $this->assertLessThanOrEqual(4800, $inputCharacters, 'Representative input includes grounded choices only once per eligible domain.');
             $this->assertArrayNotHasKey('options', $payload);
             $this->assertSame(['NI', 'NB', 'NC'], array_keys($payload['choices']));
             $this->assertArrayNotHasKey('catalog_version', $payload);

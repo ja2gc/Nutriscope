@@ -38,8 +38,20 @@ const DOMAIN_META = {
 
 const NI_NUTRIENTS = [
   "Energy", "Protein", "Carbohydrates", "Fat", "Fluid", "Fiber",
-  "Vitamins (specify)", "Minerals (specify)", "Oral Intake",
+  "Vitamins", "Minerals", "Oral Intake",
 ];
+
+const NI_MICRONUTRIENTS: Record<"Vitamins" | "Minerals", string[]> = {
+  Vitamins: [
+    "Vitamin A", "Vitamin B1 (Thiamin)", "Vitamin B2 (Riboflavin)", "Vitamin B3 (Niacin)",
+    "Vitamin B5 (Pantothenic acid)", "Vitamin B6", "Vitamin B7 (Biotin)", "Folate",
+    "Vitamin B12", "Vitamin C", "Vitamin D", "Vitamin E", "Vitamin K",
+  ],
+  Minerals: [
+    "Calcium", "Chloride", "Chromium", "Copper", "Fluoride", "Iodine", "Iron", "Magnesium",
+    "Manganese", "Molybdenum", "Phosphorus", "Potassium", "Selenium", "Sodium", "Zinc",
+  ],
+};
 
 const NC_PROBLEMS = [
   "Unintended Weight Loss",
@@ -169,7 +181,7 @@ interface BuilderState {
   domain: "NI" | "NC" | "NB";
   niDirection: "Inadequate" | "Excessive";
   niNutrient: string;
-  niNutrientSpecify: "Vitamins (specify)" | "Minerals (specify)" | "Nutrient / substance (specify)" | "";
+  niNutrientSpecify: keyof typeof NI_MICRONUTRIENTS | "Nutrient / substance (specify)" | "";
   ncProblems: string[];
   nbProblems: string[];
   etiologyChecks: string[];
@@ -287,7 +299,10 @@ function loadBuilderFromDiagnosis(d: Diagnosis): BuilderState {
     if (match) {
       b.niDirection = match[1] as "Inadequate" | "Excessive";
       b.niNutrient = stored?.ni_nutrient ?? match[2];
-      if (!NI_NUTRIENTS.includes(b.niNutrient) && !NI_NUTRIENTS.includes(b.niNutrient + " Intake")) b.niNutrientSpecify = "Nutrient / substance (specify)";
+      const group = (["Vitamins", "Minerals"] as const).find(key => NI_MICRONUTRIENTS[key].some(n => n.toLowerCase() === b.niNutrient.toLowerCase()))
+        ?? (/^vitamin\s/i.test(b.niNutrient) ? "Vitamins" : undefined);
+      if (group) b.niNutrientSpecify = group;
+      else if (!NI_NUTRIENTS.includes(b.niNutrient) && !NI_NUTRIENTS.includes(b.niNutrient + " Intake")) b.niNutrientSpecify = "Nutrient / substance (specify)";
       if (NI_NUTRIENTS.includes(b.niNutrient + " Intake")) b.niNutrient += " Intake";
     } else b.problemOverride = d.problem;
   } else {
@@ -750,6 +765,10 @@ export default function NcpDiagnosisPage({
     </div>
   );
 
+  const micronutrientOptions = builder.niNutrientSpecify === "Vitamins" || builder.niNutrientSpecify === "Minerals"
+    ? NI_MICRONUTRIENTS[builder.niNutrientSpecify] : null;
+  const micronutrientLabel = builder.niNutrientSpecify === "Vitamins" ? "Vitamin" : "Mineral";
+
   const renderProblemTab = () => (
     <div className="space-y-6 max-w-2xl">
       <div>
@@ -800,7 +819,10 @@ export default function NcpDiagnosisPage({
                 <button
                   key={n}
                   type="button"
-                  onClick={() => updateBuilder({ niNutrient: n.includes("specify") ? "" : n, niNutrientSpecify: n.includes("specify") ? n as BuilderState["niNutrientSpecify"] : "", problemOverride: "" })}
+                  onClick={() => {
+                    const group = n === "Vitamins" || n === "Minerals" ? n : "";
+                    updateBuilder({ niNutrient: group ? "" : n, niNutrientSpecify: group, problemOverride: "" });
+                  }}
                   className={`px-3 py-2 text-sm font-semibold rounded-lg border transition-all cursor-pointer text-left ${
                     (builder.niNutrient === n || builder.niNutrientSpecify === n)
                       ? "bg-sky-50 text-sky-800 border-sky-300 font-bold"
@@ -811,7 +833,21 @@ export default function NcpDiagnosisPage({
                 </button>
               ))}
             </div>
-            {builder.niNutrientSpecify && (
+            {micronutrientOptions ? (
+              <label className="mt-2 block text-xs font-semibold text-warm-600">
+                Select {micronutrientLabel.toLowerCase()}
+                <select
+                  aria-label={micronutrientLabel}
+                  value={builder.niNutrient}
+                  onChange={e => updateBuilder({ niNutrient: e.target.value, problemOverride: "" })}
+                  className="mt-2 w-full min-w-0 px-3 py-2 text-sm bg-white border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-400/20 focus:border-sky-400"
+                >
+                  <option value="" disabled>Select {micronutrientLabel.toLowerCase()}</option>
+                  {builder.niNutrient && !micronutrientOptions.includes(builder.niNutrient) && <option value={builder.niNutrient}>{builder.niNutrient}</option>}
+                  {micronutrientOptions.map(nutrient => <option key={nutrient} value={nutrient}>{nutrient}</option>)}
+                </select>
+              </label>
+            ) : builder.niNutrientSpecify && (
               <label className="mt-2 block text-xs font-semibold text-warm-600">
                 Specify nutrient or substance
               <input
@@ -1062,6 +1098,8 @@ export default function NcpDiagnosisPage({
     );
   };
 
+  const aiReviewReason = aiMeta?.can_retry && aiSuggestions.length > 0 ? null : aiMeta?.disabled_reason;
+
   const renderAiTab = () => (
     <div className="space-y-5">
       <div className="bg-white border border-warm-200 rounded-2xl p-5">
@@ -1077,18 +1115,18 @@ export default function NcpDiagnosisPage({
             onClick={handleAiSuggest}
             disabled={aiLoading || !hasAssessment || !aiMeta || aiMeta.budget.remaining === 0 || Boolean(aiUnavailable)}
             aria-describedby="ai-generation-state"
-            title={aiMeta?.disabled_reason ?? aiUnavailable ?? undefined}
+            title={aiReviewReason ?? aiUnavailable ?? undefined}
             className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-xs font-extrabold uppercase tracking-wider text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-warm-300"
           >
             {aiLoading && <RefreshCw className="h-3.5 w-3.5 animate-spin" />}
             {aiLoading ? "Generating suggestions..." : aiMeta?.can_retry ? "Retry AI Review" : "Generate AI Suggestions"}
           </button>
-          {(aiMeta?.disabled_reason || aiUnavailable) && <InfoHint label="AI review status" title="AI review status">{aiMeta?.disabled_reason ?? aiUnavailable}</InfoHint>}
+          {(aiReviewReason || aiUnavailable) && <InfoHint label="AI review status" title="AI review status">{aiReviewReason ?? aiUnavailable}</InfoHint>}
           {aiUnavailable && <button type="button" onClick={() => { void refreshAiStatus().catch(() => setAiUnavailable("Could not load AI draft status. Try again shortly.")); }} className="min-h-11 text-xs font-semibold text-emerald-700 underline">Refresh status</button>}
         </div>
         <p id="ai-generation-state" role="status" className="mt-2 text-xs text-warm-600">
           {aiMeta?.budget && <span>{aiMeta.budget.used}/{aiMeta.budget.limit} diagnosis requests used in this 10-minute window. </span>}
-          {aiUnavailable ?? aiMeta?.disabled_reason}
+          {aiUnavailable ?? aiReviewReason}
         </p>
         {!hasAssessment && (
           <p className="text-xs font-semibold text-amber-700">Save the Assessment before requesting PES drafts.</p>

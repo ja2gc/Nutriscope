@@ -268,6 +268,18 @@ class PesSuggestionService
         ]];
     }
 
+    /** Only recorded concerns can support a cause; care grouping and medication names stay context. */
+    private function causeEvidence(array $evidence): array
+    {
+        $evidence['clinical_context'] = $evidence['clinical_context']['referral_diagnosis'] ?? null;
+
+        return array_filter(array_intersect_key($evidence, array_fill_keys([
+            'appetite', 'dietary_intake', 'present_diet', 'knowledge_notes', 'lifestyle', 'social_history',
+            'medical_history', 'clinical_context', 'physical_assessment', 'body_composition', 'food_intolerance',
+            'nutrient_drug_interaction', 'dietary_restrictions', 'supplements', 'chewing_swallowing_difficulties', 'gi_symptoms',
+        ], true)), fn ($value): bool => $this->eligibility->hasConcern($value));
+    }
+
     /** Request-local aliases never enter stored drafts or clinical provenance. */
     private function providerPayload(array $eligible, array $evidence): array
     {
@@ -298,13 +310,17 @@ class PesSuggestionService
             $payload['guidance'] = $guidance;
         }
         $candidateRefs = $evidenceRefs = [];
+        $causes = $this->causeEvidence($evidence);
         foreach ($eligible as $candidate) {
             $ref = 'c'.(count($candidateRefs) + 1);
             $candidateRefs[$ref] = $candidate['candidate_id'];
             $payload['candidates'][$ref] = [$candidate['domain'], $candidate['problem_key']];
             if (! isset($payload['choices'][$candidate['domain']])) {
                 $options = DiagnosisBuilder::options()[$candidate['domain']];
-                $payload['choices'][$candidate['domain']] = ['e' => $options['etiologies'], 's' => $options['signs']];
+                $payload['choices'][$candidate['domain']] = [
+                    'e' => array_values(array_filter($options['etiologies'], fn ($choice): bool => $this->groundedWording($choice, array_keys($causes), $causes) && ! $this->hasNewNumbers($choice, $causes))),
+                    's' => array_values(array_filter($options['signs'], fn ($choice): bool => $this->groundedWording($choice, array_keys($evidence), $evidence) && ! $this->hasNewNumbers($choice, $evidence))),
+                ];
             }
         }
         foreach ($evidence as $key => $value) {
@@ -407,12 +423,8 @@ class PesSuggestionService
                     }
                     $roles[$role] = $roleKeys;
                 }
-                $causeEvidence = $evidence;
-                // Care grouping and medication names supply context, not an established causal effect.
-                $causeEvidence['clinical_context'] = $evidence['clinical_context']['referral_diagnosis'] ?? null;
-                $causes = array_filter($roles['etiology_evidence'], fn ($key): bool => $this->eligibility->hasConcern($causeEvidence[$key])
-                    && in_array($key, ['appetite', 'dietary_intake', 'present_diet', 'knowledge_notes', 'lifestyle', 'social_history', 'medical_history', 'clinical_context', 'physical_assessment', 'body_composition', 'food_intolerance', 'nutrient_drug_interaction', 'dietary_restrictions', 'supplements', 'chewing_swallowing_difficulties', 'gi_symptoms'], true)
-                );
+                $causeEvidence = $this->causeEvidence($evidence);
+                $causes = array_intersect($roles['etiology_evidence'], array_keys($causeEvidence));
                 if ($causes === []) {
                     throw new \RuntimeException('The AI inferred a cause without a documented concern.');
                 }
@@ -465,12 +477,11 @@ class PesSuggestionService
                 $noteKey = static fn (string $text): string => trim((string) preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($text)));
                 $components = array_map($noteKey, [$label, $etiology, $signs]);
                 $usedNotes = [];
+                $citedEvidence = array_intersect_key($evidence, array_fill_keys($keys, true));
                 foreach (['extra_notes', 'etiology_notes', 'sign_notes'] as $field) {
                     $note = $this->component(is_string($draft[$field] ?? null) ? $draft[$field] : '', 100, true);
                     $noteValue = $noteKey((string) preg_replace('/^(?:supported by|documented cause|recorded sign)\s*:\s*/i', '', $note));
-                    preg_match_all('/\d+(?:\.\d+)?/', $note, $numbers);
-                    $newNumbers = array_filter($numbers[0], fn ($number) => ! preg_match('/(?<!\d)'.preg_quote($number, '/').'(?!\d)/', json_encode(array_intersect_key($evidence, array_fill_keys($keys, true)))));
-                    $notes[$field] = $newNumbers === [] && ! in_array($noteValue, [...$components, ...$usedNotes], true)
+                    $notes[$field] = ! $this->hasNewNumbers($note, $citedEvidence) && ! in_array($noteValue, [...$components, ...$usedNotes], true)
                         && preg_match('/\b(because|support\w*|indicat\w*|explain\w*|reflect\w*|qualif\w*|evidence|barrier|cause|demonstrat\w*|links?)\b/i', $note)
                         && $this->groundedWording($note, [...$keys, 'rationale_context'], $noteEvidence) ? $note : '';
                     if ($notes[$field] !== '') {
@@ -478,11 +489,8 @@ class PesSuggestionService
                     }
                 }
                 foreach ([$label, $etiology, $signs] as $wording) {
-                    preg_match_all('/\d+(?:\.\d+)?/', $wording, $numbers);
-                    foreach ($numbers[0] as $number) {
-                        if (! preg_match('/(?<!\d)'.preg_quote($number, '/').'(?!\d)/', json_encode(array_intersect_key($evidence, array_fill_keys($keys, true))))) {
-                            throw new \RuntimeException('The AI added a measurement or threshold not present in its evidence.');
-                        }
+                    if ($this->hasNewNumbers($wording, $citedEvidence)) {
+                        throw new \RuntimeException('The AI added a measurement or threshold not present in its evidence.');
                     }
                 }
                 if (str_contains($canonical, 'weight loss') && ($evidence['weight_change_direction'] ?? 'unknown') !== 'loss') {
@@ -569,6 +577,14 @@ class PesSuggestionService
         }
 
         return $text;
+    }
+
+    private function hasNewNumbers(string $wording, array $evidence): bool
+    {
+        preg_match_all('/\d+(?:\.\d+)?/', $wording, $numbers);
+        $source = json_encode($evidence);
+
+        return array_filter($numbers[0], fn ($number) => ! preg_match('/(?<!\d)'.preg_quote($number, '/').'(?!\d)/', $source)) !== [];
     }
 
     private function groundedWording(string $wording, array $keys, array $evidence): bool

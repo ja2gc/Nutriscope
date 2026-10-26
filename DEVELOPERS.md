@@ -1,6 +1,6 @@
 # NutriScope developer map
 
-Verified against source: `e51de8c9a2a1597c5bbcef204f06191205bea361` plus PES evidence-role and explanation corrections in this working tree (2026-10-26).
+Verified against source: `5ac49380` plus grounded PES presets and diagnosis nutrient selections in this working tree (2026-10-27).
 
 BMI classification is owned by `Assessment::classifyBmi` and mirrored for live web inputs by `frontend/lib/nutritionCalculations.ts`: WHO sex/month bands at 61–228 months, Asia-Pacific afterward. The two offline `who-bmi-for-age.json` files are verified copies for separately built applications. Diagnosis AI and current reports reuse the model method; screening risk and clinical PES diagnoses remain separate. See [NCP data](docs/developers/ncp/data.md).
 
