@@ -258,11 +258,15 @@ export default function InventoryCatalogPage() {
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
 
   // Load the whole catalog once; Ingredients covers food items, Supplies covers supplies.
-  const load = useCallback(async () => {
-    setLoading(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const load = useCallback(async (quiet = false) => {
+    if (!quiet) setLoading(true);
+    setLoadError(null);
     try {
       const [c, s] = await Promise.all([listCatalog(tab, page, debouncedSearch, tab === "ingredient" ? grocery : ""), listAllSuppliers()]);
       setItems(c.data); setMeta(c.meta); setSuppliers(s);
+    } catch (cause) {
+      setLoadError(cause instanceof Error ? cause.message : "Failed to load inventory.");
     } finally { setLoading(false); }
   }, [page, debouncedSearch, tab, grocery]);
   useEffect(() => { load(); }, [load]);
@@ -286,7 +290,7 @@ export default function InventoryCatalogPage() {
 
   async function remove(item: CatalogItem) {
     if (!confirm(`Delete "${item.name}" from the catalog?`)) return;
-    try { await deleteFsItem(item.id); load(); }
+    try { await deleteFsItem(item.id); await load(true); }
     catch (e) { alert(e instanceof Error ? e.message : "Failed to delete."); }
   }
 
@@ -324,6 +328,7 @@ export default function InventoryCatalogPage() {
         window.history.replaceState(window.history.state, '', url.pathname + url.search);
       }} fill />
       {menuItemsOpen ? <FoodServiceMenuItems canManage={isRnd} /> : <>
+      {loadError && <p role="alert" className="text-sm text-red-700">{loadError}</p>}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <SearchInput className="w-full sm:flex-1" label="Search inventory" value={search} onChange={setSearch} loading={loading && search !== debouncedSearch} />
         {!isSupply && <div className="flex flex-wrap items-center gap-2">
@@ -388,7 +393,7 @@ export default function InventoryCatalogPage() {
           initialDraft={restoredDraft}
           initialToken={restoredToken}
           onClose={closeModal}
-          onSaved={() => { closeModal(); load(); }}
+          onSaved={() => { closeModal(); void load(true); }}
         />
       )}
       </>}

@@ -48,6 +48,8 @@ Prefer browsing by area? Open the [grouped developer index](docs/developers/READ
 
 Read [AGENTS.md](AGENTS.md) before changes. Update only affected guides in the same change, with the source revision verified. Guides describe the current implementation. Live accounts, installed schemas, DNS and backup recovery need separate authorized verification.
 
+Web mutation refresh behavior is owned by each screen's local loader and saved-response callback; follow the [web refresh convention](docs/developers/platform/web.md). Verified at `8a7846b3` plus the in-place update changes in this working tree (2026-10-27).
+
 Vendor receipt-total mode and amount are owned by `PurchaseOrderVendorGroup` and the vendor-group update action; see [food-service data](docs/developers/food-service/data.md). This is separate from per-item Actual Total, which derives quantity.
 
 ## If your task is not listed

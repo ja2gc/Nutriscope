@@ -56,9 +56,9 @@ export function FoodServiceMenuItems({ canManage }: { canManage: boolean }) {
   const [search, setSearch]       = useState("");
   const debouncedSearch = useDebouncedValue(search);
 
-  async function loadPage(p: number, cat: string, term = debouncedSearch) {
+  async function loadPage(p: number, cat: string, term = debouncedSearch, quiet = false) {
     setPage(p);
-    setLoading(true);
+    if (!quiet) setLoading(true);
     setError(null);
     try {
       const result = await listRecipes(p, cat, term);
@@ -83,7 +83,7 @@ export function FoodServiceMenuItems({ canManage }: { canManage: boolean }) {
       await deleteRecipe(deleteId);
       setDeleteId(null);
       const newPage = recipes.length === 1 && page > 1 ? page - 1 : page;
-      void loadPage(newPage, filterCat);
+      await loadPage(newPage, filterCat, debouncedSearch, true);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Delete failed.");
     } finally {

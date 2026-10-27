@@ -58,9 +58,9 @@ export function SopBanner({ historyHref }: { historyHref: string }) {
     setSaving(true);
     setError(null);
     try {
-      await saveSop({ title: draft.title.trim(), body: draft.body.trim() });
+      const saved = await saveSop({ title: draft.title.trim(), body: draft.body.trim() });
+      setSop(saved);
       setEditing(false);
-      void load();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to save SOP.");
     } finally {

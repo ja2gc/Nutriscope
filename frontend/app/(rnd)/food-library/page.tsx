@@ -352,9 +352,9 @@ export default function FoodLibraryPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: "food" | "recipe"; id: string; name: string } | null>(null);
   const [deleting, setDeleting]           = useState(false);
 
-  const loadFoods = useCallback(async () => {
+  const loadFoods = useCallback(async (quiet = false) => {
     try {
-      setFoodLoading(true);
+      if (!quiet) setFoodLoading(true);
       setFoodError(null);
       const res = await fetchFoodItems(foodSearch, foodCategory, foodPage);
       setFoods(res.data);
@@ -368,10 +368,10 @@ export default function FoodLibraryPage() {
 
   const activeRecipeSearchRef = useRef<number>(0);
 
-  const loadRecipes = useCallback(async () => {
+  const loadRecipes = useCallback(async (quiet = false) => {
     const searchId = ++activeRecipeSearchRef.current;
     try {
-      setRecipeLoading(true);
+      if (!quiet) setRecipeLoading(true);
       setRecipeError(null);
       const res = await fetchRecipes(recipeSearch, recipeCategory, recipePage);
       if (searchId === activeRecipeSearchRef.current) {
@@ -408,10 +408,10 @@ export default function FoodLibraryPage() {
       setDeleting(true);
       if (deleteConfirm.type === "food") {
         await deleteFoodItem(deleteConfirm.id);
-        await loadFoods();
+        await loadFoods(true);
       } else {
         await deleteRecipe(deleteConfirm.id);
-        await loadRecipes();
+        await loadRecipes(true);
       }
       setDeleteConfirm(null);
     } catch (e: unknown) {
@@ -676,7 +676,7 @@ export default function FoodLibraryPage() {
       {showUsda && (
         <UsdaImportModal
           onClose={() => setShowUsda(false)}
-          onImported={() => { void loadFoods(); }}
+          onImported={() => { void loadFoods(true); }}
         />
       )}
 

@@ -196,8 +196,8 @@ export function MealTemplatesTab({ leaveRef }: { leaveRef?: Ref<EditorLeaveHandl
   const [deleteTarget, setDeleteTarget] = useState<MealPlanTemplate | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (quiet = false) => {
+    if (!quiet) setLoading(true);
     setError(null);
     try {
       const result = await fetchMealPlanTemplates(page);
@@ -250,7 +250,7 @@ export function MealTemplatesTab({ leaveRef }: { leaveRef?: Ref<EditorLeaveHandl
     try {
       await deleteMealPlanTemplate(deleteTarget.id);
       setDeleteTarget(null);
-      await load();
+      await load(true);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Failed to delete template.");
     } finally {
@@ -258,7 +258,7 @@ export function MealTemplatesTab({ leaveRef }: { leaveRef?: Ref<EditorLeaveHandl
     }
   }
 
-  if (editor) return <TemplateEditor leaveRef={leaveRef} initial={editor} onClose={() => setEditor(null)} onSaved={() => { setEditor(null); void load(); }} />;
+  if (editor) return <TemplateEditor leaveRef={leaveRef} initial={editor} onClose={() => setEditor(null)} onSaved={() => { setEditor(null); void load(true); }} />;
 
   return <div className="space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3">

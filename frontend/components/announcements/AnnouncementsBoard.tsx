@@ -94,9 +94,9 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [draft, setDraft] = useState<AnnouncementDraft>(EMPTY_DRAFT);
 
-  async function loadPage(p: number) {
+  async function loadPage(p: number, quiet = false) {
     setPage(p);
-    setLoading(true);
+    if (!quiet) setLoading(true);
     setError(null);
     try {
       const result = await apiFetch(p, 10, targetAnnouncementId ?? undefined);
@@ -223,15 +223,16 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
       setSaving(true);
       setSaveError(null);
       if (editingPostId) {
-        await apiUpdate(editingPostId, payload);
+        const saved = await apiUpdate(editingPostId, payload);
+        setPosts(current => current.map(post => String(post.id) === String(saved.id) ? saved : post));
         closeComposer();
         resetDraft();
-        void loadPage(page);
+        void loadPage(page, true);
       } else {
         await apiCreate(payload);
         closeComposer();
         resetDraft();
-        void loadPage(1);
+        void loadPage(1, true);
       }
     } catch (err: unknown) {
       setSaveError(err instanceof Error ? err.message : "Failed to save announcement.");
@@ -245,7 +246,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
     try {
       await apiDelete(post.id);
       const newPage = posts.length === 1 && page > 1 ? page - 1 : page;
-      void loadPage(newPage);
+      await loadPage(newPage, true);
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Failed to delete announcement.");
     }

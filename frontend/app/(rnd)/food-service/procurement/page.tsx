@@ -1002,12 +1002,16 @@ export default function ProcurementPage() {
   const [deleteTarget, setDeleteTarget] = useState<{ kind: "list"; list: ShoppingList } | { kind: "po"; po: PurchaseOrder } | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [loadError, setLoadError] = useState("");
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (quiet = false) => {
+    if (!quiet) setLoading(true);
+    setLoadError("");
     try {
       const [l, p, s] = await Promise.all([listShoppingLists(listPage), listPurchaseOrders(poPage), listAllSuppliers()]);
       setLists(l.data); setListMeta(l.meta); setPos(p.data); setPoMeta(p.meta); setSuppliers(s);
+    } catch (cause) {
+      setLoadError(cause instanceof Error ? cause.message : "Failed to refresh procurement.");
     } finally { setLoading(false); }
   }, [listPage, poPage]);
   useEffect(() => { load(); }, [load]);
@@ -1171,7 +1175,7 @@ export default function ProcurementPage() {
         await deletePurchaseOrder(deleteTarget.po.id);
       }
       setDeleteTarget(null);
-      void load();
+      void load(true);
     } catch (error) {
       setDeleteError(error instanceof Error ? error.message : "Delete failed.");
     } finally {
@@ -1191,16 +1195,16 @@ export default function ProcurementPage() {
         id={listDetail}
         initialDraft={draftPreview}
         suppliers={suppliers}
-        onBack={() => { setListDetail(null); setDraftPreview(null); void load(); }}
+        onBack={() => { setListDetail(null); setDraftPreview(null); void load(true); }}
         onSaved={(saved) => { setLists((current) => [saved, ...current.filter((list) => list.id !== saved.id)]); setListDetail(saved.id); setDraftPreview(null); }}
-        onPosGenerated={() => { setListDetail(null); setDraftPreview(null); setTab("pos"); void load(); }}
+        onPosGenerated={() => { setListDetail(null); setDraftPreview(null); setTab("pos"); void load(true); }}
       />
     </div>
   );
   if (poDetail) return (
     <div className="space-y-6 font-sans">
       <Crumbs />
-      <PoDetail id={poDetail} suppliers={suppliers} onBack={() => { setPoDetail(null); void load(); }} />
+      <PoDetail id={poDetail} suppliers={suppliers} onBack={() => { setPoDetail(null); void load(true); }} />
     </div>
   );
 
@@ -1329,6 +1333,7 @@ export default function ProcurementPage() {
         ))}
       </div>
 
+      {loadError && <p role="alert" className="text-sm text-red-700">{loadError}</p>}
       {tab === "suppliers" ? <SuppliersPanel leaveRef={supplierLeaveRef} /> : (
         <div className="overflow-x-auto bg-white border border-warm-200 rounded-2xl shadow-sm">
           {loading ? (

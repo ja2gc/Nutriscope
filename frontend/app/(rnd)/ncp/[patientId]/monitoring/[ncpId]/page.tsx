@@ -98,9 +98,10 @@ export default function NcpMonitoringPage({
   const [historyPage, setHistoryPage]       = useState(1);
   const [historyMeta, setHistoryMeta]       = useState<PaginationMeta | null>(null);
 
-  const loadData = useCallback(async () => {
+  const quietReload = useRef(false);
+  const loadData = useCallback(async (quiet = false) => {
     if (isPlaceholder) { setLoading(false); return; }
-    setLoading(true);
+    if (!quiet) setLoading(true);
     setError(null);
     try {
       const [patientData, monitoringData, assessmentData, diagnosisData, interventionData, planData, contextData] = await Promise.allSettled([
@@ -112,6 +113,10 @@ export default function NcpMonitoringPage({
         fetchMonitoringPlan(ncpId),
         fetchMonitoringContext(ncpId),
       ]);
+      if (quiet && [patientData, monitoringData, assessmentData, diagnosisData, interventionData, planData, contextData].some(result => result.status === "rejected")) {
+        setError("Could not refresh monitoring. Your change was saved; reload to get the latest data.");
+        return;
+      }
       if (patientData.status === "fulfilled") setPatient(patientData.value);
       if (monitoringData.status === "fulfilled") {
         setEntries(monitoringData.value.data);
@@ -148,15 +153,15 @@ export default function NcpMonitoringPage({
     }
   }, [patientId, ncpId, isPlaceholder, historyPage]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { void loadData(quietReload.current); quietReload.current = false; }, [loadData]);
 
   async function handleLogVisit(payload: MonitoringPayload) {
     if (selectedEntry) await updateMonitoring(ncpId, selectedEntry.id, payload);
     else await createMonitoring(ncpId, payload);
     setSelectedEntry(null);
     setShowForm(false);
-    if (historyPage !== 1) setHistoryPage(1);
-    else await loadData();
+    if (historyPage !== 1) { quietReload.current = true; setHistoryPage(1); }
+    else await loadData(true);
   }
 
   async function handleDeleteVisit() {
@@ -166,8 +171,8 @@ export default function NcpMonitoringPage({
     try {
       await deleteMonitoring(ncpId, deleteEntry.id);
       setDeleteEntry(null);
-      if (historyPage !== 1) setHistoryPage(1);
-      else await loadData();
+      if (historyPage !== 1) { quietReload.current = true; setHistoryPage(1); }
+      else await loadData(true);
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : 'Failed to delete visit.');
     } finally { setDeleting(false); }

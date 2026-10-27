@@ -28,7 +28,7 @@ const EMPTY: SupplierPayload = { name: "", category: "", contact: "", address: "
 function SupplierForm({ initial, editingId, onSaved, onCancel, leaveRef }: {
   initial: SupplierPayload;
   editingId: number | null;
-  onSaved: () => void;
+  onSaved: (saved: Supplier) => void;
   onCancel: () => void;
   leaveRef?: Ref<EditorLeaveHandle>;
 }) {
@@ -50,7 +50,7 @@ function SupplierForm({ initial, editingId, onSaved, onCancel, leaveRef }: {
     if (Object.keys(validation).length) return false;
     setSaving(true); setError("");
     try {
-      await saveSupplier(editingId, {
+      const saved = await saveSupplier(editingId, {
         ...form,
         ...contactDetailsPayload(contacts),
         name: form.name.trim(),
@@ -59,7 +59,7 @@ function SupplierForm({ initial, editingId, onSaved, onCancel, leaveRef }: {
         payment_terms: form.payment_terms || null,
         notes: form.notes || null,
       });
-      onSaved();
+      onSaved(saved);
       return true;
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Save failed.");
@@ -140,8 +140,9 @@ export function SuppliersPanel({ leaveRef }: { leaveRef?: Ref<EditorLeaveHandle>
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true); setError("");
+  const load = useCallback(async (quiet = false) => {
+    if (!quiet) setLoading(true);
+    setError("");
     try {
       const result = await listSuppliers(page, search);
       setSuppliers(result.data);
@@ -162,15 +163,20 @@ export function SuppliersPanel({ leaveRef }: { leaveRef?: Ref<EditorLeaveHandle>
 
   function openNew() { const next = () => { setFormVersion(value => value + 1); setEditing(null); setFormOpen(true); }; if (formLeaveRef.current) formLeaveRef.current.requestLeave(next); else next(); }
   function openEdit(s: Supplier) { const next = () => { setFormVersion(value => value + 1); setEditing(s); setFormOpen(true); }; if (formLeaveRef.current) formLeaveRef.current.requestLeave(next); else next(); }
-  function onSaved() { setFormOpen(false); setEditing(null); load(); }
+  function onSaved(saved: Supplier) {
+    setFormOpen(false);
+    setEditing(null);
+    if (editing) setSuppliers(current => current.map(item => item.id === saved.id ? saved : item));
+    if (!editing || editing.name !== saved.name || search.trim()) void load(true);
+  }
 
   async function handleDelete(id: number) {
     setDeleting(true);
     try {
       await deleteSupplier(id);
       setDeleteId(null);
-      await load();
-    } catch { } finally { setDeleting(false); }
+      await load(true);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Delete failed."); } finally { setDeleting(false); }
   }
 
   return (
@@ -202,12 +208,11 @@ export function SuppliersPanel({ leaveRef }: { leaveRef?: Ref<EditorLeaveHandle>
       {/* Search */}
       <SearchInput className="max-w-sm" label="Search vendors" value={search} onChange={setSearch} loading={loading} />
 
+      {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       {/* Table */}
       <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
         {loading ? (
           <div className="py-16 text-center text-sm text-warm-400">Loading…</div>
-        ) : error ? (
-          <div className="py-16 text-center text-sm text-red-500">{error}</div>
         ) : suppliers.length === 0 ? (
           <div className="py-16 text-center">
             <Truck className="h-8 w-8 text-warm-300 mx-auto mb-3" />

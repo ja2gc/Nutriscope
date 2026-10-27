@@ -307,31 +307,40 @@ export function BudgetPageShell({ apiPrefix, canMutate, crumbs }: BudgetPageShel
   const [ledgerPage, setLedgerPage] = useState(1);
   const [ledgerMeta, setLedgerMeta] = useState<PaginationMeta | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const years = budgets.map((b) => b.fiscal_year).sort((a, b) => b - a);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (quiet = false) => {
+    if (!quiet) setLoading(true);
     try {
       const list = await listFiscalYears(apiPrefix);
       setBudgets(list);
+    } catch (cause) {
+      setLoadError(cause instanceof Error ? cause.message : "Failed to load budgets.");
     } finally {
       setLoading(false);
     }
   }, [apiPrefix]);
 
   const loadSummary = useCallback(async (year: number) => {
-    const res = await getFiscalYearSummary(year, apiPrefix);
-    setSummary(res.data);
-    setNotice(res.notice);
+    try {
+      const res = await getFiscalYearSummary(year, apiPrefix);
+      setSummary(res.data);
+      setNotice(res.notice);
+    } catch (cause) {
+      setLoadError(cause instanceof Error ? cause.message : "Failed to refresh budget summary.");
+    }
   }, [apiPrefix]);
 
-  const loadLedger = useCallback(async (year: number, filter: LedgerFilter, page: number) => {
-    setLedgerLoading(true);
+  const loadLedger = useCallback(async (year: number, filter: LedgerFilter, page: number, quiet = false) => {
+    if (!quiet) setLedgerLoading(true);
     try {
       const result = await getLedger(year, filter, apiPrefix, page);
       setEntries(result.data);
       setLedgerMeta(result.meta);
+    } catch (cause) {
+      setLoadError(cause instanceof Error ? cause.message : "Failed to refresh budget ledger.");
     } finally {
       setLedgerLoading(false);
     }
@@ -342,7 +351,11 @@ export function BudgetPageShell({ apiPrefix, canMutate, crumbs }: BudgetPageShel
   useEffect(() => { setLedgerPage(1); }, [selectedYear, ledgerFilter]);
   useEffect(() => { void loadLedger(selectedYear, ledgerFilter, ledgerPage); }, [loadLedger, selectedYear, ledgerFilter, ledgerPage]);
 
-  function refresh() { load(); loadSummary(selectedYear); loadLedger(selectedYear, ledgerFilter, ledgerPage); }
+  function refresh() {
+    setLoadError(null);
+    void loadSummary(selectedYear);
+    void loadLedger(selectedYear, ledgerFilter, ledgerPage, true);
+  }
 
   return (
     <div className="min-h-screen bg-warm-50 p-4 sm:p-8">
@@ -359,6 +372,7 @@ export function BudgetPageShell({ apiPrefix, canMutate, crumbs }: BudgetPageShel
           )}
         </div>
 
+        {loadError && <p role="alert" className="text-sm text-red-700">{loadError}</p>}
         {loading ? (
           <div className="text-base text-warm-400 py-12 text-center">Loading...</div>
         ) : (
@@ -368,7 +382,7 @@ export function BudgetPageShell({ apiPrefix, canMutate, crumbs }: BudgetPageShel
               <FiscalYearSetupSection
                 apiPrefix={apiPrefix}
                 existingYears={years}
-                onCreated={(year) => { load(); setSelectedYear(year); }}
+                onCreated={(year) => { void load(true); setSelectedYear(year); if (year === selectedYear) refresh(); }}
               />
             )}
 

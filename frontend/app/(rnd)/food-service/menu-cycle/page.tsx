@@ -138,8 +138,9 @@ function CycleList({ readOnly, mode = "cycles", onOpen, onNew, onOpenTemplate, o
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
-  const load = useCallback(async () => {
-    setLoading(true); setErr("");
+  const load = useCallback(async (quiet = false) => {
+    if (!quiet) setLoading(true);
+    setErr("");
     try {
       if (mode === "templates") {
         const result = await listTemplates(templatePage);
@@ -191,14 +192,14 @@ function CycleList({ readOnly, mode = "cycles", onOpen, onNew, onOpenTemplate, o
     try {
       await deleteCycle(deleteTarget.id);
       setDeleteTarget(null);
-      void load();
+      void load(true);
     } catch (error) {
       setDeleteError(error instanceof Error ? error.message : "Failed to delete menu week.");
     } finally {
       setDeleteBusy(false);
     }
   }
-  async function removeTemplate(id: string) { await deleteTemplate(id); load(); }
+  async function removeTemplate(id: string) { await deleteTemplate(id); await load(true); }
 
   return (
     <Shell templates={mode === "templates"}>

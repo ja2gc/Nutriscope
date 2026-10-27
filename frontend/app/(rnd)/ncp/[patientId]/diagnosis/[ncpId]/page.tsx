@@ -364,7 +364,9 @@ export default function NcpDiagnosisPage({
   const [patient, setPatient] = useState<Patient | null>(null);
   const [diagnoses, setDiagnoses] = useState<Diagnosis[]>([]);
   const [diagnosesMeta, setDiagnosesMeta] = useState<PaginationMeta | null>(null);
-  const [diagnosesPage, setDiagnosesPage] = useState(1);
+  const [diagnosesQuery, setDiagnosesQuery] = useState({ page: 1, quiet: false });
+  const diagnosesPage = diagnosesQuery.page;
+  const setDiagnosesPage = (page: number, quiet = false) => setDiagnosesQuery({ page, quiet });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
@@ -382,10 +384,10 @@ export default function NcpDiagnosisPage({
   const [assessmentContext, setAssessmentContext] = useState<Assessment | null>(null);
   const [interventionGoal, setInterventionGoal] = useState<string | null>(null);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (quiet = diagnosesQuery.quiet) => {
     if (isPlaceholder) { setLoading(false); return; }
     try {
-      setLoading(true);
+      if (!quiet) setLoading(true);
       const [p, d, a, intervention, ai] = await Promise.allSettled([
         fetchPatientById(patientId),
         fetchDiagnosesPage(ncpId, diagnosesPage),
@@ -393,6 +395,10 @@ export default function NcpDiagnosisPage({
         fetchIntervention(ncpId),
         fetchPesDraftStatus(ncpId),
       ]);
+      if (quiet && [p, d, a, intervention].some(result => result.status === "rejected")) {
+        setError("Could not refresh diagnoses. Your change was saved; reload to get the latest data.");
+        return;
+      }
       if (ai.status === "fulfilled") {
         setAiSuggestions(ai.value.data); setAiMeta(ai.value.meta); setAiUnavailable(null);
         if (ai.value.meta.can_generate || ai.value.meta.can_retry) setAiWarning(null);
@@ -419,7 +425,7 @@ export default function NcpDiagnosisPage({
     } finally {
       setLoading(false);
     }
-  }, [patientId, ncpId, isPlaceholder, diagnosesPage]);
+  }, [patientId, ncpId, isPlaceholder, diagnosesPage, diagnosesQuery.quiet]);
 
   useEffect(() => { void loadData(); }, [loadData]);
 
@@ -481,9 +487,9 @@ export default function NcpDiagnosisPage({
       setDeleting(d.id);
       await deleteDiagnosis(ncpId, d.id);
       if (diagnoses.length === 1 && diagnosesPage > 1) {
-        setDiagnosesPage(diagnosesPage - 1);
+        setDiagnosesPage(diagnosesPage - 1, true);
       } else {
-        await loadData();
+        await loadData(true);
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to delete.");
@@ -517,9 +523,9 @@ export default function NcpDiagnosisPage({
       setBuilder(defaultBuilder());
       setActiveTab("table");
       if (diagnosesPage === 1) {
-        await loadData();
+        await loadData(true);
       } else {
-        setDiagnosesPage(1);
+        setDiagnosesPage(1, true);
       }
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: unknown) {
@@ -560,9 +566,9 @@ export default function NcpDiagnosisPage({
       setAiLoading(true);
       await aiApproveDiagnosis(ncpId, { draft_id: s.draft_id });
       if (diagnosesPage === 1) {
-        await loadData();
+        await loadData(true);
       } else {
-        setDiagnosesPage(1);
+        setDiagnosesPage(1, true);
       }
       setAiSuggestions(prev => prev.filter(draft => draft.draft_id !== s.draft_id));
       setAiDraftsPage(1);

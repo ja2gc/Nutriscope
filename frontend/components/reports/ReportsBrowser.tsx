@@ -370,11 +370,13 @@ function InstancesPanel({
   const debouncedSearch = useDebouncedValue(search);
   const [instancesMeta, setInstancesMeta] = useState<PaginationMeta | null>(null);
   const [refreshVersion, setRefreshVersion] = useState(0);
+  const quietRefresh = useRef(false);
   const Icon = entry.icon;
 
   useEffect(() => {
     let alive = true;
-    setLoading(true);
+    if (!quietRefresh.current) setLoading(true);
+    quietRefresh.current = false;
     listInstances(entry.type, { page, per_page: 10, search: debouncedSearch, covered_month: coveredMonth }, apiPrefix)
       .then((r) => { if (alive) { setAxis(r.data.axis); setInstances(r.data.instances); setInstancesMeta(r.meta); } })
       .catch((e) => { if (alive) onFlash(false, e instanceof Error ? e.message : "Failed to load."); })
@@ -406,6 +408,7 @@ function InstancesPanel({
       await archiveReport(preview.report.id, apiPrefix);
       onFlash(true, `Archived ${preview.label}.`);
       setPreview(null);
+      quietRefresh.current = true;
       setRefreshVersion((version) => version + 1);
     } catch (e) {
       onFlash(false, e instanceof Error ? e.message : "Report archive failed.");
@@ -540,8 +543,8 @@ function ArchivedTab({
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (quiet = false) => {
+    if (!quiet) setLoading(true);
     try {
       const result = await listReports(apiPrefix, page, { status: "archived", type: selectedType, search: debouncedSearch, covered_month: coveredMonth });
       setReports(result.data);
@@ -566,7 +569,7 @@ function ArchivedTab({
     try {
       const settings = await setReportArchiveSettings(enabled);
       setRetentionEnabled(settings.enabled);
-      await load();
+      await load(true);
     } catch (error) {
       onFlash(false, error instanceof Error ? error.message : "Failed to save retention settings.");
     } finally {
@@ -578,7 +581,7 @@ function ArchivedTab({
     try {
       await unarchiveReport(id, apiPrefix);
       onFlash(true, "Report restored to Browse.");
-      await load();
+      await load(true);
     } catch (e) {
       onFlash(false, e instanceof Error ? e.message : "Unarchive failed.");
     }

@@ -363,9 +363,9 @@ export default function PatientProfilePage({
   const [discontinueRecordId, setDiscontinueRecordId] = useState<number | string | null>(null);
   const [discontinueReason, setDiscontinueReason] = useState("lost_to_follow_up");
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (quiet = false) => {
     try {
-      setLoading(true);
+      if (!quiet) setLoading(true);
       setError(null);
       const [patientData, currentData, pastData] = await Promise.all([
         fetchPatientById(patientId),
@@ -410,7 +410,7 @@ export default function PatientProfilePage({
     try {
       await deleteNcpRecord(id);
       setConfirmDeleteRecord(null);
-      await loadData();
+      await loadData(true);
     } catch (err: unknown) {
       setRecordDeleteError(err instanceof Error ? err.message : "Failed to delete record.");
     } finally {
@@ -447,7 +447,7 @@ export default function PatientProfilePage({
     try {
       await transitionNcpRecord(id, action === "complete" ? { action } : { action, reason_code: discontinueReason });
       setDiscontinueRecordId(null);
-      await loadData();
+      await loadData(true);
     } catch (err: unknown) {
       setCycleError(err instanceof Error ? err.message : "Failed to update NCP cycle.");
     }
@@ -480,7 +480,7 @@ export default function PatientProfilePage({
     );
   }
 
-  if (error || !patient) {
+  if (!patient) {
     return (
       <div className="space-y-6 font-sans max-w-3xl mx-auto py-12 select-none">
         <div className="bg-red-50 border border-red-100 p-6 rounded-2xl text-center space-y-4">
@@ -502,6 +502,8 @@ export default function PatientProfilePage({
 
   return (
     <div className="space-y-6 font-sans">
+
+      {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm font-semibold text-warm-400 select-none">
