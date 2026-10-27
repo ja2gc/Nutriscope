@@ -18,6 +18,6 @@ Start with [DEVELOPERS.md](../DEVELOPERS.md) for task-to-source routing. The gui
 | Schema and security references | [Schema](database-schema.md), [Security](security/security.md) |
 | Audit/search/compatibility design rationale | [Architecture references](architecture) |
 | Food-service maintenance detail | [Domain map](developers/food-service/README.md), [detailed invariants](developers/food-service/reference.md) |
-| Forms and visual reference material | [Nutriscope Forms](<Nutriscope Forms>), [Design System](<Design System/readme.md>) |
+| Forms | [Nutriscope Forms](<Nutriscope Forms>) |
 
-Clinical research, forms, user help, domain diagrams and visual guidelines serve different purposes from developer navigation; retain them without copying their contents into every guide. Confirm a specific claim in code/tests before changing it; reference dates identify the source context.
+Clinical research, forms, user help and domain diagrams complement developer navigation. Confirm a specific claim in code/tests before changing it; reference dates identify the source context.

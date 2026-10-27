@@ -26,7 +26,7 @@ Prefer browsing by area? Open the [grouped developer index](docs/developers/READ
 | Set up a developer machine | backend/composer.json; frontend/package.json; mobile/eas.json | [Local setup](docs/developers/platform/local-setup.md) |
 | Add an endpoint or permission | backend/app/Http/; backend/app/Policies/ | [Backend](docs/developers/platform/backend.md) |
 | Change web screens, inputs, validation or uploads | frontend/components/ui/; frontend/hooks/; frontend/lib/uploadValidation.ts | [Web](docs/developers/platform/web.md) |
-| Change visual styling or shared controls | frontend/app/globals.css; frontend/components/ui/ | [Web](docs/developers/platform/web.md), [visual reference](<docs/Design System/readme.md>) |
+| Change visual styling or shared controls | frontend/app/globals.css; frontend/components/ui/ | [Web](docs/developers/platform/web.md) |
 | Change the native app or API URL | mobile/app/; mobile/lib/; mobile/eas.json | [Mobile](docs/developers/food-service/mobile.md) |
 | Change fields, statuses or stored values | backend/database/migrations/; backend/app/Models/ | [Database](docs/developers/platform/database.md) |
 | Understand what a variable/field means and where it is used | models/casts → requests/writers → API Resources → clients/reports/jobs | [Data semantics](docs/developers/platform/data-semantics.md), [NCP data](docs/developers/ncp/data.md), [food-service data](docs/developers/food-service/data.md) |
