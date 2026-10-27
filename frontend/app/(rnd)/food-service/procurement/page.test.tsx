@@ -731,7 +731,7 @@ describe("Food Service procurement display", () => {
     expect(currentTotalContent?.textContent).not.toContain("₱642.50");
   });
 
-  test("shows average cost per served patient-day from actual population on completed POs", async () => {
+  test("shows average cost per head a day from actual population on completed POs", async () => {
     await renderPage();
     await openPurchaseOrder({
       lifecycle_status: "completed",
@@ -751,7 +751,7 @@ describe("Food Service procurement display", () => {
       },
     });
 
-    expect(container.textContent).toContain("Average cost per served patient-day");
+    expect(container.textContent).toContain("Average cost per head a day");
     expect(container.textContent).toContain("final total ÷ actual served population");
     expect(container.textContent).toContain("1.43");
   });

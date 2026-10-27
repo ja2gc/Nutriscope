@@ -143,7 +143,7 @@ class PurchaseOrderRevisionSerializer implements AuditRevisionSerializer
             new AuditHistoryFieldDto('lifecycle_status', 'Lifecycle status', new AuditValueDto('enum', $snapshot['lifecycle_status'])),
             new AuditHistoryFieldDto('procurement_track', 'Procurement track', new AuditValueDto('enum', $snapshot['procurement_track'])),
             new AuditHistoryFieldDto('total', 'Total', new AuditValueDto('currency', $snapshot['total'], currency: 'PHP')),
-            new AuditHistoryFieldDto('actual_budget_per_head_per_day', 'Food purchase cost per served patient-day', new AuditValueDto('currency', $snapshot['actual_budget_per_head_per_day'], currency: 'PHP')),
+            new AuditHistoryFieldDto('actual_budget_per_head_per_day', 'Food purchase cost per head a day', new AuditValueDto('currency', $snapshot['actual_budget_per_head_per_day'], currency: 'PHP')),
             new AuditHistoryFieldDto('converted_at', 'Converted at', new AuditValueDto('datetime', $snapshot['converted_at'])),
             new AuditHistoryFieldDto('completed_at', 'Completed at', new AuditValueDto('datetime', $snapshot['completed_at'])),
             new AuditHistoryFieldDto('archived_at', 'Archived at', new AuditValueDto('datetime', $snapshot['archived_at'])),

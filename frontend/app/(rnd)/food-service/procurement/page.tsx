@@ -895,7 +895,7 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
         </div>
         {po.lifecycle_status !== "open_execution" && po.actual_budget_per_head_per_day != null && (
           <div className="ml-auto flex flex-col items-end">
-            <span className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">Average cost per served patient-day</span>
+            <span className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">Average cost per head a day</span>
             <span className="text-2xl font-extrabold text-emerald-700">{peso(num(po.actual_budget_per_head_per_day))}</span>
             <span className="text-xs text-warm-400">final total ÷ actual served population</span>
           </div>

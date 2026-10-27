@@ -188,7 +188,7 @@ class PurchaseOrderCompletionPatternTest extends TestCase
         $this->assertSame(140, $ppaData['population']);
         $this->assertSame(1.43, $ppaData['average_cost_per_head']);
         $ppaHtml = view($ppaGenerator->view(), $ppaData)->render();
-        $this->assertStringContainsString('Average cost per served patient-day', $ppaHtml);
+        $this->assertStringContainsString('Average cost per head a day', $ppaHtml);
         $this->assertStringContainsString('₱ 1.43', $ppaHtml);
 
         $originalBranding = $originalPack->snapshot['branding']['hospital_name'];
