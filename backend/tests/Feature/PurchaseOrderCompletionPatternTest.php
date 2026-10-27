@@ -20,6 +20,7 @@ use App\Models\User;
 use App\Services\FSS\PurchaseOrderLifecycleService;
 use App\Services\Reports\Generators\ProcurementPackGenerator;
 use App\Services\Reports\Generators\ProgramProjectActivityGenerator;
+use App\Services\Reports\ReportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -187,7 +188,10 @@ class PurchaseOrderCompletionPatternTest extends TestCase
         $ppaData = $ppaGenerator->data($originalPpa);
         $this->assertSame(140, $ppaData['population']);
         $this->assertSame(1.43, $ppaData['average_cost_per_head']);
-        $ppaHtml = view($ppaGenerator->view(), $ppaData)->render();
+        $ppaPdf = app(ReportService::class)->buildPdf($originalPpa);
+        $this->assertStringStartsWith('%PDF-', $ppaPdf['bytes']);
+        $this->assertSame($originalPpa->snapshot['branding']['hospital_name'], $ppaPdf['meta']['branding']->hospital_name);
+        $ppaHtml = view($ppaGenerator->view(), [...$ppaData, ...$ppaPdf['meta'], 'report' => $originalPpa])->render();
         $this->assertStringContainsString('Average cost per head a day', $ppaHtml);
         $this->assertStringContainsString('₱ 1.43', $ppaHtml);
 

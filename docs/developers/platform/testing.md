@@ -16,6 +16,10 @@ On Windows, do not assume a drive-letter APP_CONFIG_CACHE value resolves as abso
 
 Run only one RefreshDatabase process against a disposable database at a time. Some migration-contract tests create/drop additional databases; a database-scoped test account intentionally cannot run those. Do not broaden its privileges to make a filtered feature run pass. Record exclusions and keep their verification separate.
 
+Procurement regression checks reverified at `ba653bb1` plus this working tree (2026-10-27): run `PurchaseOrderTrailTest::test_deduction_guard_migration_preserves_legacy_duplicates_and_round_trips_exactly` on a separate disposable MySQL server where its test account may create/drop schemas. Verify that server's identity as well as its database/account before PHPUnit starts. Keep the ordinary scoped test account and the localhost demo database unchanged; temporary configuration/runners belong in ignored `backend/tmp/`. The migration test creates its own schema and removes it in `finally`.
+
+Report generators return domain data only. HTML assertions against report views must also supply the branding, signatories, generation time and orientation that `ReportService::buildPdf` adds. `PurchaseOrderCompletionPatternTest` uses the real service's returned metadata and verifies PDF bytes and frozen branding, rather than rendering generator data alone or weakening the letterhead template.
+
 ## Commands once isolated
 
 | Working directory | Command | Purpose |
