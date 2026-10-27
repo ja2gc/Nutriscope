@@ -696,7 +696,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
           />
         )}
 
-        <div hidden={tab === "plans"}>
+        <div hidden={tab !== "nd"}>
           <InterventionPlanEditor
             mode={editorMode}
             plan={intervention}
