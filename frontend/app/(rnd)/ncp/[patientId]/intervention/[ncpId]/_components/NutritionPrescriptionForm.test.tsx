@@ -29,6 +29,13 @@ test("explains a legacy selection before recalculation without locking saved tar
   expect(html.match(/<input[^>]*aria-label="Energy"[^>]*>/)?.[0]).not.toContain(' disabled=""');
 });
 
+test("flattens the prescription card at narrow widths", () => {
+  const html = renderToStaticMarkup(<NutritionPrescriptionForm values={emptyPrescriptionForm()}
+    onChange={() => {}} onSave={() => {}} saving={false} />);
+  expect(html).toMatch(/<div class="[^"]*border-0[^"]*sm:border/);
+  expect(html).toMatch(/<div class="[^"]*bg-transparent[^"]*sm:bg-white/);
+});
+
 test("pediatric selector explains the smaller menu and cannot confirm an adult preset", () => {
   const html = renderToStaticMarkup(<GoalSelectorModal isPediatric initialGoal="renal_diet" initialStage="ckd_1_2"
     onConfirm={() => {}} onClose={() => {}} />);

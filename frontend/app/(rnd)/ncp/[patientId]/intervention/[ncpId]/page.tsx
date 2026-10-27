@@ -34,6 +34,7 @@ import GoalSelectorModal, { GOALS } from "./_components/GoalSelectorModal";
 import { goalLabelFor, goalsForPatient, typeLabelFor } from "./_components/goals";
 import type { GuidanceSuggestion } from "@/services/interventionService";
 import { Button } from "@/components/ui/Button";
+import { Tabs } from "@/components/ui/Tabs";
 import NutritionPrescriptionForm from "./_components/NutritionPrescriptionForm";
 import RecommendAvoidPanel from "./_components/RecommendAvoidPanel";
 import EducationTab from "./_components/EducationTab";
@@ -622,7 +623,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
           onChangePatientClick={handleChangePatient}
           onBeforeUnselectPatient={guard.requestLeave}
         />
-        <div className="bg-white border border-warm-200 rounded-2xl p-12 text-center max-w-2xl mx-auto shadow-sm">
+        <div className="mx-auto max-w-2xl rounded-none border-0 bg-transparent p-6 text-center shadow-none sm:rounded-2xl sm:border sm:border-warm-200 sm:bg-white sm:p-12 sm:shadow-sm">
           <div className="p-3.5 bg-warm-50 border border-warm-200 rounded-2xl w-fit mx-auto text-warm-400">
             <Lock className="h-8 w-8" />
           </div>
@@ -665,16 +666,8 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
       </div>
 
       {/* Tab bar */}
-      <div className="flex flex-wrap border-b border-warm-200 mb-5">
-        {TABS.map(({ key, label }) => (
-          <button key={key} onClick={() => setTab(key)}
-            className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 whitespace-nowrap transition-colors cursor-pointer ${
-              tab === key ? "border-emerald-600 text-emerald-700" : "border-transparent text-warm-400 hover:text-warm-600"
-            }`}>
-            {label}
-          </button>
-        ))}
-      </div>
+      <Tabs items={TABS} value={tab} onChange={setTab} ariaLabel="Intervention sections"
+        className="mb-5 w-full overflow-x-auto [&>button]:shrink-0 [&>button]:whitespace-nowrap" />
 
       {/* Tab content */}
       <div className="pt-5 space-y-6">
@@ -715,7 +708,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
           {/* Food / Nutrient Delivery */}
             <div hidden={tab !== "nd"} className="space-y-6">
             {/* [A] Goal selector */}
-            <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm">
+            <div className="rounded-none border-0 bg-transparent p-0 shadow-none sm:rounded-2xl sm:border sm:border-warm-200 sm:bg-white sm:p-5 sm:shadow-sm">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Intervention Goal</h3>
                 {editorMode === "edit" && (
@@ -777,7 +770,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
 
             {/* [C] Recommend / Avoid */}
             {intervention?.goal_type && (
-              <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm space-y-3">
+              <div className="space-y-3 rounded-none border-0 bg-transparent p-0 shadow-none sm:rounded-2xl sm:border sm:border-warm-200 sm:bg-white sm:p-5 sm:shadow-sm">
                 <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Food Recommendations</h3>
                 <RecommendAvoidPanel guide={guidance?.foods} allergens={allergens} isYoungInfant={isPediatric && (prescription.calculation_snapshot?.inputs.ageMonths ?? (prescription.calculation_snapshot?.inputs.ageYears ?? patientMetrics?.ageYears ?? 18) * 12) < 6} />
               </div>
@@ -805,6 +798,8 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
                 interventionGoal={intervention?.goal_type}
               />
           </div>
+          </InterventionPlanEditor>
+        </div>
 
         {/* Education */}
         {tab === "education" && (
@@ -839,8 +834,6 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
           />
         )}
 
-          </InterventionPlanEditor>
-        </div>
       </div>
 
       {/* Goal selector modal */}

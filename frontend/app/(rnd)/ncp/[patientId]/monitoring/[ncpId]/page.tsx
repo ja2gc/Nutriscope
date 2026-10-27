@@ -31,6 +31,7 @@ import { Tabs } from "@/components/ui/Tabs";
 import { DeleteActionDialog } from "@/components/ui/DeleteActionDialog";
 import ButtonFilterGroup from "@/components/ui/ButtonFilterGroup";
 import type { IndicatorCategory } from "@/services/monitoringPlan";
+import { ALL_MICROS } from "@/lib/nutritionCalculations";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -55,6 +56,14 @@ function formatCycleDate(value: string | null | undefined): string {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function formatPrescriptionLimit(limit: { target?: number; min?: number; max?: number }): string | null {
+  if (limit.target != null) return String(limit.target);
+  if (limit.min != null && limit.max != null) return `${limit.min}–${limit.max}`;
+  if (limit.max != null) return `≤${limit.max}`;
+  if (limit.min != null) return `≥${limit.min}`;
+  return null;
 }
 
 // ─── Breadcrumb ───────────────────────────────────────────────────────────────
@@ -97,6 +106,14 @@ export default function NcpMonitoringPage({
   const [workflowBlock, setWorkflowBlock]   = useState<string | null>(null);
   const [historyPage, setHistoryPage]       = useState(1);
   const [historyMeta, setHistoryMeta]       = useState<PaginationMeta | null>(null);
+
+  const micronutrientTargets = intervention
+    ? ALL_MICROS.flatMap((micro) => {
+        const limit = intervention.micronutrient_limits?.[micro.key];
+        const amount = limit ? formatPrescriptionLimit(limit) : null;
+        return amount === null ? [] : [{ ...micro, amount, unit: limit?.unit || micro.unit }];
+      })
+    : [];
 
   const quietReload = useRef(false);
   const loadData = useCallback(async (quiet = false) => {
@@ -280,7 +297,7 @@ export default function NcpMonitoringPage({
 
       {/* ── Loading skeleton ─────────────────────────────────────────────────── */}
       {loading ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2 space-y-6">
             <div className="h-10 bg-warm-100 rounded-xl animate-pulse" />
             <div className="h-48 bg-warm-100 rounded-2xl animate-pulse" />
@@ -295,7 +312,7 @@ export default function NcpMonitoringPage({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* ── Main column (2/3 on lg+) ───────────────────────────────────── */}
-          <div className="lg:col-span-2 space-y-0">
+          <div className="order-2 min-w-0 space-y-0 lg:order-1 lg:col-span-2">
 
             <Tabs items={[{ key: "log", label: "Visit Log" }, { key: "progress", label: "Progress Trends" }]} value={activeTab} onChange={(tab) => { if (tab !== activeTab) leaveVisit(() => { setShowForm(false); setSelectedEntry(null); setActiveTab(tab); }); }} ariaLabel="Monitoring views" fill className="mb-6 w-full max-w-sm sm:w-fit" />
 
@@ -352,9 +369,9 @@ export default function NcpMonitoringPage({
           </div>
 
           {/* ── Sidebar (1/3 on lg+, full-width below lg) ─────────────────── */}
-          <div className="min-w-0 space-y-5">
+          <div className="order-1 min-w-0 space-y-5 lg:order-2">
             {/* Monitoring record card */}
-            <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm">
+            <div className="rounded-none border-0 bg-transparent p-0 shadow-none sm:rounded-2xl sm:border sm:border-warm-200 sm:bg-white sm:p-5 sm:shadow-sm">
               <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider mb-4">
                 Monitoring Record
               </h3>
@@ -407,8 +424,8 @@ export default function NcpMonitoringPage({
             </div>
 
             {/* Prescription summary card — only shown if intervention exists */}
-            {intervention && (intervention.energy_kcal || intervention.protein_g) && (
-              <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm">
+            {intervention && (intervention.energy_kcal || intervention.protein_g || intervention.carbs_g || intervention.fat_g || intervention.fluid_ml || micronutrientTargets.length > 0) && (
+              <div className="rounded-none border-0 bg-transparent p-0 shadow-none sm:rounded-2xl sm:border sm:border-warm-200 sm:bg-white sm:p-5 sm:shadow-sm">
                 <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider mb-4">
                   Prescription Targets / Limits
                 </h3>
@@ -453,6 +470,12 @@ export default function NcpMonitoringPage({
                       </span>
                     </div>
                   )}
+                  {micronutrientTargets.map(({ key, label, amount, unit }) => (
+                    <div key={key} className="flex justify-between gap-3 py-2.5">
+                      <span className="font-semibold text-warm-400">{label}</span>
+                      <span className="font-mono font-bold text-warm-900">{amount} {unit}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

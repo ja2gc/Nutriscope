@@ -51,7 +51,7 @@ export default function InterventionPlansTab({
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   return (
-    <section aria-labelledby="intervention-plans-heading" className="border border-warm-200 rounded-xl overflow-hidden">
+    <section aria-labelledby="intervention-plans-heading" className="min-w-0 overflow-hidden rounded-none border-0 sm:rounded-xl sm:border sm:border-warm-200">
       <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-warm-200">
         <h3 id="intervention-plans-heading" className="text-sm font-bold text-warm-800">Plans</h3>
         <button

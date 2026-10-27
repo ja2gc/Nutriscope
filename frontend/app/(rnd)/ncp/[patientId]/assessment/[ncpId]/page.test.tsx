@@ -36,6 +36,18 @@ it('lets the RND describe food recall using the existing saved dietary intake fi
   expect(notes.value).toContain('working day');
 });
 
+it("uses a full-width tab panel without a mobile card shell", async () => {
+  const params = Promise.resolve({ patientId: "demo", ncpId: "demo-cycle" });
+  await act(async () => root.render(<Suspense fallback="Loading"><Page params={params} /></Suspense>));
+  const tablist = screen.getByRole("tablist", { name: "Assessment categories" });
+  const panel = screen.getByRole("tabpanel");
+
+  expect(tablist.parentElement?.className).toContain("border-0");
+  expect(tablist.parentElement?.className).toContain("sm:border");
+  expect(panel.className).toContain("p-0");
+  expect(panel.className).toContain("sm:p-4");
+});
+
 it("updates the visible WHR when hip changes and never labels a 1cm waist as low risk", async () => {
   const params = Promise.resolve({ patientId: "demo", ncpId: "demo-cycle" });
   await act(async () => root.render(<Suspense fallback="Loading"><Page params={params} /></Suspense>));

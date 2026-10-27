@@ -1,6 +1,6 @@
 "use client";
 
-import React, { use, useCallback, useEffect, useState } from "react";
+import React, { use, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Stethoscope, User, ChevronRight,
@@ -361,6 +361,7 @@ export default function NcpDiagnosisPage({
   const isPlaceholder = patientId === "select-patient" || ncpId === "select-ncp";
 
   const [activeTab, setActiveTab] = useState<TabKey>("table");
+  const diagnosisTabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [patient, setPatient] = useState<Patient | null>(null);
   const [diagnoses, setDiagnoses] = useState<Diagnosis[]>([]);
   const [diagnosesMeta, setDiagnosesMeta] = useState<PaginationMeta | null>(null);
@@ -693,7 +694,7 @@ export default function NcpDiagnosisPage({
       </div>
 
       {filteredDiagnoses.length === 0 ? (
-        <div className="bg-white border border-warm-200 rounded-2xl p-10 text-center shadow-sm">
+        <div className="rounded-none border-0 bg-transparent p-5 text-center shadow-none sm:rounded-2xl sm:border sm:border-warm-200 sm:bg-white sm:p-10 sm:shadow-sm">
           <Stethoscope className="h-7 w-7 text-warm-300 mx-auto mb-3" />
           <p className="text-sm font-bold text-warm-600 uppercase tracking-wider">No diagnoses recorded</p>
           <p className="text-xs text-warm-400 mt-1">
@@ -701,7 +702,7 @@ export default function NcpDiagnosisPage({
           </p>
         </div>
       ) : (
-        <div className="bg-white border border-warm-200 rounded-2xl overflow-hidden shadow-sm">
+        <div className="min-w-0 overflow-hidden rounded-none border-0 bg-transparent shadow-none sm:rounded-2xl sm:border sm:border-warm-200 sm:bg-white sm:shadow-sm">
           <div className="overflow-x-auto">
           <table className="w-full text-sm min-w-[480px]">
             <thead>
@@ -1269,8 +1270,8 @@ export default function NcpDiagnosisPage({
       )}
 
       {/* Tab Navigation */}
-      <div className="bg-white border border-warm-200 rounded-xl overflow-hidden shadow-sm">
-        <div className="flex overflow-x-auto border-b border-warm-200 bg-warm-50/50">
+      <div className="min-w-0 rounded-none border-0 bg-transparent shadow-none sm:rounded-xl sm:border sm:border-warm-200 sm:bg-white sm:shadow-sm">
+        <div role="tablist" aria-label="Diagnosis sections" className="flex min-w-0 overflow-x-auto border-b border-warm-200 bg-warm-50/50">
           {TABS.map(tab => {
             const isActive = activeTab === tab.key;
             const isBuilderTab = ["problem", "etiology", "signs", "pes"].includes(tab.key);
@@ -1278,8 +1279,23 @@ export default function NcpDiagnosisPage({
             return (
               <button
                 key={tab.key}
+                ref={element => { diagnosisTabRefs.current[TABS.findIndex(item => item.key === tab.key)] = element; }}
                 type="button"
+                role="tab"
+                id={`diagnosis-tab-${tab.key}`}
+                aria-selected={isActive}
+                aria-controls="diagnosis-panel"
+                tabIndex={isActive ? 0 : -1}
                 onClick={() => setActiveTab(tab.key)}
+                onKeyDown={event => {
+                  if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+                  event.preventDefault();
+                  const currentIndex = TABS.findIndex(item => item.key === tab.key);
+                  const direction = event.key === "ArrowRight" ? 1 : -1;
+                  const nextIndex = (currentIndex + direction + TABS.length) % TABS.length;
+                  setActiveTab(TABS[nextIndex].key);
+                  diagnosisTabRefs.current[nextIndex]?.focus();
+                }}
                 className={`relative flex items-center gap-1.5 px-4 py-3 text-xs font-bold uppercase tracking-wider whitespace-nowrap border-b-2 transition-all cursor-pointer ${
                   isActive
                     ? "text-emerald-700 border-emerald-600 bg-white"
@@ -1295,14 +1311,14 @@ export default function NcpDiagnosisPage({
           })}
         </div>
 
-        <div className="p-5">
+        <div id="diagnosis-panel" role="tabpanel" aria-labelledby={`diagnosis-tab-${activeTab}`} tabIndex={0} className="px-0 py-4 sm:p-5">
           {tabContent[activeTab]}
         </div>
       </div>
 
       {/* Builder context bar */}
       {activeTab !== "table" && activeTab !== "ai" && (
-        <div className="bg-white border border-warm-200 rounded-xl px-5 py-3.5 flex items-center justify-between shadow-sm">
+        <div className="flex items-center justify-between rounded-none border-0 bg-transparent px-0 py-3.5 shadow-none sm:rounded-xl sm:border sm:border-warm-200 sm:bg-white sm:px-5 sm:shadow-sm">
           <div className="text-xs text-warm-500 font-semibold select-none">
             {builder.editingId ? `Editing diagnosis #${builder.editingId}` : "New diagnosis"}
           </div>

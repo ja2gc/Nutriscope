@@ -40,9 +40,12 @@ it('contains the wide day table in its own horizontal scroll region', async () =
 
   const calculator = screen.getByRole('region', { name: 'Food Recall Calculator' });
   const table = screen.getByRole('table', { name: 'Food recall days' });
+  const panel = calculator.querySelector(':scope > div[id]');
 
   expect(calculator.classList.contains('min-w-0')).toBe(true);
   expect(calculator.classList.contains('max-w-full')).toBe(true);
+  expect(panel?.className).toContain('border-0');
+  expect(panel?.className).toContain('sm:border');
   expect(table.parentElement?.classList.contains('overflow-x-auto')).toBe(true);
 });
 

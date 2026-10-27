@@ -113,7 +113,7 @@ function optionalNumber(value: string): number | null {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <fieldset className="min-w-0 max-w-full space-y-4 rounded-xl border border-warm-200 p-4">
+    <fieldset className="min-w-0 max-w-full space-y-4 border-0 border-b border-warm-200 py-3 last:border-b-0 sm:rounded-xl sm:border sm:border-warm-200 sm:p-4">
       <legend className="px-1 text-sm font-extrabold text-warm-700">{title}</legend>
       {children}
     </fieldset>
@@ -374,14 +374,14 @@ export default function LogVisitForm({ ncpId, plan, context, intervention, onSub
     ...(plan?.indicators.filter(indicator => indicator.category === 'intake' && indicator.key.startsWith('micro_')).map(indicator => indicator.key.slice(6)) ?? []),
     ...(GOAL_MICRO_FLAGS[plan?.goal_type ?? ''] ?? []),
   ]));
-  const recall = <div className="w-full min-w-0 max-w-full rounded-2xl border border-warm-200 bg-white p-3">
+  const recall = <div className="w-full min-w-0 max-w-full rounded-none border-0 bg-transparent p-0 sm:rounded-2xl sm:border sm:border-warm-200 sm:bg-white sm:p-3">
     <FoodRecallCalculator value={foodRecall} readOnly={readOnly} compact disabled={submitting} leaveRef={recallEditor} onDirtyChange={setRecallDirty}
       defaultMicros={trackedMicros} limits={intervention?.micronutrient_limits ?? {}}
       onSave={value => { acceptedRecall.current = value; setFoodRecall(value); }} />
   </div>;
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-warm-200 bg-white shadow-sm">
+    <div className="min-w-0 overflow-hidden rounded-none border-0 bg-transparent p-0 shadow-none sm:rounded-2xl sm:border sm:border-warm-200 sm:bg-white sm:shadow-sm">
       {guard.dialog}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-warm-100 px-5 py-4">
         <div className="flex min-w-0 items-center gap-3">
@@ -391,7 +391,7 @@ export default function LogVisitForm({ ncpId, plan, context, intervention, onSub
         {readOnly && <span className="rounded-full border border-warm-200 px-3 py-1 text-xs font-bold text-warm-500">View only</span>}
       </div>
 
-      <form ref={form} onSubmit={handleSubmit} className="space-y-5 px-4 py-5 sm:px-5">
+      <form ref={form} onSubmit={handleSubmit} className="space-y-5 px-0 py-4 sm:px-5 sm:py-5">
         <fieldset disabled={readOnly} className="min-w-0 space-y-5 disabled:[&_input]:bg-warm-50 disabled:[&_select]:bg-warm-50 disabled:[&_textarea]:bg-warm-50">
         <Section title="Visit Context">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

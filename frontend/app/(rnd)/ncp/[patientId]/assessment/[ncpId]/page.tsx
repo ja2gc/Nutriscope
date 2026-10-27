@@ -1563,7 +1563,7 @@ export default function NcpAssessmentPage({
 
         {referralSection === "details" && (
         <div className="space-y-3">
-          <div className="space-y-4 rounded-2xl border border-warm-200 bg-white p-4 shadow-sm">
+          <div className="space-y-4 rounded-none border-0 bg-transparent p-0 shadow-none sm:rounded-2xl sm:border sm:border-warm-200 sm:bg-white sm:p-4 sm:shadow-sm">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <div className="flex items-center gap-2">
@@ -1679,7 +1679,7 @@ export default function NcpAssessmentPage({
         )}
 
         {referralSection === "conditions" && (
-          <div className="bg-white border border-warm-200 rounded-2xl p-4 shadow-sm">
+          <div className="rounded-none border-0 bg-transparent p-0 shadow-none sm:rounded-2xl sm:border sm:border-warm-200 sm:bg-white sm:p-4 sm:shadow-sm">
             <h4 className="text-xs font-extrabold text-warm-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
               <Shield className="h-3.5 w-3.5 text-emerald-600" />
               Section A - Clinical Conditions
@@ -1705,7 +1705,7 @@ export default function NcpAssessmentPage({
         )}
 
         {referralSection === "intake" && (
-          <div className="bg-white border border-warm-200 rounded-2xl p-4 shadow-sm">
+          <div className="rounded-none border-0 bg-transparent p-0 shadow-none sm:rounded-2xl sm:border sm:border-warm-200 sm:bg-white sm:p-4 sm:shadow-sm">
             <h4 className="text-xs font-extrabold text-warm-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
               <Scale className="h-3.5 w-3.5 text-emerald-600" />
               Section B - Intake / Weight History
@@ -1917,7 +1917,7 @@ export default function NcpAssessmentPage({
       )}
 
       {/* Save Assessment */}
-      <div className="flex justify-end rounded-xl border border-warm-200 bg-white px-4 py-3 shadow-sm">
+      <div className="flex justify-end rounded-none border-0 bg-transparent px-0 py-0 shadow-none sm:rounded-xl sm:border sm:border-warm-200 sm:bg-white sm:px-4 sm:py-3 sm:shadow-sm">
         <button
           type="button"
           onClick={handleSave}
@@ -1930,7 +1930,7 @@ export default function NcpAssessmentPage({
       </div>
 
       {/* Tab Navigation */}
-      <div className="bg-white border border-warm-200 rounded-xl overflow-hidden shadow-sm">
+      <div className="rounded-none border-0 bg-transparent shadow-none sm:rounded-xl sm:border sm:border-warm-200 sm:bg-white sm:shadow-sm">
         <div
           role="tablist"
           aria-label="Assessment categories"
@@ -1963,7 +1963,7 @@ export default function NcpAssessmentPage({
         <div
           id={`assessment-panel-${activeTab}`}
           role="tabpanel"
-          className="p-3 sm:p-4 lg:p-5"
+          className="p-0 py-4 sm:p-4 lg:p-5"
         >
           {tabContent[activeTab]}
           <div hidden={activeTab !== 'dietary'} className="mt-4">

@@ -57,6 +57,32 @@ async function open() {
   await act(async () => root.render(<Suspense fallback="Loading"><Page params={params} /></Suspense>));
 }
 
+it("places monitoring summaries before the visit content and shows saved micronutrient limits", async () => {
+  vi.mocked(fetchIntervention).mockResolvedValue({
+    id: "plan-1", energy_kcal: 1800, protein_g: 75, carbs_g: 225, fat_g: 60, fluid_ml: 2000,
+    goal_type: "custom", nutrient_operators: {}, displayed_nutrients: ["fiber", "sodium", "free_sugars"],
+    micronutrient_limits: {
+      fiber: { min: 25, unit: "g" }, sodium: { max: 2000, unit: "mg" }, free_sugars: { max: 32, unit: "g" },
+    },
+  } as never);
+  await open();
+
+  const record = screen.getByRole("heading", { name: "Monitoring Record" });
+  const targets = screen.getByRole("heading", { name: "Prescription Targets / Limits" });
+  const history = screen.getByRole("heading", { name: "Visit History" });
+  const summaryColumn = record.parentElement?.parentElement;
+  const visitColumn = history.closest('[class~="order-2"]');
+
+  expect(summaryColumn?.className).toContain("order-1");
+  expect(visitColumn?.className).toContain("order-2");
+  expect(record.compareDocumentPosition(targets) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(targets.parentElement?.textContent).toContain("Fiber");
+  expect(targets.parentElement?.textContent).toContain("Sodium");
+  expect(targets.parentElement?.textContent).toContain("Free Sugars");
+  expect(targets.parentElement?.textContent).toContain("≥25 g");
+  expect(targets.parentElement?.textContent).toContain("≤2000 mg");
+});
+
 it("edits the latest saved visit instead of creating another entry", async () => {
   vi.mocked(monitoring.fetchMonitorings).mockResolvedValue({ data: [{ ...entry, can_edit: true, can_delete: true }], meta: { current_page: 1, per_page: 5, total: 1, last_page: 1 } });
   await open();

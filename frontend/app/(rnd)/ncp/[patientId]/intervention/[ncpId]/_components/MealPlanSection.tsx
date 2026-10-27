@@ -760,7 +760,7 @@ export default function MealPlanSection({
   }
 
   return (
-    <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm space-y-4">
+    <div className="space-y-4 rounded-none border-0 bg-transparent p-0 shadow-none sm:rounded-2xl sm:border sm:border-warm-200 sm:bg-white sm:p-5 sm:shadow-sm">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Weekly Meal Plan</h3>

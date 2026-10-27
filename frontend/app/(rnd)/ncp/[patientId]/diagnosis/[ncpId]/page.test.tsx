@@ -16,7 +16,7 @@ vi.mock("@/services/interventionService");
 vi.mock("../../../_components/NcpPatientHeader", () => ({ default: () => <div>Fictional patient</div> }));
 vi.mock("@/components/ncp/NcpBreadcrumb", () => ({ NcpBreadcrumb: () => null }));
 let root: Root;
-const click = (name: string | RegExp) => act(() => { fireEvent.click(screen.getByRole("button", { name })); });
+const click = (name: string | RegExp) => act(() => { fireEvent.click(screen.queryByRole("button", { name }) ?? screen.getByRole("tab", { name })); });
 const check = (name: string) => act(() => { fireEvent.click(screen.getByRole("checkbox", { name })); });
 const enter = (name: string, value: string) => act(() => { fireEvent.change(screen.getByRole("textbox", { name }), { target: { value } }); });
 beforeEach(() => {
@@ -36,6 +36,21 @@ async function open() {
   const params = Promise.resolve({ patientId: "fictional", ncpId: "fictional-cycle" });
   await act(async () => { root.render(<Suspense fallback={<div>Loading</div>}><Page params={params} /></Suspense>); });
 }
+
+it("keeps diagnosis tabs selected in a flat, full-width mobile panel", async () => {
+  await open();
+  const tablist = screen.getByRole("tablist", { name: "Diagnosis sections" });
+  const panel = screen.getByRole("tabpanel");
+  const diagnosisTable = screen.getByRole("tab", { name: /Diagnosis Table/ });
+
+  expect(tablist.parentElement?.className).toContain("border-0");
+  expect(tablist.parentElement?.className).toContain("sm:border");
+  expect(panel.className).toContain("px-0");
+  expect(panel.className).toContain("sm:p-5");
+  expect(diagnosisTable.getAttribute("aria-selected")).toBe("true");
+  await act(async () => { fireEvent.click(screen.getByRole("tab", { name: /P — Problem/ })); });
+  expect(screen.getByRole("tab", { name: /P — Problem/ }).getAttribute("aria-selected")).toBe("true");
+});
 
 it("saves clinical Other components in PES while keeping all reasoning notes separate", async () => {
   await open(); click("Add New Diagnosis"); click("Clinical (NC)");

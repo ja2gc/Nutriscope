@@ -104,7 +104,7 @@ export default function NutritionPrescriptionForm({
   const microList = microKeys(values.displayed_nutrients);
 
   return (
-    <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm space-y-5">
+    <div className="space-y-5 rounded-none border-0 bg-transparent p-0 shadow-none sm:rounded-2xl sm:border sm:border-warm-200 sm:bg-white sm:p-5 sm:shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 min-w-0">
           <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Nutrition Prescription</h3>

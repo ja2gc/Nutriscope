@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -73,6 +74,21 @@ describe("monitoring workflow UI", () => {
     expect(page).not.toContain("sticky top-0");
     expect(page).toContain("Anthropometric");
   });
+  it("flattens the monitoring entry and section shells at narrow widths", () => {
+    const html = renderToStaticMarkup(<LogVisitForm context={context} intervention={null} onSubmit={async () => undefined} onCancel={() => undefined} />);
+    const container = document.createElement("div");
+    container.innerHTML = html;
+    const form = container.querySelector("form");
+    const card = form?.parentElement;
+    const section = form?.querySelector("fieldset fieldset");
+
+    expect(card?.className).toContain("border-0");
+    expect(card?.className).toContain("sm:border");
+    expect(card?.className).toContain("p-0");
+    expect(section?.className).toContain("border-0");
+    expect(section?.className).toContain("sm:border");
+  });
+
   it("presents monitoring sources as plain targets without decorative card-title icons", () => {
     const html = renderToStaticMarkup(<CarePlanHeader plan={{
       visits: [],

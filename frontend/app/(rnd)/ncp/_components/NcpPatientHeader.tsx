@@ -72,7 +72,7 @@ export default function NcpPatientHeader({
     "inline-flex min-h-11 w-full shrink-0 items-center justify-center rounded-lg border border-warm-200 bg-white px-3 py-2 text-xs font-extrabold uppercase tracking-wider text-warm-600 transition-colors hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 sm:w-auto";
 
   return (
-    <section aria-label="Active patient" className="rounded-xl border border-warm-200 bg-white px-4 py-3 shadow-sm">
+    <section aria-label="Active patient" className="rounded-none border-0 bg-transparent px-0 py-2 shadow-none sm:rounded-xl sm:border sm:border-warm-200 sm:bg-white sm:px-4 sm:py-3 sm:shadow-sm">
       <div className="flex flex-wrap items-start gap-x-4 gap-y-3 lg:flex-nowrap lg:items-center">
         <div className="min-w-0 flex-1">
           <h2 className="break-words text-base font-extrabold tracking-tight text-warm-900">
