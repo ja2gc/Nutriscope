@@ -4,7 +4,7 @@ import { compatibleRecipeUnits } from "@/lib/foodServiceUnits";
 export interface InventoryCorrectionDraft {
   editing: CatalogItem;
   form: {
-    name: string; category: string; default_supplier_id: string;
+    name: string; default_supplier_id: string;
     base_unit: string; purchase_price: string; include_in_generated_lists: boolean;
   };
   affected: AffectedRecipe[];
@@ -32,7 +32,9 @@ export function readCorrectionDraft(token: string): InventoryCorrectionDraft | n
     const raw = sessionStorage.getItem(prefix + token);
     if (!raw) return null;
     const value = JSON.parse(raw) as InventoryCorrectionDraft;
-    return value?.editing?.id && Array.isArray(value.affected) && value.corrections ? value : null;
+    if (!value?.editing?.id || !Array.isArray(value.affected) || !value.corrections) return null;
+    if (value.form) delete (value.form as InventoryCorrectionDraft["form"] & { category?: string }).category;
+    return value;
   } catch { return null; }
 }
 

@@ -31,20 +31,15 @@ const TABS: { key: FsItemKind; label: string }[] = [
   { key: "supply", label: "Supplies" },
 ];
 
-const FOOD_SERVICE_CATEGORIES = [
-  "Bakery", "Beverage", "Cleaning", "Condiment", "Disposable", "Fish", "Fruit", "Grain",
-  "Meat", "Poultry", "Snack", "Utility", "Vegetable",
-];
-
 function Label({ children }: { children: React.ReactNode }) {
   return <label className="block text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1">{children}</label>;
 }
 
 interface FormState {
-  name: string; category: string; default_supplier_id: string;
+  name: string; default_supplier_id: string;
   base_unit: string; purchase_price: string; include_in_generated_lists: boolean;
 }
-const emptyForm: FormState = { name: "", category: "", default_supplier_id: "", base_unit: "", purchase_price: "", include_in_generated_lists: true };
+const emptyForm: FormState = { name: "", default_supplier_id: "", base_unit: "", purchase_price: "", include_in_generated_lists: true };
 
 function ItemFormModal({ kind, editing, suppliers, initialDraft, initialToken, onClose, onSaved }: {
   kind: FsItemKind; editing: CatalogItem | null; suppliers: Supplier[];
@@ -54,7 +49,7 @@ function ItemFormModal({ kind, editing, suppliers, initialDraft, initialToken, o
   const router = useRouter();
   const isSupply = kind === "supply";
   const savedForm: FormState = editing ? {
-    name: editing.name, category: editing.category ?? '', default_supplier_id: editing.default_supplier_id ? String(editing.default_supplier_id) : '',
+    name: editing.name, default_supplier_id: editing.default_supplier_id ? String(editing.default_supplier_id) : '',
     base_unit: editing.base_unit ?? '', purchase_price: editing.purchase_price ?? '', include_in_generated_lists: editing.include_in_generated_lists,
   } : emptyForm;
   const [form, setForm] = useState<FormState>(initialDraft?.form ?? savedForm);
@@ -91,7 +86,6 @@ function ItemFormModal({ kind, editing, suppliers, initialDraft, initialToken, o
       const payload: CreateFsItemPayload = {
         name: form.name.trim(),
         kind,
-        category: form.category.trim() || null,
         base_unit: isSupply ? "unit" : form.base_unit.trim(),
         purchase_price: price,
         default_supplier_id: form.default_supplier_id ? form.default_supplier_id : null,
@@ -160,14 +154,6 @@ function ItemFormModal({ kind, editing, suppliers, initialDraft, initialToken, o
           <div className="sm:col-span-2">
             <Label>Name</Label>
             <input value={form.name} onChange={(e) => set("name", e.target.value)} className={inputCls} />
-          </div>
-          <div>
-            <Label>Food Service Category</Label>
-            <select aria-label="Food Service Category" value={form.category} onChange={(e) => set("category", e.target.value)} className={`${inputCls} bg-white`}>
-              <option value="">Select category…</option>
-              {form.category && !FOOD_SERVICE_CATEGORIES.includes(form.category) && <option value={form.category}>{form.category}</option>}
-              {FOOD_SERVICE_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
-            </select>
           </div>
           <div>
             <Label>Vendor</Label>
@@ -336,6 +322,7 @@ export default function InventoryCatalogPage() {
             {([{ value: "", label: "All" }, { value: "non_auto", label: "Non-Auto Grocery" }, { value: "auto", label: "Auto Grocery" }] as const).map((filter) => <button key={filter.value} type="button" aria-pressed={grocery === filter.value} onClick={() => setGrocery(filter.value)} className={`min-h-11 rounded-lg border px-3 py-1.5 text-xs font-bold uppercase tracking-wide ${grocery === filter.value ? "border-forest-line bg-forest-900 text-white" : "border-warm-200 bg-white text-warm-500 hover:border-warm-300"}`}>{filter.label}</button>)}
           </div>
           <InfoHint label="About Auto Grocery">Auto Grocery items need a measured recipe amount in a matching unit. Other items stay in recipes and can be added to a shopping list by hand.</InfoHint>
+          <InfoHint label="About package units">For fixed packages, add the size to the name (e.g., “Soy sauce (900 g)”). Use a matching unit like pc or pack in inventory and recipes so Auto Grocery shows how many to buy, not just weight.</InfoHint>
         </div>}
       </div>
 
@@ -349,8 +336,8 @@ export default function InventoryCatalogPage() {
             <thead className="bg-warm-50 border-b border-warm-100">
               <tr>
                 {(isSupply
-                  ? ["Name", "Category", "Vendor", "Cost/unit", "Actions"]
-                  : ["Name", "Category", "Vendor", "Unit", "Cost/unit", "Shopping list behavior", "Actions"]
+                  ? ["Name", "Vendor", "Cost/unit", "Actions"]
+                  : ["Name", "Vendor", "Unit", "Cost/unit", "Shopping list behavior", "Actions"]
                 ).map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
                 ))}
@@ -362,7 +349,6 @@ export default function InventoryCatalogPage() {
                   <td className="px-4 py-3 font-semibold text-warm-800">
                     {it.name}
                   </td>
-                  <td className="px-4 py-3 text-warm-500">{it.category ?? "—"}</td>
                   <td className="px-4 py-3 text-warm-500">{it.vendor ?? "—"}</td>
                   {!isSupply && <td className="px-4 py-3 text-warm-500">{it.base_unit}</td>}
                   <td className="px-4 py-3 text-warm-700 font-mono">

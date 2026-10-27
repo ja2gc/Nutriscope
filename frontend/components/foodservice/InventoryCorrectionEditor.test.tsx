@@ -18,7 +18,7 @@ beforeEach(() => {
   (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   container = document.createElement("div"); document.body.append(container); root = createRoot(container);
   sessionStorage.clear(); push.mockClear();
-  writeCorrectionDraft("flow-1", { editing: inventory, form: { name: "Rice", category: "", default_supplier_id: "", base_unit: "kg", purchase_price: "50", include_in_generated_lists: true }, affected: [{ recipe_id: "recipe-a", recipe_name: "Soup", line_index: 0, quantity: 2, unit: "tbsp" }], corrections: {} });
+  writeCorrectionDraft("flow-1", { editing: inventory, form: { name: "Rice", default_supplier_id: "", base_unit: "kg", purchase_price: "50", include_in_generated_lists: true }, affected: [{ recipe_id: "recipe-a", recipe_name: "Soup", line_index: 0, quantity: 2, unit: "tbsp" }], corrections: {} });
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: { ingredients: [{ fs_item_id: 17, fs_item: { id: "rice-id" } }] } }) }));
 });
 afterEach(() => { act(() => root.unmount()); container.remove(); vi.unstubAllGlobals(); });

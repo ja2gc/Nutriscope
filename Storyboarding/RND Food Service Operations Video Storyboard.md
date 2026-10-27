@@ -42,8 +42,8 @@ Use this as both the recording checklist and narration script. Create every name
 
 1. Sign in as RND, open **Food Service → Procurement → Suppliers**, and create **Demo Video Main Vendor** and **Demo Video Alternate Vendor**.
 2. Open **Food Service → Inventory → Ingredients**. Point out the **Ingredients**, **Menu Items**, and **Supplies** tabs and the **All**, **Non-Auto Grocery**, and **Auto Grocery** filter buttons beside search.
-3. Create ingredient **Demo Video Chicken** with category **Meat**, selected unit **kg**, **Demo Video Main Vendor**, and a realistic price. Leave **Include in generated shopping lists** enabled.
-4. Create ingredient **Demo Video Seasoning Mix** with category **Condiment**, selected unit **kg**, a vendor, and a price. Turn off **Include in generated shopping lists**.
+3. Create ingredient **Demo Video Chicken** with selected unit **kg**, **Demo Video Main Vendor**, and a realistic price. Leave **Include in generated shopping lists** enabled.
+4. Create ingredient **Demo Video Seasoning Mix** with selected unit **kg**, a vendor, and a price. Turn off **Include in generated shopping lists**.
 5. Point to the Inventory unit tooltips for weight, liquid, and piece/pack conversions. If demonstrating an incompatible unit change, open each affected Food or editable Menu Calendar item from the list, enter its new quantity and compatible unit, return to the list, and save Inventory after all are complete.
 6. Open **Supplies** and create **Demo Video Meal Container** with its vendor and price.
 7. Point out the **Auto grocery** and **Purchase when needed** badges.

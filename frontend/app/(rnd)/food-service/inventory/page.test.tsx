@@ -3,7 +3,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { listCatalog, updateFsItem, RecipeCorrectionsRequiredError, type CatalogItem } from "@/services/fsCatalogService";
+import { listCatalog, createFsItem, updateFsItem, RecipeCorrectionsRequiredError, type CatalogItem } from "@/services/fsCatalogService";
 import InventoryCatalogPage from "./page";
 import { correctionKey, readCorrectionDraft, writeCorrectionDraft } from "@/lib/inventoryCorrectionDraft";
 
@@ -16,6 +16,7 @@ vi.mock("@/hooks/useDebouncedValue", () => ({ useDebouncedValue: (value: string)
 vi.mock("@/services/fsCatalogService", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/services/fsCatalogService")>(),
   listCatalog: vi.fn(),
+  createFsItem: vi.fn(),
   listAllSuppliers: vi.fn().mockResolvedValue([]),
   updateFsItem: vi.fn(),
 }));
@@ -87,16 +88,53 @@ describe("Food Service inventory controls", () => {
     expect(container.textContent).toContain("Cost/unit");
   });
 
-  test("uses category select and keeps legacy category available while editing", async () => {
+  test("omits category from inventory editing and table columns", async () => {
     await act(async () => { root.render(<InventoryCatalogPage />); await Promise.resolve(); });
     const edit = container.querySelector<HTMLButtonElement>('button[aria-label="Edit Rice"]');
     await act(async () => { edit?.click(); });
 
-    const category = container.querySelector<HTMLSelectElement>('select[aria-label="Food Service Category"]');
-    expect(category).not.toBeNull();
-    expect(category?.value).toBe("Dry Goods");
-    expect(Array.from(category?.options ?? [], (option) => option.value)).toContain("Vegetable");
-    expect(Array.from(category?.options ?? [], (option) => option.value)).toContain("Dry Goods");
+    expect(container.querySelector('select[aria-label="Food Service Category"]')).toBeNull();
+    expect(Array.from(container.querySelectorAll("th"), (header) => header.textContent?.trim())).not.toContain("Category");
+    expect(container.textContent).not.toContain("Dry Goods");
+  });
+
+  test("does not submit category when creating an inventory item", async () => {
+    vi.mocked(createFsItem).mockResolvedValue({ ...item, name: "Soy sauce (900 g)", base_unit: "pack" });
+    await act(async () => { root.render(<InventoryCatalogPage />); await Promise.resolve(); });
+    await act(async () => { Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent?.includes("New Ingredient"))?.click(); });
+    const modal = container.querySelector(".fixed.inset-0")!;
+    const name = modal.querySelector<HTMLInputElement>('input:not([type="number"])')!;
+    const unit = Array.from(modal.querySelectorAll<HTMLSelectElement>("select")).find((select) => Array.from(select.options).some((option) => option.value === "pack"))!;
+    const cost = modal.querySelector<HTMLInputElement>('input[type="number"]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(name, "Soy sauce (900 g)");
+      name.dispatchEvent(new Event("input", { bubbles: true }));
+      unit.value = "pack";
+      unit.dispatchEvent(new Event("change", { bubbles: true }));
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(cost, "100");
+      cost.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => { Array.from(modal.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent?.trim() === "Create")?.click(); await Promise.resolve(); });
+    expect(createFsItem).toHaveBeenCalledWith(expect.objectContaining({ name: "Soy sauce (900 g)", kind: "ingredient", base_unit: "pack" }));
+    expect(vi.mocked(createFsItem).mock.calls[0][0]).not.toHaveProperty("category");
+  });
+
+  test("explains package-based quantities beside ingredient filters", async () => {
+    await act(async () => { root.render(<InventoryCatalogPage />); await Promise.resolve(); });
+    const hint = container.querySelector<HTMLButtonElement>('button[aria-label="About package units"]');
+    expect(hint).not.toBeNull();
+    expect(hint?.closest('[role="tablist"]')).toBeNull();
+    await act(async () => { hint?.click(); });
+    expect(document.body.textContent).toContain("For fixed packages, add the size to the name (e.g., “Soy sauce (900 g)”). Use a matching unit like pc or pack in inventory and recipes so Auto Grocery shows how many to buy, not just weight.");
+  });
+
+  test("drops the legacy category from restored inventory correction drafts", () => {
+    sessionStorage.setItem("inventory-correction:legacy", JSON.stringify({
+      editing: item,
+      form: { name: item.name, category: "Dry Goods", default_supplier_id: "", base_unit: "kg", purchase_price: "2500", include_in_generated_lists: false },
+      affected: [], corrections: {},
+    }));
+    expect(readCorrectionDraft("legacy")?.form).not.toHaveProperty("category");
   });
 
   test("filters ingredients by grocery behavior and explains it with help", async () => {
@@ -118,6 +156,7 @@ describe("Food Service inventory controls", () => {
     const save = Array.from(container.querySelectorAll("button")).find((button) => button.textContent?.trim() === "Save");
     await act(async () => { save?.click(); await Promise.resolve(); });
     expect(vi.mocked(updateFsItem)).toHaveBeenCalledWith("rice-id", expect.not.objectContaining({ purchase_price: expect.anything() }));
+    expect(vi.mocked(updateFsItem).mock.calls[0][1]).not.toHaveProperty("category");
   });
 
   test("lists affected Foods as links and commits only after every correction was staged", async () => {
