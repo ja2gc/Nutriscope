@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { DeleteActionDialog } from "@/components/ui/DeleteActionDialog";
+import { UnsavedChangesDialog } from "@/components/ui/UnsavedChangesDialog";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import ButtonFilterGroup from "@/components/ui/ButtonFilterGroup";
 import { MenuItemPicker } from "@/components/ncp/MenuItemPicker";
@@ -34,7 +35,7 @@ import { VendorChangeControls } from "@/components/foodservice/VendorChangeContr
 import { PurchaseValueComparison } from "@/components/foodservice/PurchaseValueComparison";
 import { ShoppingListCopyCard } from "@/components/foodservice/ShoppingListCopyCard";
 import { compatibleRecipeUnits, foodServiceUnitFactor } from "@/lib/foodServiceUnits";
-import { addCalendarDays } from "@/lib/calendarDate";
+import { addCalendarDays, manilaCalendarToday } from "@/lib/calendarDate";
 import { quantityInputValue } from "@/lib/foodServiceFormat";
 
 const peso = (n: number) => `₱${n.toFixed(2)}`;
@@ -62,13 +63,22 @@ const attachmentImages = (attachments: POAttachment[] | undefined | null, type: 
   }));
 const spanLabel = (list?: ShoppingList) =>
   list?.period_start && list?.period_end
-    ? `${list.period_start} → ${list.period_end}`
+    ? list.period_start === list.period_end ? list.period_start : `${list.period_start} → ${list.period_end}`
     : list?.list_date ?? "Manual";
 const poLifecycleLabel = (status: PurchaseOrder["lifecycle_status"]) => ({
   open_execution: "In progress",
   completed: "completed",
   archived: "archived",
 }[status]);
+
+function MenuPlansNeededDialog({ missing, onClose }: { missing: Record<string, string>; onClose: () => void }) {
+  return <UnsavedChangesDialog title="Menu plans needed" closeLabel="Close dialog" saveLabel="Close" onStay={onClose} onSave={onClose} message={<>
+    <p>Complete the menu plans in Menu Calendar for these dates before creating this shopping list:</p>
+    <ul className="mt-3 space-y-2">{Object.entries(missing).sort(([a], [b]) => a.localeCompare(b)).map(([date, reason]) => <li key={date}><strong>{date}</strong> — {reason}</li>)}</ul>
+  </>} />;
+}
+
+const missingMenuDates = (error: MissingMenuDaysError) => Object.fromEntries(error.missingDates.map((date) => [date, error.missingByDate[date] ?? 'No menu planned for this date.']));
 
 function Crumbs({ children }: { children?: React.ReactNode }) {
   return (
@@ -90,6 +100,7 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
   const [servingsInput, setServingsInput] = useState<string | null>(null);
   const [confirmMode, setConfirmMode] = useState<"first-save" | "release" | null>(null);
   const [saveError, setSaveError] = useState("");
+  const [missingPlans, setMissingPlans] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [itemSearch, setItemSearch] = useState("");
   const [itemResults, setItemResults] = useState<CatalogItem[]>([]);
@@ -276,7 +287,7 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
   }
 
   function saveName() {
-    if (!list || !nameDraft.trim()) return;
+    if (!list) return;
     setList({ ...list, name: nameDraft.trim() });
     setEditingName(false);
   }
@@ -321,7 +332,12 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
       onSaved(saved);
       return true;
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "Could not save Shopping List.");
+      if (error instanceof MissingMenuDaysError) {
+        setConfirmMode(null);
+        setMissingPlans(missingMenuDates(error));
+      } else {
+        setSaveError(error instanceof Error ? error.message : "Could not save Shopping List.");
+      }
       return false;
     } finally { setBusy(false); }
   }
@@ -340,6 +356,7 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
   return (
     <div className="space-y-5">
       {guard.dialog}
+      {Object.keys(missingPlans).length > 0 && <MenuPlansNeededDialog missing={missingPlans} onClose={() => setMissingPlans({})} />}
       {/* Header */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
@@ -349,7 +366,7 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
           <div>
             {editingName ? (
               <div className="flex items-center gap-2">
-                <input aria-label="Shopping list name" value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") saveName(); }} className="rounded-lg border border-warm-200 px-2 py-1 text-lg font-extrabold text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                <input aria-label="Shopping list name" maxLength={255} value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") saveName(); }} className="min-w-0 w-full rounded-lg border border-warm-200 px-2 py-1 text-lg font-extrabold text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
                 <button onClick={saveName} aria-label="Apply name" className="rounded-lg p-2 text-emerald-600 hover:bg-emerald-50"><Check className="h-4 w-4" /></button>
                 <button onClick={() => { setNameDraft(list.name); setEditingName(false); }} aria-label="Cancel rename" className="rounded-lg p-2 text-warm-500 hover:bg-warm-100"><X className="h-4 w-4" /></button>
               </div>
@@ -363,7 +380,7 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
               {!isSupplies && list.list_type === "suggested" && (
                 <span className="text-emerald-600">suggested</span>
               )}
-              {!isSupplies && list.days_span && <span>· {list.days_span}-day span</span>}
+              <span>· {spanLabel(list)}{!isSupplies && list.days_span ? ` (${list.days_span}d)` : ''}</span>
               {isSupplies && <span>Supplies list</span>}
               <span>· {list.status}</span>
             </div>
@@ -384,6 +401,7 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
             </Button>
           </div>
           {!id || dirty ? <span className="text-xs text-warm-500">Save the list before Turn Into PO.</span> : null}
+          {id && !dirty && list.status === 'draft' && list.release_readiness?.blockers.map((blocker) => <p key={blocker.code} role="status" className="text-sm text-amber-800">{blocker.message}</p>)}
           {list.status === 'draft' && list.list_type === 'suggested' && list.items.some((item) => item.source === 'generated') && <div className="flex items-center gap-1">
             <Button variant="secondary" onClick={resetGeneratedItems} disabled={!list.estimate_population || list.items.some((item) => item.source === 'generated' && !item.generation_baseline)}>Reset generated items</Button>
             <InfoHint label="About resetting generated items">Restores original generated quantities, units, costs, totals, and vendors using the current estimated servings. Manual items and checkmarks stay as they are. Older lists without an original generation snapshot cannot be reset.</InfoHint>
@@ -981,19 +999,17 @@ export default function ProcurementPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [genOpen, setGenOpen] = useState(false);
-  const [genStartDate, setGenStartDate] = useState("");
-  const [genEndDate, setGenEndDate] = useState("");
+  const [genStartDate, setGenStartDate] = useState(manilaCalendarToday);
+  const [genEndDate, setGenEndDate] = useState(manilaCalendarToday);
   const [genDays, setGenDays] = useState('1');
   const [occupiedSpans, setOccupiedSpans] = useState<ShoppingList[]>([]);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [availabilityReady, setAvailabilityReady] = useState(false);
   const [genEstimate, setGenEstimate] = useState("");
-  const [genName, setGenName] = useState("");
   const [genError, setGenError] = useState("");
   const [genMissing, setGenMissing] = useState<Record<string, string>>({});
-  const [newListName, setNewListName] = useState("");
   const [manualTrack, setManualTrack] = useState<"food" | "supplies" | null>(null);
-  const [manualListDate, setManualListDate] = useState("");
+  const [manualListDate, setManualListDate] = useState(manilaCalendarToday);
   const [manualListError, setManualListError] = useState("");
   const [listPage, setListPage] = useState(1);
   const [poPage, setPoPage] = useState(1);
@@ -1048,10 +1064,6 @@ export default function ProcurementPage() {
     if (!genStartDate || !genEndDate) return;
     if (!/^[1-9]\d?$/.test(genDays)) { setGenError('Enter a whole span from 1 to 99 days.'); return; }
     if (Array.from({ length: Number(genDays) }, (_, index) => addCalendarDays(genStartDate, index)).some(dateOccupied)) { setGenError('This span includes days already in a saved Suggested Shopping List. Choose another span.'); return; }
-    if (!genName.trim()) {
-      setGenError("Enter a name for the shopping list.");
-      return;
-    }
     if (genEndDate < genStartDate) {
       setGenError("End date must be on or after the start date.");
       return;
@@ -1063,14 +1075,14 @@ export default function ProcurementPage() {
     }
     setGenError(""); setGenMissing({});
     try {
-      const list = await generateByDates(genStartDate, genEndDate, estimate, genName.trim(), { preview: true });
+      const list = await generateByDates(genStartDate, genEndDate, estimate, undefined, { preview: true });
       setGenOpen(false);
       setTab("food-lists");
       setDraftPreview(list);
     } catch (e) {
       if (e instanceof MissingMenuDaysError) {
-        setGenError(e.message);
-        setGenMissing(e.missingByDate);
+        setGenError("");
+        setGenMissing(missingMenuDates(e));
       } else {
         setGenError(e instanceof Error ? e.message : "Failed to generate list.");
       }
@@ -1078,19 +1090,16 @@ export default function ProcurementPage() {
   }
 
   async function createManualList(track: "food" | "supplies") {
-    const name = track === "food" ? "Manual Food List" : newListName.trim();
-    if (!name || !manualListDate) return;
+    if (!manualListDate) return;
     const created = await createShoppingList({
-      name,
       list_type: "manual",
       procurement_track: track,
       status: "draft",
       list_date: manualListDate,
     });
     setLists((current) => [created, ...current]);
-    if (track === "supplies") setNewListName("");
     setManualTrack(null);
-    setManualListDate("");
+    setManualListDate(manilaCalendarToday());
     setManualListError("");
     setTab(track === "supplies" ? "supplies-lists" : "food-lists");
     setListDetail(created.id);
@@ -1098,7 +1107,7 @@ export default function ProcurementPage() {
 
   function openManualList(track: "food" | "supplies") {
     setManualTrack(track);
-    setManualListDate("");
+    setManualListDate(manilaCalendarToday());
     setManualListError("");
   }
 
@@ -1221,13 +1230,6 @@ export default function ProcurementPage() {
          <div className="flex items-center gap-3 shrink-0">
           {tab === "supplies-lists" && (
             <div className="flex items-center gap-2">
-              <input
-                value={newListName}
-                aria-label="Supplies list name"
-                onChange={(e) => setNewListName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") openManualList("supplies"); }}
-                className="w-44 px-3 py-2 text-sm border border-warm-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              />
                 <Button variant="secondary" onClick={() => openManualList("supplies")} className="px-3 py-2 flex items-center gap-1.5">
                 <Plus className="h-3.5 w-3.5" /> New supplies list
               </Button>
@@ -1258,7 +1260,7 @@ export default function ProcurementPage() {
             {manualListError && <p role="alert" className="text-sm font-semibold text-red-600">{manualListError}</p>}
             <div className="flex justify-end gap-2">
               <Button variant="secondary" onClick={() => setManualTrack(null)} className="px-4 py-2">Cancel</Button>
-              <Button aria-label="Create manual shopping list" variant="primary" disabled={!manualListDate || (manualTrack === "supplies" && !newListName.trim())} onClick={() => {
+              <Button aria-label="Create manual shopping list" variant="primary" disabled={!manualListDate} onClick={() => {
                 void createManualList(manualTrack).catch((error: unknown) => setManualListError(error instanceof Error ? error.message : "Failed to create list."));
               }} className="px-4 py-2">Create list</Button>
             </div>
@@ -1273,7 +1275,7 @@ export default function ProcurementPage() {
             Suggested food shopping list
             <InfoHint label="About suggested lists">Review the suggested quantities before saving. Turn Into PO is a separate step and locks the list.</InfoHint>
           </h3>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <div>
               <DatePicker label="Start date" value={genStartDate} disabled={availabilityLoading} isDateDisabled={dateOccupied} onChange={(next) => {
                 setGenStartDate(next);
@@ -1288,33 +1290,19 @@ export default function ProcurementPage() {
               <input type="number" min="1" value={genEstimate} onChange={(e) => setGenEstimate(e.target.value)}
                 className="w-full rounded-lg border border-warm-200 px-3 py-2" />
             </label>
-            <label className="block"><span className="mb-1 block text-xs font-bold text-warm-600">Shopping list name</span>
-              <input aria-label="Shopping list name" required maxLength={255} value={genName} onChange={(e) => setGenName(e.target.value)}
-                className="w-full rounded-lg border border-warm-200 px-3 py-2" />
-            </label>
             <div className="flex items-end gap-2">
-              <Button variant="primary" onClick={doGenerate} disabled={availabilityLoading || !availabilityReady || !genStartDate || !genName.trim() || !genEstimate.trim()} className="px-4 py-2">Generate</Button>
+              <Button variant="primary" onClick={doGenerate} disabled={availabilityLoading || !availabilityReady || !genStartDate || !genEstimate.trim()} className="px-4 py-2">Generate</Button>
               <button onClick={() => setGenOpen(false)} className="text-sm text-warm-500 hover:text-warm-700 cursor-pointer">Cancel</button>
             </div>
           </div>
           {genError && <p className="text-xs text-red-600 mt-2 font-semibold">{genError}</p>}
-          {Object.keys(genMissing).length > 0 && (
-            <div className="mt-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-              <div className="text-xs font-extrabold text-amber-800 mb-1">Fill these days before generating:</div>
-              <ul className="space-y-0.5">
-                {Object.entries(genMissing).sort(([a], [b]) => a.localeCompare(b)).map(([date, reason]) => (
-                  <li key={date} className="text-xs text-amber-800">
-                    <span className="font-semibold">{date}</span> — {reason}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
           <p className="text-xs text-warm-400 mt-2">
             Sums all required ingredients for each day in the span. Generation is all-or-nothing: every day must have a menu cycle and menu items assigned, or the entire creation is blocked with the exact missing days listed above.
           </p>
         </div>
       )}
+
+      {Object.keys(genMissing).length > 0 && <MenuPlansNeededDialog missing={genMissing} onClose={() => setGenMissing({})} />}
 
       {/* Tabs */}
       <div className="flex border-b border-warm-200">
@@ -1347,7 +1335,7 @@ export default function ProcurementPage() {
                 <p className="text-sm text-warm-400 font-medium">
                   {tab === "food-lists"
                     ? "No food shopping lists yet. Click \"Suggest from Menu\" to generate one."
-                    : "No supplies lists yet. Enter a name above and click \"New supplies list\"."}
+                    : "No supplies lists yet. Click \"New supplies list\" to create one."}
                 </p>
               </div>
             ) : (
@@ -1367,7 +1355,7 @@ export default function ProcurementPage() {
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-warm-500">
                         {tab === "food-lists"
-                          ? (l.days_span ? `${spanLabel(l)} (${l.days_span}d)` : "—")
+                          ? `${spanLabel(l)}${l.days_span ? ` (${l.days_span}d)` : ''}`
                           : (l.list_date ?? "—")}
                       </td>
                       <td className="px-3 py-2 text-warm-500">

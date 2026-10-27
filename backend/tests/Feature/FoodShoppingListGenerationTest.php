@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\FsItem;
 use App\Models\MenuCycle;
 use App\Models\MenuCycleDay;
+use App\Models\PurchaseOrder;
 use App\Models\ShoppingList;
 use App\Models\User;
 use App\Services\FSS\ShoppingListPopulationService;
@@ -21,6 +22,22 @@ class FoodShoppingListGenerationTest extends TestCase
     use RefreshDatabase;
 
     private User $rnd;
+
+    public function test_manual_and_supplies_names_are_optional_and_blank_names_regenerate(): void
+    {
+        foreach (['food' => 'Shopping list', 'supplies' => 'Supplies list'] as $track => $prefix) {
+            foreach ([[], ['name' => '   ']] as $name) {
+                $response = $this->actingAs($this->rnd)->postJson('/api/fss/shopping-lists', $name + [
+                    'list_date' => '2026-10-27', 'procurement_track' => $track,
+                ])->assertCreated()->assertJsonPath('data.name', "$prefix - Oct 27, 2026");
+                $id = $response->json('data.id');
+                $this->patchJson("/api/fss/shopping-lists/$id", ['name' => 'Outreach'])
+                    ->assertOk()->assertJsonPath('data.name', 'Outreach');
+                $this->patchJson("/api/fss/shopping-lists/$id", ['name' => ''])
+                    ->assertOk()->assertJsonPath('data.name', "$prefix - Oct 27, 2026");
+            }
+        }
+    }
 
     protected function setUp(): void
     {
@@ -123,7 +140,32 @@ class FoodShoppingListGenerationTest extends TestCase
             ])
             ->assertCreated()
             ->assertJsonPath('data.procurement_track', 'food')
-            ->assertJsonPath('data.coverage_status', 'full');
+            ->assertJsonPath('data.coverage_status', 'full')
+            ->assertJsonPath('data.name', 'Menu Shopping list - Jun 15, 2026');
+    }
+
+    public function test_suggested_preview_saves_with_default_name_and_converts_without_budget_or_extra_values(): void
+    {
+        $fsItem = FsItem::factory()->create(['purchase_price' => 0, 'default_supplier_id' => null]);
+        $cycle = MenuCycle::factory()->create(['rnd_user_id' => $this->rnd->id, 'week_start_date' => '2026-06-15', 'cycle_days' => 7]);
+        foreach (['Monday', 'Tuesday'] as $day) {
+            MenuCycleDay::factory()->create(['menu_cycle_id' => $cycle->id, 'day_of_week' => $day, 'fs_item_id' => $fsItem->id, 'quantity' => 1, 'estimate_population' => 10]);
+        }
+        $payload = ['start_date' => '2026-06-15', 'end_date' => '2026-06-16', 'estimate_population' => 10];
+        $this->actingAs($this->rnd)->postJson('/api/fss/shopping-lists/generate', $payload + ['preview' => true])
+            ->assertOk()->assertJsonPath('data.name', 'Menu Shopping list - Jun 15–16, 2026');
+        $this->assertDatabaseCount('shopping_lists', 0);
+        $saved = $this->postJson('/api/fss/shopping-lists/generate', $payload)->assertCreated()
+            ->assertJsonPath('data.name', 'Menu Shopping list - Jun 15–16, 2026')
+            ->assertJsonPath('data.release_readiness.ready', true)->json('data');
+        $this->getJson('/api/fss/shopping-lists/'.$saved['id'])->assertOk()->assertJsonPath('data.release_readiness.ready', true);
+        $this->postJson('/api/fss/shopping-lists/'.$saved['id'].'/approve')->assertCreated();
+        $po = PurchaseOrder::with('shoppingList')->sole();
+        $this->assertSame('PO — '.$saved['name'], $po->displayName());
+        $this->assertSame('PP — '.$saved['name'], $po->displayName('procurement_pack'));
+        $this->assertSame('PPA — '.$saved['name'], $po->displayName('program_project_activity'));
+        $this->assertSame('converted', $po->shoppingList->status);
+        $this->postJson('/api/fss/shopping-lists/'.$saved['id'].'/approve')->assertUnprocessable();
     }
 
     public function test_purchase_only_when_needed_ingredients_are_not_generated(): void

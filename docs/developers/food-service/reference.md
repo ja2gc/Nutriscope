@@ -10,7 +10,7 @@ This is the detailed domain reference linked from [food-service maintenance](REA
 2. `fs_items.include_in_generated_lists = false` only suppresses auto-generation; it never removes a recipe ingredient.
 3. Suggested-list generation requires one positive `estimate_population` for the span. Do not reintroduce per-slot overrides.
 4. Generated rows are recalculated and cannot be deleted. Users change purchase fields or set `included_in_po = false`. Manual rows survive recalculation and may be deleted.
-5. PO approval copies included rows only and calls centralized readiness under the budget lock.
+5. PO approval copies included rows only and rechecks centralized suggested estimate/coverage readiness under the shopping-list lock. No item-confirmation, vendor/cost, allocation or budget-balance gate applies to conversion. Names default from the procurement date/span; see [data meaning](data.md) (verified at `ef419e88` plus this working tree, 2026-10-27).
 6. Evidence upload never changes vendor status. Explicit receiving requires actual values, receipt, proof, and supplier. OR remains optional.
 7. Final reports use actual values; incomplete records remain visibly draft.
 8. Open vendor reassignment reuses the vendor-group PATCH endpoint. It may move a whole group or one line, must merge an existing destination group, and is blocked by source/destination evidence, received status, or PO completion.
@@ -43,7 +43,7 @@ Use `ShoppingListPopulationService` for scaling/synchronization and `PurchaseOrd
 - Use additive, forward-only migrations and explicit decimal precision; do not rewrite applied history or assume rollback reverses data.
 - Add mutable fields to fillables/casts, resources, and revision serializers.
 - Preserve generated/manual separation during recalculation.
-- Keep budget checks inside the fiscal-year budget transaction.
+- Keep completion ledger effects in the existing fiscal-year budget transaction; budget allocation/balance does not gate shopping-list conversion.
 - Store evidence privately and render through authorized URLs or embedded report data.
 - For mutations, verify `backend/config/audit.php` and `AuditInventoryContractTest` coverage.
 - Run focused tests, Pint, backend full suite, web lint/type-check/tests, and mobile type-check.

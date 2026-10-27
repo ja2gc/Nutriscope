@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { Button } from './Button';
 
-export function UnsavedChangesDialog({ title = 'Unsaved changes', busy = false, error, onStay, onDiscard, onSave }: {
-  title?: string; busy?: boolean; error?: string | null; onStay: () => void; onDiscard: () => void; onSave: () => void;
+export function UnsavedChangesDialog({ title = 'Unsaved changes', busy = false, error, message = 'Save your changes before leaving?', saveLabel = 'Save', closeLabel = 'Stay on this page', onStay, onDiscard, onSave }: {
+  title?: string; busy?: boolean; error?: string | null; message?: ReactNode; saveLabel?: string; closeLabel?: string;
+  onStay: () => void; onDiscard?: () => void; onSave: () => void;
 }) {
   const titleId = useId(), panel = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -24,10 +25,10 @@ export function UnsavedChangesDialog({ title = 'Unsaved changes', busy = false, 
     }
   }}>
     <div ref={panel} className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
-      <div className="flex items-center justify-between gap-3"><h3 id={titleId} className="text-lg font-bold text-warm-900">{title}</h3><button type="button" aria-label="Stay on this page" disabled={busy} onClick={onStay} className="rounded-lg p-2 text-warm-500 hover:bg-warm-50 focus-visible:ring-2 focus-visible:ring-emerald-500"><X className="h-4 w-4" /></button></div>
-      <p className="my-4 text-sm text-warm-600">Save your changes before leaving?</p>
+      <div className="flex items-center justify-between gap-3"><h3 id={titleId} className="text-lg font-bold text-warm-900">{title}</h3><button type="button" aria-label={closeLabel} disabled={busy} onClick={onStay} className="rounded-lg p-2 text-warm-500 hover:bg-warm-50 focus-visible:ring-2 focus-visible:ring-emerald-500"><X className="h-4 w-4" /></button></div>
+      <div className="my-4 max-h-[60vh] overflow-y-auto text-sm text-warm-600">{message}</div>
       {error && <p role="alert" className="mb-4 text-sm text-red-700">{error}</p>}
-      <div className="flex justify-end gap-2"><Button type="button" variant="secondary" disabled={busy} onClick={onDiscard}>Discard</Button><Button type="button" loading={busy} onClick={onSave}>Save</Button></div>
+      <div className="flex justify-end gap-2">{onDiscard && <Button type="button" variant="secondary" disabled={busy} onClick={onDiscard}>Discard</Button>}<Button type="button" loading={busy} onClick={onSave}>{saveLabel}</Button></div>
     </div>
   </div>;
 }

@@ -69,6 +69,9 @@ class ShoppingListController extends Controller
         $data['rnd_user_id'] = Auth::id();
         $data['list_type'] = $data['list_type'] ?? 'manual';
         $data['status'] = $data['status'] ?? 'draft';
+        $data['name'] = trim((string) ($data['name'] ?? '')) ?: ShoppingList::defaultName(
+            $data['list_type'], $data['procurement_track'] ?? 'food', $data['list_date'],
+        );
         if (array_key_exists('estimate_population', $data)) {
             $data['estimate_population_updated_at'] = now();
         }
@@ -96,6 +99,14 @@ class ShoppingListController extends Controller
         $data = $request->validated();
         if ($shoppingList->status !== 'draft') {
             return response()->json(['message' => 'Shopping Lists are read-only after Turn Into PO.'], 422);
+        }
+        if (array_key_exists('name', $data)) {
+            $data['name'] = trim((string) $data['name']) ?: ShoppingList::defaultName(
+                $data['list_type'] ?? $shoppingList->list_type,
+                $data['procurement_track'] ?? $shoppingList->procurement_track ?? 'food',
+                $data['period_start'] ?? $shoppingList->period_start?->toDateString() ?? $data['list_date'] ?? $shoppingList->list_date->toDateString(),
+                $data['period_end'] ?? $shoppingList->period_end?->toDateString(),
+            );
         }
         $this->audited(function () use ($shoppingList, &$data): void {
             $before = $this->revisionRegistry->capture($shoppingList->load(self::ITEM_RELATIONS));
@@ -173,6 +184,7 @@ class ShoppingListController extends Controller
         $end = Carbon::parse($data['end_date'])->startOfDay();
         $spanDays = $cursor->diffInDays($end) + 1;
         abort_if($spanDays > 99, 422, 'Choose a span from 1 to 99 days.');
+        $data['name'] = trim((string) ($data['name'] ?? '')) ?: ShoppingList::defaultName('suggested', 'food', $data['start_date'], $data['end_date']);
 
         $plan = app(ShoppingListPopulationService::class)->planRange($cursor, $end, $data['estimate_population']);
 
@@ -222,7 +234,7 @@ class ShoppingListController extends Controller
 
             return response()->json(['data' => [
                 'id' => 'preview',
-                'name' => $data['name'] ?? "Suggested — {$data['start_date']}→{$data['end_date']}",
+                'name' => $data['name'],
                 'list_date' => $data['start_date'],
                 'list_type' => 'suggested',
                 'procurement_track' => 'food',
@@ -258,7 +270,7 @@ class ShoppingListController extends Controller
             $list = $this->auditLogger->withoutModelEvents(fn () => DB::transaction(function () use ($data, $plan, $spanDays) {
                 $list = ShoppingList::create([
                     'rnd_user_id' => Auth::id(),
-                    'name' => $data['name'] ?? "Suggested — {$data['start_date']}→{$data['end_date']}",
+                    'name' => $data['name'],
                     'list_date' => $data['start_date'],
                     'period_start' => $data['start_date'],
                     'period_end' => $data['end_date'],

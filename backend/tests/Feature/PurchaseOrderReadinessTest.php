@@ -53,21 +53,9 @@ class PurchaseOrderReadinessTest extends TestCase
 
         $this->actingAs($rnd)->getJson("/api/fss/shopping-lists/{$list->uuid}")
             ->assertOk()
-            ->assertJsonPath('data.release_readiness.ready', false)
-            ->assertJsonPath('data.release_readiness.blockers.0.code', 'budget_missing')
+            ->assertJsonPath('data.release_readiness.ready', true)
+            ->assertJsonPath('data.release_readiness.blockers', [])
             ->assertJsonPath('data.estimated_total', 500);
-
-        $this->actingAs($rnd)->postJson("/api/fss/shopping-lists/{$list->uuid}/approve")
-            ->assertUnprocessable()
-            ->assertJsonPath('readiness.ready', false);
-
-        Budget::factory()->create(['fiscal_year' => 2026, 'allocated_amount' => 400]);
-
-        $this->actingAs($rnd)->postJson("/api/fss/shopping-lists/{$list->uuid}/approve")
-            ->assertUnprocessable()
-            ->assertJsonPath('readiness.blockers.0.code', 'budget_exceeded');
-
-        Budget::where('fiscal_year', 2026)->update(['allocated_amount' => 1000]);
 
         $this->actingAs($rnd)->postJson("/api/fss/shopping-lists/{$list->uuid}/approve")
             ->assertCreated();
@@ -80,7 +68,7 @@ class PurchaseOrderReadinessTest extends TestCase
         $this->assertNull($po->vendorGroups()->sole()->supplier_id);
     }
 
-    public function test_open_purchase_orders_reduce_available_release_budget(): void
+    public function test_budget_allocation_and_open_purchase_orders_do_not_block_conversion(): void
     {
         $rnd = User::factory()->rnd()->create();
         $supplier = Supplier::factory()->create();
@@ -112,8 +100,16 @@ class PurchaseOrderReadinessTest extends TestCase
         ]);
 
         $this->actingAs($rnd)->postJson("/api/fss/shopping-lists/{$list->uuid}/approve")
-            ->assertUnprocessable()
-            ->assertJsonPath('readiness.available_budget', 200)
-            ->assertJsonPath('readiness.planned_total', 300);
+            ->assertCreated();
+        $this->assertDatabaseHas('purchase_orders', ['shopping_list_id' => $list->id, 'total_amount' => 300]);
+    }
+
+    public function test_manual_conversion_needs_no_item_checklist_or_purchase_values(): void
+    {
+        $rnd = User::factory()->rnd()->create();
+        $list = ShoppingList::factory()->create(['rnd_user_id' => $rnd->id, 'list_type' => 'manual', 'procurement_track' => 'food']);
+        $this->actingAs($rnd)->postJson("/api/fss/shopping-lists/{$list->uuid}/approve")->assertCreated();
+        $this->assertSame('converted', $list->fresh()->status);
+        $this->postJson("/api/fss/shopping-lists/{$list->uuid}/approve")->assertUnprocessable();
     }
 }

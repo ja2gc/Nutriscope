@@ -7,11 +7,12 @@ import userEvent from "@testing-library/user-event";
 import {
   approveShoppingList, createShoppingList, generateByDates, getPurchaseOrder, getShoppingList,
   listPurchaseOrders, listShoppingLists, updateShoppingList, updateVendorGroup,
-  type PurchaseOrder, type ShoppingList,
+  MissingMenuDaysError, type PurchaseOrder, type ShoppingList,
 } from "@/services/procurementService";
 import { listCatalog, type CatalogItem } from "@/services/fsCatalogService";
 import { ShoppingListCopyCard } from "@/components/foodservice/ShoppingListCopyCard";
 import ProcurementPage from "./page";
+import { manilaCalendarToday } from "@/lib/calendarDate";
 
 vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams() }));
 vi.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ user: { role: "RND" } }) }));
@@ -242,7 +243,7 @@ describe("Food Service procurement display", () => {
     await act(async () => { create?.click(); await Promise.resolve(); await Promise.resolve(); });
 
     expect(mockCreateShoppingList).toHaveBeenCalledWith(expect.objectContaining({
-      name: "Manual Food List", list_date: "2026-10-04", list_type: "manual", procurement_track: "food", status: "draft",
+      list_date: "2026-10-04", list_type: "manual", procurement_track: "food", status: "draft",
     }));
     expect(container.querySelector("h3")?.textContent).toBe("Manual Food List");
   });
@@ -255,8 +256,7 @@ describe("Food Service procurement display", () => {
     const tab = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
       .find((candidate) => candidate.textContent?.trim() === "Supplies Lists");
     await act(async () => { tab?.click(); });
-    const name = container.querySelector<HTMLInputElement>('input[aria-label="Supplies list name"]');
-    await act(async () => { if (name) setInputValue(name, "Cleaning supplies"); });
+    expect(container.querySelector('input[aria-label="Supplies list name"]')).toBeNull();
     const open = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
       .find((candidate) => candidate.textContent?.includes("New supplies list"));
     await act(async () => { open?.click(); });
@@ -264,11 +264,11 @@ describe("Food Service procurement display", () => {
     await chooseCalendarDate("Procurement date", "2026-10-04");
     await act(async () => { container.querySelector<HTMLButtonElement>('button[aria-label="Create manual shopping list"]')?.click(); await Promise.resolve(); });
     expect(mockCreateShoppingList).toHaveBeenCalledWith(expect.objectContaining({
-      name: "Cleaning supplies", list_date: "2026-10-04", procurement_track: "supplies",
+      list_date: "2026-10-04", procurement_track: "supplies",
     }));
   });
 
-  test("requires a name before generating a suggested shopping list", async () => {
+  test("generates a suggested shopping list without requesting a name", async () => {
     await renderPage();
     const suggest = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
       .find((candidate) => candidate.textContent?.trim() === "Suggest from Menu");
@@ -278,8 +278,44 @@ describe("Food Service procurement display", () => {
     await act(async () => { if (estimate) setInputValue(estimate, "100"); });
     const generate = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
       .find((candidate) => candidate.textContent?.trim() === "Generate");
-    expect(generate?.disabled).toBe(true);
-    expect(mockGenerateByDates).not.toHaveBeenCalled();
+    expect(container.querySelector('input[aria-label="Shopping list name"]')).toBeNull();
+    expect(generate?.disabled).toBe(false);
+    await act(async () => { generate?.click(); });
+    expect(mockGenerateByDates).toHaveBeenCalledWith("2026-10-04", "2026-10-04", 100, undefined, { preview: true });
+  });
+
+  test("defaults manual and suggested dates to Manila today and displays single-day dates", async () => {
+    await renderPage();
+    expect(container.querySelector('tbody tr')?.textContent).toContain('2026-10-04');
+    const manual = Array.from(container.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Manual food list');
+    await act(async () => manual?.click());
+    expect(container.querySelector('[aria-label="Procurement date"]')?.textContent).not.toContain('Select date');
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Create manual shopping list"]')?.click());
+    expect(mockCreateShoppingList).toHaveBeenCalledWith(expect.objectContaining({ list_date: manilaCalendarToday() }));
+    expect(container.textContent).toContain('2026-10-04');
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Back to Shopping Lists"]')?.click());
+    await act(async () => Array.from(container.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Suggest from Menu')?.click());
+    await act(async () => setInputValue(container.querySelector<HTMLInputElement>('input[type="number"]')!, '10'));
+    await act(async () => Array.from(container.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Generate')?.click());
+    expect(mockGenerateByDates).toHaveBeenCalledWith(manilaCalendarToday(), manilaCalendarToday(), 10, undefined, { preview: true });
+  });
+
+  test("shows exact missing menu dates in the shared save-popup design without creating a list", async () => {
+    mockGenerateByDates.mockRejectedValueOnce(new MissingMenuDaysError('Missing menu plans.', ['2026-10-04', '2026-10-05'], { '2026-10-04': 'no menu planned for this date', '2026-10-05': 'no menu items' }));
+    await renderPage();
+    await act(async () => Array.from(container.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Suggest from Menu')?.click());
+    await chooseSuggestedStart();
+    await act(async () => setInputValue(container.querySelector<HTMLInputElement>('input[type="number"]')!, '10'));
+    await act(async () => Array.from(container.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Generate')?.click());
+    const popup = container.querySelector('[role="dialog"][aria-label="Menu plans needed"]');
+    expect(popup).not.toBeNull();
+    expect(popup?.textContent).toContain('2026-10-04');
+    expect(popup?.textContent).toContain('2026-10-05');
+    expect(popup?.firstElementChild?.className).toContain('max-w-md rounded-2xl bg-white p-5 shadow-xl');
+    expect(mockCreateShoppingList).not.toHaveBeenCalled();
+    await act(async () => popup?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+    expect(container.querySelector('[aria-label="Menu plans needed"]')).toBeNull();
+    expect(container.querySelector('[aria-label="Start date"]')).not.toBeNull();
   });
 
   test("explains suggested-list draft and purchase-order steps accessibly", async () => {
@@ -344,7 +380,7 @@ describe("Food Service procurement display", () => {
       .find((candidate) => candidate.textContent?.trim() === "Generate");
     await act(async () => { generate?.click(); await Promise.resolve(); await Promise.resolve(); });
 
-    expect(mockGenerateByDates).toHaveBeenCalledWith(expect.any(String), expect.any(String), 100, "Weekly menu", { preview: true });
+    expect(mockGenerateByDates).toHaveBeenCalledWith(expect.any(String), expect.any(String), 100, undefined, { preview: true });
     expect(container.querySelector("h3")?.textContent).toBe("Weekly menu");
     expect(container.querySelector('button[aria-label="Rename Weekly menu"]')).not.toBeNull();
     expect(mockGenerateByDates).toHaveBeenCalledTimes(1);
@@ -370,6 +406,63 @@ describe("Food Service procurement display", () => {
     const save = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent?.trim() === "Save Shopping List");
     await act(async () => { save?.click(); await Promise.resolve(); });
     expect(mockUpdateShoppingList).toHaveBeenCalledWith("list-1", { name: "Renamed list", items: [] });
+  });
+
+  test.each(['food', 'supplies', 'suggested'] as const)('saving %s clears unsaved state and enables confirmed conversion', async (kind) => {
+    const list = makeList({ procurement_track: kind === 'supplies' ? 'supplies' : 'food',
+      ...(kind === 'suggested' ? { list_type: 'suggested', estimate_population: 10, period_start: '2026-10-04', period_end: '2026-10-04', days_span: 1 } : {}),
+      release_readiness: { ready: true, blockers: [] } });
+    const saved = { ...list, name: 'Updated name' };
+    mockUpdateShoppingList.mockResolvedValue(saved);
+    mockApproveShoppingList.mockResolvedValue({ purchase_order_id: 'po-1', purchase_order_ids: ['po-1'] });
+    await openList(list);
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Rename Draft list"]')?.click());
+    await act(async () => setInputValue(container.querySelector<HTMLInputElement>('[aria-label="Shopping list name"]')!, 'Updated name'));
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Apply name"]')?.click());
+    const release = () => Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(button => button.textContent?.trim() === 'Turn Into PO')!;
+    expect(release().disabled).toBe(true);
+    await act(async () => Array.from(container.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Save Shopping List')?.click());
+    expect(release().disabled).toBe(false);
+    await act(async () => release().click());
+    expect(mockApproveShoppingList).not.toHaveBeenCalled();
+    await act(async () => Array.from(container.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Turn Into PO and lock list')?.click());
+    expect(mockApproveShoppingList).toHaveBeenCalledExactlyOnceWith(list.id);
+  });
+
+  test('a suggested preview becomes convertible immediately after its first save', async () => {
+    const preview = makeList({ id: 'preview', name: 'Menu Shopping list - Oct 4, 2026', list_type: 'suggested', estimate_population: 10, period_start: '2026-10-04', period_end: '2026-10-04', days_span: 1 });
+    const saved = { ...preview, id: 'saved-preview', release_readiness: { ready: true, blockers: [] } };
+    mockGenerateByDates.mockResolvedValueOnce(preview).mockResolvedValueOnce(saved);
+    mockGetShoppingList.mockResolvedValue(saved);
+    mockApproveShoppingList.mockResolvedValue({ purchase_order_id: 'po-1', purchase_order_ids: ['po-1'] });
+    await renderPage();
+    await act(async () => Array.from(container.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Suggest from Menu')?.click());
+    await chooseSuggestedStart();
+    await act(async () => setInputValue(container.querySelector<HTMLInputElement>('input[type="number"]')!, '10'));
+    await act(async () => Array.from(container.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Generate')?.click());
+    const release = () => Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(button => button.textContent?.trim() === 'Turn Into PO')!;
+    expect(release().disabled).toBe(true);
+    await act(async () => Array.from(container.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Save Shopping List')?.click());
+    await act(async () => Array.from(container.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')).find(button => button.textContent?.trim() === 'Save Shopping List')?.click());
+    expect(release().disabled).toBe(false);
+    await act(async () => release().click());
+    await act(async () => Array.from(container.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Turn Into PO and lock list')?.click());
+    expect(mockApproveShoppingList).toHaveBeenCalledExactlyOnceWith('saved-preview');
+  });
+
+  test('a menu plan removed before first save shows its exact date and preserves the preview', async () => {
+    const preview = makeList({ id: 'preview', list_type: 'suggested', estimate_population: 10, period_start: '2026-10-04', period_end: '2026-10-04', days_span: 1 });
+    mockGenerateByDates.mockResolvedValueOnce(preview).mockRejectedValueOnce(new MissingMenuDaysError('Missing menu plan.', ['2026-10-04'], {}));
+    await renderPage();
+    await act(async () => Array.from(container.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Suggest from Menu')?.click());
+    await chooseSuggestedStart();
+    await act(async () => setInputValue(container.querySelector<HTMLInputElement>('input[type="number"]')!, '10'));
+    await act(async () => Array.from(container.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Generate')?.click());
+    await act(async () => Array.from(container.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Save Shopping List')?.click());
+    await act(async () => Array.from(container.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')).find(button => button.textContent?.trim() === 'Save Shopping List')?.click());
+    expect(container.querySelector('[role="dialog"][aria-label="Menu plans needed"]')?.textContent).toContain('2026-10-04');
+    expect(Array.from(container.querySelectorAll('h3')).some(heading => heading.textContent === 'Draft list')).toBe(true);
+    expect(mockApproveShoppingList).not.toHaveBeenCalled();
   });
 
   test("saves one edited Estimated servings value on an active Suggested list", async () => {
@@ -777,13 +870,13 @@ describe("Food Service procurement display", () => {
     expect(unit?.querySelector("input, select")).toBeNull();
   });
 
-  test("hides the Before PO release blocker panel while preserving release readiness", async () => {
+  test("explains any remaining suggested-list release blocker", async () => {
+    mockGetShoppingList.mockResolvedValue(makeList({ release_readiness: { ready: false, blockers: [{ code: 'coverage_incomplete', message: 'Every selected service date needs menu items.' }] } }));
     await renderPage();
     const openList = container.querySelector<HTMLButtonElement>('button[aria-label="Open list: Draft list"]');
     await act(async () => { openList?.click(); await Promise.resolve(); await Promise.resolve(); });
 
-    expect(container.textContent).not.toContain("Before PO release");
-    expect(container.textContent).not.toContain("Include at least one shopping-list item.");
+    expect(container.textContent).toContain("Every selected service date needs menu items.");
     const release = Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
       .find((candidate) => candidate.textContent?.includes("Turn Into PO"));
     expect(release?.disabled).toBe(true);

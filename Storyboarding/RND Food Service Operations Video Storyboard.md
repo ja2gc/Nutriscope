@@ -2,6 +2,8 @@
 
 Verified against the current RND website, FSS Android app, and food-service rules on **2026-08-27**.
 
+Shopping-list naming, dates, missing-plan popup and conversion steps rechecked against source `ef419e88` plus this working tree on **2026-10-27**.
+
 Use this as both the recording checklist and narration script. Create every named record during the recording; do not rely on existing menu cycles, lists, or purchase orders. Existing user accounts may be used only to sign in.
 
 ## How to Use This Script
@@ -112,7 +114,7 @@ In vendor create/edit, demonstrate **Contact details → Add contact**, choose a
 2. Choose **Suggest from Menu**.
 3. Choose Tuesday in the month/year calendar and enter **3** in **Number of days** to cover Tuesday through Thursday. Dates already covered by a saved Suggested Shopping List are unavailable.
 4. Enter one estimated serving count, for example **120**, for the whole span.
-5. Enter a shopping-list name before generating it.
+5. Leave the name to the system: it uses **Menu Shopping list** and the selected span. If any date has no menu plan, read its exact date in the save-style popup, complete that date in Menu Calendar, and retry; no partial list is created.
 6. Generate the list.
 7. Show that this preview has not yet changed the Menu Calendar estimate.
 8. In the shopping list, point to the calculated need for **Demo Video Chicken**.
@@ -123,7 +125,7 @@ In vendor create/edit, demonstrate **Contact details → Add contact**, choose a
 
 **Narration**
 
-> Enter the shopping-list name and one estimated serving count before previewing. NutriScope adjusts each recipe from its standard serving size. For example, a 50-serving recipe is multiplied by 120 divided by 50. It combines automatically included ingredients across the selected dates. Non-Auto Grocery ingredients are added only when needed; the empty search suggests them first. Save Shopping List applies the estimate to each selected Menu Calendar day and keeps the list editable. The compact copy card includes checked items with their selected purchase quantity and unit.
+> Choose the start date (today by default), number of days and one estimated serving count before previewing. The shopping-list name is generated from its span and can be changed inside the list. NutriScope adjusts each recipe from its standard serving size. For example, a 50-serving recipe is multiplied by 120 divided by 50. It combines automatically included ingredients across the selected dates. Non-Auto Grocery ingredients are added only when needed; the empty search suggests them first. Save Shopping List applies the estimate to each selected Menu Calendar day and keeps the list editable. The compact copy card includes checked items with their selected purchase quantity and unit.
 
 **Expected result:** The list shows the calculated chicken requirement for 120 servings, bulk rice as a manually added kilogram row, and the seasoning mix excluded until added manually.
 
@@ -161,7 +163,7 @@ In vendor create/edit, demonstrate **Contact details → Add contact**, choose a
 
 1. Return to Food Shopping Lists, select **Manual food list**, and choose its procurement date.
 2. Add ingredients directly without creating a menu cycle. Use the pencil beside the draft name to rename it **Demo Video Outreach Event — Food**.
-3. Open **Supplies Lists**, choose its procurement date, and create **Demo Video Outreach Event — Supplies**.
+3. Open **Supplies Lists → New supplies list**, choose its procurement date (today by default), and create the automatically named list. Use its detail-title pencil to rename it **Demo Video Outreach Event — Supplies**. The selected day appears even for a one-day list.
 4. Add **Demo Video Meal Container**.
 5. Point to the shared purpose in both names and the separate food/supplies tracks.
 6. Leave these lists in draft or complete them separately if the video needs a second PO example.
@@ -176,20 +178,20 @@ In vendor create/edit, demonstrate **Contact details → Add contact**, choose a
 
 **Purpose:** Convert the reviewed shopping list into the approved record that FSS will receive against.
 
-**Before this scene:** Refer to **Scene 5 — Review Quantities, Prices, and Vendors**. The fiscal-year budget must also be available as stated in **Recording Setup**.
+**Before this scene:** Refer to **Scene 5 — Review Quantities, Prices, and Vendors**. The budget setup in **Recording Setup** is used for later completion/ledger demonstration; it is not required for conversion.
 
 **On-screen actions**
 
 1. Return to the suggested shopping list.
 2. Leave one vendor unspecified to show it can be assigned in the PO before receiving.
-3. Confirm that the fiscal-year budget and included total permit release.
+3. Save any edits. Items are included by default; no extra checklist confirmation, vendor/cost entry, or budget allocation is required for conversion. Optional unchecked items remain excluded.
 4. Select **Turn Into PO**.
 5. Read the warning that the Shopping List will become read-only, then select **Turn Into PO and lock list**.
 6. Open the new PO and point out its PO number, shopping-list purpose/name, vendor groups, and locked planned values. Expand **Planned total** when the snapshot total is needed.
 
 **Narration**
 
-> The confirmation warns that turning the saved list into a purchase order makes it read-only. NutriScope checks the menu dates, serving estimate, and fiscal-year budget where required. It groups items by vendor, including an Unspecified group that must be assigned before receiving, and keeps planned values unchanged for comparison and reports.
+> The confirmation warns that turning the saved list into a purchase order makes it read-only. NutriScope checks suggested menu coverage and the serving estimate. Budget allocation and balance track funds without blocking conversion. It groups included items by vendor, including an Unspecified group that must be assigned before receiving, and keeps planned values unchanged for comparison and reports.
 
 **Expected result:** A released purchase order shows its number, purpose, vendor groups, and locked planned values.
 

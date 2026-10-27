@@ -144,7 +144,7 @@ export async function getShoppingList(id: string): Promise<ShoppingList> {
   return unwrap(await apiFetch(`/api/fss/shopping-lists/${id}`), "Failed to load list.");
 }
 export async function createShoppingList(payload: {
-  name: string;
+  name?: string;
   list_date?: string | null;
   list_type?: "manual" | "suggested";
   procurement_track?: "food" | "supplies";

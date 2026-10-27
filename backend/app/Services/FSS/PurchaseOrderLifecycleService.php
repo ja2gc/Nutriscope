@@ -54,16 +54,13 @@ class PurchaseOrderLifecycleService
     /**
      * @return array{ready: bool, blockers: list<array{code: string, message: string}>, planned_total: float, available_budget: float|null, fiscal_year: int}
      */
-    public function releaseReadiness(ShoppingList $shoppingList, bool $lockBudget = false): array
+    public function releaseReadiness(ShoppingList $shoppingList): array
     {
         $shoppingList->loadMissing('items');
         $included = $shoppingList->items->where('included_in_po', true);
         $plannedTotal = round((float) $included->sum(fn ($item) => (float) $item->total), 2);
         $blockers = [];
 
-        if ($included->isEmpty()) {
-            $blockers[] = ['code' => 'items_missing', 'message' => 'Include at least one shopping-list item.'];
-        }
         $suggestedFood = ! $shoppingList->isSupplies() && $shoppingList->list_type === 'suggested';
         if ($suggestedFood && (int) $shoppingList->estimate_population < 1) {
             $blockers[] = ['code' => 'estimate_missing', 'message' => 'Set one estimated serving count for the selected span.'];
@@ -77,32 +74,12 @@ class PurchaseOrderLifecycleService
         }
 
         $year = $this->fiscalYear($shoppingList);
-        $budgetQuery = Budget::query()->where('fiscal_year', $year);
-        if ($lockBudget) {
-            $budgetQuery->lockForUpdate();
-        }
-        $budget = $budgetQuery->first();
-        $available = null;
-        if (! $budget) {
-            $blockers[] = ['code' => 'budget_missing', 'message' => "Set up the {$year} fiscal-year budget."];
-        } else {
-            $reserved = PurchaseOrder::query()
-                ->where('lifecycle_status', 'open_execution')
-                ->with('shoppingList')
-                ->get()
-                ->filter(fn (PurchaseOrder $po) => $po->shoppingList && $this->fiscalYear($po->shoppingList) === $year)
-                ->sum(fn (PurchaseOrder $po) => (float) $po->total_amount);
-            $available = round($budget->remainingBalance() - (float) $reserved, 2);
-            if ($plannedTotal > $available) {
-                $blockers[] = ['code' => 'budget_exceeded', 'message' => 'Planned total exceeds the remaining available budget.'];
-            }
-        }
 
         return [
             'ready' => $blockers === [],
             'blockers' => $blockers,
             'planned_total' => $plannedTotal,
-            'available_budget' => $available,
+            'available_budget' => null,
             'fiscal_year' => $year,
         ];
     }

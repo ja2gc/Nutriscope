@@ -253,21 +253,25 @@ The menu covering today's date is current automatically, even when it has no mea
 
 Open **Procurement → Food Shopping Lists → Suggest from Menu**, select a date range, enter one Estimated servings count, and preview the list. Saving applies that count to every selected Menu Calendar day. You can edit the count on the saved list until **Turn Into PO**; Save then updates those days and recalculates generated needs. Each Food scales from its own recipe serving size. Non-Auto Grocery ingredients stay in recipes but are not added automatically. Add them to the draft when needed; an empty item search suggests Non-Auto Grocery items first. Select **Save Shopping List** to keep the editable list. **Turn Into PO** is a separate step.
 
+Suggested creation needs only a start date (today by default), number of days, and estimated servings. The name defaults to **Menu Shopping list** with the selected span and remains editable inside the list. Missing Menu Calendar plans stop creation and open a popup listing the exact dates to complete.
+
 ### What happens if I change a Shopping List quantity?
 
 It changes only the amount to buy. It does not change Estimated servings or the Food recipe. Each item can use its calculated amount, round to the nearest whole unit (0.5 rounds up), or keep a manually entered amount. Changing Estimated servings recalculates generated needs; manual amounts stay as entered. Back lets you save or discard unsaved edits.
 
 ### Can I make a food or event list without a menu cycle?
 
-Yes. Choose a procurement date, create a named manual food list, and add ingredients directly. Related food and supplies lists can use the same event name while remaining separate procurement tracks.
+Yes. Choose a procurement date (today by default), create a manual food list, and add ingredients directly. A date-based name is generated automatically; use the title pencil inside the list to rename it. Related food and supplies lists can use the same event name while remaining separate procurement tracks.
 
 ### How are supplies purchased?
 
-Use **Procurement → Supplies Lists**, choose a procurement date, create a named manual list, add catalog items, quantities, costs, and vendors, then convert it separately from food procurement.
+Use **Procurement → Supplies Lists → New supplies list** and choose a procurement date (today by default). A date-based name is generated automatically and can be edited inside the list. Add catalog items and convert separately from food procurement; name, vendor and cost entry are not conversion requirements.
 
 ### What happens when a shopping list is converted?
 
 Review the saved list and select **Turn Into PO**. A warning asks you to confirm that the Shopping List will become read-only. Select **Cancel** to keep editing, or **Turn Into PO and lock list** to create one order grouped by vendor. You can leave a vendor unspecified on the list, then assign one before receiving. If the final vendor changes before evidence is uploaded, use **Change vendor for all** on the group or row-level **Change vendor** for one item.
+
+Budget allocation and remaining balance do not block **Turn Into PO**. Items are included by default; unchecking is an optional exclusion, not a required confirmation step. Suggested lists still need valid servings and menu coverage. Actual values and receiving evidence are handled later.
 
 ### Who records OR numbers and receipts?
 

@@ -240,7 +240,7 @@ class PurchaseOrderController extends Controller
                 ->lockForUpdate()
                 ->with('items')
                 ->firstOrFail();
-            $readiness = $lifecycle->releaseReadiness($shoppingList, true);
+            $readiness = $lifecycle->releaseReadiness($shoppingList);
             if (! $readiness['ready']) {
                 abort(422, 'Shopping list is not ready for release.');
             }

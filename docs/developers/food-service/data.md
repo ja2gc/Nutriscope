@@ -4,6 +4,12 @@ Verified against committed source: `53771e2c8add7cfe001f0de793a563f74030f1fb` pl
 
 Purpose: distinguish operational planning, purchasing, receiving and completed history. It covers both web and FSS-mobile consumers; see [workflow owners](README.md) and [mobile](mobile.md).
 
+Shopping-list naming and conversion verified against `ef419e88` plus this working tree (2026-10-27). `ShoppingList::defaultName` owns fallback names: `Menu Shopping list` with the suggested calendar span, `Shopping list` with the manual procurement date, and `Supplies list` with its procurement date. `ShoppingListController` applies the same fallback for suggested previews, creation, and explicitly blank rename requests; supplied names remain editable until conversion. Resources expose the stored name to web/audit consumers. `PurchaseOrder::displayName` prepends PO, PP, or PPA for order/report listings; the PO number is separate. Existing stored names are not backfilled.
+
+Web creation defaults to `manilaCalendarToday`. Suggested lists require start date, number of days, and positive estimated servings. Missing Menu Calendar plans block both preview and saving, with exact dates shown through the shared save-dialog design. Manual food/supplies require only a procurement date and always display that date, even without `days_span`.
+
+`PurchaseOrderLifecycleService::releaseReadiness` checks suggested estimate/coverage only. Item checkmarks default to included and remain optional exclusions; neither item confirmation, an empty included set, vendor/cost entry, nor budget allocation/balance blocks conversion. `planned_total` sums included rows; `available_budget` remains null for response compatibility, and `fiscal_year` comes from the procurement date. Conversion still copies included rows only, prevents duplicate POs, and freezes the list. Receiving, completion and ledger rules remain owned by their existing services. Regression coverage: `ShoppingListNameTest`, `FoodShoppingListGenerationTest`, `PurchaseOrderReadinessTest`, and web `procurement/page.test.tsx`.
+
 | Fields / family | Meaning and authority |
 |---|---|
 | MenuCycleDay.recipe_id / fs_item_id | Recipe versus single catalog item; [MenuCycleDay](../../../backend/app/Models/MenuCycleDay.php) links FoodServiceRecipe, not the NCP Recipe model |

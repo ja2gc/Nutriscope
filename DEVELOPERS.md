@@ -54,6 +54,8 @@ Admin AI graph timezone selection is owned by `AiUsageAnalyticsController` and `
 
 Vendor receipt-total mode and amount are owned by `PurchaseOrderVendorGroup` and the vendor-group update action; see [food-service data](docs/developers/food-service/data.md). This is separate from per-item Actual Total, which derives quantity.
 
+Shopping-list default names are owned by `ShoppingList::defaultName` and applied by `ShoppingListController`. PO conversion readiness is owned by `PurchaseOrderLifecycleService`; it checks suggested estimate/coverage without item-confirmation or budget gates. Web defaults use `manilaCalendarToday` and the existing save dialog for exact missing-plan dates. See [food-service data](docs/developers/food-service/data.md). Verified at `ef419e88` plus this working tree (2026-10-27).
+
 ## If your task is not listed
 
 This map indexes current feature families; it is not an exhaustive specification or a guarantee that every future change is documented. Locate the screen in frontend/app or mobile/app, find its service/API call, then trace backend/routes/api.php through request/permission checks, controller, service and persisted model. Inspect reports/jobs/events and both clients that consume it, then matching tests. Use rg to search exact route, symbol or field names and rg --files to locate files. Check dynamic resolution and framework conventions before declaring something unused.

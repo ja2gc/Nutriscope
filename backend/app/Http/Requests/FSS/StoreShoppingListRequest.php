@@ -16,7 +16,7 @@ class StoreShoppingListRequest extends FormRequest
         $isSupplies = $this->input('procurement_track') === 'supplies';
 
         return [
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['nullable', 'string', 'max:255'],
             'list_date' => ['required', 'date'],
             'list_type' => ['nullable', 'string', 'in:manual'],
             'procurement_track' => ['nullable', 'string', 'in:food,supplies'],
