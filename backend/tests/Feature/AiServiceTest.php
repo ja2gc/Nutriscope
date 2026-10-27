@@ -8,6 +8,7 @@ use App\Models\Patient;
 use App\Models\User;
 use App\Services\AIService;
 use App\Services\Diagnosis\PesSuggestionService;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
@@ -46,6 +47,22 @@ class AiServiceTest extends TestCase
 
         $this->expectException(\RuntimeException::class);
         app(AIService::class)->draftPes($this->boundedPayload());
+    }
+
+    public function test_direct_ai_calls_require_a_user_before_contacting_the_provider(): void
+    {
+        auth()->forgetUser();
+        Http::fake();
+
+        foreach (['draftPes', 'narrateMonitoring'] as $method) {
+            try {
+                app(AIService::class)->{$method}([]);
+                $this->fail('An unauthenticated AI call must be rejected before sending a request.');
+            } catch (AuthenticationException) {
+                Http::assertNothingSent();
+                $this->assertDatabaseCount('ai_usage_logs', 0);
+            }
+        }
     }
 
     public function test_pes_draft_service_decodes_json_fences_and_logs_usage(): void

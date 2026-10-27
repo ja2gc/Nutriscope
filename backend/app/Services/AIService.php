@@ -19,6 +19,7 @@ class AIService
      */
     public function draftPes(array $payload): array
     {
+        $userId = auth()->authenticate()->getAuthIdentifier();
         $this->assertWithinTokenLimits();
 
         $apiKey = config('services.anthropic.key');
@@ -99,7 +100,7 @@ PROMPT;
                 $totalTokens = $inputTokens + $outputTokens;
 
                 $usage = AiUsageLog::create([
-                    'user_id' => auth()->id(),
+                    'user_id' => $userId,
                     'model' => $model,
                     'tokens_input' => $inputTokens,
                     'tokens_output' => $outputTokens,
@@ -172,6 +173,7 @@ PROMPT;
     /** Drafts editable wording from validated, compact monitoring comparisons; never saves clinical data. */
     public function narrateMonitoring(array $summary): ?string
     {
+        $userId = auth()->authenticate()->getAuthIdentifier();
         $this->assertWithinTokenLimits();
 
         $apiKey = config('services.anthropic.key');
@@ -215,7 +217,7 @@ PROMPT,
                 $body = $response->json();
 
                 AiUsageLog::create([
-                    'user_id' => auth()->id(),
+                    'user_id' => $userId,
                     'model' => $model,
                     'tokens_input' => $body['usage']['input_tokens'] ?? 0,
                     'tokens_output' => $body['usage']['output_tokens'] ?? 0,

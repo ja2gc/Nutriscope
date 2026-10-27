@@ -1,5 +1,7 @@
 import { apiFetch } from "@/lib/apiFetch";
 
+export type AiUsageTimezone = "Asia/Manila" | "UTC";
+
 export type AiUsagePoint = {
   day?: number;
   month?: number;
@@ -25,6 +27,7 @@ export async function fetchAiUsageAnalytics(params: {
   view: "month" | "year";
   year: number;
   month?: number;
+  timezone?: AiUsageTimezone;
 }): Promise<AiUsageAnalytics> {
   const query = new URLSearchParams({
     view: params.view,
@@ -32,6 +35,7 @@ export async function fetchAiUsageAnalytics(params: {
   });
 
   if (params.month) query.set("month", String(params.month));
+  if (params.timezone) query.set("timezone", params.timezone);
 
   const response = await apiFetch(`/api/admin/ai-usage?${query}`);
   if (!response.ok) throw new Error("Failed to fetch AI usage analytics.");

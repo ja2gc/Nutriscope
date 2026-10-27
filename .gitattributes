@@ -1,1 +1,2 @@
 *.sh text eol=lf
+frontend/lib/who-bmi-for-age.json text eol=lf

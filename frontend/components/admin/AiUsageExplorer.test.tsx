@@ -70,6 +70,28 @@ describe("AiUsageExplorer", () => {
     expect(source).toContain('initialDimension={{ width: view === "month" ? 760 : 560, height: 288 }}');
   });
 
+  test("reloads the selected period when switching between Manila and UTC", async () => {
+    await act(async () => root.render(<AiUsageExplorer {...pricing} />));
+
+    expect(fetchMock).toHaveBeenLastCalledWith(expect.objectContaining({ timezone: "Asia/Manila" }));
+    const timezone = container.querySelector<HTMLSelectElement>('select[aria-label="Usage timezone"]');
+    expect(timezone).not.toBeNull();
+
+    await act(async () => {
+      timezone!.value = "UTC";
+      timezone!.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    expect(fetchMock).toHaveBeenLastCalledWith(expect.objectContaining({ timezone: "UTC" }));
+    expect(container.textContent).toContain("All users · UTC");
+
+    await act(async () => {
+      timezone!.value = "Asia/Manila";
+      timezone!.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(fetchMock).toHaveBeenLastCalledWith(expect.objectContaining({ timezone: "Asia/Manila" }));
+  });
+
   test("tooltip shows the token split and a clearly labeled estimated cost", async () => {
     await act(async () => {
       root.render(

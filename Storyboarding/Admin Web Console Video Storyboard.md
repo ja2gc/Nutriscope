@@ -2,6 +2,8 @@
 
 Verified against the current Admin website, Laravel role guards, and backup/recovery workflow on **2026-09-15**.
 
+Scene 2 AI timezone controls verified against source `86a8a3a0` plus the working-tree selector (2026-10-27).
+
 Use this as both the recording checklist and narration script. Record with demo accounts and non-sensitive sample data only. Never display passwords, recovery links, access tokens, `.env` values, backup archives, storage keys, or patient clinical records.
 
 ## How to Use This Script
@@ -63,7 +65,7 @@ Use this as both the recording checklist and narration script. Record with demo 
 1. Review total users and counts for Admin, RND, and FSS.
 2. Point out aggregate patients in care without opening patient clinical information.
 3. Review monthly AI calls, tokens, estimated cost, and recent audit activity.
-4. Open the AI Usage Explorer and inspect daily or monthly usage.
+4. Open the AI Usage Explorer and inspect daily or monthly usage. Use Manila for local dates or UTC when comparing with the provider dashboard.
 5. Update a demo token cap only if the recording environment permits it, then confirm the saved value.
 6. Use a quick action to return to a feature page, then return to the dashboard.
 

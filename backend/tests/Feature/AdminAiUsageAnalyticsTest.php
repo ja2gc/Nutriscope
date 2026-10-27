@@ -77,6 +77,54 @@ class AdminAiUsageAnalyticsTest extends TestCase
         $this->assertSame(10, $points[12]['tokens_output']);
     }
 
+    public function test_utc_month_view_keeps_calls_on_their_provider_calendar_date(): void
+    {
+        CarbonImmutable::setTestNow('2026-07-15 04:00:00 UTC');
+        $admin = User::factory()->create(['role' => 'Admin']);
+        $this->log($admin, 10, 5, '2026-06-30 16:30:00');
+        $this->log($admin, 20, 0, '2026-07-01 15:59:00');
+        $this->log($admin, 30, 7, '2026-07-01 16:00:00');
+
+        $response = $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/admin/ai-usage?view=month&year=2026&month=7&timezone=UTC')
+            ->assertOk()
+            ->assertJsonPath('timezone', 'UTC')
+            ->assertJsonPath('total_tokens', 57);
+
+        $points = collect($response->json('points'))->keyBy('day');
+        $this->assertSame(57, $points[1]['tokens']);
+        $this->assertSame(50, $points[1]['tokens_input']);
+        $this->assertSame(7, $points[1]['tokens_output']);
+        $this->assertSame(0, $points[2]['tokens']);
+        $this->assertNull($points[16]['tokens']);
+    }
+
+    public function test_utc_year_view_uses_utc_year_and_month_boundaries(): void
+    {
+        $admin = User::factory()->create(['role' => 'Admin']);
+        $this->log($admin, 10, 5, '2025-12-31 16:30:00');
+        $this->log($admin, 20, 7, '2026-12-31 16:30:00');
+
+        $response = $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/admin/ai-usage?view=year&year=2026&timezone=UTC')
+            ->assertOk()
+            ->assertJsonPath('timezone', 'UTC')
+            ->assertJsonPath('total_tokens', 27);
+
+        $points = collect($response->json('points'))->keyBy('month');
+        $this->assertSame(0, $points[1]['tokens']);
+        $this->assertSame(27, $points[12]['tokens']);
+    }
+
+    public function test_usage_timezone_rejects_unsupported_values(): void
+    {
+        $admin = User::factory()->create(['role' => 'Admin']);
+        $this->actingAs($admin, 'sanctum')
+            ->getJson('/api/admin/ai-usage?timezone=Europe%2FLondon')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['timezone']);
+    }
+
     public function test_cost_points_keep_each_calls_saved_estimate_after_rates_change(): void
     {
         CarbonImmutable::setTestNow('2026-07-15 04:00:00 UTC');

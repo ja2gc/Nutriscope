@@ -16,6 +16,7 @@ import {
   fetchAiUsageAnalytics,
   type AiUsageAnalytics,
   type AiUsagePoint,
+  type AiUsageTimezone,
 } from "@/services/aiUsageAnalyticsService";
 
 interface AiUsageExplorerProps {
@@ -29,9 +30,9 @@ interface AiUsageTooltipProps extends AiUsageExplorerProps {
   point?: AiUsagePoint;
 }
 
-function manilaToday(): { year: number; month: number } {
+function todayInTimezone(timezone: AiUsageTimezone): { year: number; month: number } {
   const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Manila",
+    timeZone: timezone,
     year: "numeric",
     month: "numeric",
   }).formatToParts(new Date());
@@ -124,7 +125,8 @@ function RechartsUsageTooltip({
 export function AiUsageExplorer({
   phpRate,
 }: AiUsageExplorerProps) {
-  const today = useMemo(() => manilaToday(), []);
+  const [timezone, setTimezone] = useState<AiUsageTimezone>("Asia/Manila");
+  const today = useMemo(() => todayInTimezone(timezone), [timezone]);
   const [view, setView] = useState<"month" | "year">("month");
   const [year, setYear] = useState(today.year);
   const [month, setMonth] = useState(today.month);
@@ -137,7 +139,7 @@ export function AiUsageExplorer({
     setLoading(true);
     setError(null);
 
-    void fetchAiUsageAnalytics({ view, year, month })
+    void fetchAiUsageAnalytics({ view, year, month, timezone })
       .then((response) => {
         if (active) setData(response);
       })
@@ -154,7 +156,7 @@ export function AiUsageExplorer({
     return () => {
       active = false;
     };
-  }, [month, view, year]);
+  }, [month, view, year, timezone]);
 
   function shiftPeriod(direction: -1 | 1) {
     if (view === "year") {
@@ -186,11 +188,23 @@ export function AiUsageExplorer({
             <h3 className="text-sm font-bold uppercase tracking-[0.18em] text-warm-900">
               AI Token Consumption
             </h3>
-            <p className="mt-1 text-xs text-warm-500">All users · Asia/Manila</p>
+            <p className="mt-1 text-xs text-warm-500">All users · {timezone}</p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-end gap-2">
+          <label className="grid gap-1 text-xs font-semibold text-warm-600">
+            Timezone
+            <select
+              aria-label="Usage timezone"
+              value={timezone}
+              onChange={(event) => setTimezone(event.target.value as AiUsageTimezone)}
+              className="h-11 rounded-xl border border-warm-200 bg-white px-3 text-sm text-warm-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+            >
+              <option value="Asia/Manila">Manila (UTC+8)</option>
+              <option value="UTC">UTC</option>
+            </select>
+          </label>
           <label className="grid gap-1 text-xs font-semibold text-warm-600">
             View
             <select

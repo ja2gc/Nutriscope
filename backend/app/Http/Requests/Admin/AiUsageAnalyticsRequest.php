@@ -18,6 +18,7 @@ class AiUsageAnalyticsRequest extends FormRequest
             'view' => ['sometimes', 'string', Rule::in(['month', 'year'])],
             'year' => ['sometimes', 'integer', 'between:2000,2100'],
             'month' => ['sometimes', 'integer', 'between:1,12'],
+            'timezone' => ['sometimes', 'string', Rule::in(['Asia/Manila', 'UTC'])],
         ];
     }
 }

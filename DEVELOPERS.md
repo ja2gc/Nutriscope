@@ -50,6 +50,8 @@ Read [AGENTS.md](AGENTS.md) before changes. Update only affected guides in the s
 
 Web mutation refresh behavior is owned by each screen's local loader and saved-response callback; follow the [web refresh convention](docs/developers/platform/web.md). Verified at `8a7846b3` plus the in-place update changes in this working tree (2026-10-27).
 
+Admin AI graph timezone selection is owned by `AiUsageAnalyticsController` and `AiUsageExplorer`; Manila remains the default, with UTC available for provider comparisons. AIService requires an authenticated user before a paid request. See [AI usage semantics](docs/developers/ncp/ai.md). Verified at `86a8a3a0` plus these working-tree changes (2026-10-27).
+
 Vendor receipt-total mode and amount are owned by `PurchaseOrderVendorGroup` and the vendor-group update action; see [food-service data](docs/developers/food-service/data.md). This is separate from per-item Actual Total, which derives quantity.
 
 ## If your task is not listed
