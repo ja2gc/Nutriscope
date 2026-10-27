@@ -25,6 +25,7 @@ import { clearCorrectionDraft, correctionHref, correctionKey, readCorrectionDraf
 
 const peso = (n: number | string | null) => `₱${(n ? parseFloat(String(n)) : 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 6 })}`;
 const inputCls = "w-full px-3 py-2 text-base border border-warm-200 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500";
+const priceInputValue = (value: string | null | undefined) => value?.includes(".") ? value.replace(/0+$/, "").replace(/\.$/, "") : value ?? "";
 
 const TABS: { key: FsItemKind; label: string }[] = [
   { key: "ingredient", label: "Ingredients" },
@@ -50,9 +51,10 @@ function ItemFormModal({ kind, editing, suppliers, initialDraft, initialToken, o
   const isSupply = kind === "supply";
   const savedForm: FormState = editing ? {
     name: editing.name, default_supplier_id: editing.default_supplier_id ? String(editing.default_supplier_id) : '',
-    base_unit: editing.base_unit ?? '', purchase_price: editing.purchase_price ?? '', include_in_generated_lists: editing.include_in_generated_lists,
+    base_unit: editing.base_unit ?? '', purchase_price: priceInputValue(editing.purchase_price), include_in_generated_lists: editing.include_in_generated_lists,
   } : emptyForm;
-  const [form, setForm] = useState<FormState>(initialDraft?.form ?? savedForm);
+  const initialForm = initialDraft?.form ?? savedForm;
+  const [form, setForm] = useState<FormState>({ ...initialForm, purchase_price: priceInputValue(initialForm.purchase_price) });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [affectedRecipes, setAffectedRecipes] = useState<AffectedRecipe[]>(initialDraft?.affected ?? []);

@@ -88,6 +88,18 @@ describe("Food Service inventory controls", () => {
     expect(container.textContent).toContain("Cost/unit");
   });
 
+  test.each([
+    ["2500.000000", "2500"],
+    ["0.123450", "0.12345"],
+    ["0.123456", "0.123456"],
+  ])("shows cost without insignificant trailing zeros (%s)", async (storedPrice, expected) => {
+    mockListCatalog.mockResolvedValue({ data: [{ ...item, purchase_price: storedPrice }], meta });
+    await act(async () => { root.render(<InventoryCatalogPage />); await Promise.resolve(); });
+    await act(async () => { container.querySelector<HTMLButtonElement>('button[aria-label="Edit Rice"]')?.click(); });
+
+    expect(container.querySelector<HTMLInputElement>('.fixed.inset-0 input[type="number"]')?.value).toBe(expected);
+  });
+
   test("omits category from inventory editing and table columns", async () => {
     await act(async () => { root.render(<InventoryCatalogPage />); await Promise.resolve(); });
     const edit = container.querySelector<HTMLButtonElement>('button[aria-label="Edit Rice"]');
