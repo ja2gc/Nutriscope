@@ -1104,7 +1104,14 @@ export default function NcpDiagnosisPage({
     );
   };
 
-  const aiReviewReason = aiMeta?.can_retry && aiSuggestions.length > 0 ? null : aiMeta?.disabled_reason;
+  const aiSuggestionOutcome = hasAssessment && aiMeta && !aiUnavailable && aiMeta.budget.remaining > 0
+    && !aiMeta.can_generate && (!aiMeta.can_retry || aiSuggestions.length === 0)
+    ? aiMeta.can_retry
+      ? "No additional supported nutrition diagnosis could be generated from the current assessment."
+      : "No additional applicable nutrition diagnosis was found in the current assessment."
+    : null;
+  const aiSuggestionReason = aiSuggestionOutcome || (aiMeta?.can_retry && aiSuggestions.length > 0)
+    ? null : aiMeta?.disabled_reason;
 
   const renderAiTab = () => (
     <div className="space-y-5">
@@ -1121,27 +1128,30 @@ export default function NcpDiagnosisPage({
             onClick={handleAiSuggest}
             disabled={aiLoading || !hasAssessment || !aiMeta || aiMeta.budget.remaining === 0 || Boolean(aiUnavailable)}
             aria-describedby="ai-generation-state"
-            title={aiReviewReason ?? aiUnavailable ?? undefined}
+            title={aiSuggestionReason ?? aiUnavailable ?? undefined}
             className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-xs font-extrabold uppercase tracking-wider text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-warm-300"
           >
             {aiLoading && <RefreshCw className="h-3.5 w-3.5 animate-spin" />}
-            {aiLoading ? "Generating suggestions..." : aiMeta?.can_retry ? "Retry AI Review" : "Generate AI Suggestions"}
+            {aiLoading ? "Generating suggestions..." : "Generate AI Suggestions"}
           </button>
-          {(aiReviewReason || aiUnavailable) && <InfoHint label="AI review status" title="AI review status">{aiReviewReason ?? aiUnavailable}</InfoHint>}
+          {(aiSuggestionReason || aiUnavailable) && <InfoHint label="AI suggestion status" title="AI suggestion status">{aiSuggestionReason ?? aiUnavailable}</InfoHint>}
           {aiUnavailable && <button type="button" onClick={() => { void refreshAiStatus().catch(() => setAiUnavailable("Could not load AI draft status. Try again shortly.")); }} className="min-h-11 text-xs font-semibold text-emerald-700 underline">Refresh status</button>}
         </div>
         <p id="ai-generation-state" role="status" className="mt-2 text-xs text-warm-600">
           {aiMeta?.budget && <span>{aiMeta.budget.used}/{aiMeta.budget.limit} diagnosis requests used in this 10-minute window. </span>}
-          {aiUnavailable ?? aiReviewReason}
+          {aiUnavailable ?? aiSuggestionReason}
         </p>
         {!hasAssessment && (
           <p className="text-xs font-semibold text-amber-700">Save the Assessment before requesting PES drafts.</p>
         )}
       </div>
 
-      {(aiWarning || (aiMeta?.message && aiSuggestions.length === 0)) && (
+      {aiSuggestionOutcome && (
         <div role={aiWarning ? 'alert' : undefined} className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          {aiWarning ?? aiMeta?.message}
+          <p>{aiSuggestionOutcome}</p>
+          <p className="mt-1 text-xs">{aiMeta?.can_retry
+            ? "Review the Assessment findings before trying again."
+            : "Update the Assessment when new findings are available."}</p>
         </div>
       )}
 

@@ -64,7 +64,7 @@ it("keeps the generation button visible and disabled with an explanation after t
   } });
   await open(); click("AI Review");
   expect((screen.getByRole("button", { name: "Generate AI Suggestions" }) as HTMLButtonElement).disabled).toBe(true);
-  expect(screen.getByRole("button", { name: "AI review status" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "AI suggestion status" })).toBeTruthy();
   expect(screen.getByRole("status").textContent).toContain("10/10 diagnosis requests used in this 10-minute window");
   expect(diagnoses.aiSuggestDiagnoses).not.toHaveBeenCalled();
 });
@@ -119,12 +119,17 @@ it("offers an explicit retry for rejected output without generating on page open
   const response = await vi.mocked(diagnoses.fetchPesDraftStatus)("fictional-cycle");
   vi.mocked(diagnoses.fetchPesDraftStatus).mockResolvedValue({ ...response, meta: {
     ...response.meta, can_generate: false, can_retry: true, review_outcome: "rejected",
+    message: "The response did not pass evidence checks. Retry explicitly or update the Assessment.",
     disabled_reason: "The response did not pass evidence checks. Retry explicitly or update the Assessment.",
   } });
   vi.mocked(diagnoses.aiSuggestDiagnoses).mockResolvedValue(response);
   await open(); click("AI Review");
   expect(diagnoses.aiSuggestDiagnoses).not.toHaveBeenCalled();
-  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Retry AI Review" })); });
+  expect(screen.getAllByText("No additional supported nutrition diagnosis could be generated from the current assessment.")).toHaveLength(1);
+  expect(screen.queryByText(/did not pass evidence checks/)).toBeNull();
+  expect(screen.queryByText(/No additional applicable nutrition diagnosis was found/)).toBeNull();
+  expect(screen.queryByRole("button", { name: "AI suggestion status" })).toBeNull();
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Generate AI Suggestions" })); });
   expect(diagnoses.aiSuggestDiagnoses).toHaveBeenCalledExactlyOnceWith("fictional-cycle", true);
 });
 
@@ -139,7 +144,8 @@ it("keeps Generate clickable after evidence is exhausted and warns on each reque
   expect(button.disabled).toBe(false);
   expect(diagnoses.aiSuggestDiagnoses).not.toHaveBeenCalled();
   await act(async () => { fireEvent.click(button); });
-  expect(screen.getByRole('alert').textContent).toContain('No supported evidence left.');
+  expect(screen.getByRole('alert').textContent).toContain('No additional applicable nutrition diagnosis was found in the current assessment.');
+  expect(screen.queryByText(/No supported evidence left/)).toBeNull();
   expect(button.disabled).toBe(false);
   expect(diagnoses.aiSuggestDiagnoses).toHaveBeenCalledExactlyOnceWith('fictional-cycle', false);
 });
@@ -160,8 +166,8 @@ it("shows valid partial drafts without a rejection warning while preserving expl
   await open(); click("AI Review");
   expect(screen.getByText("Food and Nutrition Knowledge Deficit")).toBeTruthy();
   expect(screen.queryByText(warning, { exact: false })).toBeNull();
-  expect(screen.queryByRole("button", { name: "AI review status" })).toBeNull();
-  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Retry AI Review" })); });
+  expect(screen.queryByRole("button", { name: "AI suggestion status" })).toBeNull();
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Generate AI Suggestions" })); });
   expect(screen.queryByText(warning, { exact: false })).toBeNull();
   expect(diagnoses.aiSuggestDiagnoses).toHaveBeenCalledExactlyOnceWith("fictional-cycle", true);
 });
