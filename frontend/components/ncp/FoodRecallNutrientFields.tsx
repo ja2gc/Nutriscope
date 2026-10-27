@@ -15,12 +15,12 @@ export function FoodRecallNutrientFields({ values, onChange, readOnly = false, r
   function select(keys: string[]) {
     onChange(Object.fromEntries(keys.map(key => [key, values[key] ?? ''])));
   }
-  return <div className="min-w-0 space-y-3">
-    {!readOnly && <div className="flex flex-wrap justify-end gap-2">
+  return <div className="w-full min-w-0 space-y-3">
+    {!readOnly && <div className="flex flex-wrap justify-start gap-2">
       <MultiSelectPopover items={INTAKE_MACROS} selected={selected.filter(key => !key.startsWith('micro_'))} required={['energy_kcal']} onChange={keys => select([...keys, ...selected.filter(key => key.startsWith('micro_'))])} triggerLabel="Display Macros" title="Choose macronutrients to display" />
       <MicronutrientToggle selected={selected.filter(key => key.startsWith('micro_')).map(key => key.slice(6))} onChange={keys => select([...selected.filter(key => !key.startsWith('micro_')), ...keys.map(key => `micro_${key}`)])} />
     </div>}
-    <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,180px),1fr))' }}>
+    <div className="grid w-full min-w-0 gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,180px),1fr))' }}>
       {fields.map(field => <div key={field.key} className="min-w-0">{renderField ? renderField(field, values[field.key], value => onChange({ ...values, [field.key]: value })) : <NumericInput label={`${field.label} intake`} unit={field.unit} value={values[field.key]} onChange={value => onChange({ ...values, [field.key]: value })} min={0} max={field.max} step={0.01} disabled={readOnly} />}</div>)}
     </div>
   </div>;

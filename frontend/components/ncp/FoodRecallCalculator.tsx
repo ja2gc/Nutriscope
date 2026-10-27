@@ -135,12 +135,12 @@ export function FoodRecallCalculator({ value, onSave, readOnly = false, compact 
 
   if (readOnly && !value) return <p className="text-xs text-warm-500">No Food Recall calculation saved for this entry.</p>;
 
-  return <section className="min-w-0 space-y-3" aria-label="Food Recall Calculator">
+  return <section className="w-full min-w-0 max-w-full space-y-3" aria-label="Food Recall Calculator">
     {guard.dialog}
     {foodRecallCoverage(value) && <dl className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs"><dt className="font-bold text-warm-600">Recall Coverage</dt><dd className="text-warm-800">{foodRecallCoverage(value)}</dd></dl>}
     {!open ? <div className="flex flex-wrap items-center justify-between gap-2">
       <button type="button" onClick={() => { setOpen(true); setNotice(null); }} aria-expanded={false} aria-controls={id} className="inline-flex min-h-10 items-center gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-600"><ChevronDown className="h-4 w-4" />Show Food Recall Calculator</button>
-    </div> : <div id={id} className="min-w-0 space-y-3 rounded-xl border border-warm-200 bg-white p-3">
+    </div> : <div id={id} className="w-full min-w-0 max-w-full space-y-3 rounded-xl border border-warm-200 bg-white p-3">
       {edit ? <FoodRecallItemEditor key={draft.days[edit.day].items[edit.index].id} item={draft.days[edit.day].items[edit.index]} readOnly={readOnly || disabled} onChange={updateItem} onBack={() => setEdit(null)} onRemove={() => { setDraft(current => ({ ...current, days: current.days.map((entry, index) => index === edit.day ? { ...entry, items: entry.items.filter((_, index) => index !== edit.index) } : entry) })); setEdit(null); }} /> : <>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2"><button type="button" aria-label="Back to food recall" title="Back to food recall" onClick={close} className="inline-flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-lg border border-warm-200 text-warm-500 hover:bg-warm-50 focus-visible:ring-2 focus-visible:ring-emerald-600"><ArrowLeft className="h-4 w-4" /></button><h3 className="text-sm font-bold text-warm-800">Food Recall Calculator</h3></div>
@@ -158,7 +158,7 @@ export function FoodRecallCalculator({ value, onSave, readOnly = false, compact 
         <MicronutrientTotals title={average ? `Daily average · ${draft.days_count} days` : draft.days.length ? `${foodRecallDayLabel(draft, day)} micronutrients` : 'Micronutrients'} selected={draft.displayed_micros} totals={microTotals} limits={limits} />
         <div className="flex min-w-0 items-stretch gap-1">
           {draft.days.length >= 7 && <button type="button" aria-label="Previous days" disabled={dayPage === 0} onClick={() => { setDayPage(dayPage - 1); setDay((dayPage - 1) * 7); }} className="shrink-0 rounded-lg text-warm-600 disabled:opacity-30 focus-visible:ring-2 focus-visible:ring-emerald-600"><ChevronLeft className="h-5 w-5" /></button>}
-          <div className="min-w-0 flex-1 overflow-x-auto rounded-lg border border-warm-200"><table aria-label="Food recall days" className="w-full table-fixed border-collapse text-left" style={{ minWidth: compact ? 980 : 1092 }}>
+          <div className="min-w-0 flex-1 overflow-x-auto overscroll-x-contain rounded-lg border border-warm-200"><table aria-label="Food recall days" className="w-full table-fixed border-collapse text-left" style={{ minWidth: compact ? 980 : 1092 }}>
             <thead><tr>{dayList.map(index => <th key={index} scope="col" aria-label={draft.days[index] ? foodRecallDayLabel(draft, index) : undefined} className="h-9 border-r border-warm-200 bg-warm-50 px-2 py-2 text-xs font-bold text-warm-600 last:border-r-0">{draft.days[index] && <div className="flex items-center justify-between gap-1"><span>{foodRecallDayLabel(draft, index)}</span>{!readOnly && <button type="button" disabled={disabled} aria-label={`Remove ${foodRecallDayLabel(draft, index)}`} onClick={() => removeDay(index)} className="inline-flex min-h-8 min-w-8 items-center justify-center rounded text-warm-500 hover:bg-warm-100 focus-visible:ring-2 focus-visible:ring-emerald-600"><X className="h-3 w-3" /></button>}</div>}</th>)}</tr></thead>
             <tbody><tr>{dayList.map(index => <td key={index} className="border-r border-t border-warm-200 p-2 align-top last:border-r-0">{draft.days[index] ? renderItems(index) : canAddOnPage && index === draft.days.length ? addDayButtons : null}</td>)}</tr></tbody>
           </table></div>

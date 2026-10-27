@@ -113,7 +113,7 @@ function optionalNumber(value: string): number | null {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <fieldset className="space-y-4 rounded-xl border border-warm-200 p-4">
+    <fieldset className="min-w-0 max-w-full space-y-4 rounded-xl border border-warm-200 p-4">
       <legend className="px-1 text-sm font-extrabold text-warm-700">{title}</legend>
       {children}
     </fieldset>
@@ -374,7 +374,7 @@ export default function LogVisitForm({ ncpId, plan, context, intervention, onSub
     ...(plan?.indicators.filter(indicator => indicator.category === 'intake' && indicator.key.startsWith('micro_')).map(indicator => indicator.key.slice(6)) ?? []),
     ...(GOAL_MICRO_FLAGS[plan?.goal_type ?? ''] ?? []),
   ]));
-  const recall = <div className="min-w-0 rounded-2xl border border-warm-200 bg-white p-3">
+  const recall = <div className="w-full min-w-0 max-w-full rounded-2xl border border-warm-200 bg-white p-3">
     <FoodRecallCalculator value={foodRecall} readOnly={readOnly} compact disabled={submitting} leaveRef={recallEditor} onDirtyChange={setRecallDirty}
       defaultMicros={trackedMicros} limits={intervention?.micronutrient_limits ?? {}}
       onSave={value => { acceptedRecall.current = value; setFoodRecall(value); }} />

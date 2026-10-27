@@ -34,6 +34,18 @@ it('starts collapsed and reuses the leave dialog to discard a replacement', asyn
   expect(screen.getByRole('button', { name: /Edit Saved rice/ })).toBeTruthy();
 });
 
+it('contains the wide day table in its own horizontal scroll region', async () => {
+  await act(async () => root.render(<FoodRecallCalculator value={plan} compact />));
+  await click('Show Food Recall Calculator');
+
+  const calculator = screen.getByRole('region', { name: 'Food Recall Calculator' });
+  const table = screen.getByRole('table', { name: 'Food recall days' });
+
+  expect(calculator.classList.contains('min-w-0')).toBe(true);
+  expect(calculator.classList.contains('max-w-full')).toBe(true);
+  expect(table.parentElement?.classList.contains('overflow-x-auto')).toBe(true);
+});
+
 it('keeps entered quantity when changing to a compatible unit and recalculates nutrients', async () => {
   await act(async () => root.render(<Editor />));
   await click('Show Food Recall Calculator');

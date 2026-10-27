@@ -26,6 +26,17 @@ it('starts with energy only and adds macros and micros in the same field grid', 
   expect(screen.queryByRole('spinbutton', { name: 'Protein intake' })).toBeNull();
 });
 
+it('keeps intake fields inside a fluid, shrinkable grid', async () => {
+  await act(async () => root.render(<Editor />));
+
+  const input = screen.getByRole('spinbutton', { name: 'Energy intake' });
+  const grid = input.closest('.grid');
+
+  expect(grid?.classList.contains('w-full')).toBe(true);
+  expect(grid?.classList.contains('min-w-0')).toBe(true);
+  expect(grid?.getAttribute('style')).toContain('auto-fit');
+});
+
 it('shows saved nutrients without selection controls in view-only entries', async () => {
   await act(async () => root.render(<FoodRecallNutrientFields values={{ energy_kcal: '1800', micro_sodium: '1200', protein_g: '' }} onChange={() => undefined} readOnly />));
   expect(screen.queryByRole('button')).toBeNull();

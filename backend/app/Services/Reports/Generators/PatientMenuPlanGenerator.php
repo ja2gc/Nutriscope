@@ -148,6 +148,7 @@ class PatientMenuPlanGenerator implements ReportGenerator
                 'nutrient_operators' => $snapshot['nutrient_operators'] ?? [],
                 'weight_target' => $snapshot['weight_target'] ?? [],
                 'calculation_snapshot' => $snapshot['calculation_snapshot'] ?? null,
+                'energy_calculation' => $this->energyCalculation($calculation, (float) ($snapshot['energy_kcal'] ?? 0)),
                 'fluid_mode' => $snapshot['fluid_mode'] ?? null,
             ],
             'fluid_balance' => [
@@ -299,5 +300,92 @@ class PatientMenuPlanGenerator implements ReportGenerator
             'lactating' => 'Final targets include the confirmed lactation adjustment.',
             default => null,
         };
+    }
+
+    /** @param array<string, mixed> $calculation */
+    private function energyCalculation(array $calculation, float $prescribedEnergy): ?string
+    {
+        $formula = $this->energyFormula($calculation);
+        $calculatedEnergy = $calculation['calculated']['energy_kcal'] ?? null;
+        if ($formula === null || ! is_numeric($calculatedEnergy)) {
+            return null;
+        }
+
+        $maternalEnergy = $this->formatCalculationNumber($calculation['maternal_energy_kcal'] ?? 0);
+        $signedAdjustment = (float) ($calculation['signed_adjustment_kcal'] ?? 0);
+        $adjustmentMode = $calculation['energy_adjustment_mode']
+            ?? ($signedAdjustment < 0 ? 'deficit' : ($signedAdjustment > 0 ? 'surplus' : 'none'));
+        $adjustment = match ($adjustmentMode) {
+            'deficit' => ' − '.$this->formatCalculationNumber(abs($signedAdjustment)).' kcal deficit',
+            'surplus' => ' + '.$this->formatCalculationNumber(abs($signedAdjustment)).' kcal surplus',
+            default => '',
+        };
+        $text = $formula.' + '.$maternalEnergy.' kcal maternal addition'.$adjustment
+            .' = '.$this->formatCalculationNumber($calculatedEnergy).' kcal/day.';
+
+        if (array_key_exists('energy_kcal', $calculation['manual_overrides'] ?? [])) {
+            $text .= ' Clinician override: '.$this->formatCalculationNumber($prescribedEnergy).' kcal/day.';
+        }
+
+        return $text;
+    }
+
+    /** @param array<string, mixed> $calculation */
+    private function energyFormula(array $calculation): ?string
+    {
+        if (is_numeric($calculation['energy_per_kg'] ?? null) && is_numeric($calculation['weight_kg'] ?? null)) {
+            return $this->formatCalculationNumber($calculation['energy_per_kg']).' kcal/kg × '
+                .$this->formatCalculationNumber($calculation['weight_kg']).' kg';
+        }
+
+        $inputs = $calculation['inputs'] ?? [];
+        if (! is_array($inputs)) {
+            return null;
+        }
+
+        $coefficients = $calculation['eer_coefficients'] ?? null;
+        if (is_array($coefficients) && count($coefficients) === 4
+            && is_numeric($calculation['growth_energy_kcal'] ?? null)
+            && is_numeric($inputs['ageYears'] ?? null)
+            && is_numeric($inputs['heightCm'] ?? null)
+            && is_numeric($inputs['weightKg'] ?? null)
+            && collect($coefficients)->every(fn ($coefficient): bool => is_numeric($coefficient))) {
+            [$constant, $ageCoefficient, $heightCoefficient, $weightCoefficient] = $coefficients;
+
+            return $this->formatCalculationNumber($constant)
+                .' + ('.$this->formatCalculationNumber($ageCoefficient).' × '.$this->formatCalculationNumber($inputs['ageYears']).' years)'
+                .' + ('.$this->formatCalculationNumber($heightCoefficient).' × '.$this->formatCalculationNumber($inputs['heightCm']).' cm)'
+                .' + ('.$this->formatCalculationNumber($weightCoefficient).' × '.$this->formatCalculationNumber($inputs['weightKg']).' kg)'
+                .' + '.$this->formatCalculationNumber($calculation['growth_energy_kcal']).' kcal growth';
+        }
+
+        if (str_contains((string) ($calculation['method'] ?? ''), 'Mifflin–St Jeor')
+            && is_numeric($inputs['weightKg'] ?? null)
+            && is_numeric($inputs['heightCm'] ?? null)
+            && is_numeric($inputs['ageYears'] ?? null)
+            && is_numeric($inputs['activityFactor'] ?? null)) {
+            $sexConstant = match ($inputs['sex'] ?? null) {
+                'Male' => '+ 5',
+                'Female' => '− 161',
+                default => null,
+            };
+            if ($sexConstant === null) {
+                return null;
+            }
+
+            return '(10 × '.$this->formatCalculationNumber($inputs['weightKg']).' kg'
+                .' + 6.25 × '.$this->formatCalculationNumber($inputs['heightCm']).' cm'
+                .' − 5 × '.$this->formatCalculationNumber($inputs['ageYears']).' years '
+                .$sexConstant.') × activity factor '.$this->formatCalculationNumber($inputs['activityFactor']);
+        }
+
+        return null;
+    }
+
+    private function formatCalculationNumber(float|int|string $value): string
+    {
+        $formatted = rtrim(rtrim(number_format((float) $value, 4, '.', ''), '0'), '.');
+
+        return str_starts_with($formatted, '-') ? '−'.substr($formatted, 1) : $formatted;
     }
 }

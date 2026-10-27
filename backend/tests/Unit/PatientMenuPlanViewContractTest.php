@@ -61,4 +61,13 @@ class PatientMenuPlanViewContractTest extends TestCase
         $this->assertStringContainsString('class="portion-row-table portion-heading-table"', $source);
         $this->assertStringContainsString('.portion-intro-block { page-break-inside: avoid; }', $layout);
     }
+
+    public function test_energy_summary_omits_baseline_label_and_renders_the_saved_calculation(): void
+    {
+        $source = file_get_contents(__DIR__.'/../../resources/views/reports/patient-menu-plan.blade.php');
+
+        $this->assertStringContainsString('Energy calculation:', $source);
+        $this->assertStringContainsString('$prescription[\'energy_calculation\']', $source);
+        $this->assertStringNotContainsString('Baseline:', $source);
+    }
 }

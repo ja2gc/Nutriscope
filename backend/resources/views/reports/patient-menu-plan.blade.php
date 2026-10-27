@@ -26,16 +26,9 @@
             <div>Target weight: @include('reports.partials.nutrient-prescription', ['limit' => [...$prescription['weight_target'], 'unit' => 'kg']])</div>
         @endif
         <div class="muted" style="margin-top:2px;">Daily prescription: ≤ maximum, ≥ minimum; unmarked amounts are targets. These are not the nutrient totals of this menu.</div>
-        @php
-            $calculation = $prescription['calculation_snapshot'] ?? null;
-        @endphp
-        @if(isset($calculation['baseline_energy_kcal'], $calculation['calculated']['energy_kcal']))
+        @if($prescription['energy_calculation'])
             <div style="margin-top:2px;">
-                Baseline: {{ number_format($calculation['baseline_energy_kcal']) }} kcal
-                + maternal addition {{ number_format($calculation['maternal_energy_kcal'] ?? 0) }} kcal
-                {{ ($calculation['signed_adjustment_kcal'] ?? 0) < 0 ? '−' : '+' }} fixed adjustment {{ number_format(abs($calculation['signed_adjustment_kcal'] ?? 0)) }} kcal
-                = calculated final {{ number_format($calculation['calculated']['energy_kcal']) }} kcal/day.
-                @if(isset($calculation['manual_overrides']['energy_kcal'])) Clinician override: {{ number_format($prescription['energy_kcal']) }} kcal/day. @endif
+                <span class="bold">Energy calculation:</span> {{ $prescription['energy_calculation'] }}
             </div>
         @endif
         <div class="muted" style="margin-top:2px;">
