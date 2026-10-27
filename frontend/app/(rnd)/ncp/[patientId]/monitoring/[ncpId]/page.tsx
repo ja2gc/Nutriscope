@@ -27,7 +27,7 @@ import { fetchPatientById, type Patient } from "@/services/patientService";
 import NcpPatientHeader from "../../../_components/NcpPatientHeader";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { NcpBreadcrumb } from "@/components/ncp/NcpBreadcrumb";
-import { Tabs } from "@/components/ui/Tabs";
+import { NcpSectionTabs } from "@/components/ncp/NcpSectionTabs";
 import { DeleteActionDialog } from "@/components/ui/DeleteActionDialog";
 import ButtonFilterGroup from "@/components/ui/ButtonFilterGroup";
 import type { IndicatorCategory } from "@/services/monitoringPlan";
@@ -314,11 +314,18 @@ export default function NcpMonitoringPage({
           {/* ── Main column (2/3 on lg+) ───────────────────────────────────── */}
           <div className="order-2 min-w-0 space-y-0 lg:order-1 lg:col-span-2">
 
-            <Tabs items={[{ key: "log", label: "Visit Log" }, { key: "progress", label: "Progress Trends" }]} value={activeTab} onChange={(tab) => { if (tab !== activeTab) leaveVisit(() => { setShowForm(false); setSelectedEntry(null); setActiveTab(tab); }); }} ariaLabel="Monitoring views" fill className="mb-6 w-full max-w-sm sm:w-fit" />
+            <NcpSectionTabs
+              items={[{ key: "log", label: "Visit Log" }, { key: "progress", label: "Progress Trends" }]}
+              value={activeTab}
+              onChange={(tab) => { if (tab !== activeTab) leaveVisit(() => { setShowForm(false); setSelectedEntry(null); setActiveTab(tab); }); }}
+              ariaLabel="Monitoring views"
+              idPrefix="monitoring"
+              className="mb-6 w-full max-w-sm sm:w-fit"
+            />
 
             {/* ── Visit Log tab ─────────────────────────────────────────── */}
             {activeTab === "log" && (
-              <div className="space-y-6">
+              <div id="monitoring-panel-log" role="tabpanel" aria-labelledby="monitoring-tab-log" className="space-y-6">
                 {!showForm && !selectedEntry && <>
                   <EncounterLog
                     entries={entries}
@@ -348,7 +355,7 @@ export default function NcpMonitoringPage({
 
             {/* ── Progress Trends tab ───────────────────────────────────── */}
             {activeTab === "progress" && (
-              <div className="space-y-6">
+              <div id="monitoring-panel-progress" role="tabpanel" aria-labelledby="monitoring-tab-progress" className="space-y-6">
                 <CarePlanHeader plan={plan} />
                 <div className="[&_button]:min-h-11"><ButtonFilterGroup label="Category" value={category} onChange={(value) => setCategory(value as IndicatorCategory | "all")} options={[
                   { value: "all", label: "All" }, { value: "anthro", label: "Anthropometric" },
@@ -369,7 +376,7 @@ export default function NcpMonitoringPage({
           </div>
 
           {/* ── Sidebar (1/3 on lg+, full-width below lg) ─────────────────── */}
-          <div className="order-1 min-w-0 space-y-5 lg:order-2">
+          <div className="order-1 min-w-0 space-y-5 lg:order-2 lg:pt-[69px]">
             {/* Monitoring record card */}
             <div className="rounded-none border-0 bg-transparent p-0 shadow-none sm:rounded-2xl sm:border sm:border-warm-200 sm:bg-white sm:p-5 sm:shadow-sm">
               <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider mb-4">

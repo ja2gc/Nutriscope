@@ -34,7 +34,7 @@ import GoalSelectorModal, { GOALS } from "./_components/GoalSelectorModal";
 import { goalLabelFor, goalsForPatient, typeLabelFor } from "./_components/goals";
 import type { GuidanceSuggestion } from "@/services/interventionService";
 import { Button } from "@/components/ui/Button";
-import { Tabs } from "@/components/ui/Tabs";
+import { NcpSectionTabs } from "@/components/ncp/NcpSectionTabs";
 import NutritionPrescriptionForm from "./_components/NutritionPrescriptionForm";
 import RecommendAvoidPanel from "./_components/RecommendAvoidPanel";
 import EducationTab from "./_components/EducationTab";
@@ -666,11 +666,17 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
       </div>
 
       {/* Tab bar */}
-      <Tabs items={TABS} value={tab} onChange={setTab} ariaLabel="Intervention sections"
-        className="mb-5 w-full overflow-x-auto [&>button]:shrink-0 [&>button]:whitespace-nowrap" />
+      <NcpSectionTabs
+        items={TABS}
+        value={tab}
+        onChange={setTab}
+        ariaLabel="Intervention sections"
+        idPrefix="intervention"
+        className="mb-5 w-full"
+      />
 
       {/* Tab content */}
-      <div className="pt-5 space-y-6">
+      <div id={`intervention-panel-${tab}`} role="tabpanel" aria-labelledby={`intervention-tab-${tab}`} className="pt-5 space-y-6">
         {tab === "plans" && (
           <InterventionPlansTab
             plans={plans}

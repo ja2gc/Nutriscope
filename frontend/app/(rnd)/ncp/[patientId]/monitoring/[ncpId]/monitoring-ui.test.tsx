@@ -70,7 +70,8 @@ describe("monitoring workflow UI", () => {
     expect(html).toContain("0/700");
     for (const label of ["Dietary Restrictions", "Intake Notes", "Symptoms and Tolerance", "Progress Assessment"]) expect(html).toContain(`aria-label="${label}"`);
     const page = readFileSync(join(process.cwd(), "app/(rnd)/ncp/[patientId]/monitoring/[ncpId]/page.tsx"), "utf8");
-    expect(page).toContain("<Tabs");
+    expect(page).toContain("<NcpSectionTabs");
+    expect(page).toContain("lg:pt-[69px]");
     expect(page).not.toContain("sticky top-0");
     expect(page).toContain("Anthropometric");
   });

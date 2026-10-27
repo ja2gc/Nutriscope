@@ -45,6 +45,9 @@ it("keeps diagnosis tabs selected in a flat, full-width mobile panel", async () 
 
   expect(tablist.parentElement?.className).toContain("border-0");
   expect(tablist.parentElement?.className).toContain("sm:border");
+  expect(tablist.parentElement?.className).toContain("bg-white");
+  expect(tablist.className).toContain("flex-nowrap");
+  expect(tablist.className).toContain("overflow-y-hidden");
   expect(panel.className).toContain("px-0");
   expect(panel.className).toContain("sm:p-5");
   expect(diagnosisTable.getAttribute("aria-selected")).toBe("true");

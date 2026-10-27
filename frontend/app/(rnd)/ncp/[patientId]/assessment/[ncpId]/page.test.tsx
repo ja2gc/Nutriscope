@@ -44,6 +44,9 @@ it("uses a full-width tab panel without a mobile card shell", async () => {
 
   expect(tablist.parentElement?.className).toContain("border-0");
   expect(tablist.parentElement?.className).toContain("sm:border");
+  expect(tablist.parentElement?.className).toContain("bg-white");
+  expect(tablist.className).toContain("flex-nowrap");
+  expect(tablist.className).toContain("overflow-y-hidden");
   expect(panel.className).toContain("p-0");
   expect(panel.className).toContain("sm:p-4");
 });

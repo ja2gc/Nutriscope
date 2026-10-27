@@ -51,7 +51,7 @@ export default function InterventionPlansTab({
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   return (
-    <section aria-labelledby="intervention-plans-heading" className="min-w-0 overflow-hidden rounded-none border-0 sm:rounded-xl sm:border sm:border-warm-200">
+    <section aria-labelledby="intervention-plans-heading" className="min-w-0 overflow-hidden rounded-none border-0 bg-white sm:rounded-xl sm:border sm:border-warm-200">
       <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-warm-200">
         <h3 id="intervention-plans-heading" className="text-sm font-bold text-warm-800">Plans</h3>
         <button
@@ -75,7 +75,7 @@ export default function InterventionPlansTab({
               key={plan.id}
               aria-current={selectedPlanId === plan.id ? "true" : undefined}
               className={`grid w-full grid-cols-1 gap-1 px-4 py-3 text-left sm:grid-cols-[10rem_1fr_auto] sm:items-center sm:gap-4 ${
-                selectedPlanId === plan.id ? "bg-warm-50" : "hover:bg-warm-50/60"
+                selectedPlanId === plan.id ? "bg-warm-50" : "bg-white hover:bg-warm-50/60"
               }`}
             >
               <time dateTime={plan.plan_date} className="text-sm font-semibold text-warm-800">

@@ -41,6 +41,7 @@ import { InfoHint } from "@/components/ui/InfoHint";
 import { NcpBreadcrumb } from "@/components/ncp/NcpBreadcrumb";
 import { validateUploadFile } from "@/lib/uploadValidation";
 import { ASSESSMENT_TEXT_LIMITS, FOOD_DISLIKE_LIMIT, FOOD_DISLIKE_MAX_ENTRIES, MEDICATION_LIMIT, ABG_LIMIT, assessmentTextError } from "@/lib/assessmentValidation";
+import { NcpSectionTabs } from "@/components/ncp/NcpSectionTabs";
 
 // ─── Constants ───────────────────────────────────────────────────────────
 const COMMON_ALLERGENS = ["milk", "eggs", "fish", "shellfish", "tree nuts", "peanuts", "wheat", "soybeans"];
@@ -1930,39 +1931,20 @@ export default function NcpAssessmentPage({
       </div>
 
       {/* Tab Navigation */}
-      <div className="rounded-none border-0 bg-transparent shadow-none sm:rounded-xl sm:border sm:border-warm-200 sm:bg-white sm:shadow-sm">
-        <div
-          role="tablist"
-          aria-label="Assessment categories"
-          className="flex overflow-x-auto border-b border-warm-200 bg-warm-50/50"
-        >
-          {TABS.map(tab => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.key;
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                aria-controls={`assessment-panel-${tab.key}`}
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex min-h-11 items-center gap-1.5 px-4 py-3 text-xs font-bold uppercase tracking-wider whitespace-nowrap border-b-2 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 ${isActive
-                    ? "text-emerald-700 border-emerald-600 bg-white"
-                    : "text-warm-500 border-transparent hover:text-warm-700 hover:bg-white/50"
-                  }`}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
+      <div className="rounded-none border-0 bg-white shadow-none sm:rounded-xl sm:border sm:border-warm-200 sm:shadow-sm">
+        <NcpSectionTabs
+          items={TABS.map(({ key, label, icon: Icon }) => ({ key, label, icon: <Icon className="h-3.5 w-3.5" /> }))}
+          value={activeTab}
+          onChange={setActiveTab}
+          ariaLabel="Assessment categories"
+          idPrefix="assessment"
+        />
 
         {/* Tab Content */}
         <div
           id={`assessment-panel-${activeTab}`}
           role="tabpanel"
+          aria-labelledby={`assessment-tab-${activeTab}`}
           className="p-0 py-4 sm:p-4 lg:p-5"
         >
           {tabContent[activeTab]}

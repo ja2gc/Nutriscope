@@ -6,6 +6,7 @@ const page = readFileSync(
   join(process.cwd(), "app/(rnd)/ncp/[patientId]/assessment/[ncpId]/page.tsx"),
   "utf8",
 );
+const ncpTabs = readFileSync(join(process.cwd(), "components/ncp/NcpSectionTabs.tsx"), "utf8");
 
 describe("Assessment page UX", () => {
   test("reuses the same counted list input as Monitoring", () => {
@@ -21,7 +22,10 @@ describe("Assessment page UX", () => {
 
   test("keeps mobile layouts single-column and navigation reachable", () => {
     expect(page).toContain("grid-cols-1");
-    expect(page).toContain("overflow-x-auto");
+    expect(page).toContain("<NcpSectionTabs");
+    expect(ncpTabs).toContain("overflow-x-auto");
+    expect(ncpTabs).toContain("overflow-y-hidden");
+    expect(ncpTabs).toContain("flex-nowrap");
     expect(page).toContain("xl:grid-cols-[");
     expect(page).toContain('aria-selected={');
   });

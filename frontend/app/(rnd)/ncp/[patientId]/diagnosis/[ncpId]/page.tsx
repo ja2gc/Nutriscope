@@ -1,6 +1,6 @@
 "use client";
 
-import React, { use, useCallback, useEffect, useRef, useState } from "react";
+import React, { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Stethoscope, User, ChevronRight,
@@ -25,6 +25,7 @@ import { InfoHint } from "@/components/ui/InfoHint";
 import { CharacterCountTextarea } from "@/components/ui/CharacterCountTextarea";
 import { NcpBreadcrumb } from "@/components/ncp/NcpBreadcrumb";
 import { paginateAiDrafts } from "@/lib/aiDraftPagination";
+import { NcpSectionTabs } from "@/components/ncp/NcpSectionTabs";
 
 // ─── Domain Metadata ─────────────────────────────────────────────────────────
 
@@ -361,7 +362,6 @@ export default function NcpDiagnosisPage({
   const isPlaceholder = patientId === "select-patient" || ncpId === "select-ncp";
 
   const [activeTab, setActiveTab] = useState<TabKey>("table");
-  const diagnosisTabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [patient, setPatient] = useState<Patient | null>(null);
   const [diagnoses, setDiagnoses] = useState<Diagnosis[]>([]);
   const [diagnosesMeta, setDiagnosesMeta] = useState<PaginationMeta | null>(null);
@@ -1270,46 +1270,18 @@ export default function NcpDiagnosisPage({
       )}
 
       {/* Tab Navigation */}
-      <div className="min-w-0 rounded-none border-0 bg-transparent shadow-none sm:rounded-xl sm:border sm:border-warm-200 sm:bg-white sm:shadow-sm">
-        <div role="tablist" aria-label="Diagnosis sections" className="flex min-w-0 overflow-x-auto border-b border-warm-200 bg-warm-50/50">
-          {TABS.map(tab => {
-            const isActive = activeTab === tab.key;
-            const isBuilderTab = ["problem", "etiology", "signs", "pes"].includes(tab.key);
-            const isEditing = builder.editingId !== null;
-            return (
-              <button
-                key={tab.key}
-                ref={element => { diagnosisTabRefs.current[TABS.findIndex(item => item.key === tab.key)] = element; }}
-                type="button"
-                role="tab"
-                id={`diagnosis-tab-${tab.key}`}
-                aria-selected={isActive}
-                aria-controls="diagnosis-panel"
-                tabIndex={isActive ? 0 : -1}
-                onClick={() => setActiveTab(tab.key)}
-                onKeyDown={event => {
-                  if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
-                  event.preventDefault();
-                  const currentIndex = TABS.findIndex(item => item.key === tab.key);
-                  const direction = event.key === "ArrowRight" ? 1 : -1;
-                  const nextIndex = (currentIndex + direction + TABS.length) % TABS.length;
-                  setActiveTab(TABS[nextIndex].key);
-                  diagnosisTabRefs.current[nextIndex]?.focus();
-                }}
-                className={`relative flex items-center gap-1.5 px-4 py-3 text-xs font-bold uppercase tracking-wider whitespace-nowrap border-b-2 transition-all cursor-pointer ${
-                  isActive
-                    ? "text-emerald-700 border-emerald-600 bg-white"
-                    : "text-warm-500 border-transparent hover:text-warm-700 hover:bg-white/50"
-                }`}
-              >
-                {tab.label}
-                {isBuilderTab && isEditing && (
-                  <span className="absolute top-1 right-1 h-1.5 w-1.5 bg-amber-400 rounded-full" />
-                )}
-              </button>
-            );
-          })}
-        </div>
+      <div className="min-w-0 rounded-none border-0 bg-white shadow-none sm:rounded-xl sm:border sm:border-warm-200 sm:shadow-sm">
+        <NcpSectionTabs
+          items={TABS.map(tab => ({
+            ...tab,
+            marker: builder.editingId !== null && ["problem", "etiology", "signs", "pes"].includes(tab.key),
+          }))}
+          value={activeTab}
+          onChange={setActiveTab}
+          ariaLabel="Diagnosis sections"
+          idPrefix="diagnosis"
+          panelId="diagnosis-panel"
+        />
 
         <div id="diagnosis-panel" role="tabpanel" aria-labelledby={`diagnosis-tab-${activeTab}`} tabIndex={0} className="px-0 py-4 sm:p-5">
           {tabContent[activeTab]}
