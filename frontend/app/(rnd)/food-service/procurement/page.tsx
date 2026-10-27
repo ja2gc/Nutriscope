@@ -895,9 +895,9 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
         </div>
         {po.lifecycle_status !== "open_execution" && po.actual_budget_per_head_per_day != null && (
           <div className="ml-auto flex flex-col items-end">
-            <span className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">Food purchase cost per served patient-day</span>
+            <span className="text-xs font-extrabold text-warm-500 uppercase tracking-wider">Average cost per served patient-day</span>
             <span className="text-2xl font-extrabold text-emerald-700">{peso(num(po.actual_budget_per_head_per_day))}</span>
-            <span className="text-xs text-warm-400">final total ÷ total served population</span>
+            <span className="text-xs text-warm-400">final total ÷ actual served population</span>
           </div>
         )}
       </div>
@@ -1275,7 +1275,7 @@ export default function ProcurementPage() {
           </h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <div>
-              <DatePicker calendar label="Start date" value={genStartDate} disabled={availabilityLoading} isDateDisabled={dateOccupied} onChange={(next) => {
+              <DatePicker label="Start date" value={genStartDate} disabled={availabilityLoading} isDateDisabled={dateOccupied} onChange={(next) => {
                 setGenStartDate(next);
                 if (genEndDate < next) setGenEndDate(next);
               }} />

@@ -87,12 +87,14 @@ class ProgramProjectActivityGenerator implements ReportGenerator
             abort_unless($start && $end, 404, 'Purchase order has no procurement span.');
 
             $output = (int) ($ppa->actual_output_patients ?? 0);
+            $totalCost = round((float) ($ppa->actual_total_cost ?? $po->total_amount ?? 0), 2);
 
             return [
                 'activity' => $ppa->activity ?: 'Food Subsistence for Patients',
                 'cycle' => null,
                 'menu_days' => $this->menuDaysForRange($start, $end),
-                'total_cost' => round((float) ($ppa->actual_total_cost ?? $po->total_amount ?? 0), 2),
+                'total_cost' => $totalCost,
+                'average_cost_per_head' => $output > 0 ? self::averageCostPerHead($totalCost, $output) : null,
                 'population' => $output,
                 'output_label' => number_format($output).' Patients (actual served)',
                 'inclusive_start' => $start,
@@ -123,6 +125,7 @@ class ProgramProjectActivityGenerator implements ReportGenerator
             $isFinal = $ppa->execution_frozen_at !== null;
             $total = (float) ($isFinal ? $ppa->actual_total_cost : $ppa->estimated_total_cost);
             $output = (int) ($isFinal ? $ppa->actual_output_patients : $ppa->estimated_output_patients);
+            $averageCostPerHead = $isFinal && $output > 0 ? self::averageCostPerHead($total, $output) : null;
             $outLabel = number_format($output).' Patients'.($isFinal ? ' (actual served)' : ' (estimated)');
         } else {
             // No PO yet — fall back to the cycle's frozen cost snapshot (never a live
@@ -134,6 +137,7 @@ class ProgramProjectActivityGenerator implements ReportGenerator
                 $total += $dayCosts[$c['day_of_week']]['cost'] ?? 0.0;
             }
             $output = (int) round($cycle->days->whereNotNull('estimate_population')->avg('estimate_population') ?? 0);
+            $averageCostPerHead = null;
             $outLabel = number_format($output).' Patients (estimated)';
         }
 
@@ -142,12 +146,18 @@ class ProgramProjectActivityGenerator implements ReportGenerator
             'cycle' => $cycle,
             'menu_days' => $menuDays,
             'total_cost' => round($total, 2),
+            'average_cost_per_head' => $averageCostPerHead,
             'population' => $output,
             'output_label' => $outLabel,
             'inclusive_start' => $start,
             'inclusive_end' => $end,
             'inclusive_label' => Carbon::parse($start)->format('m/d/y').'-'.Carbon::parse($end)->format('m/d/y'),
         ];
+    }
+
+    public static function averageCostPerHead(float $totalCost, int $servedPopulation): ?float
+    {
+        return $servedPopulation > 0 ? round($totalCost / $servedPopulation, 2) : null;
     }
 
     /** @return array{0:string,1:string} [start, end] Y-m-d */

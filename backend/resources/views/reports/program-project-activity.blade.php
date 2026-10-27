@@ -36,5 +36,14 @@
         </tbody>
     </table>
 
+    <p class="right bold" style="margin-top:8px;">
+        Average cost per served patient-day:
+        @if($average_cost_per_head !== null)
+            ₱ {{ number_format($average_cost_per_head, 2) }}
+        @else
+            —
+        @endif
+    </p>
+
     @include('reports.partials.signatories')
 @endsection

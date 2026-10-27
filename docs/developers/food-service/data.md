@@ -1,6 +1,6 @@
 # Food-service data meaning
 
-Verified against committed source: `d873ea2f3fec63a089bc70c6948f1611ae553d7b` plus the receipt-total change in this working tree (2026-10-23).
+Verified against committed source: `53771e2c8add7cfe001f0de793a563f74030f1fb` plus the PPA average-cost consumer change in this working tree (2026-10-27).
 
 Purpose: distinguish operational planning, purchasing, receiving and completed history. It covers both web and FSS-mobile consumers; see [workflow owners](README.md) and [mobile](mobile.md).
 
@@ -15,6 +15,7 @@ Purpose: distinguish operational planning, purchasing, receiving and completed h
 | PurchaseOrderItem.actual_qty / actual_unit_price | Receiving values, distinct from planned snapshots; [PurchaseOrderItem](../../../backend/app/Models/PurchaseOrderItem.php), [ReceivingService](../../../backend/app/Services/FSS/ReceivingService.php), [PurchaseOrderLifecycleService](../../../backend/app/Services/FSS/PurchaseOrderLifecycleService.php). Actual quantity casts to decimal:3, unit price to decimal:6; totals use their own precision |
 | PO/vendor-group status, receipts/proof and completion | Evidence presence and confirmed receiving are separate steps. Trace lifecycle service and [PurchaseOrderController](../../../backend/app/Http/Controllers/FSS/PurchaseOrderController.php); uploading a file alone must not be treated as completion |
 | po_snapshot, po_snapshot_at, po_snapshot_locked | Stored menu-day PO context; inspect snapshot writer and report consumers before replacing it with current catalog values |
+| ProgramProjectActivity.actual_total_cost / actual_output_patients | On food PO completion, [PurchaseOrderLifecycleService](../../../backend/app/Services/FSS/PurchaseOrderLifecycleService.php) freezes actual cost and actual served head-days. The PPA report calculates average cost per served patient-day as actual_total_cost ÷ actual_output_patients, rounded to cents; it shows no actual average when served head-days are zero or the snapshot is still estimated. The PO detail uses `actual_budget_per_head_per_day` from the same actual values. |
 | DietListCount.population, collected_ward_diet_lists, apportioned_distributed_meals, off_duty | Separate persisted attendance/accomplishment fields; [DietListCount](../../../backend/app/Models/DietListCount.php) defines casts. Their UI/workflow meaning must be traced through [DietListCountController](../../../backend/app/Http/Controllers/FSS/DietListCountController.php) and [ConsumptionService](../../../backend/app/Services/FSS/ConsumptionService.php); similar labels are not aliases |
 | Budget.fiscal_year, allocated_amount, per_head_day_limit and ledger entries | [Budget](../../../backend/app/Models/Budget.php) links ledger by fiscal_year and computes remainingBalance from allocation + manual additions − PO/manual deductions, rounded to two decimals. [BudgetLedgerListener](../../../backend/app/Listeners/BudgetLedgerListener.php) owns completion deductions; per-head limits are separate from balance |
 

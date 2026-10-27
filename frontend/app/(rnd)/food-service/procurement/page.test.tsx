@@ -84,12 +84,6 @@ function setInputValue(input: HTMLInputElement, value: string) {
   input.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
-function setSelectValue(select: HTMLSelectElement, value: string) {
-  const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set;
-  setter?.call(select, value);
-  select.dispatchEvent(new Event("change", { bubbles: true }));
-}
-
 describe("Food Service procurement display", () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -194,17 +188,21 @@ describe("Food Service procurement display", () => {
     await act(async () => { edit?.click(); await Promise.resolve(); await Promise.resolve(); });
   }
 
-  async function chooseSuggestedStart() {
-    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Start date"]')!.click());
+  async function chooseCalendarDate(label: string, date: string) {
+    await act(async () => container.querySelector<HTMLButtonElement>(`[aria-label="${label}"]`)!.click());
     await act(async () => {
       const year = document.querySelector<HTMLSelectElement>('[aria-label="Calendar year"]')!;
-      year.value = '2026'; year.dispatchEvent(new Event('change', { bubbles: true }));
+      year.value = date.slice(0, 4); year.dispatchEvent(new Event('change', { bubbles: true }));
     });
     await act(async () => {
       const month = document.querySelector<HTMLSelectElement>('[aria-label="Calendar month"]')!;
-      month.value = '10'; month.dispatchEvent(new Event('change', { bubbles: true }));
+      month.value = String(Number(date.slice(5, 7))); month.dispatchEvent(new Event('change', { bubbles: true }));
     });
-    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="2026-10-04"]')!.click());
+    await act(async () => document.querySelector<HTMLButtonElement>(`[aria-label="${date}"]`)!.click());
+  }
+
+  async function chooseSuggestedStart() {
+    await chooseCalendarDate("Start date", "2026-10-04");
   }
 
   async function openList(list = makeList()) {
@@ -239,11 +237,7 @@ describe("Food Service procurement display", () => {
     await act(async () => { action?.click(); });
     expect(mockCreateShoppingList).not.toHaveBeenCalled();
 
-    await act(async () => {
-      setSelectValue(container.querySelector<HTMLSelectElement>('select[aria-label="Procurement date month"]')!, "10");
-      setSelectValue(container.querySelector<HTMLSelectElement>('select[aria-label="Procurement date day"]')!, "4");
-      setSelectValue(container.querySelector<HTMLSelectElement>('select[aria-label="Procurement date year"]')!, "2026");
-    });
+    await chooseCalendarDate("Procurement date", "2026-10-04");
     const create = container.querySelector<HTMLButtonElement>('button[aria-label="Create manual shopping list"]');
     await act(async () => { create?.click(); await Promise.resolve(); await Promise.resolve(); });
 
@@ -267,11 +261,7 @@ describe("Food Service procurement display", () => {
       .find((candidate) => candidate.textContent?.includes("New supplies list"));
     await act(async () => { open?.click(); });
     expect(mockCreateShoppingList).not.toHaveBeenCalled();
-    await act(async () => {
-      setSelectValue(container.querySelector<HTMLSelectElement>('select[aria-label="Procurement date month"]')!, "10");
-      setSelectValue(container.querySelector<HTMLSelectElement>('select[aria-label="Procurement date day"]')!, "4");
-      setSelectValue(container.querySelector<HTMLSelectElement>('select[aria-label="Procurement date year"]')!, "2026");
-    });
+    await chooseCalendarDate("Procurement date", "2026-10-04");
     await act(async () => { container.querySelector<HTMLButtonElement>('button[aria-label="Create manual shopping list"]')?.click(); await Promise.resolve(); });
     expect(mockCreateShoppingList).toHaveBeenCalledWith(expect.objectContaining({
       name: "Cleaning supplies", list_date: "2026-10-04", procurement_track: "supplies",
@@ -739,6 +729,31 @@ describe("Food Service procurement display", () => {
     expect(currentTotalContent?.textContent).toContain("Current total");
     expect(currentTotalContent?.textContent).toContain("₱700.00");
     expect(currentTotalContent?.textContent).not.toContain("₱642.50");
+  });
+
+  test("shows average cost per served patient-day from actual population on completed POs", async () => {
+    await renderPage();
+    await openPurchaseOrder({
+      lifecycle_status: "completed",
+      current_total_amount: 200,
+      actual_budget_per_head_per_day: "1.43",
+      served_population_progress: { expected: 2, done: 2, served: 140 },
+      ppa: {
+        id: 1,
+        activity: "Food Subsistence for Patients",
+        menu_snapshot: null,
+        target_date_range: "06/01/26 - 06/02/26",
+        estimated_total_cost: "200.00",
+        estimated_output_patients: 200,
+        actual_total_cost: "200.00",
+        actual_output_patients: 140,
+        execution_frozen_at: "2026-06-02T12:00:00.000Z",
+      },
+    });
+
+    expect(container.textContent).toContain("Average cost per served patient-day");
+    expect(container.textContent).toContain("final total ÷ actual served population");
+    expect(container.textContent).toContain("1.43");
   });
 
   test("shows editable actual values and keeps the Shopping List unit locked", async () => {

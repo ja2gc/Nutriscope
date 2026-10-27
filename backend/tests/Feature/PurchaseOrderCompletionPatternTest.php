@@ -19,6 +19,7 @@ use App\Models\Supplier;
 use App\Models\User;
 use App\Services\FSS\PurchaseOrderLifecycleService;
 use App\Services\Reports\Generators\ProcurementPackGenerator;
+use App\Services\Reports\Generators\ProgramProjectActivityGenerator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -160,7 +161,7 @@ class PurchaseOrderCompletionPatternTest extends TestCase
         MealPrepLog::factory()->create([
             'menu_cycle_id' => $cycle->id,
             'service_date' => '2026-06-02',
-            'served_population' => 120,
+            'served_population' => 60,
             'status' => 'completed',
             'completed_by' => $fss->id,
         ]);
@@ -172,7 +173,7 @@ class PurchaseOrderCompletionPatternTest extends TestCase
         $this->assertNotNull($group->fresh()->stocked_at);
         $this->assertSame(20.0, (float) $item->fresh()->purchase_price);
         $this->assertSame($supplier->id, $item->fresh()->default_supplier_id);
-        $this->assertSame('1.00', $po->actual_budget_per_head_per_day);
+        $this->assertSame('1.43', $po->actual_budget_per_head_per_day);
         $deduction = BudgetLedger::query()->where('purchase_order_id', $po->id)->where('type', 'po_deduction')->sole();
         $this->assertSame(2026, $deduction->fiscal_year);
         $this->assertEqualsWithDelta(200, (float) $deduction->amount, 0.01);
@@ -181,6 +182,15 @@ class PurchaseOrderCompletionPatternTest extends TestCase
         $this->assertSame(1, Report::query()->where('type', 'procurement_pack')->where('parameters->purchase_order_id', $po->id)->count());
         $this->assertSame(1, Report::query()->where('type', 'program_project_activity')->where('parameters->purchase_order_id', $po->id)->count());
         $originalPack = Report::query()->where('type', 'procurement_pack')->where('parameters->purchase_order_id', $po->id)->sole();
+        $originalPpa = Report::query()->where('type', 'program_project_activity')->where('parameters->purchase_order_id', $po->id)->sole();
+        $ppaGenerator = app(ProgramProjectActivityGenerator::class);
+        $ppaData = $ppaGenerator->data($originalPpa);
+        $this->assertSame(140, $ppaData['population']);
+        $this->assertSame(1.43, $ppaData['average_cost_per_head']);
+        $ppaHtml = view($ppaGenerator->view(), $ppaData)->render();
+        $this->assertStringContainsString('Average cost per served patient-day', $ppaHtml);
+        $this->assertStringContainsString('₱ 1.43', $ppaHtml);
+
         $originalBranding = $originalPack->snapshot['branding']['hospital_name'];
         $originalDirector = $originalPack->snapshot['signatories'][0]['name'];
         $originalInspector = app(ProcurementPackGenerator::class)->data($originalPack)['air_signatories'][0]['name'];
@@ -191,7 +201,6 @@ class PurchaseOrderCompletionPatternTest extends TestCase
         $this->assertSame($frozenBytes, $view->streamedContent());
         $download = $this->actingAs($rnd)->get("/api/rnd/reports/{$originalPack->uuid}/download")->assertOk();
         $this->assertSame($frozenBytes, $download->streamedContent());
-        $originalPpa = Report::query()->where('type', 'program_project_activity')->where('parameters->purchase_order_id', $po->id)->sole();
         $frozenPpaBytes = Storage::disk($originalPpa->officialFile->storage_disk)->get($originalPpa->officialFile->object_key);
         $originalPpa->forceFill(['cache_expires_at' => now()->subMinute()])->save();
         $ppaView = $this->actingAs($rnd)->get("/api/rnd/reports/{$originalPpa->uuid}/view")->assertOk();
@@ -228,7 +237,7 @@ class PurchaseOrderCompletionPatternTest extends TestCase
         $this->assertSame([
             'expected' => 2,
             'done' => 2,
-            'served' => 200,
+            'served' => 140,
         ], $payload['served_population_progress']);
     }
 }

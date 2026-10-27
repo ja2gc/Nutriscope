@@ -873,7 +873,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
         ].map((f) => (
           <div key={f.label}>
             <label className="block text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-1">{f.label}</label>
-            <DatePicker calendar ariaLabel="Week start" value={f.value} onChange={f.set} disabled={planReadOnly || !weekAvailabilityReady} isDateDisabled={(date) => new Date(`${date}T00:00:00Z`).getUTCDay() !== 1 || occupiedWeeks.some((week) => date >= week && date <= addCalendarDays(week, 6))} />
+            <DatePicker ariaLabel="Week start" value={f.value} onChange={f.set} disabled={planReadOnly || !weekAvailabilityReady} isDateDisabled={(date) => new Date(`${date}T00:00:00Z`).getUTCDay() !== 1 || occupiedWeeks.some((week) => date >= week && date <= addCalendarDays(week, 6))} />
             {weekAvailabilityError && <p role="alert" className="mt-1 text-sm text-red-700">{weekAvailabilityError}</p>}
           </div>
         ))}

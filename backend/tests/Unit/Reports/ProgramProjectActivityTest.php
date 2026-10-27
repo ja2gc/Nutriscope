@@ -61,4 +61,14 @@ class ProgramProjectActivityTest extends TestCase
         $this->assertSame('2026-06-05', $cal[0]['date']);
         $this->assertSame('2026-06-08', $cal[3]['date']);
     }
+
+    public function test_actual_average_cost_per_head_uses_served_population(): void
+    {
+        $this->assertSame(1.43, ProgramProjectActivityGenerator::averageCostPerHead(200, 140));
+    }
+
+    public function test_average_cost_per_head_is_unavailable_without_served_population(): void
+    {
+        $this->assertNull(ProgramProjectActivityGenerator::averageCostPerHead(200, 0));
+    }
 }
