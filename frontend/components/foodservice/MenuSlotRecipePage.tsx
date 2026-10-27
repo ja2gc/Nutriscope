@@ -13,6 +13,7 @@ import { numericStepBase } from "@/components/ui/NumericInput";
 import { InfoHint } from "@/components/ui/InfoHint";
 import { formatFoodServiceNumber, quantityInputValue } from "@/lib/foodServiceFormat";
 import { compatibleRecipeUnits } from "@/lib/foodServiceUnits";
+import { rescalePortion } from '@/lib/recipePortions';
 import { listCatalog, type CatalogItem } from "@/services/fsCatalogService";
 import {
   getMenuSlotRecipe,
@@ -30,7 +31,7 @@ import {
 } from "@/services/menuCycleService";
 
 type DraftIngredient = Pick<MenuSlotIngredient, "fs_item_id" | "name" | "quantity" | "unit" | "inventory_unit" | "include_in_generated_lists" | "adjust_to_taste">;
-type Draft = Pick<MenuSlotRecipe, "name" | "reference_servings" | "prep_notes"> & {
+type Draft = Pick<MenuSlotRecipe, "name" | "reference_servings" | "prep_notes" | "portion_multiplier"> & {
   ingredients: DraftIngredient[];
 };
 
@@ -38,6 +39,7 @@ function draftFrom(data: MenuSlotRecipe): Draft {
   return {
     name: data.name,
     reference_servings: data.reference_servings,
+    portion_multiplier: data.portion_multiplier ?? 1,
     prep_notes: data.prep_notes,
     ingredients: data.ingredients.map(({ fs_item_id, name, quantity, unit, inventory_unit, include_in_generated_lists, adjust_to_taste }) => ({ fs_item_id, name, quantity, unit, inventory_unit, include_in_generated_lists, adjust_to_taste: adjust_to_taste ?? false })),
   };
@@ -203,6 +205,12 @@ export function MenuSlotRecipePage({ backHref, lineId }: { backHref: string; lin
             <span className="mb-1 block text-xs font-extrabold uppercase tracking-wider text-warm-500">Recipe makes</span>
             <div className="flex items-center gap-2"><input required type="number" min={1} value={draft.reference_servings} readOnly={!canEdit} onChange={(event) => setDraft({ ...draft, reference_servings: Math.max(1, Number(event.target.value)) })} className="min-h-11 w-full rounded-lg border border-warm-200 px-3 text-base read-only:bg-warm-50 focus:outline-none focus:ring-2 focus:ring-emerald-500" /><span className="text-sm text-warm-500">servings</span></div>
           </label>}
+          {canEdit && <label><span className="mb-1 block text-xs font-extrabold uppercase tracking-wider text-warm-500">Portion multiplier</span><input aria-label="Portion multiplier" type="number" min={numericStepBase(String(draft.portion_multiplier ?? 1), 0.000001)} max={100000} step="0.1" required value={draft.portion_multiplier ?? 1} disabled={data.can_scale === false} onChange={event => {
+            const next = Number(event.target.value);
+            if (!(next > 0)) return;
+            try { const ingredients = rescalePortion(draft.ingredients.map(row => ({ ...row, quantity: Number(row.quantity) })), draft.portion_multiplier ?? 1, next); setDraft({ ...draft, ingredients, portion_multiplier: next }); setError(''); }
+            catch (cause) { setError(cause instanceof Error ? cause.message : 'Correct the recipe baseline before scaling.'); }
+          }} className="min-h-11 w-full rounded-lg border border-warm-200 px-3 text-base" />{data.can_scale === false && <span className="text-sm text-amber-700">Set measured ingredient quantities and a valid recipe yield before scaling.</span>}</label>}
           <div><span className="mb-1 block text-xs font-extrabold uppercase tracking-wider text-warm-500">Purchase estimate</span><div className="flex min-h-11 items-center rounded-lg border border-warm-200 bg-warm-50 px-3 text-base font-semibold text-warm-800">{data.purchase_estimate_set ? `${data.planned_servings} servings` : "Not set"}</div><span className="mt-1 block text-xs text-warm-400">Set once when generating the shopping list.</span></div>
         </section>
 
@@ -244,7 +252,7 @@ export function MenuSlotRecipePage({ backHref, lineId }: { backHref: string; lin
 
         <section className="flex flex-col gap-3 rounded-2xl border border-warm-200 bg-warm-50 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div><p className="text-xs font-extrabold uppercase tracking-wider text-warm-500">Purchase estimate</p>{data.total_cost == null ? <p className="text-xl font-extrabold text-warm-500">Not set</p> : <p className="text-xl font-extrabold text-emerald-700">{peso(data.total_cost)} <span className="text-sm font-semibold text-warm-500">· {peso(data.cost_per_head ?? 0)} / serving</span></p>}</div>
-          {canEdit && <div className="flex flex-wrap gap-2">{data.source === "custom" && (confirmRestore ? <><Button type="button" variant="danger" onClick={restore} disabled={saving}>Confirm restore</Button><Button type="button" variant="ghost" onClick={() => setConfirmRestore(false)}>Cancel</Button></> : <Button type="button" variant="secondary" onClick={() => setConfirmRestore(true)}><RotateCcw className="mr-2 h-4 w-4" /> Use original recipe</Button>)}<Button type="submit" loading={saving}>Save slot changes</Button></div>}
+          {canEdit && <div className="flex flex-wrap gap-2">{data.source === "custom" && (confirmRestore ? <><Button type="button" variant="danger" onClick={restore} disabled={saving}>Confirm reset</Button><Button type="button" variant="ghost" onClick={() => setConfirmRestore(false)}>Cancel</Button></> : <Button type="button" variant="secondary" onClick={() => setConfirmRestore(true)}><RotateCcw className="mr-2 h-4 w-4" /> Reset recipe</Button>)}<Button type="submit" loading={saving}>Save slot changes</Button></div>}
         </section>
       </form>
     </div>

@@ -1,6 +1,7 @@
 import { FlaskConical } from "lucide-react";
+import type { ReactNode } from "react";
 
-interface MacroTarget { label: string; current: number; target: number; unit: string; operator?: 'min' | 'max' }
+interface MacroTarget { label: string; current: number | null; target: number; unit: string; operator?: 'min' | 'max' }
 
 interface Props {
   targets: MacroTarget[];
@@ -9,6 +10,7 @@ interface Props {
   hasMicros?: boolean;
   className?: string;
   showWithoutTargets?: boolean;
+  children?: ReactNode;
 }
 
 function statusColor(current: number, target: number, operator?: 'min' | 'max'): string {
@@ -27,17 +29,17 @@ export default function MacroTrackerBar({
   hasMicros = false,
   className = "",
   showWithoutTargets = false,
+  children,
 }: Props) {
-  const foodTargets = targets.filter((target) => target.label !== "Fluid");
-  if (!showWithoutTargets && foodTargets.every((target) => target.target <= 0)) return null;
+  if (!showWithoutTargets && targets.every((target) => target.target <= 0)) return null;
   return (
     <div className={`flex flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3 bg-white border border-warm-200 rounded-xl ${className}`}>
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1 flex-1 min-w-0">
-        {foodTargets.map(({ label, current, target, unit, operator }) => (
+        {targets.map(({ label, current, target, unit, operator }) => (
           <div key={label} className="flex items-baseline gap-1">
             <span className="text-xs font-bold text-warm-400 uppercase tracking-wider">{label}</span>
-            <span className={`text-base font-extrabold font-mono ${showWithoutTargets && target <= 0 ? 'text-warm-900' : statusColor(current, target, operator)}`}>
-              {Math.round(current)}
+            <span className={`text-base font-extrabold font-mono ${current === null ? 'text-warm-500' : label === 'Fluid' || (showWithoutTargets && target <= 0) ? 'text-warm-900' : statusColor(current, target, operator)}`}>
+              {current === null ? 'Not recorded' : Math.round(current)}
             </span>
             <span className="text-xs text-warm-500">{target > 0 && <>/ {operator === 'max' ? '≤' : operator === 'min' ? '≥' : ''}{Math.round(target)} </>}{unit}</span>
           </div>
@@ -55,6 +57,7 @@ export default function MacroTrackerBar({
           <FlaskConical className="h-3 w-3" /> Micros
         </button>
       )}
+      {children && <div className="w-full border-t border-warm-100 pt-2">{children}</div>}
     </div>
   );
 }

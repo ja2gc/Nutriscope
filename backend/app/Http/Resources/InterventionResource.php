@@ -12,6 +12,8 @@ class InterventionResource extends JsonResource
     {
         return [
             'id' => $this->uuid,
+            'nutrition_support' => $this->nutrition_support,
+            'formula_items' => $this->formula_items ?? [],
             'goal_type' => $this->goal_type,
             'disease_stage' => $this->disease_stage,
             'energy_adjustment_mode' => $this->energy_adjustment_mode,

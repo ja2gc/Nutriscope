@@ -93,6 +93,7 @@ export interface ReportInstance {
 }
 
 export interface CensusSummary {
+  by_nutrition_support?: Record<string, number>;
   year: number;
   month: number | null;
   label: string;

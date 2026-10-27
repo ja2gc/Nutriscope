@@ -27,11 +27,12 @@ class Intervention extends Model
         'nutrient_operators', 'weight_target',
         'barriers', 'strategies', 'session_type',
         'next_followup_date', 'energy_adjustment_mode', 'energy_adjustment_kcal', 'fluid_mode',
-        'calculation_options', 'calculation_snapshot',
+        'calculation_options', 'calculation_snapshot', 'nutrition_support', 'formula_items',
     ];
 
     protected $casts = [
         'displayed_nutrients' => 'array',
+        'formula_items' => 'array',
         'micronutrient_limits' => 'array',
         'nutrient_operators' => 'array',
         'weight_target' => 'array',
@@ -65,7 +66,7 @@ class Intervention extends Model
             'micronutrient_limits', 'education_notes', 'counseling_goals', 'barriers',
             'nutrient_operators', 'weight_target',
             'strategies', 'session_type', 'next_followup_date',
-            'energy_adjustment_mode', 'energy_adjustment_kcal', 'fluid_mode', 'calculation_options', 'calculation_snapshot',
+            'energy_adjustment_mode', 'energy_adjustment_kcal', 'fluid_mode', 'calculation_options', 'calculation_snapshot', 'nutrition_support', 'formula_items',
         ];
     }
 
@@ -87,6 +88,21 @@ class Intervention extends Model
     public function mealPlan(): HasOne
     {
         return $this->hasOne(MealPlan::class);
+    }
+
+    public function reportPlanAvailable(): bool
+    {
+        return match ($this->nutrition_support ?? 'oral') {
+            'tube_feeding' => ! empty($this->formula_items),
+            'no_food_menu' => true,
+            default => $this->mealPlan !== null,
+        };
+    }
+
+    public function reportUnavailableReason(): ?string
+    {
+        return $this->reportPlanAvailable() ? null : ($this->nutrition_support === 'tube_feeding'
+            ? 'Save at least one formula before preparing this report.' : 'Save a menu plan before preparing this report.');
     }
 
     /**

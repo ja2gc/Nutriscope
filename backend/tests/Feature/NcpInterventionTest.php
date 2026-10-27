@@ -122,6 +122,7 @@ class NcpInterventionTest extends TestCase
     private function ncpRecord(Patient $patient, User $rnd): NcpRecord
     {
         return NcpRecord::forceCreate([
+            'nutrition_support' => 'oral',
             'patient_id' => $patient->id,
             'rnd_user_id' => $rnd->id,
             'type' => 'new',

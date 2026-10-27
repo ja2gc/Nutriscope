@@ -207,6 +207,8 @@ class MealPlanItemController extends Controller
             'ingredients.*.unit' => ['required', 'string', 'max:50'],
         ]);
 
+        $original = $item->nutrient_snapshot['recipe_reset_baseline'] ?? $item->nutrient_snapshot;
+        $originalQuantity = $item->nutrient_snapshot['recipe_reset_quantity'] ?? (float) $item->quantity;
         if (isset($validated['ingredients'])) {
             abort_unless($item->recipe_id, 422, 'Only recipe Menu Items have editable Ingredients.');
             try {
@@ -221,6 +223,9 @@ class MealPlanItemController extends Controller
             }
         }
 
+        if ($item->recipe_id && $original) {
+            $item->nutrient_snapshot = [...$item->nutrient_snapshot, 'recipe_reset_baseline' => $original, 'recipe_reset_quantity' => $originalQuantity];
+        }
         $this->audited(function () use ($item, $validated, $mealPlan, $ncpRecord): void {
             $item->fill(array_intersect_key($validated, array_flip(['quantity', 'unit'])));
             $item->save();

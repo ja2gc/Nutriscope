@@ -131,6 +131,8 @@ export interface MenuSlotIngredient {
 }
 
 export interface MenuSlotRecipe {
+  portion_multiplier?: number;
+  can_scale?: boolean;
   id: string;
   cycle_id: string;
   day: Day;

@@ -116,15 +116,15 @@ describe("Food Library USDA search", () => {
     expect(container.querySelector('[role="tablist"][aria-label="Food Library sections"]')).not.toBeNull();
     expect(tabs[0].getAttribute('aria-selected')).toBe('true');
     expect(container.querySelector('[aria-label="Food Library sections"]')?.className).not.toContain('overflow-x-auto');
-    expect(tabs.map((tab) => tab.textContent)).toEqual(["Ingredients", "Menu Items", "Templates"]);
+    expect(tabs.map((tab) => tab.textContent)).toEqual(["Ingredients", "Menu Items", "Templates", "Food Calculator"]);
     const ingredientFilters = container.querySelector('[aria-label="Ingredient groups"]')!;
     expect(Array.from(ingredientFilters.querySelectorAll("button")).map((button) => button.textContent)).toEqual(["All", "protein", "carbs", "vegetable", "fat", "dairy", "fruit"]);
     await act(async () => { (tabs[1] as HTMLButtonElement).click(); });
     const filters = container.querySelector('[aria-label="Menu Item categories"]')!;
-    expect(Array.from(filters.querySelectorAll("button")).map((button) => button.textContent)).toEqual(["All", "Meal", "Carb", "Snack"]);
+    expect(Array.from(filters.querySelectorAll("button")).map((button) => button.textContent)).toEqual(["All", "Meal", "Carb", "Snack", "Tube Feeding"]);
     await act(async () => { (filters.querySelectorAll("button")[2]).click(); });
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 300)); });
-    expect(fetchRecipes).toHaveBeenLastCalledWith("", "carb", 1);
+    expect(fetchRecipes).toHaveBeenLastCalledWith("", "carb", 1, 10, "library");
     expect(container.textContent).not.toMatch(/Breakfast|Lunch|Dinner|Diabetic-Friendly|High Protein/);
   });
 

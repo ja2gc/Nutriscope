@@ -74,9 +74,7 @@ export default function InterventionPlansTab({
             <div
               key={plan.id}
               aria-current={selectedPlanId === plan.id ? "true" : undefined}
-              className={`grid w-full grid-cols-1 gap-1 px-4 py-3 text-left sm:grid-cols-[10rem_1fr_auto] sm:items-center sm:gap-4 ${
-                selectedPlanId === plan.id ? "bg-warm-50" : "bg-white hover:bg-warm-50/60"
-              }`}
+              className="grid w-full grid-cols-1 gap-1 bg-white px-4 py-3 text-left hover:bg-warm-50/60 sm:grid-cols-[10rem_1fr_auto] sm:items-center sm:gap-4"
             >
               <time dateTime={plan.plan_date} className="text-sm font-semibold text-warm-800">
                 {planDate.format(new Date(plan.plan_date))}

@@ -1,5 +1,7 @@
 "use client";
 
+import { NUTRITION_SUPPORT_OPTIONS } from "@/lib/nutritionSupport";
+
 import React, { use, useCallback, useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import layout from './assessmentLayout.module.css';
@@ -72,7 +74,6 @@ export type ScreeningDraft = {
   weight: string;
   diagnosis: string;
   dietPrescription: string;
-  referralType: string;
   referredBy: string;
   referralDatetime: string;
   screeningType: "adult" | "pediatric";
@@ -175,11 +176,7 @@ const PEDIATRIC_INTAKE_WEIGHT_HISTORY = [
   "Others",
 ];
 
-const REFERRAL_TYPE_OPTIONS = [
-  { value: "Per Orem", label: "Per Orem" },
-  { value: "Tube Feeding", label: "Tube Feeding" },
-  { value: "NPO / TPN", label: "NPO / TPN" },
-];
+
 
 const TABS = [
   { key: "dietary", label: "A: Dietary", icon: Utensils },
@@ -693,7 +690,6 @@ export default function NcpAssessmentPage({
       weight: String(baseAssessment?.weight ?? ""),
       diagnosis: basePatient.medical_diagnosis ?? "",
       dietPrescription: "",
-      referralType: "",
       referredBy: basePatient.physician ?? "",
       referralDatetime: "",
       screeningType: basePatient.screening_type === "pediatric" ? "pediatric" : "adult",
@@ -960,6 +956,7 @@ export default function NcpAssessmentPage({
       setError('Review the Food Recall calculation before saving.');
       return false;
     }
+    if (!assessment.nutrition_support) { setError("Select Nutrition support before saving."); setActiveTab("dietary"); return false; }
     const validationError = assessmentTextError(assessment);
     if (validationError) {
       setError(validationError);
@@ -1071,6 +1068,12 @@ export default function NcpAssessmentPage({
   const renderDietaryTab = () => (
     <div className={`${layout.tab} space-y-5`}>
       <AssessmentSection legend="Diet and intake">
+        <Field label="Nutrition support" htmlFor="nutrition_support" required>
+          <select id="nutrition_support" aria-label="Nutrition support" required value={assessment.nutrition_support ?? ""} onChange={event => updateField("nutrition_support", event.target.value as Assessment["nutrition_support"])} className="min-h-11 w-full rounded-lg border border-warm-300 bg-white px-3 text-base">
+            <option value="">Select nutrition support</option>
+            {NUTRITION_SUPPORT_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        </Field>
         <div className={layout.grid}>
       <Field label="Present Diet" htmlFor="present_diet">
         <TextArea id="present_diet" value={s("present_diet")} onChange={v => updateField("present_diet", v)} rows={2} maxLength={ASSESSMENT_TEXT_LIMITS.present_diet} />
@@ -1636,25 +1639,7 @@ export default function NcpAssessmentPage({
               <Field label="Diet Prescription">
                 <TextInput value={draft?.dietPrescription ?? ""} onChange={v => updateScreeningDraftField("dietPrescription", v)} />
               </Field>
-              <Field label="Nutrition support">
-                <div className="space-y-2">
-                  {REFERRAL_TYPE_OPTIONS.map(option => (
-                    <label key={option.value} className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={(draft?.referralType ?? "").split("| ").includes(option.value)}
-                        onChange={event => {
-                          const selected = new Set((draft?.referralType ?? "").split("| ").filter(Boolean));
-                          if (event.target.checked) selected.add(option.value);
-                          else selected.delete(option.value);
-                          updateScreeningDraftField("referralType", [...selected].join("| "));
-                        }}
-                      />
-                      {option.label}
-                    </label>
-                  ))}
-                </div>
-              </Field>
+
               <Field label="Referral Date & Time" className="md:col-span-2 xl:col-span-2">
                 <DateTimePicker ariaLabel="Referral date and time" value={draft?.referralDatetime ?? ""} onChange={v => updateScreeningDraftField("referralDatetime", v)} />
               </Field>

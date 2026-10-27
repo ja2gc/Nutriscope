@@ -305,6 +305,14 @@ export const HELP_ITEMS: HelpItem[] = [
     keywords: ["template", "generate", "menu", "nutrition totals"],
   },
   {
+    id: "rnd-tube-formulas",
+    role: "RND",
+    category: "Diagnosis & Intervention",
+    question: "How do I plan Tube Feeding formulas?",
+    answer: "Choose Tube Feeding under Assessment's required Nutrition support field. In Intervention, add saved formulas, load a Tube Feeding template, or Create formula. A new formula can be used only in this plan or saved to Food Library and used. Open a formula to review nutrients and change its whole-recipe multiplier or ingredient quantities. Later multiplier changes preserve your edits; Reset recipe restores the captured original. Save as template reuses the prepared collection. Formulas have no weekdays or automatic prescription scaling. Oral uses the weekly menu; NPO / TPN keeps prescription and guidance without a food menu. Reports follow the saved plan's support type. Census counts qualifying ADIME cycles by recorded support type.",
+    keywords: ["tube feeding", "formula", "nutrition support", "per orem", "npo", "tpn", "portion", "reset"],
+  },
+  {
     id: "rnd-monitoring",
     role: "RND",
     category: "Monitoring",
@@ -333,7 +341,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Food Library & Food Service",
     question: "What is the difference between Food Library, Inventory, and Foods?",
-    answer: "Food Library has Ingredients, Menu Items, and Templates for clinical nutrition. Menu Items contain one or more measured Ingredients and use Meal, Carb, or Snack categories. Units convert only within mass or volume; piece requires a measured count baseline and never implies grams. Food Service Inventory and Foods use separate operational catalog, recipe, and cost calculations for menus and purchasing.",
+    answer: "Food Library has Ingredients, Menu Items, Templates, and a full-tab Food Calculator using the existing recall calculations. Menu Items use Meal, Carb, Snack, or Tube Feeding categories. Tube formulas appear in Tube Feeding intervention plans and templates; Oral searches use Meal, Carb, and Snack. Template profiles are view-only. Units convert within their measured family; piece never implies grams. Food Service Inventory and Foods use separate operational recipe and cost calculations for menus and purchasing.",
     keywords: ["recipes", "ingredients", "USDA", "catalog"],
     popular: true,
   },

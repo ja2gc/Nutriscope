@@ -338,10 +338,12 @@ class MenuSlotRecipeTest extends TestCase
             ->assertJsonPath('data.days.0.recipe.servings', 25)
             ->assertJsonPath('data.days.0.has_recipe_override', true);
 
+        $recipe->update(['name' => 'Later library edit']);
         $this->actingAs($rnd)->deleteJson($url)
             ->assertOk()
-            ->assertJsonPath('data.source', 'master');
-        $this->assertNull($day->fresh()->recipe_override);
+            ->assertJsonPath('data.name', 'Master Adobo')
+            ->assertJsonPath('data.portion_multiplier', 1);
+        $this->assertSame($day->fresh()->recipe_original, $day->fresh()->recipe_override);
     }
 
     public function test_slot_update_validates_ingredients_and_rejects_locked_slots(): void

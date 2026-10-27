@@ -25,6 +25,7 @@ class AssessmentReligionTest extends TestCase
             'sex' => 'Male', 'admission_date' => now()->toDateString(),
         ]);
         $ncp = NcpRecord::forceCreate([
+            'nutrition_support' => 'oral',
             'patient_id' => $patient->id, 'rnd_user_id' => $rnd->id,
             'type' => 'new', 'status' => 'draft',
         ]);

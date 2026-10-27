@@ -4,6 +4,7 @@ namespace App\Services\Reports\Generators;
 
 use App\Models\Assessment;
 use App\Models\NcpRecord;
+use App\Support\NutritionSupport;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -14,7 +15,7 @@ use Illuminate\Database\Eloquent\Builder;
  */
 class DemographicCensusGenerator
 {
-    public const BASIS_VERSION = 7;
+    public const BASIS_VERSION = 8;
 
     /** Visit workflow was introduced during September 2026. Earlier assessed cycles have no visit record. */
     private const LEGACY_VISIT_CUTOFF = '2026-09-08 00:00:00';
@@ -44,6 +45,7 @@ class DemographicCensusGenerator
                     'age' => $age,
                     'sex' => $cycle->patient?->sex,
                     'ward' => $cycle->patient?->ward,
+                    'nutrition_support' => $cycle->nutrition_support,
                     'primary_diagnosis_category' => $cycle->assessment?->primary_diagnosis_category,
                     'nutritional_status' => self::adultNutritionalStatus($cycle->assessment, $age, $cycle->patient?->dob ? (int) $cycle->patient->dob->diffInMonths($cycle->created_at) : null),
                     'risk_level' => self::riskLevel(
@@ -128,8 +130,11 @@ class DemographicCensusGenerator
         $byWard = $byPrimaryDiagnosisCategory = [];
         $byRisk = ['Low' => 0, 'Moderate' => 0, 'High' => 0];
         $byStatus = array_fill_keys(self::NUTRITIONAL_STATUSES, 0);
+        $bySupport = array_fill_keys([...NutritionSupport::VALUES, 'unrecorded'], 0);
 
         foreach ($cycles as $p) {
+            $support = $p['nutrition_support'] ?? null;
+            $bySupport[in_array($support, NutritionSupport::VALUES, true) ? $support : 'unrecorded']++;
             $sex = self::normalizeSex($p['sex'] ?? null);
             $bySex[$sex] = ($bySex[$sex] ?? 0) + 1;
 
@@ -156,6 +161,7 @@ class DemographicCensusGenerator
             'by_primary_diagnosis_category' => $byPrimaryDiagnosisCategory,
             'by_status' => $byStatus,
             'by_risk' => $byRisk,
+            'by_nutrition_support' => $bySupport,
         ];
     }
 

@@ -22,8 +22,8 @@ class StoreRecipeRequest extends FormRequest
         return [
             'name' => $isPost ? 'required|string|max:255' : 'sometimes|string|max:255',
             'category' => $isPost
-                ? 'required|string|in:meal,carb,snack'
-                : 'sometimes|string|in:meal,carb,snack',
+                ? 'required|string|in:meal,carb,snack,tube_feeding'
+                : 'sometimes|string|in:meal,carb,snack,tube_feeding',
             'meal_types' => 'sometimes|nullable|array',
             'meal_types.*' => 'string|in:breakfast,am_snack,lunch,pm_snack,dinner,snack,any',
             'prep_notes' => 'sometimes|nullable|string|max:2000',

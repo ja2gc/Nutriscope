@@ -5,6 +5,8 @@ import type { RecipeIngredient } from "./foodLibraryService";
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface NutrientSnapshot {
+  recipe_reset_baseline?: NutrientSnapshot;
+  recipe_reset_quantity?: number;
   fdc_id?: number | null;
   name: string;
   calories: number;
@@ -210,6 +212,7 @@ export async function generateMealPlan(
 }
 
 export interface MealPlanTemplate {
+  nutrition_support?: 'oral' | 'tube_feeding';
   id: string;
   name: string;
   description: string | null;
@@ -242,6 +245,7 @@ export interface MealPlanTemplateDay {
 }
 
 export interface MealPlanTemplateDetail extends MealPlanTemplate {
+  formula_items?: import('@/lib/formulaPlan').FormulaItem[];
   days: MealPlanTemplateDay[];
 }
 
@@ -256,6 +260,9 @@ export interface LibraryTemplateLine {
 }
 
 export interface LibraryTemplatePayload {
+  nutrition_support?: 'oral' | 'tube_feeding';
+  formula_items?: ReturnType<typeof import('@/lib/formulaPlan').formulaItemsPayload>;
+  source_intervention_id?: string;
   name: string;
   description?: string | null;
   lines: LibraryTemplateLine[];
@@ -274,8 +281,8 @@ export async function saveLibraryMealPlanTemplate(payload: LibraryTemplatePayloa
   return (await res.json()).data;
 }
 
-export async function fetchMealPlanTemplates(page = 1): Promise<{ data: MealPlanTemplate[]; meta: PaginationMeta }> {
-  const res = await apiFetch(`/api/rnd/meal-plan-templates?page=${page}&per_page=10`, { headers: { Accept: 'application/json' } });
+export async function fetchMealPlanTemplates(page = 1, nutritionSupport: 'oral' | 'tube_feeding' = 'oral'): Promise<{ data: MealPlanTemplate[]; meta: PaginationMeta }> {
+  const res = await apiFetch(`/api/rnd/meal-plan-templates?page=${page}&per_page=10&nutrition_support=${nutritionSupport}`, { headers: { Accept: 'application/json' } });
   if (!res.ok) return { data: [], meta: { current_page: page, per_page: 10, total: 0, last_page: 1 } };
   const json = await res.json();
   return { data: json.data ?? [], meta: json.meta ?? { current_page: page, per_page: 10, total: 0, last_page: 1 } };

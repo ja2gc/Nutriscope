@@ -29,7 +29,7 @@ test("Menu Item editor uses canonical categories, measured units, and converted 
   root = createRoot(container);
   await act(async () => root.render(<NewRecipePage />));
   const category = container.querySelector("select")!;
-  expect(Array.from(category.options).map((option) => option.value)).toEqual(["", "meal", "carb", "snack"]);
+  expect(Array.from(category.options).map((option) => option.value)).toEqual(["", "meal", "carb", "snack", "tube_feeding"]);
   expect(container.textContent).toContain("Add Item");
   expect(container.textContent).toContain("Create Menu Item");
   expect(container.querySelector('[aria-label="About Nutrition source"]')).not.toBeNull();

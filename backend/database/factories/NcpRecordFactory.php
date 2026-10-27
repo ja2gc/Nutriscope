@@ -15,6 +15,7 @@ class NcpRecordFactory extends Factory
     {
         return [
             'patient_id' => Patient::factory(),
+            'nutrition_support' => 'oral',
             'rnd_user_id' => User::factory()->rnd(),
             'type' => fake()->randomElement(['new', 'followup', 'reassessment']),
             'status' => fake()->randomElement(['draft', 'active', 'completed']),

@@ -26,6 +26,7 @@ use App\Models\Recipe;
 use App\Policies\AuditPolicy;
 use App\Services\Audit\AuditLogger;
 use App\Services\ClinicalCompletenessService;
+use App\Services\FormulaPlanService;
 use App\Services\MealPlanService;
 use App\Services\RecommendService;
 use App\Support\UnitConverter;
@@ -371,15 +372,17 @@ class MealPlanController extends Controller
     public function templates(PaginatedRequest $request): JsonResponse
     {
         $templates = MealPlanTemplate::where('rnd_user_id', auth()->id())
+            ->where('nutrition_support', $request->input('nutrition_support', 'oral'))
             ->orderByDesc('created_at')
             ->orderByDesc('id')
-            ->paginate($request->perPage(), ['id', 'uuid', 'name', 'description', 'goal_type', 'disease_stage', 'maternal_status', 'created_at'])
+            ->paginate($request->perPage(), ['id', 'uuid', 'name', 'description', 'goal_type', 'disease_stage', 'maternal_status', 'created_at', 'nutrition_support'])
             ->withQueryString();
 
         $templates->through(fn ($t) => [
             'id' => $t->uuid, 'name' => $t->name, 'description' => $t->description,
             'goal_type' => $t->goal_type, 'disease_stage' => $t->disease_stage, 'created_at' => $t->created_at,
             'maternal_status' => $t->maternal_status,
+            'nutrition_support' => $t->nutrition_support,
         ]);
 
         return response()->json([
@@ -482,6 +485,8 @@ class MealPlanController extends Controller
             'maternal_status' => $template->maternal_status,
             'created_at' => $template->created_at,
             'days' => $days,
+            'nutrition_support' => $template->nutrition_support,
+            'formula_items' => $template->formula_items ?? [],
         ]]);
     }
 
@@ -539,6 +544,8 @@ class MealPlanController extends Controller
             : MealPlanTemplate::with('days.items.recipe.ingredients.foodItem')
                 ->where('uuid', $validated['template_id'])->where('rnd_user_id', $request->user()->id)->firstOrFail();
         $preview = $request->boolean('preview');
+        $templateMode = $template instanceof MealPlan ? $template->intervention->nutrition_support : $template->nutrition_support;
+        abort_unless(($templateMode ?? 'oral') === 'oral', 422, 'Choose an Oral template for a weekly menu.');
         $lines = $this->resolvedTemplateLines($template, $validated['lines'] ?? null);
         $build = function () use ($intervention, $ncpRecord, $validated, $lines, $preview, $request): ?MealPlan {
             $lockedIntervention = $ncpRecord->interventions()->whereKey($intervention->id)->lockForUpdate()->firstOrFail();
@@ -708,6 +715,7 @@ class MealPlanController extends Controller
             if (! empty($line['ingredient_overrides']) && isset($source?->nutrient_snapshot['name'])) {
                 $snapshot['name'] = $source->nutrient_snapshot['name'];
             }
+            unset($snapshot['recipe_reset_baseline'], $snapshot['recipe_reset_quantity']);
             $lines[] = [
                 ...$line, 'quantity' => round($quantity, 2), 'recipe' => $recipe, 'snapshot' => $snapshot, 'source' => $source,
             ];
@@ -747,7 +755,35 @@ class MealPlanController extends Controller
     /** @return array{0: array<string, mixed>, 1: list<array<string, mixed>>} */
     private function validatedLibraryTemplate(Request $request, ?MealPlanTemplate $template = null): array
     {
+        $mode = $template?->nutrition_support ?? $request->input('nutrition_support', 'oral');
+        if ($mode === 'tube_feeding') {
+            $data = $request->validate([
+                'name' => ['required', 'string', 'max:255'], 'description' => ['nullable', 'string', 'max:2000'],
+                'nutrition_support' => ['required', 'in:tube_feeding'], 'source_intervention_id' => ['sometimes', 'uuid'],
+                ...FormulaPlanService::rules(),
+            ]);
+            if (! empty($data['source_intervention_id'])) {
+                $source = Intervention::where('uuid', $data['source_intervention_id'])->where('nutrition_support', 'tube_feeding')
+                    ->whereHas('ncpRecord', fn ($query) => $query->where('rnd_user_id', $request->user()->id))->firstOrFail();
+                $items = $source->formula_items ?? [];
+            } else {
+                $previous = collect($template?->formula_items ?? [])->keyBy('id');
+                $lines = array_map(function (array $line) use ($previous): array {
+                    unset($line['ingredients'], $line['reset_recipe'], $line['new_formula']);
+                    $line['portion_multiplier'] = $previous->get($line['id'])['portion_multiplier'] ?? 1;
+
+                    return $line;
+                }, $data['formula_items'] ?? []);
+                $items = app(FormulaPlanService::class)->normalize($lines, $template?->formula_items ?? [], (int) $request->user()->id);
+            }
+            if ($items === []) {
+                throw ValidationException::withMessages(['formula_items' => 'Add at least one Tube Feeding formula.']);
+            }
+
+            return [['name' => $data['name'], 'description' => $data['description'] ?? null, 'nutrition_support' => 'tube_feeding', 'formula_items' => $items], []];
+        }
         $validated = $request->validate([
+            'nutrition_support' => ['sometimes', 'in:oral'],
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:2000'],
             'goal_type' => ['nullable', 'string', 'max:255'],
@@ -792,6 +828,7 @@ class MealPlanController extends Controller
         }
         unset($line);
         unset($validated['lines']);
+        $validated['nutrition_support'] = 'oral';
 
         return [$validated, $lines];
     }

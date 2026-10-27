@@ -6,14 +6,16 @@ use App\Models\Intervention;
 use App\Models\MealPlan;
 use App\Models\MealPlanItem;
 use App\Models\Report;
+use App\Services\MonitoringPlanService;
 use App\Services\Reports\Contracts\ReportGenerator;
+use App\Support\NutritionSupport;
 use App\Support\ReportPaper;
 use App\Support\UnitConverter;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Nutrition Intervention Plan — internal patient_menu_plan generator for a Mon→Sun ADIME menu PDF.
- * (meals down the side, days across). Reads the persisted meal plan; no recompute.
+ * Nutrition Intervention Plan: saved Oral week, Tube Feeding recipes, or NPO/TPN guidance.
+ * Reads captured portions and prescriptions without recomputing clinical targets.
  */
 class PatientMenuPlanGenerator implements ReportGenerator
 {
@@ -50,6 +52,14 @@ class PatientMenuPlanGenerator implements ReportGenerator
         $params = $report->parameters ?? [];
 
         [$interventionPlan, $mealPlan] = $this->resolvePlan($params);
+        if (($interventionPlan->nutrition_support ?? 'oral') !== 'oral') {
+            return ['intervention_plan' => $interventionPlan, 'patient' => $interventionPlan->ncpRecord?->patient,
+                'nutrition_support' => $interventionPlan->nutrition_support,
+                'nutrition_support_label' => NutritionSupport::label($interventionPlan->nutrition_support),
+                'formula_items' => $interventionPlan->formula_items ?? [],
+                'displayed_nutrients' => array_values(array_filter($interventionPlan->displayed_nutrients ?? [], fn ($key) => is_string($key) && MonitoringPlanService::micronutrientUnit($key) !== '')),
+                'prescription' => $this->currentSnapshot($interventionPlan)];
+        }
 
         $grid = [];
         foreach (self::MEALS as $meal) {
@@ -243,7 +253,7 @@ class PatientMenuPlanGenerator implements ReportGenerator
         ])->mapWithKeys(fn (string $field): array => [$field => $plan->getAttribute($field)])->all();
     }
 
-    /** @param array<string,mixed> $params @return array{Intervention,MealPlan} */
+    /** @param array<string,mixed> $params @return array{Intervention,?MealPlan} */
     private function resolvePlan(array $params): array
     {
         $relations = [
@@ -260,8 +270,8 @@ class PatientMenuPlanGenerator implements ReportGenerator
                     fn ($query) => $query->where('uuid', (string) $planIdentifier),
                 )
                 ->firstOrFail();
-            if ($plan->mealPlan === null) {
-                throw new \InvalidArgumentException('Save a menu plan before preparing this report.');
+            if (! $plan->reportPlanAvailable()) {
+                throw new \InvalidArgumentException($plan->reportUnavailableReason());
             }
 
             return [$plan, $plan->mealPlan];

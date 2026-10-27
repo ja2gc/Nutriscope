@@ -63,6 +63,8 @@ Verified against current navigation and server permissions on **2026-09-08**. Fo
 
 #### E. Intervention and Patient Meal Plan
 
+First select one **Nutrition support** choice in Assessment: **Oral / Per Orem**, **Tube Feeding**, or **NPO / TPN — No food menu**. A saved plan retains its support type. The steps below describe Oral menus.
+
 1. Open **Intervention** after at least one diagnosis saves.
 2. Set goal and disease stage when applicable.
 3. Review backend-generated prescription targets and the calculation trace.
@@ -74,6 +76,10 @@ Verified against current navigation and server permissions on **2026-09-08**. Fo
 9. Save each section. Do not leave while the page shows unsaved changes.
 
 #### F. Monitoring and Evaluation
+
+For **Tube Feeding**, Food / Nutrient Delivery contains formula columns without weekdays. Select Formula 1, 2, etc. to show its macros and prescription-selected micros; cards show only names, open on the whole card, and use the menu-planning X to remove them. Profiles and reports retain exact planned measurements. Fluid shares the macro card. **Select formula** in the next empty column selects a saved Tube Feeding Menu Item; **Load Template** copies a formula collection. **Create formula** opens the existing Menu Item form with Tube Feeding selected. Choose **Use in this plan** or **Save to Food Library and use**. Cancel follows the existing unsaved-change popup. Open a formula profile to edit its multiplier or measured ingredients; later multiplier changes preserve ingredient edits. **Reset recipe** restores the captured recipe. **Save as template** captures the prepared collection; library template profiles remain view-only. **NPO / TPN** retains prescription and guidance without a menu. Generated reports follow the saved support type. Census shows qualifying-cycle totals by support type, including unrecorded historical coverage.
+
+Food Library also includes a full-tab **Food Calculator**, reusing the Food Recall calculator without saving to a patient.
 
 1. Use Monitoring after Assessment, Diagnosis, and Intervention exist and the patient returns for follow-up.
 2. In **Visit Log**, record date, clinical indicators, intake/tolerance, symptoms, and goal status.

@@ -8,9 +8,9 @@ import type { PaginationMeta } from '@/components/ui/Pagination';
 import { useUnsavedChanges, type EditorLeaveHandle } from '@/hooks/useUnsavedChanges';
 import { fetchFoodItems, fetchRecipes, fetchRecipeById, type FoodItem } from '@/services/foodLibraryService';
 import { addFoodRecallDay, foodRecallCoverage, foodRecallDayLabel, emptyFoodRecall, foodRecallAverage, foodRecallDayTotals, foodRecallItemNutrients, recallItemFromFood, recallItemFromRecipe, type FoodRecallItem, type FoodRecallPlan } from '@/lib/foodRecall';
-import { formatMealPlanAmount } from '@/lib/mealPlanNutrition';
+import { MENU_ITEM_CATEGORIES } from '@/lib/menuItemCategories';
 import { MenuItemPicker } from './MenuItemPicker';
-import { MenuEditorSlots } from './MenuEditorSlots';
+import { MenuEditorSlots, MenuEditorActions, MenuEditorAction } from './MenuEditorSlots';
 import { FoodRecallItemEditor } from './FoodRecallItemEditor';
 import MicronutrientToggle from './MicronutrientToggle';
 import { MicronutrientTotals, type MicronutrientLimits } from './MicronutrientTotals';
@@ -27,16 +27,17 @@ type Props = {
   limits?: MicronutrientLimits;
   onDirtyChange?: (dirty: boolean) => void;
   leaveRef?: Ref<FoodRecallHandle>;
+  standalone?: boolean;
 };
 const clone = <T,>(value: T): T => structuredClone(value);
 
-export function FoodRecallCalculator({ value, onSave, readOnly = false, compact = false, disabled = false, defaultMicros = [], limits, onDirtyChange, leaveRef }: Props) {
+export function FoodRecallCalculator({ value, onSave, readOnly = false, compact = false, disabled = false, defaultMicros = [], limits, onDirtyChange, leaveRef, standalone = false }: Props) {
   const id = useId();
   const [initial] = useState(() => emptyFoodRecall(0, defaultMicros));
   const [draft, setDraft] = useState(() => clone(value ?? initial));
   const accepted = useRef(value ?? initial);
   useEffect(() => { accepted.current = value ?? initial; }, [value, initial]);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(standalone);
   const [day, setDay] = useState(0);
   const [dayPage, setDayPage] = useState(0);
   const [average, setAverage] = useState(false);
@@ -45,6 +46,7 @@ export function FoodRecallCalculator({ value, onSave, readOnly = false, compact 
   const [notice, setNotice] = useState<string | null>(null);
   const [picker, setPicker] = useState<number | null>(null);
   const [source, setSource] = useState('recipe');
+  const [category, setCategory] = useState('all');
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
@@ -62,7 +64,7 @@ export function FoodRecallCalculator({ value, onSave, readOnly = false, compact 
     const plan = clone(draft);
     accepted.current = plan;
     onSave?.(plan);
-    setError(null); setNotice('Plan updated. Save the entry to keep your changes.');
+    setError(null); setNotice(standalone ? 'Calculation saved for this tab session.' : 'Plan updated. Save the entry to keep your changes.');
     return true;
   }
   const guard = useUnsavedChanges({ dirty, onSave: savePlan, watchNavigation: false });
@@ -77,7 +79,7 @@ export function FoodRecallCalculator({ value, onSave, readOnly = false, compact 
     const timer = setTimeout(async () => {
       setLoading(true); setSearchError(null);
       try {
-        const response = source === 'food' ? await fetchFoodItems(query, undefined, page) : await fetchRecipes(query, 'all', page);
+        const response = source === 'food' ? await fetchFoodItems(query, undefined, page) : await fetchRecipes(query, category, page);
         if (!active) return;
         if (source === 'food') foods.current = response.data as FoodItem[];
         setResults(response.data.map(item => ({ id: item.id, name: item.name })));
@@ -86,7 +88,7 @@ export function FoodRecallCalculator({ value, onSave, readOnly = false, compact 
       finally { if (active) setLoading(false); }
     }, 200);
     return () => { active = false; clearTimeout(timer); };
-  }, [picker, source, query, page]);
+  }, [picker, source, category, query, page]);
 
   async function add(sourceId: string) {
     if (picker === null || busy || readOnly) return;
@@ -125,17 +127,17 @@ export function FoodRecallCalculator({ value, onSave, readOnly = false, compact 
   function renderItems(index: number) {
     const items = draft.days[index].items;
     return <MenuEditorSlots compact readOnly={readOnly || disabled} emptyLabel="No items" addLabel="Add item" addAriaLabel={`Add item to ${foodRecallDayLabel(draft, index)}`}
-      onAdd={() => { setPicker(index); setQuery(''); setPage(1); setResults([]); setLoading(true); }}
+      onAdd={() => { setPicker(index); setCategory('all'); setQuery(''); setPage(1); setResults([]); setLoading(true); }}
       itemActions={items.map((item, itemIndex) => ({ label: `${readOnly ? 'View' : 'Edit'} ${item.nutrient_snapshot.name}`, onOpen: () => { setEdit({ day: index, index: itemIndex }); setNotice(null); } }))}
       items={items.map(item => <div key={item.id} className="space-y-1">
-        <p className="break-words text-xs font-bold text-warm-800">{item.nutrient_snapshot.name}</p>
-        <p className="text-xs text-warm-500">{formatMealPlanAmount(item.quantity)} {item.unit} · {formatMealPlanAmount(foodRecallItemNutrients(item)?.calories)} kcal</p>
+        <p className="break-words pr-6 text-xs font-bold text-warm-800">{item.nutrient_snapshot.name}</p>
+        {!readOnly && !disabled && <MenuEditorActions><MenuEditorAction kind="remove" label={`Remove ${item.nutrient_snapshot.name}`} onClick={event => { event.stopPropagation(); setDraft(current => ({ ...current, days: current.days.map((day, dayIndex) => dayIndex === index ? { ...day, items: day.items.filter(entry => entry.id !== item.id) } : day) })); }} /></MenuEditorActions>}
       </div>)} />;
   }
 
   if (readOnly && !value) return <p className="text-xs text-warm-500">No Food Recall calculation saved for this entry.</p>;
 
-  return <section className="w-full min-w-0 max-w-full space-y-3" aria-label="Food Recall Calculator">
+  return <section className="w-full min-w-0 max-w-full space-y-3" aria-label={standalone ? 'Food Calculator' : 'Food Recall Calculator'}>
     {guard.dialog}
     {foodRecallCoverage(value) && <dl className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs"><dt className="font-bold text-warm-600">Recall Coverage</dt><dd className="text-warm-800">{foodRecallCoverage(value)}</dd></dl>}
     {!open ? <div className="flex flex-wrap items-center justify-between gap-2">
@@ -143,8 +145,8 @@ export function FoodRecallCalculator({ value, onSave, readOnly = false, compact 
     </div> : <div id={id} className={`w-full min-w-0 max-w-full space-y-3 ${compact ? "rounded-none border-0 bg-transparent p-0 sm:rounded-xl sm:border sm:border-warm-200 sm:bg-white sm:p-3" : "rounded-xl border border-warm-200 bg-white p-3"}`}>
       {edit ? <FoodRecallItemEditor key={draft.days[edit.day].items[edit.index].id} item={draft.days[edit.day].items[edit.index]} readOnly={readOnly || disabled} onChange={updateItem} onBack={() => setEdit(null)} onRemove={() => { setDraft(current => ({ ...current, days: current.days.map((entry, index) => index === edit.day ? { ...entry, items: entry.items.filter((_, index) => index !== edit.index) } : entry) })); setEdit(null); }} /> : <>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-2"><button type="button" aria-label="Back to food recall" title="Back to food recall" onClick={close} className="inline-flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-lg border border-warm-200 text-warm-500 hover:bg-warm-50 focus-visible:ring-2 focus-visible:ring-emerald-600"><ArrowLeft className="h-4 w-4" /></button><h3 className="text-sm font-bold text-warm-800">Food Recall Calculator</h3></div>
-          <button type="button" onClick={close} aria-expanded={true} aria-controls={id} aria-label="Hide Food Recall Calculator" className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg text-warm-500 hover:bg-warm-50 focus-visible:ring-2 focus-visible:ring-emerald-600"><ChevronUp className="h-4 w-4" /></button>
+          <div className="flex min-w-0 items-center gap-2">{!standalone && <button type="button" aria-label="Back to food recall" title="Back to food recall" onClick={close} className="inline-flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-lg border border-warm-200 text-warm-500 hover:bg-warm-50 focus-visible:ring-2 focus-visible:ring-emerald-600"><ArrowLeft className="h-4 w-4" /></button>}<h3 className="text-sm font-bold text-warm-800">{standalone ? 'Food Calculator' : 'Food Recall Calculator'}</h3></div>
+          {!standalone && <button type="button" onClick={close} aria-expanded={true} aria-controls={id} aria-label="Hide Food Recall Calculator" className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg text-warm-500 hover:bg-warm-50 focus-visible:ring-2 focus-visible:ring-emerald-600"><ChevronUp className="h-4 w-4" /></button>}
         </div>
         <div className="flex flex-wrap items-end justify-between gap-2">
           <p className="text-xs text-warm-500">{draft.days.length} {draft.days.length === 1 ? 'day' : 'days'}{readOnly ? ' · View only' : ''}</p>
@@ -169,12 +171,12 @@ export function FoodRecallCalculator({ value, onSave, readOnly = false, compact 
         {notice && <p role="status" className="text-xs text-emerald-700">{notice}</p>}
         {!readOnly && <div className="flex flex-wrap items-center justify-between gap-2 border-t border-warm-100 pt-3">
           <Button type="button" variant="ghost" disabled={disabled} onClick={() => guard.requestLeave(() => { setDraft(emptyFoodRecall(0, draft.displayed_micros)); setDay(0); setDayPage(0); setAverage(false); setError(null); setNotice(null); })}>New calculation</Button>
-          <div className="flex gap-2"><Button type="button" variant="secondary" onClick={close}>Cancel</Button><Button type="button" disabled={disabled} onClick={savePlan}>Save Plan</Button></div>
+          <div className="flex gap-2">{!standalone && <Button type="button" variant="secondary" onClick={close}>Cancel</Button>}<Button type="button" disabled={disabled} onClick={savePlan}>{standalone ? 'Save Calculation' : 'Save Plan'}</Button></div>
         </div>}
       </>}
     </div>}
     {picker !== null && <MenuItemPicker title={`Add to ${foodRecallDayLabel(draft, picker)}`} itemLabel={source === 'food' ? 'Ingredient' : 'Menu Item'} query={query} onQueryChange={value => { setQuery(value); setPage(1); }}
       loading={loading} error={searchError} items={results} onSelect={add} onClose={() => { if (!busy) setPicker(null); }} busyId={busy} meta={meta} page={page} onPageChange={setPage}
-      filters={<ButtonFilterGroup label="Source" size="sm" value={source} onChange={value => { setSource(value); setQuery(''); setPage(1); setResults([]); setLoading(true); }} options={[{ value: 'recipe', label: 'Menu Items' }, { value: 'food', label: 'Ingredients' }]} />} />}
+      filters={<div className="flex flex-wrap gap-3"><ButtonFilterGroup label="Source" size="sm" value={source} onChange={value => { setSource(value); setCategory('all'); setQuery(''); setPage(1); setResults([]); setLoading(true); }} options={[{ value: 'recipe', label: 'Menu Items' }, { value: 'food', label: 'Ingredients' }]} />{source === 'recipe' && <ButtonFilterGroup label="Category" size="sm" value={category} onChange={value => { setCategory(value); setPage(1); setResults([]); setLoading(true); }} options={[{ value: 'all', label: 'All' }, ...MENU_ITEM_CATEGORIES.filter(option => option.value !== 'tube_feeding').map(({ value, label }) => ({ value, label: `${label}s` }))]} />}</div>} />}
   </section>;
 }

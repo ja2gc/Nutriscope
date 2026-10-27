@@ -18,6 +18,16 @@ test('shared menu picker focuses search, selects a result, and closes with Escap
   } finally { await act(async () => root.unmount()); container.remove(); }
 });
 
+test('reuses the picker for paginated templates without a nonfunctional search field', async () => {
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container);
+  try {
+    await act(async () => root.render(<MenuItemPicker itemLabel="Template" showSearch={false} query="" onQueryChange={() => {}} loading={false} items={[]} onSelect={() => {}} onClose={() => {}} />));
+    expect(container.querySelector('input')).toBeNull();
+    expect(container.textContent).toContain('No Templates found.');
+    expect(document.activeElement).toBe(container.querySelector('button'));
+  } finally { await act(async () => root.unmount()); container.remove(); }
+});
+
 test('reuses the picker for ingredients with matching accessible labels', async () => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
   const container = document.createElement('div'); document.body.append(container);

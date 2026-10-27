@@ -3,8 +3,10 @@
 namespace App\Http\Requests\RND;
 
 use App\Models\Intervention;
+use App\Services\FormulaPlanService;
 use App\Support\InterventionGoalCatalog;
 use App\Support\InterventionGuidance;
+use App\Support\NutritionSupport;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -27,11 +29,14 @@ class StoreInterventionRequest extends FormRequest
             ? max(InterventionGuidance::FIELD_MAX, mb_strlen((string) $existing->getAttribute($field))) : InterventionGuidance::FIELD_MAX);
 
         return [
+            ...FormulaPlanService::rules(),
+            'nutrition_support' => ['sometimes', Rule::in(NutritionSupport::VALUES)],
             ...self::calculationRules(),
             'recalculate' => ['nullable', 'boolean'],
             'goal_type' => ['nullable', 'string', Rule::in($goals)],
             'disease_stage' => ['nullable', 'string', 'max:255'],
             'displayed_nutrients' => ['nullable', 'array'],
+            'displayed_nutrients.*' => ['string'],
             'energy_kcal' => ['nullable', 'numeric', 'between:0,10000', 'decimal:0,2'],
             'protein_g' => ['nullable', 'numeric', 'between:0,1000', 'decimal:0,2'],
             'carbs_g' => ['nullable', 'numeric', 'between:0,1000', 'decimal:0,2'],

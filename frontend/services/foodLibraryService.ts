@@ -228,9 +228,11 @@ export async function fetchRecipes(
   search?: string,
   category?: string,
   page: number = 1,
-  perPage: number = 10
+  perPage: number = 10,
+  nutritionSupport: 'oral' | 'tube_feeding' | 'library' = 'oral'
 ): Promise<PaginatedResponse<Recipe>> {
   const params = new URLSearchParams();
+  params.append('nutrition_support', nutritionSupport);
   if (search) params.append("search", search);
   if (category && category !== "all") params.append("category", category);
   params.append("page", page.toString());

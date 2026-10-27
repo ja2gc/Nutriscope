@@ -1,6 +1,6 @@
 # Food-service data meaning
 
-Verified against committed source: `53771e2c8add7cfe001f0de793a563f74030f1fb` plus the PPA average-cost consumer change in this working tree (2026-10-27).
+Verified against committed source: `7c6a1623c557582e2883d30866fc188e05f8b21b` plus menu portion/reset changes in this working tree (2026-10-27).
 
 Purpose: distinguish operational planning, purchasing, receiving and completed history. It covers both web and FSS-mobile consumers; see [workflow owners](README.md) and [mobile](mobile.md).
 
@@ -14,6 +14,7 @@ Web creation defaults to `manilaCalendarToday`. Suggested lists require start da
 |---|---|
 | MenuCycleDay.recipe_id / fs_item_id | Recipe versus single catalog item; [MenuCycleDay](../../../backend/app/Models/MenuCycleDay.php) links FoodServiceRecipe, not the NCP Recipe model |
 | line_order, servings_override, recipe_override | Ordered menu lines and per-line overrides; trace [MenuCycleController](../../../backend/app/Http/Controllers/FSS/MenuCycleController.php), [MenuCycleCostService](../../../backend/app/Services/MenuCycleCostService.php) and client contracts before changing order/scaling |
+| MenuCycleDay.recipe_original; recipe_override.portion_multiplier | MenuCycleDay captures the recipe when a new line is created; MenuCycleController's bulk day writer does the same. Existing lines capture their current recipe on first edit. MenuSlotRecipePage multiplies all current measured ingredients by next/previous multiplier, preserving manual edits; the controller stores actual whole-recipe quantities plus multiplier metadata. MenuCycleCostService continues normal reference-servings/population scaling. Reset copies the captured recipe back into the local override, including its original multiplier; library edits cannot replace that captured reset baseline. Missing measured quantities or recipe yield disable the new manual scaling control. Single catalog foods keep their existing quantity editor; no synthetic recipe yield is introduced |
 | estimate_population | Planned population context on menu/list records; [ShoppingList](../../../backend/app/Models/ShoppingList.php), MenuCycleDay and [ShoppingListPopulationService](../../../backend/app/Services/FSS/ShoppingListPopulationService.php). It is not evidence of people actually served |
 | ShoppingListItem.source, included_in_po | Generated/manual provenance versus PO inclusion; [ShoppingListItem](../../../backend/app/Models/ShoppingListItem.php), population service and [ShoppingListController](../../../backend/app/Http/Controllers/FSS/ShoppingListController.php). Excluding a generated row from purchase is different from deleting a recipe ingredient |
 | baseline_servings, baseline_quantity, scaled_quantity, generation_baseline | Generation/scaling context retained on shopping rows. Trace syncItems and generationBaseline; preserve manual purchase changes and the selected unit conversion path |

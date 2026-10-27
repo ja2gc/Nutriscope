@@ -13,6 +13,9 @@ import { Pagination } from "@/components/ui/Pagination";
 import SearchInput from "@/components/ui/SearchInput";
 import { MealTemplatesTab } from "./_components/MealTemplatesTab";
 import type { EditorLeaveHandle } from "@/hooks/useUnsavedChanges";
+import { FoodRecallCalculator, type FoodRecallHandle } from "@/components/ncp/FoodRecallCalculator";
+import type { FoodRecallPlan } from "@/lib/foodRecall";
+import { MENU_ITEM_CATEGORIES, menuItemCategoryLabel } from "@/lib/menuItemCategories";
 import {
   fetchFoodItems, fetchRecipes, deleteFoodItem, deleteRecipe,
   searchUsda, importUsdaFood,
@@ -20,7 +23,6 @@ import {
 } from "@/services/foodLibraryService";
 
 const FOOD_CATEGORIES = ["all", "protein", "carbs", "vegetable", "fat", "dairy", "fruit"];
-const RECIPE_CATEGORIES = ["all", "meal", "carb", "snack"];
 
 const NUTRIENT_GROUPS = {
   Minerals: ["sodium","potassium","phosphate","calcium","iron","magnesium","zinc","copper","manganese","selenium","iodine"],
@@ -36,7 +38,7 @@ const NUTRIENT_UNITS: Record<string, string> = {
   fiber:"g", cholesterol:"mg", omega3:"g",
 };
 
-type Tab = "foods" | "recipes" | "templates";
+type Tab = "foods" | "recipes" | "templates" | "calculator";
 
 // ─── USDA Import Modal ────────────────────────────────────────────────────────
 
@@ -325,10 +327,12 @@ function RecipeMicrosPopup({ recipe, onClose }: { recipe: Recipe; onClose: () =>
 
 export default function FoodLibraryPage() {
   const templateLeave = useRef<EditorLeaveHandle>(null);
+  const calculatorLeave = useRef<FoodRecallHandle>(null);
   const [activeTab, setActiveTab]       = useState<Tab>("foods");
+  const [calculatorPlan, setCalculatorPlan] = useState<FoodRecallPlan | null>(null);
   useEffect(() => {
     const tab = new URLSearchParams(window.location.search).get('tab');
-    if (tab === 'foods' || tab === 'recipes' || tab === 'templates') setActiveTab(tab);
+    if (tab === 'foods' || tab === 'recipes' || tab === 'templates' || tab === 'calculator') setActiveTab(tab);
   }, []);
   const [foods, setFoods]               = useState<FoodItem[]>([]);
   const [foodSearch, setFoodSearch]     = useState("");
@@ -373,7 +377,7 @@ export default function FoodLibraryPage() {
     try {
       if (!quiet) setRecipeLoading(true);
       setRecipeError(null);
-      const res = await fetchRecipes(recipeSearch, recipeCategory, recipePage);
+      const res = await fetchRecipes(recipeSearch, recipeCategory, recipePage, 10, 'library');
       if (searchId === activeRecipeSearchRef.current) {
         setRecipes(res.data);
         setRecipeMeta(res.meta);
@@ -458,11 +462,12 @@ export default function FoodLibraryPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs<Tab> ariaLabel="Food Library sections" value={activeTab} onChange={(tab) => { if (tab === activeTab) return; const navigate = () => { if (tab === "recipes") setRecipeLoading(true); setActiveTab(tab); const params = new URLSearchParams(window.location.search); params.set("tab", tab); window.history.replaceState(null, "", `${window.location.pathname}?${params}`); }; if (templateLeave.current) templateLeave.current.requestLeave(navigate); else navigate(); }} fill items={[
-        { key: "foods", label: "Ingredients" }, { key: "recipes", label: "Menu Items" }, { key: "templates", label: "Templates" },
+      <Tabs<Tab> ariaLabel="Food Library sections" value={activeTab} onChange={(tab) => { if (tab === activeTab) return; const navigate = () => { if (tab === "recipes") setRecipeLoading(true); setActiveTab(tab); const params = new URLSearchParams(window.location.search); params.set("tab", tab); window.history.replaceState(null, "", `${window.location.pathname}?${params}`); }; const leave = activeTab === "templates" ? templateLeave.current : activeTab === "calculator" ? calculatorLeave.current : null; if (leave) leave.requestLeave(navigate); else navigate(); }} fill items={[
+        { key: "foods", label: "Ingredients" }, { key: "recipes", label: "Menu Items" }, { key: "templates", label: "Templates" }, { key: "calculator", label: "Food Calculator" },
       ]} />
 
       {activeTab === "templates" && <MealTemplatesTab leaveRef={templateLeave} />}
+      {activeTab === "calculator" && <FoodRecallCalculator standalone value={calculatorPlan} onSave={setCalculatorPlan} leaveRef={calculatorLeave} />}
 
       {/* ── Foods Tab ── */}
       {activeTab === "foods" && (
@@ -581,14 +586,14 @@ export default function FoodLibraryPage() {
           <div className="flex flex-col sm:flex-row items-center gap-3">
             <SearchInput className="sm:flex-1" label="Search Menu Items" value={recipeSearch} onChange={(value) => { setRecipeSearch(value); setRecipePage(1); }} loading={recipeLoading} />
             <div aria-label="Menu Item categories" role="group" className="flex gap-1.5 flex-wrap">
-              {RECIPE_CATEGORIES.map((c) => (
-                <button key={c} onClick={() => { setRecipeCategory(c); setRecipePage(1); }}
+              {[{ value: "all", label: "All" }, ...MENU_ITEM_CATEGORIES].map(({ value, label }) => (
+                <button key={value} onClick={() => { setRecipeCategory(value); setRecipePage(1); }}
                   className={`min-w-[64px] px-3 py-1.5 text-xs font-bold uppercase tracking-wide rounded-lg border transition-all cursor-pointer text-center ${
-                    recipeCategory === c
+                    recipeCategory === value
                       ? "bg-forest-900 text-white border-forest-line"
                       : "bg-white text-warm-500 border-warm-200 hover:border-warm-300"
                   }`}>
-                  {c === "all" ? "All" : c.charAt(0).toUpperCase() + c.slice(1)}
+                  {label}
                 </button>
               ))}
             </div>
@@ -625,7 +630,7 @@ export default function FoodLibraryPage() {
                           </td>
                           <td className="px-5 py-3.5">
                             {recipe.category
-                              ? <span className="text-xs text-warm-600 capitalize font-medium">{recipe.category}</span>
+                              ? <span className="text-xs text-warm-600 font-medium">{menuItemCategoryLabel(recipe.category)}</span>
                               : <span className="text-warm-300 text-xs">—</span>
                             }
                           </td>

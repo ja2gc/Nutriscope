@@ -40,10 +40,8 @@ class InterventionPlanInstanceSource implements InstanceSource
                 'intervention_plan_id' => $plan->uuid,
                 'intervention_plan_date' => $date,
                 'meal_plan_id' => $mealPlan?->uuid,
-                'available' => $mealPlan !== null,
-                'unavailable_reason' => $mealPlan === null
-                    ? 'Save a menu plan before preparing this report.'
-                    : null,
+                'available' => $plan->reportPlanAvailable(),
+                'unavailable_reason' => $plan->reportUnavailableReason(),
             ];
         })
             ->all();

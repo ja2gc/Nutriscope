@@ -21,7 +21,7 @@ class NcpRecord extends Model
 
     protected $fillable = [
         'patient_id', 'rnd_user_id', 'type', 'status', 'discontinuation_reason_code', 'risk_score',
-        'risk_score_manual_override', 'risk_score_manual_factors',
+        'risk_score_manual_override', 'risk_score_manual_factors', 'nutrition_support',
     ];
 
     protected $casts = [
@@ -34,7 +34,7 @@ class NcpRecord extends Model
     {
         return [
             'patient_id', 'rnd_user_id', 'type', 'status', 'discontinuation_reason_code', 'risk_score',
-            'risk_score_manual_override', 'risk_score_manual_factors',
+            'risk_score_manual_override', 'risk_score_manual_factors', 'nutrition_support',
         ];
     }
 

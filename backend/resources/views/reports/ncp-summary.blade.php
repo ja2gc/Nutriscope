@@ -132,6 +132,14 @@
 
     {{-- Intervention --}}
     <div class="section">Nutrition Intervention</div>
+    <p><span class="bold">Nutrition support:</span> {{ $intervention?->nutrition_support ? App\Support\NutritionSupport::label($intervention->nutrition_support) : $nutrition_support }}</p>
+    @if($intervention?->nutrition_support === 'tube_feeding')
+        @foreach($intervention->formula_items ?? [] as $formula)
+            <p><span class="bold">Formula {{ $loop->iteration }}: {{ $formula['nutrient_snapshot']['name'] }}</span> — @foreach($formula['nutrient_snapshot']['recipe_original_ingredients'] as $ingredient){{ rtrim(rtrim(number_format((float) $ingredient['quantity'] * $formula['portion_multiplier'], 12, '.', ''), '0'), '.') }} {{ $ingredient['unit'] }} {{ $ingredient['name'] }}@if(!$loop->last); @endif @endforeach</p>
+        @endforeach
+    @elseif($intervention?->nutrition_support === 'no_food_menu')
+        <p>No food menu is planned for this intervention.</p>
+    @endif
     <div class="prescription-line">
         @foreach(['energy_kcal' => ['Energy', 'kcal'], 'carbs_g' => ['Carbohydrate', 'g'], 'protein_g' => ['Protein', 'g'], 'fat_g' => ['Fat', 'g'], 'fluid_ml' => ['Fluid', 'mL']] as $key => [$label, $unit])
             @if(!$loop->first) · @endif<span class="bold">{{ $label }}:</span> @if($intervention?->{$key} !== null)@include('reports.partials.nutrient-prescription', ['limit' => [($intervention->nutrient_operators[$key] ?? 'target') => $intervention->{$key}, 'unit' => $unit], 'precision' => 0])@else — {{ $unit }}@endif

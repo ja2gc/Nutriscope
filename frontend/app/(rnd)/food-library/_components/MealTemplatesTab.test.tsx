@@ -171,6 +171,7 @@ it('filters template menu items by category', async () => {
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
     const picker = container.querySelector('[role="dialog"]')!;
     for (const label of ['All', 'Meals', 'Snacks', 'Carbs']) expect(Array.from(picker.querySelectorAll('button')).some(button => button.textContent?.trim() === label)).toBe(true);
+    expect(picker.textContent).not.toContain('Tube Feeding');
     await act(async () => picker.querySelector<HTMLButtonElement>('[aria-label="Next page"]')!.click());
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
     expect(fetchRecipes).toHaveBeenLastCalledWith('', 'all', 2, 10);

@@ -31,6 +31,13 @@ class RecipeController extends Controller
     public function index(PaginatedRequest $request): AnonymousResourceCollection
     {
         $query = Recipe::query();
+        $context = $request->input('nutrition_support', 'oral');
+        abort_unless(in_array($context, ['oral', 'tube_feeding', 'library'], true), 422);
+        if ($context === 'oral') {
+            $query->whereIn('category', ['meal', 'carb', 'snack']);
+        } elseif ($context === 'tube_feeding') {
+            $query->where('category', 'tube_feeding');
+        }
 
         if ($request->filled('category')) {
             $query->where('category', $request->category);

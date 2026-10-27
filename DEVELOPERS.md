@@ -1,10 +1,12 @@
 # NutriScope developer map
 
-Verified against source: `5ac49380` plus grounded PES presets and diagnosis nutrient selections in this working tree (2026-10-27).
+Verified against source: `7c6a1623c557582e2883d30866fc188e05f8b21b` plus nutrition support planning changes in this working tree (2026-10-27).
 
 BMI classification is owned by `Assessment::classifyBmi` and mirrored for live web inputs by `frontend/lib/nutritionCalculations.ts`: WHO sex/month bands at 61–228 months, Asia-Pacific afterward. The two offline `who-bmi-for-age.json` files are verified copies for separately built applications. Diagnosis AI and current reports reuse the model method; screening risk and clinical PES diagnoses remain separate. See [NCP data](docs/developers/ncp/data.md).
 
 NutriScope manages patient nutrition care, clinical meal planning, food-service operations and administration. Start with the task below, then follow its source links.
+
+Nutrition support routing and captured formula collections are owned by `InterventionPlanService` / `FormulaPlanService`, using `Recipe::planSnapshot` for nutrient arithmetic. The web reuses `FoodRecallCalculator` for the Food Library calculator and `MenuItemCreateForm` for on-the-spot tube formulas. See [NCP owners and data](docs/developers/ncp/README.md) for modes, templates, reports and census. Operational menu portion/reset snapshots remain in `MenuCycleController` / `MenuCycleDay`; see [food-service data](docs/developers/food-service/data.md).
 
 Prefer browsing by area? Open the [grouped developer index](docs/developers/README.md): [NCP](docs/developers/ncp/README.md), [food service and FSS mobile](docs/developers/food-service/README.md), [shared role features](docs/developers/shared/README.md), [platform](docs/developers/platform/architecture.md), or [operations](docs/developers/operations/README.md).
 

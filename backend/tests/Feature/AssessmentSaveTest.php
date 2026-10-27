@@ -37,6 +37,7 @@ class AssessmentSaveTest extends TestCase
             'screening_type' => 'adult',
         ]);
         $ncp = NcpRecord::forceCreate([
+            'nutrition_support' => 'oral',
             'patient_id' => $patient->id,
             'rnd_user_id' => $rnd->id,
             'type' => 'new',

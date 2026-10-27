@@ -11,7 +11,11 @@ class MealPlanTemplate extends Model
     use HasFactory;
     use HasPublicId;
 
-    protected $fillable = ['rnd_user_id', 'name', 'description', 'goal_type', 'disease_stage', 'maternal_status'];
+    protected $fillable = ['rnd_user_id', 'name', 'description', 'goal_type', 'disease_stage', 'maternal_status', 'nutrition_support', 'formula_items'];
+
+    protected $casts = ['formula_items' => 'array'];
+
+    protected $attributes = ['nutrition_support' => 'oral'];
 
     public function rnd()
     {

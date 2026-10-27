@@ -26,7 +26,8 @@ export function useUnsavedChanges({ dirty, onSave, title, watchNavigation = true
     else next();
   }, [dirty]);
   useEffect(() => {
-    if (!dirty) { allowed.current = false; return; }
+    allowed.current = false;
+    if (!dirty) return;
     if (!watchNavigation) return;
     const unload = (event: BeforeUnloadEvent) => {
       if (!allowed.current) { event.preventDefault(); event.returnValue = ''; }

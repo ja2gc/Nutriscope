@@ -5,6 +5,9 @@
 
     <p style="margin:6px 0 8px; font-size:9pt;"><span class="bold">Total ADIME cycles:</span> {{ number_format($summary['total']) }}</p>
 
+    <div class="section">By nutrition support</div>
+    <table class="grid"><tr>@foreach(['oral' => 'Per Orem', 'tube_feeding' => 'Tube Feeding', 'no_food_menu' => 'NPO / TPN'] as $key => $label)<th>{{ $label }}</th><td class="right">{{ $summary['by_nutrition_support'][$key] ?? 0 }}</td>@endforeach</tr></table>
+    @if(($summary['by_nutrition_support']['unrecorded'] ?? $summary['total']) > 0)<p class="muted">Not recorded in historical data: {{ $summary['by_nutrition_support']['unrecorded'] ?? $summary['total'] }}</p>@endif
     <div class="section">Age and sex</div>
     <table class="grid" style="table-layout:fixed; font-size:9pt;">
         <thead><tr><th>Sex</th>@foreach($summary['age_groups'] as $group)<th>{{ $group }}</th>@endforeach<th>Total</th></tr></thead>

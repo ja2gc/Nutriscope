@@ -66,6 +66,7 @@ export function CensusPanel({ apiPrefix }: { apiPrefix: "rnd" | "admin" }) {
           </section>
 
           <div className="grid gap-x-10 gap-y-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+            <section aria-label="By nutrition support"><h3 className="mb-2 text-base font-bold text-warm-800">By nutrition support</h3><dl className="text-sm">{([['oral', 'Per Orem'], ['tube_feeding', 'Tube Feeding'], ['no_food_menu', 'NPO / TPN']] as const).map(([key, label]) => <div key={key} className="flex justify-between gap-4 border-b border-warm-100 py-1.5"><dt>{label}</dt><dd className="font-semibold tabular-nums">{summary.by_nutrition_support?.[key] ?? 0}</dd></div>)}</dl>{(summary.by_nutrition_support?.unrecorded ?? summary.total) > 0 && <p className="mt-2 text-sm text-warm-600">Not recorded in historical data: {summary.by_nutrition_support?.unrecorded ?? summary.total}</p>}</section>
             <section aria-label={summary.classification_basis === 'asia_pacific_bmi' ? 'Adult BMI classification' : 'By recorded nutritional status'}>
               <h3 className="mb-2 text-base font-bold text-warm-800">{summary.classification_basis === 'asia_pacific_bmi' ? 'Adult BMI classification' : 'By recorded nutritional status'}</h3>
               <dl className="text-sm">

@@ -11,7 +11,7 @@ import { fireEvent, getByRole } from '@testing-library/dom';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
-it('adds ingredients in their own unit with a blank amount and keeps additions fixed while scaling the original recipe', async () => {
+it('adds measured ingredients and scales their current amounts with the whole portion', async () => {
   vi.mocked(fetchAllMealPlanItems).mockResolvedValueOnce([{
     id: 'portion-item', meal_plan_day_id: 'day-1', recipe_id: 'recipe-1', quantity: '1', unit: 'serving', source: 'recipe',
     nutrient_snapshot: { name: 'Rice bowl', calories: 100, protein: 2, carbs: 20, fat: 1, serving_size: 1, serving_unit: 'serving', micronutrients: {} },
@@ -39,10 +39,10 @@ it('adds ingredients in their own unit with a blank amount and keeps additions f
     await act(async () => fireEvent.input(amount, { target: { value: '50.123456' } }));
     expect(amount.value).toBe('50.12');
     await act(async () => fireEvent.input(getByRole(container, 'spinbutton', { name: 'Planned portion' }), { target: { value: '2' } }));
-    expect(amount.value).toBe('50.12');
+    expect(amount.value).toBe('100.25');
     expect((getByRole(container, 'spinbutton', { name: 'Amount of Rice' }) as HTMLInputElement).value).toBe('200');
     await act(async () => getByRole(container, 'button', { name: 'Save Changes' }).click());
-    expect(updateMealPlanItem).toHaveBeenCalledWith('ncp-1', 'plan-1', 'day-1', 'portion-item', { quantity: 2, ingredients: [{ food_item_id: 'rice', quantity: 100, unit: 'g' }, { food_item_id: 'milk', quantity: 25.061728, unit: 'mL' }] });
+    expect(updateMealPlanItem).toHaveBeenCalledWith('ncp-1', 'plan-1', 'day-1', 'portion-item', { quantity: 2, ingredients: [{ food_item_id: 'rice', quantity: 100, unit: 'g' }, { food_item_id: 'milk', quantity: 50.123456, unit: 'mL' }] });
   } finally { await act(async () => root.unmount()); }
 });
 
@@ -517,6 +517,7 @@ it('filters intervention menu items by category', async () => {
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
     const picker = container.querySelector('[role="dialog"]')!;
     for (const label of ['All', 'Meals', 'Snacks', 'Carbs']) expect(Array.from(picker.querySelectorAll('button')).some(button => button.textContent?.trim() === label)).toBe(true);
+    expect(picker.textContent).not.toContain('Tube Feeding');
     await act(async () => picker.querySelector<HTMLButtonElement>('[aria-label="Next page"]')!.click());
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 200)); });
     expect(fetchRecipes).toHaveBeenLastCalledWith('', 'all', 2);

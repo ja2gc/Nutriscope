@@ -14,7 +14,7 @@ class MenuCycleDay extends Model
 
     protected $fillable = [
         'menu_cycle_id', 'day_of_week', 'meal_type', 'line_order',
-        'recipe_id', 'fs_item_id', 'quantity', 'servings_override', 'recipe_override',
+        'recipe_id', 'fs_item_id', 'quantity', 'servings_override', 'recipe_override', 'recipe_original',
         'estimate_population', 'estimate_population_updated_at',
         'is_event', 'event_allocation',
         'snapshot_purchase_order_id', 'po_snapshot', 'po_snapshot_at', 'po_snapshot_locked',
@@ -25,6 +25,7 @@ class MenuCycleDay extends Model
         'line_order' => 'integer',
         'servings_override' => 'integer',
         'recipe_override' => 'array',
+        'recipe_original' => 'array',
         'estimate_population' => 'integer',
         'estimate_population_updated_at' => 'datetime',
         'is_event' => 'boolean',
@@ -37,6 +38,28 @@ class MenuCycleDay extends Model
     public function snapshotPurchaseOrder(): BelongsTo
     {
         return $this->belongsTo(PurchaseOrder::class, 'snapshot_purchase_order_id');
+    }
+
+    public static function recipeBaseline(?int $recipeId): ?array
+    {
+        $recipe = $recipeId ? FoodServiceRecipe::with('ingredients.fsItem')->find($recipeId) : null;
+        if (! $recipe) {
+            return null;
+        }
+
+        return ['name' => $recipe->name, 'reference_servings' => $recipe->servings, 'prep_notes' => $recipe->prep_notes,
+            'portion_multiplier' => 1,
+            'ingredients' => $recipe->ingredients->filter(fn ($row) => $row->fsItem !== null)->map(fn ($row) => [
+                'fs_item_id' => $row->fs_item_id, 'name' => $row->fsItem->name, 'quantity' => $row->quantity,
+                'unit' => $row->unit, 'adjust_to_taste' => (bool) $row->adjust_to_taste,
+            ])->values()->all()];
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $line): void {
+            $line->recipe_original ??= $line->recipe_override ?? self::recipeBaseline($line->recipe_id);
+        });
     }
 
     public function menuCycle(): BelongsTo

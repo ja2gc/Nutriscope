@@ -1,4 +1,7 @@
 "use client";
+import { TubeFormulaPlanner } from '@/components/ncp/TubeFormulaPlanner';
+import { formulaItemsPayload } from '@/lib/formulaPlan';
+import { nutritionSupportLabel } from '@/lib/nutritionSupport';
 
 import React, { Suspense, use, useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
@@ -97,7 +100,7 @@ function interventionToForm(iv: Intervention): PrescriptionForm {
     fat_g:       iv.fat_g       != null ? String(Number(iv.fat_g))       : "",
     fluid_ml:    iv.fluid_ml    != null ? String(Number(iv.fluid_ml))    : "",
     micronutrient_limits: micronutrientLimits,
-    displayed_nutrients: nutrientKeysWithValues(micronutrientLimits),
+    displayed_nutrients: [...new Set([...microKeys(iv.displayed_nutrients ?? []), ...nutrientKeysWithValues(micronutrientLimits)])],
   };
 }
 
@@ -228,6 +231,9 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
 
   const prepareNewPlan = useCallback(async (latest: Intervention | null) => {
     const draft = newPlanDraft(latest);
+    const mode = (await fetchAssessment(ncpId)).nutrition_support;
+    draft.nutrition_support = mode;
+    draft.formula_items = mode === 'tube_feeding' && latest?.nutrition_support === mode ? structuredClone(latest.formula_items ?? []).map(item => ({ ...item, id: crypto.randomUUID(), source_intervention_id: latest.id, source_intervention_item_id: item.id })) : [];
     setNewlySavedInterventionId(null);
     applyIntervention(draft);
     setSelectedPlanId(null);
@@ -489,6 +495,8 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
     try {
       const persist = selectedPlanId ? (id: string, payload: Partial<Intervention>) => updateIntervention(id, selectedPlanId, payload) : createIntervention;
       const created = await persist(ncpId, {
+        nutrition_support: intervention.nutrition_support ?? assessmentContext?.nutrition_support ?? undefined,
+        formula_items: formulaItemsPayload(intervention.formula_items ?? []) as unknown as Intervention['formula_items'],
         ...calculationPayload(prescription),
         goal_type: intervention.goal_type,
         disease_stage: intervention.disease_stage,
@@ -501,7 +509,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
         nutrient_operators: prescription.nutrient_operators ?? {},
         weight_target: prescription.weight_target
           ? Object.fromEntries(Object.entries(prescription.weight_target).map(([key, value]) => [key, Number(value)])) : undefined,
-        displayed_nutrients: nutrientKeysWithValues(prescription.micronutrient_limits),
+        displayed_nutrients: microKeys(prescription.displayed_nutrients),
         education_notes: educationNotes || null,
         counseling_goals: counselingGoals || null,
         barriers: barriers || null,
@@ -775,7 +783,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
             />
 
             {/* [C] Recommend / Avoid */}
-            {intervention?.goal_type && (
+            {intervention?.goal_type && (intervention.nutrition_support ?? assessmentContext?.nutrition_support) === 'oral' && (
               <div className="space-y-3 rounded-none border-0 bg-transparent p-0 shadow-none sm:rounded-2xl sm:border sm:border-warm-200 sm:bg-white sm:p-5 sm:shadow-sm">
                 <h3 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Food Recommendations</h3>
                 <RecommendAvoidPanel guide={guidance?.foods} allergens={allergens} isYoungInfant={isPediatric && (prescription.calculation_snapshot?.inputs.ageMonths ?? (prescription.calculation_snapshot?.inputs.ageYears ?? patientMetrics?.ageYears ?? 18) * 12) < 6} />
@@ -783,7 +791,8 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
             )}
 
             {/* [D] Meal Plan */}
-              <MealPlanSection
+              <p className="text-sm font-semibold text-warm-700">Nutrition support: {nutritionSupportLabel(intervention?.nutrition_support ?? assessmentContext?.nutrition_support)}</p>
+              {(intervention?.nutrition_support ?? assessmentContext?.nutrition_support) === 'tube_feeding' ? <TubeFormulaPlanner items={intervention?.formula_items ?? []} selectedMicros={microKeys(prescription.displayed_nutrients)} readOnly={editorMode !== 'edit'} onChange={items => { setIntervention(current => current ? { ...current, formula_items: items } : current); setDirty(true); }} onSavePlan={savePlan} /> : (intervention?.nutrition_support ?? assessmentContext?.nutrition_support) === 'no_food_menu' ? <p className="text-sm text-warm-600">No food menu is planned for this intervention.</p> : <MealPlanSection
                 ncpId={ncpId}
                 interventionPlanId={selectedPlanId ?? ""}
                 newlySavedInterventionId={newlySavedInterventionId}
@@ -802,7 +811,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
                 micronutrientLimits={prescription.micronutrient_limits}
                 nutrientOperators={prescription.nutrient_operators}
                 interventionGoal={intervention?.goal_type}
-              />
+              />}
           </div>
           </InterventionPlanEditor>
         </div>

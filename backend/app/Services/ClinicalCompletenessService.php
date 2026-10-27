@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Intervention;
 use App\Models\NcpRecord;
+use App\Support\NutritionSupport;
 
 /**
  * Defines the MINIMUM clinically-meaningful content for each ADIME step, so an
@@ -36,6 +37,9 @@ class ClinicalCompletenessService
         }
 
         $missing = [];
+        if (! in_array($ncp->nutrition_support, NutritionSupport::VALUES, true)) {
+            $missing[] = 'Nutrition support';
+        }
         if (! ($a->weight > 0)) {
             $missing[] = 'Weight';
         }

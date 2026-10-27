@@ -194,9 +194,17 @@ The **Plans** tab lists complete dated plans newest first. Older plans open read
 
 ### Can I make a patient meal plan manually or from a template?
 
-Yes. Use Menu Items from Food Library to create a week manually, generate it, or load a template. Preview and edit templates in the weekly calendar, review goal/stage/maternal compatibility, optionally **Scale to prescription**, then **Save week**. Replacing nonempty cells requires confirmation. Failed saves retain the draft. Manual menus and templates may place a Snack Menu Item in any meal slot, including milk and fruit in main meals of maternal no-snack patterns.
+Yes. Use Menu Items from Food Library to create a week manually, generate it, or load a template. Preview the copied template in the patient’s weekly calendar, review goal/stage/maternal compatibility, optionally **Scale to prescription**, then **Save week**. Replacing nonempty cells requires confirmation. Failed saves retain the draft. Manual menus and templates may place a Snack Menu Item in any meal slot, including milk and fruit in main meals of maternal no-snack patterns.
 
 For **Auto-Generate**, review the preselected available Carb Menu Item, change it if needed, then confirm it for all 21 main-meal slots. Select **Exclude carbs** to omit that separate side. The chosen Carb accompanies a Meal even when the Meal already contains carbohydrates. Included Snacks fill only AM and PM Snack slots. **Exclude snacks** works for every goal, including liver disease, and redistributes targets across main meals. Patient allergies block incompatible Carb choices; staff assess free-text restrictions themselves. An unusable portion blocks generation with an explanation rather than silently replacing or omitting the Carb. Review portions, totals, and patient suitability. Fluid guidance stays outside food scaling and target-match success. Empty snack rows are omitted from the PDF.
+
+### How do I plan Tube Feeding formulas?
+
+Select one **Nutrition support** option in Assessment: **Oral / Per Orem**, **Tube Feeding**, or **NPO / TPN — No food menu**. Existing missing choices are migrated to Oral. A saved Intervention Plan retains its support type; after a change, create a new plan.
+
+Tube Feeding opens formula columns without weekdays or automatic prescription scaling. Select Formula 1, 2, etc. to see its macros and the prescription-selected micros above; each card shows only the formula name, opens by clicking anywhere, and uses the shared top-right X to remove it. Exact measurements remain inside its profile and report. Fluid sits with the macros. **Select formula** in the next empty column selects a Tube Feeding Menu Item, **Load Template** copies a formula collection, and **Create formula** reuses Menu Item creation with Tube Feeding selected. Choose **Use in this plan** or **Save to Food Library and use**; Cancel uses the usual unsaved-change confirmation. Open a profile to adjust its multiplier and ingredients. A change from 2x to 3x scales the current edited amounts by 1.5. **Reset recipe** explicitly restores the captured original. Source items/templates remain unchanged. **Save as template** saves the prepared collection; template profiles themselves are view-only.
+
+Nutrition Intervention Plan and NCP Summary show the saved support type. Tube reports show individual recipes, portions and selected nutrient profiles without a weekly or daily total. NPO / TPN reports retain prescription and guidance without requiring a menu. Census shows the three support counts per qualifying ADIME cycle; older frozen records without that information stay unrecorded.
 
 ### What can I record in Monitoring?
 
@@ -218,7 +226,7 @@ Upload them from the cycle's Assessment page. The patient profile **Attachments*
 
 ### What is the difference between Food Library and Inventory?
 
-- **Food Library:** clinical **Ingredients**, **Menu Items**, and **Templates**, with nutrient values, allergens, and optional USDA source data. Menu Items contain one or more measured Ingredients and use exactly Meal, Carb, or Snack categories; Ingredient food-group filters remain separate.
+- **Food Library:** clinical **Ingredients**, **Menu Items**, **Templates**, and a full-tab **Food Calculator** reusing the recall calculator without patient saving. Menu Items contain measured Ingredients and use Meal, Carb, Snack, or Tube Feeding categories. Tube formulas stay in tube-specific searches and library management; Ingredient food-group filters remain separate.
 - **Inventory:** Food Service **Ingredients**, **Menu Items**, and **Supplies**. Ingredients and Supplies store vendor, unit, and purchase cost; Menu Items contain recipes and single food items categorized as Meal, Snack, or Beverage for menu cycles. This is not a live stock-count workflow. Menu templates remain under **Menu Calendar**.
 
 ### How do I import food nutrient data?

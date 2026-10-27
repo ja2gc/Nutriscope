@@ -13,9 +13,8 @@ import { CookingPot, ArrowLeft, Search, Plus, X, Loader2, FlaskConical } from "l
 import { Button } from "@/components/ui/Button";
 import { InfoHint } from "@/components/ui/InfoHint";
 import { canonicalClinicalUnit, clinicalIngredientFactor, clinicalRecipeUnits, CLINICAL_UNIT_HINT } from "@/lib/clinicalUnits";
+import { MENU_ITEM_CATEGORIES } from "@/lib/menuItemCategories";
 import { fetchRecipeById, updateRecipe, fetchFoodItems, Recipe, FoodItem, RecipeIngredientPayload } from "@/services/foodLibraryService";
-
-const RECIPE_CATEGORIES = ["meal", "carb", "snack"];
 
 interface IngredientRow {
   key: number;
@@ -214,7 +213,7 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
             <div><Label>Category</Label>
               <select aria-label="Category" value={category} onChange={(e) => setCategory(e.target.value)} className={inputCls} required>
                 <option value="">Select...</option>
-                {RECIPE_CATEGORIES.map((c) => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
+                {MENU_ITEM_CATEGORIES.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
               </select>
             </div>
             <div><Label>Recipe yield (servings) <Required /></Label><input aria-label="Recipe yield (servings)" type="number" value={servings} onChange={(e) => setServings(e.target.value)} min="1" max="10000" step="1" required className={inputCls} /></div>

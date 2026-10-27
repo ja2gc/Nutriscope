@@ -120,15 +120,15 @@ describe("plannedRecipeIngredients", () => {
 });
 
 describe("meal-plan fluid boundary", () => {
-  test("keeps water snapshots and fluid out of menu matching", () => {
+  test("displays fluid with macros while preserving water snapshots and the report estimate boundary", () => {
     const root = process.cwd();
     const section = readFileSync(join(root, "app/(rnd)/ncp/[patientId]/intervention/[ncpId]/_components/MealPlanSection.tsx"), "utf8");
     const tracker = readFileSync(join(root, "app/(rnd)/ncp/[patientId]/intervention/[ncpId]/_components/MacroTrackerBar.tsx"), "utf8");
     const service = readFileSync(join(root, "services/mealPlanService.ts"), "utf8");
     const report = readFileSync(join(root, "../backend/resources/views/reports/patient-menu-plan.blade.php"), "utf8");
 
-    expect(section).not.toContain("label: 'Fluid'");
-    expect(tracker).toContain('target.label !== "Fluid"');
+    expect(section).toContain("label: 'Fluid'");
+    expect(tracker).not.toContain('target.label !== "Fluid"');
     expect(service).toContain("water_g?: number | null");
     expect(report).toContain("Estimated fluid from this menu if followed.");
   });

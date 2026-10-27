@@ -1,6 +1,9 @@
 @extends('reports.layout')
 
 @section('body')
+    @if(($nutrition_support ?? 'oral') !== 'oral')
+        @include('reports.partials.support-intervention')
+    @else
     @include('reports.partials.letterhead', ['title' => 'NUTRITION INTERVENTION PLAN'])
 
     <table style="border:0; margin-top:6px;" class="meta">
@@ -143,4 +146,5 @@
     @endif
 
     @include('reports.partials.signatories')
+    @endif
 @endsection

@@ -30,7 +30,7 @@ class ClinicalCompletenessTest extends TestCase
         $rnd = User::forceCreate(['name' => 'R', 'email' => 'r'.uniqid().'@x.com', 'password' => 'x', 'role' => 'RND', 'is_active' => true]);
         $patient = Patient::forceCreate(['name' => 'P', 'dob' => '1990-01-01', 'sex' => 'Male', 'admission_date' => now()->toDateString()]);
 
-        return NcpRecord::forceCreate(['patient_id' => $patient->id, 'rnd_user_id' => $rnd->id, 'type' => 'new', 'status' => 'draft']);
+        return NcpRecord::forceCreate(['patient_id' => $patient->id, 'rnd_user_id' => $rnd->id, 'type' => 'new', 'status' => 'draft', 'nutrition_support' => 'oral']);
     }
 
     public function test_assessment_incomplete_without_weight_height(): void
@@ -39,6 +39,9 @@ class ClinicalCompletenessTest extends TestCase
         $this->assertFalse($this->svc->assessmentComplete($ncp));
 
         Assessment::forceCreate(['ncp_record_id' => $ncp->id, 'weight' => 70, 'height' => 170]);
+        $ncp->update(['nutrition_support' => null]);
+        $this->assertFalse($this->svc->assessmentComplete($ncp->fresh()));
+        $ncp->update(['nutrition_support' => 'oral']);
         $this->assertTrue($this->svc->assessmentComplete($ncp->fresh()));
     }
 

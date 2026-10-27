@@ -11,6 +11,9 @@ import ButtonFilterGroup from "@/components/ui/ButtonFilterGroup";
 import { useUnsavedChanges, type EditorLeaveHandle } from "@/hooks/useUnsavedChanges";
 import { ArrowLeft } from "lucide-react";
 import { formatMealPlanAmount as formatTemplateDisplayNumber } from "@/lib/mealPlanNutrition";
+import { MENU_ITEM_CATEGORIES, menuItemCategoryLabel } from "@/lib/menuItemCategories";
+import { FormulaCollection } from '@/components/ncp/FormulaCollection';
+import { formulaItemsPayload, type FormulaItem } from '@/lib/formulaPlan';
 import { fetchRecipes, type Recipe } from "@/services/foodLibraryService";
 import {
   deleteMealPlanTemplate, fetchMealPlanTemplate, fetchMealPlanTemplates,
@@ -20,7 +23,7 @@ import {
 const MEALS = MENU_SLOTS;
 
 type EditorLine = LibraryTemplateLine & { key: number; itemName: string; snapshot?: NutrientSnapshot | null };
-type EditorState = { id?: string; name: string; description: string; lines: EditorLine[]; readOnly?: boolean };
+type EditorState = { id?: string; name: string; description: string; lines: EditorLine[]; readOnly?: boolean; nutritionSupport?: 'oral' | 'tube_feeding'; formulaItems?: FormulaItem[] };
 let nextLineKey = 0;
 
 function TemplateEditor({ initial, onClose, onSaved, leaveRef }: {
@@ -105,6 +108,13 @@ function TemplateEditor({ initial, onClose, onSaved, leaveRef }: {
   }
 
   async function save() {
+    if (draft.nutritionSupport === 'tube_feeding') {
+      if (!draft.name.trim() || !draft.formulaItems?.length) { setError('Enter a name and add at least one formula.'); return false; }
+      setSaving(true); setError(null);
+      try { await saveLibraryMealPlanTemplate({ name: draft.name.trim(), description: draft.description.trim() || null, nutrition_support: 'tube_feeding', formula_items: formulaItemsPayload(draft.formulaItems), lines: [] }, draft.id); guard.allowNavigation(); onSaved(); return true; }
+      catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not save template.'); return false; }
+      finally { setSaving(false); }
+    }
     if (!draft.name.trim() || draft.lines.length === 0) {
       setError("Enter a name and add at least one Menu Item.");
       return false;
@@ -160,7 +170,7 @@ function TemplateEditor({ initial, onClose, onSaved, leaveRef }: {
         </div>
 
         <div className="mt-5 space-y-2">
-          <WeeklyMenuCalendar renderCell={(cellDay, cellMeal) => {
+          {draft.nutritionSupport === 'tube_feeding' ? <FormulaCollection items={draft.formulaItems ?? []} onChange={items => setDraft(current => ({ ...current, formulaItems: items }))} readOnly={draft.readOnly} editPortions={false} /> : <WeeklyMenuCalendar renderCell={(cellDay, cellMeal) => {
             const lines = draft.lines.filter((line) => line.day_of_week === cellDay && line.meal_type === cellMeal);
             return <MenuEditorSlots
             itemActions={lines.map((line) => line.recipe_id ? { label: `View ${line.itemName}`, onOpen: (trigger) => void openProfile(line, trigger) } : undefined)}
@@ -177,15 +187,16 @@ function TemplateEditor({ initial, onClose, onSaved, leaveRef }: {
             addAriaLabel={`Add item to ${cellDay} ${MEALS.find(([key]) => key === cellMeal)?.[1]}`}
             readOnly={draft.readOnly}
             onAdd={(event) => { pickerTrigger.current = event.currentTarget; setDay(cellDay); setMeal(cellMeal); setQuery(""); setCategory("all"); setPage(1); setMatches([]); setPickerOpen(true); }}
-          />; }} />
+          />; }} />}
         </div>
-        {pickerOpen && <MenuItemPicker title={`${day} ${MEALS.find(([key]) => key === meal)?.[1]}`} query={query} onQueryChange={(value) => { setQuery(value); setPage(1); setMatches([]); }} filters={<div className="[&_button]:min-h-11"><ButtonFilterGroup label="Category" size="sm" value={category} onChange={(value) => { setCategory(value); setPage(1); setMatches([]); setSearching(true); }} options={[{ value: "all", label: "All" }, { value: "meal", label: "Meals" }, { value: "snack", label: "Snacks" }, { value: "carb", label: "Carbs" }]} /></div>} loading={searching} error={searchError} items={matches.map((item) => ({ id: item.id, name: item.name, detail: `${item.category} · Recipe makes ${formatTemplateDisplayNumber(item.servings)} ${item.servings === 1 ? "serving" : "servings"}` }))} onSelect={(id) => { const item = matches.find((entry) => entry.id === id); if (item) addItem(item); }} onClose={closePicker} meta={meta} page={page} onPageChange={setPage} />}
+        {pickerOpen && <MenuItemPicker title={`${day} ${MEALS.find(([key]) => key === meal)?.[1]}`} query={query} onQueryChange={(value) => { setQuery(value); setPage(1); setMatches([]); }} filters={<div className="[&_button]:min-h-11"><ButtonFilterGroup label="Category" size="sm" value={category} onChange={(value) => { setCategory(value); setPage(1); setMatches([]); setSearching(true); }} options={[{ value: "all", label: "All" }, ...MENU_ITEM_CATEGORIES.filter(option => option.value !== 'tube_feeding').map(({ value, label }) => ({ value, label: `${label}s` }))]} /></div>} loading={searching} error={searchError} items={matches.map((item) => ({ id: item.id, name: item.name, detail: `${menuItemCategoryLabel(item.category)} · Recipe makes ${formatTemplateDisplayNumber(item.servings)} ${item.servings === 1 ? "serving" : "servings"}` }))} onSelect={(id) => { const item = matches.find((entry) => entry.id === id); if (item) addItem(item); }} onClose={closePicker} meta={meta} page={page} onPageChange={setPage} />}
       </div>
     </section>
   );
 }
 
 export function MealTemplatesTab({ leaveRef }: { leaveRef?: Ref<EditorLeaveHandle> }) {
+  const [nutritionSupport, setNutritionSupport] = useState<'oral' | 'tube_feeding'>('oral');
   const [templates, setTemplates] = useState<MealPlanTemplate[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [page, setPage] = useState(1);
@@ -200,7 +211,7 @@ export function MealTemplatesTab({ leaveRef }: { leaveRef?: Ref<EditorLeaveHandl
     if (!quiet) setLoading(true);
     setError(null);
     try {
-      const result = await fetchMealPlanTemplates(page);
+      const result = await fetchMealPlanTemplates(page, nutritionSupport);
       setTemplates(result.data);
       setMeta(result.meta);
     } catch (cause) {
@@ -208,7 +219,7 @@ export function MealTemplatesTab({ leaveRef }: { leaveRef?: Ref<EditorLeaveHandl
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, [page, nutritionSupport]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -223,6 +234,8 @@ export function MealTemplatesTab({ leaveRef }: { leaveRef?: Ref<EditorLeaveHandl
         readOnly,
         name: detail.name,
         description: detail.description ?? "",
+        nutritionSupport: detail.nutrition_support ?? 'oral',
+        formulaItems: detail.formula_items ?? [],
         lines: detail.days.flatMap((day) => day.items.map((item) => ({
           key: ++nextLineKey,
           source_template_item_id: item.id,
@@ -261,9 +274,10 @@ export function MealTemplatesTab({ leaveRef }: { leaveRef?: Ref<EditorLeaveHandl
   if (editor) return <TemplateEditor leaveRef={leaveRef} initial={editor} onClose={() => setEditor(null)} onSaved={() => { setEditor(null); void load(true); }} />;
 
   return <div className="space-y-4">
+    <ButtonFilterGroup label="Template type" value={nutritionSupport} onChange={value => { setNutritionSupport(value as 'oral' | 'tube_feeding'); setPage(1); }} options={[{ value: 'oral', label: 'Oral' }, { value: 'tube_feeding', label: 'Tube Feeding' }]} />
     <div className="flex flex-wrap items-center justify-between gap-3">
       <p className="text-sm text-warm-600">Create templates here or save one from an Intervention menu plan.</p>
-      <Button variant="primary" onClick={() => setEditor({ name: "", description: "", lines: [] })}>New Template</Button>
+      <Button variant="primary" onClick={() => setEditor({ name: "", description: "", lines: [], nutritionSupport, formulaItems: [] })}>New Template</Button>
     </div>
     {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
     <div className="overflow-x-auto rounded-xl border border-warm-200 bg-white" aria-label="Meal templates table">

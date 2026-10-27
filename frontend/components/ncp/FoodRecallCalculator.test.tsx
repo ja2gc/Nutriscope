@@ -34,6 +34,16 @@ it('starts collapsed and reuses the leave dialog to discard a replacement', asyn
   expect(screen.getByRole('button', { name: /Edit Saved rice/ })).toBeTruthy();
 });
 
+it.each([false, true])('uses name-only clickable recall cards with the shared remove control (standalone=%s)', async standalone => {
+  await act(async () => root.render(<FoodRecallCalculator value={plan} standalone={standalone} />));
+  if (!standalone) await click('Show Food Recall Calculator');
+  const card = screen.getByRole('button', { name: 'Edit Saved rice' }).closest('[data-menu-editor-item]')!;
+  expect(card.textContent).toBe('Saved rice');
+  expect(card.querySelector('[data-menu-editor-action="remove"]')).not.toBeNull();
+  await click('Remove Saved rice');
+  expect(screen.queryByRole('button', { name: 'Edit Saved rice' })).toBeNull();
+});
+
 it('contains the wide day table in its own horizontal scroll region', async () => {
   await act(async () => root.render(<FoodRecallCalculator value={plan} compact />));
   await click('Show Food Recall Calculator');
@@ -64,7 +74,10 @@ it('keeps entered quantity when changing to a compatible unit and recalculates n
   await click('Back to food recall');
   expect(screen.queryByRole('dialog')).toBeNull();
   await click('Show Food Recall Calculator');
-  expect(screen.getByText('1 kg · 1200 kcal')).toBeTruthy();
+  await click(/Edit Saved rice/);
+  expect((screen.getByRole('spinbutton', { name: 'Quantity' }) as HTMLInputElement).value).toBe('1');
+  expect((screen.getByRole('combobox', { name: 'Unit' }) as HTMLSelectElement).value).toBe('kg');
+  expect(screen.getByText('1200')).toBeTruthy();
 });
 
 it('requires at least one item in every day and does not overwrite the accepted plan', async () => {
@@ -123,7 +136,9 @@ it('keeps the accepted draft when saving through the leave dialog', async () => 
   await click('Apply item'); await click('Back to food recall'); await click('Save');
   expect(screen.queryByRole('dialog')).toBeNull();
   await click('Show Food Recall Calculator');
-  expect(screen.getByText('200 g · 240 kcal')).toBeTruthy();
+  await click(/Edit Saved rice/);
+  expect((screen.getByRole('spinbutton', { name: 'Quantity' }) as HTMLInputElement).value).toBe('200');
+  expect(screen.getByText('240')).toBeTruthy();
 });
 
 it('lets saved logs show profiles and choose micros without exposing editing actions', async () => {

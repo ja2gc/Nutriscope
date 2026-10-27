@@ -9,6 +9,7 @@ use App\Models\Report;
 use App\Models\ScreeningDocument;
 use App\Services\ClinicalCompletenessService;
 use App\Services\Reports\Contracts\ReportGenerator;
+use App\Support\NutritionSupport;
 use App\Support\ReportPaper;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
@@ -83,6 +84,7 @@ class NcpSummaryGenerator implements ReportGenerator
                 'religion' => $assessment?->religion ?? $patient?->religion,
             ],
             'assessment' => $assessment,
+            'nutrition_support' => NutritionSupport::label($ncp->nutrition_support),
             'biochem' => $assessment?->biochemicalData,
             'nutritional_status' => Assessment::classifyBmi($assessment?->calculateBmi(), $patient?->dob?->diffInYears($ncp->created_at), (bool) $assessment?->edema_present, $assessment?->pregnancy_lactation_status, $patient?->sex, $patient?->dob ? (int) $patient->dob->diffInMonths($ncp->created_at) : null) ?? 'Not classified',
             'assessment_age_months' => $patient?->dob ? (int) $patient->dob->diffInMonths($ncp->created_at) : null,

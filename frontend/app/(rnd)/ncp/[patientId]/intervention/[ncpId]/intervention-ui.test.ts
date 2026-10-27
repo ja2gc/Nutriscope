@@ -21,5 +21,5 @@ it("uses the shared NCP tabs and keeps education outside the plan editor shell",
 it("gives saved plan rows a white surface", () => {
   const plans = readFileSync(join(process.cwd(), "app/(rnd)/ncp/[patientId]/intervention/[ncpId]/_components/InterventionPlansTab.tsx"), "utf8");
   expect(plans).toContain("bg-white sm:rounded-xl");
-  expect(plans).toContain('"bg-white hover:bg-warm-50/60"');
+  expect(plans).toContain('hover:bg-warm-50/60');
 });

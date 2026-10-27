@@ -24,6 +24,7 @@ export const PRIMARY_DIAGNOSIS_CATEGORIES = [
 export type PrimaryDiagnosisCategory = (typeof PRIMARY_DIAGNOSIS_CATEGORIES)[number];
 
 export interface Assessment {
+  nutrition_support?: import('@/lib/nutritionSupport').NutritionSupport | null;
   food_recall?: FoodRecallPlan | null;
   intake_nutrients?: Record<string, number | string | null> | null;
   id?: number;

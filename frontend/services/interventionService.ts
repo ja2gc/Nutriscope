@@ -61,6 +61,8 @@ export interface GuidanceSuggestion {
 }
 
 export interface Intervention {
+  nutrition_support?: import('@/lib/nutritionSupport').NutritionSupport | null;
+  formula_items?: import('@/lib/formulaPlan').FormulaItem[];
   recalculate?: boolean;
   energy_adjustment_mode?: "none" | "surplus" | "deficit" | null;
   energy_adjustment_kcal?: number | null;

@@ -170,7 +170,9 @@ class MenuCycleController extends Controller
         $this->recordSlotChange($menuCycle, function () use ($slot, $data, $items): void {
             $slot->update([
                 'servings_override' => null,
+                'recipe_original' => $slot->recipe_original ?? $slot->recipe_override ?? MenuCycleDay::recipeBaseline($slot->recipe_id),
                 'recipe_override' => [
+                    'portion_multiplier' => $data['portion_multiplier'] ?? $slot->recipe_override['portion_multiplier'] ?? 1,
                     'name' => $data['name'],
                     'reference_servings' => $data['reference_servings'],
                     'prep_notes' => $data['prep_notes'] ?? null,
@@ -213,7 +215,7 @@ class MenuCycleController extends Controller
         if ($slot->po_snapshot_locked) {
             return response()->json(['message' => 'This menu item is locked to a purchase order.'], 409);
         }
-        $this->recordSlotChange($menuCycle, fn () => $slot->update(['recipe_override' => null]));
+        $this->recordSlotChange($menuCycle, fn () => $slot->update(['recipe_override' => $slot->recipe_original]));
 
         return response()->json(['data' => $this->slotData($slot->fresh())]);
     }
@@ -560,6 +562,8 @@ class MenuCycleController extends Controller
             'editable' => Auth::user()?->role === 'RND' && ! $slot->po_snapshot_locked && $slot->recipe_id !== null,
             'name' => $recipe['name'] ?? $slot->fsItem->name,
             'reference_servings' => (int) ($recipe['servings'] ?? 1),
+            'portion_multiplier' => (float) ($slot->recipe_override['portion_multiplier'] ?? 1),
+            'can_scale' => (float) ($recipe['servings'] ?? 0) > 0 && $ingredients !== [] && collect($ingredients)->every(fn ($ingredient) => ($ingredient['quantity'] ?? 0) > 0),
             'planned_servings' => $estimateSet ? $target : null,
             'purchase_estimate_set' => $estimateSet,
             'prep_notes' => $recipe['prep_notes'] ?? ($slot->po_snapshot ? ($slot->po_snapshot['prep_notes'] ?? null) : $slot->fsItem?->notes),
@@ -705,6 +709,7 @@ class MenuCycleController extends Controller
                 'quantity' => $d['quantity'] ?? 1,
                 'servings_override' => $d['servings_override'] ?? null,
                 'recipe_override' => $sameSource ? json_encode($previous->recipe_override) : null,
+                'recipe_original' => json_encode($sameSource ? ($previous->recipe_original ?? $previous->recipe_override ?? MenuCycleDay::recipeBaseline($d['recipe_id'] ?? null)) : MenuCycleDay::recipeBaseline($d['recipe_id'] ?? null)),
                 'estimate_population' => $d['estimate_population'] ?? $existing->first(fn ($line) => $line->day_of_week === $d['day_of_week'] && $line->estimate_population !== null)?->estimate_population,
                 'estimate_population_updated_at' => array_key_exists('estimate_population', $d) ? $now : null,
                 'is_event' => $d['is_event'] ?? false,

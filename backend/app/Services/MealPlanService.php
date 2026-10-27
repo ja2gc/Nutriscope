@@ -405,6 +405,9 @@ class MealPlanService
      */
     public function assertFoodMenuSupported(Intervention $intervention): void
     {
+        if (($intervention->nutrition_support ?? 'oral') !== 'oral') {
+            throw ValidationException::withMessages(['nutrition_support' => 'Weekly food menus are available for Oral Intervention Plans.']);
+        }
         $snapshot = $intervention->calculation_snapshot;
         $months = $snapshot['inputs']['ageMonths'] ?? (isset($snapshot['inputs']['ageYears']) ? $snapshot['inputs']['ageYears'] * 12 : null);
         if ($months !== null && $months < 6) {

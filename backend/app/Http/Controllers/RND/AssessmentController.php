@@ -23,6 +23,7 @@ use App\Services\RiskScoreCalculator;
 use App\Services\StoredObjectStorage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Throwable;
 
 class AssessmentController extends Controller
@@ -55,7 +56,10 @@ class AssessmentController extends Controller
         unset($data['biochemical_data'], $data['risk_score_manual_override'], $data['risk_score_manual_factors']);
 
         return $this->audited(function () use ($data, $ncpRecord, $biochemicalData, $manualOverride, $manualFactors, $request) {
-            $assessment = new Assessment($data);
+            $assessment = new Assessment(Arr::except($data, ['nutrition_support']));
+            if (isset($data['nutrition_support'])) {
+                $ncpRecord->update(['nutrition_support' => $data['nutrition_support']]);
+            }
             $assessment->ncp_record_id = $ncpRecord->id;
             $assessment->bmi = $assessment->calculateBmi($ncpRecord->patient?->dob?->diffInYears($ncpRecord->created_at));
             $assessment->save();
@@ -106,7 +110,10 @@ class AssessmentController extends Controller
         unset($data['biochemical_data'], $data['risk_score_manual_override'], $data['risk_score_manual_factors']);
 
         return $this->audited(function () use ($assessment, $data, $biochemicalData, $ncpRecord, $manualOverride, $manualFactors, $request) {
-            $assessment->fill($data);
+            $assessment->fill(Arr::except($data, ['nutrition_support']));
+            if (isset($data['nutrition_support'])) {
+                $ncpRecord->update(['nutrition_support' => $data['nutrition_support']]);
+            }
             $assessment->bmi = $assessment->calculateBmi($ncpRecord->patient?->dob?->diffInYears($ncpRecord->created_at));
             $assessment->save();
 

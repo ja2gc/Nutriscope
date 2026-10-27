@@ -113,11 +113,11 @@ class Recipe extends Model
             foreach ($ingredients as $index => $ingredient) {
                 $food = $foods->get($ingredient['food_item_id']);
                 $frozenFood = $frozenFoods->get($ingredient['food_item_id'])['food_item'] ?? null;
-                if (! $food || ($food->trashed() && ! $frozenFood)) {
+                if (! $frozenFood && (! $food || $food->trashed())) {
                     throw new InvalidArgumentException('Choose an existing Ingredient.');
                 }
                 $rows[] = [
-                    'id' => $index + 1, 'food_item_id' => $food->id,
+                    'id' => $index + 1, 'food_item_id' => $food?->id,
                     'name' => $frozenFood['name'] ?? $food->name,
                     'quantity' => $ingredient['quantity'], 'unit' => $ingredient['unit'],
                     'food_item' => $frozenFood ?? ['id' => $food->uuid, 'name' => $food->name,
@@ -195,6 +195,7 @@ class Recipe extends Model
             'recipe_ingredients' => $planIngredients,
             'recipe_original_ingredients' => $originalIngredients,
             'recipe_yield' => $servings,
+            ...(isset($baseline['recipe_reset_baseline']) ? ['recipe_reset_baseline' => $baseline['recipe_reset_baseline'], 'recipe_reset_quantity' => $baseline['recipe_reset_quantity'] ?? 1] : []),
             ...(isset($baseline['recipe_snapshot_source']) ? ['recipe_snapshot_source' => $baseline['recipe_snapshot_source']] : []),
         ];
     }

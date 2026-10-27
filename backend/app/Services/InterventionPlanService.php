@@ -8,6 +8,7 @@ use App\Models\NcpRecord;
 use App\Models\User;
 use App\Services\Audit\AuditLogger;
 use App\Support\InterventionGuidance;
+use App\Support\NutritionSupport;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -53,6 +54,20 @@ class InterventionPlanService
 
     public function prepareAttributes(NcpRecord $record, array $attributes, ?Intervention $existing = null): array
     {
+        $mode = $existing?->nutrition_support ?? $record->nutrition_support;
+        if (! in_array($mode, NutritionSupport::VALUES, true)) {
+            throw ValidationException::withMessages(['nutrition_support' => 'Select Nutrition support in Assessment before creating an Intervention Plan.']);
+        }
+        if (isset($attributes['nutrition_support']) && $attributes['nutrition_support'] !== $mode) {
+            throw ValidationException::withMessages(['nutrition_support' => 'Create a new Intervention Plan after updating Nutrition support in Assessment.']);
+        }
+        $attributes['nutrition_support'] = $mode;
+        if (array_key_exists('formula_items', $attributes)) {
+            if ($mode !== 'tube_feeding' && ! empty($attributes['formula_items'])) {
+                throw ValidationException::withMessages(['formula_items' => 'Formula recipes belong to Tube Feeding Intervention Plans.']);
+            }
+            $attributes['formula_items'] = app(FormulaPlanService::class)->normalize($attributes['formula_items'] ?? [], $existing?->formula_items ?? [], (int) $record->rnd_user_id, (int) $record->id);
+        }
         $merged = array_replace($existing?->only([
             'goal_type', 'disease_stage', 'energy_adjustment_mode', 'energy_adjustment_kcal',
             'fluid_mode', 'fluid_ml', 'calculation_options',

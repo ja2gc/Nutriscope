@@ -5,9 +5,9 @@ import { X } from 'lucide-react';
 import SearchInput from '@/components/ui/SearchInput';
 import { Pagination, type PaginationMeta } from '@/components/ui/Pagination';
 
-export function MenuItemPicker({ title = 'Add Menu Item', itemLabel = 'Menu Item', query, onQueryChange, loading, error, items, onSelect, onClose, busyId, meta, page = 1, onPageChange, filters }: {
+export function MenuItemPicker({ title = 'Add Menu Item', itemLabel = 'Menu Item', query, onQueryChange, loading, error, items, onSelect, onClose, busyId, meta, page = 1, onPageChange, filters, showSearch = true }: {
   title?: string;
-  itemLabel?: 'Menu Item' | 'Ingredient' | 'Supply';
+  itemLabel?: 'Menu Item' | 'Ingredient' | 'Supply' | 'Template';
   query: string;
   onQueryChange: (query: string) => void;
   loading: boolean;
@@ -20,8 +20,9 @@ export function MenuItemPicker({ title = 'Add Menu Item', itemLabel = 'Menu Item
   page?: number;
   onPageChange?: (page: number) => void;
   filters?: ReactNode;
+  showSearch?: boolean;
 }) {
-  const pluralLabel = itemLabel === 'Ingredient' ? 'Ingredients' : itemLabel === 'Supply' ? 'Supplies' : 'Menu Items';
+  const pluralLabel = itemLabel === 'Template' ? 'Templates' : itemLabel === 'Ingredient' ? 'Ingredients' : itemLabel === 'Supply' ? 'Supplies' : 'Menu Items';
   const panel = useRef<HTMLDivElement>(null);
   const requestLoadingSeen = useRef(false);
   const [previousItems, setPreviousItems] = useState(items);
@@ -37,9 +38,9 @@ export function MenuItemPicker({ title = 'Add Menu Item', itemLabel = 'Menu Item
   useEffect(() => { if (!isLoading && !error) setPreviousItems(items); }, [items, isLoading, error]);
   useEffect(() => {
     const trigger = document.activeElement;
-    panel.current?.querySelector<HTMLInputElement>('input')?.focus();
+    panel.current?.querySelector<HTMLElement>(showSearch ? 'input' : 'button')?.focus();
     return () => { if (trigger instanceof HTMLElement && trigger.isConnected) trigger.focus(); };
-  }, []);
+  }, [showSearch]);
   return <div role="dialog" aria-modal="true" aria-label={`Add ${itemLabel}`} className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm [@media(max-height:420px)]:p-2" onMouseDown={(event) => { if (event.target === event.currentTarget && !busyId) onClose(); }} onKeyDown={(event) => {
     if (event.key === 'Escape' && !busyId) onClose();
     if (event.key === 'Tab') {
@@ -57,7 +58,7 @@ export function MenuItemPicker({ title = 'Add Menu Item', itemLabel = 'Menu Item
           const button = event.target instanceof Element ? event.target.closest('button[aria-pressed]') : null;
           if (button && button.getAttribute('aria-pressed') !== 'true') setRequestPending(true);
         }} className="max-w-full [@media(max-height:420px)]:overflow-x-auto [@media(max-height:420px)]:[&_.flex.flex-wrap]:flex-nowrap [@media(max-height:420px)]:[&_button]:whitespace-nowrap">{filters}</div>}
-        <SearchInput label={`Search ${pluralLabel}`} value={query} onChange={(value) => { setRequestPending(true); onQueryChange(value); }} loading={isLoading} />
+        {showSearch && <SearchInput label={`Search ${pluralLabel}`} value={query} onChange={(value) => { setRequestPending(true); onQueryChange(value); }} loading={isLoading} />}
       </div>
       <div data-picker-results aria-busy={isLoading} className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 pb-3">
         {!isLoading && error && <p role="alert" className="text-sm text-red-700">{error}</p>}

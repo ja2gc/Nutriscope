@@ -227,6 +227,7 @@ class ReportController extends Controller
         $byRisk = [];
         $byStatus = array_fill_keys(DemographicCensusGenerator::NUTRITIONAL_STATUSES, 0);
         $byPrimaryDiagnosisCategory = [];
+        $bySupport = DemographicCensusGenerator::aggregate([])['by_nutrition_support'];
         $availableMonths = [];
         $allFrozen = true;
         $hasHistoricalClassification = false;
@@ -248,6 +249,13 @@ class ReportController extends Controller
             $hasHistoricalClassification = $hasHistoricalClassification || ($stored !== null && $stored->basis_version < 7);
             $census = $stored?->census ?? $generator->currentCensus($start, $start->copy()->endOfMonth());
             $total += (int) ($census['total'] ?? 0);
+            if (! isset($census['by_nutrition_support'])) {
+                $bySupport['unrecorded'] += (int) ($census['total'] ?? 0);
+            } else {
+                foreach ($bySupport as $key => $count) {
+                    $bySupport[$key] += (int) ($census['by_nutrition_support'][$key] ?? 0);
+                }
+            }
             foreach ($ageSex as $group => $counts) {
                 foreach (['M', 'F', 'total'] as $key) {
                     $ageSex[$group][$key] += (int) ($census['age_sex'][$group][$key] ?? 0);
@@ -278,6 +286,7 @@ class ReportController extends Controller
             'age_sex' => $ageSex,
             'unknown_sex' => $total - array_sum(array_column($ageSex, 'total')),
             'by_risk' => $byRisk,
+            'by_nutrition_support' => $bySupport,
             'by_nutritional_status' => $byStatus,
             'classification_basis' => $hasHistoricalClassification ? 'historical_or_mixed' : 'asia_pacific_bmi',
             'by_primary_diagnosis_category' => $byPrimaryDiagnosisCategory,
@@ -339,10 +348,8 @@ class ReportController extends Controller
                         'intervention_plan_id' => $plan->uuid,
                         'intervention_plan_date' => $plan->created_at?->copy()->timezone(config('nutriscope-reports.timezone'))->toDateString(),
                         'meal_plan_id' => $mealPlan?->uuid,
-                        'available' => $mealPlan !== null,
-                        'unavailable_reason' => $mealPlan === null
-                            ? 'Save a menu plan before preparing this report.'
-                            : null,
+                        'available' => $plan->reportPlanAvailable(),
+                        'unavailable_reason' => $plan->reportUnavailableReason(),
                     ];
                 })->all();
 
@@ -846,7 +853,7 @@ class ReportController extends Controller
             )
             ->firstOrFail();
 
-        abort_if($plan->mealPlan === null, 422, 'Save a menu plan before preparing this report.');
+        abort_unless($plan->reportPlanAvailable(), 422, $plan->reportUnavailableReason());
     }
 
     private function authorizeClinicalReportContext(string $type, array $parameters, ?Report $report = null): void
