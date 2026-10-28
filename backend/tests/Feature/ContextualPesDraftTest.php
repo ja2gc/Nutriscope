@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\Diagnosis\PesEligibilityService;
 use App\Services\Diagnosis\PesEvidenceBuilder;
 use App\Services\Diagnosis\PesRuleCatalog;
+use App\Support\DiagnosisBuilder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\Http;
@@ -165,7 +166,7 @@ class ContextualPesDraftTest extends TestCase
                     return $draft;
                 }
                 $card = collect(app(PesRuleCatalog::class)->cards())->firstWhere('id', $draft['id']);
-                $alias = $card ? array_search([$card['domain'], $card['problem_key']], $payload['candidates'], true) : false;
+                $alias = $card ? array_search([$card['domain'], DiagnosisBuilder::problemLabel($card['domain'], $card['problem_key'])], $payload['candidates'], true) : false;
                 if ($alias !== false) {
                     $draft['id'] = $alias;
                 }
@@ -206,7 +207,7 @@ class ContextualPesDraftTest extends TestCase
         $draft = $this->postJson($url)->assertOk()->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.candidate_id', 'knowledge_deficit_v2')
             ->assertJsonPath('data.0.domain', 'NB')
-            ->assertJsonPath('data.0.label', 'Food and Nutrition Knowledge Deficit')
+            ->assertJsonPath('data.0.label', 'Food- and nutrition-related knowledge deficit')
             ->assertJsonPath('data.0.source.id', 'academy_ncp_diagnosis_2026')
             ->assertJsonPath('data.0.extra_notes', 'Knowledge gap and education barrier documented.')
             ->json('data.0');
@@ -233,10 +234,10 @@ class ContextualPesDraftTest extends TestCase
         $this->assertSame(['social_history', 'knowledge_notes'], array_column($provenance['evidence_refs'], 'key'));
     }
 
-    public function test_compact_output_still_rejects_malformed_references_and_invented_causes(): void
+    public function test_compact_output_still_rejects_malformed_references_and_unusable_components(): void
     {
         foreach ([
-            ['id' => 'knowledge_deficit_v2', 'e' => 'Kidney failure', 'ek' => ['social_history'], 's' => 'Cannot identify carbohydrate foods', 'sk' => ['knowledge_notes']],
+            ['id' => 'knowledge_deficit_v2', 'e' => 'Kidney failure', 'ek' => ['unrecorded_cause'], 's' => 'Cannot identify carbohydrate foods', 'sk' => ['knowledge_notes']],
             ['id' => 'knowledge_deficit_v2', 'e' => 'Limited access to nutrition education', 'ek' => 'social_history', 's' => 'Cannot identify carbohydrate foods', 'sk' => ['knowledge_notes']],
             ['id' => 'invented_id', 'e' => 'Limited access to nutrition education', 'ek' => ['social_history'], 's' => 'Cannot identify carbohydrate foods', 'sk' => ['knowledge_notes']],
             ['id' => 'knowledge_deficit_v2', 'e' => 'Limited access to nutrition education', 'ek' => ['social_history'], 's' => str_repeat('x', 76), 'sk' => ['knowledge_notes']],
@@ -265,7 +266,7 @@ class ContextualPesDraftTest extends TestCase
             ->assertJsonPath('data.0.extra_notes', '');
     }
 
-    public function test_behavioral_review_omits_unrelated_measurements_but_keeps_counterevidence(): void
+    public function test_review_keeps_normal_measurements_and_counterevidence_in_the_clinical_snapshot(): void
     {
         $record = $this->knowledgeRecord();
         $record->assessment()->update(['physical_assessment' => 'Normal dentition.', 'present_diet' => 'Adequate intake.', 'waist_cm' => 75]);
@@ -275,8 +276,8 @@ class ContextualPesDraftTest extends TestCase
         Http::assertSent(function ($request): bool {
             $payload = json_decode(substr($request['messages'][0]['content'], strlen("input_json:\n")), true);
             $fields = array_column($payload['evidence'], 1, 0);
-            $this->assertArrayNotHasKey('laboratory_values', $fields);
-            $this->assertArrayNotHasKey('waist_cm', $fields);
+            $this->assertSame(4.0, (float) $fields['laboratory_values']['albumin']);
+            $this->assertSame(75, $fields['waist_cm']);
             $this->assertSame('Normal dentition.', $fields['physical_assessment']);
             $this->assertSame('Adequate intake.', $fields['present_diet']);
             $this->assertSame('stable', $fields['weight_change_direction']);
@@ -320,7 +321,7 @@ class ContextualPesDraftTest extends TestCase
             $prompt = $body['messages'][0]['content'];
             $payload = json_decode(explode("\noutput_json_schema:", substr($prompt, strlen("input_json:\n")))[0], true);
             $inputCharacters = strlen($body['system'].$prompt.json_encode($body['output_config']['format']['schema'] ?? []));
-            $this->assertLessThanOrEqual(4800, $inputCharacters, 'Representative input includes grounded choices only once per eligible domain.');
+            $this->assertLessThanOrEqual(8000, $inputCharacters, 'The clinical snapshot, compact problem patterns, matching guidance and shared choices remain bounded.');
             $this->assertArrayNotHasKey('options', $payload);
             $this->assertSame(['NI', 'NB', 'NC'], array_keys($payload['choices']));
             $this->assertArrayNotHasKey('catalog_version', $payload);
@@ -353,14 +354,22 @@ class ContextualPesDraftTest extends TestCase
         Http::assertSentCount(1);
     }
 
-    public function test_stale_drafts_and_unsupported_causes_or_denied_signs_cannot_be_saved(): void
+    public function test_stale_and_denied_findings_are_withheld_and_unverifiable_wording_uses_recorded_facts(): void
     {
         foreach ([['etiology' => 'Kidney failure'], ['signs' => 'No difficulty swallowing'], ['signs' => 'Difficulty swallowing']] as $override) {
             $record = $this->knowledgeRecord();
             $record->assessment()->update(['knowledge_notes' => 'Cannot identify carbohydrate foods. No difficulty swallowing.']);
             $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest";
             $this->provider([[...$this->knowledgeDraft(), ...$override]]);
-            $this->postJson($url)->assertOk()->assertJsonPath('data', []);
+            $response = $this->postJson($url)->assertOk();
+            if (($override['signs'] ?? null) === 'No difficulty swallowing') {
+                $response->assertJsonPath('data', []);
+            } else {
+                $response->assertJsonCount(1, 'data');
+                $this->assertStringNotContainsString('Kidney failure', $response->json('data.0.etiology'));
+                $this->assertStringNotContainsString('Difficulty swallowing', $response->json('data.0.signs'));
+                $this->assertSame('Cannot identify carbohydrate foods', rtrim($response->json('data.0.signs'), '.'));
+            }
             $this->getJson($url)->assertJsonPath('meta.budget.remaining', 9)->assertJsonPath('meta.can_generate', false);
         }
         $record = $this->knowledgeRecord();

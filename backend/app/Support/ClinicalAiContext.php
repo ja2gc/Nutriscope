@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\NcpRecord;
 use App\Models\Patient;
+use App\Services\Diagnosis\PesEligibilityService;
 use Illuminate\Support\Str;
 
 class ClinicalAiContext
@@ -94,6 +95,36 @@ class ClinicalAiContext
                 || in_array($goal, $card['goals'], true) || in_array($goal.':'.$type, $card['goals'], true);
             if ($matches && array_intersect($keys, $card['indicators']) !== []) {
                 $selected[] = $card[$purpose];
+            }
+        }
+
+        if ($purpose === 'diagnosis') {
+            $eligibility = app(PesEligibilityService::class);
+            $intake = $eligibility->intakeFinding($evidence);
+            foreach (DiagnosisBuilder::options()['NI']['nutrients'] as $group => $nutrients) {
+                foreach ($nutrients as $nutrient) {
+                    $directions = [];
+                    foreach (['inadequate', 'excessive'] as $direction) {
+                        if ($eligibility->supportsIntakeProblem(ucfirst($direction).' '.$nutrient.' Intake', $intake)) {
+                            $directions[] = $direction;
+                        }
+                    }
+                    if (count($directions) === 2) {
+                        $selected[] = $nutrient.': conflicting intake directions are documented; assess timing and context before selecting a problem.';
+                    } elseif ($directions !== []) {
+                        $selected[] = str_replace('{nutrient}', strtolower($nutrient), self::library()['nutrient_cards'][$group][$directions[0]]);
+                    }
+                }
+            }
+            $routineText = implode('; ', array_filter(array_intersect_key($evidence, array_fill_keys(['lifestyle', 'dietary_intake', 'social_history', 'knowledge_notes', 'medical_history', 'supplements'], true)), 'is_string'));
+            foreach (self::library()['behavior_cards'] as $card) {
+                foreach ($eligibility->clauses($routineText) as $clause) {
+                    if (preg_match('/(?:'.$card['conditions'].')/iu', $clause)
+                        && ! preg_match('/\b(?:no|not|never|denies|denied|former|quit|stopped)\s+(?:\w+\s+){0,2}(?:'.$card['conditions'].')/iu', $clause)) {
+                        $selected[] = $card['context'];
+                        break;
+                    }
+                }
             }
         }
 

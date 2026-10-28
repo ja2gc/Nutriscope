@@ -12,6 +12,10 @@ use Illuminate\Support\Facades\Log;
 
 class AIService
 {
+    public const PES_DRAFT_LIMIT = 5;
+
+    public const PES_INPUT_BYTE_LIMIT = 16000;
+
     /**
      * Draft wording with provider usage for the supplied source-gated PES candidates.
      *
@@ -27,7 +31,7 @@ class AIService
 
         try {
             $encoded = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-            if (! is_string($encoded) || strlen($encoded) > 16000) {
+            if (! is_string($encoded) || strlen($encoded) > self::PES_INPUT_BYTE_LIMIT) {
                 throw new \RuntimeException('The bounded PES evidence payload is too large.');
             }
 
@@ -37,12 +41,13 @@ class AIService
 - P=nutrition problem; E=documented cause/barrier, not P/status repeated; S=specific measurable/qualifying proof of P. Require all; else abstain. No medical diagnoses. Referral/guidance/medications=context, not cause/proof. Possible causes != facts.
 - Normal/adequate/denied/resolved/historical/uncertain/intentional findings=counterevidence. BMI != excess intake/malnutrition/severity; education != knowledge deficit; smoking/lab flag/albumin alone != diagnosis.
 - BMI=WHO pediatric/Asia-Pacific adult; no adult rules for children. Check weight direction/duration/intent/fluid, population/fasting. Malnutrition: GLIM phenotype AND sustained intake/assimilation or inflammatory cause; no inferred severity.
-- NI: named nutrient AND intake direction in assessment and S; normal intake disproves. Food list/kcal alone != inadequate/excessive intake. Other needs matching nutrition findings. Recall != entered intake; invent no targets.
+- NI intake-amount terms need nutrient/direction in assessment and S. Needs/composition/predicted terms require corresponding recorded support. Food lists/kcal alone do not prove a deficit/excess. Recall != entered intake; invent no targets.
 
 # STRUCTURE & DOMAINS
-- Review all once; 0..3 prioritized distinct supported problems, any domain. Exclude existing/equivalents. Other problems may share id.
-- candidates=cN:[domain,problem]; evidence=eN:[field,value]. id=cN; p=supplied P or supported Other, <=75 chars. NI: Inadequate/Excessive [nutrient] Intake. No predicted intake terms.
+- Return 0..5 prioritized distinct supported problems. Exclude existing/equivalents. Other problems may share id. Never return No nutrition diagnosis at this time; no supported draft is an empty list.
+- candidates=cN:[domain,problem]; evidence=eN:[field,value]. id=cN; p=supplied term or a supported term from choices.p, <=255 chars. Preserve supplied Problem terminology; replace specify with recorded detail. Predicted problems require documented anticipated risk.
 - choices[domain].e/s=current builder options. Use verbatim when supported; Other only if none fit. Never force a choice.
+- E=root cause in beliefs/attitudes, culture, knowledge, physical function, physiology/metabolism, psychology, social/personal, treatment, access or behavior. S=recorded diet/history, measurements, labs/tests or physical findings. Category labels/codes stay outside PES. Habits are context, not automatic causes.
 - n/en/sn: assessment fact + why it supports P/E/S respectively; <=100 chars each. Distinct explanations, not component restatements. No new facts/advice/hidden reasoning. Outside PES.
 
 # CITATION & SYNTAX
@@ -65,7 +70,7 @@ PROMPT;
                     'required' => ['id', 'p', 'e', 'ek', 's', 'sk', 'n', 'en', 'sn'],
                     'properties' => [
                         'id' => $candidateId, 'e' => $phrase, 'ek' => $evidenceKeys,
-                        's' => $phrase, 'sk' => $evidenceKeys, 'p' => $phrase,
+                        's' => $phrase, 'sk' => $evidenceKeys, 'p' => ['type' => 'string', 'description' => 'Between 1 and 255 characters.'],
                         'n' => ['type' => 'string', 'description' => 'Maximum 100 characters.'],
                         'en' => ['type' => 'string', 'description' => 'Maximum 100 characters.'],
                         'sn' => ['type' => 'string', 'description' => 'Maximum 100 characters.'],
@@ -79,7 +84,7 @@ PROMPT;
                 'content-type' => 'application/json',
             ])->post('https://api.anthropic.com/v1/messages', [
                 'model' => $model,
-                'max_tokens' => 1000,
+                'max_tokens' => 1700,
                 'thinking' => ['type' => 'disabled'],
                 'system' => $systemPrompt,
                 'output_config' => ['format' => ['type' => 'json_schema', 'schema' => $schema]],

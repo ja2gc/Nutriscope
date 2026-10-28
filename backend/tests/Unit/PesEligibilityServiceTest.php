@@ -11,6 +11,40 @@ use Tests\TestCase;
 
 class PesEligibilityServiceTest extends TestCase
 {
+    public function test_legacy_and_current_micronutrient_wording_share_identity_without_merging_distinct_nutrients(): void
+    {
+        $service = app(PesEligibilityService::class);
+        $this->assertSame($service->canonicalProblem('Inadequate Vitamin D Intake'), $service->canonicalProblem('Inadequate vitamin intake: D'));
+        $this->assertSame($service->canonicalProblem('Excessive Iron Intake'), $service->canonicalProblem('Excessive mineral intake: Iron'));
+        $this->assertNotSame($service->canonicalProblem('Excessive mineral intake: Iron'), $service->canonicalProblem('Excessive mineral intake: Calcium'));
+        $problems = $service->canonicalProblems(['Swallowing / Chewing Difficulty']);
+        $this->assertContains($service->canonicalProblem('Swallowing difficulty'), $problems);
+        $this->assertContains($service->canonicalProblem('Biting/Chewing (masticatory) difficulty'), $problems);
+        $this->assertSame('Inadequate vitamin intake: Thiamin', DiagnosisBuilder::problemLabel('NI', 'Inadequate Vitamin B1 (Thiamin) Intake'));
+        $this->assertSame('Excessive vitamin intake: Folate', DiagnosisBuilder::problemLabel('NI', 'Excessive Folate Intake'));
+    }
+
+    public function test_mixed_normal_and_concerning_findings_are_evaluated_per_clause(): void
+    {
+        $service = app(PesEligibilityService::class);
+        $this->assertTrue($service->hasConcern('Normal bowel sounds. Persistent diarrhea.'));
+        $this->assertTrue($service->hasConcern('Persistent diarrhea. Normal bowel sounds.'));
+        $this->assertTrue($service->supportsIntakeProblem('Inadequate Protein Intake', 'Protein intake below needs, no nausea.'));
+        $this->assertTrue($service->supportsIntakeProblem('Inadequate Protein Intake', 'Adequate energy intake but low protein intake.'));
+        $this->assertFalse($service->supportsIntakeProblem('Inadequate Protein Intake', 'No inadequate protein intake.'));
+        $this->assertTrue($service->supportsIntakeProblem('Inadequate Protein Intake', 'Consumes 50% of estimated needs for protein.'));
+        $this->assertTrue($service->supportsIntakeProblem('Inadequate Energy Intake', 'Calorie intake meeting <50% of estimated needs.'));
+        $this->assertFalse($service->supportsIntakeProblem('Excessive Energy Intake', 'Calorie intake meeting <50% of estimated needs.'));
+        $this->assertFalse($service->hasConcern('Normal bowel sounds. No diarrhea.'));
+    }
+
+    public function test_specified_vitamin_requires_the_vitamin_name_in_its_intake_evidence(): void
+    {
+        $service = app(PesEligibilityService::class);
+        $this->assertTrue($service->supportsIntakeProblem('Inadequate vitamin intake: D', 'Vitamin D intake below needs.'));
+        $this->assertFalse($service->supportsIntakeProblem('Inadequate vitamin intake: D', 'Low protein intake; patient D.'));
+    }
+
     public function test_asia_pacific_bmi_sign_maps_to_a_current_builder_choice(): void
     {
         $sign = 'BMI ≥ 23 (Asia-Pacific overweight / obesity)';
@@ -51,7 +85,7 @@ class PesEligibilityServiceTest extends TestCase
     {
         $catalog = app(PesRuleCatalog::class);
 
-        $this->assertSame('2026-10-27-v10:'.ClinicalAiContext::version(), $catalog->version());
+        $this->assertSame('2026-10-28-v11:'.ClinicalAiContext::version(), $catalog->version());
         $this->assertEqualsCanonicalizing(['NI', 'NC', 'NB'], array_values(array_unique(array_column($catalog->cards(), 'domain'))));
 
         foreach ($catalog->cards() as $card) {

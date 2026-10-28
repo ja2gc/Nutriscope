@@ -7,13 +7,95 @@ use App\Models\Diagnosis;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\User;
+use App\Services\ClinicalCompletenessService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class NcpDiagnosisTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_legacy_problem_wording_survives_editing_other_components_with_current_choices(): void
+    {
+        $rnd = $this->rnd();
+        $ncp = $this->ncpRecord($this->patient(), $rnd);
+        $this->assessment($ncp);
+        $diagnosis = Diagnosis::forceCreate(['ncp_record_id' => $ncp->id, 'domain' => 'NC', 'problem' => 'Overweight / Obesity',
+            'etiology' => 'Recorded cause', 'signs_symptoms' => 'BMI 27', 'pes_statement' => 'Original saved wording']);
+        $this->actingAs($rnd, 'sanctum')->patchJson("/api/rnd/ncp-records/{$ncp->uuid}/diagnoses/{$diagnosis->uuid}", [
+            'builder_data' => ['problem_override' => 'Overweight / Obesity', 'problem_checks' => ['Overweight/obesity'],
+                'etiology_other' => 'Updated recorded cause', 'sign_other' => 'BMI 27'],
+        ])->assertOk()->assertJsonPath('data.problem', 'Overweight / Obesity')->assertJsonPath('data.etiology', 'Updated recorded cause');
+    }
+
+    public function test_explicit_no_diagnosis_completes_diagnosis_without_fabricated_pes(): void
+    {
+        $rnd = $this->rnd();
+        $ncp = $this->ncpRecord($this->patient(), $rnd);
+        $this->assessment($ncp);
+        $this->actingAs($rnd, 'sanctum')->postJson("/api/rnd/ncp-records/{$ncp->uuid}/diagnoses", ['domain' => 'NO', 'problem' => 'No nutrition diagnosis at this time'])
+            ->assertCreated()->assertJsonPath('data.etiology', '')->assertJsonPath('data.signs_symptoms', '')
+            ->assertJsonPath('data.pes_statement', 'No nutrition diagnosis at this time')->assertJsonPath('data.ai_generated', false);
+        $this->assertTrue(app(ClinicalCompletenessService::class)->diagnosisComplete($ncp->fresh()));
+    }
+
+    public function test_composed_problem_keeps_the_supplied_term_and_specific_nutrient(): void
+    {
+        $rnd = $this->rnd();
+        $ncp = $this->ncpRecord($this->patient(), $rnd);
+        $this->assessment($ncp);
+        $this->actingAs($rnd, 'sanctum')->postJson("/api/rnd/ncp-records/{$ncp->uuid}/diagnoses", [
+            'domain' => 'NI', 'problem' => 'Inadequate vitamin intake: D', 'etiology' => 'Poor appetite', 'signs_symptoms' => 'Recorded intake below needs',
+        ])->assertCreated()->assertJsonPath('data.problem', 'Inadequate vitamin intake: D')
+            ->assertJsonPath('data.pes_statement', 'Inadequate vitamin intake: D related to Poor appetite as evidenced by Recorded intake below needs');
+    }
+
+    public function test_composed_intake_selections_are_persisted_with_the_existing_builder(): void
+    {
+        $rnd = $this->rnd();
+        $ncp = $this->ncpRecord($this->patient(), $rnd);
+        $this->assessment($ncp);
+        $builder = ['problem_override' => 'Increased nutrient needs: Protein', 'ni_pattern' => 'needs', 'ni_direction' => 'Inadequate',
+            'ni_nutrient' => 'Protein', 'ni_group' => '', 'ni_detail' => '', 'etiology_other' => 'Recorded cause', 'sign_other' => 'Recorded findings'];
+        $this->actingAs($rnd, 'sanctum')->postJson("/api/rnd/ncp-records/{$ncp->uuid}/diagnoses", ['domain' => 'NI', 'problem' => $builder['problem_override'],
+            'etiology' => 'Recorded cause', 'signs_symptoms' => 'Recorded findings', 'builder_data' => $builder])
+            ->assertCreated()->assertJsonPath('data.problem', 'Increased nutrient needs: Protein')->assertJsonPath('data.builder_data.ni_pattern', 'needs');
+    }
+
+    public function test_no_diagnosis_cannot_coexist_with_actual_diagnoses(): void
+    {
+        $rnd = $this->rnd();
+        $ncp = $this->ncpRecord($this->patient(), $rnd);
+        $this->assessment($ncp);
+        $this->actingAs($rnd, 'sanctum');
+        $url = "/api/rnd/ncp-records/{$ncp->uuid}/diagnoses";
+        $this->postJson($url, ['domain' => 'NI', 'problem' => 'Inadequate Oral Intake', 'etiology' => 'Poor appetite', 'signs_symptoms' => 'Half of meals consumed'])->assertCreated();
+        $this->postJson($url, ['domain' => 'NO', 'problem' => 'No nutrition diagnosis at this time'])->assertUnprocessable();
+        $this->assertSame(1, $ncp->diagnoses()->count());
+    }
+
+    public function test_saved_no_diagnosis_blocks_adding_generating_and_domain_changes_until_deleted(): void
+    {
+        $rnd = $this->rnd();
+        $ncp = $this->ncpRecord($this->patient(), $rnd);
+        $this->assessment($ncp);
+        $this->actingAs($rnd, 'sanctum');
+        Http::preventStrayRequests();
+        $url = "/api/rnd/ncp-records/{$ncp->uuid}/diagnoses";
+        $id = $this->postJson($url, ['domain' => 'NO', 'problem' => 'No nutrition diagnosis at this time'])->assertCreated()->json('data.id');
+        $actual = ['domain' => 'NI', 'problem' => 'Inadequate oral intake', 'etiology' => 'Poor appetite', 'signs_symptoms' => 'Half of meals consumed'];
+        $warning = "Delete the saved 'No nutrition diagnosis at this time' entry before adding or generating a diagnosis.";
+        $this->postJson($url, $actual)->assertUnprocessable()->assertJsonPath('errors.domain.0', $warning);
+        $this->postJson($url.'/ai-suggest')->assertUnprocessable()->assertJsonPath('message', $warning);
+        $this->patchJson($url.'/'.$id, $actual)->assertUnprocessable()->assertJsonPath('errors.domain.0', $warning);
+        $this->getJson($url.'/ai-suggest')->assertOk()->assertJsonPath('meta.blocked_by_no_diagnosis', true)->assertJsonPath('meta.disabled_reason', $warning);
+        Http::assertNothingSent();
+        $this->assertDatabaseCount('ai_usage_logs', 0);
+        $this->deleteJson($url.'/'.$id)->assertNoContent();
+        $this->postJson($url, $actual)->assertCreated();
+    }
 
     public function test_editing_a_saved_legacy_bmi_choice_preserves_its_original_wording(): void
     {
@@ -137,7 +219,7 @@ class NcpDiagnosisTest extends TestCase
         ]);
     }
 
-    public function test_diagnosis_domain_must_be_ni_nc_or_nb(): void
+    public function test_diagnosis_rejects_unknown_domains(): void
     {
         $rnd = $this->rnd();
         $patient = $this->patient();
@@ -145,7 +227,7 @@ class NcpDiagnosisTest extends TestCase
 
         $response = $this->actingAs($rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncp->uuid}/diagnoses", [
-                'domain' => 'NO',
+                'domain' => 'INVALID',
                 'problem' => 'Some problem',
                 'etiology' => 'some cause',
                 'signs_symptoms' => 'some signs',

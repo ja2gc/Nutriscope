@@ -18,8 +18,9 @@ class PesEvidenceBuilder
         $existing = $ncpRecord->diagnoses->flatMap(fn ($diagnosis): array => [
             $diagnosis->problem, ...($diagnosis->builder_data['problem_checks'] ?? []),
         ])->filter()->sort()->values()->all();
+        $noDiagnosis = $ncpRecord->diagnoses->contains(fn ($diagnosis): bool => $diagnosis->isNoDiagnosis());
         if ($assessment === null) {
-            return ['existing_problem_keys' => $existing];
+            return ['existing_problem_keys' => $existing, 'no_diagnosis_recorded' => $noDiagnosis];
         }
         $patient = $ncpRecord->patient;
         $text = static function (?string $value, int $limit = 600) use ($patient): ?string {
@@ -40,6 +41,8 @@ class PesEvidenceBuilder
         $direction = $hasWeights ? ($current < $usual ? 'loss' : ($current > $usual ? 'gain' : 'stable')) : 'unknown';
         $change = $hasWeights ? round(abs($usual - $current) / $usual * 100, 2) : null;
         $evidence = [
+            'no_diagnosis_recorded' => $noDiagnosis,
+            'nutrition_support' => $ncpRecord->nutrition_support,
             'clinical_context' => ClinicalAiContext::patientEvidence($ncpRecord),
             'age_group' => $age === null ? 'unknown' : ($ageMonths <= 228 ? 'pediatric' : ($age >= 60 ? 'elderly' : 'adult')),
             'age_70_plus' => $age === null ? null : $age >= 70,

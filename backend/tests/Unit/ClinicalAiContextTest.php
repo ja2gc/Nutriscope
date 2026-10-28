@@ -10,6 +10,22 @@ use Tests\TestCase;
 
 class ClinicalAiContextTest extends TestCase
 {
+    public function test_nutrient_guidance_includes_only_the_documented_direction_for_each_nutrient(): void
+    {
+        $guidance = ClinicalAiContext::guidance(['dietary_intake' => 'Energy intake below needs; protein intake is adequate.'], 'diagnosis');
+        $this->assertStringContainsString('Inadequate energy', $guidance);
+        $this->assertStringNotContainsString('Excessive energy', $guidance);
+        $this->assertStringNotContainsString('Inadequate protein', $guidance);
+    }
+
+    public function test_tobacco_guidance_is_context_not_a_new_patient_finding_and_respects_denial(): void
+    {
+        $guidance = ClinicalAiContext::guidance(['lifestyle' => 'Currently smokes cigarettes.'], 'diagnosis');
+        $this->assertStringContainsString('Tobacco', $guidance);
+        $this->assertStringContainsString('documented', $guidance);
+        $this->assertStringNotContainsString('Tobacco', ClinicalAiContext::guidance(['lifestyle' => 'Does not smoke.'], 'diagnosis'));
+    }
+
     public function test_referral_and_medications_keep_clinical_information_without_patient_names(): void
     {
         $patient = new Patient(['name' => 'Fictional Mira Santos', 'first_name' => 'Mira', 'last_name' => 'Santos', 'medical_diagnosis' => 'Mira Santos: type 2 diabetes and CKD']);
@@ -42,9 +58,9 @@ class ClinicalAiContextTest extends TestCase
         $this->assertLessThan(600, strlen($context));
     }
 
-    public function test_obvious_behavior_and_unrelated_or_negated_disease_need_no_extra_card(): void
+    public function test_documented_meal_pattern_gets_guidance_but_unrelated_or_negated_disease_does_not(): void
     {
-        $this->assertSame('', ClinicalAiContext::guidance(['social_history' => 'Cannot afford food; skips meals'], 'diagnosis'));
+        $this->assertStringContainsString('Meal pattern', ClinicalAiContext::guidance(['social_history' => 'Cannot afford food; skips meals'], 'diagnosis'));
         $this->assertSame('', ClinicalAiContext::guidance(['referral_diagnosis' => 'No diabetes. Family history of CKD.', 'laboratory_flags' => ['potassium' => 'high']], 'diagnosis'));
         $this->assertSame('', ClinicalAiContext::guidance(['referral_diagnosis' => 'CKD', 'laboratory_flags' => ['hba1c' => 'high']], 'diagnosis'));
         $this->assertSame('', ClinicalAiContext::guidance(['referral_diagnosis' => 'Adrenal disorder', 'laboratory_flags' => ['potassium' => 'high']], 'diagnosis'));

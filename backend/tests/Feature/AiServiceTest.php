@@ -112,7 +112,7 @@ class AiServiceTest extends TestCase
         $this->assertSame('unintended_weight_loss_v1', $result['suggestions'][0]['candidate_id']);
         Http::assertSent(fn ($request) => $request['model'] === 'claude-haiku-5-5'
             && $request['thinking'] === ['type' => 'disabled']
-            && $request['max_tokens'] === 1000
+            && $request['max_tokens'] === 1700
             && ! isset($request['temperature']) && ! isset($request['top_p']) && ! isset($request['top_k']));
         $this->assertDatabaseHas('ai_usage_logs', ['model' => 'claude-haiku-5-5', 'tokens_input' => 130, 'tokens_output' => 60]);
     }
@@ -174,8 +174,8 @@ class AiServiceTest extends TestCase
             $this->assertStringContainsString('# CITATION & SYNTAX', $system);
             $this->assertStringContainsString("input_json:\n", $prompt);
             $this->assertStringNotContainsString('output_json_schema:', $prompt);
-            $this->assertLessThanOrEqual(2000, strlen($system));
-            $this->assertLessThanOrEqual(1000, $body['max_tokens']);
+            $this->assertLessThanOrEqual(3000, strlen($system));
+            $this->assertSame(1700, $body['max_tokens']);
             $this->assertStringContainsString('counterevidence', $system);
             $this->assertSame('json_schema', $body['output_config']['format']['type'] ?? null);
             $schema = $body['output_config']['format']['schema'];
@@ -185,7 +185,7 @@ class AiServiceTest extends TestCase
                 $this->assertArrayNotHasKey('pattern', $draft['properties'][$field]);
                 $this->assertArrayNotHasKey('maxLength', $draft['properties'][$field]);
                 $this->assertSame(
-                    in_array($field, ['n', 'en', 'sn'], true) ? 'Maximum 100 characters.' : 'Between 1 and 75 characters.',
+                    in_array($field, ['n', 'en', 'sn'], true) ? 'Maximum 100 characters.' : ($field === 'p' ? 'Between 1 and 255 characters.' : 'Between 1 and 75 characters.'),
                     $draft['properties'][$field]['description'],
                 );
             }

@@ -42,11 +42,11 @@ class PesSuggestionTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.candidate_id', 'unintended_weight_loss_v1')
-            ->assertJsonPath('data.0.label', 'Unintended Weight Loss')
+            ->assertJsonPath('data.0.label', 'Unintended weight loss')
             ->assertJsonPath('meta.cached', false)
             ->assertJsonPath('meta.catalog_version', app(PesRuleCatalog::class)->version());
 
-        $this->assertLessThanOrEqual(3, count($first->json('data')));
+        $this->assertLessThanOrEqual(5, count($first->json('data')));
 
         $this->actingAs($this->rnd, 'sanctum')
             ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/diagnoses/ai-suggest")

@@ -68,6 +68,10 @@ class AiDiagnosisController extends Controller
                 $data = $this->pesSuggestions->resolveDraft($ncpRecord, $request->validated('draft_id'));
 
                 return $this->audited(function () use ($data, $request, $ncpRecord): JsonResponse {
+                    NcpRecord::whereKey($ncpRecord->id)->lockForUpdate()->firstOrFail();
+                    if ($ncpRecord->diagnoses()->where('domain', 'NO')->exists()) {
+                        throw ValidationException::withMessages(['draft_id' => Diagnosis::NO_DIAGNOSIS_WARNING]);
+                    }
                     $diagnosis = $this->auditLogger->withoutModelEvents(fn (): Diagnosis => Diagnosis::create(['ncp_record_id' => $ncpRecord->id, ...$data]));
                     $this->auditLogger->record(
                         AuditAction::Created, AuditCategory::Clinical, AuditDomain::Ncp,

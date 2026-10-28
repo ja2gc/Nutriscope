@@ -19,6 +19,72 @@ class ClinicalAiReviewTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_other_cannot_bypass_a_known_problem_required_signs(): void
+    {
+        $record = $this->record();
+        $this->provider([[...$this->draft(), 'candidate_id' => 'behavioral_other_v2', 'problem_key' => 'Food- and nutrition-related knowledge deficit',
+            'signs' => 'Limited access to nutrition education', 'evidence_used' => ['social_history'], 'signs_evidence' => ['social_history']]]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonCount(0, 'data');
+    }
+
+    public function test_smoking_history_alone_cannot_establish_a_nutrition_cause(): void
+    {
+        $record = $this->record();
+        $record->assessment()->update(['lifestyle' => 'Smokes daily.']);
+        $this->provider([[...$this->draft(), 'etiology' => 'Smokes daily', 'evidence_used' => ['lifestyle', 'knowledge_notes'], 'etiology_evidence' => ['lifestyle']]]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonCount(0, 'data');
+    }
+
+    public function test_documented_pediatric_classification_can_support_the_pediatric_term_without_an_adult_bmi_rule(): void
+    {
+        $record = $this->record();
+        $record->patient()->update(['dob' => '2016-01-01', 'sex' => 'Male']);
+        $record->assessment()->update(['weight' => 40, 'usual_weight' => 40, 'height' => 120, 'physical_assessment' => 'Mobility impairment limits activity.']);
+        $this->provider([[...$this->draft(), 'candidate_id' => 'clinical_other_v2', 'domain' => 'NC', 'problem_key' => 'Obese, pediatric',
+            'etiology' => 'Mobility impairment limits activity', 'signs' => 'BMI-for-age classification: Obesity',
+            'evidence_used' => ['physical_assessment', 'bmi_classification'], 'etiology_evidence' => ['physical_assessment'], 'signs_evidence' => ['bmi_classification']]]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonPath('data.0.label', 'Obese, pediatric');
+    }
+
+    public function test_a_supported_draft_uses_cited_assessment_wording_when_the_paraphrase_cannot_be_verified(): void
+    {
+        $record = $this->record();
+        $record->assessment()->update(['appetite_changes' => 'Poor appetite', 'dietary_intake' => 'Protein intake below needs.']);
+        $this->provider([[...$this->draft(), 'candidate_id' => 'inadequate_protein_v2', 'domain' => 'NI', 'problem_key' => 'Inadequate Protein Intake',
+            'etiology' => 'Reduced desire to eat', 'signs' => 'Protein intake below needs',
+            'evidence_used' => ['appetite', 'dietary_intake'], 'etiology_evidence' => ['appetite'], 'signs_evidence' => ['dietary_intake']]]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.etiology', 'Poor appetite');
+    }
+
+    public function test_structured_sedentary_activity_is_valid_cited_proof(): void
+    {
+        $record = $this->record();
+        $record->assessment()->update(['knowledge_notes' => null, 'physical_activity_level' => 'sedentary', 'social_history' => 'Long working hours.']);
+        $this->provider([[...$this->draft(), 'candidate_id' => 'physical_inactivity_v2', 'problem_key' => 'Physical Inactivity',
+            'etiology' => 'Long working hours', 'signs' => 'Sedentary physical activity level',
+            'evidence_used' => ['social_history', 'physical_activity_level'], 'signs_evidence' => ['physical_activity_level']]]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()
+            ->assertJsonPath('data.0.label', 'Physical inactivity');
+    }
+
+    public function test_five_supported_drafts_are_kept_and_omitted_candidates_can_be_retried(): void
+    {
+        $record = $this->record();
+        $record->assessment()->update(['dietary_intake' => 'Inadequate iron intake; inadequate calcium intake; inadequate zinc intake; inadequate vitamin C intake; inadequate vitamin D intake.']);
+        $drafts = array_map(fn ($nutrient) => [...$this->draft(), 'candidate_id' => 'intake_other_v2', 'domain' => 'NI',
+            'problem_key' => "Inadequate {$nutrient} Intake", 'signs' => "Inadequate {$nutrient} intake",
+            'evidence_used' => ['social_history', 'dietary_intake'], 'signs_evidence' => ['dietary_intake']], ['Iron', 'Calcium', 'Zinc', 'Vitamin C', 'Vitamin D']);
+        $this->provider($drafts);
+        $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest";
+        $this->postJson($url)->assertOk()->assertJsonCount(5, 'data')->assertJsonPath('meta.can_retry', true);
+        $this->postJson($url)->assertOk()->assertJsonCount(5, 'data');
+        Http::assertSentCount(1);
+        $this->provider([$this->draft()]);
+        $this->postJson($url, ['retry_rejected' => true])->assertOk()->assertJsonCount(6, 'data');
+        Http::assertSentCount(1);
+    }
+
     public function test_child_uses_client_bmi_reference_without_generating_a_growth_diagnosis_from_it(): void
     {
         $record = $this->record();
@@ -35,13 +101,14 @@ class ClinicalAiReviewTest extends TestCase
         $record->assessment()->update(['weight' => 69, 'usual_weight' => 69, 'height' => 170, 'ibw_percentage' => 65, 'nutritional_status' => 'Severe Malnutrition']);
         $this->provider([[...$this->draft(), 'candidate_id' => 'overweight_obesity_v1', 'domain' => 'NC', 'problem_key' => 'Overweight / Obesity',
             'signs' => 'BMI 23.88', 'evidence_used' => ['social_history', 'bmi'], 'signs_evidence' => ['bmi'], 'source_id' => 'asia_pacific_bmi_2026']]);
-        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonPath('data.0.label', 'Overweight / Obesity');
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonPath('data.0.label', 'Overweight/obesity');
         Http::assertSent(function ($request): bool {
             $payload = json_decode(substr($request['messages'][0]['content'], strlen("input_json:\n")), true);
             $fields = array_column($payload['evidence'], 1, 0);
             $this->assertSame('Overweight', $fields['bmi_classification']);
             $this->assertSame(23.88, $fields['bmi']);
-            foreach (['risk_score', 'nutritional_status', 'height_cm', 'weight_kg', 'usual_weight_kg'] as $key) {
+            $this->assertSame(170, $fields['height_cm']);
+            foreach (['risk_score', 'nutritional_status'] as $key) {
                 $this->assertArrayNotHasKey($key, $fields);
             }
 
@@ -116,7 +183,7 @@ class ClinicalAiReviewTest extends TestCase
     {
         $record = $this->record();
         $bad = $this->draft();
-        $bad['etiology'] = 'Invented kidney failure';
+        $bad['etiology_evidence'] = ['unknown_assessment_field'];
         $this->provider([$bad]);
         $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest";
         $this->postJson($url)->assertOk()->assertJsonPath('meta.review_outcome', 'rejected')->assertJsonPath('meta.can_retry', true);
@@ -184,7 +251,7 @@ class ClinicalAiReviewTest extends TestCase
             foreach ($payload['evidence'] as $ref => $item) {
                 $refs[$item[0]] = $ref;
             }
-            $candidate = collect($payload['candidates'])->search(fn ($item) => $item[1] === 'Food and Nutrition Knowledge Deficit');
+            $candidate = collect($payload['candidates'])->search(fn ($item) => $item[1] === 'Food- and nutrition-related knowledge deficit');
 
             return Http::response(['content' => [['type' => 'text', 'text' => json_encode(['suggestions' => [[
                 'id' => $candidate, 'e' => 'Limited access to nutrition education', 'ek' => [$refs['social_history']],
@@ -455,7 +522,7 @@ class ClinicalAiReviewTest extends TestCase
         $this->provider([[...$this->draft(), 'candidate_id' => 'inadequate_protein_v2', 'domain' => 'NI', 'problem_key' => 'Inadequate Protein Intake',
             'etiology' => 'decreased appetite', 'signs' => 'Protein intake below prescribed needs',
             'evidence_used' => ['appetite', 'dietary_intake'], 'etiology_evidence' => ['appetite'], 'signs_evidence' => ['dietary_intake']]]);
-        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonPath('data.0.label', 'Inadequate Protein Intake');
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonPath('data.0.label', 'Inadequate protein intake');
     }
 
     public function test_uncited_medication_change_preserves_behavioral_review_and_draft(): void

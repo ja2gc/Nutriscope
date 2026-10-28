@@ -15,10 +15,10 @@ class StoreDiagnosisRequest extends FormRequest
     public function rules(): array
     {
         return array_merge(DiagnosisBuilder::rules(), [
-            'domain' => ['required', 'string', 'in:NI,NC,NB'],
+            'domain' => ['required', 'string', 'in:NI,NC,NB,NO'],
             'problem' => ['required', 'string', 'max:255'],
-            'etiology' => ['required', 'string', 'max:400'],
-            'signs_symptoms' => ['required', 'string', 'max:400'],
+            'etiology' => [$this->input('domain') === 'NO' ? 'nullable' : 'required', 'string', 'max:400'],
+            'signs_symptoms' => [$this->input('domain') === 'NO' ? 'nullable' : 'required', 'string', 'max:400'],
             'pes_statement' => ['nullable', 'string', 'max:500'],
             'extra_notes' => ['nullable', 'string', 'max:125'],
             'ai_generated' => ['nullable', 'boolean'],

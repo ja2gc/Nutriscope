@@ -1,6 +1,7 @@
 {
   "NI": {
     "problems": [],
+    "nutrients": {"energy":["Energy","Oral"],"protein":["Protein"],"carbohydrate":["Carbohydrate"],"fat":["Fat"],"fluid":["Fluid"],"fiber":["Fiber"],"vitamin":["Vitamin A","Vitamin C","Vitamin D","Vitamin E","Vitamin K","Thiamin","Riboflavin","Niacin","Folate","Vitamin B6","Vitamin B12","Pantothenic acid","Biotin"],"mineral":["Calcium","Chloride","Iron","Magnesium","Potassium","Phosphorus","Sodium","Zinc","Sulfate","Fluoride","Copper","Iodine","Selenium","Manganese","Chromium","Molybdenum","Boron","Cobalt"]},
     "etiologies": [
       "Poor appetite / anorexia",
       "Nausea or vomiting",
@@ -27,15 +28,25 @@
   },
   "NC": {
     "problems": [
-      "Unintended Weight Loss",
-      "Overweight / Obesity",
-      "Malnutrition (undernutrition)",
-      "Altered GI Function",
-      "Swallowing / Chewing Difficulty",
-      "Altered Nutrition-Related Laboratory Values",
-      "Food-Medication Interaction",
-      "Predicted Suboptimal Intake",
-      "Impaired Nutrient Utilization"
+      "Swallowing difficulty",
+      "Biting/Chewing (masticatory) difficulty",
+      "Breastfeeding difficulty",
+      "Altered GI function",
+      "Impaired nutrient utilization",
+      "Altered nutrition-related laboratory values (specify)",
+      "Food–medication interaction (specify)",
+      "Predicted food–medication interaction (specify)",
+      "Underweight",
+      "Unintended weight loss",
+      "Unintended weight gain",
+      "Overweight/obesity",
+      "Overweight, adult or pediatric",
+      "Obese, pediatric",
+      "Obese, Class I",
+      "Obese, Class II",
+      "Obese, Class III",
+      "Suboptimal growth rate",
+      "Excessive growth rate"
     ],
     "etiologies": [
       "Poor appetite / anorexia",
@@ -70,15 +81,22 @@
   },
   "NB": {
     "problems": [
-      "Food and Nutrition Knowledge Deficit",
-      "Harmful Beliefs / Attitudes about Food",
-      "Not Ready for Diet / Lifestyle Change",
-      "Self-Monitoring Deficit",
-      "Disordered Eating Pattern",
-      "Limited Adherence to Nutrition-Related Recommendations",
-      "Undesirable Food Choices",
-      "Physical Inactivity",
-      "Food Insecurity"
+      "Food- and nutrition-related knowledge deficit",
+      "Unsupported beliefs/attitudes about food- or nutrition-related topics (use with caution)",
+      "Not ready for diet/lifestyle change",
+      "Self-monitoring deficit",
+      "Disordered eating pattern",
+      "Limited adherence to nutrition-related recommendations",
+      "Undesirable food choices",
+      "Physical inactivity",
+      "Excessive physical activity",
+      "Inability to manage self-care",
+      "Impaired ability to prepare foods/meals",
+      "Poor nutrition quality of life",
+      "Self-feeding difficulty",
+      "Intake of unsafe food",
+      "Limited access to food or water",
+      "Limited access to nutrition-related supplies"
     ],
     "etiologies": [
       "Lack of nutrition knowledge or education",
@@ -100,5 +118,12 @@
       "Limited support at home for dietary compliance",
       "Reports financial barriers to food access"
     ]
+  },
+  "NO": {
+    "problems": [
+      "No nutrition diagnosis at this time"
+    ],
+    "etiologies": [],
+    "signs": []
   }
 }

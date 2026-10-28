@@ -37,6 +37,9 @@ class PesSuggestionService
     {
         return Cache::lock('pes-patient-'.$ncpRecord->patient_id, 40)->block(1, function () use ($ncpRecord, $dismissedCandidateId, $dismissedDraftId, $retryRejected): array {
             $evidence = $this->evidenceBuilder->build($ncpRecord);
+            if ($evidence['no_diagnosis_recorded'] ?? false) {
+                throw new \InvalidArgumentException(Diagnosis::NO_DIAGNOSIS_WARNING);
+            }
             $state = $this->state($ncpRecord, $evidence);
             if ($dismissedCandidateId !== null || $dismissedDraftId !== null) {
                 $selected = collect($this->activeDrafts($ncpRecord, $evidence))->firstWhere($dismissedDraftId !== null ? 'draft_id' : 'candidate_id', $dismissedDraftId ?? $dismissedCandidateId);
@@ -86,7 +89,9 @@ class PesSuggestionService
             $contexts = $state?->provider_metadata['review_contexts'] ?? [];
             foreach ($newlyReviewed as $id) {
                 $extra = collect($validated)->where('candidate_id', $id)->pluck('evidence_refs')->flatten(1)->pluck('key')->unique()->values()->all();
-                $contexts[$id] = ['hash' => $this->contextHash($id, $evidence, $extra), 'keys' => $extra, 'outcome' => $outcome];
+                $card = collect($eligible)->firstWhere('candidate_id', $id);
+                $candidateOutcome = $rejected ? 'rejected' : ($extra !== [] && $card['problem_key'] !== 'Other' ? 'complete' : 'not_returned');
+                $contexts[$id] = ['hash' => $this->contextHash($id, $evidence, $extra), 'keys' => $extra, 'outcome' => $candidateOutcome];
             }
             $attributes = [
                 'validated_response' => [...$previous, ...$validated],
@@ -113,6 +118,9 @@ class PesSuggestionService
     {
         $ncpRecord->unsetRelation('diagnoses');
         $evidence = $this->evidenceBuilder->build($ncpRecord);
+        if ($evidence['no_diagnosis_recorded'] ?? false) {
+            throw new \InvalidArgumentException(Diagnosis::NO_DIAGNOSIS_WARNING);
+        }
         $draft = collect($this->activeDrafts($ncpRecord, $evidence))->firstWhere('draft_id', $draftId);
         $state = $draft ? $this->history($ncpRecord)->first(fn ($item) => collect($item->validated_response)->contains('draft_id', $draftId)) : null;
         if ($draft === null) {
@@ -146,6 +154,12 @@ class PesSuggestionService
         $problems = $this->eligibility->canonicalProblems([$label]);
         foreach ($this->history($record) as $state) {
             $metadata = $state->provider_metadata;
+            if ($domain === 'NO') {
+                unset($metadata['review_contexts'], $metadata['review_outcome']);
+                $state->update(['validated_response' => [], 'provider_metadata' => $metadata]);
+
+                continue;
+            }
             $ids = collect($cards)->contains('id', $candidateId) ? [$candidateId] : [];
             foreach ($state->validated_response as $draft) {
                 if (in_array($this->eligibility->canonicalProblem($draft['label']), $problems, true)) {
@@ -199,7 +213,7 @@ class PesSuggestionService
         $covered = [];
         foreach ($this->history($record) as $previous) {
             foreach ($previous->provider_metadata['review_contexts'] ?? [] as $id => $context) {
-                if (! ($retryRejected && in_array($context['outcome'] ?? '', ['rejected', 'partial'], true)) && $context['hash'] === $this->contextHash($id, $evidence, $context['keys'] ?? [])) {
+                if (! ($retryRejected && in_array($context['outcome'] ?? '', ['rejected', 'partial', 'not_returned', 'no_supported'], true)) && $context['hash'] === $this->contextHash($id, $evidence, $context['keys'] ?? [])) {
                     $covered[] = $id;
                 }
             }
@@ -215,6 +229,9 @@ class PesSuggestionService
 
     private function activeDrafts(NcpRecord $record, array $evidence): array
     {
+        if ($evidence['no_diagnosis_recorded'] ?? false) {
+            return [];
+        }
         $active = [];
         $seen = [];
         foreach ($this->history($record) as $previous) {
@@ -254,8 +271,9 @@ class PesSuggestionService
         $canRetry = count($this->remaining($record, $evidence, true)) > count($remaining);
         $outcome = $state?->provider_metadata['review_outcome'] ?? ($canRetry ? 'rejected' : null);
         $reason = match (true) {
+            $evidence['no_diagnosis_recorded'] ?? false => Diagnosis::NO_DIAGNOSIS_WARNING,
             $budget['remaining'] === 0 => 'Ten requests per ten minutes reached. Try again when the allowance resets.',
-            $canRetry => 'The response did not pass evidence checks. Retry explicitly or update the Assessment.',
+            $canRetry && $remaining === [] => 'No additional supported draft was returned. Review the Assessment or try again.',
             $remaining === [] => self::EMPTY_MESSAGE.' Update the Assessment when new findings are available.',
             default => null,
         };
@@ -263,8 +281,9 @@ class PesSuggestionService
         return ['data' => $visible, 'meta' => [
             'cached' => $cached, 'fingerprint' => $this->fingerprint($evidence),
             'catalog_version' => $this->catalog->version(), 'budget' => $budget,
+            'blocked_by_no_diagnosis' => (bool) ($evidence['no_diagnosis_recorded'] ?? false),
             'can_generate' => $reason === null, 'can_retry' => $canRetry && $budget['remaining'] > 0, 'review_outcome' => $outcome, 'disabled_reason' => $reason,
-            'message' => $visible === [] ? ($canRetry ? $reason : ($remaining === [] ? self::EMPTY_MESSAGE : null)) : null,
+            'message' => ($evidence['no_diagnosis_recorded'] ?? false) ? Diagnosis::NO_DIAGNOSIS_WARNING : ($visible === [] ? ($canRetry ? $reason : ($remaining === [] ? self::EMPTY_MESSAGE : null)) : null),
         ]];
     }
 
@@ -273,37 +292,35 @@ class PesSuggestionService
     {
         $evidence['clinical_context'] = $evidence['clinical_context']['referral_diagnosis'] ?? null;
 
-        return array_filter(array_intersect_key($evidence, array_fill_keys([
+        $causes = array_intersect_key($evidence, array_fill_keys([
             'appetite', 'dietary_intake', 'present_diet', 'knowledge_notes', 'lifestyle', 'social_history',
             'medical_history', 'clinical_context', 'physical_assessment', 'body_composition', 'food_intolerance',
             'nutrient_drug_interaction', 'dietary_restrictions', 'supplements', 'chewing_swallowing_difficulties', 'gi_symptoms',
-        ], true)), fn ($value): bool => $this->eligibility->hasConcern($value));
+        ], true));
+        foreach ($causes as $key => $value) {
+            if (! is_string($value)) {
+                continue;
+            }
+            $causes[$key] = implode('; ', array_filter($this->eligibility->clauses($value), function ($clause): bool {
+                $routine = preg_match('/\b(smok\w*|tobacco|cigarettes?|alcohol|caffeine|supplements?)\b/i', $clause);
+                $recordedLink = preg_match('/\b(caus\w*|affect\w*|limit\w*|reduc\w*|impair\w*|interfer\w*|displac\w*|because|due to)\b/i', $clause)
+                    && preg_match('/\b(intake|appetite|eating|meals?|swallow\w*|chew\w*|reflux|absorption|nutrition|tolerance)\b/i', $clause)
+                    && ! preg_match('/\b(?:not|never)\b.{0,20}\b(?:cause|affect|reduce|impair|limit)\w*/i', $clause);
+
+                return ! $routine || $recordedLink;
+            }));
+        }
+
+        return array_filter($causes, fn ($value): bool => $this->eligibility->hasConcern($value));
     }
 
     /** Request-local aliases never enter stored drafts or clinical provenance. */
     private function providerPayload(array $eligible, array $evidence): array
     {
-        unset($evidence['rnd_summary'], $evidence['saved_candidate_ids']);
+        unset($evidence['rnd_summary'], $evidence['saved_candidate_ids'], $evidence['no_diagnosis_recorded']);
         $existing = $evidence['existing_problem_keys'] ?? [];
         unset($evidence['existing_problem_keys']);
-        $required = ['age_group', 'age_70_plus', 'sex', 'edema_present', 'pregnancy_lactation_status', 'medical_history',
-            'appetite', 'weight_change_direction', 'weight_change_percentage', 'weight_change_period',
-            'bmi', 'bmi_classification', 'food_recall', 'intake_nutrients', 'physical_assessment', 'present_diet',
-            'chewing_swallowing_difficulties', 'gi_symptoms', 'clinical_context'];
-        foreach ($eligible as $candidate) {
-            $required = [...$required, ...array_keys($candidate['evidence'])];
-        }
-        $evidence = array_intersect_key($evidence, array_fill_keys($required, true));
-        if (! in_array('NC', array_column($eligible, 'domain'), true)) {
-            $required = [];
-            foreach ($eligible as $candidate) {
-                $required = [...$required, ...array_keys($candidate['evidence'])];
-            }
-            $measurements = ['ibw_percentage', 'muac_mm', 'waist_cm', 'hip_cm', 'laboratory_values', 'laboratory_flags'];
-            foreach (array_diff($measurements, $required) as $key) {
-                unset($evidence[$key]);
-            }
-        }
+        // EvidenceBuilder already allowlists and bounds the clinical snapshot, including normal findings.
         $payload = ['evidence' => [], 'existing_problems' => $existing, 'candidates' => []];
         $guidance = ClinicalAiContext::guidance($evidence, 'diagnosis');
         if ($guidance !== '') {
@@ -314,10 +331,12 @@ class PesSuggestionService
         foreach ($eligible as $candidate) {
             $ref = 'c'.(count($candidateRefs) + 1);
             $candidateRefs[$ref] = $candidate['candidate_id'];
-            $payload['candidates'][$ref] = [$candidate['domain'], $candidate['problem_key']];
+            $payload['candidates'][$ref] = [$candidate['domain'], DiagnosisBuilder::problemLabel($candidate['domain'], $candidate['problem_key'])];
             if (! isset($payload['choices'][$candidate['domain']])) {
                 $options = DiagnosisBuilder::options()[$candidate['domain']];
+                $suppliedProblems = array_map(fn ($item) => DiagnosisBuilder::problemLabel($item['domain'], $item['problem_key']), array_filter($eligible, fn ($item) => $item['domain'] === $candidate['domain']));
                 $payload['choices'][$candidate['domain']] = [
+                    'p' => $candidate['domain'] === 'NI' ? ['Inadequate/Excessive [nutrient] intake', 'Inadequate/Excessive enteral/parenteral nutrition infusion', 'Predicted suboptimal/excessive energy/nutrient intake', 'Increased/Decreased nutrient needs', 'Less than optimal nutrition composition/modality or intake of types of fats/proteins/carbohydrate', 'Increased energy expenditure', 'Limited food acceptance', 'Suboptimal/Excessive bioactive substance intake', 'Excessive alcohol intake', 'Malnutrition', 'Inconsistent carbohydrate intake', 'Imbalance of nutrients'] : array_values(array_diff(array_map(DiagnosisBuilder::cleanProblemTerm(...), $options['problems']), $suppliedProblems)),
                     'e' => array_values(array_filter($options['etiologies'], fn ($choice): bool => $this->groundedWording($choice, array_keys($causes), $causes) && ! $this->hasNewNumbers($choice, $causes))),
                     's' => array_values(array_filter($options['signs'], fn ($choice): bool => $this->groundedWording($choice, array_keys($evidence), $evidence) && ! $this->hasNewNumbers($choice, $evidence))),
                 ];
@@ -329,6 +348,15 @@ class PesSuggestionService
             $payload['evidence'][$ref] = [$key, $value];
         }
 
+        $guidanceLines = isset($payload['guidance']) ? explode("\n", $payload['guidance']) : [];
+        while ($guidanceLines !== [] && strlen((string) json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) > AIService::PES_INPUT_BYTE_LIMIT) {
+            array_pop($guidanceLines);
+            $payload['guidance'] = implode("\n", $guidanceLines);
+        }
+        if (($payload['guidance'] ?? '') === '') {
+            unset($payload['guidance']);
+        }
+
         return [$payload, $candidateRefs, $evidenceRefs];
     }
 
@@ -337,7 +365,7 @@ class PesSuggestionService
         if (! array_is_list($raw)) {
             throw new \RuntimeException('The AI returned an unexpected diagnosis list.');
         }
-        $raw = array_slice($raw, 0, 3);
+        $raw = array_slice($raw, 0, AIService::PES_DRAFT_LIMIT);
         $byId = collect($eligible)->keyBy('candidate_id');
         $seen = [];
         $problems = $this->eligibility->canonicalProblems($evidence['existing_problem_keys'] ?? []);
@@ -377,24 +405,34 @@ class PesSuggestionService
                 if (($draft['domain'] ?? null) !== $candidate['domain'] || ($draft['source_id'] ?? null) !== $candidate['source']['id']) {
                     throw new \RuntimeException('The AI returned an unsupported PES domain or source.');
                 }
-                $label = $candidate['problem_key'] === 'Other' ? $this->component($draft['problem_key'] ?? null, 75) : $candidate['problem_key'];
+                $label = $candidate['problem_key'] === 'Other' ? $this->component($draft['problem_key'] ?? null, 255) : $candidate['problem_key'];
                 if ($candidate['problem_key'] !== 'Other' && ($draft['problem_key'] ?? null) !== $label) {
                     throw new \RuntimeException('The AI changed a supplied nutrition problem.');
                 }
                 $canonical = $this->eligibility->canonicalProblem($label);
+                if ($canonical === $this->eligibility->canonicalProblem(Diagnosis::NO_DIAGNOSIS)) {
+                    throw new \RuntimeException('A no-diagnosis decision must be recorded explicitly by the nutritionist.');
+                }
                 foreach (DiagnosisBuilder::options() as $optionDomain => $optionGroups) {
                     if ($optionDomain !== $candidate['domain'] && in_array($label, $optionGroups['problems'], true)) {
                         throw new \RuntimeException('The AI assigned a known problem to the wrong diagnostic domain.');
                     }
                 }
-                if ($canonical === 'overweight obesity' && ! collect($eligible)->contains('candidate_id', 'overweight_obesity_v1')) {
+                $pediatricWeight = ($evidence['age_group'] ?? '') === 'pediatric'
+                    && in_array($evidence['bmi_classification'] ?? '', ['Overweight', 'Obesity'], true);
+                if ($canonical === 'overweight obesity' && ! $pediatricWeight && ! collect($eligible)->contains('candidate_id', 'overweight_obesity_v1')) {
                     throw new \RuntimeException('Adult BMI classification is not supported for this Assessment context.');
                 }
-                if ($candidate['domain'] === 'NI' && (! preg_match('/^(Inadequate|Excessive) (.{1,50}) Intake$/u', $label))) {
-                    throw new \RuntimeException('Use the supported intake direction and nutrient format.');
+                if ($canonical === 'overweight obesity') {
+                    if (str_contains(mb_strtolower($label), 'obese, pediatric') && (! $pediatricWeight || $evidence['bmi_classification'] !== 'Obesity')) {
+                        throw new \RuntimeException('The pediatric term requires the documented pediatric classification.');
+                    }
+                    if (preg_match('/\bclass\s+(I{1,3})\b/i', $label, $class) && ($pediatricWeight || ! preg_match('/\bclass\s+'.preg_quote($class[1], '/').'$/i', $evidence['bmi_classification'] ?? ''))) {
+                        throw new \RuntimeException('The obesity class was not established by the supplied classification.');
+                    }
                 }
-                if (preg_match('/\bpredicted\b.*\bintake\b/i', $label)) {
-                    throw new \RuntimeException('Predicted intake terms are not supported by the current Intake builder.');
+                if ($candidate['domain'] === 'NI' && ! DiagnosisBuilder::isIntakeProblem($label)) {
+                    throw new \RuntimeException('Use the supported intake direction and nutrient format.');
                 }
                 if (preg_match('/\b(diabetes(?: mellitus)?|hypertension|cancer|chronic kidney disease|CKD|heart failure|renal failure|cirrhosis|hepatitis|pneumonia|COPD|asthma|stroke|sepsis|anemia|anaemia)\b/i', $label)) {
                     throw new \RuntimeException('Medical diagnoses cannot replace nutrition problems.');
@@ -434,7 +472,9 @@ class PesSuggestionService
                             && (($evidence['bmi'] ?? 0) >= 23 || (($evidence['bmi'] ?? 0) > 0 && $evidence['bmi'] < (($evidence['age_70_plus'] ?? false) ? 20 : 18.5))),
                         'weight_loss_percentage', 'weight_change_percentage' => ($evidence['weight_change_direction'] ?? 'unknown') === 'loss' && ($evidence[$key] ?? 0) > 0,
                         'laboratory_flags' => ! empty($evidence[$key]),
-                        'age_group', 'age_70_plus', 'sex', 'weight_kg', 'usual_weight_kg', 'height_cm', 'weight_change_direction', 'weight_change_period', 'pregnancy_lactation_status', 'physical_activity_level', 'functional_assessment', 'medication_count', 'laboratory_values', 'bmi_classification', 'ibw_percentage', 'muac_mm', 'waist_cm', 'hip_cm', 'food_recall', 'intake_nutrients', 'clinical_context' => false,
+                        'physical_activity_level' => in_array($evidence[$key], ['sedentary', 'inactive'], true),
+                        'bmi_classification' => ($evidence['age_group'] ?? '') === 'pediatric' && in_array($evidence[$key], ['Overweight', 'Obesity'], true),
+                        'age_group', 'age_70_plus', 'sex', 'weight_kg', 'usual_weight_kg', 'height_cm', 'weight_change_direction', 'weight_change_period', 'pregnancy_lactation_status', 'functional_assessment', 'medication_count', 'laboratory_values', 'ibw_percentage', 'muac_mm', 'waist_cm', 'hip_cm', 'food_recall', 'intake_nutrients', 'clinical_context', 'nutrition_support' => false,
                         default => $this->eligibility->hasConcern($evidence[$key]),
                     };
                 });
@@ -443,7 +483,15 @@ class PesSuggestionService
                 }
                 $signEvidence = array_intersect_key($evidence, array_fill_keys([...$signConcerns,
                     'age_group', 'age_70_plus', 'sex', 'edema_present', 'pregnancy_lactation_status', 'weight_change_direction', 'weight_change_period', 'medication_count'], true));
-                if (! collect($this->eligibility->eligible($signEvidence))->contains('candidate_id', $id)) {
+                $requiredCandidates = [$id];
+                if ($candidate['problem_key'] === 'Other') {
+                    $known = collect($this->catalog->cards())->filter(fn ($card) => $card['domain'] === $candidate['domain']
+                        && $card['problem_key'] !== 'Other'
+                        && in_array($canonical, $this->eligibility->canonicalProblems([$card['problem_key']]), true))->pluck('id')->all();
+                    $requiredCandidates = $known ?: $requiredCandidates;
+                }
+                if (! ($candidate['problem_key'] === 'Other' && $pediatricWeight && $canonical === 'overweight obesity' && in_array('bmi_classification', $signConcerns, true))
+                    && array_intersect($requiredCandidates, array_column($this->eligibility->eligible($signEvidence), 'candidate_id')) === []) {
                     throw new \RuntimeException('The cited signs do not establish the selected nutrition problem.');
                 }
                 $etiology = $this->component($draft['etiology'] ?? null, 75);
@@ -451,12 +499,10 @@ class PesSuggestionService
                 if (! $this->eligibility->hasConcern($etiology) || ! $this->eligibility->hasConcern($signs)) {
                     throw new \RuntimeException('Normal or denied findings cannot establish a cause or signs.');
                 }
-                if (! $this->groundedWording($etiology, array_values($causes), $causeEvidence)
-                    || ! $this->groundedWording($signs, $roles['signs_evidence'], $evidence)) {
-                    throw new \RuntimeException('The AI wording adds claims not supported by its cited findings.');
-                }
-                if ($candidate['domain'] === 'NI' && (! $this->eligibility->supportsIntakeProblem($label, $signs)
-                    || ! $this->eligibility->supportsIntakeProblem($label, $evidence['dietary_intake'] ?? ''))) {
+                $etiology = $this->groundedComponent($etiology, array_values($causes), $causeEvidence);
+                $signs = $this->groundedComponent($signs, $roles['signs_evidence'], $evidence);
+                if ($candidate['domain'] === 'NI' && preg_match('/^(Inadequate|Excessive) .+ intake(?:\b|:)/i', $label) && (! $this->eligibility->supportsIntakeProblem($label, $signs)
+                    || ! $this->eligibility->supportsIntakeProblem($label, $this->eligibility->intakeFinding($evidence)))) {
                     throw new \RuntimeException('The signs do not support the selected intake nutrient and direction.');
                 }
                 if ($canonical === 'underweight' && (($evidence['bmi_classification'] ?? null) !== 'Underweight' || ! in_array('bmi', $roles['signs_evidence'], true))) {
@@ -468,7 +514,8 @@ class PesSuggestionService
                         ? '/\b(food|nutrition|diet|meal|eating|activity|exercise|education|adherence|monitoring)\b/i'
                         : '/\b(nutrition|nutritional|intake|absorption|gastrointestinal|swallowing|chewing|weight|growth|muscle)\b/i';
                     $findings = array_diff($keys, ['clinical_context', 'medical_history']);
-                    if (! preg_match($nutritionTerms, $label) || ! $this->groundedWording($label, $findings, $evidence)) {
+                    if (! in_array(DiagnosisBuilder::cleanProblemTerm($label), array_map(DiagnosisBuilder::cleanProblemTerm(...), DiagnosisBuilder::options()[$candidate['domain']]['problems']), true)
+                        && (! preg_match($nutritionTerms, $label) || ! $this->groundedWording($label, $findings, $evidence))) {
                         throw new \RuntimeException('The custom problem lacks corresponding nutrition evidence.');
                     }
                 }
@@ -503,10 +550,16 @@ class PesSuggestionService
                     throw new \RuntimeException('Malnutrition requires independently supported clinical criteria.');
                 }
                 $seen[$id] = true;
+                $domain = preg_match('/\b(malnutrition|undernutrition)\b/', $canonical) ? 'NI' : $candidate['domain'];
+                $label = DiagnosisBuilder::problemLabel($domain, $label, $signs);
+                $canonical = $this->eligibility->canonicalProblem($label);
+                if (in_array($canonical, $problems, true)) {
+                    continue;
+                }
                 $problems[] = $canonical;
-                $builder = DiagnosisBuilder::fromDraft($candidate['domain'], $label, $etiology, $signs, $notes);
+                $builder = DiagnosisBuilder::fromDraft($domain, $label, $etiology, $signs, $notes);
                 $validated[] = [
-                    'draft_id' => (string) Str::uuid(), 'candidate_id' => $id, 'domain' => $candidate['domain'],
+                    'draft_id' => (string) Str::uuid(), 'candidate_id' => $id, 'domain' => $domain,
                     'label' => $label, 'etiology' => $etiology, 'signs' => $signs,
                     'builder_data' => $builder, ...$notes, 'evidence_refs' => $refs,
                     'context_hash' => $this->contextHash($id, $evidence, array_column($refs, 'key')),
@@ -583,6 +636,14 @@ class PesSuggestionService
     {
         preg_match_all('/\d+(?:\.\d+)?/', $wording, $numbers);
         $source = json_encode($evidence);
+        if (preg_match('/\b(intake|needs|requirements)\b/i', $wording)) {
+            preg_match_all('/(\d+(?:\.\d+)?)\s*%/', $wording, $percentages);
+            foreach ($percentages[1] as $percentage) {
+                if (! preg_match('/(?<!\d)'.preg_quote($percentage, '/').'\s*%/', $source)) {
+                    return true;
+                }
+            }
+        }
 
         return array_filter($numbers[0], fn ($number) => ! preg_match('/(?<!\d)'.preg_quote($number, '/').'(?!\d)/', $source)) !== [];
     }
@@ -609,6 +670,34 @@ class PesSuggestionService
         return $words !== [] && count(array_intersect($words, $supported)) / count($words) >= 2 / 3;
     }
 
+    /** Preserve source wording when lexical matching cannot verify a paraphrase. */
+    private function groundedComponent(string $wording, array $keys, array $evidence): string
+    {
+        $cited = array_intersect_key($evidence, array_fill_keys($keys, true));
+        if ($this->hasNewNumbers($wording, $cited)) {
+            throw new \RuntimeException('The AI added a measurement or threshold not present in its evidence.');
+        }
+        if ($this->groundedWording($wording, $keys, $evidence)) {
+            return $wording;
+        }
+        $findings = [];
+        foreach ($cited as $key => $value) {
+            if (! is_string($value) || $key === 'clinical_context') {
+                continue;
+            }
+            $finding = $this->concernEvidence($value);
+            if ($finding !== '') {
+                $findings[] = str_word_count($finding) === 1 ? $this->formatEvidence($key, $finding) : $finding;
+            }
+        }
+        $source = implode('; ', array_unique($findings));
+        if ($source === '' || mb_strlen($source) > 75) {
+            throw new \RuntimeException('The cited findings need concise clinical wording before a draft can be generated.');
+        }
+
+        return $source;
+    }
+
     private function concernEvidence(mixed $value): mixed
     {
         if (is_array($value)) {
@@ -619,7 +708,7 @@ class PesSuggestionService
         }
 
         return implode('; ', array_filter(
-            preg_split('/(?<=[.!?;])(?:\s+|$)|\s+-\s+/u', $value),
+            $this->eligibility->clauses($value),
             fn ($sentence) => $this->eligibility->hasConcern($sentence),
         ));
     }

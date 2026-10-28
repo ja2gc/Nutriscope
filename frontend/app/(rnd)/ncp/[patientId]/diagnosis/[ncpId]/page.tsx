@@ -16,7 +16,7 @@ import {
 } from "@/services/diagnosisService";
 import { fetchAssessment, type Assessment } from "@/services/assessmentService";
 import { fetchIntervention } from "@/services/interventionService";
-import { buildDiagnosisProblemText } from "@/lib/diagnosisBuilder";
+import { buildDiagnosisProblemText, NO_DIAGNOSIS, type DiagnosisDomain, type IntakePattern } from "@/lib/diagnosisBuilder";
 import { composeDiagnosisComponent, splitDiagnosisComponent } from "@/lib/diagnosisEditor";
 import DiagnosisOtherField from "@/components/ncp/DiagnosisOtherField";
 import NcpPatientHeader from "../../../_components/NcpPatientHeader";
@@ -33,50 +33,84 @@ const DOMAIN_META = {
   NI: { label: "Intake (NI)" },
   NC: { label: "Clinical (NC)" },
   NB: { label: "Behavioral-Env (NB)" },
+  NO: { label: "Other (NO)" },
 } as const;
 
 // ─── G-NCP Problem Options ────────────────────────────────────────────────────
 
 const NI_NUTRIENTS = [
   "Energy", "Protein", "Carbohydrates", "Fat", "Fluid", "Fiber",
-  "Vitamins", "Minerals", "Oral Intake",
+  "Vitamins", "Minerals", "Oral Intake", "Protein-energy",
+  "Enteral nutrition infusion", "Parenteral nutrition infusion", "Bioactive substance",
+  "Nutrient / substance (specify)",
 ];
 
 const NI_MICRONUTRIENTS: Record<"Vitamins" | "Minerals", string[]> = {
   Vitamins: [
-    "Vitamin A", "Vitamin B1 (Thiamin)", "Vitamin B2 (Riboflavin)", "Vitamin B3 (Niacin)",
-    "Vitamin B5 (Pantothenic acid)", "Vitamin B6", "Vitamin B7 (Biotin)", "Folate",
-    "Vitamin B12", "Vitamin C", "Vitamin D", "Vitamin E", "Vitamin K",
+    "Vitamin A", "Vitamin C", "Vitamin D", "Vitamin E", "Vitamin K", "Thiamin", "Riboflavin",
+    "Niacin", "Folate", "Vitamin B6", "Vitamin B12", "Pantothenic acid", "Biotin",
   ],
   Minerals: [
     "Calcium", "Chloride", "Chromium", "Copper", "Fluoride", "Iodine", "Iron", "Magnesium",
     "Manganese", "Molybdenum", "Phosphorus", "Potassium", "Selenium", "Sodium", "Zinc",
+    "Sulfate", "Boron", "Cobalt",
   ],
 };
 
-const NC_PROBLEMS = [
-  "Unintended Weight Loss",
-  "Overweight / Obesity",
-  "Malnutrition (undernutrition)",
-  "Altered GI Function",
-  "Swallowing / Chewing Difficulty",
-  "Altered Nutrition-Related Laboratory Values",
-  "Food-Medication Interaction",
-  "Predicted Suboptimal Intake",
-  "Impaired Nutrient Utilization",
-];
+const NC_PROBLEM_GROUPS = {
+  "Functional": [
+    "Swallowing difficulty",
+    "Biting/Chewing (masticatory) difficulty",
+    "Breastfeeding difficulty",
+    "Altered GI function"
+  ],
+  "Biochemical": [
+    "Impaired nutrient utilization",
+    "Altered nutrition-related laboratory values (specify)",
+    "Food–medication interaction (specify)",
+    "Predicted food–medication interaction (specify)"
+  ],
+  "Weight and growth": [
+    "Underweight",
+    "Unintended weight loss",
+    "Unintended weight gain",
+    "Overweight/obesity",
+    "Overweight, adult or pediatric",
+    "Obese, pediatric",
+    "Obese, Class I",
+    "Obese, Class II",
+    "Obese, Class III",
+    "Suboptimal growth rate",
+    "Excessive growth rate"
+  ]
+};
+const NC_PROBLEMS = Object.values(NC_PROBLEM_GROUPS).flat();
 
-const NB_PROBLEMS = [
-  "Food and Nutrition Knowledge Deficit",
-  "Harmful Beliefs / Attitudes about Food",
-  "Not Ready for Diet / Lifestyle Change",
-  "Self-Monitoring Deficit",
-  "Disordered Eating Pattern",
-  "Limited Adherence to Nutrition-Related Recommendations",
-  "Undesirable Food Choices",
-  "Physical Inactivity",
-  "Food Insecurity",
-];
+const NB_PROBLEM_GROUPS = {
+  "Knowledge and beliefs": [
+    "Food- and nutrition-related knowledge deficit",
+    "Unsupported beliefs/attitudes about food- or nutrition-related topics (use with caution)",
+    "Not ready for diet/lifestyle change",
+    "Self-monitoring deficit",
+    "Disordered eating pattern",
+    "Limited adherence to nutrition-related recommendations",
+    "Undesirable food choices"
+  ],
+  "Physical activity and function": [
+    "Physical inactivity",
+    "Excessive physical activity",
+    "Inability to manage self-care",
+    "Impaired ability to prepare foods/meals",
+    "Poor nutrition quality of life",
+    "Self-feeding difficulty"
+  ],
+  "Food safety and access": [
+    "Intake of unsafe food",
+    "Limited access to food or water",
+    "Limited access to nutrition-related supplies"
+  ]
+};
+const NB_PROBLEMS = Object.values(NB_PROBLEM_GROUPS).flat();
 
 // ─── G-NCP Etiology Options ───────────────────────────────────────────────────
 
@@ -161,13 +195,15 @@ const NB_SIGNS = [
   "Reports financial barriers to food access",
 ];
 
-function getEtiologies(domain: "NI" | "NC" | "NB") {
+function getEtiologies(domain: DiagnosisDomain) {
+  if (domain === "NO") return [];
   if (domain === "NI") return NI_ETIOLOGIES;
   if (domain === "NC") return NC_ETIOLOGIES;
   return NB_ETIOLOGIES;
 }
 
-function getSigns(domain: "NI" | "NC" | "NB") {
+function getSigns(domain: DiagnosisDomain) {
+  if (domain === "NO") return [];
   if (domain === "NI") return NI_SIGNS;
   if (domain === "NC") return NC_SIGNS;
   return NB_SIGNS;
@@ -179,7 +215,9 @@ type TabKey = "table" | "problem" | "etiology" | "signs" | "pes" | "ai";
 
 interface BuilderState {
   editingId: number | null;
-  domain: "NI" | "NC" | "NB";
+  domain: DiagnosisDomain;
+  niPattern: IntakePattern;
+  niDetail: string;
   niDirection: "Inadequate" | "Excessive";
   niNutrient: string;
   niNutrientSpecify: keyof typeof NI_MICRONUTRIENTS | "Nutrient / substance (specify)" | "";
@@ -206,6 +244,7 @@ function defaultBuilder(): BuilderState {
   return {
     editingId: null,
     domain: "NI",
+    niPattern: "intake", niDetail: "",
     niDirection: "Inadequate",
     niNutrient: "",
     niNutrientSpecify: "",
@@ -229,10 +268,12 @@ function buildProblemText(b: BuilderState): string {
 }
 
 function buildEtiologyText(b: BuilderState): string {
+  if (b.domain === "NO") return "";
   return composeDiagnosisComponent(b.etiologyChecks, b.etiologyOther, b.etiologyOtherChecked) || "[Select etiology]";
 }
 
 function buildSignsText(b: BuilderState): string {
+  if (b.domain === "NO") return "";
   return composeDiagnosisComponent(b.signChecks, b.signOther, b.signOtherChecked) || "[Select signs and symptoms]";
 }
 
@@ -245,6 +286,7 @@ function hasIncompleteOther(b: BuilderState): boolean {
 }
 
 function buildPes(problem: string, etiology: string, signs: string): string {
+  if (problem === NO_DIAGNOSIS && !etiology && !signs) return problem;
   return `${problem} related to ${etiology} as evidenced by ${signs}`;
 }
 
@@ -265,7 +307,8 @@ function buildPayload(b: BuilderState): StoreDiagnosisPayload {
     extra_notes: b.extraNotes || null,
     ai_generated: Boolean(b.aiDraftId),
     ai_draft_id: b.aiDraftId,
-    builder_data: b.domain === "NI" && b.problemOverride ? undefined : {
+    builder_data: b.domain === "NO" ? undefined : {
+      problem_override: b.problemOverride || (b.domain === "NI" && (b.niPattern !== "intake" || b.niNutrientSpecify || /infusion|bioactive/i.test(b.niNutrient)) ? problem : ""),
       problem_checks: b.domain === "NC" ? b.ncProblems : b.domain === "NB" ? b.nbProblems : [],
       problem_other: b.domain !== "NI" && b.problemOtherChecked ? b.problemOther.trim() : "",
       etiology_checks: b.etiologyChecks,
@@ -273,7 +316,7 @@ function buildPayload(b: BuilderState): StoreDiagnosisPayload {
       sign_checks: b.signChecks,
       sign_other: b.signOtherChecked ? b.signOther.trim() : "",
       etiology_notes: b.etiologyNotes, sign_notes: b.signNotes,
-      ...(b.domain === "NI" ? { ni_direction: b.niDirection, ni_nutrient: b.niNutrient } : {}),
+      ...(b.domain === "NI" ? { ni_direction: b.niDirection, ni_nutrient: b.niNutrient, ni_pattern: b.niPattern, ni_group: b.niNutrientSpecify, ni_detail: b.niDetail } : {}),
     },
   };
 }
@@ -282,6 +325,7 @@ function loadBuilderFromDiagnosis(d: Diagnosis): BuilderState {
   const b = defaultBuilder();
   b.editingId = d.id ?? null;
   b.domain = d.domain;
+  b.problemOverride = d.problem;
   b.extraNotes = d.extra_notes ?? "";
   const stored = d.builder_data;
   const etiology = splitDiagnosisComponent(d.etiology ?? "", getEtiologies(d.domain));
@@ -296,6 +340,13 @@ function loadBuilderFromDiagnosis(d: Diagnosis): BuilderState {
   b.etiologyNotes = stored?.etiology_notes ?? "";
   b.signNotes = stored?.sign_notes ?? "";
   if (d.domain === "NI") {
+    if (stored?.ni_pattern) {
+      b.niPattern = stored.ni_pattern;
+      b.niDirection = stored.ni_direction ?? b.niDirection;
+      b.niNutrient = stored.ni_nutrient ?? "";
+      b.niNutrientSpecify = stored.ni_group ?? "";
+      b.niDetail = stored.ni_detail ?? "";
+    } else {
     const match = d.problem.match(/^(Inadequate|Excessive)\s+(.+)\s+Intake$/i);
     if (match) {
       b.niDirection = match[1] as "Inadequate" | "Excessive";
@@ -306,10 +357,20 @@ function loadBuilderFromDiagnosis(d: Diagnosis): BuilderState {
       else if (!NI_NUTRIENTS.includes(b.niNutrient) && !NI_NUTRIENTS.includes(b.niNutrient + " Intake")) b.niNutrientSpecify = "Nutrient / substance (specify)";
       if (NI_NUTRIENTS.includes(b.niNutrient + " Intake")) b.niNutrient += " Intake";
     } else b.problemOverride = d.problem;
+    }
   } else {
-    if (d.domain === "NC") b.ncProblems = stored?.problem_checks ?? problems.checks;
-    else b.nbProblems = stored?.problem_checks ?? problems.checks;
-    b.problemOther = stored?.problem_other ?? problems.other;
+    const aliases: Record<string, string> = {
+      "Overweight / Obesity": "Overweight/obesity",
+      "Food and Nutrition Knowledge Deficit": "Food- and nutrition-related knowledge deficit",
+      "Harmful Beliefs / Attitudes about Food": "Unsupported beliefs/attitudes about food- or nutrition-related topics (use with caution)",
+      "Not Ready for Diet / Lifestyle Change": "Not ready for diet/lifestyle change",
+      "Food Insecurity": "Limited access to food or water",
+    };
+    const options = d.domain === "NC" ? NC_PROBLEMS : NB_PROBLEMS;
+    const checks = (stored?.problem_checks ?? (aliases[d.problem] ? [d.problem] : problems.checks)).map(p => aliases[p] ?? options.find(option => option.toLowerCase() === p.toLowerCase()) ?? p);
+    if (d.domain === "NC") b.ncProblems = checks;
+    else b.nbProblems = checks;
+    b.problemOther = stored?.problem_other ?? (aliases[d.problem] ? "" : problems.other);
     b.problemOtherChecked = Boolean(b.problemOther);
   }
   const composed = buildPes(buildProblemText(b), buildEtiologyText(b), buildSignsText(b));
@@ -320,7 +381,7 @@ function loadBuilderFromDiagnosis(d: Diagnosis): BuilderState {
 
 // ─── Small UI Helpers ─────────────────────────────────────────────────────────
 
-function DomainBadge({ domain }: { domain: "NI" | "NC" | "NB" }) {
+function DomainBadge({ domain }: { domain: DiagnosisDomain }) {
   const meta = DOMAIN_META[domain];
   return (
     <span className="text-xs font-semibold text-warm-700 whitespace-nowrap">
@@ -373,7 +434,7 @@ export default function NcpDiagnosisPage({
   const [deleting, setDeleting] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [domainFilter, setDomainFilter] = useState<"ALL" | "NI" | "NC" | "NB">("ALL");
+  const [domainFilter, setDomainFilter] = useState<"ALL" | DiagnosisDomain>("ALL");
   const [builder, setBuilder] = useState<BuilderState>(defaultBuilder());
   const [aiSuggestions, setAiSuggestions] = useState<AiSuggestion[]>([]);
   const [aiDraftsPage, setAiDraftsPage] = useState(1);
@@ -444,7 +505,7 @@ export default function NcpDiagnosisPage({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    builder.domain, builder.niDirection, builder.niNutrient,
+    builder.domain, builder.niDirection, builder.niNutrient, builder.niPattern, builder.niDetail, builder.niNutrientSpecify,
     builder.ncProblems, builder.nbProblems, builder.problemOverride,
     builder.etiologyChecks, builder.etiologyOther, builder.etiologyOtherChecked,
     builder.signChecks, builder.signOther, builder.signOtherChecked,
@@ -469,7 +530,11 @@ export default function NcpDiagnosisPage({
 
   const updateBuilder = (patch: Partial<BuilderState>) => setBuilder(prev => ({ ...prev, ...patch }));
 
+  const noDiagnosisWarning = "Delete the saved 'No nutrition diagnosis at this time' entry before adding or generating a diagnosis.";
+  const hasNoDiagnosis = diagnoses.some(d => d.domain === "NO") || Boolean(aiMeta?.blocked_by_no_diagnosis);
+
   const startNew = () => {
+    if (hasNoDiagnosis) { setError(noDiagnosisWarning); return; }
     setBuilder(defaultBuilder());
     setActiveTab("problem");
     setError(null);
@@ -487,6 +552,7 @@ export default function NcpDiagnosisPage({
     try {
       setDeleting(d.id);
       await deleteDiagnosis(ncpId, d.id);
+      if (d.domain === "NO") setAiMeta(prev => prev ? { ...prev, blocked_by_no_diagnosis: false } : prev);
       if (diagnoses.length === 1 && diagnosesPage > 1) {
         setDiagnosesPage(diagnosesPage - 1, true);
       } else {
@@ -500,6 +566,7 @@ export default function NcpDiagnosisPage({
   };
 
   const handleSave = async () => {
+    if (hasNoDiagnosis && builder.domain !== "NO") { setError(noDiagnosisWarning); return; }
     const payload = buildPayload(builder);
     const problem = buildProblemText(builder);
     const etiology = buildEtiologyText(builder);
@@ -536,13 +603,14 @@ export default function NcpDiagnosisPage({
     }
   };
 
-  const handleAiSuggest = async () => {
+  const handleAiSuggest = async (retry = false) => {
+    if (hasNoDiagnosis) { setError(noDiagnosisWarning); return; }
     try {
       setAiLoading(true);
       setError(null);
       setAiUnavailable(null);
       setAiWarning(null);
-      const result = await aiSuggestDiagnoses(ncpId, Boolean(aiMeta?.can_retry));
+      const result = await aiSuggestDiagnoses(ncpId, retry);
       setAiSuggestions(result.data);
       setAiDraftsPage(1);
       setAiMeta(result.meta);
@@ -661,9 +729,11 @@ export default function NcpDiagnosisPage({
   const TABS: { key: TabKey; label: string }[] = [
     { key: "table", label: "Diagnosis Table" },
     { key: "problem", label: "P — Problem" },
-    { key: "etiology", label: "E — Etiology" },
-    { key: "signs", label: "S — Signs & Symptoms" },
-    { key: "pes", label: "PES Statement" },
+    ...(builder.domain === "NO" ? [] : [
+      { key: "etiology" as const, label: "E — Etiology" },
+      { key: "signs" as const, label: "S — Signs & Symptoms" },
+      { key: "pes" as const, label: "PES Statement" },
+    ]),
     { key: "ai", label: "AI Review" },
   ];
 
@@ -678,14 +748,16 @@ export default function NcpDiagnosisPage({
             { value: "NI", label: "NI" },
             { value: "NC", label: "NC" },
             { value: "NB", label: "NB" },
+            { value: "NO", label: "NO" },
           ]}
           value={domainFilter}
-          onChange={(val) => setDomainFilter(val as "ALL" | "NI" | "NC" | "NB")}
+          onChange={(val) => setDomainFilter(val as "ALL" | DiagnosisDomain)}
           label="Filter:"
         />
         <button
           type="button"
           onClick={startNew}
+          disabled={hasNoDiagnosis}
           className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold uppercase tracking-wider rounded-lg transition-colors cursor-pointer shadow-sm"
         >
           <Plus className="h-3.5 w-3.5" />
@@ -742,14 +814,14 @@ export default function NcpDiagnosisPage({
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
-                      <button
+                      {d.domain !== "NO" && <button
                         type="button"
                         onClick={() => startEdit(d)}
                         className="p-1.5 text-warm-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors cursor-pointer"
                         title="Edit"
                       >
                         <Pencil className="h-3.5 w-3.5" />
-                      </button>
+                      </button>}
                       <button
                         type="button"
                         onClick={() => handleDelete(d)}
@@ -776,16 +848,24 @@ export default function NcpDiagnosisPage({
     ? NI_MICRONUTRIENTS[builder.niNutrientSpecify] : null;
   const micronutrientLabel = builder.niNutrientSpecify === "Vitamins" ? "Vitamin" : "Mineral";
 
+  const intakeSubjects = builder.niPattern === "composition"
+    ? ["enteral nutrition composition or modality", "parenteral nutrition composition or modality", "intake of types of fats", "intake of types of proteins or amino acids", "intake of types of carbohydrate"]
+    : builder.niPattern === "other"
+      ? ["Increased energy expenditure", "Limited food acceptance", "Excessive alcohol intake", "Malnutrition", "Inconsistent carbohydrate intake", "Imbalance of nutrients"]
+      : builder.niPattern === "predicted" ? ["Energy", "Nutrient / substance (specify)"]
+      : builder.niPattern === "needs" ? ["Energy", "Protein", "Fat", "Carbohydrates", "Fluid", "Fiber", "Vitamins", "Minerals", "Nutrient / substance (specify)"] : NI_NUTRIENTS;
+
   const renderProblemTab = () => (
     <div className="space-y-6 max-w-2xl">
       <div>
         <SectionLabel>Step 1: Select Diagnostic Domain</SectionLabel>
         <div className="flex gap-4 flex-wrap border-b border-warm-200">
-          {(["NI", "NC", "NB"] as const).map(d => (
+          {(["NI", "NC", "NB", "NO"] as const).map(d => (
             <button
               key={d}
               type="button"
-              onClick={() => setBuilder({ ...defaultBuilder(), domain: d, editingId: builder.editingId, aiDraftId: builder.aiDraftId })}
+              disabled={hasNoDiagnosis || (d === "NO" && (diagnosesMeta?.total ?? 0) > 0)}
+              onClick={() => setBuilder({ ...defaultBuilder(), domain: d, editingId: builder.editingId, aiDraftId: d === "NO" ? undefined : builder.aiDraftId })}
               className={`px-1 py-2 text-sm font-semibold border-b-2 transition-colors cursor-pointer ${
                 builder.domain === d
                   ? "border-emerald-700 text-emerald-800"
@@ -798,15 +878,28 @@ export default function NcpDiagnosisPage({
         </div>
       </div>
 
+      {builder.domain === "NO" && <p className="rounded-xl border border-warm-200 bg-warm-50 p-4 text-sm font-semibold">{NO_DIAGNOSIS}</p>}
+
       {builder.domain === "NI" && (
         <div className="space-y-4">
-          <div>
+          <label className="block text-xs font-semibold text-warm-600">
+            Problem family
+            <select aria-label="Intake problem family" value={builder.niPattern} onChange={e => updateBuilder({ niPattern: e.target.value as IntakePattern, niNutrient: "", niNutrientSpecify: "", niDetail: "", problemOverride: "" })} className="mt-2 min-h-11 w-full rounded-lg border border-warm-200 bg-white px-3 py-2 text-sm">
+              <option value="intake">Intake amount</option>
+              <option value="predicted">Predicted intake</option>
+              <option value="needs">Nutrient needs</option>
+              <option value="composition">Composition or modality</option>
+              <option value="other">Other intake problems</option>
+            </select>
+          </label>
+          {!["composition", "other"].includes(builder.niPattern) && <div>
             <SectionLabel>Step 2: Select Direction</SectionLabel>
             <div className="flex gap-3">
               {(["Inadequate", "Excessive"] as const).map(dir => (
                 <button
                   key={dir}
                   type="button"
+                  disabled={dir === "Excessive" && builder.niNutrient === "Protein-energy"}
                   onClick={() => updateBuilder({ niDirection: dir, problemOverride: "" })}
                   className={`px-4 py-2 text-sm font-bold rounded-xl border-2 transition-all cursor-pointer ${
                     builder.niDirection === dir
@@ -814,21 +907,22 @@ export default function NcpDiagnosisPage({
                       : "bg-white text-warm-500 border-warm-200 hover:border-zinc-400"
                   }`}
                 >
-                  {dir}
+                  {builder.niPattern === "needs" ? (dir === "Inadequate" ? "Increased" : "Decreased") : (builder.niPattern === "predicted" || builder.niNutrient === "Bioactive substance") && dir === "Inadequate" ? "Suboptimal" : dir}
                 </button>
               ))}
             </div>
-          </div>
+          </div>}
           <div>
-            <SectionLabel>Step 3: Select Nutrient / Substance</SectionLabel>
+            <SectionLabel>{builder.niPattern === "other" ? "Select problem" : builder.niPattern === "composition" ? "Select composition or modality" : "Step 3: Select Nutrient / Substance"}</SectionLabel>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              {NI_NUTRIENTS.map(n => (
+              {intakeSubjects.map(n => (
                 <button
                   key={n}
                   type="button"
+                  aria-pressed={builder.niNutrient === n || builder.niNutrientSpecify === n}
                   onClick={() => {
-                    const group = n === "Vitamins" || n === "Minerals" ? n : "";
-                    updateBuilder({ niNutrient: group ? "" : n, niNutrientSpecify: group, problemOverride: "" });
+                    const group = n === "Vitamins" || n === "Minerals" || n === "Nutrient / substance (specify)" ? n : "";
+                    updateBuilder({ niNutrient: group ? "" : n, niNutrientSpecify: group, niDetail: "", problemOverride: "", ...(n === "Protein-energy" ? { niDirection: "Inadequate" } : {}) });
                   }}
                   className={`px-3 py-2 text-sm font-semibold rounded-lg border transition-all cursor-pointer text-left ${
                     (builder.niNutrient === n || builder.niNutrientSpecify === n)
@@ -840,6 +934,7 @@ export default function NcpDiagnosisPage({
                 </button>
               ))}
             </div>
+            {((builder.niPattern === "composition" && builder.niNutrient.startsWith("intake of types")) || builder.niNutrient === "Bioactive substance") && <label className="mt-2 block text-xs font-semibold text-warm-600">Specify type or substance<input aria-label="Specify type or substance" value={builder.niDetail} maxLength={50} onChange={e => updateBuilder({ niDetail: e.target.value, problemOverride: "" })} className="mt-2 min-h-11 w-full rounded-lg border border-warm-200 px-3 py-2 text-sm" /></label>}
             {micronutrientOptions ? (
               <label className="mt-2 block text-xs font-semibold text-warm-600">
                 Select {micronutrientLabel.toLowerCase()}
@@ -874,46 +969,30 @@ export default function NcpDiagnosisPage({
       {builder.domain === "NC" && (
         <div>
           <SectionLabel>Step 2: Select Clinical Problem(s)</SectionLabel>
-          <div className="space-y-1 bg-warm-50/60 rounded-xl p-4 border border-warm-200">
-            {NC_PROBLEMS.map(p => (
-              <Checkbox
-                key={p}
-                checked={builder.ncProblems.includes(p)}
-                onChange={checked => updateBuilder({
-                  problemOverride: "",
-                  ncProblems: checked
-                    ? [...builder.ncProblems, p]
-                    : builder.ncProblems.filter(x => x !== p)
-                })}
-                label={p}
-              />
-            ))}
-
+          <div className="space-y-2">
+            {Object.entries(NC_PROBLEM_GROUPS).map(([group, problems]) => <details key={group} className="rounded-xl border border-warm-200 bg-warm-50/60 p-3">
+              <summary className="min-h-11 cursor-pointer text-sm font-semibold text-warm-700">{group}</summary>
+              {problems.map(p => <Checkbox key={p} checked={builder.ncProblems.includes(p)}
+                onChange={checked => updateBuilder({ problemOverride: "", ncProblems: checked ? [...builder.ncProblems, p] : builder.ncProblems.filter(x => x !== p) })} label={p} />)}
+            </details>)}
+            {builder.ncProblems.filter(p => !NC_PROBLEMS.includes(p)).map(p => <Checkbox key={p} checked onChange={() => updateBuilder({ problemOverride: "", ncProblems: builder.ncProblems.filter(x => x !== p) })} label={p} />)}
             <DiagnosisOtherField id="clinical-problem" label="Other clinical problem" checked={builder.problemOtherChecked} value={builder.problemOther} onToggle={checked => updateBuilder({ problemOtherChecked: checked, problemOverride: "" })} onChange={value => updateBuilder({ problemOther: value, problemOverride: "" })} />
-        </div>
+          </div>
         </div>
       )}
 
       {builder.domain === "NB" && (
         <div>
           <SectionLabel>Step 2: Select Behavioral-Environmental Problem(s)</SectionLabel>
-          <div className="space-y-1 bg-warm-50/60 rounded-xl p-4 border border-warm-200">
-            {NB_PROBLEMS.map(p => (
-              <Checkbox
-                key={p}
-                checked={builder.nbProblems.includes(p)}
-                onChange={checked => updateBuilder({
-                  problemOverride: "",
-                  nbProblems: checked
-                    ? [...builder.nbProblems, p]
-                    : builder.nbProblems.filter(x => x !== p)
-                })}
-                label={p}
-              />
-            ))}
-
+          <div className="space-y-2">
+            {Object.entries(NB_PROBLEM_GROUPS).map(([group, problems]) => <details key={group} className="rounded-xl border border-warm-200 bg-warm-50/60 p-3">
+              <summary className="min-h-11 cursor-pointer text-sm font-semibold text-warm-700">{group}</summary>
+              {problems.map(p => <Checkbox key={p} checked={builder.nbProblems.includes(p)}
+                onChange={checked => updateBuilder({ problemOverride: "", nbProblems: checked ? [...builder.nbProblems, p] : builder.nbProblems.filter(x => x !== p) })} label={p} />)}
+            </details>)}
+            {builder.nbProblems.filter(p => !NB_PROBLEMS.includes(p)).map(p => <Checkbox key={p} checked onChange={() => updateBuilder({ problemOverride: "", nbProblems: builder.nbProblems.filter(x => x !== p) })} label={p} />)}
             <DiagnosisOtherField id="behavioral-problem" label="Other behavioral problem" checked={builder.problemOtherChecked} value={builder.problemOther} onToggle={checked => updateBuilder({ problemOtherChecked: checked, problemOverride: "" })} onChange={value => updateBuilder({ problemOther: value, problemOverride: "" })} />
-        </div>
+          </div>
         </div>
       )}
 
@@ -937,10 +1016,10 @@ export default function NcpDiagnosisPage({
       <div className="flex justify-end">
         <button
           type="button"
-          onClick={() => setActiveTab("etiology")}
+          onClick={builder.domain === "NO" ? handleSave : () => setActiveTab("etiology")}
           className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold uppercase tracking-wider rounded-lg transition-colors cursor-pointer"
         >
-          Next: Etiology <ChevronRight className="h-3.5 w-3.5" />
+          {builder.domain === "NO" ? "Save Diagnosis" : <>Next: Etiology <ChevronRight className="h-3.5 w-3.5" /></>}
         </button>
       </div>
     </div>
@@ -1105,7 +1184,7 @@ export default function NcpDiagnosisPage({
     );
   };
 
-  const aiSuggestionOutcome = hasAssessment && aiMeta && !aiUnavailable && aiMeta.budget.remaining > 0
+  const aiSuggestionOutcome = !hasNoDiagnosis && hasAssessment && aiMeta && !aiUnavailable && aiMeta.budget.remaining > 0
     && !aiMeta.can_generate && (!aiMeta.can_retry || aiSuggestions.length === 0)
     ? aiMeta.can_retry
       ? "No additional supported nutrition diagnosis could be generated from the current assessment."
@@ -1120,14 +1199,14 @@ export default function NcpDiagnosisPage({
         <div className="mb-2 flex items-center gap-1 text-sm font-bold uppercase tracking-wider text-emerald-600">
           <span>AI Suggestions</span>
           <InfoHint label="How PES drafts work" title="How PES drafts work">
-            Reviews saved findings once and returns up to three supported nutrition diagnoses. Relevant evidence changes or deletion reopen review. Referral diagnoses provide context. Review every draft before saving.
+            Reviews saved findings and returns up to five supported nutrition diagnoses. Relevant evidence changes or deletion reopen review. Referral diagnoses provide context. Review every draft before saving.
           </InfoHint>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={handleAiSuggest}
-            disabled={aiLoading || !hasAssessment || !aiMeta || aiMeta.budget.remaining === 0 || Boolean(aiUnavailable)}
+            onClick={() => { void handleAiSuggest(); }}
+            disabled={aiLoading || hasNoDiagnosis || !hasAssessment || !aiMeta || aiMeta.budget.remaining === 0 || Boolean(aiUnavailable)}
             aria-describedby="ai-generation-state"
             title={aiSuggestionReason ?? aiUnavailable ?? undefined}
             className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-xs font-extrabold uppercase tracking-wider text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-warm-300"
@@ -1135,6 +1214,12 @@ export default function NcpDiagnosisPage({
             {aiLoading && <RefreshCw className="h-3.5 w-3.5 animate-spin" />}
             {aiLoading ? "Generating suggestions..." : "Generate AI Suggestions"}
           </button>
+          {aiMeta?.can_retry && <button
+            type="button"
+            onClick={() => { void handleAiSuggest(true); }}
+            disabled={aiLoading || hasNoDiagnosis || !hasAssessment || aiMeta.budget.remaining === 0 || Boolean(aiUnavailable)}
+            className="min-h-11 rounded-lg border border-warm-200 px-4 py-2 text-xs font-semibold text-warm-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >Review again (uses 1 request)</button>}
           {(aiSuggestionReason || aiUnavailable) && <InfoHint label="AI suggestion status" title="AI suggestion status">{aiSuggestionReason ?? aiUnavailable}</InfoHint>}
           {aiUnavailable && <button type="button" onClick={() => { void refreshAiStatus().catch(() => setAiUnavailable("Could not load AI draft status. Try again shortly.")); }} className="min-h-11 text-xs font-semibold text-emerald-700 underline">Refresh status</button>}
         </div>
@@ -1256,6 +1341,8 @@ export default function NcpDiagnosisPage({
         interventionGoal={interventionGoal}
         medicalDiagnosis={patient?.medical_diagnosis}
       />
+
+      {hasNoDiagnosis && <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{noDiagnosisWarning}</div>}
 
       {/* Status Messages */}
       {error && (

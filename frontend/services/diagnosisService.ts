@@ -1,10 +1,11 @@
 ﻿import { apiFetch } from "@/lib/apiFetch";
 import type { PaginationMeta } from "@/components/ui/Pagination";
+import type { IntakePattern } from "@/lib/diagnosisBuilder";
 
 export interface Diagnosis {
   id?: number;
   ncp_record_id?: number;
-  domain: "NI" | "NC" | "NB";
+  domain: "NI" | "NC" | "NB" | "NO";
   problem: string;
   label?: string;
   etiology: string;
@@ -18,7 +19,7 @@ export interface Diagnosis {
 }
 
 export interface StoreDiagnosisPayload {
-  domain: "NI" | "NC" | "NB";
+  domain: "NI" | "NC" | "NB" | "NO";
   problem: string;
   etiology: string;
   signs_symptoms: string;
@@ -31,6 +32,7 @@ export interface StoreDiagnosisPayload {
 }
 
 export interface DiagnosisBuilderData {
+  problem_override?: string;
   problem_checks: string[];
   problem_other: string;
   etiology_checks: string[];
@@ -41,6 +43,9 @@ export interface DiagnosisBuilderData {
   sign_notes: string;
   ni_direction?: "Inadequate" | "Excessive";
   ni_nutrient?: string;
+  ni_pattern?: IntakePattern;
+  ni_group?: "" | "Vitamins" | "Minerals" | "Nutrient / substance (specify)";
+  ni_detail?: string;
 }
 
 export interface AiSuggestion {
@@ -64,6 +69,7 @@ export interface AiSuggestion {
 }
 
 export interface PesDraftMeta {
+  blocked_by_no_diagnosis?: boolean;
   cached: boolean;
   fingerprint: string;
   catalog_version: string;

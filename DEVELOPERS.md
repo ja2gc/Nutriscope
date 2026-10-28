@@ -1,6 +1,8 @@
 # NutriScope developer map
 
-Verified against source: `b9a6839f34b5203995d7c61c6f29cd9b0dd03f4f` plus census classification and report navigation changes in this working tree (2026-10-28).
+Verified against source: `ce7078a41a9082eba5ae749639bcfa0cf1b45a82` plus diagnosis changes in this working tree (2026-10-28).
+
+Diagnosis keeps the existing P/E/S append builder. `DiagnosisBuilder` owns terminology formatting and selection metadata; `DiagnosisController` owns the exclusive clinician-recorded NO decision. `PesSuggestionService` owns evidence checks, duplicate protection and review reuse; `ClinicalAiContext` selects brief guidance on the server. See [NCP AI](docs/developers/ncp/ai.md) and [NCP data](docs/developers/ncp/data.md).
 
 BMI classification is owned by `Assessment::classifyBmi` and mirrored for live web inputs by `frontend/lib/nutritionCalculations.ts`: WHO sex/month bands at 61–228 months, Asia-Pacific afterward. The two offline `who-bmi-for-age.json` files are verified copies for separately built applications. Diagnosis AI and current reports reuse the model method; screening risk and clinical PES diagnoses remain separate. See [NCP data](docs/developers/ncp/data.md).
 

@@ -37,6 +37,73 @@ async function open() {
   await act(async () => { root.render(<Suspense fallback={<div>Loading</div>}><Page params={params} /></Suspense>); });
 }
 
+it("offers protein-energy intake only in the standardized inadequate direction", async () => {
+  await open(); click("Add New Diagnosis"); click("Protein-energy");
+  expect((screen.getByRole("button", { name: "Excessive" }) as HTMLButtonElement).disabled).toBe(true);
+});
+
+it("uses the supplied vitamin names for new selections", async () => {
+  await open(); click("Add New Diagnosis"); click("Vitamins");
+  expect(screen.getByRole("option", { name: "Thiamin" })).toBeTruthy();
+  expect(screen.queryByRole("option", { name: "Vitamin B1 (Thiamin)" })).toBeNull();
+});
+
+it("reopens a composed intake problem with its saved selections", async () => {
+  vi.mocked(diagnoses.fetchDiagnosesPage).mockResolvedValue({ data: [{ id: "saved", domain: "NI", problem: "Increased nutrient needs: Protein",
+    etiology: "Recorded cause", signs_symptoms: "Recorded findings",
+    builder_data: { ni_pattern: "needs", ni_direction: "Inadequate", ni_nutrient: "Protein", ni_group: "", ni_detail: "",
+      problem_checks: [], problem_other: "", etiology_checks: [], etiology_other: "Recorded cause", sign_checks: [], sign_other: "Recorded findings", etiology_notes: "", sign_notes: "" } }],
+    meta: { current_page: 1, per_page: 10, total: 1, last_page: 1 } } as never);
+  await open();
+  act(() => { fireEvent.click(screen.getByTitle("Edit")); });
+  expect((screen.getByRole("combobox", { name: "Intake problem family" }) as HTMLSelectElement).value).toBe("needs");
+  expect(screen.getByRole("button", { name: "Protein", pressed: true })).toBeTruthy();
+});
+
+it("maps a renamed legacy problem to the current checkbox without rewriting its saved wording", async () => {
+  vi.mocked(diagnoses.fetchDiagnosesPage).mockResolvedValue({ data: [{ id: "legacy", domain: "NB", problem: "Food and Nutrition Knowledge Deficit",
+    etiology: "Limited access to nutrition education", signs_symptoms: "Cannot identify carbohydrate foods",
+    builder_data: { problem_checks: ["Food and Nutrition Knowledge Deficit"], problem_other: "", etiology_checks: [], etiology_other: "Limited access to nutrition education", sign_checks: [], sign_other: "Cannot identify carbohydrate foods", etiology_notes: "", sign_notes: "" } }],
+    meta: { current_page: 1, per_page: 10, total: 1, last_page: 1 } } as never);
+  await open();
+  act(() => { fireEvent.click(screen.getByTitle("Edit")); });
+  expect((screen.getByRole("checkbox", { name: "Food- and nutrition-related knowledge deficit", hidden: true }) as HTMLInputElement).checked).toBe(true);
+  click(/Next: Etiology/); enter("Specify other etiology", "New documented education barrier");
+  click(/Next: Signs/); click(/Next: PES/);
+  expect((screen.getByRole("textbox", { name: "PES statement" }) as HTMLTextAreaElement).value).toContain("Food and Nutrition Knowledge Deficit related to New documented education barrier");
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Update Diagnosis" })); });
+  expect(diagnoses.updateDiagnosis).toHaveBeenCalledWith("fictional-cycle", "legacy", expect.objectContaining({ problem: "Food and Nutrition Knowledge Deficit", builder_data: expect.objectContaining({ problem_override: "Food and Nutrition Knowledge Deficit" }) }));
+});
+
+it("keeps the NO warning visible for both add and generate until the saved decision is deleted", async () => {
+  const warning = "Delete the saved 'No nutrition diagnosis at this time' entry before adding or generating a diagnosis.";
+  const status = await vi.mocked(diagnoses.fetchPesDraftStatus)("fictional-cycle");
+  vi.mocked(diagnoses.fetchDiagnosesPage).mockResolvedValue({ data: [{ id: "no-decision", domain: "NO", problem: "No nutrition diagnosis at this time", etiology: "", signs_symptoms: "", pes_statement: "No nutrition diagnosis at this time" }], meta: { current_page: 1, per_page: 10, total: 1, last_page: 1 } } as never);
+  vi.mocked(diagnoses.fetchPesDraftStatus).mockResolvedValue({ ...status, meta: { ...status.meta, can_generate: false, blocked_by_no_diagnosis: true, disabled_reason: warning } });
+  await open();
+  expect(screen.getByRole("alert").textContent).toContain(warning);
+  expect((screen.getByRole("button", { name: "Add New Diagnosis" }) as HTMLButtonElement).disabled).toBe(true);
+  click("AI Review");
+  expect((screen.getByRole("button", { name: "Generate AI Suggestions" }) as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.getByRole("alert").textContent).toContain(warning);
+  expect(diagnoses.aiSuggestDiagnoses).not.toHaveBeenCalled();
+  click("Diagnosis Table");
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  vi.mocked(diagnoses.fetchDiagnosesPage).mockResolvedValue({ data: [], meta: { current_page: 1, per_page: 10, total: 0, last_page: 1 } });
+  vi.mocked(diagnoses.fetchPesDraftStatus).mockResolvedValue(status);
+  await act(async () => { fireEvent.click(screen.getByTitle("Delete")); });
+  expect(screen.queryByText(warning)).toBeNull();
+  expect((screen.getByRole("button", { name: "Add New Diagnosis" }) as HTMLButtonElement).disabled).toBe(false);
+  vi.restoreAllMocks();
+});
+
+it("saves an explicit NO decision directly without etiology or signs", async () => {
+  await open(); click("Add New Diagnosis"); click("Other (NO)");
+  expect(screen.queryByRole("tab", { name: /E — Etiology/ })).toBeNull();
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Save Diagnosis" })); });
+  expect(diagnoses.storeDiagnosis).toHaveBeenCalledWith("fictional-cycle", expect.objectContaining({ domain: "NO", problem: "No nutrition diagnosis at this time", etiology: "", signs_symptoms: "", pes_statement: "No nutrition diagnosis at this time" }));
+});
+
 it("keeps diagnosis tabs selected in a flat, full-width mobile panel", async () => {
   await open();
   const tablist = screen.getByRole("tablist", { name: "Diagnosis sections" });
@@ -117,19 +184,19 @@ it("selects vitamins and minerals from dropdowns and saves the exact nutrient", 
   const vitamin = screen.getByRole("combobox", { name: "Vitamin" }) as HTMLSelectElement;
   expect(screen.queryByRole("textbox", { name: /Vitamin/i })).toBeNull();
   act(() => { fireEvent.change(vitamin, { target: { value: "Vitamin C" } }); });
-  expect(screen.getByText("Inadequate Vitamin C Intake")).toBeTruthy();
+  expect(screen.getByText("Inadequate vitamin intake: C")).toBeTruthy();
   click("Minerals");
   const mineral = screen.getByRole("combobox", { name: "Mineral" }) as HTMLSelectElement;
   expect(mineral.value).toBe("");
   expect(screen.queryByRole("combobox", { name: "Vitamin" })).toBeNull();
   act(() => { fireEvent.change(mineral, { target: { value: "Iron" } }); });
-  expect(screen.getByText("Inadequate Iron Intake")).toBeTruthy();
+  expect(screen.getByText("Inadequate mineral intake: Iron")).toBeTruthy();
   click(/Next: Etiology/); check("Other etiology"); enter("Specify other etiology", "Limited access to iron-rich foods");
   click(/Next: Signs/); check("Other signs and symptoms"); enter("Specify other signs and symptoms", "Reported iron intake below requirements");
   click(/Next: PES/);
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Save Diagnosis" })); });
   expect(diagnoses.storeDiagnosis).toHaveBeenCalledWith("fictional-cycle", expect.objectContaining({
-    problem: "Inadequate Iron Intake", builder_data: expect.objectContaining({ ni_nutrient: "Iron" }),
+    problem: "Inadequate mineral intake: Iron",
   }));
 });
 
@@ -147,7 +214,7 @@ it("offers an explicit retry for rejected output without generating on page open
   expect(screen.queryByText(/did not pass evidence checks/)).toBeNull();
   expect(screen.queryByText(/No additional applicable nutrition diagnosis was found/)).toBeNull();
   expect(screen.queryByRole("button", { name: "AI suggestion status" })).toBeNull();
-  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Generate AI Suggestions" })); });
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Review again (uses 1 request)" })); });
   expect(diagnoses.aiSuggestDiagnoses).toHaveBeenCalledExactlyOnceWith("fictional-cycle", true);
 });
 
@@ -187,5 +254,8 @@ it("shows valid partial drafts without a rejection warning while preserving expl
   expect(screen.queryByRole("button", { name: "AI suggestion status" })).toBeNull();
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Generate AI Suggestions" })); });
   expect(screen.queryByText(warning, { exact: false })).toBeNull();
+  expect(diagnoses.aiSuggestDiagnoses).toHaveBeenCalledExactlyOnceWith("fictional-cycle", false);
+  vi.mocked(diagnoses.aiSuggestDiagnoses).mockClear();
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Review again (uses 1 request)" })); });
   expect(diagnoses.aiSuggestDiagnoses).toHaveBeenCalledExactlyOnceWith("fictional-cycle", true);
 });

@@ -66,6 +66,10 @@ class ClinicalCompletenessService
             return ['At least one nutrition diagnosis (PES statement)'];
         }
 
+        if ($diagnoses->count() === 1 && $diagnoses->first()->isNoDiagnosis()) {
+            return [];
+        }
+
         $hasValid = $diagnoses->contains(fn ($d) => $this->isValidPes($d));
         if (! $hasValid) {
             return ['A complete PES statement (problem, etiology, and signs/symptoms)'];

@@ -14,6 +14,15 @@ class Diagnosis extends Model
     use HasFactory;
     use HasPublicId;
 
+    public const NO_DIAGNOSIS = 'No nutrition diagnosis at this time';
+
+    public const NO_DIAGNOSIS_WARNING = "Delete the saved 'No nutrition diagnosis at this time' entry before adding or generating a diagnosis.";
+
+    public function isNoDiagnosis(): bool
+    {
+        return $this->domain === 'NO' && $this->problem === self::NO_DIAGNOSIS;
+    }
+
     /** Clinical — log field names only, redact PHI values (Spec 5 Decision A). */
     protected bool $auditRedactValues = true;
 
@@ -46,6 +55,10 @@ class Diagnosis extends Model
      */
     public static function buildPes(string $problem, string $etiology, string $signSymptoms): string
     {
+        if ($problem === self::NO_DIAGNOSIS && $etiology === '' && $signSymptoms === '') {
+            return $problem;
+        }
+
         return "{$problem} related to {$etiology} as evidenced by {$signSymptoms}";
     }
 }

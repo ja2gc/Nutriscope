@@ -8,6 +8,9 @@ class PesEligibilityService
 
     public function eligible(array $evidence, array $dismissedCandidateIds = []): array
     {
+        if ($evidence['no_diagnosis_recorded'] ?? false) {
+            return [];
+        }
         $existing = $this->canonicalProblems($evidence['existing_problem_keys'] ?? []);
         $eligible = [];
         foreach ($this->catalog->cards() as $card) {
@@ -29,9 +32,13 @@ class PesEligibilityService
 
     public function canonicalProblem(string $problem): string
     {
+        $problem = preg_replace('/^(Inadequate|Excessive) vitamin intake:\s*(.+)$/i', '$1 vitamin $2 intake', $problem);
+        $problem = preg_replace('/^(Inadequate|Excessive) mineral intake:\s*(.+)$/i', '$1 $2 intake', $problem);
         $key = trim((string) preg_replace('/[^a-z0-9]+/', ' ', mb_strtolower($problem)));
         $key = preg_replace(['/\b(carbohydrates|carbs)\b/', '/\b(calorie|calories|caloric)\b/', '/\bproteins\b/', '/\bfats\b/', '/\bfibre\b/'],
             ['carbohydrate', 'energy', 'protein', 'fat', 'fiber'], $key);
+        $key = preg_replace(['/\bvitamin (?:b1 )?thiamin\b/', '/\bvitamin (?:b2 )?riboflavin\b/', '/\bvitamin (?:b3 )?niacin\b/', '/\bvitamin (?:b5 )?pantothenic acid\b/', '/\bvitamin (?:b7 )?biotin\b/'],
+            ['thiamin', 'riboflavin', 'niacin', 'pantothenic acid', 'biotin'], $key);
 
         return match (true) {
             preg_match('/\b(unintended|unintentional) weight loss\b/', $key) === 1 => 'unintended weight loss',
@@ -41,7 +48,10 @@ class PesEligibilityService
             preg_match('/\b(food|nutrition).*\bknowledge.*\b(deficit|lack)\b|\black of.*nutrition knowledge\b/', $key) === 1 => 'nutrition knowledge deficit',
             preg_match('/\b(limited|inadequate|poor) (food and )?nutrition knowledge\b/', $key) === 1 => 'nutrition knowledge deficit',
             preg_match('/\baltered (gi|gastrointestinal) function\b/', $key) === 1 => 'altered gastrointestinal function',
-            preg_match('/\bdysphagia\b|\b(swallowing|chewing|mastication).*\bdifficulty\b/', $key) === 1 => 'swallowing chewing difficulty',
+            preg_match('/\bswallowing\b.*\bchewing\b/', $key) === 1 => 'swallowing chewing difficulty',
+            preg_match('/\bdysphagia\b|\bswallowing.*\bdifficulty\b/', $key) === 1 => 'swallowing difficulty',
+            preg_match('/\b(chewing|masticatory|mastication).*\bdifficulty\b/', $key) === 1 => 'chewing difficulty',
+            preg_match('/\b(harmful|unsupported) beliefs\b/', $key) === 1 => 'unsupported food beliefs attitudes',
             preg_match('/\bfood insecurity\b|\blimited access to food\b/', $key) === 1 => 'food insecurity',
             default => $key,
         };
@@ -52,11 +62,20 @@ class PesEligibilityService
         $parts = [];
         foreach ($problems as $problem) {
             foreach (explode(';', $problem) as $part) {
-                $parts[] = $this->canonicalProblem(trim($part));
+                $canonical = $this->canonicalProblem(trim($part));
+                $parts[] = $canonical;
+                if ($canonical === 'swallowing chewing difficulty') {
+                    $parts = [...$parts, 'swallowing difficulty', 'chewing difficulty'];
+                }
             }
         }
 
         return array_values(array_unique($parts));
+    }
+
+    public function intakeFinding(array $evidence): string
+    {
+        return implode('; ', array_filter([$evidence['dietary_intake'] ?? '', $evidence['present_diet'] ?? ''], 'is_string'));
     }
 
     public function hasConcern(mixed $value): bool
@@ -67,6 +86,10 @@ class PesEligibilityService
         if (! is_string($value) || trim($value) === '') {
             return false;
         }
+        $clauses = $this->clauses($value);
+        if (count($clauses) > 1) {
+            return collect($clauses)->contains(fn ($clause): bool => $this->hasConcern($clause));
+        }
         $text = mb_strtolower(trim((string) preg_replace('/^[\s•*-]+/u', '', $value)));
         if (preg_match('/^[+-]?\d+(?:\.\d+)?\s*(?:%|kg|g|mg|cm|mm|ml|l|kcal)?$/', $text)) {
             return false;
@@ -74,16 +97,22 @@ class PesEligibilityService
         if (preg_match('/^(no|none|n\/a|na|normal|resolved|adequate|sufficient|regular|no change|independent|ambulatory|\[redacted\])\.?$/', $text)) {
             return false;
         }
-        if (preg_match('/^(understands|demonstrates understanding|(?:normal|adequate|sufficient)\b|no (?:(?:current|known|diagnosed|documented) )?(?:concerns|barriers|symptoms|signs|evidence|difficulty|dysphagia|constipation|diarrhea|vomiting|edema|muscle wasting|chronic illness|disease|medical conditions)|(?:patient )?denies\b|(?:possible|suspected|historical|resolved|family history of)\b)[^;]*$/', $text) && ! preg_match('/\b(but|however|except)\b/', $text)) {
+        if (preg_match('/^(understands|demonstrates understanding|(?:normal|adequate|sufficient)\b|no (?:(?:current|known|diagnosed|documented) )?(?:concerns|barriers|symptoms|signs|evidence|difficulty|dysphagia|constipation|diarrhea|nausea|vomiting|edema|muscle wasting|chronic illness|disease|medical conditions)|(?:patient )?denies\b|(?:possible|suspected|historical|resolved|family history of)\b)[^;]*$/', $text)) {
             return false;
         }
 
         return true;
     }
 
+    public function clauses(string $text): array
+    {
+        return array_values(array_filter(array_map('trim', preg_split('/(?<=[.!?;])(?:\s+|$)|[;\n]+|,\s+(?=(?:no|normal|adequate|sufficient|denies|patient|reports|persistent|reduced|low|high|inadequate|excessive)\b)|\s+\b(?:but|however|except)\b\s+/iu', $text))));
+    }
+
     /** Intake labels need a documented nutrient and direction, not an unrelated abnormal field. */
     public function supportsIntakeProblem(string $label, string $finding): bool
     {
+        $label = preg_replace('/^(Inadequate|Excessive) (vitamin|mineral) intake:\s*(.+)$/i', '$1 $3 Intake', $label);
         if (! preg_match('/^(Inadequate|Excessive) (.+) Intake$/i', $label, $parts)) {
             return false;
         }
@@ -97,10 +126,16 @@ class PesEligibilityService
         $direction = strtolower($parts[1]) === 'inadequate'
             ? 'inadequate|insufficient|sub.?optimal|below|less|low|poor|reduced|decreased|half|miss(?:es|ed|ing)|skip\\w*'
             : 'excessive|excess|above|exceed\\w*|high|too much|more than';
-        foreach (preg_split('/[.!?;\n]+/', $finding) as $part) {
+        foreach ($this->clauses($finding) as $part) {
             if ($this->hasConcern($part) && ! preg_match('/\b(adequate|sufficient|normal|denies|denied|no|not)\b/i', $part)
-                && preg_match('/\b(?:'.$nutrient.')\b/i', $part) && preg_match('/\b(?:'.$direction.')\b/i', $part)) {
-                return true;
+                && preg_match('/\b(?:'.$nutrient.')\b/i', $part)) {
+                $comparison = preg_match('/([<>]?)\s*(\d+(?:\.\d+)?)\s*%\s*(?:of\s+)?(?:(?:estimated|prescribed|calculated|daily|usual)\s+)*(?:needs|requirements|target|goal)\b/i', $part, $amount);
+                $numericDirection = $comparison && (strtolower($parts[1]) === 'inadequate'
+                    ? $amount[1] !== '>' && (float) $amount[2] < 100
+                    : $amount[1] !== '<' && (float) $amount[2] > 100);
+                if (preg_match('/\b(?:'.$direction.')\b/i', $part) || $numericDirection) {
+                    return true;
+                }
             }
         }
 
@@ -111,10 +146,10 @@ class PesEligibilityService
     {
         $text = fn (string $key): bool => $this->hasConcern($evidence[$key] ?? null);
         if (str_starts_with($id, 'inadequate_') || str_starts_with($id, 'excessive_')) {
-            return $this->supportsIntakeProblem($label, $evidence['dietary_intake'] ?? '');
+            return $this->supportsIntakeProblem($label, $this->intakeFinding($evidence));
         }
         if ($id === 'intake_other_v2') {
-            return $text('dietary_intake');
+            return $text('dietary_intake') || $text('present_diet') || $text('physical_assessment') || $text('body_composition');
         }
 
         return match ($id) {

@@ -6,7 +6,7 @@ use App\Support\ClinicalAiContext;
 
 class PesRuleCatalog
 {
-    public const VERSION = '2026-10-27-v10';
+    public const VERSION = '2026-10-28-v11';
 
     private const ACADEMY_SOURCE = [
         'id' => 'academy_ncp_diagnosis_2026',
@@ -88,7 +88,7 @@ class PesRuleCatalog
                 $cards[] = $card;
             }
         }
-        $intakeOther = $this->card('intake_other_v2', 'Other', ['dietary_intake'], ['present_diet', 'appetite', 'energy_intake_status', 'dietary_restrictions', 'supplements', 'social_history', 'knowledge_notes'], [], self::ACADEMY_SOURCE);
+        $intakeOther = $this->card('intake_other_v2', 'Other', ['dietary_intake'], ['present_diet', 'appetite', 'energy_intake_status', 'dietary_restrictions', 'supplements', 'social_history', 'knowledge_notes', 'physical_assessment', 'body_composition', 'gi_symptoms', 'chewing_swallowing_difficulties', 'nutrition_support'], [], self::ACADEMY_SOURCE);
         $intakeOther['domain'] = 'NI';
         $cards[] = $intakeOther;
         foreach ([

@@ -60,7 +60,7 @@ class PesReviewCacheTest extends TestCase
     {
         $record = $this->record();
         $bad = $this->draft();
-        $bad['etiology'] = 'Invented kidney failure';
+        $bad['etiology_evidence'] = ['unknown_assessment_field'];
         $this->provider([$bad]);
         $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest";
         $this->postJson($url)->assertOk()->assertJsonPath('data', [])
