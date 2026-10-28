@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Download, Loader2 } from "lucide-react";
 import { censusExportUrl, getCensusSummary, type CensusSummary } from "@/services/reportService";
+import { PRIMARY_DIAGNOSIS_CATEGORIES } from "@/services/assessmentService";
 
 const selectClass = "w-full rounded-lg border border-warm-200 bg-white px-3 py-2 text-base text-warm-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500";
 
@@ -27,9 +28,8 @@ export function CensusPanel({ apiPrefix }: { apiPrefix: "rnd" | "admin" }) {
     ? (["Low", "Moderate", "High"] as const).map((risk) => [risk, summary.by_risk[risk] ?? 0] as const)
     : [];
   const categoryEntries = summary
-    ? Object.entries(summary.by_primary_diagnosis_category).sort(([left, leftCount], [right, rightCount]) => rightCount - leftCount || left.localeCompare(right))
+    ? [...PRIMARY_DIAGNOSIS_CATEGORIES.map((category) => [category, summary.by_primary_diagnosis_category[category] ?? 0] as const), ...Object.entries(summary.by_primary_diagnosis_category).filter(([category]) => !PRIMARY_DIAGNOSIS_CATEGORIES.includes(category as typeof PRIMARY_DIAGNOSIS_CATEGORIES[number]))]
     : [];
-  const nutritionalStatusEntries = summary ? Object.entries(summary.by_nutritional_status).filter(([status]) => status !== "Unspecified") : [];
   const unclassifiedStatus = summary?.by_nutritional_status.Unspecified ?? 0;
   const unscored = summary?.by_risk.Unspecified ?? 0;
   const ageTotals = summary?.age_groups.reduce((result, group) => {
@@ -56,27 +56,21 @@ export function CensusPanel({ apiPrefix }: { apiPrefix: "rnd" | "admin" }) {
             <div className="overflow-x-auto rounded-xl border border-warm-200">
               <table className="w-full min-w-[640px] table-auto border-collapse whitespace-nowrap text-sm tabular-nums">
                 <thead className="bg-warm-50 text-warm-600"><tr><th scope="col" className="sticky left-0 bg-warm-50 px-3 py-2 text-left">Sex</th>{summary.age_groups.map((group) => <th key={group} scope="col" className="px-3 py-2 text-right">{group}</th>)}<th scope="col" className="px-3 py-2 text-right">Total</th></tr></thead>
-                <tbody className="divide-y divide-warm-100">
+                <tbody className="divide-y divide-warm-100 bg-white">
                   {([['M', 'Male'], ['F', 'Female']] as const).map(([sex, label]) => <tr key={sex}><th scope="row" className="sticky left-0 bg-white px-3 py-2 text-left font-medium text-warm-700">{label}</th>{summary.age_groups.map((group) => <td key={group} className="px-3 py-2 text-right">{summary.age_sex[group]?.[sex] ?? 0}</td>)}<td className="px-3 py-2 text-right font-semibold">{sex === 'M' ? ageTotals?.M ?? 0 : ageTotals?.F ?? 0}</td></tr>)}
                 </tbody>
-                <tfoot className="border-t border-warm-200 bg-warm-50 font-bold"><tr><th scope="row" className="sticky left-0 bg-warm-50 px-3 py-2 text-left">Total</th>{summary.age_groups.map((group) => <td key={group} className="px-3 py-2 text-right">{summary.age_sex[group]?.total ?? 0}</td>)}<td className="px-3 py-2 text-right">{ageTotals?.total ?? 0}</td></tr></tfoot>
+                <tfoot className="border-t border-warm-200 bg-white font-bold"><tr><th scope="row" className="sticky left-0 bg-white px-3 py-2 text-left">Total</th>{summary.age_groups.map((group) => <td key={group} className="px-3 py-2 text-right">{summary.age_sex[group]?.total ?? 0}</td>)}<td className="px-3 py-2 text-right">{ageTotals?.total ?? 0}</td></tr></tfoot>
               </table>
             </div>
             {summary.unknown_sex > 0 && <p className="mt-2 text-sm text-warm-600">Unclassified age or sex: {summary.unknown_sex}</p>}
           </section>
 
-          <div className="grid gap-x-10 gap-y-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-            <section aria-label="By nutrition support"><h3 className="mb-2 text-base font-bold text-warm-800">By nutrition support</h3><dl className="text-sm">{([['oral', 'Per Orem'], ['tube_feeding', 'Tube Feeding'], ['no_food_menu', 'NPO / TPN']] as const).map(([key, label]) => <div key={key} className="flex justify-between gap-4 border-b border-warm-100 py-1.5"><dt>{label}</dt><dd className="font-semibold tabular-nums">{summary.by_nutrition_support?.[key] ?? 0}</dd></div>)}</dl>{(summary.by_nutrition_support?.unrecorded ?? summary.total) > 0 && <p className="mt-2 text-sm text-warm-600">Not recorded in historical data: {summary.by_nutrition_support?.unrecorded ?? summary.total}</p>}</section>
-            <section aria-label={summary.classification_basis === 'asia_pacific_bmi' ? 'Adult BMI classification' : 'By recorded nutritional status'}>
-              <h3 className="mb-2 text-base font-bold text-warm-800">{summary.classification_basis === 'asia_pacific_bmi' ? 'Adult BMI classification' : 'By recorded nutritional status'}</h3>
-              <dl className="text-sm">
-                {nutritionalStatusEntries.map(([status, count]) => <div key={status} className="flex items-baseline justify-between gap-4 border-b border-warm-100 py-1.5">
-                  <dt className="text-warm-700">{status}</dt><dd className="font-semibold tabular-nums text-warm-900">{count}</dd>
-                </div>)}
-              </dl>
-              {unclassifiedStatus > 0 && <p className="mt-2 text-sm text-warm-600">Not classified: {unclassifiedStatus}</p>}
-            </section>
+          <div className="grid items-start gap-x-10 gap-y-6 lg:grid-cols-2">
             <div className="space-y-6">
+              <section aria-label="By nutrition support">
+                <h3 className="mb-2 text-base font-bold text-warm-800">By nutrition support</h3>
+                <dl className="text-sm">{([['oral', 'Per Orem'], ['tube_feeding', 'Tube Feeding'], ['no_food_menu', 'NPO / TPN']] as const).map(([key, label]) => <div key={key} className="flex justify-between gap-4 border-b border-warm-100 py-1.5"><dt>{label}</dt><dd className="font-semibold tabular-nums">{summary.by_nutrition_support?.[key] ?? 0}</dd></div>)}</dl>
+              </section>
               <section aria-label="By risk level">
                 <h3 className="mb-2 text-base font-bold text-warm-800">By risk level</h3>
                 <dl className="text-sm">
@@ -97,6 +91,20 @@ export function CensusPanel({ apiPrefix }: { apiPrefix: "rnd" | "admin" }) {
                 )}
               </section>
             </div>
+            <section aria-label="BMI classification">
+              <h3 className="mb-3 text-base font-bold text-warm-800">BMI classification</h3>
+              <div className="space-y-6">
+                {([['pediatric', 'Pediatric'], ['adult', 'Adult']] as const).map(([population, label]) => (
+                  <section key={population} aria-label={`${label} BMI classification`}>
+                    <h4 className="mb-2 text-sm font-semibold text-warm-600">{label}</h4>
+                    <dl className="text-sm">
+                      {Object.entries(summary.by_bmi_classification?.[population] ?? {}).map(([status, count]) => <div key={status} className="flex items-baseline justify-between gap-4 border-b border-warm-100 py-1.5"><dt className="text-warm-700">{status}</dt><dd className="font-semibold tabular-nums text-warm-900">{count}</dd></div>)}
+                    </dl>
+                  </section>
+                ))}
+              </div>
+              {unclassifiedStatus > 0 && <p className="mt-2 text-sm text-warm-600">Not classified: {unclassifiedStatus}</p>}
+            </section>
           </div>
         </div>
   ) : null;

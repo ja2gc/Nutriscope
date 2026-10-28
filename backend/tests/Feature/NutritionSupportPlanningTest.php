@@ -99,7 +99,7 @@ class NutritionSupportPlanningTest extends TestCase
         $this->assertSame([], $data['formula_items']);
     }
 
-    public function test_census_preserves_unrecorded_historical_support_and_renders_recorded_buckets(): void
+    public function test_census_recalculates_old_basis_without_changing_stored_snapshots_and_renders_recorded_buckets(): void
     {
         $this->travelTo(Carbon::parse('2026-07-15 12:00:00'));
         $owner = User::factory()->rnd()->create();
@@ -109,9 +109,9 @@ class NutritionSupportPlanningTest extends TestCase
         unset($legacy['by_nutrition_support']);
         DemographicCensusPeriod::create(['period_start' => '2026-05-01', 'period_end' => '2026-05-31', 'census' => $legacy, 'source_count' => 1, 'basis_version' => 7, 'frozen_at' => now()]);
         $this->actingAs($owner)->getJson('/api/rnd/reports/demographic_census/summary?year=2026&month=5')
-            ->assertOk()->assertJsonPath('data.by_nutrition_support.unrecorded', 1)->assertJsonPath('data.by_nutrition_support.oral', 0);
+            ->assertOk()->assertJsonPath('data.by_nutrition_support.unrecorded', 0)->assertJsonPath('data.by_nutrition_support.oral', 1);
         $counts = DemographicCensusGenerator::aggregate([['nutrition_support' => 'oral'], ['nutrition_support' => 'tube_feeding'], ['nutrition_support' => 'no_food_menu']]);
-        DemographicCensusPeriod::create(['period_start' => '2026-06-01', 'period_end' => '2026-06-30', 'census' => $counts, 'source_count' => 3, 'basis_version' => 8, 'frozen_at' => now()]);
+        DemographicCensusPeriod::create(['period_start' => '2026-06-01', 'period_end' => '2026-06-30', 'census' => $counts, 'source_count' => 3, 'basis_version' => DemographicCensusGenerator::BASIS_VERSION, 'frozen_at' => now()]);
         $summary = $this->getJson('/api/rnd/reports/demographic_census/summary?year=2026&month=6')->assertOk()
             ->assertJsonPath('data.by_nutrition_support.oral', 1)->assertJsonPath('data.by_nutrition_support.tube_feeding', 1)
             ->assertJsonPath('data.by_nutrition_support.no_food_menu', 1)->json('data');

@@ -104,7 +104,7 @@ class FoodRecallService
         return [
             'food_recall' => ['sometimes', 'nullable', 'array:days_count,displayed_micros,days'],
             'food_recall.days_count' => ['required_with:food_recall', 'integer', 'min:1'],
-            'food_recall.displayed_micros' => ['present_with:food_recall', 'array'],
+            'food_recall.displayed_micros' => ['exclude_if:food_recall,null', 'present_with:food_recall', 'array'],
             'food_recall.displayed_micros.*' => ['string', 'max:80', 'regex:/^[a-z][a-z0-9_]*$/D', 'distinct'],
             'food_recall.days' => ['required_with:food_recall', 'array', 'min:1', 'list'],
             'food_recall.days.*' => ['array:kind,items'],

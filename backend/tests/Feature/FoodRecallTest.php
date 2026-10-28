@@ -63,6 +63,19 @@ class FoodRecallTest extends TestCase
         $this->patchJson($url, ['intake_nutrients' => ['energy_kcal' => 1800]])->assertOk()->assertJsonMissingPath('data.intake_nutrients.protein_g');
     }
 
+    public function test_assessment_accepts_explicitly_empty_recall_and_can_clear_a_saved_recall(): void
+    {
+        [$rnd, $ncp, $food] = $this->setupCycle();
+        $url = "/api/rnd/ncp-records/{$ncp->uuid}/assessment";
+        $this->actingAs($rnd, 'sanctum')->postJson($url, $this->assessmentPayload(['food_recall' => null]))
+            ->assertCreated()->assertJsonPath('data.food_recall', null);
+        $this->patchJson($url, ['food_recall' => $this->plan($food)])->assertOk();
+        $this->patchJson($url, ['food_recall' => null])->assertOk()->assertJsonPath('data.food_recall', null);
+        $invalid = $this->plan($food);
+        unset($invalid['displayed_micros']);
+        $this->patchJson($url, ['food_recall' => $invalid])->assertUnprocessable()->assertJsonValidationErrors('food_recall.displayed_micros');
+    }
+
     public function test_assessment_saves_one_recall_and_keeps_frozen_nutrients_when_library_changes(): void
     {
         [$rnd, $ncp, $food] = $this->setupCycle();

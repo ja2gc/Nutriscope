@@ -90,7 +90,7 @@ test("RND selects an FSS name before viewing that user's approved and pending pe
     month.dispatchEvent(new Event("change", { bubbles: true }));
   });
   expect(listAccomplishmentsToReview).toHaveBeenCalledWith({ fss_user_id: "staff-uuid", covered_month: "2026-06" });
-  await act(async () => { Array.from(container.querySelectorAll("button")).find((button) => button.textContent === "Back to Food Service Staff")!.click(); });
+  await act(async () => { container.querySelector<HTMLButtonElement>('button[aria-label="Back to Food Service Staff"]')!.click(); });
   expect(container.querySelector('input[type="month"]')).toBeNull();
   await act(async () => root.unmount());
 });

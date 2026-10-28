@@ -5,6 +5,7 @@ namespace App\Services\Reports\Generators;
 use App\Models\Assessment;
 use App\Models\NcpRecord;
 use App\Support\NutritionSupport;
+use App\Support\PrimaryDiagnosisCategory;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -15,7 +16,11 @@ use Illuminate\Database\Eloquent\Builder;
  */
 class DemographicCensusGenerator
 {
-    public const BASIS_VERSION = 8;
+    public const BASIS_VERSION = 9;
+
+    public const PEDIATRIC_BMI_STATUSES = ['Severe thinness', 'Thinness', 'Normal', 'Overweight', 'Obesity'];
+
+    public const ADULT_BMI_STATUSES = ['Underweight', 'Normal', 'Overweight', 'Obese Class I', 'Obese Class II'];
 
     /** Visit workflow was introduced during September 2026. Earlier assessed cycles have no visit record. */
     private const LEGACY_VISIT_CUTOFF = '2026-09-08 00:00:00';
@@ -40,14 +45,16 @@ class DemographicCensusGenerator
             ->get()
             ->map(function (NcpRecord $cycle): array {
                 $age = $cycle->patient?->dob?->diffInYears($cycle->created_at);
+                $ageMonths = $cycle->patient?->dob ? (int) $cycle->patient->dob->diffInMonths($cycle->created_at) : null;
 
                 return [
                     'age' => $age,
+                    'age_months' => $ageMonths,
                     'sex' => $cycle->patient?->sex,
                     'ward' => $cycle->patient?->ward,
                     'nutrition_support' => $cycle->nutrition_support,
                     'primary_diagnosis_category' => $cycle->assessment?->primary_diagnosis_category,
-                    'nutritional_status' => self::adultNutritionalStatus($cycle->assessment, $age, $cycle->patient?->dob ? (int) $cycle->patient->dob->diffInMonths($cycle->created_at) : null),
+                    'nutritional_status' => Assessment::classifyBmi($cycle->assessment?->calculateBmi($age), $age, (bool) $cycle->assessment?->edema_present, $cycle->assessment?->pregnancy_lactation_status, $cycle->patient?->sex, $ageMonths) ?? 'Unspecified',
                     'risk_level' => self::riskLevel(
                         $cycle->risk_score === null ? null : (float) $cycle->risk_score,
                     ),
@@ -93,11 +100,6 @@ class DemographicCensusGenerator
         };
     }
 
-    private static function adultNutritionalStatus(?Assessment $assessment, ?float $age, ?int $ageMonths): string
-    {
-        return Assessment::classifyBmi($assessment?->calculateBmi(), $age, (bool) $assessment?->edema_present, $assessment?->pregnancy_lactation_status, null, $ageMonths) ?? 'Unspecified';
-    }
-
     public static function ageGroup(?int $age): string
     {
         if ($age === null) {
@@ -127,10 +129,12 @@ class DemographicCensusGenerator
         }
 
         $bySex = ['M' => 0, 'F' => 0, 'Unknown' => 0];
-        $byWard = $byPrimaryDiagnosisCategory = [];
+        $byWard = [];
+        $byPrimaryDiagnosisCategory = array_fill_keys(PrimaryDiagnosisCategory::values(), 0);
         $byRisk = ['Low' => 0, 'Moderate' => 0, 'High' => 0];
         $byStatus = array_fill_keys(self::NUTRITIONAL_STATUSES, 0);
         $bySupport = array_fill_keys([...NutritionSupport::VALUES, 'unrecorded'], 0);
+        $byBmi = ['pediatric' => array_fill_keys(self::PEDIATRIC_BMI_STATUSES, 0), 'adult' => array_fill_keys(self::ADULT_BMI_STATUSES, 0)];
 
         foreach ($cycles as $p) {
             $support = $p['nutrition_support'] ?? null;
@@ -147,11 +151,16 @@ class DemographicCensusGenerator
             self::bump($byWard, $p['ward'] ?? null);
             self::bump($byPrimaryDiagnosisCategory, $p['primary_diagnosis_category'] ?? null, 'Unclassified');
             self::bump($byStatus, $p['nutritional_status'] ?? null);
+            $months = $p['age_months'] ?? (isset($p['age']) ? (int) floor($p['age'] * 12) : null);
+            $population = $months !== null && $months > 228 ? 'adult' : 'pediatric';
+            $status = $p['nutritional_status'] ?? null;
+            if ($months !== null && $months >= 61 && isset($byBmi[$population][$status])) {
+                $byBmi[$population][$status]++;
+            }
             self::bump($byRisk, $p['risk_level'] ?? null);
         }
 
         arsort($byWard);
-        arsort($byPrimaryDiagnosisCategory);
 
         return [
             'total' => count($cycles),
@@ -160,6 +169,7 @@ class DemographicCensusGenerator
             'by_ward' => $byWard,
             'by_primary_diagnosis_category' => $byPrimaryDiagnosisCategory,
             'by_status' => $byStatus,
+            'by_bmi_classification' => $byBmi,
             'by_risk' => $byRisk,
             'by_nutrition_support' => $bySupport,
         ];

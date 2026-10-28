@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
   FileText, CalendarRange, CalendarDays, PackageCheck,
-  ClipboardList, Save,
+  ClipboardList, Save, ArrowLeft,
   Archive, Loader2, CheckCircle2, AlertTriangle, Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -305,7 +305,7 @@ function AccomplishmentReportsPanel({ apiPrefix, onFlash }: { apiPrefix: ApiPref
 
   return <Card className="min-w-0 overflow-hidden">
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-warm-100 px-4 py-4 sm:px-5">
-      <div>{selectedStaff && <button type="button" onClick={() => { setSelectedStaff(null); setSelected(null); setCoveredMonth(""); }} className="mb-2 min-h-11 text-sm font-semibold text-emerald-700">Back to Food Service Staff</button>}<h2 className="font-bold text-warm-800">{selectedStaff?.display_name ?? "Accomplishment Report"}</h2><p className="text-sm text-warm-500">{selectedStaff ? "Semi-monthly accomplishment reports" : apiPrefix === "rnd" ? "Select Food Service Staff to view reports" : "Semi-monthly reports from Food Service Staff"}</p></div>
+      <div>{selectedStaff && <Button type="button" variant="icon" aria-label="Back to Food Service Staff" title="Back to Food Service Staff" onClick={() => { setSelectedStaff(null); setSelected(null); setCoveredMonth(""); }} className="mb-2 h-11 !w-11 border border-warm-200 bg-white"><ArrowLeft className="h-4 w-4" aria-hidden="true" /></Button>}<h2 className="font-bold text-warm-800">{selectedStaff?.display_name ?? "Accomplishment Report"}</h2><p className="text-sm text-warm-500">{selectedStaff ? "Semi-monthly accomplishment reports" : apiPrefix === "rnd" ? "Select Food Service Staff to view reports" : "Semi-monthly reports from Food Service Staff"}</p></div>
       {apiPrefix === "rnd" && selectedStaff && <div className="flex gap-2" aria-label="Accomplishment views">
         {(["reports", "review"] as const).map((key) => <button key={key} type="button" onClick={() => { setView(key); setSelected(null); setPage(1); }} aria-current={view === key} className={`min-h-11 rounded-lg px-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-emerald-600 ${view === key ? "bg-emerald-700 text-white" : "bg-warm-50 text-warm-700"}`}>{key === "review" ? "To Review" : "Approved Reports"}</button>)}
       </div>}
@@ -791,7 +791,7 @@ function TemplateEditor({ apiPrefix, onFlash }: { apiPrefix: "rnd" | "admin"; on
         <div className="mb-4 flex items-start justify-between gap-3">
           <h2 className="text-sm font-extrabold text-warm-700 uppercase tracking-wider">Header Branding</h2>
           {brandingView === "history" ? (
-            <Button variant="secondary" onClick={() => { setBrandingView("current"); setSelectedBrandingRevision(null); }} className="!w-auto !shrink-0 !py-1.5 !px-3.5 text-sm">Back to current</Button>
+            <Button variant="icon" aria-label="Back to current" title="Back to current" className="h-11 !w-11 border border-warm-200 bg-white" onClick={() => { setBrandingView("current"); setSelectedBrandingRevision(null); }}><ArrowLeft className="h-4 w-4" aria-hidden="true" /></Button>
           ) : !editingBranding && <div className="flex shrink-0 gap-2">
             <Button variant="secondary" onClick={() => showBrandingHistory()} className="!w-auto !py-1.5 !px-3.5 text-sm">History</Button>
             <Button variant="secondary" onClick={() => { setBrandingDraft(branding); setEditingBranding(true); }} className="!w-auto !py-1.5 !px-3.5 text-sm">Edit</Button>
@@ -801,7 +801,7 @@ function TemplateEditor({ apiPrefix, onFlash }: { apiPrefix: "rnd" | "admin"; on
           selectedBrandingRevision ? <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs text-warm-500">Saved {reportDate(selectedBrandingRevision.created_at)} · {selectedBrandingRevision.editor?.name ?? (selectedBrandingRevision.origin === "baseline" ? "Initial tracked version" : "System")}</p>
-              <Button variant="secondary" onClick={() => setSelectedBrandingRevision(null)} className="!w-auto !py-1.5 !px-3.5 text-sm">Back to history</Button>
+              <Button variant="icon" aria-label="Back to history" title="Back to history" className="h-11 !w-11 border border-warm-200 bg-white" onClick={() => setSelectedBrandingRevision(null)}><ArrowLeft className="h-4 w-4" aria-hidden="true" /></Button>
             </div>
             <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {[["Hospital name", selectedBrandingRevision.hospital_name], ["Address", selectedBrandingRevision.address], ["Accreditation", selectedBrandingRevision.accreditation], ["Service name", selectedBrandingRevision.service_name], ["Province", selectedBrandingRevision.province], ["LGU", selectedBrandingRevision.lgu]].map(([label, value]) => <div key={label}><dt className={lbl}>{label}</dt><dd className="break-words text-sm text-warm-800">{value || "—"}</dd></div>)}
@@ -853,7 +853,7 @@ function TemplateEditor({ apiPrefix, onFlash }: { apiPrefix: "rnd" | "admin"; on
                 {displayed.description && <p className="text-xs text-warm-500">{displayed.description}</p>}
               </div>
               {viewingHistory ? (
-                <Button variant="secondary" onClick={() => { setHistoryTemplateId(null); setSelectedTemplateRevision(null); }} className="!w-auto shrink-0 !py-1.5 !px-3.5 text-sm">Back to current</Button>
+                <Button variant="icon" aria-label="Back to current" title="Back to current" className="h-11 !w-11 border border-warm-200 bg-white" onClick={() => { setHistoryTemplateId(null); setSelectedTemplateRevision(null); }}><ArrowLeft className="h-4 w-4" aria-hidden="true" /></Button>
               ) : editingTemplateId !== t.id && <div className="flex shrink-0 gap-2">
                 <Button variant="secondary" onClick={() => showTemplateHistory(saved.id)} className="!w-auto !py-1.5 !px-3.5 text-sm">History</Button>
                 <Button variant="secondary" onClick={() => { setTemplateDraft({ ...saved, signatories: (saved.signatories ?? []).map((s) => ({ ...s })) }); setEditingTemplateId(saved.id); }} className="!w-auto shrink-0 !py-1.5 !px-3.5 text-sm">Edit</Button>
@@ -866,7 +866,7 @@ function TemplateEditor({ apiPrefix, onFlash }: { apiPrefix: "rnd" | "admin"; on
             ) : viewingHistory && selectedTemplateRevision ? <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-xs text-warm-500">Saved {reportDate(selectedTemplateRevision.created_at)} · {selectedTemplateRevision.editor?.name ?? (selectedTemplateRevision.origin === "baseline" ? "Initial tracked version" : "System")}</p>
-                <Button variant="secondary" onClick={() => setSelectedTemplateRevision(null)} className="!w-auto !py-1.5 !px-3.5 text-sm">Back to history</Button>
+                <Button variant="icon" aria-label="Back to history" title="Back to history" className="h-11 !w-11 border border-warm-200 bg-white" onClick={() => setSelectedTemplateRevision(null)}><ArrowLeft className="h-4 w-4" aria-hidden="true" /></Button>
               </div>
               {selectedTemplateRevision.signatories.length === 0 ? <p className="text-xs text-warm-400">No signatory block.</p> : (
                 <div className="space-y-2">

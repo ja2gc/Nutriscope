@@ -23,6 +23,10 @@ const summary: CensusSummary = {
   age_sex: { "30-39": { M: 1, F: 1, total: 2 } },
   unknown_sex: 0,
   by_risk: { Low: 1, Moderate: 0, High: 1 },
+  by_bmi_classification: {
+    pediatric: { 'Severe thinness': 0, Thinness: 0, Normal: 0, Overweight: 0, Obesity: 0 },
+    adult: { Underweight: 0, Normal: 0, Overweight: 2, 'Obese Class I': 0, 'Obese Class II': 0 },
+  },
   by_nutritional_status: {
     "Severe Malnutrition": 0, "Moderate Malnutrition": 0,
     "Mild Malnutrition / Underweight": 0, Normal: 0, Overweight: 2,
@@ -56,11 +60,12 @@ describe("CensusPanel", () => {
     expect(container.textContent).toContain("By nutrition care category");
     expect(container.textContent).not.toContain("By primary diagnosis category");
     expect(container.textContent).toContain("Diabetes");
-    expect(container.textContent).toContain("By recorded nutritional status");
-    expect(container.textContent).toContain("Moderate Malnutrition");
-    expect(container.textContent).toContain("Mild Malnutrition / Underweight");
-    expect(container.textContent).toContain("Obese Class II (Severe)");
-    expect(container.querySelector('section[aria-label="By recorded nutritional status"]')?.textContent).not.toContain("Unspecified");
+    expect(container.textContent).toContain("BMI classification");
+    expect(container.querySelector('section[aria-label="Pediatric BMI classification"]')?.textContent).toContain("Severe thinness0Thinness0Normal0Overweight0Obesity0");
+    expect(container.querySelector('section[aria-label="Adult BMI classification"]')?.textContent).toContain("Underweight0Normal0Overweight2Obese Class I0Obese Class II0");
+    expect(container.textContent).not.toContain("Moderate Malnutrition");
+    expect(container.querySelector('section[aria-label="By nutrition care category"]')?.textContent).toContain("Cardiovascular0Renal1Diabetes1Obesity0Malnutrition0Surgery / Trauma0Liver0Cancer0Pregnancy / Lactation0Other0");
+    expect(container.textContent).not.toContain("Not recorded in historical data");
     expect(container.textContent).not.toContain("Includes current data");
     expect(container.querySelector("[data-census-screen]")).not.toBeNull();
     expect(document.body.querySelector(":scope > [data-census-print]")).toBeNull();
@@ -90,7 +95,7 @@ describe("CensusPanel", () => {
     const root = createRoot(container);
 
     await act(async () => { root.render(<CensusPanel apiPrefix="rnd" />); });
-    const status = container.querySelector('section[aria-label="By recorded nutritional status"]');
+    const status = container.querySelector('section[aria-label="BMI classification"]');
     expect(status?.querySelector("dl")?.textContent).not.toContain("Unspecified");
     expect(status?.textContent).toContain("Not classified: 1");
     await act(async () => root.unmount());

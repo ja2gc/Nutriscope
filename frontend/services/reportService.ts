@@ -104,7 +104,8 @@ export interface CensusSummary {
   unknown_sex: number;
   by_risk: Record<string, number>;
   by_nutritional_status: Record<string, number>;
-  classification_basis?: "asia_pacific_bmi" | "historical_or_mixed";
+  by_bmi_classification?: { pediatric: Record<string, number>; adult: Record<string, number> };
+  classification_basis?: "initial_assessment_bmi" | "asia_pacific_bmi" | "historical_or_mixed";
   by_primary_diagnosis_category: Record<string, number>;
   available_years: number[];
   available_months: Array<{ month: number; label: string; status: "live" | "frozen" }>;

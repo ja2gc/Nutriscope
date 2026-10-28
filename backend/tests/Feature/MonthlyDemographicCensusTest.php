@@ -10,25 +10,29 @@ use App\Models\Patient;
 use App\Models\Report;
 use App\Models\User;
 use App\Services\Reports\Generators\DemographicCensusGenerator;
+use App\Support\PrimaryDiagnosisCategory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class MonthlyDemographicCensusTest extends TestCase
 {
-    public function test_previous_classification_snapshot_remains_readable_as_historical_data(): void
+    public function test_old_census_is_recalculated_from_initial_assessments_without_overwriting_the_snapshot(): void
     {
         Carbon::setTestNow('2026-07-15 12:00:00');
-        $cycle = NcpRecord::factory()->create(['created_at' => '2026-05-10 08:00:00']);
-        Assessment::factory()->create(['ncp_record_id' => $cycle->id]);
+        $patient = Patient::factory()->create(['dob' => '1990-01-01']);
+        $cycle = NcpRecord::factory()->create(['patient_id' => $patient->id, 'created_at' => '2026-05-10 08:00:00']);
+        Assessment::factory()->create(['ncp_record_id' => $cycle->id, 'weight' => 60, 'height' => 165, 'nutritional_status' => 'Severe Malnutrition']);
         $census = DemographicCensusGenerator::aggregate([]);
         $census['total'] = 5;
         $census['by_status'] = ['Severe Malnutrition' => 5];
         $snapshot = DemographicCensusPeriod::query()->create(['period_start' => '2026-05-01', 'period_end' => '2026-05-31', 'census' => $census, 'source_count' => 5, 'basis_version' => 6, 'frozen_at' => '2026-06-01 00:05:00']);
         $before = $snapshot->fresh()->getRawOriginal('census');
         $this->actingAs(User::factory()->rnd()->create(), 'sanctum')->getJson('/api/rnd/reports/demographic_census/summary?year=2026&month=5')
-            ->assertOk()->assertJsonPath('data.total', 5)->assertJsonPath('data.status', 'frozen')
-            ->assertJsonPath('data.classification_basis', 'historical_or_mixed')->assertJsonPath('data.by_nutritional_status.Severe Malnutrition', 5);
+            ->assertOk()->assertJsonPath('data.total', 1)->assertJsonPath('data.status', 'live')
+            ->assertJsonPath('data.classification_basis', 'initial_assessment_bmi')->assertJsonPath('data.by_bmi_classification.adult.Normal', 1)
+            ->assertJsonPath('data.by_bmi_classification.pediatric.Thinness', 0)
+            ->assertJsonPath('data.by_primary_diagnosis_category.Cancer', 0);
         $this->assertSame($before, $snapshot->fresh()->getRawOriginal('census'));
     }
 
@@ -45,6 +49,24 @@ class MonthlyDemographicCensusTest extends TestCase
             $this->assertSame($group, DemographicCensusGenerator::ageGroup($age), "Age {$age}");
         }
         $this->assertSame('Unspecified', DemographicCensusGenerator::ageGroup(null));
+    }
+
+    public function test_census_keeps_every_adult_and_pediatric_assessment_label_in_clinical_order(): void
+    {
+        $this->travelTo(Carbon::parse('2026-05-15 12:00:00'));
+        foreach ([['2021-04-01', [12, 13, 16, 17, 19]], ['1990-01-01', [17, 22, 24, 27, 31]]] as [$dob, $bmis]) {
+            foreach ($bmis as $bmi) {
+                $patient = Patient::factory()->create(['dob' => $dob, 'sex' => 'Male']);
+                $cycle = NcpRecord::factory()->create(['patient_id' => $patient->id, 'created_at' => '2026-05-01 12:00:00']);
+                Assessment::factory()->create(['ncp_record_id' => $cycle->id, 'weight' => $bmi, 'height' => 100, 'nutritional_status' => 'Severe Malnutrition', 'primary_diagnosis_category' => 'Other']);
+            }
+        }
+        $counts = app(DemographicCensusGenerator::class)->currentCensus(Carbon::parse('2026-05-01'), Carbon::parse('2026-05-31'));
+        $this->assertSame(array_fill_keys(DemographicCensusGenerator::PEDIATRIC_BMI_STATUSES, 1), $counts['by_bmi_classification']['pediatric']);
+        $this->assertSame(array_fill_keys(DemographicCensusGenerator::ADULT_BMI_STATUSES, 1), $counts['by_bmi_classification']['adult']);
+        $this->assertSame(0, $counts['by_status']['Unspecified']);
+        $this->assertArrayNotHasKey('Severe Malnutrition', $counts['by_status']);
+        $this->assertSame(PrimaryDiagnosisCategory::values(), array_keys($counts['by_primary_diagnosis_category']));
     }
 
     public function test_census_derives_age_from_dob_and_uses_the_same_adult_boundary_as_assessment_and_ai(): void
@@ -80,7 +102,7 @@ class MonthlyDemographicCensusTest extends TestCase
 
         $this->assertSame(1, $census['age_sex']['15-18']['M']);
         $this->assertSame(1, $census['age_sex']['19-29']['F']);
-        $this->assertSame(1, $census['by_status']['Unspecified']);
+        $this->assertSame(1, $census['by_bmi_classification']['pediatric']['Obesity']);
         $this->assertSame(1, $census['by_status']['Obese Class II']);
     }
 
@@ -335,7 +357,7 @@ class MonthlyDemographicCensusTest extends TestCase
             'Unspecified' => 0,
         ], $census['by_status']);
         $this->assertSame(['Low' => 1, 'Moderate' => 0, 'High' => 0], $census['by_risk']);
-        $this->assertSame(['Diabetes' => 1], $census['by_primary_diagnosis_category']);
+        $this->assertSame(array_replace(array_fill_keys(PrimaryDiagnosisCategory::values(), 0), ['Diabetes' => 1]), $census['by_primary_diagnosis_category']);
         $this->assertArrayNotHasKey('Diagnosis A', $census['by_primary_diagnosis_category']);
     }
 
@@ -359,11 +381,11 @@ class MonthlyDemographicCensusTest extends TestCase
             Carbon::parse('2026-05-31'),
         );
 
-        $this->assertSame(['Unclassified' => 1], $census['by_primary_diagnosis_category']);
+        $this->assertSame([...array_fill_keys(PrimaryDiagnosisCategory::values(), 0), 'Unclassified' => 1], $census['by_primary_diagnosis_category']);
         $this->assertStringNotContainsString('PRIVATE FREE-TEXT DIAGNOSIS', json_encode($census, JSON_THROW_ON_ERROR));
     }
 
-    public function test_census_uses_adult_anthropometric_status_and_keeps_risk_separate(): void
+    public function test_census_uses_age_specific_initial_assessment_bmi_and_keeps_risk_separate(): void
     {
         $adult = Patient::factory()->create(['dob' => '1990-01-01']);
         $adultCycle = NcpRecord::factory()->create([
@@ -380,7 +402,7 @@ class MonthlyDemographicCensusTest extends TestCase
             'nutritional_status' => 'Severe Malnutrition',
         ]);
 
-        $child = Patient::factory()->create(['dob' => '2016-01-01']);
+        $child = Patient::factory()->create(['dob' => '2016-01-01', 'sex' => 'Male']);
         $childCycle = NcpRecord::factory()->create([
             'patient_id' => $child->id,
             'risk_score' => 1,
@@ -406,8 +428,11 @@ class MonthlyDemographicCensusTest extends TestCase
             'Overweight' => 1,
             'Obese Class I' => 0,
             'Obese Class II' => 0,
-            'Unspecified' => 1,
+            'Unspecified' => 0,
+            'Obesity' => 1,
         ], $census['by_status']);
+        $this->assertSame(1, $census['by_bmi_classification']['pediatric']['Obesity']);
+        $this->assertSame(1, $census['by_bmi_classification']['adult']['Overweight']);
         $this->assertSame(['Low' => 1, 'Moderate' => 0, 'High' => 1], $census['by_risk']);
     }
 
@@ -435,7 +460,7 @@ class MonthlyDemographicCensusTest extends TestCase
         $this->assertDatabaseCount('reports', 0);
     }
 
-    public function test_census_pdf_orders_status_first_and_separates_unclassified_cycles(): void
+    public function test_census_pdf_orders_sections_and_includes_zero_categories_and_both_bmi_groups(): void
     {
         $summary = DemographicCensusGenerator::aggregate([
             ['age' => 35, 'sex' => 'F', 'nutritional_status' => 'Unspecified', 'risk_level' => 'Low'],
@@ -454,7 +479,14 @@ class MonthlyDemographicCensusTest extends TestCase
             'paper_orientation' => 'landscape',
         ])->render();
 
-        $this->assertLessThan(strpos($html, 'By risk level'), strpos($html, 'By recorded nutritional status'));
+        $this->assertLessThan(strpos($html, 'By risk level'), strpos($html, 'By nutrition support'));
+        $this->assertLessThan(strpos($html, 'By nutrition care category'), strpos($html, 'By risk level'));
+        $this->assertLessThan(strpos($html, '>Adult</p>'), strpos($html, '>Pediatric</p>'));
+        $this->assertLessThan(strpos($html, '>Thinness</td>'), strpos($html, '>Severe thinness</td>'));
+        foreach (PrimaryDiagnosisCategory::values() as $category) {
+            $this->assertStringContainsString('<td>'.e($category).'</td>', $html);
+        }
+        $this->assertStringNotContainsString('Not recorded in historical data', $html);
         $this->assertStringNotContainsString('<td>Unspecified</td>', $html);
         $this->assertStringContainsString('Not classified: 1', $html);
         $this->assertStringNotContainsString('Includes current data', $html);

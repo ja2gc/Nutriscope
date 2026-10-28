@@ -226,11 +226,11 @@ class ReportController extends Controller
         $ageSex = DemographicCensusGenerator::aggregate([])['age_sex'];
         $byRisk = [];
         $byStatus = array_fill_keys(DemographicCensusGenerator::NUTRITIONAL_STATUSES, 0);
-        $byPrimaryDiagnosisCategory = [];
+        $byPrimaryDiagnosisCategory = DemographicCensusGenerator::aggregate([])['by_primary_diagnosis_category'];
+        $byBmi = DemographicCensusGenerator::aggregate([])['by_bmi_classification'];
         $bySupport = DemographicCensusGenerator::aggregate([])['by_nutrition_support'];
         $availableMonths = [];
         $allFrozen = true;
-        $hasHistoricalClassification = false;
         for ($number = 1; $number <= 12; $number++) {
             $start = Carbon::parse(sprintf('%04d-%02d-01', $year, $number), $today->getTimezone());
             if ($start->lt($firstMonth) || $start->gt($today->copy()->startOfMonth())) {
@@ -240,14 +240,14 @@ class ReportController extends Controller
             $stored = $current ? null : DemographicCensusPeriod::query()
                 ->whereDate('period_start', $start->toDateString())
                 ->first();
-            $status = $stored === null ? 'live' : 'frozen';
+            $useSnapshot = $stored !== null && $stored->basis_version >= DemographicCensusGenerator::BASIS_VERSION;
+            $status = $useSnapshot ? 'frozen' : 'live';
             $availableMonths[] = ['month' => $number, 'label' => $start->format('F'), 'status' => $status];
             if ($month !== null && $month !== $number) {
                 continue;
             }
             $allFrozen = $allFrozen && $status === 'frozen';
-            $hasHistoricalClassification = $hasHistoricalClassification || ($stored !== null && $stored->basis_version < 7);
-            $census = $stored?->census ?? $generator->currentCensus($start, $start->copy()->endOfMonth());
+            $census = $useSnapshot ? $stored->census : $generator->currentCensus($start, $start->copy()->endOfMonth());
             $total += (int) ($census['total'] ?? 0);
             if (! isset($census['by_nutrition_support'])) {
                 $bySupport['unrecorded'] += (int) ($census['total'] ?? 0);
@@ -266,6 +266,11 @@ class ReportController extends Controller
             }
             foreach (($census['by_status'] ?? []) as $status => $count) {
                 $byStatus[$status] = ($byStatus[$status] ?? 0) + (int) $count;
+            }
+            foreach ($byBmi as $population => $categories) {
+                foreach ($categories as $category => $count) {
+                    $byBmi[$population][$category] += (int) ($census['by_bmi_classification'][$population][$category] ?? 0);
+                }
             }
             foreach (($census['by_primary_diagnosis_category'] ?? []) as $category => $count) {
                 $byPrimaryDiagnosisCategory[$category] = ($byPrimaryDiagnosisCategory[$category] ?? 0) + (int) $count;
@@ -288,7 +293,8 @@ class ReportController extends Controller
             'by_risk' => $byRisk,
             'by_nutrition_support' => $bySupport,
             'by_nutritional_status' => $byStatus,
-            'classification_basis' => $hasHistoricalClassification ? 'historical_or_mixed' : 'asia_pacific_bmi',
+            'by_bmi_classification' => $byBmi,
+            'classification_basis' => 'initial_assessment_bmi',
             'by_primary_diagnosis_category' => $byPrimaryDiagnosisCategory,
             'available_years' => range($today->year, $firstMonth->year),
             'available_months' => $availableMonths,

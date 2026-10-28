@@ -1,10 +1,12 @@
 # Nutrition care process
 
-Verified against committed source: `7c6a1623c557582e2883d30866fc188e05f8b21b` plus nutrition support planning changes in this working tree (2026-10-27).
+Verified against committed source: `b9a6839f34b5203995d7c61c6f29cd9b0dd03f4f` plus census classification and nullable-recall changes in this working tree (2026-10-28).
 
 Classification paths additionally verified against `79ee23b53a0ba047faa791cdb8e5b7fcb1211429` plus this working tree (2026-10-25): `Assessment::classifyBmi`, its derived API field, diagnosis/monitoring evidence and current census/NCP report presentation. See [data meaning](data.md) and [AI maintenance](ai.md).
 
 Purpose: locate nutrition calculations and NCP workflow authority.
+
+Census classification uses each counted cycle's initial Assessment and the same age/sex-aware BMI classifier as AssessmentResource. Pediatric and adult labels are separate ordered groups. Older calculation-basis snapshots are recalculated for display without changing stored rows; current-basis frozen periods retain their captured counts. See [data meaning](data.md) for the API fields and consumers.
 
 This group includes clinical backend rules, NCP web workflows, clinical food/recipe/meal-plan logic and AI-assisted wording. Start with [data meaning](data.md) for fields/units/history or [AI maintenance](ai.md) for provider/model/prompt changes. Shared accounts, announcements, help and dashboards live in [shared features](../shared/README.md).
 

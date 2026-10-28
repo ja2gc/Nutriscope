@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/Button";
 import { ReportPreview } from "@/components/ReportPreview";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
@@ -75,11 +76,9 @@ export default function PatientNcpReportsPage() {
 
       <div>
         {selectedCycle ? (
-          <button type="button" onClick={() => setSelectedCycle(null)} className="text-sm font-semibold text-emerald-700 hover:text-emerald-800 cursor-pointer">
-            Back to ADIME cycles
-          </button>
+          <Button type="button" variant="icon" aria-label="Back to ADIME cycles" title="Back to ADIME cycles" className="h-11 !w-11 border border-warm-200 bg-white" onClick={() => setSelectedCycle(null)}><ArrowLeft className="h-4 w-4" aria-hidden="true" /></Button>
         ) : (
-          <Link href="/reports?type=patients_ncp" className="text-sm font-semibold text-emerald-700 hover:text-emerald-800">Back to Patients NCP</Link>
+          <Link href="/reports?type=patients_ncp" aria-label="Back to Patients NCP" title="Back to Patients NCP" className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-warm-200 bg-white text-warm-500 hover:bg-warm-50 focus-visible:outline-2 focus-visible:outline-emerald-600"><ArrowLeft className="h-4 w-4" aria-hidden="true" /></Link>
         )}
       </div>
 

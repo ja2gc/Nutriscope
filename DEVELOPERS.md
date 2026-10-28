@@ -1,8 +1,10 @@
 # NutriScope developer map
 
-Verified against source: `7c6a1623c557582e2883d30866fc188e05f8b21b` plus nutrition support planning changes in this working tree (2026-10-27).
+Verified against source: `b9a6839f34b5203995d7c61c6f29cd9b0dd03f4f` plus census classification and report navigation changes in this working tree (2026-10-28).
 
 BMI classification is owned by `Assessment::classifyBmi` and mirrored for live web inputs by `frontend/lib/nutritionCalculations.ts`: WHO sex/month bands at 61–228 months, Asia-Pacific afterward. The two offline `who-bmi-for-age.json` files are verified copies for separately built applications. Diagnosis AI and current reports reuse the model method; screening risk and clinical PES diagnoses remain separate. See [NCP data](docs/developers/ncp/data.md).
+
+Census uses each counted cycle's initial Assessment, with ordered pediatric/adult BMI groups and all Nutrition care categories, including zeros. `DemographicCensusGenerator` owns the calculation basis; `ReportController` recalculates obsolete-basis periods on read without overwriting stored snapshots. `CensusPanel` and the census download view consume the same summary.
 
 NutriScope manages patient nutrition care, clinical meal planning, food-service operations and administration. Start with the task below, then follow its source links.
 
