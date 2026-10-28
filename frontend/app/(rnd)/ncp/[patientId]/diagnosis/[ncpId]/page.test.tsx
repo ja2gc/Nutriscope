@@ -200,7 +200,7 @@ it("selects vitamins and minerals from dropdowns and saves the exact nutrient", 
   }));
 });
 
-it("offers an explicit retry for rejected output without generating on page open", async () => {
+it("retries rejected output with the single Generate action without generating on page open", async () => {
   const response = await vi.mocked(diagnoses.fetchPesDraftStatus)("fictional-cycle");
   vi.mocked(diagnoses.fetchPesDraftStatus).mockResolvedValue({ ...response, meta: {
     ...response.meta, can_generate: false, can_retry: true, review_outcome: "rejected",
@@ -214,7 +214,8 @@ it("offers an explicit retry for rejected output without generating on page open
   expect(screen.queryByText(/did not pass evidence checks/)).toBeNull();
   expect(screen.queryByText(/No additional applicable nutrition diagnosis was found/)).toBeNull();
   expect(screen.queryByRole("button", { name: "AI suggestion status" })).toBeNull();
-  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Review again (uses 1 request)" })); });
+  expect(screen.queryByRole("button", { name: /Review again/ })).toBeNull();
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Generate AI Suggestions" })); });
   expect(diagnoses.aiSuggestDiagnoses).toHaveBeenCalledExactlyOnceWith("fictional-cycle", true);
 });
 
@@ -235,7 +236,7 @@ it("keeps Generate clickable after evidence is exhausted and warns on each reque
   expect(diagnoses.aiSuggestDiagnoses).toHaveBeenCalledExactlyOnceWith('fictional-cycle', false);
 });
 
-it("shows valid partial drafts without a rejection warning while preserving explicit retry", async () => {
+it("reuses valid partial drafts through the single Generate action", async () => {
   const response = await vi.mocked(diagnoses.fetchPesDraftStatus)("fictional-cycle");
   const warning = "The response did not pass evidence checks. Retry explicitly or update the Assessment.";
   const partial: diagnoses.PesDraftResult = { ...response, data: [{
@@ -255,7 +256,16 @@ it("shows valid partial drafts without a rejection warning while preserving expl
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Generate AI Suggestions" })); });
   expect(screen.queryByText(warning, { exact: false })).toBeNull();
   expect(diagnoses.aiSuggestDiagnoses).toHaveBeenCalledExactlyOnceWith("fictional-cycle", false);
-  vi.mocked(diagnoses.aiSuggestDiagnoses).mockClear();
-  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Review again (uses 1 request)" })); });
-  expect(diagnoses.aiSuggestDiagnoses).toHaveBeenCalledExactlyOnceWith("fictional-cycle", true);
+  expect(screen.queryByRole("button", { name: /Review again/ })).toBeNull();
+});
+
+it("does not turn a completed review with omitted candidates into a paid retry", async () => {
+  const response = await vi.mocked(diagnoses.fetchPesDraftStatus)("fictional-cycle");
+  const complete = { ...response, data: [], meta: { ...response.meta,
+    can_generate: false, can_retry: true, review_outcome: "complete" as const } };
+  vi.mocked(diagnoses.fetchPesDraftStatus).mockResolvedValue(complete);
+  vi.mocked(diagnoses.aiSuggestDiagnoses).mockResolvedValue(complete);
+  await open(); click("AI Review");
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Generate AI Suggestions" })); });
+  expect(diagnoses.aiSuggestDiagnoses).toHaveBeenCalledExactlyOnceWith("fictional-cycle", false);
 });

@@ -603,13 +603,15 @@ export default function NcpDiagnosisPage({
     }
   };
 
-  const handleAiSuggest = async (retry = false) => {
+  const handleAiSuggest = async () => {
     if (hasNoDiagnosis) { setError(noDiagnosisWarning); return; }
     try {
       setAiLoading(true);
       setError(null);
       setAiUnavailable(null);
       setAiWarning(null);
+      const retry = Boolean(aiMeta?.can_retry && aiSuggestions.length === 0
+        && (aiMeta.review_outcome === 'rejected' || aiMeta.review_outcome === 'partial'));
       const result = await aiSuggestDiagnoses(ncpId, retry);
       setAiSuggestions(result.data);
       setAiDraftsPage(1);
@@ -1214,12 +1216,6 @@ export default function NcpDiagnosisPage({
             {aiLoading && <RefreshCw className="h-3.5 w-3.5 animate-spin" />}
             {aiLoading ? "Generating suggestions..." : "Generate AI Suggestions"}
           </button>
-          {aiMeta?.can_retry && <button
-            type="button"
-            onClick={() => { void handleAiSuggest(true); }}
-            disabled={aiLoading || hasNoDiagnosis || !hasAssessment || aiMeta.budget.remaining === 0 || Boolean(aiUnavailable)}
-            className="min-h-11 rounded-lg border border-warm-200 px-4 py-2 text-xs font-semibold text-warm-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >Review again (uses 1 request)</button>}
           {(aiSuggestionReason || aiUnavailable) && <InfoHint label="AI suggestion status" title="AI suggestion status">{aiSuggestionReason ?? aiUnavailable}</InfoHint>}
           {aiUnavailable && <button type="button" onClick={() => { void refreshAiStatus().catch(() => setAiUnavailable("Could not load AI draft status. Try again shortly.")); }} className="min-h-11 text-xs font-semibold text-emerald-700 underline">Refresh status</button>}
         </div>

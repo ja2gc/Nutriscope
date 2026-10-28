@@ -166,7 +166,7 @@ class ContextualPesDraftTest extends TestCase
                     return $draft;
                 }
                 $card = collect(app(PesRuleCatalog::class)->cards())->firstWhere('id', $draft['id']);
-                $alias = $card ? array_search([$card['domain'], DiagnosisBuilder::problemLabel($card['domain'], $card['problem_key'])], $payload['candidates'], true) : false;
+                $alias = $card ? array_search([$card['domain'], DiagnosisBuilder::problemLabel($card['domain'], $card['problem_key'])], array_map(fn ($candidate) => array_slice($candidate, 0, 2), $payload['candidates']), true) : false;
                 if ($alias !== false) {
                     $draft['id'] = $alias;
                 }
@@ -216,7 +216,10 @@ class ContextualPesDraftTest extends TestCase
             $payload = json_decode(substr($request['messages'][0]['content'], strlen("input_json:\n")), true);
             foreach ($payload['candidates'] as $ref => $candidate) {
                 $this->assertMatchesRegularExpression('/^c[1-9][0-9]*$/', $ref);
-                $this->assertCount(2, $candidate);
+                $this->assertCount(3, $candidate);
+                foreach ($candidate[2] as $anchor) {
+                    $this->assertArrayHasKey($anchor, $payload['evidence']);
+                }
             }
             foreach ($payload['evidence'] as $ref => $field) {
                 $this->assertMatchesRegularExpression('/^e[1-9][0-9]*$/', $ref);

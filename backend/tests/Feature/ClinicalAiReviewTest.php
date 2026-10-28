@@ -19,6 +19,49 @@ class ClinicalAiReviewTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_concise_energy_percentage_with_a_qualified_needs_label_is_supported(): void
+    {
+        $record = $this->record();
+        $record->assessment()->update(['dietary_intake' => 'Energy intake 75% of estimated energy needs.',
+            'medical_history' => 'Dyspnea reduces appetite.']);
+        $this->provider([[...$this->draft(), 'candidate_id' => 'inadequate_energy_v2', 'domain' => 'NI', 'problem_key' => 'Inadequate Energy Intake',
+            'etiology' => 'Dyspnea reduces appetite', 'signs' => 'Energy intake 75% of estimated energy needs',
+            'evidence_used' => ['medical_history', 'dietary_intake'], 'etiology_evidence' => ['medical_history'], 'signs_evidence' => ['dietary_intake']]]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonCount(1, 'data');
+    }
+
+    public function test_exact_percentage_does_not_offer_or_accept_an_invented_inequality(): void
+    {
+        $record = $this->record();
+        $record->assessment()->update(['dietary_intake' => 'Estimated energy intake 1200 kcal/day versus estimated needs 1600 kcal/day (75%).',
+            'medical_history' => 'Dyspnea reduces appetite.']);
+        $this->provider([[...$this->draft(), 'candidate_id' => 'inadequate_energy_v2', 'domain' => 'NI', 'problem_key' => 'Inadequate Energy Intake',
+            'etiology' => 'Dyspnea reduces appetite', 'signs' => 'Energy intake <75% of estimated needs',
+            'evidence_used' => ['medical_history', 'dietary_intake'], 'etiology_evidence' => ['medical_history'], 'signs_evidence' => ['dietary_intake']]]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonCount(0, 'data');
+        Http::assertSent(function ($request): bool {
+            $payload = json_decode(substr($request['messages'][0]['content'], strlen("input_json:\n")), true);
+            $this->assertNotContains('Estimated intake < 75% of estimated needs', $payload['choices']['NI']['s']);
+
+            return true;
+        });
+    }
+
+    public function test_deleted_saved_ai_diagnosis_reopens_its_problem_without_an_assessment_change(): void
+    {
+        $record = $this->record();
+        $record->update(['status' => 'draft']);
+        $this->provider([$this->draft()]);
+        $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses";
+        $draft = $this->postJson($url.'/ai-suggest')->assertOk()->json('data.0.draft_id');
+        $saved = $this->postJson($url.'/ai-approve', ['draft_id' => $draft])->assertCreated()->json('data.id');
+        $this->postJson($url.'/ai-suggest')->assertOk()->assertJsonCount(0, 'data');
+        Http::assertSentCount(1);
+        $this->deleteJson($url.'/'.$saved)->assertNoContent();
+        $this->postJson($url.'/ai-suggest')->assertOk()->assertJsonCount(1, 'data');
+        Http::assertSentCount(2);
+    }
+
     public function test_recorded_numeric_intake_comparison_can_support_a_draft_without_a_direction_adjective(): void
     {
         $record = $this->record();

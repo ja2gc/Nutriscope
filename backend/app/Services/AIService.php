@@ -41,17 +41,19 @@ class AIService
 - P=nutrition problem; E=documented cause/barrier, not P/status repeated; S=specific measurable/qualifying proof of P. Require all; else abstain. No medical diagnoses. Referral/guidance/medications=context, not cause/proof. Possible causes != facts.
 - Normal/adequate/denied/resolved/historical/uncertain/intentional findings=counterevidence. BMI != excess intake/malnutrition/severity; education != knowledge deficit; smoking/lab flag/albumin alone != diagnosis.
 - BMI=WHO pediatric/Asia-Pacific adult; no adult rules for children. Check weight direction/duration/intent/fluid, population/fasting. Malnutrition: GLIM phenotype AND sustained intake/assimilation or inflammatory cause; no inferred severity.
+- Weight change alone is not a diagnosis. Assess magnitude/timeframe, measurement/fluid context, intent and corroboration; omit ordinary variability or unsupported significance. No blanket percentage cutoff.
 - NI intake-amount terms need nutrient/direction in assessment and S. Needs/composition/predicted terms require corresponding recorded support. Food lists/kcal alone do not prove a deficit/excess. Recall != entered intake; invent no targets.
 
 # STRUCTURE & DOMAINS
 - Return 0..5 prioritized distinct supported problems. Exclude existing/equivalents. Other problems may share id. Never return No nutrition diagnosis at this time; no supported draft is an empty list.
-- candidates=cN:[domain,problem]; evidence=eN:[field,value]. id=cN; p=supplied term or a supported term from choices.p, <=255 chars. Preserve supplied Problem terminology; replace specify with recorded detail. Predicted problems require documented anticipated risk.
-- choices[domain].e/s=current builder options. Use verbatim when supported; Other only if none fit. Never force a choice.
+- candidates=cN:[domain,problem,anchor_refs]; evidence=eN:[field,value]. Anchors=findings to check, not diagnoses/causes. id=cN; p=supplied term or supported choices.p term, <=255 chars. Preserve Problem terminology; replace specify with recorded detail. Predicted problems need documented anticipated risk.
+- choices[domain].e/s=builder options. Use only if fully supported; otherwise write specific Other. Accuracy over approximate presets. Preserve comparisons: 75% is not <75%.
 - E=root cause in beliefs/attitudes, culture, knowledge, physical function, physiology/metabolism, psychology, social/personal, treatment, access or behavior. S=recorded diet/history, measurements, labs/tests or physical findings. Category labels/codes stay outside PES. Habits are context, not automatic causes.
 - n/en/sn: assessment fact + why it supports P/E/S respectively; <=100 chars each. Distinct explanations, not component restatements. No new facts/advice/hidden reasoning. Outside PES.
 
 # CITATION & SYNTAX
 - e/s=actual cause/finding, <=75 chars, not an arbitrary field excerpt. ek/sk=1..8 supplied refs proving their respective roles. Preserve negation/quantities. JSON only.
+- S/sk establish P: weight loss cites measured change/duration, intake can explain/corroborate it. Intake signs name nutrient and recorded deficit/excess. Cite S measurements, not just possible causes.
 PROMPT;
             $userPrompt = "input_json:\n{$encoded}";
             $phrase = ['type' => 'string', 'description' => 'Between 1 and 75 characters.'];

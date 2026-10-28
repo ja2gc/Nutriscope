@@ -129,7 +129,7 @@ class PesEligibilityService
         foreach ($this->clauses($finding) as $part) {
             if ($this->hasConcern($part) && ! preg_match('/\b(adequate|sufficient|normal|denies|denied|no|not)\b/i', $part)
                 && preg_match('/\b(?:'.$nutrient.')\b/i', $part)) {
-                $comparison = preg_match('/([<>]?)\s*(\d+(?:\.\d+)?)\s*%\s*(?:of\s+)?(?:(?:estimated|prescribed|calculated|daily|usual)\s+)*(?:needs|requirements|target|goal)\b/i', $part, $amount);
+                $comparison = preg_match('/([<>]?)\s*(\d+(?:\.\d+)?)\s*%\s*(?:of\s+)?(?:(?:estimated|prescribed|calculated|daily|usual|energy|nutrient|protein|fluid)\s+)*(?:needs|requirements|target|goal)\b/i', $part, $amount);
                 $numericDirection = $comparison && (strtolower($parts[1]) === 'inadequate'
                     ? $amount[1] !== '>' && (float) $amount[2] < 100
                     : $amount[1] !== '<' && (float) $amount[2] > 100);

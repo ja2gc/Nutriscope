@@ -1,6 +1,6 @@
 # NutriScope developer map
 
-Verified against source: `ce7078a41a9082eba5ae749639bcfa0cf1b45a82` plus diagnosis changes in this working tree (2026-10-28).
+Verified against source: `71d3634b469ea51fb668cf18e1e83a1c072db52e` plus diagnosis evidence/retry corrections in this working tree (2026-10-28).
 
 Diagnosis keeps the existing P/E/S append builder. `DiagnosisBuilder` owns terminology formatting and selection metadata; `DiagnosisController` owns the exclusive clinician-recorded NO decision. `PesSuggestionService` owns evidence checks, duplicate protection and review reuse; `ClinicalAiContext` selects brief guidance on the server. See [NCP AI](docs/developers/ncp/ai.md) and [NCP data](docs/developers/ncp/data.md).
 

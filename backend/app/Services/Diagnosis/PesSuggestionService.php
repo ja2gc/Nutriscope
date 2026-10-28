@@ -327,11 +327,18 @@ class PesSuggestionService
             $payload['guidance'] = $guidance;
         }
         $candidateRefs = $evidenceRefs = [];
+        foreach ($evidence as $key => $value) {
+            $ref = 'e'.(count($evidenceRefs) + 1);
+            $evidenceRefs[$ref] = $key;
+            $payload['evidence'][$ref] = [$key, $value];
+        }
         $causes = $this->causeEvidence($evidence);
         foreach ($eligible as $candidate) {
             $ref = 'c'.(count($candidateRefs) + 1);
             $candidateRefs[$ref] = $candidate['candidate_id'];
-            $payload['candidates'][$ref] = [$candidate['domain'], DiagnosisBuilder::problemLabel($candidate['domain'], $candidate['problem_key'])];
+            $card = collect($this->catalog->cards())->firstWhere('id', $candidate['candidate_id']);
+            $anchors = array_keys(array_intersect($evidenceRefs, $card['required_evidence'] ?? []));
+            $payload['candidates'][$ref] = [$candidate['domain'], DiagnosisBuilder::problemLabel($candidate['domain'], $candidate['problem_key']), $anchors];
             if (! isset($payload['choices'][$candidate['domain']])) {
                 $options = DiagnosisBuilder::options()[$candidate['domain']];
                 $suppliedProblems = array_map(fn ($item) => DiagnosisBuilder::problemLabel($item['domain'], $item['problem_key']), array_filter($eligible, fn ($item) => $item['domain'] === $candidate['domain']));
@@ -342,12 +349,6 @@ class PesSuggestionService
                 ];
             }
         }
-        foreach ($evidence as $key => $value) {
-            $ref = 'e'.(count($evidenceRefs) + 1);
-            $evidenceRefs[$ref] = $key;
-            $payload['evidence'][$ref] = [$key, $value];
-        }
-
         $guidanceLines = isset($payload['guidance']) ? explode("\n", $payload['guidance']) : [];
         while ($guidanceLines !== [] && strlen((string) json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) > AIService::PES_INPUT_BYTE_LIMIT) {
             array_pop($guidanceLines);
@@ -637,9 +638,10 @@ class PesSuggestionService
         preg_match_all('/\d+(?:\.\d+)?/', $wording, $numbers);
         $source = json_encode($evidence);
         if (preg_match('/\b(intake|needs|requirements)\b/i', $wording)) {
-            preg_match_all('/(\d+(?:\.\d+)?)\s*%/', $wording, $percentages);
-            foreach ($percentages[1] as $percentage) {
-                if (! preg_match('/(?<!\d)'.preg_quote($percentage, '/').'\s*%/', $source)) {
+            preg_match_all('/([<>]?)\s*(\d+(?:\.\d+)?)\s*%/', $wording, $percentages, PREG_SET_ORDER);
+            preg_match_all('/([<>]?)\s*(\d+(?:\.\d+)?)\s*%/', $source, $sourcePercentages, PREG_SET_ORDER);
+            foreach ($percentages as $percentage) {
+                if (! collect($sourcePercentages)->contains(fn ($recorded) => $recorded[1] === $percentage[1] && $recorded[2] === $percentage[2])) {
                     return true;
                 }
             }
