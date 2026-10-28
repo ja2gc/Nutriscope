@@ -137,8 +137,6 @@
         @foreach($intervention->formula_items ?? [] as $formula)
             <p><span class="bold">Formula {{ $loop->iteration }}: {{ $formula['nutrient_snapshot']['name'] }}</span> — @foreach($formula['nutrient_snapshot']['recipe_original_ingredients'] as $ingredient){{ rtrim(rtrim(number_format((float) $ingredient['quantity'] * $formula['portion_multiplier'], 12, '.', ''), '0'), '.') }} {{ $ingredient['unit'] }} {{ $ingredient['name'] }}@if(!$loop->last); @endif @endforeach</p>
         @endforeach
-    @elseif($intervention?->nutrition_support === 'no_food_menu')
-        <p>No food menu is planned for this intervention.</p>
     @endif
     <div class="prescription-line">
         @foreach(['energy_kcal' => ['Energy', 'kcal'], 'carbs_g' => ['Carbohydrate', 'g'], 'protein_g' => ['Protein', 'g'], 'fat_g' => ['Fat', 'g'], 'fluid_ml' => ['Fluid', 'mL']] as $key => [$label, $unit])

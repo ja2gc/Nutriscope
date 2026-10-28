@@ -7,9 +7,7 @@
 @endforeach
 @foreach($displayed_nutrients as $key) · {{ Illuminate\Support\Str::headline($key) }}: @if(isset($prescription['micronutrient_limits'][$key])) @include('reports.partials.nutrient-prescription', ['limit' => $prescription['micronutrient_limits'][$key]]) @else No target set @endif @endforeach
 </div>
-@if($nutrition_support === 'no_food_menu')
-    <p>No food menu is planned for this intervention.</p>
-@else
+@if($nutrition_support === 'tube_feeding')
     @foreach($formula_items as $item)
         @php($formula = $item['nutrient_snapshot'])
         @php($multiplier = (float) $item['portion_multiplier'])
