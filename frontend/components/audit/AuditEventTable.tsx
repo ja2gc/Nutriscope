@@ -26,17 +26,17 @@ export function AuditEventTable({ events, onSelect }: { events: AuditEventDto[];
                 <tr
                   key={event.id}
                   onClick={() => onSelect(event)}
-                  className="cursor-pointer transition-colors hover:bg-warm-50"
+                  className="h-[68px] cursor-pointer transition-colors hover:bg-warm-50"
                 >
-                  <td className="px-4 py-3 align-top whitespace-nowrap">
+                  <td className="px-4 py-3 align-middle whitespace-nowrap">
                     <AuditTimestamp value={event.occurred_at} layout="stacked" />
                   </td>
-                  <td className="px-4 py-3 align-top"><Badge tone="emerald">{event.action_label}</Badge></td>
-                  <td className="max-w-48 px-4 py-3 align-top text-sm font-semibold text-warm-800 break-words">
+                  <td className="px-4 py-3 align-middle"><Badge tone="emerald">{event.action_label}</Badge></td>
+                  <td className="max-w-48 truncate px-4 py-3 align-middle text-sm font-semibold text-warm-800">
                     {event.actor?.name || "System"}
                   </td>
-                  <td className="max-w-56 px-4 py-3 align-top text-sm text-warm-700 break-words">{subjectLabel(event)}</td>
-                  <td className="max-w-72 p-0 align-top text-sm leading-relaxed text-warm-600 break-words">
+                  <td className="max-w-56 truncate px-4 py-3 align-middle text-sm text-warm-700">{subjectLabel(event)}</td>
+                  <td className="max-w-72 p-0 align-middle text-sm text-warm-600">
                     <button
                       type="button"
                       aria-label={`Inspect ${event.action_label} audit event: ${event.summary}`}
@@ -44,7 +44,7 @@ export function AuditEventTable({ events, onSelect }: { events: AuditEventDto[];
                         clickEvent.stopPropagation();
                         onSelect(event);
                       }}
-                      className="min-h-11 w-full cursor-pointer px-4 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-green-500/30"
+                      className="w-full truncate px-4 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-green-500/30"
                     >
                       {event.summary}
                     </button>
@@ -63,15 +63,15 @@ export function AuditEventTable({ events, onSelect }: { events: AuditEventDto[];
               key={event.id}
               type="button"
               onClick={() => onSelect(event)}
-              className="block min-h-11 w-full cursor-pointer p-4 text-left transition-colors hover:bg-warm-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-green-500/30"
+              className="flex h-40 w-full cursor-pointer flex-col justify-between overflow-hidden p-4 text-left transition-colors hover:bg-warm-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-green-500/30"
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <Badge tone="emerald">{event.action_label}</Badge>
                 <span className="text-xs tabular-nums text-warm-500"><AuditTimestamp value={event.occurred_at} /></span>
               </div>
-              <p className="mt-3 text-sm font-semibold text-warm-800 break-words">{event.actor?.name || "System"}</p>
-              <p className="mt-1 text-sm text-warm-600 break-words">{subjectLabel(event)}</p>
-              <p className="mt-2 text-sm leading-relaxed text-warm-700 break-words">{event.summary}</p>
+              <p className="line-clamp-1 text-sm font-semibold text-warm-800">{event.actor?.name || "System"}</p>
+              <p className="line-clamp-1 text-sm text-warm-600">{subjectLabel(event)}</p>
+              <p className="line-clamp-2 text-sm leading-relaxed text-warm-700">{event.summary}</p>
             </button>
           );
         })}

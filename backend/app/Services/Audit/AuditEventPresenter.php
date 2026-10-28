@@ -79,12 +79,7 @@ class AuditEventPresenter
             $actor,
             $subject,
             $context,
-            $changes,
         );
-        if ($clinical && $changes !== [] && $action === AuditAction::Updated->value) {
-            $summary = rtrim($summary, '.').'; values hidden.';
-        }
-
         return new AuditEventDto(
             id: $this->uuid($activity->public_id)
                 ?? Uuid::uuid5(Uuid::NAMESPACE_OID, (string) config('app.key').'|audit|'.$activity->getKey())->toString(),
