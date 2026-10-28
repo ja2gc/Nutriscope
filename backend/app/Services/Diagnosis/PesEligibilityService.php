@@ -117,7 +117,7 @@ class PesEligibilityService
             return false;
         }
         $nutrient = match (strtolower($parts[2])) {
-            'energy', 'oral' => 'energy|calori\\w*|oral|food|meals?|(?:poor|reduced|decreased|inadequate|insufficient|excessive) intake',
+            'energy', 'oral' => 'energy|calori\\w*|kcal|oral|food|meals?|(?:poor|reduced|decreased|inadequate|insufficient|excessive) intake',
             'carbohydrates', 'carbohydrate' => 'carbohydrates?|carbs?',
             'fluid' => 'fluids?|water',
             'fiber' => 'fib(?:er|re)',
@@ -133,6 +133,16 @@ class PesEligibilityService
                 $numericDirection = $comparison && (strtolower($parts[1]) === 'inadequate'
                     ? $amount[1] !== '>' && (float) $amount[2] < 100
                     : $amount[1] !== '<' && (float) $amount[2] > 100);
+                $sides = preg_split('/\s+\b(?:vs\.?|versus|compared\s+(?:with|to)|against)\s+/i', $part);
+                if (count($sides) === 2 && preg_match('/\b(needs|requirements|target|goal)\b/i', $sides[1])
+                    && ! preg_match('/[<>]\s*\d|\b(?:at least|at most|more than|less than|over|under|up to)\s+\d/i', $part)
+                    && preg_match('/(?<![\d<>.])(\d+(?:\.\d+)?)\s*(kcal|mcg|mg|g|ml|l)(?:\s*\/\s*(?:day|d))?\s*$/i', $sides[0], $actual)
+                    && preg_match('/(?<![\d<>.])(\d+(?:\.\d+)?)\s*(kcal|mcg|mg|g|ml|l)\b/i', $sides[1], $target)
+                    && strtolower($actual[2]) === strtolower($target[2]) && (float) $target[1] > 0) {
+                    $numericDirection = $numericDirection || (strtolower($parts[1]) === 'inadequate'
+                        ? (float) $actual[1] < (float) $target[1]
+                        : (float) $actual[1] > (float) $target[1]);
+                }
                 if (preg_match('/\b(?:'.$direction.')\b/i', $part) || $numericDirection) {
                     return true;
                 }

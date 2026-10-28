@@ -45,6 +45,19 @@ class PesEligibilityServiceTest extends TestCase
         $this->assertFalse($service->supportsIntakeProblem('Inadequate vitamin intake: D', 'Low protein intake; patient D.'));
     }
 
+    public function test_recorded_intake_versus_needs_establishes_direction_without_a_direction_adjective(): void
+    {
+        $service = app(PesEligibilityService::class);
+        $this->assertTrue($service->supportsIntakeProblem('Inadequate energy intake', 'Estimated energy intake 1200 kcal/day versus estimated needs 1600 kcal/day (75%).'));
+        $this->assertTrue($service->supportsIntakeProblem('Excessive energy intake', 'Energy intake 1800 kcal/day vs 1600 kcal/day estimated needs.'));
+        $this->assertFalse($service->supportsIntakeProblem('Inadequate energy intake', 'Energy intake 1800 kcal/day vs 1600 kcal/day estimated needs.'));
+        $this->assertTrue($service->supportsIntakeProblem('Inadequate protein intake', 'Protein intake 45 g/day versus prescribed needs 75 g/day.'));
+        $this->assertFalse($service->supportsIntakeProblem('Inadequate energy intake', 'Energy intake 1200 kcal/day versus estimated needs 1600 kJ/day.'));
+        $this->assertFalse($service->supportsIntakeProblem('Inadequate energy intake', 'Energy intake 1200 kcal/day versus yesterday 1600 kcal/day.'));
+        $this->assertFalse($service->supportsIntakeProblem('Inadequate energy intake', 'Energy intake > 1200 kcal/day versus estimated needs 1600 kcal/day.'));
+        $this->assertFalse($service->supportsIntakeProblem('Excessive energy intake', 'Energy intake < 1800 kcal/day versus estimated needs 1600 kcal/day.'));
+    }
+
     public function test_asia_pacific_bmi_sign_maps_to_a_current_builder_choice(): void
     {
         $sign = 'BMI ≥ 23 (Asia-Pacific overweight / obesity)';
@@ -85,7 +98,7 @@ class PesEligibilityServiceTest extends TestCase
     {
         $catalog = app(PesRuleCatalog::class);
 
-        $this->assertSame('2026-10-28-v11:'.ClinicalAiContext::version(), $catalog->version());
+        $this->assertSame('2026-10-28-v12:'.ClinicalAiContext::version(), $catalog->version());
         $this->assertEqualsCanonicalizing(['NI', 'NC', 'NB'], array_values(array_unique(array_column($catalog->cards(), 'domain'))));
 
         foreach ($catalog->cards() as $card) {

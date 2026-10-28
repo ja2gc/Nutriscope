@@ -19,6 +19,18 @@ class ClinicalAiReviewTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_recorded_numeric_intake_comparison_can_support_a_draft_without_a_direction_adjective(): void
+    {
+        $record = $this->record();
+        $record->assessment()->update(['dietary_intake' => 'Estimated energy intake 1200 kcal/day versus estimated needs 1600 kcal/day (75%).',
+            'medical_history' => 'Dyspnea reduces appetite.', 'appetite_changes' => 'decreased']);
+        $this->provider([[...$this->draft(), 'candidate_id' => 'inadequate_energy_v2', 'domain' => 'NI', 'problem_key' => 'Inadequate Energy Intake',
+            'etiology' => 'Dyspnea reduces appetite', 'signs' => 'Energy intake 1200 kcal/day versus estimated needs 1600 kcal/day',
+            'evidence_used' => ['medical_history', 'dietary_intake'], 'etiology_evidence' => ['medical_history'], 'signs_evidence' => ['dietary_intake']]]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()
+            ->assertJsonCount(1, 'data')->assertJsonPath('data.0.label', 'Inadequate energy intake');
+    }
+
     public function test_other_cannot_bypass_a_known_problem_required_signs(): void
     {
         $record = $this->record();
