@@ -51,7 +51,11 @@ class PesSuggestionService
 
                 return $this->response($ncpRecord, $state, $evidence, true);
             }
+            $retryProblems = $this->retryProblems($ncpRecord, $evidence);
             $eligible = $this->remaining($ncpRecord, $evidence, $retryRejected);
+            if ($retryRejected && $retryProblems !== []) {
+                $eligible = array_values(array_filter($eligible, fn ($card) => isset($retryProblems[$card['candidate_id']])));
+            }
             if ($eligible === []) {
                 return $this->response($ncpRecord, $state, $evidence, true);
             }
@@ -62,7 +66,7 @@ class PesSuggestionService
                 ...($evidence['existing_problem_keys'] ?? []),
                 ...array_column($this->activeDrafts($ncpRecord, $evidence), 'label'),
             ]));
-            [$payload, $candidateRefs, $evidenceRefs] = $this->providerPayload($eligible, $reviewEvidence);
+            [$payload, $candidateRefs, $evidenceRefs] = $this->providerPayload($eligible, $reviewEvidence, $retryRejected ? $retryProblems : []);
             try {
                 $result = $this->aiService->draftPes($payload);
             } catch (UnusableAiDraftException $error) {
@@ -72,8 +76,10 @@ class PesSuggestionService
             }
             $raw = $result['suggestions'];
             $validated = [];
+            $failures = [];
             try {
-                $validated = $this->validateProviderResponse($raw, $eligible, $reviewEvidence, $candidateRefs, $evidenceRefs);
+                [$validated, $failures, $invalid] = $this->validateProviderResponse($raw, $eligible, $reviewEvidence, $candidateRefs, $evidenceRefs);
+                $rejected = $rejected || ($invalid && $validated === []);
             } catch (\RuntimeException $error) {
                 $rejected = true;
                 Log::error('PES response withheld', ['reason' => $error->getMessage(), 'usage_log_id' => $result['usage']['usage_log_id']]);
@@ -89,9 +95,14 @@ class PesSuggestionService
             $contexts = $state?->provider_metadata['review_contexts'] ?? [];
             foreach ($newlyReviewed as $id) {
                 $extra = collect($validated)->where('candidate_id', $id)->pluck('evidence_refs')->flatten(1)->pluck('key')->unique()->values()->all();
+                $failed = [...($retryProblems[$id] ?? []), ...($failures[$id] ?? [])];
+                $resolved = $this->eligibility->canonicalProblems(array_column($validated, 'label'));
+                $failed = collect($failed)->reject(fn ($problem) => in_array($this->eligibility->canonicalProblem($problem['label']), $resolved, true))
+                    ->unique(fn ($problem) => $this->eligibility->canonicalProblem($problem['label']))->values()->all();
+                $extra = array_values(array_unique([...$extra, ...collect($failed)->pluck('keys')->flatten()->all()]));
                 $card = collect($eligible)->firstWhere('candidate_id', $id);
-                $candidateOutcome = $rejected ? 'rejected' : ($extra !== [] && $card['problem_key'] !== 'Other' ? 'complete' : 'not_returned');
-                $contexts[$id] = ['hash' => $this->contextHash($id, $evidence, $extra), 'keys' => $extra, 'outcome' => $candidateOutcome];
+                $candidateOutcome = $rejected || $failed !== [] ? 'rejected' : ($extra !== [] && $card['problem_key'] !== 'Other' ? 'complete' : 'not_returned');
+                $contexts[$id] = ['hash' => $this->contextHash($id, $evidence, $extra), 'keys' => $extra, 'outcome' => $candidateOutcome, 'rejected_problems' => $failed];
             }
             $attributes = [
                 'validated_response' => [...$previous, ...$validated],
@@ -227,6 +238,32 @@ class PesSuggestionService
         return $this->eligibility->eligible($evidence, array_values(array_unique($covered)));
     }
 
+    /** Retain failed Problems, never generated E/S, while their cited context remains current. */
+    private function retryProblems(NcpRecord $record, array $evidence): array
+    {
+        $existing = $this->eligibility->canonicalProblems([
+            ...($evidence['existing_problem_keys'] ?? []), ...array_column($this->activeDrafts($record, $evidence), 'label'),
+        ]);
+        $targets = $seen = [];
+        foreach ($this->history($record) as $state) {
+            foreach ($state->provider_metadata['review_contexts'] ?? [] as $id => $context) {
+                if (isset($seen[$id]) || $context['hash'] !== $this->contextHash($id, $evidence, $context['keys'] ?? [])) {
+                    continue;
+                }
+                $seen[$id] = true;
+                foreach ($context['rejected_problems'] ?? [] as $problem) {
+                    $canonical = $this->eligibility->canonicalProblem($problem['label']);
+                    if (! in_array($canonical, $existing, true)) {
+                        $targets[$id][] = $problem;
+                        $existing[] = $canonical;
+                    }
+                }
+            }
+        }
+
+        return $targets;
+    }
+
     private function activeDrafts(NcpRecord $record, array $evidence): array
     {
         if ($evidence['no_diagnosis_recorded'] ?? false) {
@@ -268,12 +305,14 @@ class PesSuggestionService
         $visible = $this->activeDrafts($record, $evidence);
         $budget = $this->budget($record);
         $remaining = $this->remaining($record, $evidence);
-        $canRetry = count($this->remaining($record, $evidence, true)) > count($remaining);
+        $hasRejections = $this->retryProblems($record, $evidence) !== [];
+        $canRetry = $hasRejections || count($this->remaining($record, $evidence, true)) > count($remaining);
         $outcome = $state?->provider_metadata['review_outcome'] ?? ($canRetry ? 'rejected' : null);
         $reason = match (true) {
             $evidence['no_diagnosis_recorded'] ?? false => Diagnosis::NO_DIAGNOSIS_WARNING,
             $budget['remaining'] === 0 => 'Ten requests per ten minutes reached. Try again when the allowance resets.',
-            $canRetry && $remaining === [] => 'No additional supported draft was returned. Review the Assessment or try again.',
+            $canRetry && $remaining === [] => $hasRejections || in_array($outcome, ['rejected', 'partial'], true)
+                ? 'Could not generate AI suggestions. Try again or add a diagnosis manually.' : 'No additional nutrition diagnosis found.',
             $remaining === [] => self::EMPTY_MESSAGE.' Update the Assessment when new findings are available.',
             default => null,
         };
@@ -282,6 +321,7 @@ class PesSuggestionService
             'cached' => $cached, 'fingerprint' => $this->fingerprint($evidence),
             'catalog_version' => $this->catalog->version(), 'budget' => $budget,
             'blocked_by_no_diagnosis' => (bool) ($evidence['no_diagnosis_recorded'] ?? false),
+            'has_retryable_rejections' => $hasRejections,
             'can_generate' => $reason === null, 'can_retry' => $canRetry && $budget['remaining'] > 0, 'review_outcome' => $outcome, 'disabled_reason' => $reason,
             'message' => ($evidence['no_diagnosis_recorded'] ?? false) ? Diagnosis::NO_DIAGNOSIS_WARNING : ($visible === [] ? ($canRetry ? $reason : ($remaining === [] ? self::EMPTY_MESSAGE : null)) : null),
         ]];
@@ -318,13 +358,16 @@ class PesSuggestionService
     }
 
     /** Request-local aliases never enter stored drafts or clinical provenance. */
-    private function providerPayload(array $eligible, array $evidence): array
+    private function providerPayload(array $eligible, array $evidence, array $retryProblems = []): array
     {
         unset($evidence['rnd_summary'], $evidence['saved_candidate_ids'], $evidence['no_diagnosis_recorded']);
         $existing = $evidence['existing_problem_keys'] ?? [];
         unset($evidence['existing_problem_keys']);
         // EvidenceBuilder already allowlists and bounds the clinical snapshot, including normal findings.
         $payload = ['evidence' => [], 'existing_problems' => $existing, 'candidates' => []];
+        if ($retryProblems !== []) {
+            $payload['retry_problems'] = array_slice(array_values(array_unique(collect($retryProblems)->flatten(1)->pluck('label')->all())), 0, AIService::PES_DRAFT_LIMIT);
+        }
         $guidance = ClinicalAiContext::guidance($evidence, 'diagnosis');
         if ($guidance !== '') {
             $payload['guidance'] = $guidance;
@@ -374,9 +417,11 @@ class PesSuggestionService
         $seen = [];
         $problems = $this->eligibility->canonicalProblems($evidence['existing_problem_keys'] ?? []);
         $validated = [];
-        $draftError = null;
+        $failures = [];
+        $invalid = false;
         foreach ($raw as $draft) {
             $id = null;
+            $retryLabel = null;
             try {
                 if (! is_array($draft)) {
                     throw new \RuntimeException('The AI returned an unexpected diagnosis shape.');
@@ -445,6 +490,7 @@ class PesSuggestionService
                 if (in_array($canonical, $problems, true) || in_array($id, $evidence['saved_candidate_ids'] ?? [], true)) {
                     continue;
                 }
+                $retryLabel = $label;
                 $keys = $draft['evidence_used'] ?? null;
                 if (! is_array($keys) || $keys === [] || count($keys) > 8) {
                     throw new \RuntimeException('The AI returned a PES draft without bounded evidence.');
@@ -590,7 +636,12 @@ class PesSuggestionService
                     'source' => $candidate['source'],
                 ];
             } catch (\RuntimeException $error) {
-                $draftError = $error;
+                $invalid = true;
+                if ($retryLabel !== null) {
+                    $failures[$id][] = ['label' => $retryLabel, 'keys' => array_values(array_intersect(
+                        array_filter(is_array($draft['evidence_used'] ?? null) ? $draft['evidence_used'] : [], 'is_string'), array_keys($evidence),
+                    ))];
+                }
                 Log::error('PES draft withheld', ['reason' => $error->getMessage(),
                     'candidate_id' => is_string($id ?? null) && $byId->has($id) ? $id : null,
                     'sign_fields' => array_values(array_intersect(array_filter(is_array($draft['signs_evidence'] ?? null) ? $draft['signs_evidence'] : [], 'is_string'), array_keys($evidence))),
@@ -598,11 +649,8 @@ class PesSuggestionService
                 ]);
             }
         }
-        if ($validated === [] && $draftError !== null) {
-            throw $draftError;
-        }
 
-        return $validated;
+        return [$validated, $failures, $invalid];
     }
 
     private function affirmativeFinding(array $values, string $pattern): bool

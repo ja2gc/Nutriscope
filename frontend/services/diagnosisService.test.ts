@@ -26,6 +26,12 @@ describe("fetchDiagnosesPage", () => {
 });
 
 describe("assessment-based PES drafts", () => {
+  test("hides technical server failures while retaining actionable blockers", async () => {
+    vi.mocked(apiFetch).mockResolvedValueOnce(new Response(JSON.stringify({ message: "HTTP 401: check API key" }), { status: 502 }));
+    await expect(aiSuggestDiagnoses(77)).rejects.toThrow("AI suggestions are unavailable. Try again shortly or add a diagnosis manually.");
+    vi.mocked(apiFetch).mockResolvedValueOnce(new Response(JSON.stringify({ message: "Delete the saved no-diagnosis entry first." }), { status: 422 }));
+    await expect(aiSuggestDiagnoses(77)).rejects.toThrow("Delete the saved no-diagnosis entry first.");
+  });
   test("requests server-built evidence without sending patient clinical data", async () => {
     vi.mocked(apiFetch).mockResolvedValue(new Response(JSON.stringify({
       data: [{

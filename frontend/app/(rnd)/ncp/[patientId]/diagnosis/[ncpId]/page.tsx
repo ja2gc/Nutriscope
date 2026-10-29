@@ -465,7 +465,7 @@ export default function NcpDiagnosisPage({
         setAiSuggestions(ai.value.data); setAiMeta(ai.value.meta); setAiUnavailable(null);
         if (ai.value.meta.can_generate || ai.value.meta.can_retry) setAiWarning(null);
       } else {
-        setAiMeta(null); setAiUnavailable("Could not load AI draft status. Refresh to try again.");
+        setAiMeta(null); setAiUnavailable("Could not load AI suggestions. Try again.");
       }
       if (p.status === "fulfilled") setPatient(p.value);
       if (d.status === "fulfilled") {
@@ -520,7 +520,7 @@ export default function NcpDiagnosisPage({
 
   useEffect(() => {
     if (isPlaceholder) return;
-    const refresh = () => { void refreshAiStatus().catch(() => setAiUnavailable("Could not refresh AI draft status.")); };
+    const refresh = () => { void refreshAiStatus().catch(() => setAiUnavailable("Could not load AI suggestions. Try again.")); };
     const reset = aiMeta?.budget?.used ? aiMeta.budget.resets_at : null;
     const delay = reset ? Math.max(1000, new Date(reset).getTime() - Date.now() + 1000) : null;
     const timer = delay !== null ? setTimeout(refresh, Math.min(delay, 2147483647)) : undefined;
@@ -610,8 +610,8 @@ export default function NcpDiagnosisPage({
       setError(null);
       setAiUnavailable(null);
       setAiWarning(null);
-      const retry = Boolean(aiMeta?.can_retry && aiSuggestions.length === 0
-        && (aiMeta.review_outcome === 'rejected' || aiMeta.review_outcome === 'partial'));
+      const retry = Boolean(aiMeta?.can_retry && !aiMeta.can_generate && aiSuggestions.length === 0
+        && (aiMeta.has_retryable_rejections || aiMeta.review_outcome === 'rejected' || aiMeta.review_outcome === 'partial'));
       const result = await aiSuggestDiagnoses(ncpId, retry);
       setAiSuggestions(result.data);
       setAiDraftsPage(1);
@@ -1189,8 +1189,9 @@ export default function NcpDiagnosisPage({
   const aiSuggestionOutcome = !hasNoDiagnosis && hasAssessment && aiMeta && !aiUnavailable && aiMeta.budget.remaining > 0
     && !aiMeta.can_generate && (!aiMeta.can_retry || aiSuggestions.length === 0)
     ? aiMeta.can_retry
-      ? "No additional supported nutrition diagnosis could be generated from the current assessment."
-      : "No additional applicable nutrition diagnosis was found in the current assessment."
+      && (aiMeta.has_retryable_rejections || aiMeta.review_outcome === 'rejected' || aiMeta.review_outcome === 'partial')
+      ? "Could not generate AI suggestions. Try again or add a diagnosis manually."
+      : "No additional nutrition diagnosis found."
     : null;
   const aiSuggestionReason = aiSuggestionOutcome || (aiMeta?.can_retry && aiSuggestions.length > 0)
     ? null : aiMeta?.disabled_reason;
@@ -1217,7 +1218,7 @@ export default function NcpDiagnosisPage({
             {aiLoading ? "Generating suggestions..." : "Generate AI Suggestions"}
           </button>
           {(aiSuggestionReason || aiUnavailable) && <InfoHint label="AI suggestion status" title="AI suggestion status">{aiSuggestionReason ?? aiUnavailable}</InfoHint>}
-          {aiUnavailable && <button type="button" onClick={() => { void refreshAiStatus().catch(() => setAiUnavailable("Could not load AI draft status. Try again shortly.")); }} className="min-h-11 text-xs font-semibold text-emerald-700 underline">Refresh status</button>}
+          {aiUnavailable && <button type="button" onClick={() => { void refreshAiStatus().catch(() => setAiUnavailable("Could not load AI suggestions. Try again.")); }} className="min-h-11 text-xs font-semibold text-emerald-700 underline">Try again</button>}
         </div>
         <p id="ai-generation-state" role="status" className="mt-2 text-xs text-warm-600">
           {aiMeta?.budget && <span>{aiMeta.budget.used}/{aiMeta.budget.limit} diagnosis requests used in this 10-minute window. </span>}
@@ -1231,9 +1232,6 @@ export default function NcpDiagnosisPage({
       {aiSuggestionOutcome && (
         <div role={aiWarning ? 'alert' : undefined} className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <p>{aiSuggestionOutcome}</p>
-          <p className="mt-1 text-xs">{aiMeta?.can_retry
-            ? "Review the Assessment findings before trying again."
-            : "Update the Assessment when new findings are available."}</p>
         </div>
       )}
 

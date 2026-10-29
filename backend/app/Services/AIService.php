@@ -46,6 +46,7 @@ class AIService
 
 # STRUCTURE & DOMAINS
 - Independently review NI/NC/NB candidates; return 0..5 prioritized distinct supported problems. Omit any lacking E/S and continue. Exclude existing/equivalents. Other may share id. Never return No nutrition diagnosis at this time; abstention=[].
+- retry_problems: recheck these first; require cited E/S or abstain.
 - candidates=cN:[domain,problem,anchor_refs]; evidence=eN:[field,value]. Anchors=findings to check, not diagnoses/causes. id=cN; p=supplied term or supported choices.p term, <=255 chars. Preserve Problem terminology; replace specify with recorded detail. Predicted problems need documented anticipated risk.
 - choices[domain].e/s=builder options. Use only if fully supported; otherwise write specific Other. Accuracy over approximate presets. Preserve comparisons: 75% is not <75%.
 - E=root cause in beliefs/attitudes, culture, knowledge, physical function, physiology/metabolism, psychology, social/personal, treatment, access or behavior. S=recorded diet/history, measurements, labs/tests or physical findings. Category labels/codes stay outside PES. Habits are context, not automatic causes.
@@ -274,7 +275,7 @@ PROMPT,
 
             if ($dailyUsed >= $limits->daily_token_limit) {
                 throw new TokenLimitExceededException(
-                    "Daily AI token limit of {$limits->daily_token_limit} has been reached (used: {$dailyUsed}). Try again tomorrow."
+                    'Daily AI usage limit reached. Try again tomorrow.'
                 );
             }
         }
@@ -286,7 +287,7 @@ PROMPT,
 
             if ($monthlyUsed >= $limits->monthly_token_limit) {
                 throw new TokenLimitExceededException(
-                    "Monthly AI token limit of {$limits->monthly_token_limit} has been reached (used: {$monthlyUsed}). Try again next month."
+                    'Monthly AI usage limit reached. Try again next month.'
                 );
             }
         }

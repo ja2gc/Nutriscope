@@ -200,6 +200,69 @@ class ClinicalAiReviewTest extends TestCase
         return $record;
     }
 
+    public function test_failed_problem_survives_a_later_omission_and_retry_focuses_on_it(): void
+    {
+        $record = $this->record();
+        $record->assessment()->update(['dietary_intake' => 'Protein intake below needs.', 'appetite_changes' => 'decreased']);
+        $protein = [...$this->draft(), 'candidate_id' => 'inadequate_protein_v2', 'domain' => 'NI',
+            'problem_key' => 'Inadequate Protein Intake', 'etiology' => 'Decreased appetite', 'signs' => 'Protein intake below needs',
+            'evidence_used' => ['appetite', 'dietary_intake'], 'etiology_evidence' => ['appetite'], 'signs_evidence' => ['dietary_intake']];
+        $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses";
+        $this->provider([[...$protein, 'signs' => 'Protein intake below needs at 15 grams'], $this->draft()]);
+        $draft = $this->postJson($url.'/ai-suggest')->assertOk()->assertJsonPath('meta.has_retryable_rejections', true)->json('data.0.draft_id');
+        $this->postJson($url.'/ai-approve', ['draft_id' => $draft])->assertCreated();
+        $this->provider([]);
+        $this->postJson($url.'/ai-suggest', ['retry_rejected' => true])->assertOk()
+            ->assertJsonPath('meta.review_outcome', 'no_supported')->assertJsonPath('meta.has_retryable_rejections', true);
+        $this->getJson($url.'/ai-suggest')->assertOk()->assertJsonCount(0, 'data')
+            ->assertJsonPath('meta.has_retryable_rejections', true);
+        $this->provider([$protein]);
+        $this->postJson($url.'/ai-suggest', ['retry_rejected' => true])->assertOk()
+            ->assertJsonPath('data.0.label', 'Inadequate protein intake')->assertJsonPath('meta.has_retryable_rejections', false);
+        Http::assertSent(function ($request): bool {
+            $payload = json_decode(substr($request['messages'][0]['content'], strlen("input_json:\n")), true);
+            $this->assertContains('Inadequate Protein Intake', $payload['retry_problems']);
+
+            return true;
+        });
+        Http::assertSentCount(1);
+        $this->postJson($url.'/ai-suggest')->assertOk()->assertJsonCount(1, 'data');
+        Http::assertSentCount(1);
+    }
+
+    public function test_provider_failure_does_not_expose_operator_instructions(): void
+    {
+        $record = $this->record();
+        Http::swap(new Factory);
+        Http::fake(['api.anthropic.com/*' => Http::response([], 401)]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertStatus(502)
+            ->assertJsonPath('message', 'AI suggestions are unavailable. Try again shortly or add a diagnosis manually.');
+    }
+
+    public function test_distinct_other_problem_failure_survives_saving_its_sibling_and_reopens_on_source_change(): void
+    {
+        $record = $this->record();
+        $first = [...$this->draft(), 'candidate_id' => 'behavioral_other_v2', 'problem_key' => 'Nutrition education access difficulty'];
+        $second = [...$first, 'problem_key' => 'Food knowledge gap', 'signs' => 'Cannot identify 15 carbohydrate foods'];
+        $this->provider([$first, $second]);
+        $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses";
+        $draft = $this->postJson($url.'/ai-suggest')->assertOk()->assertJsonPath('meta.has_retryable_rejections', true)->json('data.0.draft_id');
+        $this->postJson($url.'/ai-approve', ['draft_id' => $draft])->assertCreated();
+        $this->getJson($url.'/ai-suggest')->assertOk()->assertJsonCount(0, 'data')->assertJsonPath('meta.has_retryable_rejections', true);
+        $this->provider([]);
+        $this->postJson($url.'/ai-suggest', ['retry_rejected' => true])->assertOk()->assertJsonPath('meta.has_retryable_rejections', true);
+        Http::assertSent(function ($request): bool {
+            $payload = json_decode(substr($request['messages'][0]['content'], strlen("input_json:\n")), true);
+            $this->assertSame(['Food knowledge gap'], $payload['retry_problems']);
+            $this->assertCount(1, $payload['candidates']);
+
+            return true;
+        });
+        $record->assessment()->update(['knowledge_notes' => 'Understands carbohydrate foods; no knowledge gap.']);
+        $this->getJson($url.'/ai-suggest')->assertOk()->assertJsonPath('meta.has_retryable_rejections', false)
+            ->assertJsonPath('meta.can_generate', true);
+    }
+
     private function draft(): array
     {
         return ['candidate_id' => 'knowledge_deficit_v2', 'domain' => 'NB',

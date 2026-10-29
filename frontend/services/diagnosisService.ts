@@ -77,6 +77,7 @@ export interface PesDraftMeta {
   budget: { limit: number; used: number; remaining: number; resets_at: string };
   can_generate: boolean;
   can_retry?: boolean;
+  has_retryable_rejections?: boolean;
   review_outcome?: "complete" | "partial" | "no_supported" | "rejected" | null;
   disabled_reason: string | null;
 }
@@ -164,7 +165,7 @@ export async function aiSuggestDiagnoses(ncpRecordId: number | string, retryReje
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || "AI suggestion failed.");
+    throw new Error(res.status >= 500 ? "AI suggestions are unavailable. Try again shortly or add a diagnosis manually." : err.message || "Could not generate AI suggestions. Try again.");
   }
   const data = await res.json();
   return data;
@@ -173,7 +174,7 @@ export async function aiSuggestDiagnoses(ncpRecordId: number | string, retryReje
 export async function fetchPesDraftStatus(ncpRecordId: number | string): Promise<PesDraftResult> {
   const res = await apiFetch(`/api/rnd/ncp-records/${ncpRecordId}/diagnoses/ai-suggest`, { headers: { Accept: "application/json" }, cache: "no-store" });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.message || "Could not load AI draft status.");
+  if (!res.ok) throw new Error("Could not load AI suggestions. Try again.");
   return data;
 }
 
@@ -188,7 +189,7 @@ export async function dismissPesSuggestion(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || "Failed to dismiss PES draft.");
+    throw new Error(res.status >= 500 ? "Could not dismiss this draft. Try again." : err.message || "Could not dismiss this draft. Try again.");
   }
   return res.json();
 }
@@ -201,7 +202,7 @@ export async function aiApproveDiagnosis(ncpRecordId: number | string, payload: 
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || "Failed to approve AI diagnosis.");
+    throw new Error(res.status >= 500 ? "Could not save this diagnosis. Try again." : err.message || "Could not save this diagnosis. Try again.");
   }
   const data = await res.json();
   return data.data ?? data;

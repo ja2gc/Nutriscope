@@ -210,7 +210,8 @@ it("retries rejected output with the single Generate action without generating o
   vi.mocked(diagnoses.aiSuggestDiagnoses).mockResolvedValue(response);
   await open(); click("AI Review");
   expect(diagnoses.aiSuggestDiagnoses).not.toHaveBeenCalled();
-  expect(screen.getAllByText("No additional supported nutrition diagnosis could be generated from the current assessment.")).toHaveLength(1);
+  expect(screen.getAllByText("Could not generate AI suggestions. Try again or add a diagnosis manually.")).toHaveLength(1);
+  expect(screen.queryByText(/Review the Assessment findings before trying again/)).toBeNull();
   expect(screen.queryByText(/did not pass evidence checks/)).toBeNull();
   expect(screen.queryByText(/No additional applicable nutrition diagnosis was found/)).toBeNull();
   expect(screen.queryByRole("button", { name: "AI suggestion status" })).toBeNull();
@@ -230,7 +231,7 @@ it("keeps Generate clickable after evidence is exhausted and warns on each reque
   expect(button.disabled).toBe(false);
   expect(diagnoses.aiSuggestDiagnoses).not.toHaveBeenCalled();
   await act(async () => { fireEvent.click(button); });
-  expect(screen.getByRole('alert').textContent).toContain('No additional applicable nutrition diagnosis was found in the current assessment.');
+  expect(screen.getByRole('alert').textContent).toContain('No additional nutrition diagnosis found.');
   expect(screen.queryByText(/No supported evidence left/)).toBeNull();
   expect(button.disabled).toBe(false);
   expect(diagnoses.aiSuggestDiagnoses).toHaveBeenCalledExactlyOnceWith('fictional-cycle', false);
@@ -268,4 +269,16 @@ it("does not turn a completed review with omitted candidates into a paid retry",
   await open(); click("AI Review");
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Generate AI Suggestions" })); });
   expect(diagnoses.aiSuggestDiagnoses).toHaveBeenCalledExactlyOnceWith("fictional-cycle", false);
+});
+
+it("keeps a previously failed problem retryable after a later complete response", async () => {
+  const response = await vi.mocked(diagnoses.fetchPesDraftStatus)("fictional-cycle");
+  const result = { ...response, data: [], meta: { ...response.meta,
+    can_generate: false, can_retry: true, has_retryable_rejections: true, review_outcome: "complete" as const } };
+  vi.mocked(diagnoses.fetchPesDraftStatus).mockResolvedValue(result);
+  vi.mocked(diagnoses.aiSuggestDiagnoses).mockResolvedValue(result);
+  await open(); click("AI Review");
+  expect(screen.getByText("Could not generate AI suggestions. Try again or add a diagnosis manually.")).toBeTruthy();
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Generate AI Suggestions" })); });
+  expect(diagnoses.aiSuggestDiagnoses).toHaveBeenCalledExactlyOnceWith("fictional-cycle", true);
 });

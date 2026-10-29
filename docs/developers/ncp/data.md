@@ -1,6 +1,8 @@
 # NCP data meaning
 
-Verified against committed source: `8ae982ca94037c893bd470a800c5916ed8a1ef66` plus cited-paraphrase corrections in this working tree (2026-10-29).
+Verified against committed source: `ff2ee6a232b0ca86ac07cf8d12bee7322de1a630` plus unresolved-Problem retry metadata in this working tree (2026-10-29).
+
+`PesSuggestionService` writes `review_contexts.rejected_problems` as failed Problem labels and allowlisted cited field names, never rejected E/S text. The context hash includes those cited fields. A later omission preserves the unresolved Problem; an equivalent valid pending/saved diagnosis resolves it, and relevant evidence changes reopen ordinary review. The service exposes only the boolean `has_retryable_rejections` to the web, which uses the existing Generate action after pending drafts are handled. These are review states, not saved clinical diagnoses. See [AI review](ai.md).
 
 For diagnosis review, `PesEvidenceBuilder` derives weight direction and percentage from Assessment current/usual weight. `PesSuggestionService` can reuse that derived loss when the AI cites both measured weights and their recorded interval; the persisted evidence references retain those original cited fields. A single cited weight does not establish weight change. See [AI validation](ai.md).
 

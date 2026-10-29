@@ -51,7 +51,7 @@ class AiDiagnosisController extends Controller
         } catch (\InvalidArgumentException $error) {
             return response()->json(['message' => $error->getMessage()], 422);
         } catch (\RuntimeException $error) {
-            return response()->json(['message' => $error->getMessage()], 502);
+            return response()->json(['message' => 'AI suggestions are unavailable. Try again shortly or add a diagnosis manually.'], 502);
         }
 
         return response()->json($result);
