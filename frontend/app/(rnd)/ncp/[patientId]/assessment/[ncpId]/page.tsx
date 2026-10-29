@@ -4,6 +4,7 @@ import { NUTRITION_SUPPORT_OPTIONS } from "@/lib/nutritionSupport";
 
 import React, { use, useCallback, useEffect, useState, useRef } from "react";
 import Link from "next/link";
+import { Button } from "@/components/ui/Button";
 import layout from './assessmentLayout.module.css';
 import { useEditorChanges } from '@/hooks/useUnsavedChanges';
 import { FoodRecallCalculator, type FoodRecallHandle } from '@/components/ncp/FoodRecallCalculator';
@@ -707,15 +708,25 @@ export default function NcpAssessmentPage({
   };
 
   // ─── Load Data ──────────────────────────────────────────────────────
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const loadRequest = useRef(0);
   const loadData = useCallback(async () => {
     if (isPlaceholder) { setLoading(false); return; }
+    const request = ++loadRequest.current;
     try {
       setLoading(true);
+      setLoadError(null);
       const [p, a, intervention] = await Promise.allSettled([
         fetchPatientById(patientId),
         fetchAssessment(ncpId),
         fetchIntervention(ncpId),
       ]);
+      if (request !== loadRequest.current) return;
+      const missingAssessment = a.status === "rejected" && a.reason?.status === 404;
+      if (p.status === "rejected" || (a.status === "rejected" && !missingAssessment) || intervention.status === "rejected") {
+        setLoadError("Could not load assessment and care context. Try again before editing.");
+        return;
+      }
       let loadedPatient: Patient | null = null;
       let loadedAssessment: Assessment | null = null;
 
@@ -728,6 +739,10 @@ export default function NcpAssessmentPage({
         acceptedRecall.current = a.value.food_recall ?? null;
         setAssessmentExists(true);
         loadedAssessment = a.value;
+      } else if (missingAssessment) {
+        setAssessment(defaultAssessment());
+        setAssessmentExists(false);
+        acceptedRecall.current = null;
       }
       if (intervention.status === "fulfilled") {
         setInterventionGoal(intervention.value?.goal_type ?? null);
@@ -740,13 +755,13 @@ export default function NcpAssessmentPage({
         setSectionBChecks(new Array(getScreeningIntakeHistory(draft.screeningType).length).fill(false));
       }
     } catch {
-      // Assessment may not exist yet for new patients, which is fine
+      if (request === loadRequest.current) setLoadError("Could not load assessment. Try again before editing.");
     } finally {
-      setLoading(false);
+      if (request === loadRequest.current) setLoading(false);
     }
   }, [patientId, ncpId, isPlaceholder, buildScreeningDraft]);
 
-  useEffect(() => { void loadData(); }, [loadData]);
+  useEffect(() => { const counter = loadRequest; void loadData(); return () => { counter.current++; }; }, [loadData]);
 
   // ─── BMI Auto-Calc ──────────────────────────────────────────────────
   const weight = Number(assessment.weight) || 0;
@@ -1021,6 +1036,10 @@ export default function NcpAssessmentPage({
         </div>
       </div>
     );
+  }
+
+  if (loadError && !loading) {
+    return <div className="p-6 space-y-3"><p role="alert" className="text-sm text-red-700">{loadError}</p><Button onClick={() => { void loadData(); }}>Try again</Button></div>;
   }
 
   if (loading) {

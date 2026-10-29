@@ -121,6 +121,38 @@ describe("Food Service procurement display", () => {
     await act(async () => { root.render(<ProcurementPage />); await Promise.resolve(); });
   }
 
+  test("shows shopping lists without waiting for supplier choices", async () => {
+    const { listAllSuppliers } = await import("@/services/supplierService");
+    vi.mocked(listAllSuppliers).mockReturnValueOnce(new Promise(() => {}));
+    await renderPage();
+    expect(container.textContent).toContain("Draft list");
+    expect(listAllSuppliers).not.toHaveBeenCalled();
+    vi.mocked(listAllSuppliers).mockReset().mockResolvedValue([]);
+  });
+
+  test("shopping-list pagination does not redownload purchase orders", async () => {
+    mockListShoppingLists.mockResolvedValue({ data: [makeList()], meta: { ...meta, total: 11, last_page: 2 } });
+    await renderPage();
+    await act(async () => { container.querySelector<HTMLButtonElement>('[aria-label="Next page"]')!.click(); });
+    expect(mockListShoppingLists).toHaveBeenLastCalledWith(2);
+    expect(mockListPurchaseOrders).toHaveBeenCalledTimes(1);
+  });
+
+  test("keeps detail editing behind supplier loading and offers retry after failure", async () => {
+    const { listAllSuppliers } = await import("@/services/supplierService");
+    let fail!: (error: Error) => void;
+    vi.mocked(listAllSuppliers).mockReturnValueOnce(new Promise((_resolve, reject) => { fail = reject; }));
+    await renderPage();
+    await act(async () => { container.querySelector<HTMLButtonElement>('[aria-label="Open list: Draft list"]')!.click(); });
+    expect(container.querySelector('[role="status"]')?.textContent).toContain("Loading supplier choices");
+    expect(container.textContent).not.toContain("Save Shopping List");
+    await act(async () => { fail(new Error("Slow network failed")); });
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain("Could not load supplier choices");
+    await act(async () => { Array.from(container.querySelectorAll('button')).find(button => button.textContent === 'Try again')!.click(); });
+    expect(container.textContent).toContain("Save Shopping List");
+    expect(listAllSuppliers).toHaveBeenCalledTimes(2);
+  });
+
   test("purchase quantity and editable total synchronize before leaving either field", async () => {
     await openList(makeList({ items: [{ id: 'item-1', fs_item_id: 1, fs_item_uuid: 'rice-public-uuid', ingredient_name: 'Rice', source: 'generated', item_type: 'ingredient', qty: '10', unit: 'kg', purchase_qty: '10', purchase_unit: 'kg', purchase_price: '5', unit_price: '5', total: '50', supplier_id: null, included_in_po: true, exclusion_note: null }] }));
     const qty = container.querySelector<HTMLInputElement>('[aria-label="Purchase quantity for Rice"]');

@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { listCatalog, createFsItem, updateFsItem, RecipeCorrectionsRequiredError, type CatalogItem } from "@/services/fsCatalogService";
 import InventoryCatalogPage from "./page";
 import { correctionKey, readCorrectionDraft, writeCorrectionDraft } from "@/lib/inventoryCorrectionDraft";
+import { listAllSuppliers } from "@/services/supplierService";
 
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
@@ -50,6 +51,16 @@ describe("Food Service inventory controls", () => {
     container.remove();
     vi.clearAllMocks();
     vi.restoreAllMocks();
+  });
+
+  test("browses inventory without downloading supplier choices until an editor opens", async () => {
+    vi.mocked(listAllSuppliers).mockReturnValueOnce(new Promise(() => {}));
+    await act(async () => { root.render(<InventoryCatalogPage />); });
+    expect(container.querySelector("tr td:first-child")?.textContent).toBe("Rice");
+    expect(listAllSuppliers).not.toHaveBeenCalled();
+    await act(async () => { container.querySelector<HTMLButtonElement>('[aria-label="Edit Rice"]')!.click(); });
+    expect(listAllSuppliers).toHaveBeenCalledTimes(1);
+    expect(container.textContent).toContain("Loading vendors");
   });
 
   test("opens existing Food Service recipes under Menu Items while templates stay in Menu Calendar", async () => {

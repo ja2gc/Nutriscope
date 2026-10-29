@@ -121,6 +121,7 @@ Route::prefix('auth')->group(function () {
 Route::middleware(['auth:sanctum', 'active'])->group(function () {
     Route::get('reports/archive-settings', [ReportArchiveSettingController::class, 'show']);
     Route::get('announcements/{announcement}/author-photo', [RndAnnouncementController::class, 'authorPhoto']);
+    Route::get('announcements/{announcement}/attachments/{attachment}/file', [RndAnnouncementController::class, 'attachmentFile']);
     Route::get('notifications', [NotificationController::class, 'index']);
     Route::get('notifications/unread-count', [NotificationController::class, 'unreadCount']);
     Route::patch('notifications/read-all', [NotificationController::class, 'readAll']);

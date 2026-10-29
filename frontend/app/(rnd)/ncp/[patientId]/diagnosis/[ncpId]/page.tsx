@@ -1,7 +1,8 @@
 "use client";
 
-import React, { use, useCallback, useEffect, useState } from "react";
+import React, { use, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { SectionLoading } from "@/components/ui/SectionLoading";
 import {
   Stethoscope, User, ChevronRight,
   Plus, Trash2, Pencil, AlertTriangle, CheckCircle2,
@@ -442,31 +443,55 @@ export default function NcpDiagnosisPage({
   const [aiMeta, setAiMeta] = useState<PesDraftMeta | null>(null);
   const [aiUnavailable, setAiUnavailable] = useState<string | null>(null);
   const [aiWarning, setAiWarning] = useState<string | null>(null);
+  const [aiStatusLoading, setAiStatusLoading] = useState(false);
+  const aiStatusRequest = useRef(0);
+  const dataRequest = useRef(0);
+
+  const refreshAiStatus = useCallback(async () => {
+    const request = ++aiStatusRequest.current;
+    setAiStatusLoading(true);
+    try {
+      const result = await fetchPesDraftStatus(ncpId);
+      if (request !== aiStatusRequest.current) return;
+      setAiSuggestions(result.data); setAiMeta(result.meta); setAiUnavailable(null);
+      if (result.meta.can_generate || result.meta.can_retry) setAiWarning(null);
+    } catch {
+      if (request === aiStatusRequest.current) {
+        setAiMeta(null); setAiUnavailable("Could not load AI suggestions. Try again.");
+      }
+    } finally {
+      if (request === aiStatusRequest.current) setAiStatusLoading(false);
+    }
+  }, [ncpId]);
   const [hasAssessment, setHasAssessment] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [assessmentContext, setAssessmentContext] = useState<Assessment | null>(null);
   const [interventionGoal, setInterventionGoal] = useState<string | null>(null);
 
   const loadData = useCallback(async (quiet = diagnosesQuery.quiet) => {
     if (isPlaceholder) { setLoading(false); return; }
+    const request = ++dataRequest.current;
+    void refreshAiStatus();
     try {
       if (!quiet) setLoading(true);
-      const [p, d, a, intervention, ai] = await Promise.allSettled([
+        setLoadFailed(false);
+      const [p, d, a, intervention] = await Promise.allSettled([
         fetchPatientById(patientId),
         fetchDiagnosesPage(ncpId, diagnosesPage),
         fetchAssessment(ncpId),
         fetchIntervention(ncpId),
-        fetchPesDraftStatus(ncpId),
       ]);
+      if (request !== dataRequest.current) return;
       if (quiet && [p, d, a, intervention].some(result => result.status === "rejected")) {
         setError("Could not refresh diagnoses. Your change was saved; reload to get the latest data.");
         return;
       }
-      if (ai.status === "fulfilled") {
-        setAiSuggestions(ai.value.data); setAiMeta(ai.value.meta); setAiUnavailable(null);
-        if (ai.value.meta.can_generate || ai.value.meta.can_retry) setAiWarning(null);
-      } else {
-        setAiMeta(null); setAiUnavailable("Could not load AI suggestions. Try again.");
-      }
+        if (p.status === "rejected" || d.status === "rejected" || intervention.status === "rejected"
+          || (a.status === "rejected" && a.reason?.status !== 404)) {
+          setLoadFailed(true);
+          setError("Could not load diagnosis and care context. Try again before editing.");
+          return;
+        }
       if (p.status === "fulfilled") setPatient(p.value);
       if (d.status === "fulfilled") {
         setDiagnoses(d.value.data);
@@ -485,11 +510,15 @@ export default function NcpDiagnosisPage({
     } catch {
       // silent
     } finally {
-      setLoading(false);
+      if (request === dataRequest.current) setLoading(false);
     }
-  }, [patientId, ncpId, isPlaceholder, diagnosesPage, diagnosesQuery.quiet]);
+  }, [patientId, ncpId, isPlaceholder, diagnosesPage, diagnosesQuery.quiet, refreshAiStatus]);
 
-  useEffect(() => { void loadData(); }, [loadData]);
+  useEffect(() => {
+    const requests = { data: dataRequest, ai: aiStatusRequest };
+    void loadData();
+    return () => { requests.data.current++; requests.ai.current++; };
+  }, [loadData]);
 
   // Auto-update PES override when builder fields change
   useEffect(() => {
@@ -512,11 +541,6 @@ export default function NcpDiagnosisPage({
     builder.problemOther, builder.problemOtherChecked, builder.pesEdited,
   ]);
 
-  const refreshAiStatus = useCallback(async () => {
-    const result = await fetchPesDraftStatus(ncpId);
-    setAiSuggestions(result.data); setAiMeta(result.meta); setAiUnavailable(null);
-    if (result.meta.can_generate || result.meta.can_retry) setAiWarning(null);
-  }, [ncpId]);
 
   useEffect(() => {
     if (isPlaceholder) return;
@@ -632,16 +656,16 @@ export default function NcpDiagnosisPage({
     }
   };
 
-  const handleAiAccept = async (s: AiSuggestion) => {
+  const handleAiAccept = async (draftId: string) => {
     try {
       setAiLoading(true);
-      await aiApproveDiagnosis(ncpId, { draft_id: s.draft_id });
+      await aiApproveDiagnosis(ncpId, { draft_id: draftId });
       if (diagnosesPage === 1) {
         await loadData(true);
       } else {
         setDiagnosesPage(1, true);
       }
-      setAiSuggestions(prev => prev.filter(draft => draft.draft_id !== s.draft_id));
+      setAiSuggestions(prev => prev.filter(draft => draft.draft_id !== draftId));
       setAiDraftsPage(1);
       setSuccess("PES draft accepted and saved.");
       setTimeout(() => setSuccess(null), 3000);
@@ -696,6 +720,10 @@ export default function NcpDiagnosisPage({
         </div>
       </div>
     );
+  }
+
+  if (loadFailed && !loading) {
+    return <div className="p-6 space-y-3"><p role="alert" className="text-sm text-red-700">{error}</p><button type="button" className="min-h-11 underline" onClick={() => { void loadData(false); }}>Try again</button></div>;
   }
 
   if (loading) {
@@ -1196,8 +1224,9 @@ export default function NcpDiagnosisPage({
   const aiSuggestionReason = aiSuggestionOutcome || (aiMeta?.can_retry && aiSuggestions.length > 0)
     ? null : aiMeta?.disabled_reason;
 
-  const renderAiTab = () => (
+  const aiTab = (
     <div className="space-y-5">
+      {aiStatusLoading && <SectionLoading label="Loading AI status…" />}
       <div className="bg-white border border-warm-200 rounded-2xl p-5">
         <div className="mb-2 flex items-center gap-1 text-sm font-bold uppercase tracking-wider text-emerald-600">
           <span>AI Suggestions</span>
@@ -1209,7 +1238,7 @@ export default function NcpDiagnosisPage({
           <button
             type="button"
             onClick={() => { void handleAiSuggest(); }}
-            disabled={aiLoading || hasNoDiagnosis || !hasAssessment || !aiMeta || aiMeta.budget.remaining === 0 || Boolean(aiUnavailable)}
+            disabled={aiLoading || aiStatusLoading || hasNoDiagnosis || !hasAssessment || !aiMeta || aiMeta.budget.remaining === 0 || Boolean(aiUnavailable)}
             aria-describedby="ai-generation-state"
             title={aiSuggestionReason ?? aiUnavailable ?? undefined}
             className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-xs font-extrabold uppercase tracking-wider text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-warm-300"
@@ -1273,7 +1302,9 @@ export default function NcpDiagnosisPage({
                 <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-warm-100">
                   <button
                     type="button"
-                    onClick={() => handleAiAccept(s)}
+                    // This event handler reads request guards only after a click, never during render.
+                    // eslint-disable-next-line react-hooks/refs
+                    onClick={() => handleAiAccept(s.draft_id)}
                     disabled={aiLoading || saving}
                     className="inline-flex min-h-11 items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                   >
@@ -1312,7 +1343,7 @@ export default function NcpDiagnosisPage({
     etiology: renderEtiologyTab(),
     signs: renderSignsTab(),
     pes: renderPesTab(),
-    ai: renderAiTab(),
+    ai: aiTab,
   };
 
   // ─── Render ───────────────────────────────────────────────────────────────

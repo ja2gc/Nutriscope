@@ -37,6 +37,34 @@ async function open() {
   await act(async () => { root.render(<Suspense fallback={<div>Loading</div>}><Page params={params} /></Suspense>); });
 }
 
+it("blocks editing when required clinical context fails and offers retry", async () => {
+  vi.mocked(fetchAssessment).mockRejectedValueOnce(new Error("Connection failed"));
+  await open();
+  expect(screen.getByRole("alert").textContent).toContain("Could not load diagnosis");
+  expect(screen.queryByRole("button", { name: "Add New Diagnosis" })).toBeNull();
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "Try again" })));
+  expect(screen.getByRole("button", { name: "Add New Diagnosis" })).toBeTruthy();
+});
+
+it("allows manual diagnosis while AI status is still downloading", async () => {
+  vi.mocked(diagnoses.fetchPesDraftStatus).mockReturnValue(new Promise(() => {}));
+  await open();
+  expect(screen.getByRole("button", { name: "Add New Diagnosis" })).toBeTruthy();
+  click("AI Review");
+  expect(screen.getByText("Loading AI status…").getAttribute("role")).toBe("status");
+  click("Diagnosis Table");
+  click("Add New Diagnosis");
+  expect(screen.getByRole("button", { name: "Protein-energy" })).toBeTruthy();
+});
+
+it("keeps manual diagnosis available when AI status fails", async () => {
+  vi.mocked(diagnoses.fetchPesDraftStatus).mockRejectedValue(new Error("Network unavailable"));
+  await open();
+  expect(screen.getByRole("button", { name: "Add New Diagnosis" })).toBeTruthy();
+  click("AI Review");
+  expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
+});
+
 it("offers protein-energy intake only in the standardized inadequate direction", async () => {
   await open(); click("Add New Diagnosis"); click("Protein-energy");
   expect((screen.getByRole("button", { name: "Excessive" }) as HTMLButtonElement).disabled).toBe(true);

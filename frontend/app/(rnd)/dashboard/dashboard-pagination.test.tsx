@@ -96,6 +96,21 @@ describe("RND dashboard pagination", () => {
     expect(container.textContent).toContain("Announcement 4");
   });
 
+  test("loads original image data only when opening a compact announcement editor", async () => {
+    let finish!: (value: Awaited<ReturnType<typeof fetchAnnouncements>>) => void;
+    const post = { ...announcement(1), can_edit: true, author: { ...announcement(1).author, id: 1 }, attachments: ['/api/announcements/one/attachments/object/file'] };
+    vi.mocked(fetchAnnouncements).mockImplementation((_page, _size, _id, compact) => compact === false
+      ? new Promise(resolve => { finish = resolve; })
+      : Promise.resolve({data:[post],meta:{current_page:1,last_page:1,per_page:3,total:1}}));
+    await act(async () => root.render(<RndDashboardPage />));
+    const edit = container.querySelector<HTMLButtonElement>('button[title="Edit your post"]');
+    expect(edit).not.toBeNull();
+    await act(async () => edit!.click());
+    expect(container.querySelector('[role="status"]')?.textContent).toContain('Loading announcement for editing');
+    await act(async () => finish({data:[{...post,attachments:['data:image/png;base64,AA==']}],meta:{current_page:1,last_page:1,per_page:1,total:1}}));
+    expect(container.textContent).toContain('Save Changes');
+  });
+
   test("filters the appointment queue and returns pagination to page one", async () => {
     vi.mocked(fetchUpcomingAppointments).mockResolvedValue({
       data: [],

@@ -1,9 +1,14 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { saveAssessment } from "./assessmentService";
+import { fetchAssessment, saveAssessment } from "./assessmentService";
 
 describe("saveAssessment", () => {
   afterEach(() => vi.unstubAllGlobals());
+
+  test("preserves the HTTP status so missing records differ from connection failures", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 404 })));
+    await expect(fetchAssessment("fictional")).rejects.toMatchObject({ status: 404 });
+  });
 
   test("sends calculated IBW percentage at the API's two-decimal precision", async () => {
     const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(async () => new Response(JSON.stringify({ data: {} }), {

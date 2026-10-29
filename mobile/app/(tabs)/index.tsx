@@ -21,7 +21,7 @@ async function fetchDashboard(): Promise<DashboardData> {
 }
 
 async function fetchLatestAnnouncements(): Promise<Announcement[]> {
-  const response = await api.get<{ data: Announcement[] }>('/api/fss/announcements', { params: { per_page: 3, sort: 'latest' } });
+  const response = await api.get<{ data: Announcement[] }>('/api/fss/announcements', { params: { per_page: 3, sort: 'latest', attachment_format: 'urls' } });
   return response.data.data;
 }
 
@@ -34,12 +34,13 @@ export default function DashboardScreen() {
   const onRefresh = useCallback(() => { void dashboard.refetch(); void announcement.refetch(); void periods.refetch(); }, [dashboard, announcement, periods]);
 
   if (dashboard.isLoading) return <View className="flex-1 items-center justify-center bg-[#F4F7F5]"><ActivityIndicator color="#087F5B" /><Text className="mt-2 text-sm text-[#6B7F77]">Loading dashboard…</Text></View>;
-  if (dashboard.isError || !dashboard.data) return <View className="flex-1 items-center justify-center bg-[#F4F7F5] px-6"><Text className="text-center text-sm text-red-700">Could not load dashboard.</Text><TouchableOpacity onPress={() => dashboard.refetch()} className="mt-4 min-h-12 justify-center rounded-xl bg-[#087F5B] px-6"><Text className="font-bold text-white">Retry</Text></TouchableOpacity></View>;
+  if (!dashboard.data) return <View className="flex-1 items-center justify-center bg-[#F4F7F5] px-6"><Text className="text-center text-sm text-red-700">Could not load dashboard.</Text><TouchableOpacity onPress={() => dashboard.refetch()} className="mt-4 min-h-12 justify-center rounded-xl bg-[#087F5B] px-6"><Text className="font-bold text-white">Retry</Text></TouchableOpacity></View>;
 
   const data = dashboard.data;
   const latestAnnouncements = announcement.data ?? [];
   const logsDue = periods.data?.reduce((total, period) => total + period.days.filter((day) => day.date <= today && !day.logged).length, 0);
   return <ScrollView className="flex-1 bg-[#F4F7F5]" contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 20 }} refreshControl={<RefreshControl refreshing={dashboard.isFetching || announcement.isFetching || periods.isFetching} onRefresh={onRefresh} tintColor="#087F5B" />}>
+    {dashboard.isError && <TouchableOpacity onPress={() => { void dashboard.refetch(); }} className="min-h-12 justify-center"><Text className="text-sm text-red-700">Could not refresh dashboard. Showing previously loaded data. Tap to retry.</Text></TouchableOpacity>}
     <View className="flex-row gap-2">
       <TouchableOpacity onPress={() => router.push('/(tabs)/prep')} className="min-h-20 flex-1 rounded-2xl border border-[#E2EAE5] bg-white px-3 py-2" accessibilityRole="button" accessibilityLabel={`${data.meals_to_log_today} meals to record, open Meal Prep`}><Text className="text-[11px] font-semibold text-[#6B7F77]">Meals to record</Text><Text className="text-xl font-extrabold text-[#16352B]">{data.meals_to_log_today}</Text><Text className="text-[10px] font-bold text-[#087F5B]">View ›</Text></TouchableOpacity>
       <TouchableOpacity onPress={() => router.push('/(tabs)/accomplishments')} className="min-h-20 flex-1 rounded-2xl border border-[#E2EAE5] bg-white px-3 py-2" accessibilityRole="button" accessibilityLabel={`${logsDue ?? 'Unknown'} logs due, open Accomplish`}><Text className="text-[11px] font-semibold text-[#6B7F77]">Logs due</Text><Text className="text-xl font-extrabold text-[#16352B]">{logsDue ?? '—'}</Text><Text className="text-[10px] font-bold text-[#087F5B]">View ›</Text></TouchableOpacity>

@@ -17,6 +17,7 @@ use App\Services\StoredObjectStorage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
@@ -26,7 +27,7 @@ class AnnouncementController extends Controller
 
     public function index(PaginatedRequest $request): AnonymousResourceCollection
     {
-        $request->validate(['sort' => ['nullable', 'in:latest']]);
+        $request->validate(['sort' => ['nullable', 'in:latest'], 'attachment_format' => ['nullable', 'in:inline,urls']]);
         $user = $request->user();
 
         $announcements = Announcement::query()
@@ -156,7 +157,39 @@ class AnnouncementController extends Controller
         return response()->json(null, 204);
     }
 
-    public function authorPhoto(Request $request, Announcement $announcement, StoredObjectStorage $objects): StreamedResponse
+    public function attachmentFile(Request $request, Announcement $announcement, string $attachment, StoredObjectStorage $objects): Response
+    {
+        $this->assertVisible($request, $announcement);
+        $headers = ['Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff'];
+        if (preg_match('/\Alegacy-(0|[1-9]\d*)\z/', $attachment, $matches)) {
+            $decoded = json_decode($announcement->attachment ?? '', true);
+            $sources = is_array($decoded) ? array_values(array_filter($decoded, is_string(...))) : [$announcement->attachment];
+            $source = $sources[(int) $matches[1]] ?? '';
+            abort_unless(is_string($source) && preg_match('#\Adata:(image/(?:jpeg|png|webp));base64,(.*)\z#sD', $source, $image), 404);
+            $bytes = base64_decode($image[2], true);
+            abort_unless(is_string($bytes) && $bytes !== '', 404);
+
+            return response($bytes, 200, ['Content-Type' => $image[1], ...$headers]);
+        }
+        abort_unless(in_array($attachment, $this->storedAttachmentUuids($announcement->attachment), true), 404);
+        $storedObject = StoredObject::query()->where('uuid', $attachment)->where('purpose', 'announcement')->firstOrFail();
+        try {
+            $stream = $objects->readStream($storedObject);
+        } catch (Throwable $exception) {
+            report($exception);
+            abort(404, 'Attachment unavailable.');
+        }
+
+        return response()->stream(function () use ($stream): void {
+            fpassthru($stream);
+            fclose($stream);
+        }, 200, [
+            'Content-Type' => $storedObject->mime_type,
+            ...$headers,
+        ]);
+    }
+
+    private function assertVisible(Request $request, Announcement $announcement): void
     {
         $user = $request->user();
         $visible = match ($user->role) {
@@ -166,7 +199,11 @@ class AnnouncementController extends Controller
             default => false,
         };
         abort_unless($visible, 404);
+    }
 
+    public function authorPhoto(Request $request, Announcement $announcement, StoredObjectStorage $objects): StreamedResponse
+    {
+        $this->assertVisible($request, $announcement);
         $object = $announcement->user()->with('profilePhotoObject')->first()?->profilePhotoObject;
         abort_if($object === null, 404, 'Profile photo not found.');
         $stream = $objects->readStream($object);

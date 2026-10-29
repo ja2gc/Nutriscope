@@ -144,7 +144,7 @@ export async function fetchAssessment(ncpRecordId: number | string): Promise<Ass
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || "Failed to fetch assessment details.");
+    throw Object.assign(new Error(errorData.message || "Failed to fetch assessment details."), { status: res.status });
   }
 
   const responseData = await res.json();

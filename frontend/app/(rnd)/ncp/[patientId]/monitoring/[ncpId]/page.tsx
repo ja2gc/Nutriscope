@@ -115,29 +115,48 @@ export default function NcpMonitoringPage({
       })
     : [];
 
-  const quietReload = useRef(false);
+  const historyRequest = useRef(0);
+  const contextRequest = useRef(0);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const loadData = useCallback(async (quiet = false) => {
     if (isPlaceholder) { setLoading(false); return; }
     if (!quiet) setLoading(true);
     setError(null);
+    const request = ++contextRequest.current;
+    const historyGeneration = ++historyRequest.current;
+    setHistoryError(null);
+    setLoadFailed(false);
     try {
       const [patientData, monitoringData, assessmentData, diagnosisData, interventionData, planData, contextData] = await Promise.allSettled([
         fetchPatientById(patientId),
-        fetchMonitorings(ncpId, historyPage),
+        fetchMonitorings(ncpId, 1),
         fetchAssessment(ncpId),
         fetchDiagnoses(ncpId),
         fetchIntervention(ncpId),
         fetchMonitoringPlan(ncpId),
         fetchMonitoringContext(ncpId),
       ]);
+      if (request !== contextRequest.current) return;
       if (quiet && [patientData, monitoringData, assessmentData, diagnosisData, interventionData, planData, contextData].some(result => result.status === "rejected")) {
         setError("Could not refresh monitoring. Your change was saved; reload to get the latest data.");
         return;
       }
+      const requiredReadFailed = patientData.status === "rejected"
+        || monitoringData.status === "rejected" || diagnosisData.status === "rejected"
+        || interventionData.status === "rejected" || planData.status === "rejected" || contextData.status === "rejected"
+        || (assessmentData.status === "rejected" && assessmentData.reason?.status !== 404);
+      if (requiredReadFailed) {
+        setLoadFailed(true);
+        setError("Could not load monitoring and care context. Try again before logging a visit.");
+        return;
+      }
       if (patientData.status === "fulfilled") setPatient(patientData.value);
-      if (monitoringData.status === "fulfilled") {
+      if (monitoringData.status === "fulfilled" && historyGeneration === historyRequest.current) {
         setEntries(monitoringData.value.data);
         setHistoryMeta(monitoringData.value.meta);
+        setHistoryPage(1);
       }
       if (assessmentData.status === "fulfilled") {
         const a = assessmentData.value as AssessmentWithLabs;
@@ -157,28 +176,45 @@ export default function NcpMonitoringPage({
         setWorkflowBlock("Save at least one diagnosis before monitoring can begin.");
       } else if (!loadedIntervention) {
         setWorkflowBlock("Monitoring starts on follow-up or second visit after the care plan is saved.");
-      } else if (contextData.status === "rejected" || planData.status === "rejected") {
-        setWorkflowBlock(null);
-        setError("Failed to load monitoring context or patient indicators. Reload before logging a visit.");
       } else {
         setWorkflowBlock(null);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load monitoring data.");
     } finally {
-      setLoading(false);
+      if (request === contextRequest.current) setLoading(false);
+      if (historyGeneration === historyRequest.current) setHistoryLoading(false);
     }
-  }, [patientId, ncpId, isPlaceholder, historyPage]);
+  }, [patientId, ncpId, isPlaceholder]);
 
-  useEffect(() => { void loadData(quietReload.current); quietReload.current = false; }, [loadData]);
+  useEffect(() => {
+    const historyCounter = historyRequest;
+    const contextCounter = contextRequest;
+    void loadData();
+    return () => { historyCounter.current++; contextCounter.current++; };
+  }, [loadData]);
+
+  async function changeHistoryPage(page: number) {
+    const request = ++historyRequest.current;
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const result = await fetchMonitorings(ncpId, page);
+      if (request !== historyRequest.current) return;
+      setEntries(result.data); setHistoryMeta(result.meta); setHistoryPage(page);
+    } catch {
+      if (request === historyRequest.current) setHistoryError("Could not load visit history. Try the page again.");
+    } finally {
+      if (request === historyRequest.current) setHistoryLoading(false);
+    }
+  }
 
   async function handleLogVisit(payload: MonitoringPayload) {
     if (selectedEntry) await updateMonitoring(ncpId, selectedEntry.id, payload);
     else await createMonitoring(ncpId, payload);
     setSelectedEntry(null);
     setShowForm(false);
-    if (historyPage !== 1) { quietReload.current = true; setHistoryPage(1); }
-    else await loadData(true);
+    await loadData(true);
   }
 
   async function handleDeleteVisit() {
@@ -188,8 +224,7 @@ export default function NcpMonitoringPage({
     try {
       await deleteMonitoring(ncpId, deleteEntry.id);
       setDeleteEntry(null);
-      if (historyPage !== 1) { quietReload.current = true; setHistoryPage(1); }
-      else await loadData(true);
+      await loadData(true);
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : 'Failed to delete visit.');
     } finally { setDeleting(false); }
@@ -219,6 +254,10 @@ export default function NcpMonitoringPage({
         </div>
       </div>
     );
+  }
+
+  if (!loading && loadFailed) {
+    return <div className="p-6 space-y-3"><p role="alert" className="text-sm text-red-700">{error}</p><button type="button" className="min-h-11 underline" onClick={() => { void loadData(); }}>Try again</button></div>;
   }
 
   if (!loading && workflowBlock) {
@@ -333,7 +372,9 @@ export default function NcpMonitoringPage({
                     onLogNew={() => setShowForm(true)}
                     onView={setSelectedEntry}
                   />
-                  <Pagination meta={historyMeta} page={historyPage} onPageChange={setHistoryPage} />
+                  {historyLoading && <p role="status" className="text-sm text-warm-500">Loading visit history…</p>}
+                  {historyError && <p role="alert" className="text-sm text-red-700">{historyError}</p>}
+                  <Pagination meta={historyMeta} page={historyPage} onPageChange={changeHistoryPage} />
                   {deleteEntry && <DeleteActionDialog title="Delete monitoring visit" message="Delete this saved monitoring entry?" busy={deleting} error={deleteError} onClose={() => setDeleteEntry(null)} onConfirm={handleDeleteVisit} />}
                 </>}
 

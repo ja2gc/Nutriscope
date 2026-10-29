@@ -65,13 +65,21 @@ export function AnnouncementMedia({
   const { width } = useWindowDimensions();
   const src = attachments?.find(Boolean) ?? null;
   const height = Math.min(360, Math.max(180, Math.round((width - 64) * 9 / 16)));
+  const [token, setToken] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (src && !src.startsWith('data:')) void getToken().then(value => { if (!cancelled) setToken(value); });
+    return () => { cancelled = true; };
+  }, [src]);
+  const source = src && (src.startsWith('data:') || token)
+    ? authenticatedImageSource(api.defaults.baseURL ?? '', src, token) : undefined;
 
   if (!src) return null;
 
   return (
     <View className="relative mt-3 w-full overflow-hidden rounded-xl bg-black" style={{ height }}>
       <Image
-        source={{ uri: src }}
+        source={source}
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
         blurRadius={24}
@@ -81,7 +89,7 @@ export function AnnouncementMedia({
       />
       <View className="absolute inset-0 bg-black/20" />
       <Image
-        source={{ uri: src }}
+        source={source}
         accessibilityLabel={title}
         resizeMode="contain"
         className="h-full w-full"

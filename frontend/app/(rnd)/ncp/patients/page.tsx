@@ -97,27 +97,30 @@ export default function NcpPatientsPage() {
   const [newDob, setNewDob] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
 
-  const loadPatients = useCallback(async () => {
+  const loadPatients = useCallback(async (signal: AbortSignal) => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await fetchPatients(search, status, page);
+      const response = await fetchPatients(search, status, page, 10, false, signal);
+      if (signal.aborted) return;
       setPatients(response.data);
       setMeta(response.meta ?? null);
     } catch (err: unknown) {
+      if (signal.aborted) return;
       setError(err instanceof Error ? err.message : "Failed to load patients.");
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
   }, [search, status, page]);
 
   useEffect(() => {
+    const controller = new AbortController();
     const timer = window.setTimeout(() => {
-      void loadPatients();
+      void loadPatients(controller.signal);
     }, 250);
 
-    return () => window.clearTimeout(timer);
+    return () => { window.clearTimeout(timer); controller.abort(); };
   }, [loadPatients]);
 
   const handleCreateAndAssess = async (event: React.FormEvent<HTMLFormElement>) => {

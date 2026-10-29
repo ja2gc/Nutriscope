@@ -16,6 +16,7 @@ export function absoluteApiUrl(baseUrl: string, path: string): string {
 }
 
 export function authenticatedImageSource(baseUrl: string, path: string, token: string | null) {
+  if (path.startsWith('data:')) return { uri: path };
   return {
     uri: absoluteApiUrl(baseUrl, path),
     ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
@@ -24,6 +25,10 @@ export function authenticatedImageSource(baseUrl: string, path: string, token: s
 
 export function reportDownloadPath(reportId: string): string {
   return `/api/fss/reports/${encodeURIComponent(reportId)}/download`;
+}
+
+export function purchaseOrderDetailPath(orderId: string): string {
+  return `/api/fss/purchase-orders/${encodeURIComponent(orderId)}`;
 }
 
 export function isValidServedPopulation(value: number): boolean {

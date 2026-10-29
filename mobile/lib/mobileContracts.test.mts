@@ -3,6 +3,11 @@ import test from 'node:test';
 
 const contracts = await import('./mobileContracts.ts').catch(() => ({}));
 
+test('purchase order deep links address the public record directly', () => {
+  assert.equal(contracts.purchaseOrderDetailPath('order-public-uuid'), '/api/fss/purchase-orders/order-public-uuid');
+  assert.equal(contracts.purchaseOrderDetailPath('bad/id'), '/api/fss/purchase-orders/bad%2Fid');
+});
+
 test('private API images use the server URL with bearer authentication', () => {
   assert.equal(typeof contracts.authenticatedImageSource, 'function');
   assert.deepEqual(
@@ -16,6 +21,10 @@ test('private API images use the server URL with bearer authentication', () => {
       headers: { Authorization: 'Bearer secret-token' },
     },
   );
+});
+
+test('legacy inline announcement images keep their data URL without an auth header', () => {
+  assert.deepEqual(contracts.authenticatedImageSource('https://nutriscope.live/mobile-api', 'data:image/png;base64,AA==', 'secret-token'), {uri:'data:image/png;base64,AA=='});
 });
 
 test('selected report download keeps the selected public report id', () => {

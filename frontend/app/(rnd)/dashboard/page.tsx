@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,6 +14,7 @@ import {
   Announcement,
   AnnouncementCategory,
   AnnouncementVisibility,
+  type AnnouncementPayload,
   createAnnouncement,
   fetchAnnouncements,
   updateAnnouncement,
@@ -274,12 +275,31 @@ export default function RndDashboardPage() {
     });
   }
 
-  function openEditComposer(post: Announcement) {
+  const [editLoading, setEditLoading] = useState(false);
+  const editRequest = useRef(0);
+  const originalImages = useRef<string[]>([]);
+  useEffect(() => { const request = editRequest; return () => { request.current++; }; }, []);
+
+  async function openEditComposer(post: Announcement) {
     if (!isAnnouncementEditable(post, user?.id)) {
       return;
     }
 
     setViewingPostId(null);
+    const request = ++editRequest.current;
+    setEditLoading(true);
+    setComposerOpen(false);
+    setAnnouncementError(null);
+    try {
+      const images = post.attachments?.length ? post.attachments : (post.attachment ? [post.attachment] : []);
+      if (images.some(src => src.startsWith("/api/announcements/"))) {
+        const result = await fetchAnnouncements(1, 1, String(post.id), false);
+        const fullPost = result.data.find(item => String(item.id) === String(post.id));
+        if (!fullPost) throw new Error("Announcement is no longer available.");
+        post = fullPost;
+      }
+      if (request !== editRequest.current) return;
+      originalImages.current = post.attachments?.length ? post.attachments : (post.attachment ? [post.attachment] : []);
     setEditingPostId(post.id);
     setDraft({
       category: post.category,
@@ -290,6 +310,11 @@ export default function RndDashboardPage() {
       images: imagesFromSrcs(post.attachments?.length ? post.attachments : (post.attachment ? [post.attachment] : [])),
     });
     setComposerOpen(true);
+    } catch (cause) {
+      if (request === editRequest.current) setAnnouncementError(cause instanceof Error ? cause.message : "Could not load announcement for editing. Try again.");
+    } finally {
+      if (request === editRequest.current) setEditLoading(false);
+    }
   }
 
   function openViewer(post: Announcement) {
@@ -299,6 +324,7 @@ export default function RndDashboardPage() {
   }
 
   function closeComposer() {
+    editRequest.current++; setEditLoading(false);
     setComposerOpen(false);
     setEditingPostId(null);
   }
@@ -327,7 +353,7 @@ export default function RndDashboardPage() {
       return;
     }
 
-    const payload = {
+    const payload: AnnouncementPayload = {
       category: draft.category,
       visibility: draft.visibility,
       pinned: draft.pinned,
@@ -336,6 +362,10 @@ export default function RndDashboardPage() {
       attachment: attachments[0] ?? null,
       attachments,
     };
+    if (editingPostId && JSON.stringify(attachments) === JSON.stringify(originalImages.current)) {
+      delete payload.attachment;
+      delete payload.attachments;
+    }
 
     try {
       setAnnouncementsSaving(true);
@@ -365,6 +395,7 @@ export default function RndDashboardPage() {
   }
 
   function renderAnnouncementModal() {
+    if (editLoading) return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"><div className="rounded-2xl bg-white p-6 space-y-3"><p role="status">Loading announcement for editing…</p><Button variant="secondary" onClick={closeComposer}>Cancel</Button></div></div>;
     if (composerOpen) {
       return (
         <div

@@ -149,6 +149,7 @@ export async function fetchPatients(
   page: number = 1,
   perPage: number = 10,
   upcomingFollowups = false,
+  signal?: AbortSignal,
 ): Promise<PatientListResponse> {
   const queryParams = new URLSearchParams();
   if (search) queryParams.append("search", search);
@@ -159,6 +160,7 @@ export async function fetchPatients(
 
   const res = await apiFetch(`/api/patients?${queryParams.toString()}`, {
     method: "GET",
+    signal,
     headers: {
       Accept: "application/json",
     },

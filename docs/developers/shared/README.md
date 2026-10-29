@@ -17,6 +17,10 @@ Purpose: locate features used across roles and distinguish their shared backend 
 
 ## Meaning and safe changes
 
+Announcement delivery additionally verified at `fce342df9036dd6fd01814ef75f215968b044a79` plus this working tree (2026-10-30). `AnnouncementResource` accepts the index query `attachment_format=urls` to return protected application paths in the existing `attachment`/`attachments` fields. Omitted format or `inline` retains the older data-URL response for installed clients. `AnnouncementController::attachmentFile` checks role visibility and association with the selected announcement before serving bytes; storage keys never enter the response. Older inline records use a position within that announcement's attachment array and remain unchanged in storage. These paths are representations of current attachments, not permanent attachment identities.
+
+Web boards/dashboard request compact feeds, then request the original inline representation when an image-bearing editor opens. Text-only saves omit unchanged attachment fields; changed image collections still use the existing full replacement validation/storage contract. Native feeds request compact output and `AnnouncementMedia` sends bearer authentication for protected images. Both inline and compact representations remain supported; no offline cache, new write contract or database migration is introduced. Trace these consumers before changing attachment fields.
+
 User role/is_active and onboarding/recovery flags in User affect access and setup; don't interpret a hidden control as authorization. Check route middleware, request authorization and ownership, then both clients. A controller under RND/ can still serve shared routes.
 
 Notification read state, dismissal, source linkage and retention are distinct from the source business event. Trace NotificationLifecycleService and scheduled pruning before changing their meaning. Don't make announcements/SOP changes for only one recipient role.

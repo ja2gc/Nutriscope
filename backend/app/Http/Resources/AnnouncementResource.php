@@ -6,13 +6,14 @@ use App\Models\StoredObject;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Throwable;
 
 class AnnouncementResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
-        $attachments = $this->attachments();
+        $attachments = $this->attachments($request->query('attachment_format') === 'urls');
         $user = $request->user();
         $isOwner = $user !== null && $this->user_id === $user->id;
 
@@ -43,7 +44,7 @@ class AnnouncementResource extends JsonResource
     /**
      * @return list<string>
      */
-    private function attachments(): array
+    private function attachments(bool $compact = false): array
     {
         if (! is_string($this->attachment) || trim($this->attachment) === '') {
             return [];
@@ -53,6 +54,12 @@ class AnnouncementResource extends JsonResource
 
         if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
             if (($decoded['version'] ?? null) === 1 && is_array($decoded['stored_object_uuids'] ?? null)) {
+                if ($compact) {
+                    return array_values(array_map(
+                        fn (string $uuid): string => "/api/announcements/{$this->uuid}/attachments/{$uuid}/file",
+                        array_filter($decoded['stored_object_uuids'], fn (mixed $uuid): bool => is_string($uuid) && Str::isUuid($uuid)),
+                    ));
+                }
                 $objects = StoredObject::query()
                     ->where('purpose', 'announcement')
                     ->whereIn('uuid', $decoded['stored_object_uuids'])
@@ -76,9 +83,14 @@ class AnnouncementResource extends JsonResource
                 }, $decoded['stored_object_uuids']), 'is_string'));
             }
 
-            return array_values(array_filter($decoded, is_string(...)));
+            $sources = array_values(array_filter($decoded, is_string(...)));
+        } else {
+            $sources = [$this->attachment];
         }
 
-        return [$this->attachment];
+        return $compact ? array_map(
+            fn (int $index): string => "/api/announcements/{$this->uuid}/attachments/legacy-{$index}/file",
+            array_keys($sources),
+        ) : $sources;
     }
 }

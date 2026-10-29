@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { SectionLoading } from "@/components/ui/SectionLoading";
 import Link from "next/link";
 import { useUnsavedChanges, type EditorLeaveHandle } from "@/hooks/useUnsavedChanges";
 import { useSearchParams } from "next/navigation";
@@ -997,7 +998,26 @@ export default function ProcurementPage() {
   const [lists, setLists] = useState<ShoppingList[]>([]);
   const [pos, setPos] = useState<PurchaseOrder[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [suppliersLoading, setSuppliersLoading] = useState(true);
+  const [suppliersError, setSuppliersError] = useState("");
+  const [supplierRetry, setSupplierRetry] = useState(0);
+  const needsSuppliers = Boolean(listDetail || poDetail || draftPreview);
+
+  useEffect(() => {
+    let cancelled = false;
+    setSuppliersLoading(true);
+    setSuppliersError("");
+    if (!needsSuppliers) return;
+    void listAllSuppliers().then((result) => {
+      if (!cancelled) setSuppliers(result);
+    }).catch(() => {
+      if (!cancelled) setSuppliersError("Could not load supplier choices.");
+    }).finally(() => { if (!cancelled) setSuppliersLoading(false); });
+    return () => { cancelled = true; };
+  }, [needsSuppliers, supplierRetry]);
+  const [listsLoading, setListsLoading] = useState(true);
+  const [posLoading, setPosLoading] = useState(true);
+  const loading = tab === "pos" ? posLoading : listsLoading;
   const [genOpen, setGenOpen] = useState(false);
   const [genStartDate, setGenStartDate] = useState(manilaCalendarToday);
   const [genEndDate, setGenEndDate] = useState(manilaCalendarToday);
@@ -1018,19 +1038,39 @@ export default function ProcurementPage() {
   const [deleteTarget, setDeleteTarget] = useState<{ kind: "list"; list: ShoppingList } | { kind: "po"; po: PurchaseOrder } | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState("");
-  const [loadError, setLoadError] = useState("");
+  const [listsError, setListsError] = useState("");
+  const [posError, setPosError] = useState("");
+  const loadError = tab === "pos" ? posError : listsError;
+  const listRequest = useRef(0);
+  const poRequest = useRef(0);
 
-  const load = useCallback(async (quiet = false) => {
-    if (!quiet) setLoading(true);
-    setLoadError("");
+  const loadLists = useCallback(async (quiet = false) => {
+    const request = ++listRequest.current;
+    if (!quiet) setListsLoading(true);
+    setListsError("");
     try {
-      const [l, p, s] = await Promise.all([listShoppingLists(listPage), listPurchaseOrders(poPage), listAllSuppliers()]);
-      setLists(l.data); setListMeta(l.meta); setPos(p.data); setPoMeta(p.meta); setSuppliers(s);
+      const result = await listShoppingLists(listPage);
+      if (request !== listRequest.current) return;
+      setLists(result.data); setListMeta(result.meta);
     } catch (cause) {
-      setLoadError(cause instanceof Error ? cause.message : "Failed to refresh procurement.");
-    } finally { setLoading(false); }
-  }, [listPage, poPage]);
-  useEffect(() => { load(); }, [load]);
+      if (request === listRequest.current) setListsError(cause instanceof Error ? cause.message : "Failed to refresh shopping lists.");
+    } finally { if (request === listRequest.current) setListsLoading(false); }
+  }, [listPage]);
+  const loadPos = useCallback(async (quiet = false) => {
+    const request = ++poRequest.current;
+    if (!quiet) setPosLoading(true);
+    setPosError("");
+    try {
+      const result = await listPurchaseOrders(poPage);
+      if (request !== poRequest.current) return;
+      setPos(result.data); setPoMeta(result.meta);
+    } catch (cause) {
+      if (request === poRequest.current) setPosError(cause instanceof Error ? cause.message : "Failed to refresh purchase orders.");
+    } finally { if (request === poRequest.current) setPosLoading(false); }
+  }, [poPage]);
+  const load = useCallback(async (quiet = false) => { await Promise.all([loadLists(quiet), loadPos(quiet)]); }, [loadLists, loadPos]);
+  useEffect(() => { const requests = listRequest; void loadLists(); return () => { requests.current++; }; }, [loadLists]);
+  useEffect(() => { const requests = poRequest; void loadPos(); return () => { requests.current++; }; }, [loadPos]);
 
   useEffect(() => {
     if (!genOpen) return;
@@ -1196,6 +1236,15 @@ export default function ProcurementPage() {
   const suppliesLists = lists.filter((list) => list.procurement_track === "supplies");
   const visibleLists = tab === "supplies-lists" ? suppliesLists : foodLists;
   // POs tab shows all converted procurement events.
+
+  if (needsSuppliers && (suppliersLoading || suppliersError)) return (
+    <div className="space-y-4 font-sans">
+      <Crumbs />
+      <Button variant="secondary" onClick={() => { setListDetail(null); setDraftPreview(null); setPoDetail(null); }}>Back to procurement</Button>
+      {suppliersError ? <div role="alert" className="text-sm text-red-700">{suppliersError} <button type="button" className="min-h-11 underline" onClick={() => setSupplierRetry(value => value + 1)}>Try again</button></div>
+        : <SectionLoading label="Loading supplier choices…" />}
+    </div>
+  );
 
   if (listDetail || draftPreview) return (
     <div className="space-y-6 font-sans">

@@ -4,6 +4,10 @@ Verified against committed source: `d873ea2f3fec63a089bc70c6948f1611ae553d7b` pl
 
 Purpose: maintain the Expo food-service API consumer and distribute updates.
 
+Menu-query reuse verified against `fce342df9036dd6fd01814ef75f215968b044a79` plus this working tree (2026-10-29): `lib/menuQueries.ts` owns the shared `['fs-cycle', cycleId]` detail query used by Menu and Meal Prep. It forwards React Query's cancellation signal through `getMenuCycle` to Axios. Identical active requests share the existing in-memory QueryClient; default freshness and authentication-change cache clearing remain in place. This does not persist menus or pending writes across restarts. Its focused regression command from `mobile/` is `node ../frontend/node_modules/vitest/vitest.mjs run lib/menuQueries.test.mts`; it uses the installed frontend test runner without adding a mobile dependency.
+
+Low-bandwidth consumers additionally verified against that revision plus this working tree (2026-10-30): Procurement notification targets request the existing authorized purchase-order detail endpoint directly instead of walking list pages. The detail key stays under `['fss-purchase-orders']` so existing mutation invalidations include it. Dashboard/Menu/Meal Prep/Procurement retain available in-memory data after failed background reads and offer retry; initial required failures still block the affected task. Announcement feeds use [compact protected images](../shared/README.md#meaning-and-safe-changes) with legacy inline support. Header polling and query freshness policies are unchanged. Source version 1.2.25/code 29 prepares the next APK; export/type tests do not establish publication or device acceptance. Follow the signing/release guide before distributing it.
+
 - [app/_layout.tsx](../../../mobile/app/_layout.tsx) owns root navigation, auth subscription and React Query.
 - [app/(tabs)](<../../../mobile/app/(tabs)>) owns menu, procurement, meal preparation and accomplishment screens.
 - [lib/auth.ts](../../../mobile/lib/auth.ts) stores tokens with SecureStore; [lib/api.ts](../../../mobile/lib/api.ts) injects bearer auth and clears it on 401.

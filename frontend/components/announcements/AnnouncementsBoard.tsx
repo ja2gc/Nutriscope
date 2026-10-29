@@ -11,6 +11,7 @@ import {
   Announcement,
   AnnouncementCategory,
   AnnouncementVisibility,
+  type AnnouncementPayload,
   fetchAdminAnnouncements,
   createAdminAnnouncement,
   updateAdminAnnouncement,
@@ -93,6 +94,10 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [draft, setDraft] = useState<AnnouncementDraft>(EMPTY_DRAFT);
+  const [editLoading, setEditLoading] = useState(false);
+  const editRequest = useRef(0);
+  const originalImages = useRef<string[]>([]);
+  useEffect(() => { const request = editRequest; return () => { request.current++; }; }, []);
 
   async function loadPage(p: number, quiet = false) {
     setPage(p);
@@ -154,14 +159,29 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
   }
 
   function openCreate() {
+    editRequest.current++; setEditLoading(false);
     setEditingPostId(null);
     resetDraft();
     setSaveError(null);
     setComposerOpen(true);
   }
 
-  function openEdit(post: Announcement) {
+  async function openEdit(post: Announcement) {
+    const request = ++editRequest.current;
     setViewingPostId(null);
+    setComposerOpen(false);
+    setEditLoading(true);
+    setError(null);
+    try {
+      const images = post.attachments?.length ? post.attachments : (post.attachment ? [post.attachment] : []);
+      if (images.some(src => src.startsWith("/api/announcements/"))) {
+        const result = await apiFetch(1, 1, String(post.id), false);
+        const fullPost = result.data.find(item => String(item.id) === String(post.id));
+        if (!fullPost) throw new Error("Announcement is no longer available.");
+        post = fullPost;
+      }
+      if (request !== editRequest.current) return;
+      originalImages.current = post.attachments?.length ? post.attachments : (post.attachment ? [post.attachment] : []);
     setEditingPostId(post.id);
     setDraft({
       title: post.title,
@@ -173,6 +193,11 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
     });
     setSaveError(null);
     setComposerOpen(true);
+    } catch (cause) {
+      if (request === editRequest.current) setError(cause instanceof Error ? cause.message : "Could not load announcement for editing. Try again.");
+    } finally {
+      if (request === editRequest.current) setEditLoading(false);
+    }
   }
 
   function openViewer(post: Announcement) {
@@ -182,6 +207,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
   }
 
   function closeComposer() {
+    editRequest.current++; setEditLoading(false);
     setComposerOpen(false);
     setEditingPostId(null);
   }
@@ -209,7 +235,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
       return;
     }
 
-    const payload = {
+    const payload: AnnouncementPayload = {
       title: draft.title.trim() || "Announcement",
       body: draft.body.trim(),
       category: draft.category,
@@ -218,6 +244,10 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
       attachment: attachments[0] ?? null,
       attachments,
     };
+    if (editingPostId && JSON.stringify(attachments) === JSON.stringify(originalImages.current)) {
+      delete payload.attachment;
+      delete payload.attachments;
+    }
 
     try {
       setSaving(true);
@@ -255,6 +285,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
   // ---------- Modals ----------
 
   function renderModal() {
+    if (editLoading) return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"><div className="rounded-2xl bg-white p-6 space-y-3"><p role="status">Loading announcement for editing…</p><Button variant="secondary" onClick={closeComposer}>Cancel</Button></div></div>;
     if (composerOpen) {
       return (
         <div

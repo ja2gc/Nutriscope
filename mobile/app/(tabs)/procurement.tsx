@@ -17,6 +17,7 @@ import {
   X,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { purchaseOrderDetailPath } from '../../lib/mobileContracts';
 import {
   ActivityIndicator,
   Alert,
@@ -1022,7 +1023,7 @@ export default function ProcurementScreen() {
   const [uploadType, setUploadType] = useState<AttachmentType>('receipt');
   const [uploadOpen, setUploadOpen] = useState(false);
 
-  const { data, isLoading, isError, refetch, isFetching, fetchNextPage, hasNextPage, isFetchingNextPage, isFetchNextPageError } = useInfiniteQuery({
+  const { data, isLoading, isError, refetch, isFetching, fetchNextPage, isFetchingNextPage, isFetchNextPageError } = useInfiniteQuery({
     queryKey: ['fss-purchase-orders'],
     queryFn: ({ pageParam }) => fetchPOs(pageParam),
     initialPageParam: 1,
@@ -1035,12 +1036,17 @@ export default function ProcurementScreen() {
     staleTime: 5 * 60_000,
   });
   const suppliers = supplierQuery.data ?? [];
+  const targetQuery = useQuery({
+    queryKey: ['fss-purchase-orders', 'detail', targetPoId],
+    queryFn: async ({ signal }) => (await api.get<{ data: PurchaseOrder }>(purchaseOrderDetailPath(targetPoId!), { signal })).data.data,
+    enabled: Boolean(targetPoId),
+  });
   const ordersPager = useMobileServerPage(data, fetchNextPage);
 
   const orders = useMemo(() => flattenUniquePages(data?.pages), [data]);
   const selectedPo = useMemo(
-    () => orders.find((po) => String(po.id) === selectedPoId) ?? null,
-    [orders, selectedPoId],
+    () => (String(targetQuery.data?.id) === selectedPoId ? targetQuery.data : null) ?? orders.find((po) => String(po.id) === selectedPoId) ?? null,
+    [orders, selectedPoId, targetQuery.data],
   );
   const selectedGroup = useMemo(
     () => selectedPo?.vendor_groups?.find((group) => group.id === selectedGroupId) ?? null,
@@ -1049,16 +1055,14 @@ export default function ProcurementScreen() {
 
   useEffect(() => {
     if (!targetPoId || consumedTargetPo.current === targetPoId) return;
-    if (orders.some((po) => String(po.id) === targetPoId)) {
+    if (orders.some((po) => String(po.id) === targetPoId) || String(targetQuery.data?.id) === targetPoId) {
       consumedTargetPo.current = targetPoId;
       const foundPage = data?.pages.find((page) => page.data.some((po) => String(po.id) === targetPoId));
       if (foundPage) ordersPager.setPage(foundPage.meta.current_page);
       setSelectedPoId(targetPoId);
       setSelectedGroupId(null);
-    } else if (hasNextPage && !isFetchingNextPage) {
-      void fetchNextPage();
     }
-  }, [fetchNextPage, hasNextPage, isFetchingNextPage, orders, selectedPoId, targetPoId, data, ordersPager.setPage]);
+  }, [orders, targetPoId, data, ordersPager.setPage, targetQuery.data]);
 
   const openUpload = useCallback((group: VendorGroup, type: AttachmentType) => {
     setUploadGroup(group);
@@ -1066,7 +1070,7 @@ export default function ProcurementScreen() {
     setUploadOpen(true);
   }, []);
 
-  if (isLoading) {
+  if (isLoading && !selectedPo) {
     return (
       <View className="flex-1 items-center justify-center bg-gray-50">
         <ActivityIndicator size="large" color="#059669" />
@@ -1075,7 +1079,7 @@ export default function ProcurementScreen() {
     );
   }
 
-  if (isError) {
+  if (isError && !data && !selectedPo) {
     return (
       <View className="flex-1 items-center justify-center bg-gray-50 px-6">
         <AlertCircle color="#ef4444" size={40} />
@@ -1137,6 +1141,8 @@ export default function ProcurementScreen() {
         refreshing={isFetching && !isLoading}
         onRefresh={refetch}
         ListHeaderComponent={<View className="px-4 mb-4">
+          {targetQuery.isError && <TouchableOpacity onPress={() => { void targetQuery.refetch(); }} className="min-h-12 justify-center"><Text className="text-sm text-red-700">Could not open the requested purchase order. Tap to retry.</Text></TouchableOpacity>}
+          {isError && <TouchableOpacity onPress={() => { void refetch(); }} className="min-h-12 justify-center"><Text className="text-sm text-red-700">Could not refresh purchase orders. Tap to retry.</Text></TouchableOpacity>}
           <Text className="text-lg font-bold text-gray-900">Procurement</Text>
         </View>}
         renderItem={({ item: po }) => <View className="px-4"><PurchaseOrderRow

@@ -47,8 +47,10 @@ export async function fetchAnnouncements(
   page: number = 1,
   perPage: number = 10,
   announcementId?: string,
+  compact: boolean = true,
 ): Promise<AnnouncementPage> {
   const params = new URLSearchParams({ page: String(page), per_page: String(perPage) });
+  params.set("attachment_format", compact ? "urls" : "inline");
   if (announcementId) params.set("announcement_id", announcementId);
   const res = await apiFetch(`/api/announcements?${params}`, {
     method: "GET",
@@ -129,8 +131,10 @@ export async function fetchAdminAnnouncements(
   page: number = 1,
   perPage: number = 10,
   announcementId?: string,
+  compact: boolean = true,
 ): Promise<AnnouncementPage> {
   const params = new URLSearchParams({ page: String(page), per_page: String(perPage) });
+  params.set("attachment_format", compact ? "urls" : "inline");
   if (announcementId) params.set("announcement_id", announcementId);
   const res = await apiFetch(`/api/admin/announcements?${params}`, {
     method: "GET",

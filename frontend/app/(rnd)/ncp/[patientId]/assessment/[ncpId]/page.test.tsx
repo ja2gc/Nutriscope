@@ -23,6 +23,24 @@ beforeEach(() => {
 });
 afterEach(() => { act(() => root.unmount()); document.body.replaceChildren(); vi.resetAllMocks(); });
 
+it("requires retry after a failed assessment lookup instead of offering a new assessment", async () => {
+  vi.mocked(fetchAssessment).mockRejectedValueOnce(new Error("Connection failed"));
+  const params = Promise.resolve({ patientId: "demo", ncpId: "demo-cycle" });
+  await act(async () => root.render(<Suspense><Page params={params} /></Suspense>));
+  expect(screen.getByRole("alert").textContent).toContain("Could not load assessment");
+  expect(screen.queryByRole("tab", { name: /Dietary/ })).toBeNull();
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "Try again" })));
+  expect(screen.getByRole("tab", { name: /Dietary/ })).toBeTruthy();
+});
+
+it("allows a genuinely missing assessment to be created", async () => {
+  vi.mocked(fetchAssessment).mockRejectedValueOnce(Object.assign(new Error("Not found"), { status: 404 }));
+  const params = Promise.resolve({ patientId: "demo", ncpId: "new-cycle" });
+  await act(async () => root.render(<Suspense><Page params={params} /></Suspense>));
+  expect(screen.getByRole("tab", { name: /Dietary/ })).toBeTruthy();
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+
 it('lets the RND describe food recall using the existing saved dietary intake field', async () => {
   vi.mocked(fetchAssessment).mockResolvedValue({ dietary_intake: 'Skips breakfast on working days.', allergies: [], food_dislikes: [], medications: [] } as never);
   const params = Promise.resolve({ patientId: 'demo', ncpId: 'demo-cycle' });

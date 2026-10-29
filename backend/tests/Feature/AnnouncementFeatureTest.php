@@ -15,6 +15,70 @@ class AnnouncementFeatureTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_compact_images_preserve_legacy_output_and_stream_only_visible_associated_objects(): void
+    {
+        Storage::fake((string) config('filesystems.private_uploads'));
+        $owner = $this->user('RND', 'compact-owner@example.com');
+        $viewer = $this->user('FSS', 'compact-viewer@example.com');
+        $admin = $this->user('Admin', 'compact-admin@example.com');
+        $object = app(StoredObjectStorage::class)->storeBytes($this->pngBytes(), 'image/png', 'png', 'announcement', 'demo.png');
+        $other = app(StoredObjectStorage::class)->storeBytes($this->pngBytes(), 'image/png', 'png', 'announcement', 'other.png');
+        $announcement = Announcement::forceCreate([
+            'user_id' => $owner->id, 'title' => 'Compact', 'body' => 'Fictional content.',
+            'category' => 'General', 'visibility' => 'All',
+            'attachment' => json_encode(['version' => 1, 'stored_object_uuids' => [$object->uuid]]),
+        ]);
+        $url = "/api/announcements/{$announcement->uuid}/attachments/{$object->uuid}/file";
+        $this->getJson($url)->assertUnauthorized();
+        foreach ([[$owner, 'rnd'], [$viewer, 'fss'], [$admin, 'admin']] as [$actor, $prefix]) {
+            $this->actingAs($actor, 'sanctum')->getJson("/api/{$prefix}/announcements?attachment_format=urls")
+                ->assertOk()->assertJsonPath('data.0.attachments.0', $url);
+            $this->get($url)->assertOk()->assertHeader('content-type', 'image/png');
+        }
+        $this->get("/api/announcements/{$announcement->uuid}/attachments/{$other->uuid}/file")->assertNotFound();
+        $this->getJson('/api/admin/announcements')->assertOk()
+            ->assertJsonPath('data.0.attachments.0', 'data:image/png;base64,'.base64_encode(Storage::disk($object->storage_disk)->get($object->object_key)));
+        $this->actingAs($owner, 'sanctum')->patchJson("/api/rnd/announcements/{$announcement->uuid}", ['body' => 'Updated text.'])->assertOk();
+        $this->assertSame([$object->uuid], json_decode($announcement->fresh()->attachment, true)['stored_object_uuids']);
+        $this->get($url)->assertOk();
+        $announcement->forceFill(['visibility' => 'Admin'])->save();
+        $this->actingAs($viewer, 'sanctum')->get($url)->assertNotFound();
+        $announcement->forceFill(['visibility' => 'All'])->save();
+        Storage::disk($object->storage_disk)->delete($object->object_key);
+        $this->get($url)->assertNotFound();
+    }
+
+    public function test_compact_serialization_does_not_read_stored_image_bytes_and_validates_format(): void
+    {
+        Storage::fake((string) config('filesystems.private_uploads'));
+        $owner = $this->user('RND', 'compact-no-bytes@example.com');
+        $announcement = Announcement::forceCreate([
+            'user_id' => $owner->id, 'title' => 'Text first', 'body' => 'Fictional content.',
+            'category' => 'General', 'visibility' => 'All',
+            'attachment' => json_encode(['version' => 1, 'stored_object_uuids' => ['33333333-3333-4333-8333-333333333333']]),
+        ]);
+        $this->actingAs($owner, 'sanctum')->getJson('/api/rnd/announcements?attachment_format=urls')->assertOk()
+            ->assertJsonPath('data.0.attachments.0', "/api/announcements/{$announcement->uuid}/attachments/33333333-3333-4333-8333-333333333333/file");
+        $this->getJson('/api/rnd/announcements?attachment_format=invalid')->assertUnprocessable();
+    }
+
+    public function test_compact_legacy_inline_images_are_downloaded_separately_without_rewriting_history(): void
+    {
+        $owner = $this->user('RND', 'compact-legacy@example.com');
+        $source = 'data:image/png;base64,'.base64_encode($this->pngBytes());
+        $announcement = Announcement::forceCreate([
+            'user_id' => $owner->id, 'title' => 'Legacy', 'body' => 'Fictional content.',
+            'category' => 'General', 'visibility' => 'All', 'attachment' => json_encode([$source]),
+        ]);
+        $url = "/api/announcements/{$announcement->uuid}/attachments/legacy-0/file";
+        $this->actingAs($owner, 'sanctum')->getJson('/api/rnd/announcements?attachment_format=urls')->assertOk()
+            ->assertJsonPath('data.0.attachments.0', $url);
+        $this->get($url)->assertOk()->assertHeader('content-type', 'image/png')->assertContent($this->pngBytes());
+        $this->get("/api/announcements/{$announcement->uuid}/attachments/legacy-1/file")->assertNotFound();
+        $this->getJson('/api/rnd/announcements')->assertJsonPath('data.0.attachments.0', $source);
+        $this->assertSame(json_encode([$source]), $announcement->fresh()->attachment);
+    }
+
     public function test_fss_dashboard_can_request_the_two_latest_posts_even_when_an_older_post_is_pinned(): void
     {
         $owner = $this->user('RND', 'rnd-latest@example.com');

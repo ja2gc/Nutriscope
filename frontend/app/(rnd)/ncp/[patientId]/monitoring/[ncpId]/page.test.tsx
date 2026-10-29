@@ -57,6 +57,15 @@ async function open() {
   await act(async () => root.render(<Suspense fallback="Loading"><Page params={params} /></Suspense>));
 }
 
+it("reports a failed prerequisite read as a load error and allows retry", async () => {
+  vi.mocked(fetchAssessment).mockRejectedValueOnce(new Error("Connection failed"));
+  await open();
+  expect(screen.getByRole("alert").textContent).toContain("Could not load monitoring");
+  expect(screen.queryByText("Save the assessment before monitoring can begin.")).toBeNull();
+  await click("Try again");
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+
 it("places monitoring summaries before the visit content and shows saved micronutrient limits", async () => {
   vi.mocked(fetchIntervention).mockResolvedValue({
     id: "plan-1", energy_kcal: 1800, protein_g: 75, carbs_g: 225, fat_g: 60, fluid_ml: 2000,

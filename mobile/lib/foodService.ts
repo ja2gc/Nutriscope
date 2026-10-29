@@ -64,8 +64,8 @@ export async function listMenuCycles(page: number, active = false, date?: string
   return res.data;
 }
 
-export async function getMenuCycle(id: string): Promise<MenuCycle> {
-  const res = await api.get<{ data: MenuCycle }>(`/api/fss/menu-cycles/${id}`);
+export async function getMenuCycle(id: string, signal?: AbortSignal): Promise<MenuCycle> {
+  const res = await api.get<{ data: MenuCycle }>(`/api/fss/menu-cycles/${id}`, { signal });
   return res.data.data;
 }
 

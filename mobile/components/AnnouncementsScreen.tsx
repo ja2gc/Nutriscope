@@ -22,7 +22,7 @@ import { AnnouncementCard, CATEGORY, fmt, type Announcement } from './Announceme
 
 async function fetchAnnouncements(page: number): Promise<PaginatedResponse<Announcement>> {
   const res = await api.get<PaginatedResponse<Announcement>>('/api/fss/announcements', {
-    params: { page, per_page: 10 },
+    params: { page, per_page: 10, attachment_format: 'urls' },
   });
   return res.data;
 }

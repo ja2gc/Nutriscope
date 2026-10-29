@@ -362,27 +362,46 @@ export default function PatientProfilePage({
   const [mealPlanPreview, setMealPlanPreview] = useState<{ id: string; title: string } | null>(null);
   const [discontinueRecordId, setDiscontinueRecordId] = useState<number | string | null>(null);
   const [discontinueReason, setDiscontinueReason] = useState("lost_to_follow_up");
+  const [historyRefresh, setHistoryRefresh] = useState(0);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(true);
 
-  const loadData = useCallback(async (quiet = false) => {
+  const loadData = useCallback(async (quiet = false, isCurrent: () => boolean = () => true) => {
     try {
-      if (!quiet) setLoading(true);
+      if (!quiet) { setLoading(true); setPatient(null); setRecords([]); }
       setError(null);
-      const [patientData, currentData, pastData] = await Promise.all([
+      const [patientData, currentData] = await Promise.all([
         fetchPatientById(patientId),
         fetchPatientNcpRecords(patientId, 1, undefined, { scope: "current" }),
-        fetchPatientNcpRecords(patientId, recordsPage, undefined, { scope: "past" }),
       ]);
+      if (!isCurrent()) return;
       setPatient(patientData);
-      setRecords([...currentData.data, ...pastData.data]);
-      setRecordsMeta(pastData.meta);
+      setRecords(previous => [...currentData.data, ...previous.filter(record => !["draft", "active"].includes(record.status))]);
+      if (quiet) setHistoryRefresh(value => value + 1);
     } catch (err: unknown) {
+      if (!isCurrent()) return;
       setError(err instanceof Error ? err.message : "Failed to load patient profile.");
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
-  }, [patientId, recordsPage]);
+  }, [patientId]);
 
-  useEffect(() => { void loadData(); }, [loadData]);
+  useEffect(() => {
+    let cancelled = false;
+    void loadData(false, () => !cancelled);
+    return () => { cancelled = true; };
+  }, [loadData]);
+  useEffect(() => {
+    let cancelled = false;
+    setHistoryLoading(true); setHistoryError(null);
+    void fetchPatientNcpRecords(patientId, recordsPage, undefined, { scope: "past" }).then(result => {
+      if (cancelled) return;
+      setRecords(previous => [...previous.filter(record => ["draft", "active"].includes(record.status)), ...result.data]);
+      setRecordsMeta(result.meta);
+    }).catch(() => { if (!cancelled) setHistoryError("Could not load past care cycles. Try again."); })
+      .finally(() => { if (!cancelled) setHistoryLoading(false); });
+    return () => { cancelled = true; };
+  }, [patientId, recordsPage, historyRefresh]);
 
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
@@ -908,12 +927,12 @@ export default function PatientProfilePage({
                   </React.Fragment>
                 );
               })}
-              {pastRecords.length === 0 && (
+              {pastRecords.length === 0 && !historyLoading && !historyError && (
                 <div className="space-y-2 pt-2"><h3 className="text-sm font-extrabold uppercase tracking-wider text-warm-700">Past Records</h3><p className="rounded-xl border border-warm-200 bg-warm-50 p-4 text-sm text-warm-500">No past ADIME records yet.</p></div>
               )}
             </div>
           )}
-          {records.length === 0 && (
+          {records.length === 0 && !historyLoading && !historyError && (
             <div className="space-y-2 pt-2"><h3 className="text-sm font-extrabold uppercase tracking-wider text-warm-700">Past Records</h3><p className="rounded-xl border border-warm-200 bg-warm-50 p-4 text-sm text-warm-500">No past ADIME records yet.</p></div>
           )}
         </div>
@@ -977,7 +996,11 @@ export default function PatientProfilePage({
         <PatientAppointments patientId={patientId} currentNcpId={currentRecords[0] ? String(currentRecords[0].id) : undefined} targetAppointmentId={targetAppointmentId} />
       )}
       {activeTab === "adime-records" && (
+        <>
+        {historyLoading && <p role="status" className="text-sm text-warm-500">Loading past care cycles…</p>}
+        {historyError && <div role="alert" className="text-sm text-red-700">{historyError} <button type="button" className="min-h-11 underline" onClick={() => setHistoryRefresh(value => value + 1)}>Try again</button></div>}
         <Pagination meta={recordsMeta} page={recordsPage} onPageChange={setRecordsPage} />
+        </>
       )}
       {mealPlanPreview && (
         <ReportPreview

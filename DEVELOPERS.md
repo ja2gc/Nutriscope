@@ -31,7 +31,7 @@ Prefer browsing by area? Open the [grouped developer index](docs/developers/READ
 | Task | Exact starting point | Guide |
 |---|---|---|
 | Understand the system | backend/routes/api.php; frontend/app/; mobile/app/ | [Architecture](docs/developers/platform/architecture.md) |
-| Plan slow-connection improvements or future offline workflows | frontend/components/layout/Sidebar.tsx; frontend/components/layout/MobileBottomNav.tsx; frontend/contexts/AuthContext.tsx; mobile/app/_layout.tsx; backend/app/Http/Controllers/Auth/AuthController.php | [Connectivity: inspected behavior and proposed roadmap](docs/developers/platform/architecture.md#connectivity-current-behavior-and-future-work) |
+| Plan slow-connection improvements or future offline workflows | frontend/components/layout/Sidebar.tsx; frontend/components/layout/MobileBottomNav.tsx; frontend/contexts/AuthContext.tsx; mobile/app/_layout.tsx; backend/app/Http/Controllers/Auth/AuthController.php | [Developer recommendations](docs/developers/recommendations/README.md#connectivity-current-behavior-and-future-work) |
 | Set up a developer machine | backend/composer.json; frontend/package.json; mobile/eas.json | [Local setup](docs/developers/platform/local-setup.md) |
 | Add an endpoint or permission | backend/app/Http/; backend/app/Policies/ | [Backend](docs/developers/platform/backend.md) |
 | Change web screens, inputs, validation or uploads | frontend/components/ui/; frontend/hooks/; frontend/lib/uploadValidation.ts | [Web](docs/developers/platform/web.md) |
@@ -58,6 +58,8 @@ Prefer browsing by area? Open the [grouped developer index](docs/developers/READ
 Read [AGENTS.md](AGENTS.md) before changes. Update only affected guides in the same change, with the source revision verified. Guides describe the current implementation. Live accounts, installed schemas, DNS and backup recovery need separate authorized verification.
 
 Web mutation refresh behavior is owned by each screen's local loader and saved-response callback; follow the [web refresh convention](docs/developers/platform/web.md). Verified at `8a7846b3` plus the in-place update changes in this working tree (2026-10-27).
+
+Low-bandwidth loading stays with the existing screen/service owners: Diagnosis separates AI status; Monitoring separates history pagination; patient profiles separate past cycles; Procurement/Inventory defer supplier choices. Native Menu/Meal Prep share `mobile/lib/menuQueries.ts`; `AnnouncementResource`/`AnnouncementController` own opt-in protected image delivery. See [web](docs/developers/platform/web.md), [mobile](docs/developers/food-service/mobile.md) and [shared contracts](docs/developers/shared/README.md). Verified against `fce342df9036dd6fd01814ef75f215968b044a79` plus this working tree (2026-10-30). No offline persistence or workflow-rule change is introduced.
 
 Admin AI graph timezone selection is owned by `AiUsageAnalyticsController` and `AiUsageExplorer`; Manila remains the default, with UTC available for provider comparisons. AIService requires an authenticated user before a paid request. See [AI usage semantics](docs/developers/ncp/ai.md). Verified at `86a8a3a0` plus these working-tree changes (2026-10-27).
 

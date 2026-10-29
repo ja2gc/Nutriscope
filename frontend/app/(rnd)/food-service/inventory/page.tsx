@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Boxes, Plus, Pencil, Trash2, X } from "lucide-react";
@@ -234,6 +234,9 @@ export default function InventoryCatalogPage() {
   }, []);
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [suppliersLoading, setSuppliersLoading] = useState(true);
+  const [suppliersError, setSuppliersError] = useState<string | null>(null);
+  const [supplierRetry, setSupplierRetry] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [grocery, setGrocery] = useState<"auto" | "non_auto" | "">("");
@@ -245,19 +248,31 @@ export default function InventoryCatalogPage() {
   const [page, setPage] = useState(1);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
 
-  // Load the whole catalog once; Ingredients covers food items, Supplies covers supplies.
+  const request = useRef(0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const load = useCallback(async (quiet = false) => {
+    const generation = ++request.current;
     if (!quiet) setLoading(true);
     setLoadError(null);
     try {
-      const [c, s] = await Promise.all([listCatalog(tab, page, debouncedSearch, tab === "ingredient" ? grocery : ""), listAllSuppliers()]);
-      setItems(c.data); setMeta(c.meta); setSuppliers(s);
+      const c = await listCatalog(tab, page, debouncedSearch, tab === "ingredient" ? grocery : "");
+      if (generation !== request.current) return;
+      setItems(c.data); setMeta(c.meta);
     } catch (cause) {
+      if (generation !== request.current) return;
       setLoadError(cause instanceof Error ? cause.message : "Failed to load inventory.");
-    } finally { setLoading(false); }
+    } finally { if (generation === request.current) setLoading(false); }
   }, [page, debouncedSearch, tab, grocery]);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { const counter = request; void load(); return () => { counter.current++; }; }, [load]);
+  useEffect(() => {
+    if (!modalOpen || !isRnd) return;
+    let cancelled = false;
+    setSuppliersLoading(true); setSuppliersError(null);
+    void listAllSuppliers().then(result => { if (!cancelled) setSuppliers(result); })
+      .catch(() => { if (!cancelled) setSuppliersError("Could not load vendors."); })
+      .finally(() => { if (!cancelled) setSuppliersLoading(false); });
+    return () => { cancelled = true; };
+  }, [modalOpen, isRnd, supplierRetry]);
 
   useEffect(() => { setPage(1); }, [search, tab, grocery]);
 
@@ -373,7 +388,11 @@ export default function InventoryCatalogPage() {
         <Pagination meta={meta} page={page} onPageChange={setPage} />
       </div>
 
-      {modalOpen && isRnd && (
+      {modalOpen && isRnd && (suppliersLoading || suppliersError) && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"><div className="rounded-2xl bg-white p-6 space-y-3">
+        {suppliersLoading ? <p role="status">Loading vendors…</p> : <><p role="alert">{suppliersError}</p><Button onClick={() => setSupplierRetry(value => value + 1)}>Try again</Button></>}
+        <Button variant="secondary" onClick={closeModal}>Cancel</Button>
+      </div></div>}
+      {modalOpen && isRnd && !suppliersLoading && !suppliersError && (
         <ItemFormModal
           kind={tab}
           editing={editing}
