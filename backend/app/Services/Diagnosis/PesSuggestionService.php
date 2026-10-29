@@ -433,6 +433,7 @@ class PesSuggestionService
                     throw new \RuntimeException('The AI returned an unsupported or duplicate PES draft.');
                 }
                 $candidate = $byId[$id];
+                $retryLabel = $candidate['problem_key'] !== 'Other' ? $candidate['problem_key'] : null;
                 if (array_key_exists('id', $draft)) {
                     foreach (['e', 's'] as $role) {
                         $keys = $draft[$role.'k'] ?? null;

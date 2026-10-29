@@ -129,6 +129,15 @@ class PesCitedDraftTest extends TestCase
         $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonCount(0, 'data');
     }
 
+    public function test_known_problem_with_missing_citations_stays_retryable(): void
+    {
+        $record = $this->record(['knowledge_notes' => 'Cannot explain food labels.', 'social_history' => 'Limited nutrition education.']);
+        $this->provider('NB', ['candidate' => 'Food- and nutrition-related knowledge deficit', 'p' => 'Food- and nutrition-related knowledge deficit',
+            'e' => 'Limited nutrition education', 'ek' => ['social_history'], 's' => 'Cannot explain food labels', 'sk' => ['knowledge_notes']], 'sk');
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonCount(0, 'data')
+            ->assertJsonPath('meta.has_retryable_rejections', true);
+    }
+
     public function test_unverified_paraphrase_uses_a_concise_cited_clause_instead_of_overlong_excerpts(): void
     {
         $record = $this->record(['dietary_intake' => 'Estimated energy intake 1200 kcal/day versus estimated needs 1600 kcal/day (75%). Dyspnea reduces appetite and food intake.',
