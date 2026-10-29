@@ -1,193 +1,88 @@
 import { describe, expect, test } from "vitest";
 import { buildAssessmentSummary, type AssessmentSummaryInput } from "./assessmentSummary";
-import { assessmentTextError, ASSESSMENT_TEXT_LIMITS } from "./assessmentValidation";
-import { RISK_FACTORS, scoreRiskFactors } from "./assessmentRiskScoring";
+import { ASSESSMENT_TEXT_LIMITS } from "./assessmentValidation";
 
 function input(overrides: Partial<AssessmentSummaryInput> = {}): AssessmentSummaryInput {
-  return {
-    assessment: {},
-    anthropometrics: {},
-    labs: [],
-    risk: null,
-    ...overrides,
-  };
+  return { assessment: {}, anthropometrics: {}, risk: null, ...overrides };
 }
 
 describe("buildAssessmentSummary", () => {
-  test('never substitutes a legacy screening label for a BMI classification', () => {
-    const result = buildAssessmentSummary(input({ assessment: { nutritional_status: 'Severe Malnutrition' }, anthropometrics: { bmi: 22 } }));
-    expect(result).toContain('BMI 22');
-    expect(result).not.toContain('Severe Malnutrition');
-  });
-  test('includes recorded recall nutrients and omits selected blank nutrients', () => {
-    const result = buildAssessmentSummary(input({ assessment: { intake_nutrients: { energy_kcal: 1800, protein_g: 65, micro_sodium: 1200, micro_iron: null } } }));
-    expect(result).toContain('Energy 1800 kcal');
-    expect(result).toContain('Protein 65 g');
-    expect(result).toContain('Sodium 1200 mg');
-    expect(result).not.toContain('Iron');
-  });
-  test("a fully populated summary with maximum source notes fits the editable summary limit", () => {
-    const assessment = {
-      present_diet: "x".repeat(250), dietary_intake: "x".repeat(250),
-      dietary_restrictions: "x".repeat(100), supplements: "x".repeat(100),
-      nutrient_drug_interaction: "x".repeat(100), food_intolerance: "x".repeat(100),
-      medical_history: "x".repeat(250), appetite_changes: "nausea_vomiting",
-      energy_intake_status: "Poor intake prior to admission" as const, dietary_intake_method: "other" as const,
-      chewing_swallowing_difficulties: "Yes", constipation: "Yes", diarrhea_notes: "Yes",
-      weight: 399.99, dry_weight_kg: 399.99, edema_present: true,
-      weight_change_period_value: 104, weight_change_period_unit: "months" as const,
-      functional_assessment: "Needs assistance", pregnancy_lactation_status: "pregnant_unspecified" as const,
-      allergies: ["milk", "eggs", "fish", "shellfish", "tree nuts", "peanuts", "wheat", "soybeans"],
-      food_dislikes: Array(5).fill("x".repeat(50)), medications: ["x".repeat(100)],
-    };
-    const labs = [
-      ["Albumin", 9.99, "g/dL"], ["Hemoglobin", 24.99, "g/dL"], ["Hematocrit", 74.99, "%"],
-      ["Fasting Blood Sugar", 1999.99, "mg/dL"], ["HbA1c", 24.99, "%"], ["BUN", 299.99, "mg/dL"],
-      ["Creatinine", 29.99, "mg/dL"], ["Sodium", 199.99, "mEq/L"], ["Potassium", 14.99, "mEq/L"],
-      ["Calcium", 29.99, "mg/dL"], ["Phosphate", 19.99, "mg/dL"], ["Total Cholesterol", 4999.99, "mg/dL"],
-      ["LDL", 4999.99, "mg/dL"], ["HDL", 4999.99, "mg/dL"], ["Triglycerides", 4999.99, "mg/dL"],
-      ["URR", 0.01, "%"], ["ABG (pH)", 999.99, ""],
-    ] as const;
+  test("prioritizes referral, context and intake in three concise sentences", () => {
     const result = buildAssessmentSummary(input({
-      assessment,
-      anthropometrics: {
-        bmi: 4444.33, percentIbw: 1333, weightChangePercent: 39114.7, weightChangeDirection: "gain",
-        nutritionalStatus: "Obese Class II (Severe)", muacClassification: "Moderate Malnutrition",
-        whr: 12.49, whrRisk: "High Risk",
-      },
-      labs: labs.map(([label, value, unit]) => ({ label, value, unit, status: label === "URR" ? "low" : "high" })),
-      risk: { label: "High Risk", score: scoreRiskFactors(RISK_FACTORS.map(f => f.key)), mode: "manual", factors: RISK_FACTORS.map(f => f.label) },
+      referral: { diagnosis: "Suspected gestational diabetes", dietPrescription: "Carbohydrate-controlled diet" },
+      assessment: { pregnancy_lactation_status: "pregnant_t2", physical_activity_level: "sedentary", energy_intake_status: "Sub-optimal", chewing_swallowing_difficulties: "Yes", chewing_swallowing_details: "Coughs with thin liquids", medications: ["Medication list"], food_dislikes: ["Broccoli"] },
+      anthropometrics: { bmi: 24.2 },
+      risk: { label: "High Risk" },
     }));
-    expect(result.length).toBeGreaterThan(250);
-    expect(result.length).toBeLessThanOrEqual(ASSESSMENT_TEXT_LIMITS.rnd_summary);
-    expect(assessmentTextError({ ...assessment, rnd_summary: result })).toBeNull();
-    expect(result).toContain("+4 more");
+    expect(result).toBe("Referral diagnosis: Suspected gestational diabetes; prescribed diet: Carbohydrate-controlled diet. BMI 24.2; pregnant — second trimester; PAL: Sedentary / Bed-bound (ICU). Energy intake: Sub-optimal; chewing/swallowing difficulty: Coughs with thin liquids; nutrition screening: High Risk.");
+    expect(result).not.toMatch(/Medication list|Broccoli|Low albumin|7 points|automatic/);
   });
 
-  test("returns an empty draft when no meaningful assessment data exists", () => {
+  test("uses the supplied BMI class without substituting legacy screening status", () => {
+    expect(buildAssessmentSummary(input({ assessment: { nutritional_status: "Severe Malnutrition" }, anthropometrics: { bmi: 22, nutritionalStatus: "Normal" } }))).toBe("BMI 22 (Normal).");
+    expect(buildAssessmentSummary(input({ anthropometrics: { bmi: 22 } }))).toBe("BMI 22.");
+  });
+
+  test.each(["pregnant_t1", "pregnant_t2", "pregnant_t3", "pregnant_unspecified", "lactating"] as const)("withholds a BMI class during %s", pregnancy => {
+    const result = buildAssessmentSummary(input({ assessment: { pregnancy_lactation_status: pregnancy }, anthropometrics: { bmi: 28, nutritionalStatus: "Overweight" } }));
+    expect(result).toContain("BMI 28");
+    expect(result).not.toContain("Overweight");
+    if (pregnancy.startsWith("pregnant")) expect(result).not.toContain(pregnancy);
+  });
+
+  test("withholds BMI classification with edema and includes the fluid context", () => {
+    expect(buildAssessmentSummary(input({ assessment: { edema_present: true }, anthropometrics: { bmi: 28, nutritionalStatus: "Overweight" } }))).toBe("BMI 28; edema present.");
+  });
+
+  test("does not describe a small recorded weight change as a concern", () => {
+    expect(buildAssessmentSummary(input({ assessment: { weight: 68.6, usual_weight: 70, weight_loss_percentage: 2, weight_change_period_value: 4, weight_change_period_unit: "months" }, anthropometrics: { bmi: 22, nutritionalStatus: "Normal" } }))).toBe("BMI 22 (Normal).");
+  });
+
+  test("omits nutrient lists and does not select arbitrary abnormal labs", () => {
+    expect(buildAssessmentSummary(input({ assessment: { intake_nutrients: { energy_kcal: 1800, protein_g: 65 }, biochemical_data: { albumin: 3, sodium: 140 } } }))).toBe("");
+  });
+
+  test("does not infer default PAL or normal findings for missing values", () => {
     expect(buildAssessmentSummary(input())).toBe("");
+    expect(buildAssessmentSummary(input({ assessment: { physical_activity_level: null, pregnancy_lactation_status: "none" }, anthropometrics: { bmi: NaN, nutritionalStatus: "Normal" } }))).toBe("");
   });
 
-  test("generates only populated categories in clinical order", () => {
-    const result = buildAssessmentSummary(input({
-      assessment: {
-        weight: 70,
-        height: 170,
-        present_diet: "Soft diet",
-        energy_intake_status: "Sub-optimal",
-        appetite_changes: "decreased",
-        medical_history: "Type 2 diabetes",
-        functional_assessment: "Ambulatory",
-      },
-      anthropometrics: {
-        bmi: 24.2,
-        ibwKg: 68,
-        percentIbw: 103,
-        nutritionalStatus: "Normal",
-      },
-    }));
-
-    expect(result).toContain("Anthropometrics: 70 kg; BMI 24.2 (Normal).");
-    expect(result).toContain("Dietary / GI: Current diet: Soft diet. Energy intake is sub-optimal. Appetite is decreased.");
-    expect(result).toContain("Clinical context: Medical history: Type 2 diabetes. Functional status: Ambulatory.");
-    expect(result).not.toContain("Biochemical:");
-    expect(result.indexOf("Anthropometrics:")).toBeLessThan(result.indexOf("Dietary / GI:"));
-    expect(result.indexOf("Dietary / GI:")).toBeLessThan(result.indexOf("Clinical context:"));
+  test("does not report negative symptoms as barriers", () => {
+    expect(buildAssessmentSummary(input({ assessment: { chewing_swallowing_difficulties: "No", constipation: "No", diarrhea_notes: "No", appetite_changes: "decreased", functional_assessment: "Independent" } }))).toBe("Appetite: decreased.");
   });
 
-  test("includes abnormal labs without dumping entered normal results", () => {
-    const result = buildAssessmentSummary(input({
-      labs: [
-        { label: "Albumin", value: 3, unit: "g/dL", status: "low" },
-        { label: "Sodium", value: 140, unit: "mEq/L", status: "normal" },
-      ],
-    }));
-
-    expect(result).toBe("Biochemical: Albumin 3 g/dL (LOW).");
+  test("includes feeding assistance as a fallback", () => {
+    expect(buildAssessmentSummary(input({ assessment: { functional_assessment: "Needs assistance" } }))).toBe("Functional status: Needs assistance.");
   });
 
-  test("uses one short statement when all entered labs are normal", () => {
-    expect(buildAssessmentSummary(input({
-      labs: [{ label: "Sodium", value: 140, unit: "mEq/L", status: "normal" }],
-    }))).toBe("Biochemical: Entered results are within listed reference ranges.");
+  test("includes support and prefers restrictions over a routine diet", () => {
+    expect(buildAssessmentSummary(input({ assessment: { nutrition_support: "tube_feeding", dietary_restrictions: "Fluid restriction per referral", present_diet: "Routine diet" } }))).toBe("Nutrition support: Tube Feeding; dietary restrictions: Fluid restriction per referral.");
   });
 
-  test("skips incomplete calculations without producing dangling text", () => {
-    const result = buildAssessmentSummary(input({
-      assessment: { weight: 70, edema_present: true },
-      anthropometrics: { bmi: null, ibwKg: null, percentIbw: null },
-    }));
-
-    expect(result).toBe("Anthropometrics: 70 kg.\n\nClinical context: Edema is present.");
-    expect(result).not.toMatch(/undefined|null|NaN|IBW \(|BMI ;/);
+  test("includes allergies without dumping an unlimited list", () => {
+    expect(buildAssessmentSummary(input({ assessment: { allergies: ["Milk", "Egg", "Fish"] } }))).toBe("Allergies: Milk, Egg (+1 more).");
   });
 
-  test("formats structured weight duration and readable maternal status", () => {
-    const result = buildAssessmentSummary(input({
-      assessment: {
-        weight_change_period_value: 1,
-        weight_change_period_unit: "months",
-        pregnancy_lactation_status: "pregnant_t2",
-      },
-      anthropometrics: {
-        weightChangePercent: 4.5,
-        weightChangeDirection: "loss",
-      },
-    }));
-
-    expect(result).toContain("4.5% weight loss over 1 month");
-    expect(result).toContain("Pregnancy/lactation: Pregnant — second trimester.");
-    expect(result).not.toContain("pregnant_t2");
+  test("bounds long source clauses, preserves qualifiers and leaves source unchanged", () => {
+    const note = "Suspected diabetes.\nDiagnosis not yet confirmed. " + "Additional detail ".repeat(60);
+    const assessment = { dietary_intake: note, medical_history: "Recorded history" };
+    const result = buildAssessmentSummary(input({ referral: { diagnosis: note, dietPrescription: note }, assessment, anthropometrics: { bmi: 22, nutritionalStatus: "Normal" } }));
+    expect(result).toContain("Suspected diabetes; Diagnosis not yet confirmed");
+    expect(result).toContain("…");
+    expect(result).not.toContain("\n");
+    expect(result.length).toBeLessThan(ASSESSMENT_TEXT_LIMITS.rnd_summary);
+    expect(result.split(/(?<!\d)\.\s+/)).toHaveLength(3);
+    expect(assessment.dietary_intake).toBe(note);
   });
 
-  test("normalizes and compacts long source notes without changing the source", () => {
-    const note = "Poor intake   for three days.\nNeeds feeding assistance and close review because fatigue limits every meal and snacks are usually refused despite repeated encouragement.";
-    const result = buildAssessmentSummary(input({
-      assessment: {
-        dietary_intake: note,
-        chewing_swallowing_difficulties: "  Coughs with thin liquids  ",
-      },
-    }));
-
-    expect(result).toContain("Reported intake: Poor intake for three days. Needs feeding assistance and close review because fatigue limits every meal and snacks are usually…");
-    expect(result).toContain("Chewing/swallowing: Coughs with thin liquids.");
-    expect(result).not.toContain("  ");
+  test("uses history as fallback without calling it a referral diagnosis", () => {
+    expect(buildAssessmentSummary(input({ assessment: { medical_history: "Type 2 diabetes" } }))).toBe("Medical history: Type 2 diabetes.");
   });
 
-  test("includes current risk mode, score, and selected factors", () => {
-    const result = buildAssessmentSummary(input({
-      risk: {
-        label: "Moderate",
-        score: 3,
-        mode: "manual",
-        factors: ["Unintentional weight loss", "Low albumin"],
-      },
-    }));
-
-    expect(result).toBe("Nutrition risk: Moderate risk (3 points, manual); Unintentional weight loss, Low albumin.");
-  });
-
-  test("caps displayed risk factors and reports the remainder", () => {
-    expect(buildAssessmentSummary(input({
-      risk: {
-        label: "High Risk",
-        score: 7,
-        mode: "automatic",
-        factors: ["Weight loss", "Low albumin", "GI issue", "Abnormal lab", "Other"],
-      },
-    }))).toBe("Nutrition risk: High Risk (7 points, automatic); Weight loss, Low albumin, GI issue +2 more.");
-  });
-
-  test("does not repeat risk when the badge label already includes it", () => {
-    const result = buildAssessmentSummary(input({
-      risk: {
-        label: "High Risk",
-        score: 7,
-        mode: "automatic",
-        factors: [],
-      },
-    }));
-
-    expect(result).toBe("Nutrition risk: High Risk (7 points, automatic).");
+  test("bounds unbroken referral text within the editable summary limit", () => {
+    const note = "x".repeat(5000);
+    const result = buildAssessmentSummary(input({ referral: { diagnosis: note, dietPrescription: note }, assessment: { dietary_intake: note } }));
+    expect(result.length).toBeLessThan(ASSESSMENT_TEXT_LIMITS.rnd_summary);
+    expect(result).toContain("…");
   });
 });

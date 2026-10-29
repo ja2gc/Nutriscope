@@ -1,193 +1,102 @@
 import type { Assessment } from "@/services/assessmentService";
-import { INTAKE_FIELDS, foodRecallCoverage } from './foodRecall';
-
-export type SummaryLabStatus = "low" | "high" | "normal";
-
-export interface SummaryLab {
-  label: string;
-  value: number;
-  unit?: string;
-  status: SummaryLabStatus;
-}
+import { ACTIVITY_FACTORS } from "./nutritionCalculations";
+import { nutritionSupportLabel } from "./nutritionSupport";
+import { ASSESSMENT_TEXT_LIMITS } from "./assessmentValidation";
 
 export interface AssessmentSummaryInput {
   assessment: Partial<Assessment>;
+  referral?: { diagnosis?: string | null; dietPrescription?: string | null };
   anthropometrics: {
     bmi?: number | null;
-    ibwKg?: number | null;
-    percentIbw?: number | null;
-    weightChangePercent?: number | null;
-    weightChangeDirection?: "loss" | "gain" | "none" | null;
-    muacClassification?: string | null;
-    whr?: number | null;
-    whrRisk?: string | null;
     nutritionalStatus?: string | null;
   };
-  labs: SummaryLab[];
   risk: {
     label: string;
-    score: number;
-    mode: "automatic" | "manual";
-    factors: string[];
   } | null;
 }
 
-const INTAKE_METHODS: Record<string, string> = {
-  "24_hour_recall": "24-hour recall",
-  food_frequency: "food-frequency review",
-  "3_day_record": "3-day food record",
-  other: "another documented method",
-};
-
 const MATERNAL_STATUS_LABELS: Record<string, string> = {
-  pregnant_t1: "Pregnant — first trimester",
-  pregnant_t2: "Pregnant — second trimester",
-  pregnant_t3: "Pregnant — third trimester",
-  pregnant_unspecified: "Pregnant — trimester not confirmed",
-  lactating: "Lactating",
+  pregnant_t1: "pregnant — first trimester",
+  pregnant_t2: "pregnant — second trimester",
+  pregnant_t3: "pregnant — third trimester",
+  pregnant_unspecified: "pregnant — trimester not confirmed",
+  lactating: "lactating",
 };
 
 function cleanText(value: unknown): string {
   return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
 }
 
-function compactText(value: unknown, maxWords = 20): string {
-  const cleaned = cleanText(value);
-  if (!cleaned) return "";
+function compactText(value: unknown): string {
+  // Keep source sentences as clauses, leaving decimal measurements intact.
+  const cleaned = cleanText(value).replace(/[.!?]+(?=\s|$)/g, ";").replace(/[;,\s]+$/, "");
   const words = cleaned.split(" ");
-  return words.length > maxWords ? `${words.slice(0, maxWords).join(" ")}…` : cleaned;
+  const compact = words.slice(0, 20).join(" ").slice(0, ASSESSMENT_TEXT_LIMITS.medical_history);
+  return compact.length < cleaned.length ? `${compact}…` : compact;
 }
 
-function numberValue(value: unknown): number | null {
-  if (value === "" || value === null || value === undefined) return null;
-  const parsed = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
+function sentence(parts: string[]): string {
+  const text = parts.filter(Boolean).join("; ");
+  return text ? `${text[0].toUpperCase()}${text.slice(1)}.` : "";
 }
 
-function formatNumber(value: unknown): string | null {
-  const parsed = numberValue(value);
-  return parsed === null ? null : String(parsed);
-}
-
-function formatWeightChangePeriod(assessment: Partial<Assessment>): string {
-  const value = numberValue(assessment.weight_change_period_value);
-  const unit = assessment.weight_change_period_unit;
-  if (value === null || value <= 0 || (unit !== "weeks" && unit !== "months")) return "";
-  const singularUnit = unit === "weeks" ? "week" : "month";
-  return `${value} ${value === 1 ? singularUnit : unit}`;
-}
-
-function lowerFirst(value: string): string {
-  return value ? `${value[0].toLowerCase()}${value.slice(1)}` : value;
-}
-
-function sentence(value: string): string {
-  return /[.!?]$/.test(value) ? value : `${value}.`;
-}
-
-function category(label: string, parts: string[]): string | null {
-  const content = parts.filter(Boolean).join(" ");
-  return content ? `${label}: ${content}` : null;
+function symptom(value: unknown): boolean {
+  const text = cleanText(value);
+  return Boolean(text) && !/^(no|none|normal|unchanged|no change|good|not applicable|n\/a)$/i.test(text);
 }
 
 export function buildAssessmentSummary(input: AssessmentSummaryInput): string {
-  const { assessment, anthropometrics, labs, risk } = input;
-  const categories: Array<string | null> = [];
+  const { assessment, anthropometrics, referral, risk } = input;
+  const diagnosis = compactText(referral?.diagnosis);
+  const prescribedDiet = compactText(referral?.dietPrescription);
+  const history = compactText(assessment.medical_history);
+  const referralSentence = sentence([
+    diagnosis ? `Referral diagnosis: ${diagnosis}` : history ? `Medical history: ${history}` : "",
+    prescribedDiet ? `prescribed diet: ${prescribedDiet}` : "",
+  ]);
 
-  const anthropometricParts: string[] = [];
-  const weight = formatNumber(assessment.weight);
-  const dryWeight = formatNumber(assessment.dry_weight_kg);
-  if (weight) anthropometricParts.push(`${weight} kg`);
-  const nutritionalStatus = cleanText(anthropometrics.nutritionalStatus);
-  if (anthropometrics.bmi !== null && anthropometrics.bmi !== undefined) {
-    anthropometricParts.push(`BMI ${anthropometrics.bmi}${nutritionalStatus ? ` (${nutritionalStatus})` : ""}`);
-  }
-  if (anthropometrics.percentIbw !== null && anthropometrics.percentIbw !== undefined
-    && (anthropometrics.percentIbw < 85 || anthropometrics.percentIbw > 130)) {
-    anthropometricParts.push(`${anthropometrics.percentIbw}% IBW`);
-  }
-  if (anthropometrics.weightChangePercent !== null && anthropometrics.weightChangePercent !== undefined) {
-    const direction = anthropometrics.weightChangeDirection === "gain" ? "gain" : anthropometrics.weightChangeDirection === "loss" ? "loss" : "change";
-    const period = formatWeightChangePeriod(assessment);
-    anthropometricParts.push(`${anthropometrics.weightChangePercent}% weight ${direction}${period ? ` over ${period}` : ""}`);
-  }
-  const muac = formatNumber(assessment.muac_mm);
-  if (muac && anthropometrics.muacClassification && !/^(normal|above screening cutoff)$/i.test(anthropometrics.muacClassification)) {
-    anthropometricParts.push(`MUAC ${muac} mm (${anthropometrics.muacClassification})`);
-  }
-  if (anthropometrics.whr !== null && anthropometrics.whr !== undefined && /high/i.test(anthropometrics.whrRisk ?? "")) {
-    anthropometricParts.push(`WHR ${anthropometrics.whr}${anthropometrics.whrRisk ? ` (${anthropometrics.whrRisk})` : ""}`);
-  }
-  if (anthropometricParts.length) categories.push(`Anthropometrics: ${anthropometricParts.join("; ")}.`);
+  const maternal = MATERNAL_STATUS_LABELS[assessment.pregnancy_lactation_status ?? ""];
+  const bmi = anthropometrics.bmi;
+  const classification = !maternal && !assessment.edema_present
+    ? cleanText(anthropometrics.nutritionalStatus) : "";
+  const pal = assessment.physical_activity_level;
+  const contextSentence = sentence([
+    bmi != null && Number.isFinite(bmi) && bmi > 0
+      ? `BMI ${bmi}${classification ? ` (${classification})` : ""}` : "",
+    maternal ?? "",
+    pal && ACTIVITY_FACTORS[pal] ? `PAL: ${ACTIVITY_FACTORS[pal].label}` : "",
+    assessment.edema_present ? "edema present" : "",
+  ]);
 
-  const dietaryParts: string[] = [];
-  const presentDiet = compactText(assessment.present_diet);
-  const intakeStatus = cleanText(assessment.energy_intake_status);
-  const intakeMethod = cleanText(assessment.dietary_intake_method);
-  const dietaryIntake = compactText(assessment.dietary_intake);
-  const appetite = cleanText(assessment.appetite_changes);
+  const swallowing = symptom(assessment.chewing_swallowing_difficulties);
+  const constipation = symptom(assessment.constipation);
+  const diarrhea = symptom(assessment.diarrhea_notes);
+  const barrier = swallowing
+    ? `chewing/swallowing difficulty${compactText(assessment.chewing_swallowing_details) ? `: ${compactText(assessment.chewing_swallowing_details)}` : ""}`
+    : symptom(assessment.appetite_changes) ? `appetite: ${compactText(assessment.appetite_changes?.replace(/_/g, " "))}`
+    : diarrhea ? `diarrhea${compactText(assessment.diarrhea_details) ? `: ${compactText(assessment.diarrhea_details)}` : ""}`
+    : constipation ? `constipation${compactText(assessment.constipation_details) ? `: ${compactText(assessment.constipation_details)}` : ""}`
+    : symptom(assessment.food_intolerance) ? `food intolerance: ${compactText(assessment.food_intolerance)}`
+    : assessment.functional_assessment && assessment.functional_assessment !== "Independent"
+      ? `functional status: ${compactText(assessment.functional_assessment)}` : "";
+  const allergies = assessment.allergies?.map(cleanText).filter(Boolean) ?? [];
+  const allergyContext = allergies.length
+    ? `allergies: ${allergies.slice(0, 2).map(compactText).join(", ")}${allergies.length > 2 ? ` (+${allergies.length - 2} more)` : ""}` : "";
+  const intakeStatus = compactText(assessment.energy_intake_status);
   const restrictions = compactText(assessment.dietary_restrictions);
-  const supplements = compactText(assessment.supplements);
-  const interaction = compactText(assessment.nutrient_drug_interaction);
-  const chewing = compactText(assessment.chewing_swallowing_difficulties);
-  const constipation = compactText(assessment.constipation);
-  const diarrhea = compactText(assessment.diarrhea_notes);
-  const intolerance = compactText(assessment.food_intolerance);
-  if (presentDiet) dietaryParts.push(sentence(`Current diet: ${presentDiet}`));
-  if (intakeStatus) dietaryParts.push(sentence(`Energy intake is ${lowerFirst(intakeStatus)}`));
-  if (intakeMethod) dietaryParts.push(sentence(`Intake assessed using ${INTAKE_METHODS[intakeMethod] ?? lowerFirst(intakeMethod)}`));
-  if (dietaryIntake) dietaryParts.push(sentence(`Reported intake: ${dietaryIntake}`));
-  const recordedIntake = INTAKE_FIELDS.flatMap(field => {
-    const value = assessment.intake_nutrients?.[field.key];
-    return value == null || value === '' ? [] : [`${field.label} ${value} ${field.unit}`];
-  });
-  if (recordedIntake.length) dietaryParts.push(sentence(`Food recall: ${recordedIntake.join(', ')}`));
-  const coverage = foodRecallCoverage(assessment.food_recall);
-  if (coverage) dietaryParts.push(sentence(`Recall coverage: ${coverage}`));
-  if (appetite) dietaryParts.push(sentence(`Appetite is ${lowerFirst(appetite.replace(/_/g, " "))}`));
-  if (restrictions) dietaryParts.push(sentence(`Dietary restrictions: ${restrictions}`));
-  if (supplements) dietaryParts.push(sentence(`Supplements: ${supplements}`));
-  if (interaction) dietaryParts.push(sentence(`Nutrient-drug interaction: ${interaction}`));
-  if (chewing) dietaryParts.push(sentence(`Chewing/swallowing: ${chewing}`));
-  if (constipation) dietaryParts.push(sentence(`Constipation: ${constipation}`));
-  if (diarrhea) dietaryParts.push(sentence(`Diarrhea: ${diarrhea}`));
-  if (intolerance) dietaryParts.push(sentence(`Food intolerance: ${intolerance}`));
-  categories.push(category("Dietary / GI", dietaryParts));
+  const presentDiet = compactText(assessment.present_diet);
+  const reportedIntake = compactText(assessment.dietary_intake);
+  const intake = intakeStatus ? `energy intake: ${intakeStatus}`
+    : restrictions ? `dietary restrictions: ${restrictions}`
+    : presentDiet && !prescribedDiet ? `current diet: ${presentDiet}`
+    : reportedIntake ? `reported intake: ${reportedIntake}` : "";
+  const riskLabel = compactText(risk?.label);
+  const careSentence = sentence([
+    assessment.nutrition_support ? `nutrition support: ${nutritionSupportLabel(assessment.nutrition_support)}` : "",
+    intake,
+    barrier || allergyContext,
+    riskLabel ? `nutrition screening: ${/risk$/i.test(riskLabel) ? riskLabel : `${riskLabel} risk`}` : "",
+  ]);
 
-  if (labs.length) {
-    const labParts = labs
-      .filter((lab) => Number.isFinite(lab.value) && lab.status !== "normal")
-      .map((lab) => `${lab.label} ${lab.value}${lab.unit ? ` ${lab.unit}` : ""}${lab.status === "normal" ? "" : ` (${lab.status.toUpperCase()})`}`);
-    categories.push(labParts.length
-      ? `Biochemical: ${labParts.join("; ")}.`
-      : "Biochemical: Entered results are within listed reference ranges.");
-  }
-
-  const clinicalParts: string[] = [];
-  const medicalHistory = compactText(assessment.medical_history);
-  const functional = cleanText(assessment.functional_assessment);
-  const pregnancy = cleanText(assessment.pregnancy_lactation_status);
-  if (medicalHistory) clinicalParts.push(sentence(`Medical history: ${medicalHistory}`));
-  if (functional) clinicalParts.push(sentence(`Functional status: ${functional}`));
-  if (pregnancy && pregnancy !== "none") {
-    clinicalParts.push(sentence(`Pregnancy/lactation: ${MATERNAL_STATUS_LABELS[pregnancy] ?? pregnancy}`));
-  }
-  if (assessment.edema_present) clinicalParts.push("Edema is present.");
-  if (assessment.edema_present && dryWeight) clinicalParts.push(`Dry weight is ${dryWeight} kg.`);
-  if (assessment.allergies?.length) clinicalParts.push(`Allergies: ${assessment.allergies.join(", ")}.`);
-  if (assessment.food_dislikes?.length) clinicalParts.push(`Food dislikes: ${assessment.food_dislikes.join(", ")}.`);
-  if (assessment.medications?.length) clinicalParts.push(`Medications: ${assessment.medications.join(", ")}.`);
-  categories.push(category("Clinical context", clinicalParts));
-
-  if (risk) {
-    const visibleFactors = risk.factors.slice(0, 3);
-    const remaining = risk.factors.length - visibleFactors.length;
-    const factors = visibleFactors.length
-      ? `; ${visibleFactors.join(", ")}${remaining > 0 ? ` +${remaining} more` : ""}`
-      : "";
-    const label = /risk$/i.test(risk.label.trim()) ? risk.label.trim() : `${risk.label.trim()} risk`;
-    categories.push(`Nutrition risk: ${label} (${risk.score} point${risk.score === 1 ? "" : "s"}, ${risk.mode})${factors}.`);
-  }
-
-  return categories.filter((value): value is string => Boolean(value)).join("\n\n");
+  return [referralSentence, contextSentence, careSentence].filter(Boolean).join(" ");
 }

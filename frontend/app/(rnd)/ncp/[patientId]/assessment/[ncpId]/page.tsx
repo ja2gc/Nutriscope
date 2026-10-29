@@ -826,46 +826,18 @@ export default function NcpAssessmentPage({
   const riskInfo = riskBadge(riskScore);
   const computedRiskInfo = riskBadge(riskResult.score);
 
-  const summaryInput: AssessmentSummaryInput = (() => {
-    const labs = LAB_FIELDS.flatMap((field) => {
-      const raw = assessment.biochemical_data?.[field.key as keyof NonNullable<Assessment["biochemical_data"]>];
-      if (raw === null || raw === undefined || raw === "") return [];
-      const value = Number(raw);
-      if (!Number.isFinite(value)) return [];
-      return [{
-        label: field.label,
-        value,
-        unit: field.unit,
-        status: getLabStatus(value, field, patientSex),
-      }];
-    });
-
-    return {
-      assessment,
-      anthropometrics: {
-        bmi: computedBmi,
-        ibwKg: computedIBW === null ? null : Number(computedIBW.toFixed(1)),
-        percentIbw: computedPercentIBW === null ? null : Math.round(computedPercentIBW),
-        weightChangePercent: computedWeightChangePct,
-        weightChangeDirection: weightChangeDirection === "stable" ? "none" : weightChangeDirection,
-        muacClassification: muacClassification?.label ?? null,
-        whr: computedWHR === null ? null : Number(computedWHR.toFixed(3)),
-        whrRisk,
-        nutritionalStatus: computedBmiClassification?.severity === 'unknown' ? null : computedBmiClassification?.label,
-      },
-      labs,
-      risk: riskScore > 0 || effectiveRiskFactors.length > 0
-        ? {
-            label: riskInfo.label,
-            score: riskScore,
-            mode: riskManualOverride ? "manual" : "automatic",
-            factors: effectiveRiskFactors
-              .map((key) => RISK_FACTORS.find((factor) => factor.key === key)?.label)
-              .filter((label): label is string => Boolean(label)),
-          }
-        : null,
-    };
-  })();
+  const summaryInput: AssessmentSummaryInput = {
+    assessment,
+    referral: {
+      diagnosis: screeningDraft?.diagnosis ?? patient?.medical_diagnosis,
+      dietPrescription: screeningDraft?.dietPrescription,
+    },
+    anthropometrics: {
+      bmi: computedBmi,
+      nutritionalStatus: computedBmiClassification?.severity === 'unknown' ? null : computedBmiClassification?.label,
+    },
+    risk: riskScore > 0 || effectiveRiskFactors.length > 0 ? { label: riskInfo.label } : null,
+  };
   const summaryCandidate = buildAssessmentSummary(summaryInput);
 
   useEffect(() => {
@@ -1767,7 +1739,7 @@ export default function NcpAssessmentPage({
         <ul className="space-y-1 pb-2 text-xs leading-relaxed text-warm-600">
           <li>+1: screening type selected.</li>
           <li>+1: IBW below 85% or above 130%.</li>
-          <li>+2: any recorded unintentional weight loss.</li>
+          <li>Unintentional weight loss requires RND confirmation in Manual edit (+2 points); a recorded percentage alone is not scored.</li>
           <li>+1: chewing, swallowing, constipation, diarrhea, or intolerance note.</li>
           <li>+1: Albumin below 3.5 g/dL.</li>
           <li>+1: Glucose below 70 or above 125 mg/dL, Potassium below 3.5 or above 5.0 mEq/L, Creatinine above the sex-specific limit, or BUN above 20 mg/dL.</li>
@@ -1839,10 +1811,9 @@ export default function NcpAssessmentPage({
             ? "border-amber-200 bg-amber-50 text-amber-800"
             : "border-warm-200 bg-warm-50 text-warm-600"
           }`}>
-          {summaryNotice
-            ?? (summaryIsStale
-              ? "Assessment changed - regenerate to refresh"
-              : summaryWasEdited
+          {summaryIsStale
+            ? "Assessment changed - regenerate to refresh"
+            : summaryNotice ?? (summaryWasEdited
                 ? "Draft edited after generation. Regeneration will replace it; Undo restores the prior text."
                 : s("rnd_summary").trim()
                   ? "Summary is current with the loaded assessment data."

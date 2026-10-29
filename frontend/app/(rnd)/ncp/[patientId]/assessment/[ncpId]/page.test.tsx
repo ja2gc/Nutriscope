@@ -36,6 +36,47 @@ it('lets the RND describe food recall using the existing saved dietary intake fi
   expect(notes.value).toContain('working day');
 });
 
+it("generates from the edited referral while preserving manual text and Undo", async () => {
+  vi.mocked(fetchPatientById).mockResolvedValue({ id: "demo", dob: "1985-01-01", sex: "Male", medical_diagnosis: "Recorded diabetes" } as never);
+  vi.mocked(fetchAssessment).mockResolvedValue({ weight: 70, height: 170, pregnancy_lactation_status: "none", physical_activity_level: "light", rnd_summary: "Clinician's existing summary", allergies: [], food_dislikes: [], medications: [] } as never);
+  const params = Promise.resolve({ patientId: "demo", ncpId: "demo-cycle" });
+  await act(async () => root.render(<Suspense fallback="Loading"><Page params={params} /></Suspense>));
+  await act(async () => fireEvent.click(screen.getByRole("tab", { name: /Referral/ })));
+  act(() => fireEvent.change(screen.getByDisplayValue("Recorded diabetes"), { target: { value: "Suspected diabetes under review" } }));
+  await act(async () => fireEvent.click(screen.getByRole("tab", { name: /Summary/ })));
+  const summary = screen.getByRole("textbox", { name: "RND Summary (Clinical Observations)" }) as HTMLTextAreaElement;
+  expect(summary.value).toBe("Clinician's existing summary");
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "Regenerate Summary" })));
+  expect(summary.value).toContain("Referral diagnosis: Suspected diabetes under review");
+  expect(summary.value).toContain("BMI");
+  expect(summary.value).toContain("PAL: Lightly Active");
+  expect(summary.value).not.toContain("Recorded diabetes");
+  await act(async () => fireEvent.click(screen.getByRole("tab", { name: /Referral/ })));
+  act(() => fireEvent.change(screen.getByDisplayValue("Suspected diabetes under review"), { target: { value: "Referral diagnosis updated" } }));
+  await act(async () => fireEvent.click(screen.getByRole("tab", { name: /Summary/ })));
+  expect(screen.getByText("Assessment changed - regenerate to refresh")).toBeTruthy();
+  expect((screen.getByRole("textbox", { name: "RND Summary (Clinical Observations)" }) as HTMLTextAreaElement).value).toContain("Suspected diabetes under review");
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "Undo" })));
+  expect((screen.getByRole("textbox", { name: "RND Summary (Clinical Observations)" }) as HTMLTextAreaElement).value).toBe("Clinician's existing summary");
+});
+
+it("requires an explicit RND selection to score recorded weight loss", async () => {
+  vi.mocked(fetchPatientById).mockResolvedValue({ id: "demo", dob: "1985-01-01", sex: "Male", screening_type: "adult" } as never);
+  vi.mocked(fetchAssessment).mockResolvedValue({ weight: 68.6, height: 170, usual_weight: 70, weight_loss_percentage: 2, weight_change_period_value: 4, weight_change_period_unit: "months", pregnancy_lactation_status: "none", allergies: [], food_dislikes: [], medications: [] } as never);
+  const params = Promise.resolve({ patientId: "demo", ncpId: "demo-cycle" });
+  await act(async () => root.render(<Suspense fallback="Loading"><Page params={params} /></Suspense>));
+  await act(async () => fireEvent.click(screen.getByRole("tab", { name: /Summary/ })));
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "Generate Summary" })));
+  expect((screen.getByRole("textbox", { name: "RND Summary (Clinical Observations)" }) as HTMLTextAreaElement).value).toMatch(/nutrition screening: Low Risk/i);
+  const factor = screen.getByText("Unintentional weight loss over weeks/months").parentElement?.querySelector("input") as HTMLInputElement;
+  expect(factor.checked).toBe(false);
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "Manual edit" })));
+  await act(async () => fireEvent.click(factor));
+  expect(factor.checked).toBe(true);
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "Automatic" })));
+  expect(factor.checked).toBe(false);
+});
+
 it("uses a full-width tab panel without a mobile card shell", async () => {
   const params = Promise.resolve({ patientId: "demo", ncpId: "demo-cycle" });
   await act(async () => root.render(<Suspense fallback="Loading"><Page params={params} /></Suspense>));

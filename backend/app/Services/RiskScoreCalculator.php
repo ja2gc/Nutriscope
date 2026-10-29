@@ -36,19 +36,8 @@ class RiskScoreCalculator
             $checkedFactors[] = 'ibw_limit';
         }
 
-        // 3. Unintentional weight loss = 2 points
-        $hasWeightLoss = false;
-        if (! is_null($assessment->weight_loss_percentage) && $assessment->weight_loss_percentage > 0.0) {
-            $hasWeights = ! is_null($assessment->usual_weight) && ! is_null($assessment->weight);
-            $hasWeightLoss = $hasWeights
-                ? (float) $assessment->usual_weight > (float) $assessment->weight
-                : true;
-        }
-
-        if ($hasWeightLoss) {
-            $score += 2.0;
-            $checkedFactors[] = 'unintentional_weight_loss';
-        }
+        // 3. Measurements do not establish unintentional loss. The RND may select
+        // this two-point factor through the existing manual screening override.
 
         // 4. Mechanical / digestive problem = 1 point
         $hasMechanicalProblem = $this->symptomPresent($assessment->chewing_swallowing_difficulties) ||

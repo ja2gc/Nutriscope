@@ -6,50 +6,20 @@ use App\Models\Assessment;
 use App\Models\BiochemicalData;
 use App\Models\NcpRecord;
 use App\Models\Patient;
-use App\Models\User;
+use App\Services\LabFlagService;
 use App\Services\RiskScoreCalculator;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Hash;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 class RiskScoreCalculatorTest extends TestCase
 {
-    use RefreshDatabase;
-
     private function createAssessment(array $assessmentAttributes = [], array $biochemicalAttributes = [], string $sex = 'Male'): Assessment
     {
-        $rnd = User::forceCreate([
-            'name' => 'RND User',
-            'email' => 'rnd'.uniqid().'@example.com',
-            'password' => Hash::make('password'),
-            'role' => 'RND',
-            'is_active' => true,
-        ]);
-
-        $patient = Patient::forceCreate([
-            'name' => 'Test Patient',
-            'dob' => '1990-01-01',
-            'sex' => $sex,
-            'admission_date' => now()->toDateString(),
-            'screening_type' => 'adult',
-        ]);
-
-        $ncp = NcpRecord::forceCreate([
-            'patient_id' => $patient->id,
-            'rnd_user_id' => $rnd->id,
-            'type' => 'new',
-            'status' => 'draft',
-        ]);
-
-        $assessment = Assessment::forceCreate(array_merge([
-            'ncp_record_id' => $ncp->id,
-        ], $assessmentAttributes));
-
-        if (! empty($biochemicalAttributes)) {
-            BiochemicalData::forceCreate(array_merge([
-                'assessment_id' => $assessment->id,
-            ], $biochemicalAttributes));
-        }
+        $patient = new Patient(['sex' => $sex, 'screening_type' => 'adult']);
+        $ncp = new NcpRecord;
+        $ncp->setRelation('patient', $patient);
+        $assessment = new Assessment($assessmentAttributes);
+        $assessment->setRelation('ncpRecord', $ncp);
+        $assessment->setRelation('biochemicalData', $biochemicalAttributes ? new BiochemicalData($biochemicalAttributes) : null);
 
         return $assessment;
     }
@@ -61,7 +31,7 @@ class RiskScoreCalculatorTest extends TestCase
             'weight_loss_percentage' => 0.0,
         ]);
 
-        $calculator = app(RiskScoreCalculator::class);
+        $calculator = new RiskScoreCalculator(new LabFlagService);
         $result = $calculator->calculate($assessment);
 
         // Should have 1 point for screening_type = 'adult'
@@ -77,7 +47,7 @@ class RiskScoreCalculatorTest extends TestCase
             'chewing_swallowing_difficulties' => 'Cannot swallow solid food', // Checked -> 1 point
         ]);
 
-        $calculator = app(RiskScoreCalculator::class);
+        $calculator = new RiskScoreCalculator(new LabFlagService);
         $result = $calculator->calculate($assessment);
 
         // 1 point (screening_type) + 1 point (IBW) + 1 point (mechanical) = 3 points
@@ -95,7 +65,7 @@ class RiskScoreCalculatorTest extends TestCase
             'diarrhea_notes' => 'No',
         ]);
 
-        $result = app(RiskScoreCalculator::class)->calculate($assessment);
+        $result = (new RiskScoreCalculator(new LabFlagService))->calculate($assessment);
 
         $this->assertSame(1.0, $result['score']);
     }
@@ -106,18 +76,39 @@ class RiskScoreCalculatorTest extends TestCase
             'ibw_percentage' => 140.0, // Checked (> 130%) -> 1 point
             'usual_weight' => 70.0,
             'weight' => 63.0,
-            'weight_loss_percentage' => 10.0, // Checked (> 0%) -> 2 points
+            'weight_loss_percentage' => 10.0, // Recorded loss does not establish intentionality.
             'chewing_swallowing_difficulties' => 'Needs soft diet', // Checked -> 1 point
         ], [
             'albumin' => 3.2, // Checked (< 3.5) -> 1 point
         ]);
 
-        $calculator = app(RiskScoreCalculator::class);
+        $calculator = new RiskScoreCalculator(new LabFlagService);
         $result = $calculator->calculate($assessment);
 
-        // 1 point (screening_type) + 1 point (IBW) + 2 points (weight loss) + 1 point (mechanical) + 1 point (low albumin) = 6 points
-        $this->assertEquals(6.0, $result['score']);
+        // Screening, IBW, mechanical difficulty and albumin each contribute one point.
+        $this->assertEquals(4.0, $result['score']);
         $this->assertEquals('Severe Malnutrition', $result['nutritional_status']);
+    }
+
+    public function test_recorded_loss_does_not_establish_unintentional_weight_loss(): void
+    {
+        foreach ([2.0, 12.5] as $percentage) {
+            $assessment = $this->createAssessment([
+                'weight_loss_percentage' => $percentage,
+                'usual_weight' => 70,
+                'weight' => 70 * (1 - $percentage / 100),
+                'weight_change_period_value' => 4,
+                'weight_change_period_unit' => 'months',
+            ]);
+            $result = (new RiskScoreCalculator(new LabFlagService))->calculate($assessment);
+            $this->assertSame(1.0, $result['score']);
+            $this->assertNotContains('unintentional_weight_loss', $result['checked_factors']);
+        }
+    }
+
+    public function test_clinician_selected_weight_loss_remains_scored(): void
+    {
+        $this->assertSame(3.0, RiskScoreCalculator::scoreFactors(['screening_criteria', 'unintentional_weight_loss']));
     }
 
     public function test_weight_gain_percentage_does_not_score_as_unintentional_weight_loss(): void
@@ -129,7 +120,7 @@ class RiskScoreCalculatorTest extends TestCase
             'weight_loss_percentage' => 5.0,
         ]);
 
-        $result = app(RiskScoreCalculator::class)->calculate($assessment);
+        $result = (new RiskScoreCalculator(new LabFlagService))->calculate($assessment);
 
         $this->assertEquals(1.0, $result['score']);
         $this->assertNotContains('unintentional_weight_loss', $result['checked_factors']);
@@ -149,7 +140,7 @@ class RiskScoreCalculatorTest extends TestCase
             'weight_loss_percentage' => 0.0,
         ], ['creatinine' => 1.0], 'Male');
 
-        $calculator = app(RiskScoreCalculator::class);
+        $calculator = new RiskScoreCalculator(new LabFlagService);
 
         $this->assertContains('significant_lab_result', $calculator->calculate($female)['checked_factors']);
         $this->assertNotContains('significant_lab_result', $calculator->calculate($male)['checked_factors']);

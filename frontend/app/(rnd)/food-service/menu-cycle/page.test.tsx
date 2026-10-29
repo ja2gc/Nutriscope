@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { instantiateTemplate, listCycles, getCycle, listTemplates, getTemplate, saveCycle, saveTemplate, getRecipeProfile, getFsItemProfile, listRecipeOptions, type MenuCycle, type TemplateDetail, type CycleListItem, type TemplateListItem } from "@/services/menuCycleService";
 import { listCatalog } from "@/services/fsCatalogService";
-import MenuCyclePage, { MenuTemplateDirectory } from "./page";
+import MenuCyclePage, { MenuTemplateDirectory } from "./MenuCycleWorkspace";
 const { routerPush } = vi.hoisted(() => ({ routerPush: vi.fn() }));
 
 vi.mock("next/navigation", () => ({

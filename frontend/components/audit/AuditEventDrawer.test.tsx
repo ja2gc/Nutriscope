@@ -91,13 +91,18 @@ const deletedEvent: AuditEventDto = {
 };
 
 describe("structured audit event components", () => {
-  test("wraps longest labels in desktop table and mobile cards", () => {
+  test("keeps long labels in compact rows and exposes full labels in the details drawer", () => {
     const html = renderToStaticMarkup(<AuditEventTable events={[{ ...event, patient: null, ncp_reference: null }]} onSelect={vi.fn()} />);
     expect(html).toContain(longActor);
     expect(html).toContain(longSubject);
     expect(html).toContain("hidden md:block");
     expect(html).toContain("md:hidden");
-    expect(html).toContain("break-words");
+    expect(html).toContain("h-[68px]");
+    expect(html).toContain("truncate");
+    expect(html).toContain("line-clamp-2");
+    const details = renderToStaticMarkup(<AuditEventDrawer event={{ ...event, patient: null, ncp_reference: null }} onClose={vi.fn()} />);
+    expect(details).toContain(longActor);
+    expect(details).toContain(longSubject);
     expect(html).toContain("Subject");
   });
 

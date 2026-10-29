@@ -2,6 +2,11 @@ import { describe, expect, test } from "vitest";
 import { deriveRiskScore, scoreRiskFactors } from "./assessmentRiskScoring";
 
 describe("deriveRiskScore", () => {
+  test.each([2, 12.5])("does not infer unintentional loss from a recorded %s percent change", weightLossPercentage => {
+    const result = deriveRiskScore({ screeningType: "adult", weightLossPercentage });
+    expect(result.checkedFactors).toEqual(["screening_criteria"]);
+    expect(result.score).toBe(1);
+  });
   test("reflects live assessment edits before save", () => {
     const result = deriveRiskScore({
       screeningType: "adult",
@@ -15,12 +20,11 @@ describe("deriveRiskScore", () => {
     expect(result.checkedFactors).toEqual([
       "screening_criteria",
       "ibw_limit",
-      "unintentional_weight_loss",
       "mechanical_digestive_problem",
       "low_albumin",
       "significant_lab_result",
     ]);
-    expect(result.score).toBe(7);
+    expect(result.score).toBe(5);
   });
 
   test("does not keep stale factors when live inputs normalize", () => {

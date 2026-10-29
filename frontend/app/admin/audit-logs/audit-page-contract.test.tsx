@@ -50,7 +50,9 @@ describe("purposeful admin audit views", () => {
     expect(table).not.toContain('"Severity"');
     expect(table).toContain("hidden md:block");
     expect(table).toContain("md:hidden");
-    expect(table).toContain("break-words");
+    expect(table).toContain("h-[68px]");
+    expect(table).toContain("truncate");
+    expect(table).toContain("line-clamp-2");
     expect(table).toContain('<button');
     expect(table).not.toContain("tabIndex={0}");
     expect(table).not.toContain("onKeyDown");

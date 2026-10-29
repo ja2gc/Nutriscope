@@ -59,6 +59,8 @@ describe("Assessment page UX", () => {
 
   test("offers explicit editable summary generation with stale and undo states", () => {
     expect(page).toContain("buildAssessmentSummary");
+    expect(page).toContain("diagnosis: screeningDraft?.diagnosis ?? patient?.medical_diagnosis");
+    expect(page).toContain("dietPrescription: screeningDraft?.dietPrescription");
     expect(page).toContain("Generate Summary");
     expect(page).toContain("Regenerate Summary");
     expect(page).toContain("Assessment changed - regenerate to refresh");

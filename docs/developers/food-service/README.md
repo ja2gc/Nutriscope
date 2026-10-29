@@ -4,6 +4,8 @@ Verified against committed source: `d873ea2f3fec63a089bc70c6948f1611ae553d7b` pl
 
 Purpose: maintain operational menus, shopping, purchasing and budgets separately from clinical meal planning.
 
+Menu Calendar and its template directory share [MenuCycleWorkspace](../../../frontend/app/(rnd)/food-service/menu-cycle/MenuCycleWorkspace.tsx). Their `page.tsx` entry points export only route components; the shared file owns the existing editor and directory behavior. This file separation fixes Next.js page-export validation without changing navigation, permissions or persistence. Verified at `e4b79d5801575723bdaeedd7408728bc28b0322c` plus this correction (2026-10-29).
+
 This group covers planning through execution across RND web and FSS mobile. Follow [data meaning](data.md) for quantities/prices/statuses/snapshots, [mobile maintenance](mobile.md) for native clients, and the [detailed reference](reference.md) for invariants. EAS/signing/publication is linked from the mobile guide. Shared help, announcements and accounts live in [shared features](../shared/README.md).
 
 | Responsibility | Source |

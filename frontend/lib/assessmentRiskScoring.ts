@@ -92,11 +92,8 @@ export function deriveRiskScore(inputs: AssessmentRiskInputs): RiskScoreResult {
     checkedFactors.push("ibw_limit");
   }
 
-  const weightLoss = toNumber(inputs.weightLossPercentage);
-  if (weightLoss !== null && weightLoss > 0) {
-    score += 2;
-    checkedFactors.push("unintentional_weight_loss");
-  }
+  // Weight measurements alone do not establish unintentional loss.
+  // The RND can select this factor through the existing manual override.
 
   if (
     symptomPresent(inputs.chewingSwallowingDifficulties) ||

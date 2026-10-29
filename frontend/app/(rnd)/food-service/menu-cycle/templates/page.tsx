@@ -1,5 +1,5 @@
 "use client";
 
-import { MenuTemplateDirectory } from "../page";
+import { MenuTemplateDirectory } from "../MenuCycleWorkspace";
 
 export default MenuTemplateDirectory;
