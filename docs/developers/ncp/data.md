@@ -1,6 +1,8 @@
 # NCP data meaning
 
-Verified against committed source: `ff2ee6a232b0ca86ac07cf8d12bee7322de1a630` plus unresolved-Problem retry metadata in this working tree (2026-10-29).
+Verified against committed source: `c902f93d6ea742f6303fc62770dfd95683162f14` plus readable evidence presentation in this working tree (2026-10-29).
+
+`PesSuggestionService::response` formats the current, hash-matched cited evidence for both new and cached drafts. Structured nutrients retain their recorded units and zero values; nested recall/lab/context fields use readable labels rather than JSON. Formatting does not rewrite P/E/S, reference hashes, stored Assessment data or provider inputs. See [AI review](ai.md).
 
 `PesSuggestionService` writes `review_contexts.rejected_problems` as failed Problem labels and allowlisted cited field names, never rejected E/S text. The context hash includes those cited fields. A later omission preserves the unresolved Problem; an equivalent valid pending/saved diagnosis resolves it, and relevant evidence changes reopen ordinary review. The service exposes only the boolean `has_retryable_rejections` to the web, which uses the existing Generate action after pending drafts are handled. These are review states, not saved clinical diagnoses. See [AI review](ai.md).
 

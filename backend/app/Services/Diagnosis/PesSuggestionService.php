@@ -303,6 +303,9 @@ class PesSuggestionService
     private function response(NcpRecord $record, ?PesSuggestionState $state, array $evidence, bool $cached): array
     {
         $visible = $this->activeDrafts($record, $evidence);
+        foreach ($visible as $index => $draft) {
+            $visible[$index]['evidence_used'] = array_map(fn ($ref) => $this->formatEvidence($ref['key'], $evidence[$ref['key']]), $draft['evidence_refs']);
+        }
         $budget = $this->budget($record);
         $remaining = $this->remaining($record, $evidence);
         $hasRejections = $this->retryProblems($record, $evidence) !== [];
@@ -793,8 +796,10 @@ class PesSuggestionService
             'weight_loss_percentage' => 'Weight loss',
             'weight_change_period' => 'Weight-change period',
             'bmi' => 'BMI',
+            'bmi_classification' => 'BMI classification',
             'age_group' => 'Age group',
             'weight_kg' => 'Weight',
+            'usual_weight_kg' => 'Usual weight',
             'height_cm' => 'Height',
             'appetite' => 'Appetite',
             'present_diet' => 'Present diet',
@@ -806,19 +811,27 @@ class PesSuggestionService
             'medication_count' => 'Medication count',
             'food_recall' => 'Food recall',
             'intake_nutrients' => 'Recorded intake nutrients',
-            default => str_replace('_', ' ', ucfirst($key)),
+            'energy_kcal' => 'Energy', 'protein_g' => 'Protein', 'carbs_g' => 'Carbohydrate', 'fat_g' => 'Fat', 'fluid_ml' => 'Fluid',
+            'average_daily' => 'Daily average', 'days_count' => 'Recorded days', 'day_types' => 'Recorded day types',
+            'laboratory_flags' => 'Laboratory findings', 'laboratory_values' => 'Laboratory values',
+            'hba1c' => 'HbA1c', 'ldl', 'hdl', 'bun' => strtoupper($key),
+            default => str_replace('_', ' ', ucfirst(preg_replace('/^micro_/', '', $key))),
         };
 
         $display = match ($key) {
-            'weight_loss_percentage' => rtrim(rtrim(number_format((float) $value, 2), '0'), '.').'%',
-            'weight_kg' => rtrim(rtrim(number_format((float) $value, 2), '0'), '.').' kg',
+            'weight_loss_percentage', 'weight_change_percentage' => rtrim(rtrim(number_format((float) $value, 2), '0'), '.').'%',
+            'weight_kg', 'usual_weight_kg' => rtrim(rtrim(number_format((float) $value, 2), '0'), '.').' kg',
             'height_cm' => rtrim(rtrim(number_format((float) $value, 2), '0'), '.').' cm',
             'weight_change_period' => $value['value'].' '.$value['unit'],
             'gi_symptoms' => implode('; ', array_values($value)),
-            default => is_scalar($value) ? (string) $value : json_encode($value),
+            default => is_array($value)
+                ? (array_key_exists('value', $value)
+                    ? trim($value['value'].' '.($value['unit'] ?? $value['status'] ?? ''))
+                    : collect($value)->map(fn ($item, $field) => $this->formatEvidence(is_string($field) ? $field : '', $item))->implode('; '))
+                : (is_bool($value) ? ($value ? 'Yes' : 'No') : (string) $value),
         };
 
-        return $label.': '.$display;
+        return $label === '' ? $display : $label.': '.$display;
     }
 
     private function fingerprint(array $evidence): string

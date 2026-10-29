@@ -6,6 +6,7 @@ use App\Models\Assessment;
 use App\Models\Diagnosis;
 use App\Models\NcpRecord;
 use App\Models\Patient;
+use App\Models\PesSuggestionState;
 use App\Models\User;
 use App\Support\AiReviewAllowance;
 use App\Support\DiagnosisBuilder;
@@ -237,6 +238,27 @@ class ClinicalAiReviewTest extends TestCase
         Http::fake(['api.anthropic.com/*' => Http::response([], 401)]);
         $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertStatus(502)
             ->assertJsonPath('message', 'AI suggestions are unavailable. Try again shortly or add a diagnosis manually.');
+    }
+
+    public function test_structured_citations_are_readable_without_changing_values_or_cache_reuse(): void
+    {
+        $record = $this->record();
+        $record->assessment()->update(['intake_nutrients' => ['energy_kcal' => 1200, 'protein_g' => 50, 'micro_iron' => 0], 'medications' => ['Metformin']]);
+        $this->provider([[...$this->draft(), 'evidence_used' => ['social_history', 'knowledge_notes', 'intake_nutrients', 'clinical_context']]]);
+        $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest";
+        $result = $this->postJson($url)->assertOk()->assertJsonCount(1, 'data');
+        $citations = $result->json('data.0.evidence_used');
+        $intake = collect($citations)->first(fn ($item) => str_starts_with($item, 'Recorded intake nutrients:'));
+        foreach (['Energy: 1200 kcal', 'Protein: 50 g', 'Iron: 0 mg'] as $measurement) {
+            $this->assertStringContainsString($measurement, $intake);
+        }
+        $this->assertStringNotContainsString('{', implode(' ', $citations));
+        $state = PesSuggestionState::where('ncp_record_id', $record->id)->firstOrFail();
+        $stored = $state->validated_response;
+        $stored[0]['evidence_used'] = ['Previously cached JSON display'];
+        $state->update(['validated_response' => $stored]);
+        $this->getJson($url)->assertOk()->assertJsonPath('data.0.evidence_used', $citations);
+        Http::assertSentCount(1);
     }
 
     public function test_distinct_other_problem_failure_survives_saving_its_sibling_and_reopens_on_source_change(): void

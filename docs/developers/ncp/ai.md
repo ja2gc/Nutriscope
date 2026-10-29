@@ -1,6 +1,6 @@
 # AI features
 
-Verified against source: `ff2ee6a232b0ca86ac07cf8d12bee7322de1a630` plus failed-Problem retry and user-error wording in this working tree (2026-10-29).
+Verified against source: `c902f93d6ea742f6303fc62770dfd95683162f14` plus readable evidence presentation in this working tree (2026-10-29).
 
 Purpose: maintain assisted PES wording and monitoring narration. AI does not own deterministic clinical calculations.
 
@@ -46,7 +46,7 @@ Behavioral review hashes include the candidate's required/corroborating findings
 
 Duplicate checks combine saved problem text, manual problem selections and the originating candidate identity of approved AI diagnoses. Common intake spelling variants are normalized while preserving intake direction and distinct nutrients. Generic **Other** categories remain label-based so one saved custom problem does not suppress every custom problem. Saved problems and approved draft references are checked again when resolving pending drafts for approval.
 
-Food recall notes reuse Assessment's `dietary_intake` field. [FoodRecallService](../../../backend/app/Services/FoodRecallService.php) supplies a de-identified portion-scaled average per recorded day, recorded weekday/weekend counts and explicit nutrient units; manually recorded `intake_nutrients` remain separate estimates. Unknown amounts or units are omitted, not converted to zero. Both summaries participate in review invalidation. Numeric intake summaries are corroborating context and cannot independently establish a concerning cause or sign. Normal findings remain counterevidence. The Evidence used presentation is retained; AI draft **Extra Notes** uses the manual form's label.
+Food recall notes reuse Assessment's `dietary_intake` field. [FoodRecallService](../../../backend/app/Services/FoodRecallService.php) supplies a de-identified portion-scaled average per recorded day, recorded weekday/weekend counts and explicit nutrient units; manually recorded `intake_nutrients` remain separate estimates. Unknown amounts or units are omitted, not converted to zero. Both summaries participate in review invalidation. Numeric intake summaries are corroborating context and cannot independently establish a concerning cause or sign. **Evidence used** renders nested citations as readable labels, values, recorded units and lab flags, including zero amounts. The response formats current hash-matched references for cached drafts too, without another provider call or a catalog reset. Stored evidence references and P/E/S stay unchanged. AI draft **Extra Notes** uses the manual form's label.
 
 ## Selective clinical context
 
