@@ -159,4 +159,17 @@ class PesCitedDraftTest extends TestCase
             's' => 'Weight loss 5% over 2 months', 'sk' => ['weight_kg', 'usual_weight_kg', 'weight_change_period']]);
         $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonCount(0, 'data');
     }
+
+    public function test_optional_notes_do_not_infer_excess_intake_from_food_choices_or_bmi(): void
+    {
+        $record = $this->record(['weight' => 80, 'usual_weight' => 80, 'height' => 175.5,
+            'edema_present' => false, 'pregnancy_lactation_status' => 'none', 'physical_activity_level' => 'sedentary',
+            'dietary_intake' => 'Frequent processed foods. Energy intake has not been quantified against individual targets.']);
+        $this->provider('NC', ['candidate' => 'Overweight/Obesity', 'p' => 'Overweight/obesity',
+            'e' => 'Sedentary activity', 'ek' => ['physical_activity_level', 'dietary_intake'], 's' => 'BMI 25.97', 'sk' => ['bmi'],
+            'en' => 'Sedentary activity and frequent processed foods support excess energy intake']);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.etiology_notes', '');
+        Http::assertSentCount(1);
+    }
 }

@@ -542,6 +542,14 @@ class PesSuggestionService
                 $citedEvidence = array_intersect_key($evidence, array_fill_keys([...$keys, ...$derivedSignKeys], true));
                 foreach (['extra_notes', 'etiology_notes', 'sign_notes'] as $field) {
                     $note = $this->component(is_string($draft[$field] ?? null) ? $draft[$field] : '', 100, true);
+                    preg_match_all('/\b(excess(?:ive)?|inadequate|insufficient)\s+([\p{L}\p{N} -]+?)\s+intake\b/iu', $note, $intakeClaims, PREG_SET_ORDER);
+                    foreach ($intakeClaims as $claim) {
+                        $direction = str_starts_with(mb_strtolower($claim[1]), 'excess') ? 'Excessive' : 'Inadequate';
+                        if (! $this->eligibility->supportsIntakeProblem($direction.' '.$claim[2].' Intake', $this->eligibility->intakeFinding($citedEvidence))) {
+                            $note = '';
+                            break;
+                        }
+                    }
                     $noteValue = $noteKey((string) preg_replace('/^(?:supported by|documented cause|recorded sign)\s*:\s*/i', '', $note));
                     $notes[$field] = ! $this->hasNewNumbers($note, $citedEvidence) && ! in_array($noteValue, [...$components, ...$usedNotes], true)
                         && preg_match('/\b(because|support\w*|indicat\w*|explain\w*|reflect\w*|qualif\w*|evidence|barrier|cause|demonstrat\w*|links?)\b/i', $note)
