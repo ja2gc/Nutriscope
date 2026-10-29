@@ -373,6 +373,7 @@ class PesSuggestionService
         $validated = [];
         $draftError = null;
         foreach ($raw as $draft) {
+            $id = null;
             try {
                 if (! is_array($draft)) {
                     throw new \RuntimeException('The AI returned an unexpected diagnosis shape.');
@@ -474,16 +475,24 @@ class PesSuggestionService
                         'weight_loss_percentage', 'weight_change_percentage' => ($evidence['weight_change_direction'] ?? 'unknown') === 'loss' && ($evidence[$key] ?? 0) > 0,
                         'laboratory_flags' => ! empty($evidence[$key]),
                         'physical_activity_level' => in_array($evidence[$key], ['sedentary', 'inactive'], true),
-                        'bmi_classification' => ($evidence['age_group'] ?? '') === 'pediatric' && in_array($evidence[$key], ['Overweight', 'Obesity'], true),
+                        'bmi_classification' => in_array($evidence[$key], ['Overweight', 'Obesity', 'Obese Class I', 'Obese Class II'], true),
                         'age_group', 'age_70_plus', 'sex', 'weight_kg', 'usual_weight_kg', 'height_cm', 'weight_change_direction', 'weight_change_period', 'pregnancy_lactation_status', 'functional_assessment', 'medication_count', 'laboratory_values', 'ibw_percentage', 'muac_mm', 'waist_cm', 'hip_cm', 'food_recall', 'intake_nutrients', 'clinical_context', 'nutrition_support' => false,
                         default => $this->eligibility->hasConcern($evidence[$key]),
                     };
                 });
+                // Both cited weights and their interval establish the derived change.
+                if (array_diff(['weight_kg', 'usual_weight_kg', 'weight_change_period'], $roles['signs_evidence']) === []
+                    && ($evidence['weight_change_direction'] ?? '') === 'loss' && ($evidence['weight_loss_percentage'] ?? 0) > 0) {
+                    $signConcerns[] = 'weight_loss_percentage';
+                }
                 if ($signConcerns === []) {
                     throw new \RuntimeException('The AI used only normal or contextual values as proof of a problem.');
                 }
                 $signEvidence = array_intersect_key($evidence, array_fill_keys([...$signConcerns,
                     'age_group', 'age_70_plus', 'sex', 'edema_present', 'pregnancy_lactation_status', 'weight_change_direction', 'weight_change_period', 'medication_count'], true));
+                if (in_array('bmi_classification', $signConcerns, true) && in_array($evidence['age_group'] ?? '', ['adult', 'elderly'], true)) {
+                    $signEvidence['bmi'] = $evidence['bmi'];
+                }
                 $requiredCandidates = [$id];
                 if ($candidate['problem_key'] === 'Other') {
                     $known = collect($this->catalog->cards())->filter(fn ($card) => $card['domain'] === $candidate['domain']
@@ -569,7 +578,11 @@ class PesSuggestionService
                 ];
             } catch (\RuntimeException $error) {
                 $draftError = $error;
-                Log::warning('PES draft withheld', ['reason' => $error->getMessage()]);
+                Log::error('PES draft withheld', ['reason' => $error->getMessage(),
+                    'candidate_id' => is_string($id ?? null) && $byId->has($id) ? $id : null,
+                    'sign_fields' => array_values(array_intersect(array_filter(is_array($draft['signs_evidence'] ?? null) ? $draft['signs_evidence'] : [], 'is_string'), array_keys($evidence))),
+                    'cause_fields' => array_values(array_intersect(array_filter(is_array($draft['etiology_evidence'] ?? null) ? $draft['etiology_evidence'] : [], 'is_string'), array_keys($evidence))),
+                ]);
             }
         }
         if ($validated === [] && $draftError !== null) {

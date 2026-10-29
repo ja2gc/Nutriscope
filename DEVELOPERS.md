@@ -1,6 +1,6 @@
 # NutriScope developer map
 
-Verified against source: `71d3634b469ea51fb668cf18e1e83a1c072db52e` plus diagnosis evidence/retry corrections in this working tree (2026-10-28).
+Verified against source: `db7bff65dd597e2cab4ddcd83ded569ff88dd03a` plus the cited-weight and context-routing corrections in this working tree (2026-10-29).
 
 Diagnosis keeps the existing P/E/S append builder. `DiagnosisBuilder` owns terminology formatting and selection metadata; `DiagnosisController` owns the exclusive clinician-recorded NO decision. `PesSuggestionService` owns evidence checks, duplicate protection and review reuse; `ClinicalAiContext` selects brief guidance on the server. See [NCP AI](docs/developers/ncp/ai.md) and [NCP data](docs/developers/ncp/data.md).
 
@@ -29,6 +29,7 @@ Prefer browsing by area? Open the [grouped developer index](docs/developers/READ
 | Task | Exact starting point | Guide |
 |---|---|---|
 | Understand the system | backend/routes/api.php; frontend/app/; mobile/app/ | [Architecture](docs/developers/platform/architecture.md) |
+| Plan slow-connection improvements or future offline workflows | frontend/components/layout/Sidebar.tsx; frontend/components/layout/MobileBottomNav.tsx; frontend/contexts/AuthContext.tsx; mobile/app/_layout.tsx; backend/app/Http/Controllers/Auth/AuthController.php | [Connectivity: inspected behavior and proposed roadmap](docs/developers/platform/architecture.md#connectivity-current-behavior-and-future-work) |
 | Set up a developer machine | backend/composer.json; frontend/package.json; mobile/eas.json | [Local setup](docs/developers/platform/local-setup.md) |
 | Add an endpoint or permission | backend/app/Http/; backend/app/Policies/ | [Backend](docs/developers/platform/backend.md) |
 | Change web screens, inputs, validation or uploads | frontend/components/ui/; frontend/hooks/; frontend/lib/uploadValidation.ts | [Web](docs/developers/platform/web.md) |
@@ -63,6 +64,8 @@ Vendor receipt-total mode and amount are owned by `PurchaseOrderVendorGroup` and
 Shopping-list default names are owned by `ShoppingList::defaultName` and applied by `ShoppingListController`. PO conversion readiness is owned by `PurchaseOrderLifecycleService`; it checks suggested estimate/coverage without item-confirmation or budget gates. Web defaults use `manilaCalendarToday` and the existing save dialog for exact missing-plan dates. See [food-service data](docs/developers/food-service/data.md). Verified at `ef419e88` plus this working tree (2026-10-27).
 
 ## If your task is not listed
+
+Connectivity pointers verified at `db7bff65dd597e2cab4ddcd83ded569ff88dd03a` (2026-10-29). The linked roadmap describes future work; offline synchronization is not implemented.
 
 This map indexes current feature families; it is not an exhaustive specification or a guarantee that every future change is documented. Locate the screen in frontend/app or mobile/app, find its service/API call, then trace backend/routes/api.php through request/permission checks, controller, service and persisted model. Inspect reports/jobs/events and both clients that consume it, then matching tests. Use rg to search exact route, symbol or field names and rg --files to locate files. Check dynamic resolution and framework conventions before declaring something unused.
 

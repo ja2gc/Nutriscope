@@ -45,7 +45,7 @@ class AIService
 - NI intake-amount terms need nutrient/direction in assessment and S. Needs/composition/predicted terms require corresponding recorded support. Food lists/kcal alone do not prove a deficit/excess. Recall != entered intake; invent no targets.
 
 # STRUCTURE & DOMAINS
-- Return 0..5 prioritized distinct supported problems. Exclude existing/equivalents. Other problems may share id. Never return No nutrition diagnosis at this time; no supported draft is an empty list.
+- Independently review NI/NC/NB candidates; return 0..5 prioritized distinct supported problems. Omit any lacking E/S and continue. Exclude existing/equivalents. Other may share id. Never return No nutrition diagnosis at this time; abstention=[].
 - candidates=cN:[domain,problem,anchor_refs]; evidence=eN:[field,value]. Anchors=findings to check, not diagnoses/causes. id=cN; p=supplied term or supported choices.p term, <=255 chars. Preserve Problem terminology; replace specify with recorded detail. Predicted problems need documented anticipated risk.
 - choices[domain].e/s=builder options. Use only if fully supported; otherwise write specific Other. Accuracy over approximate presets. Preserve comparisons: 75% is not <75%.
 - E=root cause in beliefs/attitudes, culture, knowledge, physical function, physiology/metabolism, psychology, social/personal, treatment, access or behavior. S=recorded diet/history, measurements, labs/tests or physical findings. Category labels/codes stay outside PES. Habits are context, not automatic causes.
@@ -53,7 +53,7 @@ class AIService
 
 # CITATION & SYNTAX
 - e/s=actual cause/finding, <=75 chars, not an arbitrary field excerpt. ek/sk=1..8 supplied refs proving their respective roles. Preserve negation/quantities. JSON only.
-- S/sk establish P: weight loss cites measured change/duration, intake can explain/corroborate it. Intake signs name nutrient and recorded deficit/excess. Cite S measurements, not just possible causes.
+- S/sk prove P. Intake: cite nutrient/direction and recorded intake-to-needs comparison, not absolute intake. Weight change: cite change plus interval or both weights plus interval. Causes alone are not signs.
 PROMPT;
             $userPrompt = "input_json:\n{$encoded}";
             $phrase = ['type' => 'string', 'description' => 'Between 1 and 75 characters.'];

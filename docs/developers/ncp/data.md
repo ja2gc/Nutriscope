@@ -1,6 +1,10 @@
 # NCP data meaning
 
-Verified against committed source: `ce7078a41a9082eba5ae749639bcfa0cf1b45a82` plus diagnosis changes in this working tree (2026-10-28).
+Verified against committed source: `db7bff65dd597e2cab4ddcd83ded569ff88dd03a` plus cited-weight evidence changes in this working tree (2026-10-29).
+
+For diagnosis review, `PesEvidenceBuilder` derives weight direction and percentage from Assessment current/usual weight. `PesSuggestionService` can reuse that derived loss when the AI cites both measured weights and their recorded interval; the persisted evidence references retain those original cited fields. A single cited weight does not establish weight change. See [AI validation](ai.md).
+
+A cited adult overweight/obesity classification can reuse its source BMI during eligibility validation. The classifier and existing eligibility checks retain age, edema and maternal-status restrictions; the saved citation remains the computed classification.
 
 Purpose: explain important clinical data families and route maintainers to their authoritative writers/consumers. No patient data or independently certified clinical guidance is included.
 

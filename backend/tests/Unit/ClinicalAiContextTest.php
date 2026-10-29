@@ -10,6 +10,14 @@ use Tests\TestCase;
 
 class ClinicalAiContextTest extends TestCase
 {
+    public function test_documented_sedentary_activity_gets_behavioral_guidance_without_inventing_a_weight_cause(): void
+    {
+        $guidance = ClinicalAiContext::guidance(['physical_activity_level' => 'sedentary'], 'diagnosis');
+        $this->assertStringContainsString('Physical inactivity', $guidance);
+        $this->assertStringContainsString('barrier', $guidance);
+        $this->assertStringContainsString('infer no intake direction or cause of weight change', $guidance);
+    }
+
     public function test_nutrient_guidance_includes_only_the_documented_direction_for_each_nutrient(): void
     {
         $guidance = ClinicalAiContext::guidance(['dietary_intake' => 'Energy intake below needs; protein intake is adequate.'], 'diagnosis');

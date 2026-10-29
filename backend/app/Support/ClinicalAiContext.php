@@ -116,7 +116,7 @@ class ClinicalAiContext
                     }
                 }
             }
-            $routineText = implode('; ', array_filter(array_intersect_key($evidence, array_fill_keys(['lifestyle', 'dietary_intake', 'social_history', 'knowledge_notes', 'medical_history', 'supplements'], true)), 'is_string'));
+            $routineText = implode('; ', array_filter(array_intersect_key($evidence, array_fill_keys(['lifestyle', 'dietary_intake', 'social_history', 'knowledge_notes', 'medical_history', 'supplements', 'physical_activity_level'], true)), 'is_string'));
             foreach (self::library()['behavior_cards'] as $card) {
                 foreach ($eligibility->clauses($routineText) as $clause) {
                     if (preg_match('/(?:'.$card['conditions'].')/iu', $clause)

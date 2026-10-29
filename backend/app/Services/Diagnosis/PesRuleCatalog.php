@@ -6,7 +6,7 @@ use App\Support\ClinicalAiContext;
 
 class PesRuleCatalog
 {
-    public const VERSION = '2026-10-28-v13';
+    public const VERSION = '2026-10-28-v14';
 
     private const ACADEMY_SOURCE = [
         'id' => 'academy_ncp_diagnosis_2026',
@@ -102,7 +102,17 @@ class PesRuleCatalog
             'food_insecurity_v2' => 'Food Insecurity',
             'behavioral_other_v2' => 'Other',
         ] as $id => $problem) {
-            $card = $this->card($id, $problem, ['knowledge_notes', 'lifestyle', 'social_history', 'dietary_intake'], ['dietary_restrictions', 'physical_activity_level', 'functional_assessment', 'present_diet'], [], self::ACADEMY_SOURCE);
+            $required = match ($id) {
+                'knowledge_deficit_v2', 'self_monitoring_v2' => ['knowledge_notes'],
+                'food_beliefs_v2' => ['knowledge_notes', 'lifestyle'],
+                'readiness_v2' => ['lifestyle'],
+                'adherence_v2' => ['lifestyle', 'dietary_intake'],
+                'food_choices_v2' => ['dietary_intake'],
+                'physical_inactivity_v2' => ['physical_activity_level', 'lifestyle', 'social_history'],
+                'food_insecurity_v2' => ['social_history'],
+                default => ['knowledge_notes', 'lifestyle', 'social_history', 'dietary_intake'],
+            };
+            $card = $this->card($id, $problem, $required, ['dietary_restrictions', 'physical_activity_level', 'functional_assessment', 'present_diet'], [], self::ACADEMY_SOURCE);
             $card['domain'] = 'NB';
             $cards[] = $card;
         }

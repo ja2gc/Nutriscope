@@ -11,6 +11,14 @@ use Tests\TestCase;
 
 class PesEligibilityServiceTest extends TestCase
 {
+    public function test_behavioral_candidates_point_to_their_actual_assessment_findings(): void
+    {
+        $cards = collect(app(PesRuleCatalog::class)->cards())->keyBy('id');
+        $this->assertSame(['physical_activity_level', 'lifestyle', 'social_history'], $cards['physical_inactivity_v2']['required_evidence']);
+        $this->assertSame(['knowledge_notes'], $cards['knowledge_deficit_v2']['required_evidence']);
+        $this->assertSame(['social_history'], $cards['food_insecurity_v2']['required_evidence']);
+    }
+
     public function test_legacy_and_current_micronutrient_wording_share_identity_without_merging_distinct_nutrients(): void
     {
         $service = app(PesEligibilityService::class);
@@ -98,7 +106,7 @@ class PesEligibilityServiceTest extends TestCase
     {
         $catalog = app(PesRuleCatalog::class);
 
-        $this->assertSame('2026-10-28-v13:'.ClinicalAiContext::version(), $catalog->version());
+        $this->assertSame('2026-10-28-v14:'.ClinicalAiContext::version(), $catalog->version());
         $this->assertEqualsCanonicalizing(['NI', 'NC', 'NB'], array_values(array_unique(array_column($catalog->cards(), 'domain'))));
 
         foreach ($catalog->cards() as $card) {
