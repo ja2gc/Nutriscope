@@ -294,9 +294,12 @@ class PesSuggestionService
 
         $causes = array_intersect_key($evidence, array_fill_keys([
             'appetite', 'dietary_intake', 'present_diet', 'knowledge_notes', 'lifestyle', 'social_history',
-            'medical_history', 'clinical_context', 'physical_assessment', 'body_composition', 'food_intolerance',
+            'medical_history', 'clinical_context', 'physical_assessment', 'body_composition', 'food_intolerance', 'physical_activity_level',
             'nutrient_drug_interaction', 'dietary_restrictions', 'supplements', 'chewing_swallowing_difficulties', 'gi_symptoms',
         ], true));
+        if (! in_array($evidence['physical_activity_level'] ?? '', ['sedentary', 'inactive'], true)) {
+            unset($causes['physical_activity_level']);
+        }
         foreach ($causes as $key => $value) {
             if (! is_string($value)) {
                 continue;
@@ -468,6 +471,7 @@ class PesSuggestionService
                 if ($causes === []) {
                     throw new \RuntimeException('The AI inferred a cause without a documented concern.');
                 }
+                $derivedSignKeys = [];
                 $signConcerns = array_filter($roles['signs_evidence'], function ($key) use ($evidence): bool {
                     return match ($key) {
                         'bmi' => in_array($evidence['age_group'] ?? null, ['adult', 'elderly'], true)
@@ -484,6 +488,7 @@ class PesSuggestionService
                 if (array_diff(['weight_kg', 'usual_weight_kg', 'weight_change_period'], $roles['signs_evidence']) === []
                     && ($evidence['weight_change_direction'] ?? '') === 'loss' && ($evidence['weight_loss_percentage'] ?? 0) > 0) {
                     $signConcerns[] = 'weight_loss_percentage';
+                    $derivedSignKeys[] = 'weight_loss_percentage';
                 }
                 if ($signConcerns === []) {
                     throw new \RuntimeException('The AI used only normal or contextual values as proof of a problem.');
@@ -510,7 +515,7 @@ class PesSuggestionService
                     throw new \RuntimeException('Normal or denied findings cannot establish a cause or signs.');
                 }
                 $etiology = $this->groundedComponent($etiology, array_values($causes), $causeEvidence);
-                $signs = $this->groundedComponent($signs, $roles['signs_evidence'], $evidence);
+                $signs = $this->groundedComponent($signs, [...$roles['signs_evidence'], ...$derivedSignKeys], $evidence);
                 if ($candidate['domain'] === 'NI' && preg_match('/^(Inadequate|Excessive) .+ intake(?:\b|:)/i', $label) && (! $this->eligibility->supportsIntakeProblem($label, $signs)
                     || ! $this->eligibility->supportsIntakeProblem($label, $this->eligibility->intakeFinding($evidence)))) {
                     throw new \RuntimeException('The signs do not support the selected intake nutrient and direction.');
@@ -534,7 +539,7 @@ class PesSuggestionService
                 $noteKey = static fn (string $text): string => trim((string) preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($text)));
                 $components = array_map($noteKey, [$label, $etiology, $signs]);
                 $usedNotes = [];
-                $citedEvidence = array_intersect_key($evidence, array_fill_keys($keys, true));
+                $citedEvidence = array_intersect_key($evidence, array_fill_keys([...$keys, ...$derivedSignKeys], true));
                 foreach (['extra_notes', 'etiology_notes', 'sign_notes'] as $field) {
                     $note = $this->component(is_string($draft[$field] ?? null) ? $draft[$field] : '', 100, true);
                     $noteValue = $noteKey((string) preg_replace('/^(?:supported by|documented cause|recorded sign)\s*:\s*/i', '', $note));
@@ -685,7 +690,7 @@ class PesSuggestionService
         return $words !== [] && count(array_intersect($words, $supported)) / count($words) >= 2 / 3;
     }
 
-    /** Preserve source wording when lexical matching cannot verify a paraphrase. */
+    /** Keep verified wording or one concise cited finding, never concatenated field excerpts. */
     private function groundedComponent(string $wording, array $keys, array $evidence): string
     {
         $cited = array_intersect_key($evidence, array_fill_keys($keys, true));
@@ -695,22 +700,19 @@ class PesSuggestionService
         if ($this->groundedWording($wording, $keys, $evidence)) {
             return $wording;
         }
-        $findings = [];
         foreach ($cited as $key => $value) {
             if (! is_string($value) || $key === 'clinical_context') {
                 continue;
             }
-            $finding = $this->concernEvidence($value);
-            if ($finding !== '') {
-                $findings[] = str_word_count($finding) === 1 ? $this->formatEvidence($key, $finding) : $finding;
+            foreach ($this->eligibility->clauses($value) as $clause) {
+                $finding = str_word_count($clause) === 1 ? $this->formatEvidence($key, $clause) : $clause;
+                if ($this->eligibility->hasConcern($clause) && mb_strlen($finding) <= 75) {
+                    return $finding;
+                }
             }
         }
-        $source = implode('; ', array_unique($findings));
-        if ($source === '' || mb_strlen($source) > 75) {
-            throw new \RuntimeException('The cited findings need concise clinical wording before a draft can be generated.');
-        }
 
-        return $source;
+        throw new \RuntimeException('The cited findings need concise clinical wording before a draft can be generated.');
     }
 
     private function concernEvidence(mixed $value): mixed

@@ -71,6 +71,14 @@ class PesCitedDraftTest extends TestCase
     public static function citedCases(): array
     {
         return [
+            'sedentary activity can be a cited cause for review' => ['NC', ['weight' => 80, 'usual_weight' => 80, 'height' => 175.5,
+                'edema_present' => false, 'pregnancy_lactation_status' => 'none', 'physical_activity_level' => 'sedentary'],
+                ['candidate' => 'Overweight/Obesity', 'p' => 'Overweight/obesity', 'e' => 'Physical inactivity', 'ek' => ['physical_activity_level'],
+                    's' => 'BMI 25.97', 'sk' => ['bmi']]],
+            'percentage derived from both cited weights' => ['NC', ['weight' => 61.2, 'usual_weight' => 64.4, 'height' => 167.6,
+                'weight_change_period_value' => 2, 'weight_change_period_unit' => 'months', 'medical_history' => 'Dyspnea reduces appetite; weight loss was not intentional.'],
+                ['candidate' => 'Unintended Weight Loss', 'p' => 'Unintended weight loss', 'e' => 'Dyspnea reduces appetite', 'ek' => ['medical_history'],
+                    's' => 'Weight loss 4.97% over 2 months', 'sk' => ['weight_kg', 'usual_weight_kg', 'weight_change_period']]],
             'adult classification cited without repeating raw BMI' => ['NC', ['weight' => 80, 'usual_weight' => 80, 'height' => 175.5,
                 'edema_present' => false, 'pregnancy_lactation_status' => 'none', 'medical_history' => 'Limited mobility reduces activity.'],
                 ['candidate' => 'Overweight/Obesity', 'p' => 'Overweight/obesity', 'e' => 'Limited mobility reduces activity', 'ek' => ['medical_history'],
@@ -118,6 +126,37 @@ class PesCitedDraftTest extends TestCase
         $this->provider('NC', ['candidate' => 'Unintended Weight Loss', 'p' => 'Unintended weight loss',
             'e' => 'Dyspnea reduces appetite', 'ek' => ['medical_history'],
             's' => 'Weight 61.2 kg', 'sk' => ['weight_kg']]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonCount(0, 'data');
+    }
+
+    public function test_unverified_paraphrase_uses_a_concise_cited_clause_instead_of_overlong_excerpts(): void
+    {
+        $record = $this->record(['dietary_intake' => 'Estimated energy intake 1200 kcal/day versus estimated needs 1600 kcal/day (75%). Dyspnea reduces appetite and food intake.',
+            'medical_history' => 'Congestive heart failure diagnosed 2 months ago. Dyspnea reduces appetite; weight loss was not intentional.']);
+        $this->provider('NI', ['candidate' => 'Inadequate energy intake', 'p' => 'Inadequate energy intake',
+            'e' => 'Breathlessness limits eating', 'ek' => ['medical_history', 'dietary_intake'],
+            's' => 'Energy intake 1200 kcal/day vs needs 1600 kcal/day (75%)', 'sk' => ['dietary_intake']]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.etiology', 'Dyspnea reduces appetite and food intake.');
+    }
+
+    public function test_normal_activity_cannot_be_cited_as_an_inactivity_cause(): void
+    {
+        $record = $this->record(['weight' => 80, 'usual_weight' => 80, 'height' => 175.5,
+            'edema_present' => false, 'pregnancy_lactation_status' => 'none', 'physical_activity_level' => 'lightly_active']);
+        $this->provider('NC', ['candidate' => 'Overweight/Obesity', 'p' => 'Overweight/obesity',
+            'e' => 'Physical inactivity', 'ek' => ['physical_activity_level'], 's' => 'BMI 25.97', 'sk' => ['bmi']]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonCount(0, 'data');
+    }
+
+    public function test_derived_weight_loss_does_not_allow_a_different_percentage(): void
+    {
+        $record = $this->record(['weight' => 61.2, 'usual_weight' => 64.4, 'height' => 167.6,
+            'weight_change_period_value' => 2, 'weight_change_period_unit' => 'months',
+            'medical_history' => 'Dyspnea reduces appetite; weight loss was not intentional.']);
+        $this->provider('NC', ['candidate' => 'Unintended Weight Loss', 'p' => 'Unintended weight loss',
+            'e' => 'Dyspnea reduces appetite', 'ek' => ['medical_history'],
+            's' => 'Weight loss 5% over 2 months', 'sk' => ['weight_kg', 'usual_weight_kg', 'weight_change_period']]);
         $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonCount(0, 'data');
     }
 }
