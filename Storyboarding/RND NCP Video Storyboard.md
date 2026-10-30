@@ -66,6 +66,8 @@ Continue immediately with the compact Food Service sequence in `RND Food Service
 
 **On-screen actions**
 
+Diagnosis AI Review additionally offers a collapsed **Possible concerns** section when recorded findings warrant clarification; show **Review assessment** or **Dismiss**, never a diagnosis Accept action for a concern (verified at `4b2f91de` plus these changes, 2026-10-30).
+
 1. Sign in as RND and open **Nutrition Care → Patients**.
 2. Select the fictional patient.
 3. Show **Overview**, **ADIME Records**, **Appointments**, and **Attachments**.

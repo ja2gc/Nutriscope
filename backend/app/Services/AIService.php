@@ -6,6 +6,7 @@ use App\Exceptions\TokenLimitExceededException;
 use App\Exceptions\UnusableAiDraftException;
 use App\Models\AiUsageLimit;
 use App\Models\AiUsageLog;
+use App\Support\ClinicalAiContext;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -41,20 +42,23 @@ class AIService
 - P=nutrition problem; E=documented cause/barrier, not P/status repeated; S=specific measurable/qualifying proof of P. Require all; else abstain. No medical diagnoses. Referral/guidance/medications=context, not cause/proof. Possible causes != facts.
 - Normal/adequate/denied/resolved/historical/uncertain/intentional findings=counterevidence. BMI != excess intake/malnutrition/severity; education != knowledge deficit; smoking/lab flag/albumin alone != diagnosis.
 - BMI=WHO pediatric/Asia-Pacific adult; no adult rules for children. Check weight direction/duration/intent/fluid, population/fasting. Malnutrition: GLIM phenotype AND sustained intake/assimilation or inflammatory cause; no inferred severity.
-- Weight change alone is not a diagnosis. Assess magnitude/timeframe, measurement/fluid context, intent and corroboration; omit ordinary variability or unsupported significance. No blanket percentage cutoff.
+- Weight change: assess magnitude/time, fluids, intent and corroboration; omit ordinary variability; no blanket cutoff.
 - NI intake-amount terms need nutrient/direction in assessment and S. Needs/composition/predicted terms require corresponding recorded support. Food lists/kcal alone do not prove a deficit/excess. Recall != entered intake; invent no targets.
 
 # STRUCTURE & DOMAINS
 - Independently review NI/NC/NB candidates; return 0..5 prioritized distinct supported problems. Omit any lacking E/S and continue. Exclude existing/equivalents. Other may share id. Never return No nutrition diagnosis at this time; abstention=[].
 - retry_problems: recheck these first; require cited E/S or abstain.
-- candidates=cN:[domain,problem,anchor_refs]; evidence=eN:[field,value]. Anchors=findings to check, not diagnoses/causes. id=cN; p=supplied term or supported choices.p term, <=255 chars. Preserve Problem terminology; replace specify with recorded detail. Predicted problems need documented anticipated risk.
+- candidates=cN:[domain,problem,anchors]; evidence=eN:[field,value]; anchors are findings, not diagnoses. id=cN; p=supplied/choices.p term, <=255 chars; preserve terminology. Predictions need documented anticipated risk.
 - choices[domain].e/s=builder options. Use only if fully supported; otherwise write specific Other. Accuracy over approximate presets. Preserve comparisons: 75% is not <75%.
-- E=root cause in beliefs/attitudes, culture, knowledge, physical function, physiology/metabolism, psychology, social/personal, treatment, access or behavior. S=recorded diet/history, measurements, labs/tests or physical findings. Category labels/codes stay outside PES. Habits are context, not automatic causes.
-- n/en/sn: assessment fact + why it supports P/E/S respectively; <=100 chars each. Distinct explanations, not component restatements. No new facts/advice/hidden reasoning. Outside PES.
+- E=documented root cause/barrier; S=recorded diet/history, measurements, labs or physical findings; category labels/codes outside PES; habits not automatic causes.
+- n/en/sn: assessment fact + why it supports P/E/S; <=100 chars each. Distinct explanations, not restatements; no new facts/advice/hidden reasoning; outside PES.
 
 # CITATION & SYNTAX
 - e/s=actual cause/finding, <=75 chars, not an arbitrary field excerpt. ek/sk=1..8 supplied refs proving their respective roles. Preserve negation/quantities. JSON only.
 - S/sk prove P. Intake: cite nutrient/direction and recorded intake-to-needs comparison, not absolute intake. Weight change: cite change plus interval or both weights plus interval. Causes alone are not signs.
+- Before nutrient concerns, search_nutrient_context by recorded symptoms together; no nutrient assumption needed.
+- concerns=possibilities, not diagnoses: observed refs and retrieved card; no invented findings, treatment or causal certainty.
+- Five suggestions+concerns total; no duplicates; failed drafts are not automatically concerns.
 PROMPT;
             $userPrompt = "input_json:\n{$encoded}";
             $phrase = ['type' => 'string', 'description' => 'Between 1 and 75 characters.'];
@@ -81,81 +85,117 @@ PROMPT;
                 ]]],
             ];
 
-            $response = Http::timeout(20)->connectTimeout(5)->withHeaders([
-                'x-api-key' => $apiKey,
-                'anthropic-version' => '2023-06-01',
-                'content-type' => 'application/json',
-            ])->post('https://api.anthropic.com/v1/messages', [
-                'model' => $model,
-                'max_tokens' => 1700,
-                'thinking' => ['type' => 'disabled'],
-                'system' => $systemPrompt,
-                'output_config' => ['format' => ['type' => 'json_schema', 'schema' => $schema]],
-                'messages' => [
-                    [
-                        'role' => 'user',
-                        'content' => $userPrompt,
-                    ],
-                ],
-            ]);
+            $schema['required'][] = 'concerns';
+            $schema['properties']['concerns'] = ['type' => 'array', 'items' => [
+                'type' => 'object', 'additionalProperties' => false,
+                'required' => ['refs', 'card'],
+                'properties' => ['refs' => $evidenceKeys, 'card' => ['type' => 'string']],
+            ]];
+            $messages = [['role' => 'user', 'content' => $userPrompt]];
+            $cards = [];
+            $usageTotals = ['input_tokens' => 0, 'output_tokens' => 0];
+            for ($turn = 0; $turn < 2; $turn++) {
+                $this->assertWithinTokenLimits();
 
-            if ($response->successful()) {
-                $body = $response->json();
-
-                // Log AI usage
-                $inputTokens = $body['usage']['input_tokens'] ?? 0;
-                $outputTokens = $body['usage']['output_tokens'] ?? 0;
-                $totalTokens = $inputTokens + $outputTokens;
-
-                $usage = AiUsageLog::create([
-                    'user_id' => $userId,
+                $response = Http::timeout(20)->connectTimeout(5)->withHeaders([
+                    'x-api-key' => $apiKey,
+                    'anthropic-version' => '2023-06-01',
+                    'content-type' => 'application/json',
+                ])->post('https://api.anthropic.com/v1/messages', [
                     'model' => $model,
-                    'tokens_input' => $inputTokens,
-                    'tokens_output' => $outputTokens,
-                    'tokens_total' => $totalTokens,
-                    'endpoint' => 'diagnosis_suggestion',
+                    'max_tokens' => 1700,
+                    'thinking' => ['type' => 'disabled'],
+                    'system' => $systemPrompt,
+                    'output_config' => ['format' => ['type' => 'json_schema', 'schema' => $schema]],
+                    'messages' => $messages,
+                    'tools' => [['name' => 'search_nutrient_context', 'description' => 'Search approved nutrient references by recorded symptoms/findings; nutrient and direction need not be known; one batched lookup.',
+                        'input_schema' => ['type' => 'object', 'additionalProperties' => false, 'required' => ['query', 'evidence_refs'],
+                            'properties' => ['query' => ['type' => 'string'], 'evidence_refs' => $evidenceKeys]]]],
+                    'tool_choice' => ['type' => $turn === 0 ? 'auto' : 'none', ...($turn === 0 ? ['disable_parallel_tool_use' => true] : [])],
                 ]);
-                Cache::forget('admin_dashboard');
 
-                $usageMetadata = ['usage_log_id' => $usage->id, 'input_tokens' => $inputTokens, 'output_tokens' => $outputTokens];
+                if ($response->successful()) {
+                    $body = $response->json();
 
-                if (($body['stop_reason'] ?? null) === 'refusal') {
-                    throw new UnusableAiDraftException('The AI service declined this request. No draft was created.', $usageMetadata);
-                }
-                if (($body['stop_reason'] ?? null) === 'model_context_window_exceeded') {
-                    throw new UnusableAiDraftException('The AI request exceeded the model context window.', $usageMetadata);
-                }
-                if (($body['stop_reason'] ?? null) === 'max_tokens') {
-                    throw new UnusableAiDraftException('The AI response was incomplete. Please try again.', $usageMetadata);
-                }
-                $text = collect($body['content'] ?? [])->firstWhere('type', 'text')['text'] ?? '';
-                // Models sometimes wrap JSON in ```json fences despite instructions —
-                // strip them before decoding so a well-formed payload isn't rejected.
-                $text = $this->stripJsonFences($text);
-                $decoded = json_decode($text, true);
+                    // Log AI usage
+                    $inputTokens = $body['usage']['input_tokens'] ?? 0;
+                    $outputTokens = $body['usage']['output_tokens'] ?? 0;
+                    $totalTokens = $inputTokens + $outputTokens;
 
-                if (json_last_error() !== JSON_ERROR_NONE) {
-                    Log::warning('AIService draftPes: malformed JSON from model', [
-                        'error' => json_last_error_msg(),
+                    $usage = AiUsageLog::create([
+                        'user_id' => $userId,
+                        'model' => $model,
+                        'tokens_input' => $inputTokens,
+                        'tokens_output' => $outputTokens,
+                        'tokens_total' => $totalTokens,
+                        'endpoint' => 'diagnosis_suggestion',
                     ]);
-                    throw new UnusableAiDraftException('The AI returned an unexpected PES response.', $usageMetadata);
+                    Cache::forget('admin_dashboard');
+
+                    $usageMetadata = ['usage_log_id' => $usage->id, 'input_tokens' => $inputTokens, 'output_tokens' => $outputTokens];
+                    $usageTotals['input_tokens'] += $inputTokens;
+                    $usageTotals['output_tokens'] += $outputTokens;
+                    if (($body['stop_reason'] ?? null) === 'tool_use' && $turn === 0) {
+                        $calls = array_values(array_filter($body['content'] ?? [], static fn ($block) => ($block['type'] ?? '') === 'tool_use'));
+                        if (count($calls) !== 1 || ($calls[0]['name'] ?? '') !== 'search_nutrient_context') {
+                            throw new UnusableAiDraftException('The context lookup was invalid.', $usageMetadata);
+                        }
+                        $call = $calls[0];
+                        $query = $call['input']['query'] ?? null;
+                        $refs = $call['input']['evidence_refs'] ?? null;
+                        if (! is_string($query) || mb_strlen($query) > 600 || ! is_array($refs) || $refs === [] || count($refs) > 8
+                            || count(array_filter($refs, 'is_string')) !== count($refs) || array_diff($refs, array_keys($payload['evidence'])) !== []) {
+                            throw new UnusableAiDraftException('The context lookup needs recorded findings.', $usageMetadata);
+                        }
+                        $findings = [];
+                        foreach ($refs as $ref) {
+                            $findings[$payload['evidence'][$ref][0]] = $payload['evidence'][$ref][1];
+                        }
+                        $cards = ClinicalAiContext::searchNutrients($query, $findings);
+                        $messages[] = ['role' => 'assistant', 'content' => $body['content']];
+                        $messages[] = ['role' => 'user', 'content' => [['type' => 'tool_result', 'tool_use_id' => $call['id'], 'content' => json_encode($cards)]]];
+
+                        continue;
+                    }
+
+                    if (($body['stop_reason'] ?? null) === 'refusal') {
+                        throw new UnusableAiDraftException('The AI service declined this request. No draft was created.', $usageMetadata);
+                    }
+                    if (($body['stop_reason'] ?? null) === 'model_context_window_exceeded') {
+                        throw new UnusableAiDraftException('The AI request exceeded the model context window.', $usageMetadata);
+                    }
+                    if (($body['stop_reason'] ?? null) === 'max_tokens') {
+                        throw new UnusableAiDraftException('The AI response was incomplete. Please try again.', $usageMetadata);
+                    }
+                    $text = collect($body['content'] ?? [])->firstWhere('type', 'text')['text'] ?? '';
+                    // Models sometimes wrap JSON in ```json fences despite instructions —
+                    // strip them before decoding so a well-formed payload isn't rejected.
+                    $text = $this->stripJsonFences($text);
+                    $decoded = json_decode($text, true);
+
+                    if (json_last_error() !== JSON_ERROR_NONE) {
+                        Log::warning('AIService draftPes: malformed JSON from model', [
+                            'error' => json_last_error_msg(),
+                        ]);
+                        throw new UnusableAiDraftException('The AI returned an unexpected PES response.', $usageMetadata);
+                    }
+
+                    if (! isset($decoded['suggestions']) || ! is_array($decoded['suggestions'])) {
+                        throw new UnusableAiDraftException('The AI returned an unexpected PES response.', $usageMetadata);
+                    }
+
+                    return ['suggestions' => $decoded['suggestions'], 'concerns' => $decoded['concerns'] ?? [], 'context_cards' => $cards,
+                        'usage' => ['usage_log_id' => $usage->id, ...$usageTotals]];
                 }
 
-                if (! isset($decoded['suggestions']) || ! is_array($decoded['suggestions'])) {
-                    throw new UnusableAiDraftException('The AI returned an unexpected PES response.', $usageMetadata);
-                }
-
-                return ['suggestions' => $decoded['suggestions'], 'usage' => [
-                    'usage_log_id' => $usage->id, 'input_tokens' => $inputTokens, 'output_tokens' => $outputTokens,
-                ]];
+                Log::error('AIService API request failed', [
+                    'status' => $response->status(),
+                ]);
+                throw new \RuntimeException(
+                    'AI service request failed (HTTP '.$response->status().'). Check the API key and try again.'
+                );
             }
-
-            Log::error('AIService API request failed', [
-                'status' => $response->status(),
-            ]);
-            throw new \RuntimeException(
-                'AI service request failed (HTTP '.$response->status().'). Check the API key and try again.'
-            );
+            throw new \RuntimeException('The context review did not finish.');
         } catch (TokenLimitExceededException $e) {
             throw $e; // already a 429-rendering exception
         } catch (\RuntimeException $e) {

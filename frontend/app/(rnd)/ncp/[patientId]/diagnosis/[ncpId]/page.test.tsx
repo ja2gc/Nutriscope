@@ -37,6 +37,15 @@ async function open() {
   await act(async () => { root.render(<Suspense fallback={<div>Loading</div>}><Page params={params} /></Suspense>); });
 }
 
+it("shows symptom concerns separately without a diagnosis approval action", async () => {
+  const result = await diagnoses.fetchPesDraftStatus("fixture");
+  vi.mocked(diagnoses.fetchPesDraftStatus).mockResolvedValue({ ...result, concerns: [{ concern_id: "concern", label: "Vitamin A inadequacy concern", missing: "Clarify intake history", evidence_used: ["Physical findings: Night blindness"] }] });
+  await open(); click("AI Review");
+  expect(screen.getByText("Possible concerns (1)")).toBeTruthy();
+  expect(screen.getByRole("link", { name: "Review assessment", hidden: true })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Accept" })).toBeNull();
+});
+
 it("blocks editing when required clinical context fails and offers retry", async () => {
   vi.mocked(fetchAssessment).mockRejectedValueOnce(new Error("Connection failed"));
   await open();

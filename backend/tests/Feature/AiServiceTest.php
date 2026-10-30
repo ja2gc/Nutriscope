@@ -22,6 +22,51 @@ class AiServiceTest extends TestCase
 
     private User $rnd;
 
+    public function test_symptom_only_concern_is_cached_dismissible_and_cannot_be_approved_as_a_diagnosis(): void
+    {
+        $record = NcpRecord::factory()->create(['patient_id' => Patient::factory()->create()->id, 'rnd_user_id' => $this->rnd->id, 'status' => 'draft']);
+        Assessment::factory()->create(['ncp_record_id' => $record->id, 'physical_assessment' => 'Night blindness reported.']);
+        $ref = null;
+        Http::preventStrayRequests();
+        Http::fake(['api.anthropic.com/*' => function ($request) use (&$ref) {
+            if ($ref === null) {
+                $payload = json_decode(substr($request['messages'][0]['content'], strlen("input_json:\n")), true);
+                $ref = collect($payload['evidence'])->search(fn ($item) => $item[0] === 'physical_assessment');
+
+                return Http::response(['stop_reason' => 'tool_use', 'content' => [['type' => 'tool_use', 'id' => 'lookup', 'name' => 'search_nutrient_context',
+                    'input' => ['query' => 'night blindness', 'evidence_refs' => [$ref]]]], 'usage' => ['input_tokens' => 100, 'output_tokens' => 20]]);
+            }
+
+            return Http::response(['stop_reason' => 'end_turn', 'content' => [['type' => 'text', 'text' => json_encode(['suggestions' => [], 'concerns' => [
+                ['label' => 'Possible vitamin A inadequacy', 'refs' => [$ref], 'card' => 'vitamin_a_inadequate', 'missing' => 'Clarify intake and absorption history'],
+            ]])]], 'usage' => ['input_tokens' => 150, 'output_tokens' => 60]]);
+        }]);
+        $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses";
+        $response = $this->postJson($url.'/ai-suggest')->assertOk()->assertJsonCount(0, 'data')->assertJsonCount(1, 'concerns');
+        $id = $response->json('concerns.0.concern_id');
+        $this->postJson($url.'/ai-approve', ['draft_id' => $id])->assertStatus(422);
+        $this->postJson($url.'/ai-suggest')->assertOk()->assertJsonCount(1, 'concerns');
+        Http::assertSentCount(2);
+        $this->postJson($url.'/ai-suggest', ['dismissed_draft_id' => $id])->assertOk()->assertJsonCount(0, 'concerns');
+        $this->assertDatabaseCount('diagnoses', 0);
+    }
+
+    public function test_findings_lookup_returns_context_before_final_response_and_logs_both_turns(): void
+    {
+        Http::preventStrayRequests();
+        Http::fakeSequence()->push(['stop_reason' => 'tool_use', 'content' => [['type' => 'tool_use', 'id' => 'lookup1', 'name' => 'search_nutrient_context',
+            'input' => ['query' => 'night blindness', 'evidence_refs' => ['e1']]]], 'usage' => ['input_tokens' => 100, 'output_tokens' => 20]])
+            ->push(['stop_reason' => 'end_turn', 'content' => [['type' => 'text', 'text' => json_encode(['suggestions' => [], 'concerns' => [
+                ['label' => 'Possible vitamin A inadequacy', 'refs' => ['e1'], 'card' => 'vitamin_a_inadequate', 'missing' => 'Clarify intake and absorption history'],
+            ]])]], 'usage' => ['input_tokens' => 150, 'output_tokens' => 60]]);
+        $result = app(AIService::class)->draftPes(['evidence' => ['e1' => ['physical_assessment', 'Night blindness reported.']], 'candidates' => []]);
+        $this->assertArrayHasKey('vitamin_a_inadequate', $result['context_cards']);
+        $this->assertCount(1, $result['concerns']);
+        $this->assertSame(250, $result['usage']['input_tokens']);
+        $this->assertDatabaseCount('ai_usage_logs', 2);
+        Http::assertSentCount(2);
+    }
+
     protected function setUp(): void
     {
         parent::setUp();

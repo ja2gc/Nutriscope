@@ -4,11 +4,41 @@ namespace App\Support;
 
 use App\Models\NcpRecord;
 use App\Models\Patient;
+use App\Services\AIService;
 use App\Services\Diagnosis\PesEligibilityService;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 
 class ClinicalAiContext
 {
+    /** Search recorded findings, not an assumed diagnosis; sources: NIH Office of Dietary Supplements, Academy of Nutrition and Dietetics. */
+    public static function searchNutrients(string $query, array $evidence): array
+    {
+        $eligibility = app(PesEligibilityService::class);
+        unset($evidence['clinical_context']);
+        $text = implode('; ', array_filter(array_map(static fn ($key, $value) => is_string($value) ? $key.': '.$value : '',
+            array_keys(Arr::dot($evidence)), array_values(Arr::dot($evidence)))));
+        $affirmative = implode('; ', array_filter($eligibility->clauses($text), static fn ($clause) => $eligibility->hasConcern($clause)
+            && ! preg_match('/\b(no|not|denies|denied|normal|adequate|sufficient|resolved|family history|suspected|possible)\b/iu', $clause)));
+        $words = array_unique(preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower($query), flags: PREG_SPLIT_NO_EMPTY));
+        $matches = [];
+        foreach (self::library()['nutrient_references'] ?? [] as $id => $card) {
+            $score = 0;
+            foreach ($card['findings'] as $finding) {
+                if (preg_match('/(?<![\p{L}])'.preg_quote($finding, '/').'(?![\p{L}])/iu', $affirmative)
+                    && array_intersect($words, preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower($finding), flags: PREG_SPLIT_NO_EMPTY)) !== []) {
+                    $score++;
+                }
+            }
+            if ($score > 0) {
+                $matches[$id] = ['context' => $card['context'], 'score' => $score];
+            }
+        }
+        uasort($matches, static fn ($a, $b) => $b['score'] <=> $a['score']);
+
+        return array_map(static fn ($card) => $card['context'], array_slice($matches, 0, AIService::PES_DRAFT_LIMIT, true));
+    }
+
     public static function library(): array
     {
         return once(fn () => json_decode(file_get_contents(resource_path('clinical-ai-context.json')), true, flags: JSON_THROW_ON_ERROR));

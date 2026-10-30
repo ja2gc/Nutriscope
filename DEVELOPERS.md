@@ -1,5 +1,7 @@
 # NutriScope developer map
 
+Nutrient reference discovery and possible concerns: `ClinicalAiContext` searches recorded findings, `AIService` permits one lookup, and `PesSuggestionService` validates and stores concerns separately from approvable PES drafts; the existing diagnosis page owns review/dismiss actions. Verified at `4b2f91de` plus these changes (2026-10-30); see [AI guidance](docs/developers/ncp/ai.md) and [NCP data](docs/developers/ncp/data.md).
+
 Verified against source: `db7bff65dd597e2cab4ddcd83ded569ff88dd03a` plus the cited-weight and context-routing corrections in this working tree (2026-10-29).
 
 Diagnosis keeps the existing P/E/S append builder. `DiagnosisBuilder` owns terminology formatting and selection metadata; `DiagnosisController` owns the exclusive clinician-recorded NO decision. `PesSuggestionService` owns evidence checks, duplicate protection and review reuse; `ClinicalAiContext` selects brief guidance on the server. See [NCP AI](docs/developers/ncp/ai.md) and [NCP data](docs/developers/ncp/data.md).

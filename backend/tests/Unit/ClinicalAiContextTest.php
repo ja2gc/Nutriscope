@@ -10,6 +10,14 @@ use Tests\TestCase;
 
 class ClinicalAiContextTest extends TestCase
 {
+    public function test_findings_discover_nutrient_cards_without_naming_a_nutrient(): void
+    {
+        $cards = ClinicalAiContext::searchNutrients('night blindness', ['physical_assessment' => 'Night blindness reported.']);
+        $this->assertArrayHasKey('vitamin_a_inadequate', $cards);
+        $this->assertArrayNotHasKey('vitamin_a_excessive', $cards);
+        $this->assertSame([], ClinicalAiContext::searchNutrients('night blindness', ['physical_assessment' => 'No night blindness.']));
+    }
+
     public function test_documented_sedentary_activity_gets_behavioral_guidance_without_inventing_a_weight_cause(): void
     {
         $guidance = ClinicalAiContext::guidance(['physical_activity_level' => 'sedentary'], 'diagnosis');

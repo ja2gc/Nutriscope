@@ -35,13 +35,23 @@ class PesSuggestionService
 
     public function suggest(NcpRecord $ncpRecord, ?string $dismissedCandidateId = null, ?string $dismissedDraftId = null, bool $retryRejected = false): array
     {
-        return Cache::lock('pes-patient-'.$ncpRecord->patient_id, 40)->block(1, function () use ($ncpRecord, $dismissedCandidateId, $dismissedDraftId, $retryRejected): array {
+        return Cache::lock('pes-patient-'.$ncpRecord->patient_id, 80)->block(1, function () use ($ncpRecord, $dismissedCandidateId, $dismissedDraftId, $retryRejected): array {
             $evidence = $this->evidenceBuilder->build($ncpRecord);
             if ($evidence['no_diagnosis_recorded'] ?? false) {
                 throw new \InvalidArgumentException(Diagnosis::NO_DIAGNOSIS_WARNING);
             }
             $state = $this->state($ncpRecord, $evidence);
             if ($dismissedCandidateId !== null || $dismissedDraftId !== null) {
+                if ($state !== null && $dismissedDraftId !== null) {
+                    $metadata = $state->provider_metadata;
+                    $concerns = $metadata['concerns'] ?? [];
+                    if (collect($concerns)->contains('concern_id', $dismissedDraftId)) {
+                        $metadata['concerns'] = array_values(array_filter($concerns, static fn ($item) => $item['concern_id'] !== $dismissedDraftId));
+                        $state->update(['provider_metadata' => $metadata]);
+
+                        return $this->response($ncpRecord, $state, $evidence, true);
+                    }
+                }
                 $selected = collect($this->activeDrafts($ncpRecord, $evidence))->firstWhere($dismissedDraftId !== null ? 'draft_id' : 'candidate_id', $dismissedDraftId ?? $dismissedCandidateId);
                 $source = $selected ? $this->history($ncpRecord)->first(fn ($item) => collect($item->validated_response)->contains('draft_id', $selected['draft_id'])) : null;
                 if ($source === null) {
@@ -75,6 +85,7 @@ class PesSuggestionService
                 $result = ['suggestions' => [], 'usage' => $error->usage];
             }
             $raw = $result['suggestions'];
+            $concerns = $this->validateConcerns($result['concerns'] ?? [], $result['context_cards'] ?? [], $payload, $reviewEvidence);
             $validated = [];
             $failures = [];
             try {
@@ -90,6 +101,9 @@ class PesSuggestionService
                 ]);
             }
             $previous = $state?->validated_response ?? [];
+            $concerns = array_slice(array_values(array_filter($concerns, fn ($concern) => ! in_array($this->eligibility->canonicalProblem(
+                preg_replace(['/^(.+) inadequacy concern$/', '/^(.+) excess concern$/'], ['Inadequate $1 intake', 'Excessive $1 intake'], $concern['label'])),
+                $this->eligibility->canonicalProblems([...array_column($validated, 'label'), ...array_column($previous, 'label'), ...($evidence['existing_problem_keys'] ?? [])]), true))), 0, max(0, AIService::PES_DRAFT_LIMIT - count($validated)));
             $outcome = $rejected ? 'rejected' : (count($validated) < count($raw) ? 'partial' : ($validated === [] ? 'no_supported' : 'complete'));
             $newlyReviewed = array_column($eligible, 'candidate_id');
             $contexts = $state?->provider_metadata['review_contexts'] ?? [];
@@ -108,6 +122,7 @@ class PesSuggestionService
                 'validated_response' => [...$previous, ...$validated],
                 'dismissed_candidate_ids' => $state?->dismissed_candidate_ids ?? [],
                 'provider_metadata' => ['provider' => 'anthropic', 'review_contexts' => $contexts,
+                    'concerns' => $concerns,
                     'review_outcome' => $outcome, 'model' => config('services.anthropic.model')],
             ];
             if ($state === null) {
@@ -209,6 +224,9 @@ class PesSuggestionService
     {
         $card = collect($this->catalog->cards())->firstWhere('id', $candidateId);
         $keys = [...$extra, ...($card['required_evidence'] ?? []), ...($card['corroborating_evidence'] ?? []), 'age_group', 'age_70_plus', 'food_recall', 'intake_nutrients'];
+        if ($candidateId === 'intake_other_v2') {
+            $keys = [...$keys, 'laboratory_flags', 'gi_symptoms'];
+        }
         if (($card['domain'] ?? null) !== 'NB') {
             $keys = [...$keys, 'medical_history', 'clinical_context'];
         }
@@ -311,16 +329,18 @@ class PesSuggestionService
         $hasRejections = $this->retryProblems($record, $evidence) !== [];
         $canRetry = $hasRejections || count($this->remaining($record, $evidence, true)) > count($remaining);
         $outcome = $state?->provider_metadata['review_outcome'] ?? ($canRetry ? 'rejected' : null);
+        $concerns = $state?->provider_metadata['concerns'] ?? [];
         $reason = match (true) {
             $evidence['no_diagnosis_recorded'] ?? false => Diagnosis::NO_DIAGNOSIS_WARNING,
             $budget['remaining'] === 0 => 'Ten requests per ten minutes reached. Try again when the allowance resets.',
+            $remaining === [] && $concerns !== [] => 'Review possible concerns and clarify missing Assessment evidence.',
             $canRetry && $remaining === [] => $hasRejections || in_array($outcome, ['rejected', 'partial'], true)
                 ? 'Could not generate AI suggestions. Try again or add a diagnosis manually.' : 'No additional nutrition diagnosis found.',
             $remaining === [] => self::EMPTY_MESSAGE.' Update the Assessment when new findings are available.',
             default => null,
         };
 
-        return ['data' => $visible, 'meta' => [
+        return ['data' => $visible, 'concerns' => $concerns, 'meta' => [
             'cached' => $cached, 'fingerprint' => $this->fingerprint($evidence),
             'catalog_version' => $this->catalog->version(), 'budget' => $budget,
             'blocked_by_no_diagnosis' => (bool) ($evidence['no_diagnosis_recorded'] ?? false),
@@ -328,6 +348,38 @@ class PesSuggestionService
             'can_generate' => $reason === null, 'can_retry' => $canRetry && $budget['remaining'] > 0, 'review_outcome' => $outcome, 'disabled_reason' => $reason,
             'message' => ($evidence['no_diagnosis_recorded'] ?? false) ? Diagnosis::NO_DIAGNOSIS_WARNING : ($visible === [] ? ($canRetry ? $reason : ($remaining === [] ? self::EMPTY_MESSAGE : null)) : null),
         ]];
+    }
+
+    /** Possibilities stay outside validated_response and can never resolve through diagnosis approval. */
+    private function validateConcerns(mixed $raw, array $cards, array $payload, array $evidence): array
+    {
+        if (! is_array($raw) || ! array_is_list($raw)) {
+            return [];
+        }
+        $validated = [];
+        foreach (array_slice($raw, 0, AIService::PES_DRAFT_LIMIT) as $item) {
+            if (! is_array($item) || ! is_string($item['card'] ?? null) || ! isset($cards[$item['card']])
+                || ! is_array($item['refs'] ?? null) || $item['refs'] === [] || count($item['refs']) > 8
+                || count(array_filter($item['refs'], 'is_string')) !== count($item['refs'])
+                || array_diff($item['refs'], array_keys($payload['evidence'])) !== []) {
+                continue;
+            }
+            $cited = [];
+            foreach ($item['refs'] as $ref) {
+                $key = $payload['evidence'][$ref][0];
+                $cited[$key] = $evidence[$key];
+            }
+            $card = ClinicalAiContext::library()['nutrient_references'][$item['card']] ?? null;
+            if ($card === null || ! isset(ClinicalAiContext::searchNutrients(implode(' ', $card['findings']), $cited)[$item['card']])) {
+                continue;
+            }
+            $validated[$item['card']] = ['concern_id' => (string) Str::uuid(),
+                'label' => explode(':', $cards[$item['card']], 2)[0], 'context' => $cards[$item['card']],
+                'missing' => 'Review intake adequacy, supplement doses, absorption and alternative causes.', 'card_id' => $item['card'],
+                'evidence_used' => array_map(fn ($key) => $this->formatEvidence($key, $cited[$key]), array_keys($cited))];
+        }
+
+        return array_values($validated);
     }
 
     /** Only recorded concerns can support a cause; care grouping and medication names stay context. */

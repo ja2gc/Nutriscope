@@ -438,6 +438,7 @@ export default function NcpDiagnosisPage({
   const [domainFilter, setDomainFilter] = useState<"ALL" | DiagnosisDomain>("ALL");
   const [builder, setBuilder] = useState<BuilderState>(defaultBuilder());
   const [aiSuggestions, setAiSuggestions] = useState<AiSuggestion[]>([]);
+  const [aiConcerns, setAiConcerns] = useState<NonNullable<import("@/services/diagnosisService").PesDraftResult["concerns"]>>([]);
   const [aiDraftsPage, setAiDraftsPage] = useState(1);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiMeta, setAiMeta] = useState<PesDraftMeta | null>(null);
@@ -453,7 +454,7 @@ export default function NcpDiagnosisPage({
     try {
       const result = await fetchPesDraftStatus(ncpId);
       if (request !== aiStatusRequest.current) return;
-      setAiSuggestions(result.data); setAiMeta(result.meta); setAiUnavailable(null);
+      setAiSuggestions(result.data); setAiConcerns(result.concerns ?? []); setAiMeta(result.meta); setAiUnavailable(null);
       if (result.meta.can_generate || result.meta.can_retry) setAiWarning(null);
     } catch {
       if (request === aiStatusRequest.current) {
@@ -638,6 +639,7 @@ export default function NcpDiagnosisPage({
         && (aiMeta.has_retryable_rejections || aiMeta.review_outcome === 'rejected' || aiMeta.review_outcome === 'partial'));
       const result = await aiSuggestDiagnoses(ncpId, retry);
       setAiSuggestions(result.data);
+      setAiConcerns(result.concerns ?? []);
       setAiDraftsPage(1);
       setAiMeta(result.meta);
       if (!result.meta.can_generate && !result.meta.can_retry && (result.meta.cached || result.data.length === 0 || result.meta.review_outcome === 'no_supported')) {
@@ -683,6 +685,7 @@ export default function NcpDiagnosisPage({
       setError(null);
       const result = await dismissPesSuggestion(ncpId, s.draft_id);
       setAiSuggestions(result.data);
+      setAiConcerns(result.concerns ?? []);
       setAiDraftsPage(1);
       setAiMeta(result.meta);
     } catch (err: unknown) {
@@ -1258,7 +1261,7 @@ export default function NcpDiagnosisPage({
         )}
       </div>
 
-      {aiSuggestionOutcome && (
+      {aiSuggestionOutcome && aiConcerns.length === 0 && (
         <div role={aiWarning ? 'alert' : undefined} className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <p>{aiSuggestionOutcome}</p>
         </div>
@@ -1334,6 +1337,32 @@ export default function NcpDiagnosisPage({
         </div>
         );
       })()}
+
+      {aiConcerns.length > 0 && (
+        <details className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+          <summary className="cursor-pointer font-semibold text-amber-900">Possible concerns ({aiConcerns.length})</summary>
+          <p className="mt-2 text-sm text-amber-900">Possibilities needing assessment review; not saved diagnoses.</p>
+          {aiConcerns.map(concern => (
+            <div key={concern.concern_id} className="mt-4 space-y-2 border-t border-amber-200 pt-3 text-sm">
+              <p className="font-semibold">{concern.label}</p>
+              <ul className="list-disc pl-5">{concern.evidence_used.map(finding => <li key={finding}>{finding}</li>)}</ul>
+              <p><strong>Clarify: </strong>{concern.missing}</p>
+              <div className="flex flex-wrap gap-3">
+                <Link href={`/ncp/${patientId}/assessment/${ncpId}`} className="inline-flex min-h-11 items-center font-semibold underline">Review assessment</Link>
+                <button type="button" disabled={aiLoading} className="min-h-11 font-semibold underline" onClick={async () => {
+                  setAiLoading(true);
+                  try {
+                    const result = await dismissPesSuggestion(ncpId, concern.concern_id);
+                    setAiConcerns(result.concerns ?? []);
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : "Could not dismiss concern.");
+                  } finally { setAiLoading(false); }
+                }}>Dismiss</button>
+              </div>
+            </div>
+          ))}
+        </details>
+      )}
     </div>
   );
 

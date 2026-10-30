@@ -1,5 +1,7 @@
 # NCP data meaning
 
+Nutrient concerns (verified at `4b2f91de` plus these changes, 2026-10-30): `PesSuggestionService` writes `PesSuggestionState.provider_metadata.concerns` from provider possibilities checked against retrieved cards and cited recorded findings; the diagnosis review API/web consumes `concern_id`, `label`, `missing` and `evidence_used`. These are review suggestions, not diagnoses, measurements or completion evidence; `validated_response` and saved Diagnosis provenance retain their meaning. Assessment fingerprint and library version control reuse; dismissal removes only the selected concern. Reference cards supply no new numerical nutrient standards.
+
 Verified against committed source: `c902f93d6ea742f6303fc62770dfd95683162f14` plus readable evidence presentation in this working tree (2026-10-29).
 
 `PesSuggestionService::response` formats the current, hash-matched cited evidence for both new and cached drafts. Structured nutrients retain their recorded units and zero values; nested recall/lab/context fields use readable labels rather than JSON. Formatting does not rewrite P/E/S, reference hashes, stored Assessment data or provider inputs. See [AI review](ai.md).

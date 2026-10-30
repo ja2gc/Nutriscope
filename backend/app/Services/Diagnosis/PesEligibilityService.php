@@ -159,7 +159,8 @@ class PesEligibilityService
             return $this->supportsIntakeProblem($label, $this->intakeFinding($evidence));
         }
         if ($id === 'intake_other_v2') {
-            return $text('dietary_intake') || $text('present_diet') || $text('physical_assessment') || $text('body_composition');
+            return $text('dietary_intake') || $text('present_diet') || $text('physical_assessment') || $text('body_composition')
+                || $text('gi_symptoms') || ! empty($evidence['laboratory_flags']);
         }
 
         return match ($id) {
