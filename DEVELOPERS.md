@@ -61,6 +61,8 @@ Web mutation refresh behavior is owned by each screen's local loader and saved-r
 
 Low-bandwidth loading stays with the existing screen/service owners: Diagnosis separates AI status; Monitoring separates history pagination; patient profiles separate past cycles; Procurement/Inventory defer supplier choices. Native Menu/Meal Prep share `mobile/lib/menuQueries.ts`; `AnnouncementResource`/`AnnouncementController` own opt-in protected image delivery. See [web](docs/developers/platform/web.md), [mobile](docs/developers/food-service/mobile.md) and [shared contracts](docs/developers/shared/README.md). Verified against `fce342df9036dd6fd01814ef75f215968b044a79` plus this working tree (2026-10-30). No offline persistence or workflow-rule change is introduced.
 
+Intervention's page-local `loadPlans` also reuses the latest full plan when its public UUID matches the selection; older-plan links retain their separate read. See [web loading ownership](docs/developers/platform/web.md). Verified against `03d5f698f1a349f128e7e0711301e97d912e2d8e` plus this change (2026-10-30).
+
 Admin AI graph timezone selection is owned by `AiUsageAnalyticsController` and `AiUsageExplorer`; Manila remains the default, with UTC available for provider comparisons. AIService requires an authenticated user before a paid request. See [AI usage semantics](docs/developers/ncp/ai.md). Verified at `86a8a3a0` plus these working-tree changes (2026-10-27).
 
 Vendor receipt-total mode and amount are owned by `PurchaseOrderVendorGroup` and the vendor-group update action; see [food-service data](docs/developers/food-service/data.md). This is separate from per-item Actual Total, which derives quantity.

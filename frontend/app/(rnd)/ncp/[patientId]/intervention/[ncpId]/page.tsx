@@ -292,7 +292,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
         return;
       }
 
-      applyIntervention(await fetchInterventionPlan(ncpId, planId));
+      applyIntervention(planId === latest?.id ? latest : await fetchInterventionPlan(ncpId, planId));
       setSelectedPlanId(planId);
       setEditorMode(planId === latest?.id ? "edit" : "readonly");
     } catch (error) {

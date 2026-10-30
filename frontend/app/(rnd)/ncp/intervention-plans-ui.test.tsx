@@ -246,6 +246,31 @@ describe("intervention plans workspace", () => {
     expect(container.querySelector('[data-testid="meal-plan-section"]')).not.toBeNull();
   });
 
+  it("opens the latest plan without waiting for a duplicate detail request", async () => {
+    await renderPage();
+
+    expect(interventionService.fetchInterventionPlan).not.toHaveBeenCalled();
+    await clickButton("Education");
+    expect((container.querySelector('textarea[aria-label="Education notes"]') as HTMLTextAreaElement).value)
+      .toBe("Meal timing");
+  });
+
+  it("fetches an explicitly selected older plan and keeps it read-only", async () => {
+    const latest = (await interventionService.fetchIntervention("ncp-uuid"))!;
+    vi.mocked(interventionService.fetchInterventionPlan).mockResolvedValueOnce({
+      ...latest, id: "plan-older", education_notes: "Earlier plan notes",
+    });
+    searchParams = new URLSearchParams("plan=plan-older");
+    await renderPage();
+
+    expect(interventionService.fetchInterventionPlan).toHaveBeenCalledWith("ncp-uuid", "plan-older");
+    await clickButton("Education");
+    expect((container.querySelector('textarea[aria-label="Education notes"]') as HTMLTextAreaElement).value)
+      .toBe("Earlier plan notes");
+    expect(container.querySelector('[data-testid="meal-plan-section"]')?.getAttribute("data-readonly"))
+      .toBe("true");
+  });
+
   it("prefills a new plan without reusing the previous saved identity and cancel persists nothing", async () => {
     await renderPage();
     await clickButton("Plans");
@@ -287,8 +312,8 @@ describe("intervention plans workspace", () => {
   });
 
   it("keeps legacy targets editable without suggestion inclusion checkboxes", async () => {
-    const saved = await interventionService.fetchInterventionPlan('ncp-uuid', 'plan-newest');
-    vi.mocked(interventionService.fetchInterventionPlan).mockResolvedValueOnce({ ...saved, goal_type: 'diabetic_control', disease_stage: 'stage_1' });
+    const saved = (await interventionService.fetchIntervention('ncp-uuid'))!;
+    vi.mocked(interventionService.fetchIntervention).mockResolvedValueOnce({ ...saved, goal_type: 'diabetic_control', disease_stage: 'stage_1' });
     searchParams = new URLSearchParams('plan=plan-newest');
     await renderPage();
     await clickButton('Food / Nutrient Delivery');
@@ -308,8 +333,8 @@ describe("intervention plans workspace", () => {
   });
 
   it("keeps suggested notes separate from prefilled fields and repeated copying", async () => {
-    const saved = await interventionService.fetchInterventionPlan('ncp-uuid', 'plan-newest');
-    vi.mocked(interventionService.fetchInterventionPlan).mockResolvedValueOnce({ ...saved, guidance: {
+    const saved = (await interventionService.fetchIntervention('ncp-uuid'))!;
+    vi.mocked(interventionService.fetchIntervention).mockResolvedValueOnce({ ...saved, guidance: {
       education_notes: 'Eat regular meals.', counseling_goals: 'Follow your portions.', strategies: 'Pack lunch.',
     } });
     const writeText = vi.fn().mockResolvedValue(undefined);
