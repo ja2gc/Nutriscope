@@ -60,7 +60,10 @@ for scenario in healthy mismatch release_failure start_failure health_failure ru
     bash "$sandbox/ops/deploy.sh" "$argument" > "$sandbox/result" 2>&1 || result=$?
     if [[ "$scenario" == healthy || "$scenario" == same_revision ]]; then
         [[ "$result" == 0 ]] || { cat "$sandbox/result"; exit 1; }
-        grep -q 'image prune --force --filter label=io.nutriscope.app=true --filter until=168h' "$TRACE"
+        grep -qx 'image prune --force --filter until=24h' "$TRACE" || {
+            echo 'Expected dangling-only cleanup with a 24-hour grace period after verified deployment' >&2
+            exit 1
+        }
         grep -q 'run --rm --pull never backend_release' "$TRACE"
         grep -q 'up -d --no-build --pull never' "$TRACE"
         if [[ "$scenario" == same_revision ]]; then

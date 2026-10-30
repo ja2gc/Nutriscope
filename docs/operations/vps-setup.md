@@ -233,10 +233,12 @@ startup, revision or health checks stop deployment and skip image cleanup. The
 fixed transfer archive is removed on success/failure after the SSH script starts;
 a failed transfer can leave one archive, overwritten by the next transfer.
 
-After success, image cleanup removes only **dangling** images labeled
-`io.nutriscope.app=true` older than 168 hours. Tagged current/rollback images and
-running containers remain protected by Docker. Volumes, backups, uploads, build
-cache and older unlabeled images are outside this cleanup. Do not add blanket
+After success, the dedicated NutriScope host automatically removes only
+**dangling** images older than 24 hours, including legacy unlabeled builds.
+Tagged current/rollback images and images referenced by containers remain
+protected by Docker. Volumes, backups, uploads and build cache are outside this
+cleanup. Verified at `bddf0345069cdd061a3532f89f8caf72c8208678` plus this change
+(2026-10-30). Do not add blanket
 `system prune`, `image prune --all`, or volume cleanup. Rollback tags are images,
 not a database rollback or a complete recovery procedure; review schema
 compatibility before using them.

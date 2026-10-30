@@ -65,6 +65,6 @@ done
 
 dc ps
 free -m
-# Default prune removes dangling images only. Tagged rollback images, running
-# containers, volumes, legacy unlabeled images, and build cache are untouched.
-docker image prune --force --filter label=io.nutriscope.app=true --filter until=168h
+# On this dedicated host, include legacy unlabeled dangling builds after a
+# 24-hour grace period. Tagged/container-referenced images and volumes stay intact.
+docker image prune --force --filter until=24h
