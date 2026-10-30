@@ -84,23 +84,23 @@ class PesCitedDraftTest extends TestCase
                 ['candidate' => 'Overweight/Obesity', 'p' => 'Overweight/obesity', 'e' => 'Limited mobility reduces activity', 'ek' => ['medical_history'],
                     's' => 'BMI classification: Obese Class I', 'sk' => ['bmi_classification']]],
             'qualitative prediction without a numeric target' => ['NI', ['medical_history' => 'Back injury restricts activity during recovery.', 'present_diet' => 'Usual portions expected to continue during inactivity.'],
-                ['p' => 'Predicted excessive energy intake', 'pk' => ['present_diet', 'medical_history'], 'e' => 'Lower energy demand during recovery', 'ek' => ['medical_history'], 's' => 'Usual portions expected to continue during inactivity', 'sk' => ['present_diet']]],
+                ['p' => 'Predicted excessive energy intake', 'pk' => ['present_diet', 'medical_history'], 'e' => 'Back injury restricts activity during recovery', 'ek' => ['medical_history'], 's' => 'Usual portions expected to continue during inactivity', 'sk' => ['present_diet']]],
             'custom nutrient with documented inadequacy' => ['NI', ['dietary_intake' => 'Choline intake below documented requirements.', 'social_history' => 'Cultural food practices exclude eggs and several protein foods.'],
-                ['p' => 'Inadequate choline intake', 'e' => 'Culturally restricted food variety', 'ek' => ['social_history'], 's' => 'Choline intake below documented requirements', 'sk' => ['dietary_intake']]],
+                ['p' => 'Inadequate choline intake', 'e' => 'Cultural food practices exclude eggs and several protein foods', 'ek' => ['social_history'], 's' => 'Choline intake below documented requirements', 'sk' => ['dietary_intake']]],
             'swallowing with a neurological history' => ['NC', ['medical_history' => 'Recent stroke affects swallowing.', 'chewing_swallowing_difficulties' => 'Yes', 'chewing_swallowing_details' => 'Coughs with thin liquids.'],
-                ['p' => 'Swallowing difficulty', 'pk' => ['chewing_swallowing_difficulties'], 'e' => 'Neurological swallowing impairment', 'ek' => ['medical_history'], 's' => 'Coughs with thin liquids', 'sk' => ['chewing_swallowing_difficulties']]],
+                ['p' => 'Swallowing difficulty', 'pk' => ['chewing_swallowing_difficulties'], 'e' => 'Recent stroke affects swallowing', 'ek' => ['medical_history'], 's' => 'Coughs with thin liquids', 'sk' => ['chewing_swallowing_difficulties']]],
             'GI function with treatment context' => ['NC', ['medical_history' => 'Loose stools began after a new treatment.', 'diarrhea_notes' => 'Yes', 'diarrhea_details' => 'Loose stools after meals.'],
-                ['p' => 'Altered GI function', 'pk' => ['gi_symptoms'], 'e' => 'Treatment-associated bowel changes', 'ek' => ['medical_history'], 's' => 'Loose stools after meals', 'sk' => ['gi_symptoms']]],
+                ['p' => 'Altered GI function', 'pk' => ['gi_symptoms'], 'e' => 'Loose stools began after a new treatment', 'ek' => ['medical_history'], 's' => 'Loose stools after meals', 'sk' => ['gi_symptoms']]],
             'malnutrition with separate documented criteria' => ['NI', ['physical_assessment' => 'Reduced muscle mass observed on examination.', 'medical_history' => 'Active inflammation during chemotherapy.', 'dietary_intake' => 'Poor intake during treatment.'],
                 ['p' => 'Malnutrition', 'e' => 'Active inflammation during chemotherapy', 'ek' => ['medical_history'], 's' => 'Reduced muscle mass observed on examination', 'sk' => ['physical_assessment']]],
             'physical inactivity from a physical barrier' => ['NB', ['physical_activity_level' => 'sedentary', 'medical_history' => 'Lower back pain prevents usual walks.', 'social_history' => 'Stopped usual nightly walks.'],
-                ['candidate' => 'Physical Inactivity', 'p' => 'Physical inactivity', 'e' => 'Movement restricted by lumbar pain', 'ek' => ['medical_history'], 's' => 'Stopped usual nightly walks', 'sk' => ['social_history', 'physical_activity_level']]],
+                ['candidate' => 'Physical Inactivity', 'p' => 'Physical inactivity', 'e' => 'Lower back pain prevents usual walks', 'ek' => ['medical_history'], 's' => 'Stopped usual nightly walks', 'sk' => ['social_history', 'physical_activity_level']]],
             'access with a recorded barrier' => ['NB', ['social_history' => 'Limited access to food due to unavailable grocery transport.'],
-                ['p' => 'Limited access to food or water', 'pk' => ['social_history'], 'e' => 'Transportation barriers', 'ek' => ['social_history'], 's' => 'Food shopping limited by unavailable transport', 'sk' => ['social_history']]],
-            'knowledge and nonverbatim educational barrier' => ['NB', ['knowledge_notes' => 'Cannot explain food labels or carbohydrate sources.', 'social_history' => 'Never received formal nutrition education.'],
-                ['p' => 'Food- and nutrition-related knowledge deficit', 'pk' => ['knowledge_notes'], 'e' => 'Limited nutrition instruction', 'ek' => ['social_history'], 's' => 'Unable to interpret labels or identify carbohydrate sources', 'sk' => ['knowledge_notes']]],
+                ['p' => 'Limited access to food or water', 'pk' => ['social_history'], 'e' => 'Unavailable grocery transport', 'ek' => ['social_history'], 's' => 'Food shopping limited by unavailable transport', 'sk' => ['social_history']]],
+            'knowledge with an educational barrier' => ['NB', ['knowledge_notes' => 'Cannot explain food labels or carbohydrate sources.', 'social_history' => 'Never received formal nutrition education.'],
+                ['p' => 'Food- and nutrition-related knowledge deficit', 'pk' => ['knowledge_notes'], 'e' => 'Never received formal nutrition education', 'ek' => ['social_history'], 's' => 'Unable to interpret labels or identify carbohydrate sources', 'sk' => ['knowledge_notes']]],
             'predicted interaction with planned treatment' => ['NC', ['medical_history' => 'Warfarin is planned; variable vitamin K intake needs review.', 'present_diet' => 'Vitamin K intake varies between days.'],
-                ['p' => 'Predicted food–medication interaction', 'pk' => ['medical_history', 'present_diet'], 'e' => 'Planned therapy with dietary interaction potential', 'ek' => ['medical_history'], 's' => 'Variable vitamin K intake before planned warfarin therapy', 'sk' => ['medical_history', 'present_diet']]],
+                ['p' => 'Predicted food–medication interaction', 'pk' => ['medical_history', 'present_diet'], 'e' => 'Warfarin is planned; variable vitamin K intake needs review', 'ek' => ['medical_history'], 's' => 'Variable vitamin K intake before planned warfarin therapy', 'sk' => ['medical_history', 'present_diet']]],
             'weight loss citing both weights instead of a calculated percentage' => ['NC', ['weight' => 61.2, 'usual_weight' => 64.4, 'height' => 167.6,
                 'weight_change_period_value' => 2, 'weight_change_period_unit' => 'months', 'medical_history' => 'Dyspnea reduces appetite; weight loss was not intentional.'],
                 ['candidate' => 'Unintended Weight Loss', 'p' => 'Unintended weight loss', 'e' => 'Dyspnea reduces appetite', 'ek' => ['medical_history'],
@@ -138,15 +138,14 @@ class PesCitedDraftTest extends TestCase
             ->assertJsonPath('meta.has_retryable_rejections', true);
     }
 
-    public function test_unverified_paraphrase_uses_a_concise_cited_clause_instead_of_overlong_excerpts(): void
+    public function test_unverified_cause_is_withheld_instead_of_substituting_another_clause(): void
     {
         $record = $this->record(['dietary_intake' => 'Estimated energy intake 1200 kcal/day versus estimated needs 1600 kcal/day (75%). Dyspnea reduces appetite and food intake.',
             'medical_history' => 'Congestive heart failure diagnosed 2 months ago. Dyspnea reduces appetite; weight loss was not intentional.']);
         $this->provider('NI', ['candidate' => 'Inadequate energy intake', 'p' => 'Inadequate energy intake',
             'e' => 'Breathlessness limits eating', 'ek' => ['medical_history', 'dietary_intake'],
             's' => 'Energy intake 1200 kcal/day vs needs 1600 kcal/day (75%)', 'sk' => ['dietary_intake']]);
-        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.etiology', 'Dyspnea reduces appetite and food intake.');
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonCount(0, 'data');
     }
 
     public function test_normal_activity_cannot_be_cited_as_an_inactivity_cause(): void

@@ -171,7 +171,11 @@ class PesEligibilityService
             'food_insecurity_v2' => $text('social_history') && preg_match('/\b(food|meals?|groceries)\b/i', $evidence['social_history'] ?? '')
                 && preg_match('/\b(food insecur|(?:cannot|unable|struggl\w*|not enough|lack of|limited)\b.{0,35}\b(?:afford|food|meals)|financial\b.{0,30}\bfood|food\b.{0,30}\b(?:money|access|unavailable))/i', $evidence['social_history'] ?? ''),
             'physical_inactivity_v2' => in_array($evidence['physical_activity_level'] ?? '', ['sedentary', 'inactive'], true)
-                || ($text('lifestyle') && preg_match('/\b(inactiv\w*|sedentary|no (?:planned )?physical activity|no exercise|does not exercise)\b/i', $evidence['lifestyle'] ?? '')),
+                || collect(['lifestyle', 'social_history'])->contains(fn ($key): bool => collect($this->clauses($evidence[$key] ?? ''))->contains(
+                    fn ($clause): bool => $this->hasConcern($clause)
+                        && ! preg_match('/\b(?:not|never|hasn.t)\s+(?:stopped|ceased|inactive|sedentary)\b/i', $clause)
+                        && preg_match('/\b(inactiv\w*|sedentary|no (?:planned )?physical activity|no exercise|does not exercise|(?:stopped|ceased|no longer|unable to|cannot)\s+(?:(?:usual|regular|nightly|daily|planned)\s+)*(?:walks?|walking|exercise|exercising|physical activity))\b/i', $clause),
+                )),
             'readiness_v2' => $text('lifestyle') && preg_match('/\b(not ready|unwilling|refus\w*|ambivalent)\b/i', $evidence['lifestyle'] ?? ''),
             'self_monitoring_v2' => $text('knowledge_notes') && preg_match('/\b(monitor|record|log|track)\w*\b/i', $evidence['knowledge_notes'] ?? ''),
             'adherence_v2' => ($text('lifestyle') || $text('dietary_intake')) && preg_match('/\b(adher\w*|complian\w*|prescribed|recommended|agreed plan)\b/i', ($evidence['lifestyle'] ?? '').' '.($evidence['dietary_intake'] ?? '')),

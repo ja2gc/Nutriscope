@@ -222,6 +222,10 @@ class AiServiceTest extends TestCase
             $this->assertLessThanOrEqual(3000, strlen($system));
             $this->assertSame(1700, $body['max_tokens']);
             $this->assertStringContainsString('counterevidence', $system);
+            foreach (['beliefs/attitudes', 'cultural', 'knowledge', 'physical function', 'physiological/metabolic', 'psychological', 'social/personal', 'treatment', 'access', 'behavior',
+                'food/activity history', 'anthropometry', 'biochemistry/tests', 'physical findings', 'client history', 'source-close cause wording'] as $guidance) {
+                $this->assertStringContainsString($guidance, $system);
+            }
             $this->assertSame('json_schema', $body['output_config']['format']['type'] ?? null);
             $schema = $body['output_config']['format']['schema'];
             $draft = $schema['properties']['suggestions']['items'];

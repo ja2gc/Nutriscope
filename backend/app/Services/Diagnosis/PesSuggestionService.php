@@ -620,8 +620,7 @@ class PesSuggestionService
                 if (! $this->eligibility->hasConcern($etiology) || ! $this->eligibility->hasConcern($signs)) {
                     throw new \RuntimeException('Normal or denied findings cannot establish a cause or signs.');
                 }
-                $etiology = $this->groundedComponent($etiology, array_values($causes), $causeEvidence,
-                    in_array('physical_activity_level', $roles['etiology_evidence'], true));
+                $etiology = $this->groundedComponent($etiology, array_values($causes), $causeEvidence, false);
                 $signs = $this->groundedComponent($signs, [...$roles['signs_evidence'], ...$derivedSignKeys], $evidence);
                 $noteKey = static fn (string $text): string => trim((string) preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($text)));
                 if ($noteKey($etiology) === $noteKey($signs)) {
@@ -824,8 +823,8 @@ class PesSuggestionService
         return $words !== [] && count(array_intersect($words, $supported)) / count($words) >= 2 / 3;
     }
 
-    /** Keep verified wording or one concise cited finding, never concatenated field excerpts. */
-    private function groundedComponent(string $wording, array $keys, array $evidence, bool $requireRelatedFinding = false): string
+    /** Never replace a proposed cause; signs may use one concise cited finding. */
+    private function groundedComponent(string $wording, array $keys, array $evidence, bool $allowFindingFallback = true): string
     {
         $cited = array_intersect_key($evidence, array_fill_keys($keys, true));
         if ($this->hasNewNumbers($wording, $cited)) {
@@ -834,14 +833,16 @@ class PesSuggestionService
         if ($this->groundedWording($wording, $keys, $evidence)) {
             return $wording;
         }
+        if (! $allowFindingFallback) {
+            throw new \RuntimeException('The proposed cause must match its cited findings; no substitute cause is inferred.');
+        }
         foreach ($cited as $key => $value) {
             if (! is_string($value) || $key === 'clinical_context') {
                 continue;
             }
             foreach ($this->eligibility->clauses($value) as $clause) {
                 $finding = str_word_count($clause) === 1 ? $this->formatEvidence($key, $clause) : $clause;
-                if ($this->eligibility->hasConcern($clause) && mb_strlen($finding) <= 75
-                    && (! $requireRelatedFinding || $this->groundedWording($finding, ['wording'], ['wording' => $wording]))) {
+                if ($this->eligibility->hasConcern($clause) && mb_strlen($finding) <= 75) {
                     return $finding;
                 }
             }

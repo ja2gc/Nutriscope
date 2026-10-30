@@ -366,7 +366,7 @@ class ContextualPesDraftTest extends TestCase
             $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest";
             $this->provider([[...$this->knowledgeDraft(), ...$override]]);
             $response = $this->postJson($url)->assertOk();
-            if (($override['signs'] ?? null) === 'No difficulty swallowing') {
+            if (isset($override['etiology']) || ($override['signs'] ?? null) === 'No difficulty swallowing') {
                 $response->assertJsonPath('data', []);
             } else {
                 $response->assertJsonCount(1, 'data');

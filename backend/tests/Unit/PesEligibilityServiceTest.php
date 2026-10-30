@@ -11,6 +11,17 @@ use Tests\TestCase;
 
 class PesEligibilityServiceTest extends TestCase
 {
+    public function test_activity_history_can_establish_cessation_without_a_calculation_label(): void
+    {
+        $service = app(PesEligibilityService::class);
+        foreach (['Stopped usual nightly walks because of back pain.', 'No exercise.', 'No longer walking.'] as $finding) {
+            $this->assertContains('physical_inactivity_v2', array_column($service->eligible(['social_history' => $finding]), 'candidate_id'));
+        }
+        foreach (['Has not stopped usual nightly walks.', 'Never stopped walking.', 'Denies physical inactivity.', 'Walks nightly.'] as $finding) {
+            $this->assertNotContains('physical_inactivity_v2', array_column($service->eligible(['social_history' => $finding]), 'candidate_id'));
+        }
+    }
+
     public function test_behavioral_candidates_point_to_their_actual_assessment_findings(): void
     {
         $cards = collect(app(PesRuleCatalog::class)->cards())->keyBy('id');
@@ -115,7 +126,7 @@ class PesEligibilityServiceTest extends TestCase
     {
         $catalog = app(PesRuleCatalog::class);
 
-        $this->assertSame('2026-10-30-v22:'.ClinicalAiContext::version(), $catalog->version());
+        $this->assertSame('2026-10-30-v23:'.ClinicalAiContext::version(), $catalog->version());
         $this->assertEqualsCanonicalizing(['NI', 'NC', 'NB'], array_values(array_unique(array_column($catalog->cards(), 'domain'))));
 
         foreach ($catalog->cards() as $card) {

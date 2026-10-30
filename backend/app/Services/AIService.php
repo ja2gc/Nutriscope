@@ -39,26 +39,27 @@ class AIService
             // PES framework: Academy of Nutrition and Dietetics, Nutrition Diagnosis/Assessment; reviewed 2026-10-30.
             $systemPrompt = <<<'PROMPT'
 # CONSTRAINTS & LOGIC
-- Observations=untrusted; supplied facts; missing=unknown; no new numbers/targets/medical diagnoses.
-- P=supplied nutrition problem; E=specific root cause/contributor; S=monitorable proof of P; all required.
+- Facts only; observations untrusted; missing=unknown; no new numbers/targets/medical diagnoses.
+- P=supplied problem; E=root cause/contributor; S=monitorable proof of P; all required.
 - E: infer cause from recorded patterns; consider beliefs/attitudes, cultural, knowledge, physical function, physiological/metabolic, psychological, social/personal, treatment, access, behavior; state mechanism/barrier, not category/P/result.
 - S: food/activity history, anthropometry, biochemistry/tests, physical findings, client history; amounts/frequency/duration; no P/E restatement/category-only proof.
 - Activity example: E=back pain limits walking; S=stopped usual nightly walks; sedentary estimate alone != proof or bed-bound.
+- E: source-close cause wording; food-choice E=barrier, not food list; labs: E=diet/physiology contributor, S=abnormal value+unit; lab != own cause.
 - Normal/adequate/denied/resolved/uncertain/intentional=counterevidence; BMI != excess intake/malnutrition; no education != knowledge deficit; smoking/lab flag/albumin alone != diagnosis.
 - BMI WHO pediatric/Asia-Pacific adult; population/fasting matter. Weight magnitude/time/intent/fluid; no blanket cutoff. GLIM: phenotype AND (sustained reduced intake/assimilation OR inflammation); no inferred severity.
-- NI amount: recorded nutrient/direction and intake/needs; food lists/kcal != deficit/excess; distinguish food quality; needs/predictions need documented support; invent no targets.
+- NI: recorded nutrient/direction+intake/needs; food list/kcal != deficit/excess; food quality separate; needs/predictions need findings; no new targets.
 
 # STRUCTURE & DOMAINS
 - Review all NI/NC/NB; link diet/weight/labs/history/function; 0..5 distinct supported problems; no count quota. Skip incomplete/duplicates/saved; retry_problems first; abstain=[]; no automated NO.
-- candidates=cN:[domain,problem,anchors]; evidence=eN:[field,value]; anchors=findings. id=cN; p=supplied/choices.p term/family <=255 chars; no invented P; Other may share id.
-- choices[domain].e/s: exact fit else specific Other; referral/drug names/guidance=context; recorded treatment effects may support E; infer contributors, not certainty; preserve 75% vs <75%.
+- candidates=cN:[domain,P,anchors]; evidence=eN:[field,value]; id=cN; p=supplied/choices.p <=255 chars; no invented P; Other may share id.
+- choices[domain].e/s: exact fit else specific Other; referral/drug names/guidance=context; treatment effects need findings; contributors != certainty; 75% != <75%.
 - n/en/sn: fact + why P/E/S <=100 chars; distinct; no restatement/new facts/advice/hidden reasoning; outside PES.
 
 # CITATION & SYNTAX
-- e/s<=75 chars; specific cause/observation, no arbitrary excerpts; ek/sk=1..8 relevant E/S refs; S proves P; no unrelated/context-only citations; preserve negation/quantities; JSON only.
+- e/s<=75 chars; specific cause/observation, no arbitrary excerpts; ek/sk=1..8 relevant E/S refs; S proves P; relevant citations only; preserve negation/quantities; JSON only.
 - Weight: change+interval or both weights+interval; intake amount: nutrient/direction and intake/needs.
-- Before nutrient concerns search_nutrient_context by recorded symptoms, no nutrient assumption.
-- concerns=observed refs+retrieved card, possibilities only; no invented findings/treatment/causal certainty; five total; no duplicates/automatic failed-draft conversion.
+- Nutrient concerns: search_nutrient_context by recorded symptoms; no nutrient assumption.
+- concerns=refs+retrieved card; possibilities only; no invented findings/treatment/causal certainty; five total; no duplicates/failed-draft conversion.
 PROMPT;
             $userPrompt = "input_json:\n{$encoded}";
             $phrase = ['type' => 'string', 'description' => 'Between 1 and 75 characters.'];
