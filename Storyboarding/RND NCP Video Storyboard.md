@@ -1,6 +1,6 @@
 # RND Nutrition Care Process Video Storyboard
 
-PES review/source inspection against `f783662c` plus these changes (2026-10-30): open a new diagnosis with all Problem groups expanded, then edit a saved row to show only selected groups expanded. Show the E/S writing guidance and new activity/function presets. In AI Review, inspect separate **P evidence**, **E evidence**, **S evidence** groups; follow a cited field to the matching Assessment tab. Demonstrate recorded walk cessation without using the sedentary estimate as proof; multiple supported drafts remain possible without a forced count. Unverified E is withheld rather than silently replaced by an assessment excerpt.
+PES review/source inspection against `4d92fcbe` plus these changes (2026-10-30): new diagnosis opens all Problem groups; saved editing opens selected groups. Show the E-category/S-domain guidance and activity/function presets. In AI Review, inspect natural P/E/S wording and separate plain source-field groups; no evidence navigation links. E explains the cause and S demonstrates the problem using distinct facts; P/S may share proof. Multiple supported drafts remain possible without a count quota; the backend never substitutes field excerpts for E/S.
 
 Activity wording correction checked against `e7dea1a9` plus these changes (2026-10-30): wherever the sequence below says PAL, show **Activity estimate** in Assessment, Monitoring and NCP Summary. Use the five matching activity labels; demonstrate **Sedentary** separately from **Bedridden** under Functional Assessment. Numeric factors and historical saved summaries remain unchanged. Diagnosis review must omit education-history-only knowledge deficits and cause/sign duplicates.
 
@@ -70,7 +70,7 @@ Continue immediately with the compact Food Service sequence in `RND Food Service
 
 **On-screen actions**
 
-Diagnosis AI Review additionally offers a collapsed **Possible concerns** section when recorded findings warrant clarification; show **Review assessment** or **Dismiss**, never a diagnosis Accept action for a concern (verified at `4b2f91de` plus these changes, 2026-10-30).
+Diagnosis AI Review groups drafts under **No issues detected** and **May need more thorough review**; both require RND review. Open the help beside each heading; review notes explain draft-specific concerns without claiming a clinical verdict. The second group offers **Review and edit** or **Dismiss**, with ordinary save limits after correction. A collapsed **Possible concerns** section holds incomplete hypotheses and offers **Review assessment** or **Dismiss**, never diagnosis acceptance. Verified against `4d92fcbe` plus these changes (2026-10-31).
 
 1. Sign in as RND and open **Nutrition Care → Patients**.
 2. Select the fictional patient.

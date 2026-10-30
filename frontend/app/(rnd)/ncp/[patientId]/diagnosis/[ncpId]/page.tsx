@@ -284,10 +284,10 @@ function buildSignsText(b: BuilderState): string {
 
 function hasIncompleteOther(b: BuilderState): boolean {
   return [
-    [b.domain !== "NI" && b.problemOtherChecked, b.problemOther],
-    [b.etiologyOtherChecked, b.etiologyOther],
-    [b.signOtherChecked, b.signOther],
-  ].some(([checked, value]) => checked && (!(value as string).trim() || Array.from(value as string).length > 75));
+    [b.domain !== "NI" && b.problemOtherChecked, b.problemOther, 75],
+    [b.etiologyOtherChecked, b.etiologyOther, 400],
+    [b.signOtherChecked, b.signOther, 400],
+  ].some(([checked, value, limit]) => checked && (!(value as string).trim() || Array.from(value as string).length > (limit as number)));
 }
 
 function buildPes(problem: string, etiology: string, signs: string): string {
@@ -449,6 +449,11 @@ export default function NcpDiagnosisPage({
   const [aiUnavailable, setAiUnavailable] = useState<string | null>(null);
   const [aiWarning, setAiWarning] = useState<string | null>(null);
   const [aiStatusLoading, setAiStatusLoading] = useState(false);
+  useEffect(() => {
+    if (!aiWarning) return;
+    const timer = setTimeout(() => setAiWarning(null), 5000);
+    return () => clearTimeout(timer);
+  }, [aiWarning]);
   const aiStatusRequest = useRef(0);
   const dataRequest = useRef(0);
 
@@ -458,7 +463,7 @@ export default function NcpDiagnosisPage({
     try {
       const result = await fetchPesDraftStatus(ncpId);
       if (request !== aiStatusRequest.current) return;
-      setAiSuggestions(result.data); setAiConcerns(result.concerns ?? []); setAiMeta(result.meta); setAiUnavailable(null);
+      setAiSuggestions([...result.data, ...(result.review_drafts ?? [])]); setAiConcerns(result.concerns ?? []); setAiMeta(result.meta); setAiUnavailable(null);
       if (result.meta.can_generate || result.meta.can_retry) setAiWarning(null);
     } catch {
       if (request === aiStatusRequest.current) {
@@ -576,6 +581,7 @@ export default function NcpDiagnosisPage({
   };
 
   const handleDelete = async (d: Diagnosis) => {
+    setAiWarning(null);
     if (!d.id) return;
     if (!confirm(`Delete this diagnosis?\n"${d.pes_statement ?? d.problem}"`)) return;
     try {
@@ -642,12 +648,14 @@ export default function NcpDiagnosisPage({
       const retry = Boolean(aiMeta?.can_retry && !aiMeta.can_generate && aiSuggestions.length === 0
         && (aiMeta.has_retryable_rejections || aiMeta.review_outcome === 'rejected' || aiMeta.review_outcome === 'partial'));
       const result = await aiSuggestDiagnoses(ncpId, retry);
-      setAiSuggestions(result.data);
+      setAiSuggestions([...result.data, ...(result.review_drafts ?? [])]);
       setAiConcerns(result.concerns ?? []);
       setAiDraftsPage(1);
       setAiMeta(result.meta);
-      if (!result.meta.can_generate && !result.meta.can_retry && (result.meta.cached || result.data.length === 0 || result.meta.review_outcome === 'no_supported')) {
-        setAiWarning(result.meta.message ?? result.meta.disabled_reason ?? 'No supported evidence left.');
+      if (result.data.length === 0 && !(result.review_drafts?.length) && !(result.concerns?.length)) {
+        setAiWarning(result.meta.can_retry
+          ? 'Could not generate AI suggestions. Try again or add a diagnosis manually.'
+          : 'No additional nutrition diagnosis found.');
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "External AI drafts are unavailable.";
@@ -657,12 +665,12 @@ export default function NcpDiagnosisPage({
         setError(message);
       }
     } finally {
-      await refreshAiStatus().catch(() => undefined);
       setAiLoading(false);
     }
   };
 
   const handleAiAccept = async (draftId: string) => {
+    setAiWarning(null);
     try {
       setAiLoading(true);
       await aiApproveDiagnosis(ncpId, { draft_id: draftId });
@@ -684,11 +692,12 @@ export default function NcpDiagnosisPage({
   };
 
   const handleAiDismiss = async (s: AiSuggestion) => {
+    setAiWarning(null);
     try {
       setAiLoading(true);
       setError(null);
       const result = await dismissPesSuggestion(ncpId, s.draft_id);
-      setAiSuggestions(result.data);
+      setAiSuggestions([...result.data, ...(result.review_drafts ?? [])]);
       setAiConcerns(result.concerns ?? []);
       setAiDraftsPage(1);
       setAiMeta(result.meta);
@@ -1084,7 +1093,7 @@ export default function NcpDiagnosisPage({
             />
           ))}
 
-          <DiagnosisOtherField id="etiology-other" label="Other etiology" checked={builder.etiologyOtherChecked} value={builder.etiologyOther} onToggle={checked => updateBuilder({ etiologyOtherChecked: checked })} onChange={value => updateBuilder({ etiologyOther: value })} />
+          <DiagnosisOtherField id="etiology-other" label="Other etiology" maxLength={400} checked={builder.etiologyOtherChecked} value={builder.etiologyOther} onToggle={checked => updateBuilder({ etiologyOtherChecked: checked })} onChange={value => updateBuilder({ etiologyOther: value })} />
         </div>
       </div>
       <div>
@@ -1135,7 +1144,7 @@ export default function NcpDiagnosisPage({
             />
           ))}
 
-          <DiagnosisOtherField id="sign-other" label="Other signs and symptoms" checked={builder.signOtherChecked} value={builder.signOther} onToggle={checked => updateBuilder({ signOtherChecked: checked })} onChange={value => updateBuilder({ signOther: value })} />
+          <DiagnosisOtherField id="sign-other" label="Other signs and symptoms" maxLength={400} checked={builder.signOtherChecked} value={builder.signOther} onToggle={checked => updateBuilder({ signOtherChecked: checked })} onChange={value => updateBuilder({ signOther: value })} />
         </div>
       </div>
       <div>
@@ -1230,13 +1239,10 @@ export default function NcpDiagnosisPage({
   };
 
   const aiSuggestionOutcome = !hasNoDiagnosis && hasAssessment && aiMeta && !aiUnavailable && aiMeta.budget.remaining > 0
-    && !aiMeta.can_generate && (!aiMeta.can_retry || aiSuggestions.length === 0)
-    ? aiMeta.can_retry
-      && (aiMeta.has_retryable_rejections || aiMeta.review_outcome === 'rejected' || aiMeta.review_outcome === 'partial')
-      ? "Could not generate AI suggestions. Try again or add a diagnosis manually."
-      : "No additional nutrition diagnosis found."
+    && !aiMeta.can_generate && !aiMeta.can_retry && aiSuggestions.length === 0
+    ? "No additional nutrition diagnosis found."
     : null;
-  const aiSuggestionReason = aiSuggestionOutcome || (aiMeta?.can_retry && aiSuggestions.length > 0)
+  const aiSuggestionReason = aiSuggestionOutcome || aiMeta?.can_retry
     ? null : aiMeta?.disabled_reason;
 
   const aiTab = (
@@ -1273,19 +1279,26 @@ export default function NcpDiagnosisPage({
         )}
       </div>
 
-      {aiSuggestionOutcome && aiConcerns.length === 0 && (
+      {(aiWarning || aiSuggestionOutcome) && aiConcerns.length === 0 && (
         <div role={aiWarning ? 'alert' : undefined} className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          <p>{aiSuggestionOutcome}</p>
+          <p>{aiWarning ?? aiSuggestionOutcome}</p>
         </div>
       )}
 
-      {aiSuggestions.length > 0 && (() => {
-        const { items: visibleAiDrafts, meta: aiDraftsMeta } = paginateAiDrafts(aiSuggestions, aiDraftsPage);
+      {[false, true].map(review => {
+        const drafts = aiSuggestions.filter(draft => Boolean(draft.review_required) === review);
+        if (drafts.length === 0) return null;
+        const { items: pagedAiDrafts, meta: aiDraftsMeta } = paginateAiDrafts(drafts, review ? 1 : aiDraftsPage);
+        const visibleAiDrafts = review ? drafts : pagedAiDrafts;
         return (
-        <div className="space-y-3">
-          <h4 className="text-xs font-extrabold text-warm-700 uppercase tracking-wider">
-            PES drafts ({aiSuggestions.length} pending)
-          </h4>
+        <section key={String(review)} aria-label={review ? 'May need more thorough review' : 'No issues detected'} className="space-y-3">
+          <div className="flex items-center gap-2">
+            <h4 className="text-xs font-extrabold text-warm-700 uppercase tracking-wider">{review ? 'May need more thorough review' : 'No issues detected'} ({drafts.length} pending)</h4>
+            <InfoHint label={review ? 'About suggestions needing review' : 'About PES drafts'} title="Review before saving">
+              {review ? 'Some details may need a closer look. Review the notes alongside the assessment and use your clinical judgment before saving.'
+                : 'No issues were found during the initial checks. Review the draft for clinical accuracy before saving.'}
+            </InfoHint>
+          </div>
           {visibleAiDrafts.map(s => {
             const pes = `${s.label} related to ${s.etiology} as evidenced by ${s.signs}`;
             return (
@@ -1295,6 +1308,7 @@ export default function NcpDiagnosisPage({
                   <span className="text-xs font-bold text-orange-600 uppercase tracking-wider">AI draft for RND review</span>
                 </div>
                 <div className="space-y-2 text-sm">
+                  {s.review_reasons?.map(reason => <p key={reason} className="text-sm text-amber-800">{reason}</p>)}
                   <div><span className="font-bold text-sky-600">P:</span> <span className="text-warm-700">{s.label}</span></div>
                   <div><span className="font-bold text-sky-600">E:</span> <span className="text-warm-700">{s.etiology}</span></div>
                   <div><span className="font-bold text-amber-600">S:</span> <span className="text-warm-700">{s.signs}</span></div>
@@ -1308,13 +1322,7 @@ export default function NcpDiagnosisPage({
                     <div key={role}>
                       <span className="mb-1 block font-bold uppercase tracking-wider text-warm-500">{label} evidence</span>
                       <ul className="list-disc space-y-1 pl-4">
-                        {s.evidence_by_component?.[role].map(item => {
-                          const section = ['laboratory_flags', 'laboratory_values'].includes(item.key) ? 'biochemical'
-                            : ['bmi', 'bmi_classification', 'weight_kg', 'usual_weight_kg', 'height_cm', 'weight_change_percentage', 'weight_loss_percentage', 'weight_change_period', 'functional_assessment', 'muac_mm', 'waist_cm', 'hip_cm', 'ibw_percentage'].includes(item.key) ? 'anthropometric'
-                              : ['social_history', 'medical_history', 'clinical_context', 'physical_activity_level', 'pregnancy_lactation_status', 'edema_present', 'medication_count'].includes(item.key) ? 'client'
-                                : item.key === 'rnd_summary' ? 'summary' : 'dietary';
-                          return <li key={item.key}><Link href={`/ncp/${patientId}/assessment/${ncpId}?section=${section}`} className="underline decoration-warm-300 underline-offset-2 hover:text-emerald-700">{item.text}</Link></li>;
-                        })}
+                        {s.evidence_by_component?.[role].map(item => <li key={item.key}>{item.text.split(': ', 1)[0]}</li>)}
                       </ul>
                     </div>
                   )) : (
@@ -1330,23 +1338,21 @@ export default function NcpDiagnosisPage({
                 {s.builder_data.etiology_notes && <p className="text-xs text-warm-600"><span className="font-semibold">Additional Etiology Notes: </span>{s.builder_data.etiology_notes}</p>}
                 {s.builder_data.sign_notes && <p className="text-xs text-warm-600"><span className="font-semibold">Additional Signs and Symptoms Notes: </span>{s.builder_data.sign_notes}</p>}
                 <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-warm-100">
-                  <button
+                  {!review && <button
                     type="button"
-                    // This event handler reads request guards only after a click, never during render.
-                    // eslint-disable-next-line react-hooks/refs
                     onClick={() => handleAiAccept(s.draft_id)}
                     disabled={aiLoading || saving}
                     className="inline-flex min-h-11 items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <CheckCheck className="h-3 w-3" /> Accept
-                  </button>
+                  </button>}
                   <button
                     type="button"
                     onClick={() => handleAiEdit(s)}
                     disabled={aiLoading || saving}
                     className="inline-flex min-h-11 items-center gap-1.5 px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 text-xs font-bold uppercase tracking-wider rounded-lg border border-sky-200 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    <Pencil className="h-3 w-3" /> Edit
+                    <Pencil className="h-3 w-3" /> {review ? 'Review and edit' : 'Edit'}
                   </button>
                   <button
                     type="button"
@@ -1360,10 +1366,10 @@ export default function NcpDiagnosisPage({
               </div>
             );
           })}
-          <Pagination meta={aiDraftsMeta} page={aiDraftsMeta.current_page} onPageChange={setAiDraftsPage} />
-        </div>
+          {!review && <Pagination meta={aiDraftsMeta} page={aiDraftsMeta.current_page} onPageChange={setAiDraftsPage} />}
+        </section>
         );
-      })()}
+      })}
 
       {aiConcerns.length > 0 && (
         <details className="rounded-2xl border border-amber-200 bg-amber-50 p-5">

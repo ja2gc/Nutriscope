@@ -17,7 +17,7 @@ x-backend-common: &backend-common
       - ./backend/.env.production
     environment:
       MAIL_MAILER: "resend-api"
-      ANTHROPIC_MODEL: "claude-haiku-5-5"
+      ANTHROPIC_MODEL: "claude-sonnet-5-5"
       LOG_CHANNEL: "stderr"
     volumes:
       - nutriscope_private_uploads:/var/www/html/storage/app/private-uploads

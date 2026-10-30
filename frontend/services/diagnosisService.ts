@@ -49,6 +49,8 @@ export interface DiagnosisBuilderData {
 }
 
 export interface AiSuggestion {
+  review_required?: boolean;
+  review_reasons?: string[];
   draft_id: string;
   candidate_id: string;
   domain: "NI" | "NC" | "NB";
@@ -85,6 +87,7 @@ export interface PesDraftMeta {
 
 export interface PesDraftResult {
   data: AiSuggestion[];
+  review_drafts?: AiSuggestion[];
   concerns?: Array<{ concern_id: string; label: string; missing: string; evidence_used: string[] }>;
   meta: PesDraftMeta;
 }

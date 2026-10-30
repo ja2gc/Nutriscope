@@ -1,5 +1,59 @@
 {
-  "version": "2026-10-30-v5",
+  "version": "2026-10-31-v6",
+  "laboratory_review": {"reviewed_at":"2026-10-31","_comment":"Sources: National Institutes of Health, National Library of Medicine, MedlinePlus Medical Tests and Health Topics (albumin, hemoglobin, hematocrit, glucose, HbA1c, BUN, creatinine, sodium, potassium, calcium, phosphate, magnesium, cholesterol and triglycerides); Academy of Nutrition and Dietetics PES framework; reference hypotheses only, existing flags/ranges unchanged."},
+  "laboratory_references": {
+    "albumin": {
+      "LOW":"Albumin low: consider liver synthesis, renal protein loss, infection, malabsorption and intake; check recorded swelling and illness context, not albumin alone for malnutrition.",
+      "HIGH":"Albumin high: consider dehydration or medication effects; review recorded fluid losses and intake rather than infer excess protein."
+    },
+    "hemoglobin": {
+      "LOW":"Hemoglobin low: consider blood loss, nutrient status and other anemia causes; check weakness, dizziness, diet and medical history before attributing iron deficiency.",
+      "HIGH":"Hemoglobin high: review hydration, smoking, altitude and cardiopulmonary or red-cell disorders; no automatic nutrient excess diagnosis."
+    },
+    "hematocrit": {
+      "LOW":"Hematocrit low: consider blood loss, anemia and dilution; compare hemoglobin, symptoms and recorded history rather than assume dietary deficiency.",
+      "HIGH":"Hematocrit high: consider dehydration, altitude or increased red-cell production; check fluid and cardiopulmonary history before proposing a cause."
+    },
+    "glucose": {
+      "LOW":"Glucose low: check diabetes medicines, meal timing and recorded intake with shakiness, hunger or confusion; low glucose alone does not establish inadequate carbohydrate intake.",
+      "HIGH":"Glucose high: review test timing, diabetes history and medication effects with thirst, frequent urination or weight loss; excess carbohydrate intake needs separate intake evidence."
+    },
+    "hba1c": {
+      "HIGH":"HbA1c high: indicates longer-term glycemic exposure; review diabetes management, intake patterns and red-cell or renal confounders without inventing a new diabetes diagnosis."
+    },
+    "bun": {
+      "LOW":"BUN low: review protein intake and liver disease alongside other findings; the value alone cannot establish malnutrition or inadequate protein intake.",
+      "HIGH":"BUN high: consider impaired renal clearance, dehydration, medicines or protein load; check creatinine, fluid history and recorded intake before assigning the cause."
+    },
+    "creatinine": {
+      "LOW":"Creatinine low: consider reduced muscle mass, illness or liver disease; compare body-composition and intake findings rather than diagnose malnutrition from one result.",
+      "HIGH":"Creatinine high: review renal function, hydration, muscle injury, recent meat intake and medicines; one value cannot establish a specific kidney disease."
+    },
+    "sodium": {
+      "LOW":"Sodium low: consider fluid retention, gastrointestinal losses, renal or adrenal conditions and medicines; check weakness, confusion and fluid history, not sodium intake alone.",
+      "HIGH":"Sodium high: consider water deficit, losses, medicines or renal/adrenal conditions; check thirst, urine pattern and confusion rather than infer excessive dietary sodium."
+    },
+    "potassium": {
+      "LOW":"Potassium low: review gastrointestinal or urinary losses, diuretics and intake with cramps, weakness or constipation; serum status alone cannot establish dietary inadequacy.",
+      "HIGH":"Potassium high: review renal clearance, medicines and tissue injury with weakness or rhythm symptoms; do not presume excessive food intake."
+    },
+    "calcium": {
+      "LOW":"Calcium low: review albumin binding, renal/parathyroid context, vitamin D or magnesium and absorption; check cramps or tingling before attributing dietary deficiency.",
+      "HIGH":"Calcium high: consider parathyroid disease, malignancy or vitamin D exposure; check thirst, constipation, polyuria and supplements without assuming excessive calcium intake."
+    },
+    "phosphate": {
+      "LOW":"Phosphate low: review vitamin D, parathyroid function, absorption, medicines and intake; severe deficits may accompany weakness or bone pain, but mild lows may lack symptoms.",
+      "HIGH":"Phosphate high: consider impaired renal clearance, low parathyroid function or medicines; often asymptomatic, so compare calcium and recorded bone or muscle findings."
+    },
+    "magnesium": {
+      "LOW":"Magnesium low: consider gastrointestinal/renal losses, absorption, intake or medicines; check cramps, weakness and other electrolytes before attributing a dietary cause.",
+      "HIGH":"Magnesium high: review renal clearance and magnesium-containing supplements, laxatives or antacids with weakness, diarrhea or rhythm complaints; food excess alone is uncommon."
+    },
+    "cholesterol": {"HIGH":"Total cholesterol high: review the lipid pattern, saturated-fat food pattern, family history, alcohol and medical context; often no symptoms, and the value alone does not prove excessive fat intake."},
+    "ldl": {"HIGH":"LDL high: review saturated-fat food patterns, inherited risk, activity and medical context; use the lab as proof and a separately supported contributor as E, not a dietary-excess assumption."},
+    "hdl": {"LOW":"HDL low: review smoking, activity and the overall lipid pattern; it is a risk marker, not proof of inadequate fat intake or a specific symptomatic disease."},
+    "triglycerides": {"HIGH":"Triglycerides high: review alcohol, sugar/energy patterns, glycemic control, thyroid/renal/liver history, medicines and inherited factors; do not infer excessive nutrient intake from the result alone."}
+  },
   "nutrient_reference_review": {"reviewed_at":"2026-10-30","_comment":"Sources: National Institutes of Health Office of Dietary Supplements; Academy of Nutrition and Dietetics; National Academies of Sciences, Engineering, and Medicine; explicitly unverified symptom patterns remain unknown."},
   "nutrient_references": {
     "energy_inadequate": {"findings":["energy","calories","weight loss"],"context":"Energy inadequacy concern: compare intake with documented needs, duration and weight trend; low intake alone does not establish malnutrition."},

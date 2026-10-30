@@ -22,6 +22,22 @@ class AiServiceTest extends TestCase
 
     private User $rnd;
 
+    public function test_sonnet_requests_use_supported_endpoint_specific_settings(): void
+    {
+        config()->set('services.anthropic.model', 'claude-sonnet-5-5');
+        Http::fake(['api.anthropic.com/*' => Http::response(['content' => [['type' => 'text', 'text' => json_encode($this->providerSuggestions())]],
+            'usage' => ['input_tokens' => 100, 'output_tokens' => 50]])]);
+        app(AIService::class)->draftPes($this->boundedPayload());
+        Http::assertSent(fn ($request) => $request['model'] === 'claude-sonnet-5-5'
+            && $request['thinking'] === ['type' => 'adaptive']
+            && $request['output_config']['effort'] === 'medium' && $request['max_tokens'] === 4096);
+        Http::fake(['api.anthropic.com/*' => Http::response(['content' => [['type' => 'text', 'text' => 'Progress needs continued review.']],
+            'usage' => ['input_tokens' => 100, 'output_tokens' => 20]])]);
+        app(AIService::class)->narrateMonitoring([]);
+        Http::assertSent(fn ($request) => $request['thinking'] === ['type' => 'between_tools']
+            && $request['output_config']['effort'] === 'low' && $request['max_tokens'] === 512);
+    }
+
     public function test_symptom_only_concern_is_cached_dismissible_and_cannot_be_approved_as_a_diagnosis(): void
     {
         $record = NcpRecord::factory()->create(['patient_id' => Patient::factory()->create()->id, 'rnd_user_id' => $this->rnd->id, 'status' => 'draft']);
@@ -223,7 +239,7 @@ class AiServiceTest extends TestCase
             $this->assertSame(1700, $body['max_tokens']);
             $this->assertStringContainsString('counterevidence', $system);
             foreach (['beliefs/attitudes', 'cultural', 'knowledge', 'physical function', 'physiological/metabolic', 'psychological', 'social/personal', 'treatment', 'access', 'behavior',
-                'food/activity history', 'anthropometry', 'biochemistry/tests', 'physical findings', 'client history', 'source-close cause wording'] as $guidance) {
+                'food/activity history', 'anthropometry', 'biochemistry/tests', 'physical findings', 'client history', 'natural short clinical phrases', 'different facts'] as $guidance) {
                 $this->assertStringContainsString($guidance, $system);
             }
             $this->assertSame('json_schema', $body['output_config']['format']['type'] ?? null);
@@ -234,11 +250,11 @@ class AiServiceTest extends TestCase
                 $this->assertArrayNotHasKey('pattern', $draft['properties'][$field]);
                 $this->assertArrayNotHasKey('maxLength', $draft['properties'][$field]);
                 $this->assertSame(
-                    in_array($field, ['n', 'en', 'sn'], true) ? 'Maximum 100 characters.' : ($field === 'p' ? 'Between 1 and 255 characters.' : 'Between 1 and 75 characters.'),
+                    in_array($field, ['n', 'en', 'sn'], true) ? 'Maximum 100 characters.' : ($field === 'p' ? 'Between 1 and 255 characters.' : 'Concise clinical phrase; aim within 400 characters.'),
                     $draft['properties'][$field]['description'],
                 );
             }
-            $this->assertSame(['id', 'p', 'e', 'ek', 's', 'sk', 'n', 'en', 'sn'], $draft['required']);
+            $this->assertSame(['id', 'p', 'pk', 'e', 'ek', 's', 'sk', 'r', 'n', 'en', 'sn'], $draft['required']);
             $this->assertStringContainsString('choices[domain]', $system);
             $this->assertStringContainsString('fact + why', $system);
             $this->assertStringNotContainsString('copy a short phrase', $system);

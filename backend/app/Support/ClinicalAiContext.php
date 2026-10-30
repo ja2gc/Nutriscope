@@ -91,6 +91,18 @@ class ClinicalAiContext
     /** Select on the server; send guidance, never the library/selector/source metadata. */
     public static function guidance(array $evidence, string $purpose): string
     {
+        $selected = [];
+        if ($purpose === 'diagnosis') {
+            foreach ($evidence['laboratory_flags'] ?? [] as $key => $flag) {
+                $card = self::library()['laboratory_references'][$key][strtoupper($flag['status'] ?? '')] ?? null;
+                if ($card !== null) {
+                    $selected[] = $card;
+                }
+            }
+            if ($selected !== []) {
+                array_unshift($selected, 'Lab reference hypotheses only: match recorded history, symptoms, medicines and intake; absent clues stay unknown, and a flagged concentration is not an intake diagnosis.');
+            }
+        }
         $clinical = [...$evidence, ...($evidence['clinical_context'] ?? [])];
         $text = implode('; ', array_filter([
             $clinical['referral_diagnosis'] ?? null, $clinical['medical_history'] ?? null,
@@ -119,7 +131,6 @@ class ClinicalAiContext
         }
         $goal = $evidence['goal'] ?? '';
         $type = $evidence['goal_type_detail'] ?? '';
-        $selected = [];
         foreach (self::library()['cards'] as $card) {
             $matches = $card['conditions'] === '' || preg_match('/(?<![\p{L}])(?:'.$card['conditions'].')/iu', $text)
                 || in_array($goal, $card['goals'], true) || in_array($goal.':'.$type, $card['goals'], true);

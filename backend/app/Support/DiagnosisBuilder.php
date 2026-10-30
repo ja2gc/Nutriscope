@@ -71,7 +71,7 @@ class DiagnosisBuilder
             $rules["builder_data.{$key}.*"] = ['string', 'max:255', 'distinct'];
         }
         foreach (['problem_other', 'etiology_other', 'sign_other'] as $key) {
-            $rules["builder_data.{$key}"] = ['sometimes', 'nullable', 'string', 'max:75'];
+            $rules["builder_data.{$key}"] = ['sometimes', 'nullable', 'string', $key === 'problem_other' ? 'max:75' : 'max:400'];
         }
         foreach (['etiology_notes', 'sign_notes'] as $key) {
             $rules["builder_data.{$key}"] = ['sometimes', 'nullable', 'string', 'max:125'];

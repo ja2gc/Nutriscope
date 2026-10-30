@@ -113,7 +113,7 @@ class DiagnosisController extends Controller
         }
         if (! empty($data['ai_draft_id'])) {
             try {
-                $issued = app(PesSuggestionService::class)->resolveDraft($record, $data['ai_draft_id']);
+                $issued = app(PesSuggestionService::class)->resolveDraft($record, $data['ai_draft_id'], true);
                 $data['ai_provenance'] = $issued['ai_provenance'];
                 $data['ai_generated'] = true;
             } catch (\InvalidArgumentException $error) {

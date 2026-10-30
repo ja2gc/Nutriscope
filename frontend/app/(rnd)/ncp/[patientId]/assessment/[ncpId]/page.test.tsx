@@ -23,11 +23,11 @@ beforeEach(() => {
 });
 afterEach(() => { act(() => root.unmount()); document.body.replaceChildren(); window.history.replaceState(null, "", "/"); vi.resetAllMocks(); });
 
-it("opens the assessment section linked from a diagnosis citation", async () => {
+it("keeps the default assessment tab for an unrelated section query", async () => {
   window.history.replaceState(null, "", "/?section=biochemical");
   const params = Promise.resolve({ patientId: "demo", ncpId: "demo-cycle" });
   await act(async () => root.render(<Suspense><Page params={params} /></Suspense>));
-  expect(screen.getByRole("tab", { name: /Biochemical/i }).getAttribute("aria-selected")).toBe("true");
+  expect(screen.getByRole("tab", { name: /Dietary/i }).getAttribute("aria-selected")).toBe("true");
 });
 
 it("requires retry after a failed assessment lookup instead of offering a new assessment", async () => {

@@ -99,7 +99,7 @@ class ContextualPesDraftTest extends TestCase
         $this->postJson($otherUrl)->assertOk()->assertJsonPath('meta.budget.remaining', 9);
     }
 
-    public function test_other_text_enters_pes_but_reasoning_does_not_and_other_is_limited_to_75(): void
+    public function test_other_text_enters_pes_but_reasoning_does_not_and_signs_allow_400(): void
     {
         $record = $this->record();
         $builder = [
@@ -112,7 +112,7 @@ class ContextualPesDraftTest extends TestCase
         $result = $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses", $payload)->assertCreated();
         $this->assertStringNotContainsString('Schedule barrier documented', $result->json('data.pes_statement'));
         $this->assertSame($builder, $result->json('data.builder_data'));
-        $payload['builder_data']['sign_other'] = str_repeat('x', 76);
+        $payload['builder_data']['sign_other'] = str_repeat('x', 401);
         $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses", $payload)->assertUnprocessable()->assertJsonValidationErrors('builder_data.sign_other');
         $payload['domain'] = 'NI';
         $payload['builder_data']['sign_other'] = $builder['sign_other'];
@@ -237,13 +237,23 @@ class ContextualPesDraftTest extends TestCase
         $this->assertSame(['social_history', 'knowledge_notes'], array_column($provenance['evidence_refs'], 'key'));
     }
 
-    public function test_compact_output_still_rejects_malformed_references_and_unusable_components(): void
+    public function test_compact_output_keeps_readable_text_with_unusable_references_for_review(): void
+    {
+        $record = $this->knowledgeRecord();
+        $this->provider([['id' => 'knowledge_deficit_v2', 'e' => 'Limited access to nutrition education', 'ek' => ['e999'],
+            's' => 'Cannot identify carbohydrate foods', 'sk' => ['knowledge_notes']]]);
+        $result = $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()
+            ->assertJsonCount(0, 'data')->assertJsonCount(1, 'review_drafts')
+            ->assertJsonPath('review_drafts.0.etiology', 'Limited access to nutrition education');
+        $this->assertSame([], $result->json('review_drafts.0.evidence_by_component.etiology'));
+        $this->assertSame(['knowledge_notes'], array_column($result->json('review_drafts.0.evidence_refs'), 'key'));
+    }
+
+    public function test_compact_output_still_rejects_unusable_components_and_unknown_candidates(): void
     {
         foreach ([
-            ['id' => 'knowledge_deficit_v2', 'e' => 'Kidney failure', 'ek' => ['unrecorded_cause'], 's' => 'Cannot identify carbohydrate foods', 'sk' => ['knowledge_notes']],
-            ['id' => 'knowledge_deficit_v2', 'e' => 'Limited access to nutrition education', 'ek' => 'social_history', 's' => 'Cannot identify carbohydrate foods', 'sk' => ['knowledge_notes']],
             ['id' => 'invented_id', 'e' => 'Limited access to nutrition education', 'ek' => ['social_history'], 's' => 'Cannot identify carbohydrate foods', 'sk' => ['knowledge_notes']],
-            ['id' => 'knowledge_deficit_v2', 'e' => 'Limited access to nutrition education', 'ek' => ['social_history'], 's' => str_repeat('x', 76), 'sk' => ['knowledge_notes']],
+            ['id' => 'knowledge_deficit_v2', 'e' => 'Limited access to nutrition education', 'ek' => ['social_history'], 's' => '', 'sk' => ['knowledge_notes']],
         ] as $bad) {
             $record = $this->knowledgeRecord();
             $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest";
@@ -252,7 +262,7 @@ class ContextualPesDraftTest extends TestCase
             $this->getJson($url)->assertJsonPath('meta.budget.used', 1);
             Http::assertSentCount(1);
         }
-        $this->assertDatabaseCount('ai_usage_logs', 4);
+        $this->assertDatabaseCount('ai_usage_logs', 2);
         $this->assertDatabaseHas('ai_usage_logs', ['tokens_input' => 100, 'tokens_output' => 100, 'tokens_total' => 200]);
     }
 
@@ -325,7 +335,7 @@ class ContextualPesDraftTest extends TestCase
             $prompt = $body['messages'][0]['content'];
             $payload = json_decode(explode("\noutput_json_schema:", substr($prompt, strlen("input_json:\n")))[0], true);
             $inputCharacters = strlen($body['system'].$prompt.json_encode($body['output_config']['format']['schema'] ?? []));
-            $this->assertLessThanOrEqual(8000, $inputCharacters, 'The clinical snapshot, compact problem patterns, matching guidance and shared choices remain bounded.');
+            $this->assertLessThanOrEqual(8500, $inputCharacters, 'Category meanings and independently selected P/E/S citations remain bounded.');
             $this->assertArrayNotHasKey('options', $payload);
             $this->assertSame(['NI', 'NB', 'NC'], array_keys($payload['choices']));
             $this->assertArrayNotHasKey('catalog_version', $payload);
@@ -358,7 +368,7 @@ class ContextualPesDraftTest extends TestCase
         Http::assertSentCount(1);
     }
 
-    public function test_stale_and_denied_findings_are_withheld_and_unverifiable_wording_uses_recorded_facts(): void
+    public function test_stale_and_denied_findings_are_withheld_without_rewriting_the_draft(): void
     {
         foreach ([['etiology' => 'Kidney failure'], ['signs' => 'No difficulty swallowing'], ['signs' => 'Difficulty swallowing']] as $override) {
             $record = $this->knowledgeRecord();
@@ -366,14 +376,7 @@ class ContextualPesDraftTest extends TestCase
             $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest";
             $this->provider([[...$this->knowledgeDraft(), ...$override]]);
             $response = $this->postJson($url)->assertOk();
-            if (isset($override['etiology']) || ($override['signs'] ?? null) === 'No difficulty swallowing') {
-                $response->assertJsonPath('data', []);
-            } else {
-                $response->assertJsonCount(1, 'data');
-                $this->assertStringNotContainsString('Kidney failure', $response->json('data.0.etiology'));
-                $this->assertStringNotContainsString('Difficulty swallowing', $response->json('data.0.signs'));
-                $this->assertSame('Cannot identify carbohydrate foods', rtrim($response->json('data.0.signs'), '.'));
-            }
+            $response->assertJsonPath('data', []);
             $this->getJson($url)->assertJsonPath('meta.budget.remaining', 9)->assertJsonPath('meta.can_generate', false);
         }
         $record = $this->knowledgeRecord();
@@ -426,7 +429,7 @@ class ContextualPesDraftTest extends TestCase
             ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.extra_notes', '');
     }
 
-    public function test_a_component_over_75_preserves_valid_drafts_and_closes_the_review(): void
+    public function test_a_component_over_75_remains_available_without_truncation(): void
     {
         $record = $this->knowledgeRecord();
         $record->assessment()->update(['social_history' => 'Limited access to nutrition education. Limited food budget; misses dinner twice weekly and skips lunch on several working days.']);
@@ -440,10 +443,11 @@ class ContextualPesDraftTest extends TestCase
         ];
         $this->provider([$this->knowledgeDraft(), $long]);
         $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest";
-        $this->postJson($url)->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('meta.budget.used', 1)->assertJsonPath('meta.can_generate', false);
+        $this->postJson($url)->assertOk()->assertJsonCount(2, 'data')->assertJsonPath('data.1.signs', $long['signs'])
+            ->assertJsonPath('meta.budget.used', 1)->assertJsonPath('meta.can_generate', false);
         $long['signs'] = 'Misses dinner twice weekly; skips lunch on working days';
         $this->provider([$long]);
-        $this->postJson($url)->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('meta.budget.used', 1);
+        $this->postJson($url)->assertOk()->assertJsonCount(2, 'data')->assertJsonPath('meta.budget.used', 1);
         Http::assertNothingSent();
     }
 

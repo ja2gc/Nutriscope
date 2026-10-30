@@ -129,23 +129,24 @@ class PesCitedDraftTest extends TestCase
         $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonCount(0, 'data');
     }
 
-    public function test_known_problem_with_missing_citations_stays_retryable(): void
+    public function test_known_problem_with_missing_citations_stays_available_for_review(): void
     {
         $record = $this->record(['knowledge_notes' => 'Cannot explain food labels.', 'social_history' => 'Limited nutrition education.']);
         $this->provider('NB', ['candidate' => 'Food- and nutrition-related knowledge deficit', 'p' => 'Food- and nutrition-related knowledge deficit',
             'e' => 'Limited nutrition education', 'ek' => ['social_history'], 's' => 'Cannot explain food labels', 'sk' => ['knowledge_notes']], 'sk');
         $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonCount(0, 'data')
-            ->assertJsonPath('meta.has_retryable_rejections', true);
+            ->assertJsonCount(1, 'review_drafts')->assertJsonPath('review_drafts.0.signs', 'Cannot explain food labels');
     }
 
-    public function test_unverified_cause_is_withheld_instead_of_substituting_another_clause(): void
+    public function test_causal_paraphrase_is_preserved_instead_of_substituting_another_clause(): void
     {
         $record = $this->record(['dietary_intake' => 'Estimated energy intake 1200 kcal/day versus estimated needs 1600 kcal/day (75%). Dyspnea reduces appetite and food intake.',
             'medical_history' => 'Congestive heart failure diagnosed 2 months ago. Dyspnea reduces appetite; weight loss was not intentional.']);
         $this->provider('NI', ['candidate' => 'Inadequate energy intake', 'p' => 'Inadequate energy intake',
             'e' => 'Breathlessness limits eating', 'ek' => ['medical_history', 'dietary_intake'],
             's' => 'Energy intake 1200 kcal/day vs needs 1600 kcal/day (75%)', 'sk' => ['dietary_intake']]);
-        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonCount(0, 'data');
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.etiology', 'Breathlessness limits eating');
     }
 
     public function test_normal_activity_cannot_be_cited_as_an_inactivity_cause(): void

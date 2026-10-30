@@ -5,11 +5,39 @@ namespace Tests\Unit;
 use App\Models\Assessment;
 use App\Models\NcpRecord;
 use App\Models\Patient;
+use App\Services\LabFlagService;
 use App\Support\ClinicalAiContext;
 use Tests\TestCase;
 
 class ClinicalAiContextTest extends TestCase
 {
+    public function test_every_flaggable_lab_direction_has_concise_reference_context(): void
+    {
+        $cards = ClinicalAiContext::library()['laboratory_references'];
+        foreach (app(LabFlagService::class)->ranges() as $key => $range) {
+            foreach (['low' => 'LOW', 'high' => 'HIGH'] as $bound => $status) {
+                if ($range[$bound] === null) {
+                    continue;
+                }
+                $this->assertNotEmpty($cards[$key][$status] ?? null, $key.' '.$status);
+                $this->assertLessThan(420, strlen($cards[$key][$status]));
+            }
+        }
+    }
+
+    public function test_flagged_labs_route_only_their_direction_without_a_referral_diagnosis(): void
+    {
+        $context = ClinicalAiContext::guidance(['laboratory_flags' => [
+            'ldl' => ['status' => 'HIGH', 'value' => 162.41],
+            'sodium' => ['status' => 'LOW', 'value' => 130],
+        ]], 'diagnosis');
+        $this->assertStringContainsString('LDL high:', $context);
+        $this->assertStringContainsString('Sodium low:', $context);
+        $this->assertStringNotContainsString('Sodium high:', $context);
+        $this->assertStringNotContainsString('Albumin low:', $context);
+        $this->assertSame('', ClinicalAiContext::guidance(['laboratory_flags' => []], 'diagnosis'));
+    }
+
     public function test_findings_discover_nutrient_cards_without_naming_a_nutrient(): void
     {
         $cards = ClinicalAiContext::searchNutrients('night blindness', ['physical_assessment' => 'Night blindness reported.']);
