@@ -34,7 +34,7 @@ it('adds five contacts, chooses a preference and clears it when that contact is 
   } finally { await act(async () => root.unmount()); container.remove(); }
 });
 
-it('shows one preferred badge in the profile and orders vendor contacts without preference labels', async () => {
+it('shows one preferred badge in the profile and only the preferred contact in compact cards', async () => {
   const value: ContactDetailsData = { contact: 'Original number', additional_contacts: [{ id: 'email', method: 'email', label: null, value: 'demo@example.test' }], preferred_contact_id: 'email' };
   const container = document.createElement('div'); document.body.append(container); const root = createRoot(container);
   try {
@@ -43,6 +43,8 @@ it('shows one preferred badge in the profile and orders vendor contacts without 
     expect(container.querySelectorAll('dt')[1].textContent).toBe('EmailPreferred');
     await act(async () => root.render(<ContactDetailsSummary value={value} compact />));
     expect(container.textContent).not.toContain('Preferred');
+    expect(container.textContent).not.toContain('Original number');
+    expect(container.querySelectorAll('dd')).toHaveLength(1);
     expect(container.querySelectorAll('dd')[0].textContent).toBe('demo@example.test');
   } finally { await act(async () => root.unmount()); container.remove(); }
 });

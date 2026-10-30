@@ -71,10 +71,10 @@ function SupplierForm({ initial, editingId, onSaved, onCancel, leaveRef }: {
   }
 
   return (
-    <div className="bg-emerald-50/40 border border-emerald-100 rounded-2xl p-6 space-y-4 shadow-sm">
+    <div className="bg-white border border-warm-200 rounded-2xl p-6 space-y-4 shadow-sm">
       {guard.dialog}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-extrabold text-emerald-700 uppercase tracking-wider">
+        <h3 className="text-sm font-extrabold text-warm-900 uppercase tracking-wider">
           {editingId ? "Edit Vendor" : "New Vendor"}
         </h3>
         {error && (

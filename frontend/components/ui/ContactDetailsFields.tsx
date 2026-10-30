@@ -49,7 +49,10 @@ export function ContactDetailsFields({ value, onChange, legacyLabel = 'Contact',
 
 export function ContactDetailsSummary({ value, legacyLabel = 'Contact', compact = false }: { value: ContactDetailsData; legacyLabel?: string; compact?: boolean }) {
   const contacts = [...(value.contact ? [{ id: 'primary', label: legacyLabel, value: value.contact }] : []), ...value.additional_contacts.map(entry => ({ id: entry.id, label: contactMethodLabel(entry), value: entry.value }))];
-  if (compact) contacts.sort((a, b) => Number(b.id === value.preferred_contact_id) - Number(a.id === value.preferred_contact_id));
+  if (compact) {
+    contacts.sort((a, b) => Number(b.id === value.preferred_contact_id) - Number(a.id === value.preferred_contact_id));
+    contacts.splice(1);
+  }
   return <div className="min-w-0 space-y-4 text-sm">
     <dl className={`grid min-w-0 grid-cols-1 gap-4 ${compact ? '' : 'sm:grid-cols-2'}`}>
       {contacts.map(entry => <div key={entry.id} className="min-w-0"><dt className={labelClass}>{entry.label}{!compact && value.preferred_contact_id === entry.id && <span className="ml-2 font-semibold text-emerald-700">Preferred</span>}</dt><dd className="break-all text-warm-800">{entry.value}</dd></div>)}
