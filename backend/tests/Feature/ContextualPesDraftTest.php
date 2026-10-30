@@ -249,6 +249,17 @@ class ContextualPesDraftTest extends TestCase
         $this->assertSame(['knowledge_notes'], array_column($result->json('review_drafts.0.evidence_refs'), 'key'));
     }
 
+    public function test_supplied_component_references_are_not_rejected_for_their_total_count(): void
+    {
+        $record = $this->knowledgeRecord();
+        $this->provider([[...$this->knowledgeDraft(), 'evidence_used' => [
+            'social_history', 'knowledge_notes', 'age_group', 'age_70_plus', 'sex',
+            'weight_kg', 'height_cm', 'weight_change_direction', 'pregnancy_lactation_status',
+        ]]]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()
+            ->assertJsonCount(1, 'data')->assertJsonCount(0, 'review_drafts');
+    }
+
     public function test_compact_output_still_rejects_unusable_components_and_unknown_candidates(): void
     {
         foreach ([

@@ -584,8 +584,8 @@ class PesSuggestionService
                 }
                 $retryLabel = $label;
                 $keys = $draft['evidence_used'] ?? null;
-                if (! is_array($keys) || $keys === [] || count($keys) > 8) {
-                    throw new \RuntimeException('The AI returned a PES draft without bounded evidence.');
+                if (! is_array($keys) || $keys === []) {
+                    throw new \RuntimeException('Review the assessment details supporting this draft; supporting references are missing.');
                 }
                 $refs = [];
                 foreach ($keys as $key) {
