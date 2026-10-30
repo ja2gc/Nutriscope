@@ -14,7 +14,7 @@ import { ASSESSMENT_TEXT_LIMITS } from "@/lib/assessmentValidation";
 import { MONITORING_TEXT_LIMITS, monitoringTextError } from "@/lib/monitoringValidation";
 import type { Intervention } from "@/services/interventionService";
 import type { MonitoringPlan } from "@/services/monitoringPlan";
-import { ALL_MICROS, GOAL_MICRO_FLAGS } from "@/lib/nutritionCalculations";
+import { ACTIVITY_FACTORS, ALL_MICROS, GOAL_MICRO_FLAGS } from "@/lib/nutritionCalculations";
 import {
   CLINICAL_LAB_META,
   fetchMonitoringAiBudget,
@@ -61,13 +61,7 @@ export const VISIT_TYPES: { value: MonitoringVisitType; label: string }[] = [
   { value: "unscheduled_follow_up", label: "Unscheduled follow-up" },
 ];
 
-const ACTIVITY_LEVELS = [
-  { value: "sedentary", label: "Sedentary" },
-  { value: "light", label: "Light" },
-  { value: "moderate", label: "Moderate" },
-  { value: "very_active", label: "Very active" },
-  { value: "extra_active", label: "Extra active" },
-];
+const ACTIVITY_LEVELS = Object.entries(ACTIVITY_FACTORS).map(([value, { label }]) => ({ value, label }));
 
 const MATERNAL_STATUSES: { value: PregnancyLactationStatus; label: string }[] = [
   { value: "none", label: "None" },
@@ -423,9 +417,9 @@ export default function LogVisitForm({ ncpId, plan, context, intervention, onSub
             </label>
             {edemaPresent && <NumberField label="Dry Weight" unit="kg" value={dryWeight} onChange={setDryWeight} required />}
             <label>
-              <FieldLabel>Physical Activity</FieldLabel>
+              <FieldLabel>Activity estimate</FieldLabel>
               <select required value={activityLevel} onChange={(event) => setActivityLevel(event.target.value)} className="w-full rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900">
-                <option value="">{readOnly ? "Not recorded" : "Select activity level"}</option>
+                <option value="">{readOnly ? "Not recorded" : "Select activity estimate"}</option>
                 {ACTIVITY_LEVELS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
             </label>

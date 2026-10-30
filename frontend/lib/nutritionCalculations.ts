@@ -53,21 +53,23 @@ export function calcBMR(weightKg: number, heightCm: number, ageYears: number, se
   return sex === 'Male' ? base + 5 : base - 161;
 }
 
-/** TEE = BMR × activity factor (default 1.2 = sedentary/bed-bound). */
+/** TEE = BMR × local adult activity estimate (default 1.2 = sedentary). */
 export function calcTEE(bmr: number, activityFactor = 1.2): number {
   return bmr * activityFactor;
 }
 
 /**
- * Physical Activity Level → TEE multiplier.
- * Keys must stay in sync with the assessment PAL dropdown and the backend spec.
+ * Local adult activity estimates; exact factors are not measured FAO/WHO/UNU PAL bands.
+ * Sedentary does not imply bed-bound or ICU care; consider overall work and leisure.
+ * Source review: FAO/WHO/UNU and NIH NIDDK, 2026-10-30; see intervention-goals.md.
+ * Keys, labels and factors mirror NutritionPrescriptionService; pediatric EER uses a separate category proxy.
  */
 export const ACTIVITY_FACTORS: Record<string, { label: string; factor: number }> = {
-  sedentary:    { label: 'Sedentary / Bed-bound (ICU)',          factor: 1.2   },
-  light:        { label: 'Lightly Active (Ambulatory inpatient)', factor: 1.375 },
-  moderate:     { label: 'Moderately Active (Outpatient)',        factor: 1.55  },
-  very_active:  { label: 'Very Active (Regular exercise)',        factor: 1.725 },
-  extra_active: { label: 'Extra Active (Heavy labor)',            factor: 1.9   },
+  sedentary:    { label: 'Sedentary',         factor: 1.2   },
+  light:        { label: 'Lightly active',    factor: 1.375 },
+  moderate:     { label: 'Moderately active', factor: 1.55  },
+  very_active:  { label: 'Very active',       factor: 1.725 },
+  extra_active: { label: 'Extra active',      factor: 1.9   },
 };
 
 // ── Pediatric ──────────────────────────────────────────────────────────────

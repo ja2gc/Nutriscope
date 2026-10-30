@@ -1,5 +1,7 @@
 # RND Nutrition Care Process Video Storyboard
 
+Activity wording correction checked against `e7dea1a9` plus these changes (2026-10-30): wherever the sequence below says PAL, show **Activity estimate** in Assessment, Monitoring and NCP Summary. Use the five matching activity labels; demonstrate **Sedentary** separately from **Bedridden** under Functional Assessment. Numeric factors and historical saved summaries remain unchanged. Diagnosis review must omit education-history-only knowledge deficits and cause/sign duplicates.
+
 Full workflow and rendered-report verification: **2026-09-28**. Assessment and Monitoring validation, text counters, dashboard card navigation, and PO/Budget Activity removal checked against the deployed UI on **2026-10-17**. Meal-plan wording checked against code on **2026-10-13**; not live re-tested in this pass.
 
 Use this as the recording checklist and narration script for a future **Help → Guides** video. Record in a disposable demo database. Do not show real patient information.

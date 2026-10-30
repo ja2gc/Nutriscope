@@ -30,13 +30,15 @@ class NcpSummaryReportTest extends TestCase
     {
         $ncp = $this->makeRecord();
         $ncp->patient()->update(['dob' => '1990-01-01']);
-        $ncp->assessment()->update(['weight' => 69, 'height' => 170, 'bmi' => 23.88, 'nutritional_status' => 'Severe Malnutrition']);
+        $ncp->assessment()->update(['weight' => 69, 'height' => 170, 'bmi' => 23.88, 'nutritional_status' => 'Severe Malnutrition', 'physical_activity_level' => 'sedentary']);
         $data = app(NcpSummaryGenerator::class)->data(new Report(['type' => 'ncp_summary', 'parameters' => ['ncp_record_id' => $ncp->uuid]]));
         $this->assertSame('Overweight', $data['nutritional_status']);
         $this->assertEquals(2, $data['risk_score']);
         $this->assertStringContainsString('Inadequate energy intake', $data['diagnoses'][0]['pes']);
         $html = view('reports.ncp-summary', [...$data, 'branding' => new ReportBranding, 'report' => new Report, 'signatories' => []])->render();
         $this->assertStringContainsString('BMI classification:', $html);
+        $this->assertStringContainsString('Activity estimate:</span> Sedentary', $html);
+        $this->assertStringNotContainsString('Bed-bound', $html);
         $this->assertSame('Severe Malnutrition', $ncp->assessment()->first()->nutritional_status);
     }
 
@@ -345,7 +347,7 @@ class NcpSummaryReportTest extends TestCase
         ])->render();
 
         $this->assertSame($older->id, $data['monitorings']->first()->id);
-        $this->assertStringContainsString('Physical Activity Level (PAL):', $html);
+        $this->assertStringContainsString('Activity estimate:</span> Moderately active', $html);
         $this->assertStringNotContainsString('Physical Assessment:', $html);
         $this->assertStringContainsString('Energy: 1500 / 1800 kcal', $html);
         $this->assertStringContainsString('Protein: 60 / 70 g', preg_replace('/\s+/', ' ', strip_tags($html)));

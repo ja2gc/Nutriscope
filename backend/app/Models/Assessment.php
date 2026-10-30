@@ -81,7 +81,8 @@ class Assessment extends Model
      * The assessment UI may store human-readable or alternate spellings;
      * this map canonicalises them before they reach the engine.
      *
-     * Phase 5.2 — ensures the PAL dropdown actually drives TEE.
+     * Legacy bedridden aliases retain their historical calculation mapping only;
+     * sedentary does not describe bed-bound status or validate an ICU prescription.
      */
     public const ACTIVITY_LEVEL_MAP = [
         // canonical keys (pass-through)
@@ -112,7 +113,7 @@ class Assessment extends Model
 
     /**
      * Return the canonical ACTIVITY_FACTORS key for this assessment's PAL,
-     * or 'sedentary' as a safe default if unknown.
+     * or the legacy 'sedentary' fallback if unknown; current calculations validate inputs first.
      */
     public function normalizedActivityLevel(): string
     {

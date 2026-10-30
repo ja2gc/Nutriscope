@@ -104,6 +104,8 @@ REE is predicted resting expenditure. Estimated maintenance is not a guarantee o
 
 The existing multipliers **1.2 / 1.375 / 1.55 / 1.725 / 1.9** may be retained as **local pragmatic adult activity estimates**, requiring RND confirmation. The cited Roza–Shizgal paper reevaluates Harris–Benedict; this review did not establish that it validates those exact multipliers. Do not attribute them to Mifflin, label them measured PAL, or apply them as a validated pediatric/hospital-stress protocol.
 
+Implementation review (2026-10-30, `e7dea1a9` plus corrections): the five labels are **Sedentary / Lightly active / Moderately active / Very active / Extra active**, consistently presented as **Activity estimate**. Sedentary does not mean bed-bound, ICU or inpatient; functional status is recorded separately. Source checks: FAO/WHO/UNU *Human energy requirements*, adult chapter (PAL reflects overall work and leisure), and NIH NIDDK *Body Weight Planner* (typical PAL 1.4–2.5). Neither establishes the exact five local factors above. Retain existing numeric behavior and historical snapshots; do not substitute either organization's PAL ranges into this engine without a separate clinical calculation change.
+
 The adult workflow boundary remains 18 years, but the original Mifflin cohort was 19–78. At age 18 or outside the derivation population, disclose extrapolation and require clinical assessment. PDRI's own 16–18 reference band still includes age 18.
 
 Sources: [Mifflin 1990][mifflin], [Roza–Shizgal 1984](https://pubmed.ncbi.nlm.nih.gov/6741850/), [NASEM 2023 energy guidance](https://www.nationalacademies.org/read/26818/chapter/9), [PDRI tables][pdri].

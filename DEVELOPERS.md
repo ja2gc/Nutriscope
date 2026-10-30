@@ -1,5 +1,7 @@
 # NutriScope developer map
 
+Activity estimates: `NutritionPrescriptionService` owns adult factors and report labels; `nutritionCalculations.ts` mirrors them for Assessment, Monitoring and summary generation. Sedentary is separate from bed-bound functional status. `PesEligibilityService` excludes prior-education history alone as knowledge-deficit proof; `PesSuggestionService` rejects identical cause/sign findings after grounding. Verified at `e7dea1a9` plus these corrections (2026-10-30); see [NCP data](docs/developers/ncp/data.md).
+
 Nutrient reference discovery and possible concerns: `ClinicalAiContext` searches recorded findings, `AIService` permits one lookup, and `PesSuggestionService` validates and stores concerns separately from approvable PES drafts; the existing diagnosis page owns review/dismiss actions. Verified at `4b2f91de` plus these changes (2026-10-30); see [AI guidance](docs/developers/ncp/ai.md) and [NCP data](docs/developers/ncp/data.md).
 
 Verified against source: `db7bff65dd597e2cab4ddcd83ded569ff88dd03a` plus the cited-weight and context-routing corrections in this working tree (2026-10-29).

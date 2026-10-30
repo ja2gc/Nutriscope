@@ -58,7 +58,7 @@
             <td style="border:0; width:54%; padding-right:8px;">
                 <div><span class="bold">Present Diet:</span> {{ $assessment?->present_diet }}</div>
                 <div><span class="bold">Energy / Nutrient Intake:</span> {{ $assessment?->energy_intake_status }}{{ $assessment?->dietary_intake ? ' — ' . $assessment->dietary_intake : '' }}</div>
-                <div><span class="bold">Physical Activity Level (PAL):</span> {{ $assessment?->physical_activity_level }}</div>
+                <div><span class="bold">Activity estimate:</span> {{ \App\Services\NutritionPrescriptionService::ACTIVITY_LABELS[$assessment?->physical_activity_level] ?? $assessment?->physical_activity_level }}</div>
                 <div><span class="bold">Functional Assessment:</span> {{ $assessment?->functional_assessment }}</div>
                 <div><span class="bold">Chewing / Swallowing:</span> {{ $assessment?->chewing_swallowing_difficulties }}{{ $assessment?->chewing_swallowing_details ? ' — ' . $assessment->chewing_swallowing_details : '' }}</div>
                 <div><span class="bold">Constipation:</span> {{ $assessment?->constipation }}{{ $assessment?->constipation_details ? ' — ' . $assessment->constipation_details : '' }}</div>

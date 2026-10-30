@@ -155,6 +155,6 @@ it("keeps missing historical measurements blank instead of borrowing current val
   vi.mocked(monitoring.fetchMonitorings).mockResolvedValue({ data: [{ ...entry, height: null, bmi: null, physical_activity_level: null, pregnancy_lactation_status: null }], meta: { current_page: 1, per_page: 5, total: 1, last_page: 1 } });
   await open(); await click(/View visit/);
   expect((screen.getByRole("spinbutton", { name: "Height cm" }) as HTMLInputElement).value).toBe("");
-  expect((screen.getByRole("combobox", { name: "Physical Activity" }) as HTMLSelectElement).value).toBe("");
+  expect((screen.getByRole("combobox", { name: "Activity estimate" }) as HTMLSelectElement).value).toBe("");
   expect((screen.getByRole("combobox", { name: "Pregnancy / Lactation" }) as HTMLSelectElement).value).toBe("");
 });

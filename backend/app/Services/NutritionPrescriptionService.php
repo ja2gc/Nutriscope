@@ -22,12 +22,25 @@ class NutritionPrescriptionService
 
     private const CALORIC_FLOOR = ['Female' => 1200, 'Male' => 1500];
 
+    /**
+     * Local adult estimates, not measured PAL bands or hospital stress factors.
+     * Source review: FAO/WHO/UNU and NIH NIDDK (2026-10-30), intervention-goals.md.
+     * Sedentary does not imply bed-bound; mirror values/labels in nutritionCalculations.ts.
+     */
     public const ACTIVITY_FACTORS = [
         'sedentary' => 1.2,
         'light' => 1.375,
         'moderate' => 1.55,
         'very_active' => 1.725,
         'extra_active' => 1.9,
+    ];
+
+    public const ACTIVITY_LABELS = [
+        'sedentary' => 'Sedentary',
+        'light' => 'Lightly active',
+        'moderate' => 'Moderately active',
+        'very_active' => 'Very active',
+        'extra_active' => 'Extra active',
     ];
 
     // ── Anthropometric helpers ──────────────────────────────────────────────

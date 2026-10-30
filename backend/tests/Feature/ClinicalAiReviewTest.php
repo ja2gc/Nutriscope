@@ -20,6 +20,27 @@ class ClinicalAiReviewTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_prior_education_history_alone_does_not_establish_a_knowledge_deficit(): void
+    {
+        $record = $this->record();
+        $record->assessment()->update(['knowledge_notes' => 'No previous nutrition education.']);
+        $this->provider([[...$this->draft(), 'etiology' => 'No previous nutrition education',
+            'signs' => 'No previous nutrition education recorded',
+            'evidence_used' => ['knowledge_notes'], 'etiology_evidence' => ['knowledge_notes'], 'signs_evidence' => ['knowledge_notes']]]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonCount(0, 'data');
+    }
+
+    public function test_cause_cannot_repeat_the_same_finding_as_the_signs_after_grounding(): void
+    {
+        $record = $this->record();
+        $record->assessment()->update(['dietary_intake' => 'Breakfast: 2 eggs, 2 bacon slices, white toast/butter.']);
+        $this->provider([[...$this->draft(), 'candidate_id' => 'food_choices_v2', 'problem_key' => 'Undesirable Food Choices',
+            'etiology' => 'Breakfast: 2 eggs, 2 bacon slices, white toast/butter',
+            'signs' => 'Breakfast: 2 eggs, 2 bacon slices, white toast/butter.',
+            'evidence_used' => ['dietary_intake'], 'etiology_evidence' => ['dietary_intake'], 'signs_evidence' => ['dietary_intake']]]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonCount(0, 'data');
+    }
+
     public function test_concise_energy_percentage_with_a_qualified_needs_label_is_supported(): void
     {
         $record = $this->record();

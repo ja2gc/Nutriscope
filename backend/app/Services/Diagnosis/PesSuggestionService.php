@@ -618,6 +618,10 @@ class PesSuggestionService
                 }
                 $etiology = $this->groundedComponent($etiology, array_values($causes), $causeEvidence);
                 $signs = $this->groundedComponent($signs, [...$roles['signs_evidence'], ...$derivedSignKeys], $evidence);
+                $noteKey = static fn (string $text): string => trim((string) preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($text)));
+                if ($noteKey($etiology) === $noteKey($signs)) {
+                    throw new \RuntimeException('The cause must explain the problem, not repeat the signs.');
+                }
                 if ($candidate['domain'] === 'NI' && preg_match('/^(Inadequate|Excessive) .+ intake(?:\b|:)/i', $label) && (! $this->eligibility->supportsIntakeProblem($label, $signs)
                     || ! $this->eligibility->supportsIntakeProblem($label, $this->eligibility->intakeFinding($evidence)))) {
                     throw new \RuntimeException('The signs do not support the selected intake nutrient and direction.');
@@ -638,7 +642,6 @@ class PesSuggestionService
                 }
                 $notes = [];
                 $noteEvidence = [...$evidence, 'rationale_context' => $label.' Evidence supports problem; documented cause barrier; specific reported finding gap; qualifies signs symptoms.'];
-                $noteKey = static fn (string $text): string => trim((string) preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($text)));
                 $components = array_map($noteKey, [$label, $etiology, $signs]);
                 $usedNotes = [];
                 $citedEvidence = array_intersect_key($evidence, array_fill_keys([...$keys, ...$derivedSignKeys], true));

@@ -67,7 +67,7 @@ it("generates from the edited referral while preserving manual text and Undo", a
   await act(async () => fireEvent.click(screen.getByRole("button", { name: "Regenerate Summary" })));
   expect(summary.value).toContain("Referral diagnosis: Suspected diabetes under review");
   expect(summary.value).toContain("BMI");
-  expect(summary.value).toContain("PAL: Lightly Active");
+  expect(summary.value).toContain("Activity estimate: Lightly active");
   expect(summary.value).not.toContain("Recorded diabetes");
   await act(async () => fireEvent.click(screen.getByRole("tab", { name: /Referral/ })));
   act(() => fireEvent.change(screen.getByDisplayValue("Suspected diabetes under review"), { target: { value: "Referral diagnosis updated" } }));

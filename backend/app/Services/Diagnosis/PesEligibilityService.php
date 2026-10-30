@@ -164,7 +164,10 @@ class PesEligibilityService
         }
 
         return match ($id) {
-            'knowledge_deficit_v2' => $text('knowledge_notes'),
+            'knowledge_deficit_v2' => collect($this->clauses($evidence['knowledge_notes'] ?? ''))->contains(
+                fn (string $clause): bool => $this->hasConcern($clause)
+                    && ! preg_match('/^(?:no(?: previous| prior| formal)?|never(?: received| had)?)\s+(?:nutrition|nutritional|dietary|diet)\s+(?:education|counsell?ing)(?:\s+(?:received|provided|recorded|documented|before))?[.!]?$/i', trim($clause)),
+            ),
             'food_insecurity_v2' => $text('social_history') && preg_match('/\b(food|meals?|groceries)\b/i', $evidence['social_history'] ?? '')
                 && preg_match('/\b(food insecur|(?:cannot|unable|struggl\w*|not enough|lack of|limited)\b.{0,35}\b(?:afford|food|meals)|financial\b.{0,30}\bfood|food\b.{0,30}\b(?:money|access|unavailable))/i', $evidence['social_history'] ?? ''),
             'physical_inactivity_v2' => in_array($evidence['physical_activity_level'] ?? '', ['sedentary', 'inactive'], true)

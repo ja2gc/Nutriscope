@@ -14,7 +14,7 @@ describe("buildAssessmentSummary", () => {
       anthropometrics: { bmi: 24.2 },
       risk: { label: "High Risk" },
     }));
-    expect(result).toBe("Referral diagnosis: Suspected gestational diabetes; prescribed diet: Carbohydrate-controlled diet. BMI 24.2; pregnant — second trimester; PAL: Sedentary / Bed-bound (ICU). Energy intake: Sub-optimal; chewing/swallowing difficulty: Coughs with thin liquids; nutrition screening: High Risk.");
+    expect(result).toBe("Referral diagnosis: Suspected gestational diabetes; prescribed diet: Carbohydrate-controlled diet. BMI 24.2; pregnant — second trimester; Activity estimate: Sedentary. Energy intake: Sub-optimal; chewing/swallowing difficulty: Coughs with thin liquids; nutrition screening: High Risk.");
     expect(result).not.toMatch(/Medication list|Broccoli|Low albumin|7 points|automatic/);
   });
 

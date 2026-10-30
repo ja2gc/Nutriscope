@@ -64,7 +64,7 @@ export function buildAssessmentSummary(input: AssessmentSummaryInput): string {
     bmi != null && Number.isFinite(bmi) && bmi > 0
       ? `BMI ${bmi}${classification ? ` (${classification})` : ""}` : "",
     maternal ?? "",
-    pal && ACTIVITY_FACTORS[pal] ? `PAL: ${ACTIVITY_FACTORS[pal].label}` : "",
+    pal && ACTIVITY_FACTORS[pal] ? `Activity estimate: ${ACTIVITY_FACTORS[pal].label}` : "",
     assessment.edema_present ? "edema present" : "",
   ]);
 

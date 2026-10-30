@@ -71,7 +71,7 @@ function formatMissingField(field: string) {
     weight: "body weight",
     usual_weight: "usual body weight",
     height: "height",
-    physical_activity_level: "physical activity level",
+    physical_activity_level: "activity estimate",
     dry_weight_kg: "dry weight",
     dob: "date of birth",
     sex: "sex",

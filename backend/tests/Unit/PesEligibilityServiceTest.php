@@ -86,6 +86,15 @@ class PesEligibilityServiceTest extends TestCase
         }
     }
 
+    public function test_prior_education_history_needs_a_separate_demonstrated_knowledge_gap(): void
+    {
+        $service = app(PesEligibilityService::class);
+        foreach (['No previous nutrition education.', 'Never received nutrition education.', 'No prior dietary counseling.'] as $history) {
+            $this->assertNotContains('knowledge_deficit_v2', array_column($service->eligible(['knowledge_notes' => $history]), 'candidate_id'));
+            $this->assertContains('knowledge_deficit_v2', array_column($service->eligible(['knowledge_notes' => $history.' Cannot identify carbohydrate foods.']), 'candidate_id'));
+        }
+    }
+
     public function test_intake_candidates_require_the_corresponding_nutrient_and_direction(): void
     {
         $service = app(PesEligibilityService::class);
@@ -106,7 +115,7 @@ class PesEligibilityServiceTest extends TestCase
     {
         $catalog = app(PesRuleCatalog::class);
 
-        $this->assertSame('2026-10-30-v18:'.ClinicalAiContext::version(), $catalog->version());
+        $this->assertSame('2026-10-30-v19:'.ClinicalAiContext::version(), $catalog->version());
         $this->assertEqualsCanonicalizing(['NI', 'NC', 'NB'], array_values(array_unique(array_column($catalog->cards(), 'domain'))));
 
         foreach ($catalog->cards() as $card) {

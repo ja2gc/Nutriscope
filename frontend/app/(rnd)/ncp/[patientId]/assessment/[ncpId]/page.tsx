@@ -53,7 +53,7 @@ const ASSESSMENT_FIELD_LABELS: Record<string, string> = {
   usual_weight: "Usual weight",
   dry_weight_kg: "Dry weight",
   height: "Height",
-  physical_activity_level: "Physical activity level",
+  physical_activity_level: "Activity estimate",
   primary_diagnosis_category: "Nutrition care category",
   primary_diagnosis_other: "Specified nutrition care category",
 };
@@ -1356,7 +1356,7 @@ export default function NcpAssessmentPage({
 
       <AssessmentSection legend="Calculation context">
         <div className={layout.grid}>
-      <Field label="Physical Activity Level (PAL)" required={CALCULATION_INPUT_HELPERS.physical_activity_level.required}>
+      <Field label="Activity estimate" required={CALCULATION_INPUT_HELPERS.physical_activity_level.required}>
         <SelectInput
           value={s("physical_activity_level")}
           onChange={v => updateField("physical_activity_level", v || null)}
