@@ -1,8 +1,8 @@
 "use client";
+import { SectionLoading } from "@/components/ui/SectionLoading";
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
@@ -51,9 +51,7 @@ export function PatientsNcpTab() {
       {error ? (
         <div role="alert" className="px-5 py-8 text-sm font-semibold text-red-700">{error}</div>
       ) : loading ? (
-        <div className="py-14 flex items-center justify-center gap-2 text-sm text-warm-500">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading patients…
-        </div>
+        <SectionLoading label="Loading patients…" skeleton />
       ) : patients.length === 0 ? (
         <div className="py-12"><EmptyState title="No patients found" message="No patient records match this search." /></div>
       ) : (

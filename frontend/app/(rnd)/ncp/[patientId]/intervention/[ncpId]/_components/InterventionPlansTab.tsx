@@ -1,4 +1,5 @@
 "use client";
+import { SectionLoading } from "@/components/ui/SectionLoading";
 
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import type { InterventionPlanSummary } from "@/services/interventionService";
@@ -64,7 +65,7 @@ export default function InterventionPlansTab({
       </div>
 
       {error && <p role="alert" className="px-4 py-3 text-sm text-red-700">{error}</p>}
-      {loading && <p className="px-4 py-5 text-sm text-warm-500">Loading plans…</p>}
+      {loading && <SectionLoading label="Loading plans…" skeleton />}
       {!loading && plans.length === 0 && <p className="px-4 py-5 text-sm text-warm-500">No saved plans.</p>}
 
       {!loading && plans.length > 0 && (

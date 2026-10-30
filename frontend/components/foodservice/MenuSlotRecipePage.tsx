@@ -1,4 +1,5 @@
 "use client";
+import { SectionLoading } from "@/components/ui/SectionLoading";
 
 import { FormEvent, Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -166,7 +167,7 @@ export function MenuSlotRecipePage({ backHref, lineId }: { backHref: string; lin
     }
   }
 
-  if (loading) return <div className="py-20 text-center text-sm text-warm-500">Loading menu item details…</div>;
+  if (loading) return <SectionLoading label="Loading menu item details…" skeleton />;
   if (!data || !draft) return <div className="space-y-4"><Link href={backHref} className="inline-flex min-h-11 items-center gap-2 text-sm font-bold text-emerald-700"><ArrowLeft className="h-4 w-4" /> Back to menu cycle</Link><div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error || "Menu item not found."}</div></div>;
 
   const displayedIngredients = draft.ingredients.map((ingredient, index) => ({ ingredient, index }))

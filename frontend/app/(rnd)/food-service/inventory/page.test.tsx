@@ -53,6 +53,19 @@ describe("Food Service inventory controls", () => {
     vi.restoreAllMocks();
   });
 
+  test("shows an accessible skeleton until inventory is ready, then restores its normal controls", async () => {
+    let finish!: (value: { data: CatalogItem[]; meta: typeof meta }) => void;
+    mockListCatalog.mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+    await act(async () => { root.render(<InventoryCatalogPage />); });
+    const pending = container.querySelector('[role="status"][aria-busy="true"]');
+    expect(pending?.textContent).toContain("Loading inventory");
+    expect(pending?.querySelector('button, input, a')).toBeNull();
+    expect(container.querySelector('[aria-label="Inventory sections"]')).not.toBeNull();
+    await act(async () => { finish({ data: [item], meta }); });
+    expect(container.querySelector('[role="status"][aria-busy="true"]')).toBeNull();
+    expect(container.querySelector("tr td:first-child")?.textContent).toBe("Rice");
+  });
+
   test("browses inventory without downloading supplier choices until an editor opens", async () => {
     vi.mocked(listAllSuppliers).mockReturnValueOnce(new Promise(() => {}));
     await act(async () => { root.render(<InventoryCatalogPage />); });

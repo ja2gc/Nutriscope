@@ -354,7 +354,7 @@ function DropZone({ label, onUpload, uploading }: {
       {uploading ? (
         <div className="space-y-2">
           <div className="h-1 w-48 mx-auto bg-warm-200 rounded-full overflow-hidden">
-            <div className="h-full bg-emerald-500 rounded-full animate-pulse" style={{ width: "70%" }} />
+            <div className="h-full bg-emerald-500 rounded-full motion-safe:animate-pulse" style={{ width: "70%" }} />
           </div>
           <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Uploading...</p>
         </div>
@@ -555,7 +555,7 @@ function AttachmentsPanel({ ncpId, uploadLabel, kind, blurb }: {
 
           {loading ? (
             <div className="space-y-2">
-              {[0, 1].map(i => <div key={i} className="h-12 bg-warm-100 rounded-xl animate-pulse" />)}
+              {[0, 1].map(i => <div key={i} className="h-12 bg-warm-100 rounded-xl motion-safe:animate-pulse" />)}
             </div>
           ) : items.length === 0 ? (
             <div className="rounded-xl border border-dashed border-warm-200 py-4 text-center text-xs font-semibold text-warm-400">
@@ -1046,8 +1046,8 @@ export default function NcpAssessmentPage({
     return (
       <div className="space-y-6 font-sans">
         <NcpBreadcrumb step="Nutrition Assessment" />
-        <div className="space-y-4">
-          {[1, 2, 3].map(i => <div key={i} className="h-16 bg-warm-100 rounded-xl animate-pulse" />)}
+        <div role="status" aria-busy="true" aria-label="Loading assessment…" className="space-y-4">
+          {[1, 2, 3].map(i => <div key={i} className="h-16 bg-warm-100 rounded-xl motion-safe:animate-pulse" />)}
         </div>
       </div>
     );

@@ -10,6 +10,7 @@ import {
   LayoutTemplate, ChevronLeft, AlertTriangle, Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { SectionLoading } from "@/components/ui/SectionLoading";
 import ButtonFilterGroup from "@/components/ui/ButtonFilterGroup";
 import { DeleteActionDialog } from "@/components/ui/DeleteActionDialog";
 import { MenuEditorSlots, MenuEditorActions, MenuEditorAction } from "@/components/ncp/MenuEditorSlots";
@@ -229,7 +230,7 @@ function CycleList({ readOnly, mode = "cycles", onOpen, onNew, onOpenTemplate, o
       {mode === "cycles" && <>
       {/* Cycles */}
       <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
-        {loading ? <div className="py-16 text-center text-sm text-warm-400">Loading…</div>
+        {loading ? <SectionLoading label="Loading menu calendar…" skeleton />
           : cycles.length === 0 ? (
             <div className="py-16 text-center">
               <CalendarDays className="h-8 w-8 text-warm-300 mx-auto mb-3" />
@@ -818,7 +819,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
     );
   }
 
-  if (loading) return <Shell><div className="py-16 text-center text-sm text-warm-400">Loading…</div></Shell>;
+  if (loading) return <Shell><SectionLoading label="Loading menu…" skeleton /></Shell>;
   if (profileCell) {
     const backToTemplate = () => { setProfileCell(null); if (!viewingTemplate) setTemplatePickerOpen(false); };
     return <Shell templates={isTemplate}>
@@ -964,7 +965,7 @@ export default function MenuCyclePage() {
   }, [searchParams]);
 
   if (view.mode === "loading") {
-    return <Shell><div className="py-16 text-center text-sm text-warm-400">Loading…</div></Shell>;
+    return <Shell><SectionLoading label="Loading menu template…" skeleton /></Shell>;
   }
   if (view.mode === "edit") {
     return <CycleEditor cycleId={view.id} readOnly={readOnly} onBack={() => setView({ mode: "list" })} />;

@@ -234,6 +234,18 @@ describe("intervention plans workspace", () => {
     vi.clearAllMocks();
   });
 
+  it("shows a skeleton while required intervention data is pending", async () => {
+    const latest = await interventionService.fetchIntervention("ncp-uuid");
+    let finish!: (value: typeof latest) => void;
+    vi.mocked(interventionService.fetchIntervention).mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+    await renderPage();
+    expect(container.querySelector('[role="status"][aria-busy="true"]')?.textContent).toContain("Loading intervention");
+    expect(container.querySelector('[data-testid="meal-plan-section"]')).toBeNull();
+    await act(async () => { finish(latest); });
+    expect(container.querySelector('[role="status"][aria-busy="true"]')).toBeNull();
+    expect(container.textContent).toContain("Create New Intervention Plan");
+  });
+
   it("shows dated plans and creation inside Intervention without revision status language", async () => {
     await renderPage();
 

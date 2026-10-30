@@ -1,4 +1,5 @@
 "use client";
+import { SectionLoading } from "@/components/ui/SectionLoading";
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -89,7 +90,7 @@ export default function PatientNcpReportsPage() {
           <h2 className="text-base font-bold text-warm-800">{selectedCycle ? selectedCycle.label : "Choose an ADIME cycle"}</h2>
         </div>
         {loading ? (
-          <div className="py-14 flex items-center justify-center gap-2 text-sm text-warm-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading reports…</div>
+          <SectionLoading label="Loading patient reports…" skeleton />
         ) : cycles.length === 0 ? (
           <div className="py-12"><EmptyState title="No ADIME cycles" message="This patient has no ADIME cycle yet." /></div>
         ) : selectedCycle === null ? (

@@ -265,7 +265,7 @@ function CycleAttachments({ ncpId }: { ncpId: number | string }) {
   }
 
   if (loading) {
-    return <div className="h-10 bg-warm-100 rounded-lg animate-pulse" />;
+    return <div role="status" aria-busy="true" aria-label="Loading patient cycles…" className="h-10 bg-warm-100 rounded-lg motion-safe:animate-pulse" />;
   }
 
   return (
@@ -489,12 +489,12 @@ export default function PatientProfilePage({
   // ─── Loading ──────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="space-y-6 font-sans">
-        <div className="h-4 w-48 bg-warm-200 rounded-lg animate-pulse" />
-        <div className="h-32 bg-warm-200 rounded-2xl animate-pulse" />
+      <div role="status" aria-busy="true" aria-label="Loading patient profile…" className="space-y-6 font-sans">
+        <div className="h-4 w-48 bg-warm-200 rounded-lg motion-safe:animate-pulse" />
+        <div className="h-32 bg-warm-200 rounded-2xl motion-safe:animate-pulse" />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 h-96 bg-warm-200 rounded-2xl animate-pulse" />
-          <div className="h-96 bg-warm-200 rounded-2xl animate-pulse" />
+          <div className="lg:col-span-2 h-96 bg-warm-200 rounded-2xl motion-safe:animate-pulse" />
+          <div className="h-96 bg-warm-200 rounded-2xl motion-safe:animate-pulse" />
         </div>
       </div>
     );

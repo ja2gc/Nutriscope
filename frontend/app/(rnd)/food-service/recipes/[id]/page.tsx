@@ -1,10 +1,11 @@
 "use client";
+import { SectionLoading } from "@/components/ui/SectionLoading";
 
 import React, { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useEditorChanges } from "@/hooks/useUnsavedChanges";
 import { useRouter } from "next/navigation";
-import { CookingPot, ArrowLeft, Search, Plus, X, Loader2 } from "lucide-react";
+import { CookingPot, ArrowLeft, Search, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { numericStepBase } from "@/components/ui/NumericInput";
 import { quantityInputValue } from "@/lib/foodServiceFormat";
@@ -218,9 +219,7 @@ function StandardEditFSSRecipePage({ id }: { id: string }) {
   };
 
   if (loading) return (
-    <div className="flex items-center justify-center h-64">
-      <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
-    </div>
+    <SectionLoading label="Loading menu item…" skeleton />
   );
 
   if (!recipe && error) return (

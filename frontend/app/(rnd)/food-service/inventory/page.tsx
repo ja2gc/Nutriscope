@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Boxes, Plus, Pencil, Trash2, X } from "lucide-react";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { Button } from "@/components/ui/Button";
+import { SectionLoading } from "@/components/ui/SectionLoading";
 import { Tabs } from "@/components/ui/Tabs";
 import { FoodServiceMenuItems } from "./_components/FoodServiceMenuItems";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
@@ -345,7 +346,7 @@ export default function InventoryCatalogPage() {
 
       <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
         {loading ? (
-          <div className="py-16 text-center text-sm text-warm-400">Loading…</div>
+          <SectionLoading label="Loading inventory…" skeleton />
         ) : items.length === 0 ? (
           <div className="py-16 text-center text-sm text-warm-400">No items yet.</div>
         ) : (

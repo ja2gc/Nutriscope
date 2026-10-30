@@ -1,4 +1,5 @@
 "use client";
+import { SectionLoading } from "@/components/ui/SectionLoading";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -80,7 +81,7 @@ export function InventoryCorrectionEditor({ kind, id, token, cycleId }: Props) {
         <span>Liquid</span><InfoHint label="About liquid conversions">mL, L, cup, tbsp and tsp convert to each other.</InfoHint>
         <span>Pieces and packs</span><InfoHint label="About piece and pack units">pc, bundle, pack, tray and unit each match only themselves.</InfoHint>
       </div>
-      {loading ? <p className="text-sm text-warm-500">Loading…</p> : affected.map((row) => {
+      {loading ? <SectionLoading label="Loading inventory correction…" skeleton /> : affected.map((row) => {
         const key = correctionKey(row);
         const value = values[key] ?? { quantity: "", unit: "" };
         return <div key={key} className="rounded-xl border border-warm-200 p-4 space-y-2">

@@ -1,4 +1,5 @@
 "use client";
+import { SectionLoading } from "@/components/ui/SectionLoading";
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -90,7 +91,7 @@ export function NotificationsPageShell({ role }: { role: "RND" | "Admin" }) {
       actions={unreadTotal > 0 ? <Button variant="secondary" onClick={() => void markAllRead()} loading={marking} className="w-auto"><CheckCheck className="h-4 w-4" /> Mark all read</Button> : undefined}
     />
     {error && <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</div>}
-    {loading ? <div className="space-y-3">{[0, 1, 2].map((item) => <div key={item} className="h-16 animate-pulse rounded-2xl bg-warm-100" />)}</div>
+    {loading ? <SectionLoading label="Loading notifications…" skeleton />
       : items.length === 0 ? <EmptyState icon={<Bell className="h-8 w-8" />} title="No notifications" message="You're all caught up." />
         : <div className="space-y-2.5">{items.map((notification) => <article key={notification.id} className="flex items-start gap-3 rounded-2xl border border-warm-200 bg-white p-4">
           <button type="button" onClick={() => open(notification)} className="flex min-w-0 flex-1 items-start gap-3 text-left">

@@ -1,7 +1,8 @@
 "use client";
+import { SectionLoading } from "@/components/ui/SectionLoading";
 
 import { useEffect, useState } from "react";
-import { Download, Loader2 } from "lucide-react";
+import { Download } from "lucide-react";
 import { censusExportUrl, getCensusSummary, type CensusSummary } from "@/services/reportService";
 import { PRIMARY_DIAGNOSIS_CATEGORIES } from "@/services/assessmentService";
 
@@ -131,7 +132,7 @@ export function CensusPanel({ apiPrefix }: { apiPrefix: "rnd" | "admin" }) {
         </a>}
       </div>
 
-      {loading && <div className="flex items-center justify-center gap-2 py-16 text-sm text-warm-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading census…</div>}
+      {loading && <SectionLoading label="Loading census…" skeleton />}
       {!loading && error && <p role="alert" className="py-12 text-center text-sm text-red-700">{error}</p>}
       {content && <div data-census-screen>{content}</div>}
     </div>

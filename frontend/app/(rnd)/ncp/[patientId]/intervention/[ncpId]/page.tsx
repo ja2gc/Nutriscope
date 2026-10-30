@@ -55,7 +55,7 @@ import {
 
 type Tab = "plans" | "nd" | "education" | "counseling";
 const MealPlanSection = dynamic(() => import("./_components/MealPlanSection"), {
-  loading: () => <SectionLoading label="Loading meal planner…" />,
+  loading: () => <SectionLoading label="Loading meal planner…" skeleton />,
 });
 type PageParams = { patientId: string; ncpId: string };
 
@@ -155,7 +155,7 @@ function newPlanDraft(latest: Intervention | null): Intervention {
 
 export default function InterventionPage({ params }: { params: Promise<PageParams> }) {
   return (
-    <Suspense fallback={<div className="flex h-48 items-center justify-center text-sm text-warm-500">Loading intervention…</div>}>
+    <Suspense fallback={<SectionLoading label="Loading intervention…" skeleton />}>
       <InterventionWorkspace params={params} />
     </Suspense>
   );
@@ -654,7 +654,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
     );
   }
   if (loading || workflowLoading) return (
-    <div className="flex items-center justify-center h-48 text-sm text-warm-400">Loading intervention…</div>
+    <SectionLoading label="Loading intervention…" skeleton />
   );
 
   return (

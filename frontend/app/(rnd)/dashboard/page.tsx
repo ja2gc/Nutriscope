@@ -714,15 +714,15 @@ export default function RndDashboardPage() {
             </div>
 
             {loading ? (
-              <div className="p-5 space-y-4 flex-1 overflow-hidden">
+              <div role="status" aria-busy="true" aria-label="Loading dashboard…" className="p-5 space-y-4 flex-1 overflow-hidden">
                 <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,9.5rem),1fr))] gap-3">
                   {[1, 2, 3].map((index) => (
-                    <div key={index} className="h-20 rounded-2xl bg-warm-100 animate-pulse" />
+                    <div key={index} className="h-20 rounded-2xl bg-warm-100 motion-safe:animate-pulse" />
                   ))}
                 </div>
                 <div className="space-y-3 pt-2">
                   {[1, 2, 3, 4].map((index) => (
-                    <div key={index} className="h-12 rounded-xl bg-warm-100 animate-pulse" />
+                    <div key={index} className="h-12 rounded-xl bg-warm-100 motion-safe:animate-pulse" />
                   ))}
                 </div>
               </div>
@@ -838,9 +838,9 @@ export default function RndDashboardPage() {
 
           <div className="min-h-0 flex-1 p-3">
             {announcementsLoading ? (
-              <div className="space-y-2">
+              <div role="status" aria-busy="true" aria-label="Loading announcements…" className="space-y-2">
                 {[1, 2, 3].map((index) => (
-                  <div key={index} className="h-28 rounded-2xl bg-warm-100 animate-pulse" />
+                  <div key={index} className="h-28 rounded-2xl bg-warm-100 motion-safe:animate-pulse" />
                 ))}
               </div>
             ) : orderedPosts.length === 0 ? (

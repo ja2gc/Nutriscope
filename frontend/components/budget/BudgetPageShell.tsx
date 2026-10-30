@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { SectionLoading } from "@/components/ui/SectionLoading";
 import {
   FiscalYearBudget, FiscalYearSummary, BudgetLedgerEntry, LedgerFilter,
   listFiscalYears, getFiscalYearSummary, setupFiscalYear, getLedger, addManualAdjustment,
@@ -254,7 +255,7 @@ function LedgerSection({ entries, loading, filter, onFilter, meta, page, onPage 
         </select>
       </div>
       {loading ? (
-        <p className="text-base text-warm-400">Loading...</p>
+        <SectionLoading label="Loading ledger…" skeleton />
       ) : entries.length === 0 ? (
         <p className="text-base text-warm-400">No ledger entries for this fiscal year.</p>
       ) : (
@@ -374,7 +375,7 @@ export function BudgetPageShell({ apiPrefix, canMutate, crumbs }: BudgetPageShel
 
         {loadError && <p role="alert" className="text-sm text-red-700">{loadError}</p>}
         {loading ? (
-          <div className="text-base text-warm-400 py-12 text-center">Loading...</div>
+          <SectionLoading label="Loading budget…" skeleton />
         ) : (
           <>
             {/* Fiscal Year Setup - top of page (RND and Admin) */}

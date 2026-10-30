@@ -1,4 +1,5 @@
 "use client";
+import { SectionLoading } from "@/components/ui/SectionLoading";
 
 import { numericStepBase } from "@/components/ui/NumericInput";
 import { quantityInputValue } from "@/lib/foodServiceFormat";
@@ -9,7 +10,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { MenuItemProfile, MENU_ITEM_NUTRIENT_UNITS as NUTRIENT_UNITS } from "@/components/ncp/MenuItemProfile";
 import { MenuItemPicker } from "@/components/ncp/MenuItemPicker";
 import type { PaginationMeta } from "@/components/ui/Pagination";
-import { CookingPot, ArrowLeft, Search, Plus, X, Loader2, FlaskConical } from "lucide-react";
+import { CookingPot, ArrowLeft, Search, Plus, X, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { InfoHint } from "@/components/ui/InfoHint";
 import { canonicalClinicalUnit, clinicalIngredientFactor, clinicalRecipeUnits, CLINICAL_UNIT_HINT } from "@/lib/clinicalUnits";
@@ -171,7 +172,7 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
   };
 
 
-  if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="h-6 w-6 animate-spin text-emerald-600" /></div>;
+  if (loading) return <SectionLoading label="Loading recipe…" skeleton />;
   if (!recipe && error) return <div className="p-6 bg-red-50 border border-red-100 rounded-2xl text-sm text-red-700 font-bold">{error}</div>;
   if (readOnly && recipe) return <MenuItemProfile
     name={recipe.name} servings={recipe.servings} prepNotes={recipe.prep_notes}

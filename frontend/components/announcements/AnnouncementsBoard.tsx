@@ -598,9 +598,9 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
 
         <div className="p-4 space-y-4">
           {loading ? (
-            <div className="space-y-3">
+            <div role="status" aria-busy="true" aria-label="Loading announcements…" className="space-y-3">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-32 rounded-3xl bg-warm-100 animate-pulse" />
+                <div key={i} className="h-32 rounded-3xl bg-warm-100 motion-safe:animate-pulse" />
               ))}
             </div>
           ) : posts.length === 0 ? (

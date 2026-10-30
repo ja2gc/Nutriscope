@@ -217,14 +217,14 @@ export default function NcpPatientsPage() {
 
       <div className="bg-white border border-warm-200 rounded-2xl overflow-hidden shadow-sm">
         {loading ? (
-          <div className="p-8 space-y-4">
-            <div className="h-5 w-40 bg-warm-200 rounded-lg animate-pulse" />
+          <div role="status" aria-busy="true" aria-label="Loading patients…" className="p-8 space-y-4">
+            <div className="h-5 w-40 bg-warm-200 rounded-lg motion-safe:animate-pulse" />
             <div className="space-y-2 pt-4">
               {[1, 2, 3, 4].map((index) => (
                 <div key={index} className="flex gap-4 h-12 items-center">
-                  <div className="flex-1 bg-warm-100 rounded-lg h-8 animate-pulse" />
-                  <div className="w-24 bg-warm-100 rounded-lg h-8 animate-pulse" />
-                  <div className="w-28 bg-warm-100 rounded-lg h-8 animate-pulse" />
+                  <div className="flex-1 bg-warm-100 rounded-lg h-8 motion-safe:animate-pulse" />
+                  <div className="w-24 bg-warm-100 rounded-lg h-8 motion-safe:animate-pulse" />
+                  <div className="w-28 bg-warm-100 rounded-lg h-8 motion-safe:animate-pulse" />
                 </div>
               ))}
             </div>

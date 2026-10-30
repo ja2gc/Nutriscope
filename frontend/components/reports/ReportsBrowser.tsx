@@ -1,4 +1,5 @@
 "use client";
+import { SectionLoading } from "@/components/ui/SectionLoading";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
@@ -312,7 +313,7 @@ function AccomplishmentReportsPanel({ apiPrefix, onFlash }: { apiPrefix: ApiPref
     </div>
     {browseStaff && !selectedStaff ? <>
       <div className="border-b border-warm-100 px-4 py-3 sm:px-5"><SearchInput label="Search Food Service Staff" value={staffSearch} onChange={(value) => { setStaffSearch(value); setStaffPage(1); }} /></div>
-      {loadError ? <div className="p-5" role="alert"><p className="text-sm text-red-700">{loadError}</p><button type="button" onClick={() => void load()} className="mt-2 min-h-11 font-semibold text-emerald-700">Retry</button></div> : loading ? <p className="px-5 py-10 text-sm text-warm-500">Loading staff…</p> : staff.length === 0 ? <div className="p-6"><EmptyState title="No Food Service Staff found" message="Try another name." /></div> : <ul className="divide-y divide-warm-100">{staff.map((user) => <li key={user.id}><button type="button" onClick={() => { setSelectedStaff(user); setView("reports"); setPage(1); setCoveredMonth(""); }} className="min-h-14 w-full px-4 py-3 text-left font-semibold text-warm-800 hover:bg-warm-50 focus-visible:outline-2 focus-visible:outline-emerald-600 sm:px-5">{user.display_name}</button></li>)}</ul>}
+      {loadError ? <div className="p-5" role="alert"><p className="text-sm text-red-700">{loadError}</p><button type="button" onClick={() => void load()} className="mt-2 min-h-11 font-semibold text-emerald-700">Retry</button></div> : loading ? <SectionLoading label="Loading staff…" skeleton /> : staff.length === 0 ? <div className="p-6"><EmptyState title="No Food Service Staff found" message="Try another name." /></div> : <ul className="divide-y divide-warm-100">{staff.map((user) => <li key={user.id}><button type="button" onClick={() => { setSelectedStaff(user); setView("reports"); setPage(1); setCoveredMonth(""); }} className="min-h-14 w-full px-4 py-3 text-left font-semibold text-warm-800 hover:bg-warm-50 focus-visible:outline-2 focus-visible:outline-emerald-600 sm:px-5">{user.display_name}</button></li>)}</ul>}
       {!loading && !loadError && <Pagination meta={staffMeta} page={staffPage} onPageChange={setStaffPage} />}
     </> : <>
     <div className="border-b border-warm-100 px-4 py-3 sm:px-5">
@@ -322,7 +323,7 @@ function AccomplishmentReportsPanel({ apiPrefix, onFlash }: { apiPrefix: ApiPref
           onYearChange={(year) => { setFilterYear(year); if (coveredMonth) setCoveredMonth(`${year}-${coveredMonth.slice(5, 7)}`); setPage(1); }} />
       </div>
     </div>
-    {loadError ? <div className="p-5" role="alert"><p className="text-sm text-red-700">{loadError}</p><button type="button" onClick={() => void load()} className="mt-2 min-h-11 font-semibold text-emerald-700">Retry</button></div> : loading ? <p className="px-5 py-10 text-sm text-warm-500">Loading…</p> : view === "review" && apiPrefix === "rnd" ? (
+    {loadError ? <div className="p-5" role="alert"><p className="text-sm text-red-700">{loadError}</p><button type="button" onClick={() => void load()} className="mt-2 min-h-11 font-semibold text-emerald-700">Retry</button></div> : loading ? <SectionLoading label="Loading reports…" skeleton /> : view === "review" && apiPrefix === "rnd" ? (
       queue.length === 0 ? <div className="p-6"><EmptyState title="No submissions to review" message="Submitted periods appear here." /></div> :
       <ul className="divide-y divide-warm-100">{queue.map((item) => <li key={item.report_id} className="hover:bg-warm-50/60">
         <button type="button" onClick={() => { setSelected(item); setReason(""); }} aria-label={`Review submission for ${item.fss_user.display_name}, ${item.start} to ${item.end}`} className="flex min-h-14 w-full items-center gap-3 px-4 py-4 text-left focus-visible:bg-emerald-50/40 focus-visible:outline-2 focus-visible:outline-emerald-600 sm:px-5">
@@ -449,9 +450,7 @@ function InstancesPanel({
       </div>}
 
       {loading ? (
-        <div className="py-16 text-center text-sm text-warm-400 flex items-center justify-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading…
-        </div>
+        <SectionLoading label="Loading report periods…" skeleton />
       ) : instances.length === 0 ? (
         <div className="py-16">
           <EmptyState
@@ -625,7 +624,7 @@ function ArchivedTab({
       </div>
 
       {loading ? (
-        <div className="py-12 text-center text-sm text-warm-400 flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
+        <SectionLoading label="Loading archived reports…" skeleton />
       ) : reports.length === 0 ? (
         <div className="py-12">
           <EmptyState

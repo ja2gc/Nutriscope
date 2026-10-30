@@ -754,13 +754,13 @@ function EmptyState({ icon, title, message }: { icon: React.ReactNode; title: st
 
 function LoadingSkeleton() {
   return (
-    <div className="p-8 space-y-3">
+    <div role="status" aria-busy="true" aria-label="Loading food library…" className="p-8 space-y-3">
       {[1, 2, 3, 4, 5].map((i) => (
         <div key={i} className="flex gap-4 items-center h-10">
-          <div className="flex-1 bg-warm-100 rounded-lg h-6 animate-pulse" style={{ animationDelay: `${i * 60}ms` }} />
-          <div className="w-20 bg-warm-100 rounded-lg h-6 animate-pulse" style={{ animationDelay: `${i * 80}ms` }} />
-          <div className="w-32 bg-warm-100 rounded-lg h-6 animate-pulse" style={{ animationDelay: `${i * 100}ms` }} />
-          <div className="w-24 bg-warm-100 rounded-lg h-6 animate-pulse" style={{ animationDelay: `${i * 120}ms` }} />
+          <div className="flex-1 bg-warm-100 rounded-lg h-6 motion-safe:animate-pulse" style={{ animationDelay: `${i * 60}ms` }} />
+          <div className="w-20 bg-warm-100 rounded-lg h-6 motion-safe:animate-pulse" style={{ animationDelay: `${i * 80}ms` }} />
+          <div className="w-32 bg-warm-100 rounded-lg h-6 motion-safe:animate-pulse" style={{ animationDelay: `${i * 100}ms` }} />
+          <div className="w-24 bg-warm-100 rounded-lg h-6 motion-safe:animate-pulse" style={{ animationDelay: `${i * 120}ms` }} />
         </div>
       ))}
     </div>

@@ -1,4 +1,5 @@
 "use client";
+import { SectionLoading } from "@/components/ui/SectionLoading";
 import { quantityInputValue } from "@/lib/foodServiceFormat";
 
 import { numericStepBase } from "@/components/ui/NumericInput";
@@ -6,7 +7,7 @@ import React, { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useEditorChanges } from "@/hooks/useUnsavedChanges";
 import { useRouter } from "next/navigation";
-import { Database, ArrowLeft, Plus, X, Loader2, TriangleAlert } from "lucide-react";
+import { Database, ArrowLeft, Plus, X, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { InfoHint } from "@/components/ui/InfoHint";
 import { canonicalClinicalUnit, clinicalIngredientFactor, clinicalRecipeUnits, CLINICAL_BASELINE_UNITS, CLINICAL_UNIT_HINT } from "@/lib/clinicalUnits";
@@ -155,7 +156,7 @@ export default function EditFoodPage({ params }: { params: Promise<{ id: string 
   };
 
 
-  if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="h-6 w-6 animate-spin text-emerald-600" /></div>;
+  if (loading) return <SectionLoading label="Loading food…" skeleton />;
   if (!food && error) return <div className="p-6 bg-red-50 border border-red-100 rounded-2xl text-sm text-red-700 font-bold">{error}</div>;
 
   return (

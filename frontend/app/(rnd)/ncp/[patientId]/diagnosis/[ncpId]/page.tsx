@@ -730,7 +730,7 @@ export default function NcpDiagnosisPage({
     return (
       <div className="space-y-6 font-sans">
         <NcpBreadcrumb step="Nutrition Diagnosis" />
-        <div className="space-y-4">{[1, 2, 3].map(i => <div key={i} className="h-16 bg-warm-100 rounded-xl animate-pulse" />)}</div>
+        <div role="status" aria-busy="true" aria-label="Loading diagnoses…" className="space-y-4">{[1, 2, 3].map(i => <div key={i} className="h-16 bg-warm-100 rounded-xl motion-safe:animate-pulse" />)}</div>
       </div>
     );
   }

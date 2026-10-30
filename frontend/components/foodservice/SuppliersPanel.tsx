@@ -6,6 +6,7 @@ import { useUnsavedChanges, type EditorLeaveHandle } from "@/hooks/useUnsavedCha
 import { ContactDetailsFields, ContactDetailsSummary } from '@/components/ui/ContactDetailsFields';
 import { contactDetailsFrom, contactDetailsPayload, contactDetailsErrors, type ContactDetailsErrors } from '@/lib/contactDetails';
 import { Button } from "@/components/ui/Button";
+import { SectionLoading } from "@/components/ui/SectionLoading";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import SearchInput from "@/components/ui/SearchInput";
 import {
@@ -212,7 +213,7 @@ export function SuppliersPanel({ leaveRef }: { leaveRef?: Ref<EditorLeaveHandle>
       {/* Table */}
       <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
         {loading ? (
-          <div className="py-16 text-center text-sm text-warm-400">Loading…</div>
+          <SectionLoading label="Loading vendors…" skeleton />
         ) : suppliers.length === 0 ? (
           <div className="py-16 text-center">
             <Truck className="h-8 w-8 text-warm-300 mx-auto mb-3" />

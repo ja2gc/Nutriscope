@@ -336,15 +336,15 @@ export default function NcpMonitoringPage({
 
       {/* ── Loading skeleton ─────────────────────────────────────────────────── */}
       {loading ? (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div role="status" aria-busy="true" aria-label="Loading monitoring…" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2 space-y-6">
-            <div className="h-10 bg-warm-100 rounded-xl animate-pulse" />
-            <div className="h-48 bg-warm-100 rounded-2xl animate-pulse" />
-            <div className="h-64 bg-warm-100 rounded-2xl animate-pulse" />
+            <div className="h-10 bg-warm-100 rounded-xl motion-safe:animate-pulse" />
+            <div className="h-48 bg-warm-100 rounded-2xl motion-safe:animate-pulse" />
+            <div className="h-64 bg-warm-100 rounded-2xl motion-safe:animate-pulse" />
           </div>
           <div className="space-y-5">
-            <div className="h-40 bg-warm-100 rounded-2xl animate-pulse" />
-            <div className="h-24 bg-warm-100 rounded-2xl animate-pulse" />
+            <div className="h-40 bg-warm-100 rounded-2xl motion-safe:animate-pulse" />
+            <div className="h-24 bg-warm-100 rounded-2xl motion-safe:animate-pulse" />
           </div>
         </div>
       ) : (

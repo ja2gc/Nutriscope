@@ -1,5 +1,5 @@
 import { SectionLoading } from "@/components/ui/SectionLoading";
 
 export default function Loading() {
-  return <SectionLoading label="Loading workspace…" />;
+  return <SectionLoading label="Loading workspace…" skeleton />;
 }

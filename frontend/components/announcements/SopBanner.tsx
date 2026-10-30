@@ -69,7 +69,7 @@ export function SopBanner({ historyHref }: { historyHref: string }) {
   }
 
   if (loading) {
-    return <div className="h-24 rounded-3xl bg-warm-100 animate-pulse" />;
+    return <div role="status" aria-busy="true" aria-label="Loading SOP…" className="h-24 rounded-3xl bg-warm-100 motion-safe:animate-pulse" />;
   }
 
   if (!sop && !canEdit) return null; // nothing to show non-editors

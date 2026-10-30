@@ -1,9 +1,10 @@
 "use client";
+import { SectionLoading } from "@/components/ui/SectionLoading";
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CookingPot, Plus, Pencil, Trash2, Loader2, Banana } from "lucide-react";
+import { CookingPot, Plus, Pencil, Trash2, Banana } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Pagination, PaginationMeta } from "@/components/ui/Pagination";
 import SearchInput from "@/components/ui/SearchInput";
@@ -142,9 +143,7 @@ export function FoodServiceMenuItems({ canManage }: { canManage: boolean }) {
 
       {/* Table */}
       {loading ? (
-        <div className="flex items-center justify-center h-40">
-          <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
-        </div>
+        <SectionLoading label="Loading menu items…" skeleton />
       ) : recipes.length === 0 ? (
         <div className="text-center py-16 border border-dashed border-warm-200 rounded-2xl">
           <CookingPot className="h-8 w-8 text-warm-200 mx-auto mb-3" />

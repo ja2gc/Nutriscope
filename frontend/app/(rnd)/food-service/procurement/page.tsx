@@ -347,7 +347,7 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
   const guard = useUnsavedChanges({ dirty, onSave: saveList, title: "Unsaved Shopping List" });
   function requestBack() { guard.requestLeave(onBack); }
 
-  if (!list) return <div className="py-16 text-center text-sm text-warm-400">Loading…</div>;
+  if (!list) return <SectionLoading label="Loading shopping list…" skeleton />;
 
   const isSupplies = list.procurement_track === "supplies";
   const estimatedTotal = list.items.filter((item) => item.included_in_po).reduce((sum, item) => sum + num(item.total), 0);
@@ -981,7 +981,7 @@ function PoDetail({ id, suppliers, onBack }: { id: string; suppliers: Supplier[]
   const [po, setPo] = useState<PurchaseOrder | null>(null);
   const load = useCallback(() => { getPurchaseOrder(id).then(setPo); }, [id]);
   useEffect(() => { load(); }, [load]);
-  if (!po) return <div className="py-16 text-center text-sm text-warm-400">Loading…</div>;
+  if (!po) return <SectionLoading label="Loading purchase order…" skeleton />;
   return <PurchaseEventDetailView po={po} suppliers={suppliers} onBack={onBack} reload={load} />;
 }
 
@@ -1374,7 +1374,7 @@ export default function ProcurementPage() {
       {tab === "suppliers" ? <SuppliersPanel leaveRef={supplierLeaveRef} /> : (
         <div className="overflow-x-auto bg-white border border-warm-200 rounded-2xl shadow-sm">
           {loading ? (
-            <div className="py-16 text-center text-sm text-warm-400">Loading…</div>
+            <SectionLoading label="Loading procurement…" skeleton />
           ) : (tab === "food-lists" || tab === "supplies-lists") ? (
             <>
             {

@@ -1,10 +1,11 @@
 "use client";
+import { SectionLoading } from "@/components/ui/SectionLoading";
 import { quantityInputValue } from "@/lib/foodServiceFormat";
 
 import React, { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Database, ArrowLeft, Plus, X, Loader2 } from "lucide-react";
+import { Database, ArrowLeft, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { fetchFoodItemById, updateFoodItem, FoodItem } from "@/services/foodDatabaseService";
 
@@ -93,9 +94,7 @@ export default function EditFoodPage({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
-      </div>
+      <SectionLoading label="Loading food…" skeleton />
     );
   }
 

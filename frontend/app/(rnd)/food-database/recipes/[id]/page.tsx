@@ -1,10 +1,11 @@
 "use client";
+import { SectionLoading } from "@/components/ui/SectionLoading";
 import { quantityInputValue } from "@/lib/foodServiceFormat";
 
 import React, { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CookingPot, ArrowLeft, Search, Plus, X, Loader2 } from "lucide-react";
+import { CookingPot, ArrowLeft, Search, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import {
   fetchRecipeById, updateRecipe, fetchFoodItems,
@@ -132,7 +133,7 @@ export default function EditRecipePage({
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-64"><Loader2 className="h-6 w-6 animate-spin text-emerald-600" /></div>;
+    return <SectionLoading label="Loading recipe…" skeleton />;
   }
 
   if (!recipe && error) {
