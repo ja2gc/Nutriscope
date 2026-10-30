@@ -37,6 +37,47 @@ async function open() {
   await act(async () => { root.render(<Suspense fallback={<div>Loading</div>}><Page params={params} /></Suspense>); });
 }
 
+it("opens every problem group when creating a diagnosis", async () => {
+  await open(); click("Add New Diagnosis"); click("Clinical (NC)");
+  for (const group of ["Functional", "Biochemical", "Weight and growth"]) {
+    expect((screen.getByText(group).closest("details") as HTMLDetailsElement).open).toBe(true);
+  }
+  click("Behavioral-Env (NB)");
+  for (const group of ["Knowledge and beliefs", "Physical activity and function", "Food safety and access"]) {
+    expect((screen.getByText(group).closest("details") as HTMLDetailsElement).open).toBe(true);
+  }
+});
+
+it("shows linked evidence for each PES component", async () => {
+  const state = await diagnoses.fetchPesDraftStatus("fixture");
+  vi.mocked(diagnoses.fetchPesDraftStatus).mockResolvedValue({ ...state, data: [{ draft_id: "component-draft", domain: "NB",
+    label: "Food- and nutrition-related knowledge deficit", etiology: "Limited nutrition education", signs: "Cannot identify carbohydrate foods",
+    builder_data: {}, evidence_used: ["Legacy evidence"], evidence_by_component: {
+      problem: [{ key: "knowledge_notes", text: "Knowledge notes: Cannot identify carbohydrate foods" }],
+      etiology: [{ key: "social_history", text: "Social history: Limited nutrition education" }],
+      signs: [{ key: "knowledge_notes", text: "Knowledge notes: Cannot identify carbohydrate foods" }],
+    } }] } as never);
+  await open(); click(/AI Review/);
+  expect(screen.getByText("P evidence")).toBeTruthy();
+  expect(screen.getByText("E evidence")).toBeTruthy();
+  expect(screen.getByText("S evidence")).toBeTruthy();
+  expect(screen.getByRole("link", { name: "Social history: Limited nutrition education" }).getAttribute("href"))
+    .toBe("/ncp/fictional/assessment/fictional-cycle?section=client");
+  expect(screen.queryByText("Legacy evidence")).toBeNull();
+});
+
+it.each([
+  ["NC", "Overweight/obesity", "Weight and growth", "Functional"],
+  ["NB", "Physical inactivity", "Physical activity and function", "Knowledge and beliefs"],
+])("opens only selected problem groups while editing %s", async (domain, problem, selectedGroup, otherGroup) => {
+  vi.mocked(diagnoses.fetchDiagnosesPage).mockResolvedValue({ data: [{ id: 12, domain, problem,
+    etiology: "Recorded cause", signs_symptoms: "Recorded findings" }],
+    meta: { current_page: 1, per_page: 10, total: 1, last_page: 1 } } as never);
+  await open(); act(() => { fireEvent.click(screen.getByTitle("Edit")); });
+  expect((screen.getByText(selectedGroup).closest("details") as HTMLDetailsElement).open).toBe(true);
+  expect((screen.getByText(otherGroup).closest("details") as HTMLDetailsElement).open).toBe(false);
+});
+
 it("shows symptom concerns separately without a diagnosis approval action", async () => {
   const result = await diagnoses.fetchPesDraftStatus("fixture");
   vi.mocked(diagnoses.fetchPesDraftStatus).mockResolvedValue({ ...result, concerns: [{ concern_id: "concern", label: "Vitamin A inadequacy concern", missing: "Clarify intake history", evidence_used: ["Physical findings: Night blindness"] }] });

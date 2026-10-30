@@ -1,6 +1,10 @@
 # NutriScope developer map
 
-AI activity-citation correction verified at `b52a1493` plus these changes (2026-10-30): `PesSuggestionService` excludes the structured activity category from cause evidence and labels it Activity estimate in review output; signs can still use the category.
+Diagnosis lab-unit metadata reuses `MonitoringPlanService::laboratoryUnit`; `PesEvidenceBuilder` adds units to abnormal lab evidence without changing measurements or ranges. `DiagnosisBuilder::problemLabel` matches existing terms after cleaning display hints and case. Verified at `980b7e1b` plus these changes (2026-10-30).
+
+PES component guidance and citations verified against `980b7e1b` plus these changes (2026-10-30): `AIService` names etiology/assessment categories as reasoning guidance; `PesSuggestionService` validates Problem choices and role-specific evidence, persists `evidence_by_component`, and excludes circular activity-category signs. The diagnosis page owns grouped citation links, builder guidance and selection-aware Problem groups; Assessment accepts the allowlisted `section` navigation query. See [AI](docs/developers/ncp/ai.md) and [NCP data](docs/developers/ncp/data.md).
+
+AI activity-citation correction verified at `980b7e1b` plus these changes (2026-10-30): `PesSuggestionService` excludes the structured activity category when grounding causes and labels it Activity estimate in review output; signs can still use the category. Mixed citations require independently grounded narrative wording or a related concise clause.
 
 Activity estimates: `NutritionPrescriptionService` owns adult factors and report labels; `nutritionCalculations.ts` mirrors them for Assessment, Monitoring and summary generation. Sedentary is separate from bed-bound functional status. `PesEligibilityService` excludes prior-education history alone as knowledge-deficit proof; `PesSuggestionService` rejects identical cause/sign findings after grounding. Verified at `e7dea1a9` plus these corrections (2026-10-30); see [NCP data](docs/developers/ncp/data.md).
 

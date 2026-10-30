@@ -1,5 +1,7 @@
 # RND Nutrition Care Process Video Storyboard
 
+PES review/source inspection against `980b7e1b` plus these changes (2026-10-30): open a new diagnosis with all Problem groups expanded, then edit a saved row to show only selected groups expanded. Show the E/S writing guidance and new activity/function presets. In AI Review, inspect separate **P evidence**, **E evidence**, **S evidence** groups; follow a cited field to the matching Assessment tab. Demonstrate a specific recorded activity observation rather than the sedentary estimate as proof; multiple supported drafts remain possible without a forced count.
+
 Activity wording correction checked against `e7dea1a9` plus these changes (2026-10-30): wherever the sequence below says PAL, show **Activity estimate** in Assessment, Monitoring and NCP Summary. Use the five matching activity labels; demonstrate **Sedentary** separately from **Bedridden** under Functional Assessment. Numeric factors and historical saved summaries remain unchanged. Diagnosis review must omit education-history-only knowledge deficits and cause/sign duplicates.
 
 Full workflow and rendered-report verification: **2026-09-28**. Assessment and Monitoring validation, text counters, dashboard card navigation, and PO/Budget Activity removal checked against the deployed UI on **2026-10-17**. Meal-plan wording checked against code on **2026-10-13**; not live re-tested in this pass.

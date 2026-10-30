@@ -21,7 +21,14 @@ beforeEach(() => {
   vi.mocked(fetchAssessment).mockResolvedValue({ weight: 70, height: 170, usual_weight: 70, waist_cm: 90, hip_cm: 100, physical_activity_level: "light", pregnancy_lactation_status: "none", allergies: [], food_dislikes: [], medications: [] } as never);
   vi.mocked(fetchIntervention).mockResolvedValue(null as never);
 });
-afterEach(() => { act(() => root.unmount()); document.body.replaceChildren(); vi.resetAllMocks(); });
+afterEach(() => { act(() => root.unmount()); document.body.replaceChildren(); window.history.replaceState(null, "", "/"); vi.resetAllMocks(); });
+
+it("opens the assessment section linked from a diagnosis citation", async () => {
+  window.history.replaceState(null, "", "/?section=biochemical");
+  const params = Promise.resolve({ patientId: "demo", ncpId: "demo-cycle" });
+  await act(async () => root.render(<Suspense><Page params={params} /></Suspense>));
+  expect(screen.getByRole("tab", { name: /Biochemical/i }).getAttribute("aria-selected")).toBe("true");
+});
 
 it("requires retry after a failed assessment lookup instead of offering a new assessment", async () => {
   vi.mocked(fetchAssessment).mockRejectedValueOnce(new Error("Connection failed"));

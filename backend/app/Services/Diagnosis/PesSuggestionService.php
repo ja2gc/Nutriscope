@@ -162,6 +162,7 @@ class PesSuggestionService
                 'draft_id' => $draftId, 'candidate_id' => $draft['candidate_id'],
                 'fingerprint' => $state->fingerprint, 'catalog_version' => $state->catalog_version,
                 'evidence_refs' => $draft['evidence_refs'], 'source' => $draft['source'],
+                'evidence_by_component' => $draft['evidence_by_component'] ?? [],
                 'ncp_record_uuid' => $ncpRecord->uuid,
                 'assessment_record_id' => $ncpRecord->assessment?->id,
                 'assessment_updated_at' => $ncpRecord->assessment?->updated_at?->toIso8601String(),
@@ -513,6 +514,12 @@ class PesSuggestionService
                     throw new \RuntimeException('The AI changed a supplied nutrition problem.');
                 }
                 $canonical = $this->eligibility->canonicalProblem($label);
+                if ($candidate['domain'] !== 'NI' && ! in_array(mb_strtolower($label), ['malnutrition', 'malnutrition (undernutrition)'], true) && ! in_array(
+                    DiagnosisBuilder::cleanProblemTerm(DiagnosisBuilder::problemLabel($candidate['domain'], $label, (string) ($draft['signs'] ?? ''))),
+                    array_map(DiagnosisBuilder::cleanProblemTerm(...), DiagnosisBuilder::options()[$candidate['domain']]['problems']), true,
+                )) {
+                    throw new \RuntimeException('Select a nutrition problem from the existing diagnosis options.');
+                }
                 if ($canonical === $this->eligibility->canonicalProblem(Diagnosis::NO_DIAGNOSIS)) {
                     throw new \RuntimeException('A no-diagnosis decision must be recorded explicitly by the nutritionist.');
                 }
@@ -567,7 +574,7 @@ class PesSuggestionService
                 }
                 $causeEvidence = $this->causeEvidence($evidence);
                 $causes = array_intersect($roles['etiology_evidence'], array_keys($causeEvidence));
-                if ($causes === [] || in_array('physical_activity_level', $roles['etiology_evidence'], true)) {
+                if ($causes === []) {
                     throw new \RuntimeException('The AI inferred a cause without a documented concern.');
                 }
                 $derivedSignKeys = [];
@@ -613,11 +620,16 @@ class PesSuggestionService
                 if (! $this->eligibility->hasConcern($etiology) || ! $this->eligibility->hasConcern($signs)) {
                     throw new \RuntimeException('Normal or denied findings cannot establish a cause or signs.');
                 }
-                $etiology = $this->groundedComponent($etiology, array_values($causes), $causeEvidence);
+                $etiology = $this->groundedComponent($etiology, array_values($causes), $causeEvidence,
+                    in_array('physical_activity_level', $roles['etiology_evidence'], true));
                 $signs = $this->groundedComponent($signs, [...$roles['signs_evidence'], ...$derivedSignKeys], $evidence);
                 $noteKey = static fn (string $text): string => trim((string) preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($text)));
                 if ($noteKey($etiology) === $noteKey($signs)) {
                     throw new \RuntimeException('The cause must explain the problem, not repeat the signs.');
+                }
+                if ($canonical === 'physical inactivity' && (array_intersect($roles['signs_evidence'], ['lifestyle', 'social_history', 'physical_assessment', 'functional_assessment']) === []
+                    || trim((string) preg_replace('/\b(sedentary|inactive|inactivity|physical|activity|level|with|documented|reported|category|estimate|and)\b|[^\p{L}\p{N}]+/iu', '', $signs)) === '')) {
+                    throw new \RuntimeException('Activity signs need a recorded observation, not a repeated activity category.');
                 }
                 if ($candidate['domain'] === 'NI' && preg_match('/^(Inadequate|Excessive) .+ intake(?:\b|:)/i', $label) && (! $this->eligibility->supportsIntakeProblem($label, $signs)
                     || ! $this->eligibility->supportsIntakeProblem($label, $this->eligibility->intakeFinding($evidence)))) {
@@ -683,10 +695,20 @@ class PesSuggestionService
                 }
                 $problems[] = $canonical;
                 $builder = DiagnosisBuilder::fromDraft($domain, $label, $etiology, $signs, $notes);
+                $proofKeys = array_values(array_unique([...$roles['signs_evidence'], ...$derivedSignKeys]));
+                if ($canonical === 'physical inactivity') {
+                    $proofKeys = array_values(array_diff($proofKeys, ['physical_activity_level']));
+                }
+                $componentEvidence = [];
+                foreach (['problem' => $proofKeys, 'etiology' => array_values($causes), 'signs' => $proofKeys] as $role => $roleKeys) {
+                    $componentEvidence[$role] = array_map(fn ($key) => ['key' => $key,
+                        'text' => $this->formatEvidence($key, $evidence[$key], $role === 'etiology' ? $etiology : $signs)], array_values(array_unique($roleKeys)));
+                }
                 $validated[] = [
                     'draft_id' => (string) Str::uuid(), 'candidate_id' => $id, 'domain' => $domain,
                     'label' => $label, 'etiology' => $etiology, 'signs' => $signs,
                     'builder_data' => $builder, ...$notes, 'evidence_refs' => $refs,
+                    'evidence_by_component' => $componentEvidence,
                     'context_hash' => $this->contextHash($id, $evidence, array_column($refs, 'key')),
                     'evidence_used' => array_map(fn ($key) => $this->formatEvidence($key, $evidence[$key]), array_values(array_unique($keys))),
                     'source' => $candidate['source'],
@@ -803,7 +825,7 @@ class PesSuggestionService
     }
 
     /** Keep verified wording or one concise cited finding, never concatenated field excerpts. */
-    private function groundedComponent(string $wording, array $keys, array $evidence): string
+    private function groundedComponent(string $wording, array $keys, array $evidence, bool $requireRelatedFinding = false): string
     {
         $cited = array_intersect_key($evidence, array_fill_keys($keys, true));
         if ($this->hasNewNumbers($wording, $cited)) {
@@ -818,7 +840,8 @@ class PesSuggestionService
             }
             foreach ($this->eligibility->clauses($value) as $clause) {
                 $finding = str_word_count($clause) === 1 ? $this->formatEvidence($key, $clause) : $clause;
-                if ($this->eligibility->hasConcern($clause) && mb_strlen($finding) <= 75) {
+                if ($this->eligibility->hasConcern($clause) && mb_strlen($finding) <= 75
+                    && (! $requireRelatedFinding || $this->groundedWording($finding, ['wording'], ['wording' => $wording]))) {
                     return $finding;
                 }
             }
@@ -842,8 +865,14 @@ class PesSuggestionService
         ));
     }
 
-    private function formatEvidence(string $key, mixed $value): string
+    private function formatEvidence(string $key, mixed $value, ?string $wording = null): string
     {
+        if ($wording !== null && is_string($value)) {
+            $related = array_filter($this->eligibility->clauses($value), fn ($clause) => $this->groundedWording($clause, ['wording'], ['wording' => $wording]));
+            if ($related !== []) {
+                $value = implode('; ', $related);
+            }
+        }
         $label = match ($key) {
             'weight_loss_percentage' => 'Weight loss',
             'weight_change_period' => 'Weight-change period',
@@ -879,7 +908,7 @@ class PesSuggestionService
             'gi_symptoms' => implode('; ', array_values($value)),
             default => is_array($value)
                 ? (array_key_exists('value', $value)
-                    ? trim($value['value'].' '.($value['unit'] ?? $value['status'] ?? ''))
+                    ? implode(' ', array_filter([$value['value'], $value['unit'] ?? null, $value['status'] ?? null], static fn ($item) => $item !== null && $item !== ''))
                     : collect($value)->map(fn ($item, $field) => $this->formatEvidence(is_string($field) ? $field : '', $item))->implode('; '))
                 : (is_bool($value) ? ($value ? 'Yes' : 'No') : (string) $value),
         };

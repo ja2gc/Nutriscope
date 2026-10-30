@@ -14,11 +14,90 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
 class ClinicalAiReviewTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_multiple_problem_domains_can_use_separate_relevant_cause_and_sign_fields(): void
+    {
+        $rejections = [];
+        Log::listen(function ($event) use (&$rejections): void {
+            if ($event->message === 'PES draft withheld') {
+                $rejections[] = $event->context['reason'];
+            }
+        });
+        $record = $this->record();
+        $record->assessment()->update(['medical_history' => 'Back pain limits walking.', 'social_history' => 'Stopped usual nightly walks.',
+            'physical_activity_level' => 'sedentary', 'dietary_intake' => 'Frequent bacon, butter and cheese.']);
+        $record->assessment->biochemicalData()->create(['ldl' => 162.41]);
+        $this->provider([
+            [...$this->draft(), 'candidate_id' => 'altered_labs_v2', 'domain' => 'NC', 'problem_key' => 'Altered Nutrition-Related Laboratory Values',
+                'etiology' => 'Frequent bacon, butter and cheese', 'signs' => 'LDL 162.41 mg/dL',
+                'evidence_used' => ['dietary_intake', 'laboratory_flags'], 'etiology_evidence' => ['dietary_intake'], 'signs_evidence' => ['laboratory_flags']],
+            [...$this->draft(), 'candidate_id' => 'physical_inactivity_v2', 'problem_key' => 'Physical Inactivity',
+                'etiology' => 'Back pain limits walking', 'signs' => 'Stopped usual nightly walks',
+                'evidence_used' => ['medical_history', 'social_history', 'physical_activity_level'],
+                'etiology_evidence' => ['medical_history'], 'signs_evidence' => ['social_history', 'physical_activity_level']],
+        ]);
+        $response = $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk();
+        $this->assertCount(2, $response->json('data'), implode('; ', $rejections));
+        $response
+            ->assertJsonPath('data.0.label', 'Altered nutrition-related laboratory values')
+            ->assertJsonPath('data.0.evidence_by_component.etiology.0.key', 'dietary_intake')
+            ->assertJsonPath('data.1.evidence_by_component.etiology.0.key', 'medical_history');
+    }
+
+    public function test_component_citations_keep_cause_separate_from_problem_proof_and_survive_approval(): void
+    {
+        $record = $this->record();
+        $record->assessment()->update(['social_history' => 'Lives with spouse; Limited access to nutrition education.']);
+        $this->provider([$this->draft()]);
+        $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses";
+        $result = $this->postJson($url.'/ai-suggest')->assertOk()
+            ->assertJsonPath('data.0.evidence_by_component.problem.0.key', 'knowledge_notes')
+            ->assertJsonPath('data.0.evidence_by_component.etiology.0.key', 'social_history')
+            ->assertJsonPath('data.0.evidence_by_component.etiology.0.text', 'Social history: Limited access to nutrition education.')
+            ->assertJsonPath('data.0.evidence_by_component.signs.0.key', 'knowledge_notes');
+        $citations = $result->json('data.0.evidence_by_component');
+        $this->postJson($url.'/ai-approve', ['draft_id' => $result->json('data.0.draft_id')])->assertCreated();
+        $this->assertSame($citations, Diagnosis::sole()->ai_provenance['evidence_by_component']);
+    }
+
+    public function test_activity_signs_cannot_merely_repeat_the_problem_or_calculation_category(): void
+    {
+        $record = $this->record();
+        $record->assessment()->update(['physical_activity_level' => 'sedentary',
+            'medical_history' => 'Back pain limits walking.', 'social_history' => 'Stopped nightly walks.']);
+        $this->provider([[...$this->draft(), 'candidate_id' => 'physical_inactivity_v2', 'problem_key' => 'Physical Inactivity',
+            'etiology' => 'Back pain limits walking', 'signs' => 'Sedentary activity level with documented physical inactivity',
+            'evidence_used' => ['medical_history', 'physical_activity_level', 'social_history'],
+            'etiology_evidence' => ['medical_history'], 'signs_evidence' => ['physical_activity_level', 'social_history']]]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonCount(0, 'data');
+    }
+
+    public function test_ai_problem_must_come_from_the_existing_problem_options(): void
+    {
+        $record = $this->record();
+        $this->provider([[...$this->draft(), 'candidate_id' => 'behavioral_other_v2', 'problem_key' => 'Food knowledge gap']]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonCount(0, 'data');
+    }
+
+    public function test_activity_context_does_not_hide_a_separately_recorded_pain_barrier(): void
+    {
+        $record = $this->record();
+        $record->assessment()->update(['physical_activity_level' => 'sedentary',
+            'social_history' => 'Plumber; lives with wife; stopped nightly walks because of back pain.']);
+        $this->provider([[...$this->draft(), 'candidate_id' => 'physical_inactivity_v2', 'problem_key' => 'Physical Inactivity',
+            'etiology' => 'Physical activity limited by back pain; stopped nightly walks',
+            'signs' => 'Sedentary activity level with documented stopped nightly walks',
+            'evidence_used' => ['physical_activity_level', 'social_history'],
+            'etiology_evidence' => ['physical_activity_level', 'social_history'], 'signs_evidence' => ['physical_activity_level', 'social_history']]]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.etiology', 'stopped nightly walks because of back pain.');
+    }
 
     public function test_activity_category_cannot_establish_the_cause_of_obesity(): void
     {
@@ -146,13 +225,13 @@ class ClinicalAiReviewTest extends TestCase
             ->assertJsonPath('data.0.etiology', 'Poor appetite');
     }
 
-    public function test_structured_sedentary_activity_is_valid_cited_proof(): void
+    public function test_recorded_activity_observation_with_category_is_valid_cited_proof(): void
     {
         $record = $this->record();
-        $record->assessment()->update(['knowledge_notes' => null, 'physical_activity_level' => 'sedentary', 'social_history' => 'Long working hours.']);
+        $record->assessment()->update(['knowledge_notes' => null, 'physical_activity_level' => 'sedentary', 'social_history' => 'Long working hours; stopped regular walks.']);
         $this->provider([[...$this->draft(), 'candidate_id' => 'physical_inactivity_v2', 'problem_key' => 'Physical Inactivity',
-            'etiology' => 'Long working hours', 'signs' => 'Sedentary physical activity level',
-            'evidence_used' => ['social_history', 'physical_activity_level'], 'signs_evidence' => ['physical_activity_level']]]);
+            'etiology' => 'Long working hours', 'signs' => 'Stopped regular walks',
+            'evidence_used' => ['social_history', 'physical_activity_level'], 'signs_evidence' => ['social_history', 'physical_activity_level']]]);
         $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()
             ->assertJsonPath('data.0.label', 'Physical inactivity');
     }
@@ -297,8 +376,10 @@ class ClinicalAiReviewTest extends TestCase
     public function test_distinct_other_problem_failure_survives_saving_its_sibling_and_reopens_on_source_change(): void
     {
         $record = $this->record();
-        $first = [...$this->draft(), 'candidate_id' => 'behavioral_other_v2', 'problem_key' => 'Nutrition education access difficulty'];
-        $second = [...$first, 'problem_key' => 'Food knowledge gap', 'signs' => 'Cannot identify 15 carbohydrate foods'];
+        $record->assessment()->update(['dietary_intake' => 'Inadequate sodium intake; inadequate iron intake.']);
+        $first = [...$this->draft(), 'candidate_id' => 'intake_other_v2', 'domain' => 'NI', 'problem_key' => 'Inadequate Sodium Intake',
+            'signs' => 'Inadequate sodium intake', 'evidence_used' => ['social_history', 'dietary_intake'], 'signs_evidence' => ['dietary_intake']];
+        $second = [...$first, 'problem_key' => 'Inadequate Iron Intake', 'signs' => 'Iron intake 15% below needs'];
         $this->provider([$first, $second]);
         $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses";
         $draft = $this->postJson($url.'/ai-suggest')->assertOk()->assertJsonPath('meta.has_retryable_rejections', true)->json('data.0.draft_id');
@@ -308,12 +389,12 @@ class ClinicalAiReviewTest extends TestCase
         $this->postJson($url.'/ai-suggest', ['retry_rejected' => true])->assertOk()->assertJsonPath('meta.has_retryable_rejections', true);
         Http::assertSent(function ($request): bool {
             $payload = json_decode(substr($request['messages'][0]['content'], strlen("input_json:\n")), true);
-            $this->assertSame(['Food knowledge gap'], $payload['retry_problems']);
+            $this->assertSame(['Inadequate Iron Intake'], $payload['retry_problems']);
             $this->assertCount(1, $payload['candidates']);
 
             return true;
         });
-        $record->assessment()->update(['knowledge_notes' => 'Understands carbohydrate foods; no knowledge gap.']);
+        $record->assessment()->update(['dietary_intake' => 'Sodium intake adequate; iron intake adequate.']);
         $this->getJson($url.'/ai-suggest')->assertOk()->assertJsonPath('meta.has_retryable_rejections', false)
             ->assertJsonPath('meta.can_generate', true);
     }
@@ -725,12 +806,12 @@ class ClinicalAiReviewTest extends TestCase
         Http::assertSentCount(1);
     }
 
-    public function test_review_tracks_citations_from_every_custom_draft_sharing_a_candidate(): void
+    public function test_review_tracks_citations_from_every_standard_problem_sharing_a_candidate(): void
     {
         $record = $this->record();
-        $record->assessment()->update(['medications' => ['Metformin'], 'knowledge_notes' => 'Cannot identify carbohydrate foods; food knowledge gap noted.']);
-        $first = [...$this->draft(), 'candidate_id' => 'behavioral_other_v2', 'problem_key' => 'Nutrition education access difficulty'];
-        $second = [...$first, 'problem_key' => 'Food knowledge gap', 'evidence_used' => ['social_history', 'knowledge_notes', 'clinical_context']];
+        $record->assessment()->update(['medications' => ['Metformin'], 'knowledge_notes' => 'Cannot identify carbohydrate foods; does not keep food records.']);
+        $first = [...$this->draft(), 'candidate_id' => 'behavioral_other_v2', 'problem_key' => 'Food- and nutrition-related knowledge deficit'];
+        $second = [...$first, 'problem_key' => 'Self-monitoring deficit', 'signs' => 'Does not keep food records', 'evidence_used' => ['social_history', 'knowledge_notes', 'clinical_context']];
         $this->provider([$first, $second]);
         $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest";
         $this->postJson($url)->assertOk()->assertJsonCount(2, 'data')->assertJsonPath('meta.can_generate', false);

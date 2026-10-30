@@ -4,6 +4,7 @@ namespace App\Support;
 
 class DiagnosisBuilder
 {
+    /** Local E/S preset phrases mirror the web builder; guidance basis: Academy of Nutrition and Dietetics etiology categories and assessment domains. */
     public static function options(): array
     {
         return once(fn () => json_decode(file_get_contents(resource_path('diagnosis-options.json')), true, flags: JSON_THROW_ON_ERROR));
@@ -12,7 +13,7 @@ class DiagnosisBuilder
     public static function problemLabel(string $domain, string $label, string $signs = ''): string
     {
         foreach (self::options()[$domain]['problems'] as $option) {
-            if (mb_strtolower($option) === mb_strtolower($label)) {
+            if (mb_strtolower(self::cleanProblemTerm($option)) === mb_strtolower(self::cleanProblemTerm($label))) {
                 return self::cleanProblemTerm($option);
             }
         }

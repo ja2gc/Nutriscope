@@ -6,6 +6,7 @@ use App\Models\Assessment;
 use App\Models\NcpRecord;
 use App\Services\FoodRecallService;
 use App\Services\LabFlagService;
+use App\Services\MonitoringPlanService;
 use App\Support\ClinicalAiContext;
 use Illuminate\Support\Str;
 
@@ -88,6 +89,9 @@ class PesEvidenceBuilder
             $evidence['laboratory_values'] = array_filter($values, static fn ($value): bool => $value !== null && is_numeric($value));
             if ($age !== null && $age >= 18 && $evidence['sex'] !== 'unknown' && ($assessment->pregnancy_lactation_status ?? 'none') === 'none') {
                 $flags = app(LabFlagService::class)->flag($values, $patient?->sex);
+                foreach ($flags as $key => $flag) {
+                    $flags[$key]['unit'] = MonitoringPlanService::laboratoryUnit($key);
+                }
                 if (! preg_match('/\b(fasting (?:blood )?(?:glucose|sugar)|fbs)\b/i', $assessment->medical_history ?? '')) {
                     unset($flags['glucose']);
                 }

@@ -98,6 +98,11 @@ class MonitoringPlanService
         'triglycerides' => ['label' => 'Triglycerides',    'unit' => 'mg/dL'],
     ];
 
+    public static function laboratoryUnit(string $key): ?string
+    {
+        return self::LAB_META[$key]['unit'] ?? null;
+    }
+
     public static function micronutrientUnit(string $key): string
     {
         return self::MICROS[$key][1] ?? '';

@@ -151,6 +151,8 @@ const NB_ETIOLOGIES = [
   "Inadequate social support",
   "Poor health literacy",
   "Motivational barriers to change",
+  "Pain or mobility limitation",
+  "Limited ability to prepare meals or feed independently",
 ];
 
 // ─── G-NCP Signs & Symptoms Options ──────────────────────────────────────────
@@ -194,6 +196,8 @@ const NB_SIGNS = [
   "No self-monitoring of food intake",
   "Limited support at home for dietary compliance",
   "Reports financial barriers to food access",
+  "Stopped usual walks or planned activity",
+  "Difficulty preparing meals or feeding independently",
 ];
 
 function getEtiologies(domain: DiagnosisDomain) {
@@ -1003,7 +1007,7 @@ export default function NcpDiagnosisPage({
         <div>
           <SectionLabel>Step 2: Select Clinical Problem(s)</SectionLabel>
           <div className="space-y-2">
-            {Object.entries(NC_PROBLEM_GROUPS).map(([group, problems]) => <details key={group} className="rounded-xl border border-warm-200 bg-warm-50/60 p-3">
+            {Object.entries(NC_PROBLEM_GROUPS).map(([group, problems]) => <details key={group} open={!builder.editingId || problems.some(p => builder.ncProblems.includes(p))} className="rounded-xl border border-warm-200 bg-warm-50/60 p-3">
               <summary className="min-h-11 cursor-pointer text-sm font-semibold text-warm-700">{group}</summary>
               {problems.map(p => <Checkbox key={p} checked={builder.ncProblems.includes(p)}
                 onChange={checked => updateBuilder({ problemOverride: "", ncProblems: checked ? [...builder.ncProblems, p] : builder.ncProblems.filter(x => x !== p) })} label={p} />)}
@@ -1018,7 +1022,7 @@ export default function NcpDiagnosisPage({
         <div>
           <SectionLabel>Step 2: Select Behavioral-Environmental Problem(s)</SectionLabel>
           <div className="space-y-2">
-            {Object.entries(NB_PROBLEM_GROUPS).map(([group, problems]) => <details key={group} className="rounded-xl border border-warm-200 bg-warm-50/60 p-3">
+            {Object.entries(NB_PROBLEM_GROUPS).map(([group, problems]) => <details key={group} open={!builder.editingId || problems.some(p => builder.nbProblems.includes(p))} className="rounded-xl border border-warm-200 bg-warm-50/60 p-3">
               <summary className="min-h-11 cursor-pointer text-sm font-semibold text-warm-700">{group}</summary>
               {problems.map(p => <Checkbox key={p} checked={builder.nbProblems.includes(p)}
                 onChange={checked => updateBuilder({ problemOverride: "", nbProblems: checked ? [...builder.nbProblems, p] : builder.nbProblems.filter(x => x !== p) })} label={p} />)}
@@ -1062,6 +1066,10 @@ export default function NcpDiagnosisPage({
     <div className="space-y-5 max-w-2xl">
       <div>
         <SectionLabel>Select Etiology Factors (Related to)</SectionLabel>
+        <p className="mb-3 text-sm text-warm-600">Explain why the problem occurs using the specific cause or barrier, such as pain limiting walking.</p>
+        <InfoHint label="Etiology guidance" title="Find the root cause">
+          <p>Consider beliefs/attitudes, culture, knowledge, physical function, physiology/metabolism, psychology, social/personal factors, treatment, access and behavior; name the actual cause, not its category.</p>
+        </InfoHint>
         <div className="space-y-1 bg-warm-50/60 rounded-xl p-4 border border-warm-200">
           {getEtiologies(builder.domain).map(e => (
             <Checkbox
@@ -1109,6 +1117,10 @@ export default function NcpDiagnosisPage({
     <div className="space-y-5 max-w-2xl">
       <div>
         <SectionLabel>Select Signs & Symptoms (As Evidenced By)</SectionLabel>
+        <p className="mb-3 text-sm text-warm-600">Show specific findings that demonstrate the problem and can be reassessed, including recorded amounts, frequency or duration.</p>
+        <InfoHint label="Signs and symptoms guidance" title="Show the evidence">
+          <p>Use relevant food/activity history, body measurements, labs/tests, physical findings or client history; for inactivity, describe stopped usual walks rather than repeating “physical inactivity.”</p>
+        </InfoHint>
         <div className="space-y-1 bg-warm-50/60 rounded-xl p-4 border border-warm-200">
           {Array.from(new Set([...getSigns(builder.domain), ...builder.signChecks])).map(s => (
             <Checkbox
@@ -1291,13 +1303,28 @@ export default function NcpDiagnosisPage({
                   <span className="text-xs font-bold text-warm-400 uppercase tracking-wider block mb-1">PES Statement</span>
                   <p className="text-xs font-medium text-warm-800 italic leading-relaxed">{pes}</p>
                 </div>
-                <div className="rounded-lg border border-warm-100 bg-warm-50 p-3 text-xs text-warm-600">
+                <div className="rounded-lg border border-warm-100 bg-warm-50 p-3 text-xs text-warm-600 space-y-3">
+                  {s.evidence_by_component ? ([['problem', 'P'], ['etiology', 'E'], ['signs', 'S']] as const).map(([role, label]) => (
+                    <div key={role}>
+                      <span className="mb-1 block font-bold uppercase tracking-wider text-warm-500">{label} evidence</span>
+                      <ul className="list-disc space-y-1 pl-4">
+                        {s.evidence_by_component?.[role].map(item => {
+                          const section = ['laboratory_flags', 'laboratory_values'].includes(item.key) ? 'biochemical'
+                            : ['bmi', 'bmi_classification', 'weight_kg', 'usual_weight_kg', 'height_cm', 'weight_change_percentage', 'weight_loss_percentage', 'weight_change_period', 'functional_assessment', 'muac_mm', 'waist_cm', 'hip_cm', 'ibw_percentage'].includes(item.key) ? 'anthropometric'
+                              : ['social_history', 'medical_history', 'clinical_context', 'physical_activity_level', 'pregnancy_lactation_status', 'edema_present', 'medication_count'].includes(item.key) ? 'client'
+                                : item.key === 'rnd_summary' ? 'summary' : 'dietary';
+                          return <li key={item.key}><Link href={`/ncp/${patientId}/assessment/${ncpId}?section=${section}`} className="underline decoration-warm-300 underline-offset-2 hover:text-emerald-700">{item.text}</Link></li>;
+                        })}
+                      </ul>
+                    </div>
+                  )) : (
                   <div>
                     <span className="mb-1 block font-bold uppercase tracking-wider text-warm-500">Evidence used</span>
                     <ul className="list-disc space-y-1 pl-4">
                       {s.evidence_used.map(item => <li key={item}>{item}</li>)}
                     </ul>
                   </div>
+                  )}
                 </div>
                 {s.extra_notes && <p className="text-xs text-warm-600"><span className="font-semibold">Extra Notes: </span>{s.extra_notes}</p>}
                 {s.builder_data.etiology_notes && <p className="text-xs text-warm-600"><span className="font-semibold">Additional Etiology Notes: </span>{s.builder_data.etiology_notes}</p>}

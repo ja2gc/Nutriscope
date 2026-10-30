@@ -722,6 +722,9 @@ export default function NcpAssessmentPage({
         fetchIntervention(ncpId),
       ]);
       if (request !== loadRequest.current) return;
+      const linkedSection = new URLSearchParams(window.location.search).get("section");
+      const linkedTab = TABS.find(tab => tab.key === linkedSection);
+      if (linkedTab) setActiveTab(linkedTab.key);
       const missingAssessment = a.status === "rejected" && a.reason?.status === 404;
       if (p.status === "rejected" || (a.status === "rejected" && !missingAssessment) || intervention.status === "rejected") {
         setLoadError("Could not load assessment and care context. Try again before editing.");

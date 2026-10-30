@@ -58,6 +58,7 @@ export interface AiSuggestion {
   builder_data: DiagnosisBuilderData;
   extra_notes: string;
   evidence_used: string[];
+  evidence_by_component?: Record<"problem" | "etiology" | "signs", Array<{ key: string; text: string }>>;
   source: {
     id: string;
     issuer: string;

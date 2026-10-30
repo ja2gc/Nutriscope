@@ -106,7 +106,9 @@
       "Limited access to food or nutrition resources",
       "Inadequate social support",
       "Poor health literacy",
-      "Motivational barriers to change"
+      "Motivational barriers to change",
+      "Pain or mobility limitation",
+      "Limited ability to prepare meals or feed independently"
     ],
     "signs": [
       "Patient unable to identify appropriate food choices",
@@ -116,7 +118,9 @@
       "Selects inappropriate foods for medical condition",
       "No self-monitoring of food intake",
       "Limited support at home for dietary compliance",
-      "Reports financial barriers to food access"
+      "Reports financial barriers to food access",
+      "Stopped usual walks or planned activity",
+      "Difficulty preparing meals or feeding independently"
     ]
   },
   "NO": {

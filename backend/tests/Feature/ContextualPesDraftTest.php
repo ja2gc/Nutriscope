@@ -256,16 +256,17 @@ class ContextualPesDraftTest extends TestCase
         $this->assertDatabaseHas('ai_usage_logs', ['tokens_input' => 100, 'tokens_output' => 100, 'tokens_total' => 200]);
     }
 
-    public function test_compact_other_problem_maps_into_the_saved_builder(): void
+    public function test_compact_standard_problem_from_other_maps_into_the_saved_builder(): void
     {
         $record = $this->knowledgeRecord();
         $this->provider([[
-            'id' => 'behavioral_other_v2', 'p' => 'Nutrition education access difficulty',
+            'id' => 'behavioral_other_v2', 'p' => 'Food- and nutrition-related knowledge deficit',
             'e' => 'Limited access to nutrition education', 'ek' => ['social_history'],
             's' => 'Cannot identify carbohydrate foods', 'sk' => ['knowledge_notes'],
         ]]);
         $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()
-            ->assertJsonPath('data.0.builder_data.problem_other', 'Nutrition education access difficulty')
+            ->assertJsonPath('data.0.builder_data.problem_checks.0', 'Food- and nutrition-related knowledge deficit')
+            ->assertJsonPath('data.0.builder_data.problem_other', '')
             ->assertJsonPath('data.0.extra_notes', '');
     }
 
