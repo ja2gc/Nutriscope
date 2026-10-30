@@ -24,13 +24,13 @@ import {
   UserCheck,
   UserX,
   AlertTriangle,
-  RefreshCw,
   CheckCircle2,
 } from "lucide-react";
 import SearchInput from "@/components/ui/SearchInput";
 import { Button } from "@/components/ui/Button";
 import { Badge, BadgeTone } from "@/components/ui/Badge";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
+import { SectionLoading } from "@/components/ui/SectionLoading";
 import {
   changedPersonNameFields,
   personDisplayName,
@@ -348,11 +348,8 @@ export default function UserManagementPage() {
           </div>
         </div>
       ) : loading ? (
-        <div className="bg-white border border-warm-200 rounded-2xl p-12 text-center flex flex-col items-center justify-center gap-3 shadow-sm">
-          <RefreshCw className="h-6 w-6 text-emerald-600 animate-spin" />
-          <div className="text-sm text-warm-500 font-semibold uppercase tracking-wider">
-            Loading users…
-          </div>
+        <div className="bg-white border border-warm-200 rounded-2xl p-4 shadow-sm">
+          <SectionLoading label="Loading users…" skeleton />
         </div>
       ) : users.length === 0 ? (
         <div className="bg-white border border-warm-200 rounded-2xl p-16 text-center shadow-sm">

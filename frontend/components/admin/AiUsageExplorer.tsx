@@ -259,7 +259,7 @@ export function AiUsageExplorer({
           </button>
         </div>
 
-        {loading && <div role="status" className="h-72 animate-pulse rounded-2xl bg-warm-50" />}
+        {loading && <div role="status" aria-busy="true" aria-label="Loading AI usage…" className="h-72 motion-safe:animate-pulse rounded-2xl bg-warm-50" />}
         {!loading && error && (
           <div role="alert" className="flex h-72 items-center justify-center rounded-2xl border border-red-100 bg-red-50 px-4 text-sm font-semibold text-red-700">
             {error}

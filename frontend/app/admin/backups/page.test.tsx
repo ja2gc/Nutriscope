@@ -51,6 +51,26 @@ afterEach(async () => {
 });
 
 describe("backup page loading", () => {
+  it("announces the initial wait and replaces skeletons with the saved-point list", async () => {
+    let resolve!: (value: typeof list) => void;
+    vi.mocked(listBackups).mockImplementation((_page, section) => section === "in_progress"
+      ? Promise.resolve({ ...list, data: [] }) as never
+      : new Promise((done) => { resolve = done; }) as never);
+    vi.mocked(getBackupSchedules).mockResolvedValue({
+      daily: { enabled: false, next_at: null }, weekly: { enabled: false, next_at: null },
+      monthly: { enabled: false, next_at: null }, message: null,
+    });
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+    await act(async () => root.render(<BackupsPage />));
+    expect(container.querySelector('[role="status"][aria-busy="true"]')?.textContent).toContain("Loading backup status");
+    expect(container.querySelector('[data-testid="backup-list"]')).toBeNull();
+    await act(async () => resolve(list));
+    expect(container.querySelector('[aria-busy="true"]')).toBeNull();
+    expect(container.querySelector('[data-testid="backup-list"]')?.textContent).toContain("saved-point");
+  });
+
   it.each([
     [["daily", "weekly"], "Daily and Weekly"],
     [["daily", "weekly", "monthly"], "Daily, Weekly, and Monthly"],

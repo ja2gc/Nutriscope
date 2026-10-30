@@ -10,6 +10,7 @@ import {
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { SectionLoading } from "@/components/ui/SectionLoading";
 import { getFoodServiceSetting, setFoodServiceSetting } from "@/services/budgetService";
 
 // Budget per head per day — shared Food Service setting (backend-backed).
@@ -47,6 +48,7 @@ function PerHeadDayLimitCard() {
         <Wallet className="h-4 w-4 text-emerald-600" />
         Food Service Budget
       </h3>
+      {loading ? <SectionLoading label="Loading budget setting…" skeleton /> : <>
       <div className="space-y-2">
         <span className="text-sm font-semibold text-warm-600">Budget per head per day (₱)</span>
         <input
@@ -63,6 +65,7 @@ function PerHeadDayLimitCard() {
         </Button>
         {msg && <span className="text-sm text-warm-500">{msg}</span>}
       </div>
+      </>}
     </Card>
   );
 }

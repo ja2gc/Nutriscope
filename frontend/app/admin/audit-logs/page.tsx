@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useMemo, useState } from "react";
-import { Activity, AlertTriangle, RefreshCw, Shield } from "lucide-react";
+import { Activity, AlertTriangle, Shield } from "lucide-react";
 import { AuditEventDrawer } from "@/components/audit/AuditEventDrawer";
 import { AuditEventTable } from "@/components/audit/AuditEventTable";
 import { AuditRetentionControl } from "@/components/audit/AuditRetentionControl";
@@ -13,6 +13,7 @@ import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination } from "@/components/ui/Pagination";
 import { Tabs, type TabItem } from "@/components/ui/Tabs";
+import { SectionLoading } from "@/components/ui/SectionLoading";
 import {
   AuditLogServiceError,
   updateAuditRetention,
@@ -82,9 +83,8 @@ function AuditLogsContent() {
       </header>
 
       {!loaded && loading ? (
-        <Card className="p-12 text-center" role="status">
-          <RefreshCw className="mx-auto h-6 w-6 animate-spin text-brand-green-600" />
-          <p className="mt-3 text-sm font-semibold text-warm-600">Loading audit events</p>
+        <Card padded>
+          <SectionLoading label="Loading audit events" skeleton />
         </Card>
       ) : errorStatus === 401 ? (
         <StatusPanel title="Sign in required" message="Sign in again to review audit events." />
@@ -141,7 +141,7 @@ function AuditLogsContent() {
 
 export default function AuditLogsPage() {
   return (
-    <Suspense fallback={<div role="status" className="p-8 text-sm text-warm-600">Loading audit events</div>}>
+    <Suspense fallback={<SectionLoading label="Loading audit events" skeleton />}>
       <AuditLogsContent />
     </Suspense>
   );

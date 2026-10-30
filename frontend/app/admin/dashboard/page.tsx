@@ -149,9 +149,9 @@ export default function AdminDashboardPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6 animate-pulse">
+      <div role="status" aria-busy="true" aria-label="Loading dashboard…" className="space-y-6 motion-safe:animate-pulse">
         <div className="h-8 w-48 bg-warm-100 rounded-lg" />
-        <div className="h-4 w-96 bg-warm-100 rounded-lg" />
+        <div className="h-4 w-full max-w-96 bg-warm-100 rounded-lg" />
         <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,13rem),1fr))] gap-3 sm:gap-4 mt-6">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="h-24 bg-warm-100 border border-warm-200 rounded-2xl" />

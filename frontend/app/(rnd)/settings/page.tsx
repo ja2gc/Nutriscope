@@ -6,6 +6,7 @@ import { Bell, Cog, Palette, Wallet } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { SectionLoading } from "@/components/ui/SectionLoading";
 import { getFoodServiceSetting, setFoodServiceSetting } from "@/services/budgetService";
 import {
   Density,
@@ -52,6 +53,7 @@ function PerHeadDayLimitCard({ prefix }: { prefix: "fss" | "admin" }) {
         <Wallet className="h-4 w-4 text-brand-green-600" />
         Food Service Budget
       </h3>
+      {loading ? <SectionLoading label="Loading budget setting…" skeleton /> : <>
       <div className="space-y-2">
         <span className="text-sm font-semibold text-warm-600">Budget per head per day (₱)</span>
         <input
@@ -68,6 +70,7 @@ function PerHeadDayLimitCard({ prefix }: { prefix: "fss" | "admin" }) {
         </Button>
         {msg && <span className="text-sm text-warm-500">{msg}</span>}
       </div>
+      </>}
     </Card>
   );
 }

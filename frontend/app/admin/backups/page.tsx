@@ -12,6 +12,7 @@ import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Pagination } from "@/components/ui/Pagination";
 import { Tabs } from "@/components/ui/Tabs";
+import { SectionLoading } from "@/components/ui/SectionLoading";
 import {
   cancelRecovery,
   createBackup,
@@ -273,9 +274,8 @@ export default function BackupsPage() {
       )}
 
       {loading && !data ? (
-        <Card padded role="status" className="py-12 text-center">
-          <RefreshCw className="mx-auto h-6 w-6 animate-spin text-brand-green-600" />
-          <p className="mt-3 text-sm font-semibold text-warm-600">Loading backup status</p>
+        <Card padded>
+          <SectionLoading label="Loading backup status" skeleton />
         </Card>
       ) : data && (
         <>
@@ -363,9 +363,8 @@ export default function BackupsPage() {
           </div>
 
           {listLoading ? (
-            <Card padded role="status" className="py-10 text-center">
-              <RefreshCw className="mx-auto h-5 w-5 animate-spin text-brand-green-600" />
-              <p className="mt-3 text-sm font-semibold text-warm-600">Loading selected backups</p>
+            <Card padded>
+              <SectionLoading label="Loading selected backups" skeleton />
             </Card>
           ) : listError ? (
             <Card padded role="status" className="py-10 text-center">

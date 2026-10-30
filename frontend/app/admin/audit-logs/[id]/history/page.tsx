@@ -7,6 +7,7 @@ import { AlertTriangle, ArrowLeft, RefreshCw } from "lucide-react";
 import { AuditHistoryView } from "@/components/audit/history/AuditHistoryView";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { SectionLoading } from "@/components/ui/SectionLoading";
 import { AuditHistoryServiceError, getAuditHistory } from "@/services/auditHistoryService";
 import type { AuditHistoryDto } from "@/types/auditHistory";
 
@@ -43,7 +44,7 @@ export default function AuditHistoryPage() {
         <h1 className="mt-3 text-2xl font-extrabold text-warm-900">Historical audit record</h1>
       </div>
 
-      {loading && <Card padded><p className="text-sm text-warm-600" role="status">Loading historical record…</p></Card>}
+      {loading && <Card padded><SectionLoading label="Loading historical record…" skeleton /></Card>}
       {!loading && error && (
         <Card padded className="text-center">
           <AlertTriangle className="mx-auto h-8 w-8 text-amber-600" aria-hidden="true" />
