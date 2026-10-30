@@ -16,7 +16,7 @@ import Svg, { Circle, Line, Path } from 'react-native-svg';
  * and a soft tagline settles below — same mark as the website/login so the app
  * reads as one organization from the very first frame.
  */
-export default function AnimatedSplash({ onDone }: { onDone?: () => void }) {
+export default function AnimatedSplash() {
   const logoScale = useSharedValue(0.9);
   const logoOpacity = useSharedValue(0);
   const logoLift = useSharedValue(8);
@@ -48,8 +48,6 @@ export default function AnimatedSplash({ onDone }: { onDone?: () => void }) {
 
     taglineOpacity.value = withDelay(850, withTiming(1, { duration: 450 }));
 
-    const timer = setTimeout(() => onDone?.(), 1900);
-    return () => clearTimeout(timer);
   }, []);
 
   const logoStyle = useAnimatedStyle(() => ({

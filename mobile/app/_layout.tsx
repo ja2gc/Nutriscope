@@ -27,7 +27,6 @@ function Redirector({ isAuthenticated }: { isAuthenticated: boolean }) {
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
-  const [splashDone, setSplashDone] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
@@ -49,12 +48,10 @@ export default function RootLayout() {
     });
   }, []);
 
-  // Hold on the branded splash until BOTH the token check finished and the
-  // animation has played out, so the launch always feels intentional.
-  if (!ready || !splashDone) {
+  if (!ready) {
     return (
       <SafeAreaProvider>
-        <AnimatedSplash onDone={() => setSplashDone(true)} />
+        <AnimatedSplash />
       </SafeAreaProvider>
     );
   }
