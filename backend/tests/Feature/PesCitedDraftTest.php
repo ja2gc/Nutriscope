@@ -71,9 +71,9 @@ class PesCitedDraftTest extends TestCase
     public static function citedCases(): array
     {
         return [
-            'sedentary activity can be a cited cause for review' => ['NC', ['weight' => 80, 'usual_weight' => 80, 'height' => 175.5,
-                'edema_present' => false, 'pregnancy_lactation_status' => 'none', 'physical_activity_level' => 'sedentary'],
-                ['candidate' => 'Overweight/Obesity', 'p' => 'Overweight/obesity', 'e' => 'Physical inactivity', 'ek' => ['physical_activity_level'],
+            'recorded activity barrier can be a cited cause for review' => ['NC', ['weight' => 80, 'usual_weight' => 80, 'height' => 175.5,
+                'edema_present' => false, 'pregnancy_lactation_status' => 'none', 'physical_activity_level' => 'sedentary', 'medical_history' => 'Back pain limits physical activity.'],
+                ['candidate' => 'Overweight/Obesity', 'p' => 'Overweight/obesity', 'e' => 'Back pain limits physical activity', 'ek' => ['medical_history'],
                     's' => 'BMI 25.97', 'sk' => ['bmi']]],
             'percentage derived from both cited weights' => ['NC', ['weight' => 61.2, 'usual_weight' => 64.4, 'height' => 167.6,
                 'weight_change_period_value' => 2, 'weight_change_period_unit' => 'months', 'medical_history' => 'Dyspnea reduces appetite; weight loss was not intentional.'],
@@ -173,9 +173,10 @@ class PesCitedDraftTest extends TestCase
     {
         $record = $this->record(['weight' => 80, 'usual_weight' => 80, 'height' => 175.5,
             'edema_present' => false, 'pregnancy_lactation_status' => 'none', 'physical_activity_level' => 'sedentary',
+            'medical_history' => 'Limited mobility reduces activity.',
             'dietary_intake' => 'Frequent processed foods. Energy intake has not been quantified against individual targets.']);
         $this->provider('NC', ['candidate' => 'Overweight/Obesity', 'p' => 'Overweight/obesity',
-            'e' => 'Sedentary activity', 'ek' => ['physical_activity_level', 'dietary_intake'], 's' => 'BMI 25.97', 'sk' => ['bmi'],
+            'e' => 'Limited mobility reduces activity', 'ek' => ['medical_history'], 's' => 'BMI 25.97', 'sk' => ['bmi'],
             'en' => 'Sedentary activity and frequent processed foods support excess energy intake']);
         $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.etiology_notes', '');

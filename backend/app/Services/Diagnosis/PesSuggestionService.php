@@ -389,12 +389,9 @@ class PesSuggestionService
 
         $causes = array_intersect_key($evidence, array_fill_keys([
             'appetite', 'dietary_intake', 'present_diet', 'knowledge_notes', 'lifestyle', 'social_history',
-            'medical_history', 'clinical_context', 'physical_assessment', 'body_composition', 'food_intolerance', 'physical_activity_level',
+            'medical_history', 'clinical_context', 'physical_assessment', 'body_composition', 'food_intolerance',
             'nutrient_drug_interaction', 'dietary_restrictions', 'supplements', 'chewing_swallowing_difficulties', 'gi_symptoms',
         ], true));
-        if (! in_array($evidence['physical_activity_level'] ?? '', ['sedentary', 'inactive'], true)) {
-            unset($causes['physical_activity_level']);
-        }
         foreach ($causes as $key => $value) {
             if (! is_string($value)) {
                 continue;
@@ -570,7 +567,7 @@ class PesSuggestionService
                 }
                 $causeEvidence = $this->causeEvidence($evidence);
                 $causes = array_intersect($roles['etiology_evidence'], array_keys($causeEvidence));
-                if ($causes === []) {
+                if ($causes === [] || in_array('physical_activity_level', $roles['etiology_evidence'], true)) {
                     throw new \RuntimeException('The AI inferred a cause without a documented concern.');
                 }
                 $derivedSignKeys = [];
@@ -852,6 +849,7 @@ class PesSuggestionService
             'weight_change_period' => 'Weight-change period',
             'bmi' => 'BMI',
             'bmi_classification' => 'BMI classification',
+            'physical_activity_level' => 'Activity estimate',
             'age_group' => 'Age group',
             'weight_kg' => 'Weight',
             'usual_weight_kg' => 'Usual weight',

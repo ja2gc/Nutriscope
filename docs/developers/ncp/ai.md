@@ -4,6 +4,8 @@ Verified against source: `c902f93d6ea742f6303fc62770dfd95683162f14` plus readabl
 
 Purpose: maintain assisted PES wording and monitoring narration. AI does not own deterministic clinical calculations.
 
+Activity-cause correction verified at `b52a1493` plus these changes (2026-10-30): the structured activity estimate is available as a sign, not a cause citation. Sedentary status alone cannot establish the etiology of obesity or another problem; an independently recorded barrier remains usable. Evidence presentation calls this field Activity estimate. Catalog v20 invalidates the earlier pending reviews.
+
 Live-review corrections verified at `e7dea1a9` plus these changes (2026-10-30): prior nutrition education being absent is contextual history, not sufficient knowledge-deficit proof; a separate recorded gap remains eligible. After wording grounding, identical normalized cause/sign findings are rejected. The rule-catalog revision invalidates stale pending reviews. Activity estimates do not imply bed-bound status; numerical prescription factors are unchanged.
 
 Optional explanations that explicitly claim excess/excessive, inadequate or insufficient nutrient intake must pass the existing nutrient/direction check against their cited intake evidence. BMI, activity or food lists cannot establish that claim. An unsupported explanation is omitted while the valid PES draft remains available; no extra provider call is made.

@@ -50,7 +50,7 @@ class AIService
 - retry_problems: recheck these first; require cited E/S or abstain.
 - candidates=cN:[domain,problem,anchors]; evidence=eN:[field,value]; anchors are findings, not diagnoses. id=cN; p=supplied/choices.p term, <=255 chars; preserve terminology. Predictions need documented anticipated risk.
 - choices[domain].e/s=builder options. Use only if fully supported; otherwise write specific Other. Accuracy over approximate presets. Preserve comparisons: 75% is not <75%.
-- E=documented cause/barrier; S=recorded findings; E != S; category labels/codes outside PES; habits != causes; sedentary != bed-bound.
+- E=documented cause/barrier; S=recorded findings; E != S; category labels/codes outside PES; habits != causes; activity category != cause/bed-bound.
 - n/en/sn: assessment fact + why it supports P/E/S; <=100 chars each. Distinct explanations, not restatements; no new facts/advice/hidden reasoning; outside PES.
 
 # CITATION & SYNTAX

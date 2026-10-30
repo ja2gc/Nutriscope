@@ -20,6 +20,18 @@ class ClinicalAiReviewTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_activity_category_cannot_establish_the_cause_of_obesity(): void
+    {
+        $record = $this->record();
+        $record->assessment()->update(['weight' => 80, 'height' => 175.5, 'physical_activity_level' => 'sedentary',
+            'dietary_intake' => 'Breakfast: 2 eggs, 2 bacon slices, white toast/butter.']);
+        $this->provider([[...$this->draft(), 'candidate_id' => 'overweight_obesity_v1', 'domain' => 'NC', 'problem_key' => 'Overweight / Obesity',
+            'etiology' => 'Physical activity level: sedentary', 'signs' => 'BMI 25.97',
+            'evidence_used' => ['physical_activity_level', 'dietary_intake', 'bmi'],
+            'etiology_evidence' => ['physical_activity_level', 'dietary_intake'], 'signs_evidence' => ['bmi'], 'source_id' => 'asia_pacific_bmi_2026']]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonCount(0, 'data');
+    }
+
     public function test_prior_education_history_alone_does_not_establish_a_knowledge_deficit(): void
     {
         $record = $this->record();
