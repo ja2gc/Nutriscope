@@ -15,8 +15,8 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push, replace: push }),
 }));
 vi.mock("next/link", () => ({
-  default: ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) =>
-    <a href={href} {...props}>{children}</a>,
+  default: ({ href, children, prefetch, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string; prefetch?: boolean }) =>
+    <a href={href} data-prefetch={prefetch === true ? "full" : undefined} {...props}>{children}</a>,
 }));
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ user: authenticated ? { id: userId, role: "RND" } : null, logout: vi.fn() }),
@@ -59,6 +59,23 @@ describe("selected NCP patient navigation", () => {
   function stepHref(label: string) {
     return [...container.querySelectorAll("a")].find((a) => a.textContent?.trim() === label)?.getAttribute("href");
   }
+
+  it("fully prefetches only real selected-cycle navigation", async () => {
+    await renderSidebar();
+    for (const label of ["Assessment", "Diagnosis", "Intervention", "Monitoring"]) {
+      const link = [...container.querySelectorAll("a")].find((a) => a.textContent?.trim() === label);
+      expect(link?.dataset.prefetch).toBe("full");
+    }
+    expect(container.querySelector('a[href="/dashboard"]')?.getAttribute("data-prefetch")).toBeNull();
+  });
+
+  it("does not fully prefetch placeholder patient steps", async () => {
+    pathname = "/food-library";
+    await renderSidebar();
+    for (const link of container.querySelectorAll('a[href*="select-patient"]')) {
+      expect(link.getAttribute("data-prefetch")).toBeNull();
+    }
+  });
 
   it("selects the opened profile's current cycle without requiring a previous step visit", async () => {
     pathname = "/ncp/patients/new-patient";

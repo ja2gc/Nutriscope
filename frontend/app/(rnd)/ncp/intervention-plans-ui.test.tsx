@@ -240,7 +240,7 @@ describe("intervention plans workspace", () => {
     expect(container.textContent).toContain("Plans");
     expect(container.textContent).toContain("Sep 29, 2026");
     expect(container.textContent).not.toMatch(/current|inactive|revision|version/i);
-    expect(container.querySelector('[data-testid="meal-plan-section"]')?.closest('[hidden]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="meal-plan-section"]')).toBeNull();
     expect(container.textContent).toContain("Create New Intervention Plan");
     await clickButton("Food / Nutrient Delivery");
     expect(container.querySelector('[data-testid="meal-plan-section"]')).not.toBeNull();
@@ -267,6 +267,7 @@ describe("intervention plans workspace", () => {
     await clickButton("Education");
     expect((container.querySelector('textarea[aria-label="Education notes"]') as HTMLTextAreaElement).value)
       .toBe("Earlier plan notes");
+    await clickButton("Food / Nutrient Delivery");
     expect(container.querySelector('[data-testid="meal-plan-section"]')?.getAttribute("data-readonly"))
       .toBe("true");
   });

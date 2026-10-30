@@ -146,6 +146,7 @@ function StepAction({ state }: { state: NcpStepState }) {
     return (
       <Link
         href={state.href}
+        prefetch={true}
         className={`inline-flex min-h-9 items-center justify-center px-3 py-2 text-xs font-bold uppercase tracking-wider rounded-lg border transition-colors ${enabledClass}`}
       >
         {state.label}

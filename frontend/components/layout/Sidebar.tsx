@@ -259,6 +259,7 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
                       <Link
                         key={label}
                         href={href}
+                        prefetch={hasRealNcpCycle && label !== "Patients" ? true : undefined}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider transition-all duration-150 ${
                           active ? "text-brand-green-300 font-extrabold" : "text-warm-500 hover:text-warm-300"
                         }`}

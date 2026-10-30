@@ -5,6 +5,8 @@ import { nutritionSupportLabel } from '@/lib/nutritionSupport';
 
 import React, { Suspense, use, useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
+import { SectionLoading } from "@/components/ui/SectionLoading";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { useRouter, useSearchParams } from "next/navigation";
 import { User, Lock } from "lucide-react";
@@ -42,7 +44,6 @@ import NutritionPrescriptionForm from "./_components/NutritionPrescriptionForm";
 import RecommendAvoidPanel from "./_components/RecommendAvoidPanel";
 import EducationTab from "./_components/EducationTab";
 import CounselingTab from "./_components/CounselingTab";
-import MealPlanSection from "./_components/MealPlanSection";
 import InterventionPlansTab from "./_components/InterventionPlansTab";
 import InterventionPlanEditor from "./_components/InterventionPlanEditor";
 import NcpPatientHeader from "../../../_components/NcpPatientHeader";
@@ -53,6 +54,9 @@ import {
 } from "@/lib/interventionGuidance";
 
 type Tab = "plans" | "nd" | "education" | "counseling";
+const MealPlanSection = dynamic(() => import("./_components/MealPlanSection"), {
+  loading: () => <SectionLoading label="Loading meal planner…" />,
+});
 type PageParams = { patientId: string; ncpId: string };
 
 const TABS: { key: Tab; label: string }[] = [
@@ -167,7 +171,12 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
   };
   const isPlaceholder = patientId === "select-patient" || ncpId === "select-ncp";
 
-  const [tab, setTab]                           = useState<Tab>("plans");
+  const [tab, setActiveTab]                     = useState<Tab>("plans");
+  const [deliveryOpened, setDeliveryOpened]     = useState(false);
+  const setTab = useCallback((next: Tab) => {
+    setActiveTab(next);
+    if (next === "nd") setDeliveryOpened(true);
+  }, []);
   const [intervention, setIntervention]         = useState<Intervention | null>(null);
   const [plans, setPlans]                       = useState<InterventionPlanSummary[]>([]);
   const [plansMeta, setPlansMeta]               = useState<PaginationMeta | null>(null);
@@ -710,7 +719,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
           />
         )}
 
-        <div hidden={tab !== "nd"}>
+        {deliveryOpened && <div hidden={tab !== "nd"}>
           <InterventionPlanEditor
             mode={editorMode}
             plan={intervention}
@@ -814,7 +823,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
               />}
           </div>
           </InterventionPlanEditor>
-        </div>
+        </div>}
 
         {/* Education */}
         {tab === "education" && (
