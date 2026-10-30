@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DayPicker } from '../../components/menu/DayPicker';
 import { MobilePagination } from '../../components/MobilePagination';
 import { DAYS, listMenuCycles, MEALS, MEAL_LABELS, MenuCycle, MenuDay } from '../../lib/foodService';
-import { menuCycleQuery } from '../../lib/menuQueries';
+import { menuCycleQuery, menuDateQuery } from '../../lib/menuQueries';
 import { getNextPageParam } from '../../lib/pagination';
 import { paginateItems } from '../../lib/pagination';
 import { useMobileServerPage } from '../../lib/useMobileServerPage';
@@ -59,7 +59,7 @@ export default function MenuScreen() {
     setSelectedDate(today);
     setShowWeeks(false);
   }, []));
-  const selectedQuery = useQuery({ queryKey: ['fss-menu-date', selectedDate], queryFn: async () => (await listMenuCycles(1, false, selectedDate)).data[0] ?? null });
+  const selectedQuery = useQuery(menuDateQuery(selectedDate));
   const query = useInfiniteQuery({ queryKey: ['fs-cycles'], queryFn: ({ pageParam }) => listMenuCycles(pageParam), initialPageParam: 1, getNextPageParam });
   const weekPager = useMobileServerPage(query.data, query.fetchNextPage);
   const cycles = [...weekPager.items].sort((a: MenuCycle, b: MenuCycle) => Number(coversToday(b.week_start_date)) - Number(coversToday(a.week_start_date)) || (b.week_start_date ?? '').localeCompare(a.week_start_date ?? ''));

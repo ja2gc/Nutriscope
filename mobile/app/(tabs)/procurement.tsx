@@ -1156,7 +1156,7 @@ export default function ProcurementScreen() {
               <ShoppingBag color="#d1d5db" size={32} />
               <Text className="mt-2 text-sm text-gray-400">No purchase orders assigned yet.</Text>
             </View></View>}
-        ListFooterComponent={<MobilePagination page={ordersPager.page} pages={ordersPager.pages} total={ordersPager.total} onPrevious={ordersPager.previous} onNext={() => void ordersPager.next()} loading={isFetchingNextPage} error={isFetchNextPageError} />}
+        ListFooterComponent={<View className="px-4"><MobilePagination page={ordersPager.page} pages={ordersPager.pages} total={ordersPager.total} onPrevious={ordersPager.previous} onNext={() => void ordersPager.next()} loading={isFetchingNextPage} error={isFetchNextPageError} /></View>}
       />
 
       <UploadAttachmentModal

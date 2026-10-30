@@ -50,7 +50,7 @@ test('FSS service screens select the Manila date and show unplanned weeks plainl
   const prep = read('app/(tabs)/prep.tsx');
   const accomplish = read('app/(tabs)/accomplishments.tsx');
   assert.match(menu, /useState\(todayManilaKey\)/);
-  assert.match(menu, /listMenuCycles\(1, false, selectedDate\)/);
+  assert.match(menu, /useQuery\(menuDateQuery\(selectedDate\)\)/);
   assert.match(menu, /Menu not planned for this week yet/);
   assert.match(menu, /days=\{DAYS\}/);
   assert.match(prep, /listMenuCycles\(1, false, selectedDate\)/);
@@ -98,7 +98,10 @@ test('dashboard shows three latest announcement cards while the feed pages ten',
   assert.match(dashboard, /listAccomplishmentPeriods/);
   assert.match(dashboard, /day\.date <= today && !day\.logged/);
   assert.match(dashboard, /Logs due/);
-  assert.match(dashboard, /View ›/);
+  assert.doesNotMatch(dashboard, /View ›/);
+  assert.match(dashboard, /meals to record, open Meal Prep/);
+  assert.match(dashboard, /logs due, open Accomplish/);
+  assert.match(dashboard, /pending purchase orders, open Procurement/);
   assert.match(dashboard, /w-1\/2/);
   assert.doesNotMatch(dashboard, /Next action|View image/);
   assert.doesNotMatch(dashboard, /<Bell|<Pin|<ShoppingBag|<CalendarDays|<ClipboardList/);
