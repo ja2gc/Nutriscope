@@ -95,7 +95,7 @@ export default function RndLayout({
         <ActiveVisitBanner />
 
         {/* Scrollable Content Canvas */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden p-6 pb-24 md:pb-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-6 pb-24 has-[#diagnosis-panel]:bg-white md:pb-6 lg:p-8">
           <div className="max-w-7xl mx-auto w-full min-w-0">
             {children}
           </div>

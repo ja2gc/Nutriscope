@@ -1,6 +1,6 @@
 # AI features
 
-Verified against source: `de5d044f10a8d480652c1949df1a84e83e341394` plus mobile diagnosis layout changes in this working tree (2026-10-31).
+Verified against source: `c21d8a039a5d2243213aa1d821a761b5374674d2` plus the white diagnosis canvas change in this working tree (2026-10-31).
 
 Purpose: maintain assisted PES wording and monitoring narration. AI does not own deterministic clinical calculations.
 
@@ -8,7 +8,7 @@ PES reasoning/citations: the concise prompt explains ten etiology-category meani
 
 Prior education being absent does not establish a knowledge deficit; a medication name, care category or activity estimate alone does not establish a cause. Identical E/S, uncertain contributors and unsupported problem-specific findings generate review notes. These heuristics do not independently establish clinical validity. Activity estimates do not imply bed-bound status; numerical prescription factors and saved intervention snapshots remain unchanged.
 
-Below the existing `sm` breakpoint, diagnosis AI Review uses the page width with flat draft sections and no nested card padding around PES/evidence. Desktop retains the existing cards. Evidence, review notes, three-line PES display and actions remain available; layout changes do not generate or modify drafts.
+Below the existing `sm` breakpoint, diagnosis AI Review uses the page width with flat draft sections and no nested card padding around PES/evidence. The RND layout gives pages containing the existing diagnosis panel a white canvas, including its gutters; other pages retain their canvas color. Desktop retains the existing cards. Evidence, review notes, three-line PES display and actions remain available; layout changes do not generate or modify drafts.
 
 Optional explanations that explicitly claim excess/excessive, inadequate or insufficient nutrient intake must pass the existing nutrient/direction check against their cited intake evidence. BMI, activity or food lists cannot establish that claim. An unsupported explanation is omitted while the valid PES draft remains available; no extra provider call is made.
 
