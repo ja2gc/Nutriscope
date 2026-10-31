@@ -1221,7 +1221,7 @@ export default function NcpDiagnosisPage({
   const aiTab = (
     <div className="space-y-5">
       {aiStatusLoading && <SectionLoading label="Loading AI status…" />}
-      <div className="bg-white border border-warm-200 rounded-2xl p-5">
+      <div className="sm:rounded-2xl sm:border sm:border-warm-200 sm:bg-white sm:p-5">
         <div className="mb-2 flex items-center gap-1 text-sm font-bold uppercase tracking-wider text-emerald-600">
           <span>AI Suggestions</span>
           <InfoHint label="How PES drafts work" title="How PES drafts work">
@@ -1265,7 +1265,7 @@ export default function NcpDiagnosisPage({
         const visibleAiDrafts = review ? drafts : pagedAiDrafts;
         return (
         <section key={String(review)} aria-label={review ? 'May need more thorough review' : 'No issues detected'} className="space-y-3">
-          <div className="flex items-center gap-2">
+          <div className="flex items-start gap-2">
             <h4 className="text-xs font-extrabold text-warm-700 uppercase tracking-wider">{review ? 'May need more thorough review' : 'No issues detected'} ({drafts.length} pending)</h4>
             <InfoHint label={review ? 'About suggestions needing review' : 'About PES drafts'} title="Review before saving">
               {review ? 'Some details may need a closer look. Review the notes alongside the assessment and use your clinical judgment before saving.'
@@ -1275,7 +1275,7 @@ export default function NcpDiagnosisPage({
           {visibleAiDrafts.map(s => {
             const pes = `${s.label} related to ${s.etiology} as evidenced by ${s.signs}`;
             return (
-              <div key={s.draft_id} className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm space-y-3">
+              <div key={s.draft_id} className="min-w-0 space-y-3 border-b border-warm-200 pb-5 last:border-b-0 sm:rounded-2xl sm:border sm:bg-white sm:p-5 sm:shadow-sm">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <DomainBadge domain={s.domain} />
                   <span className="text-xs font-bold text-orange-600 uppercase tracking-wider">AI draft for RND review</span>
@@ -1283,11 +1283,11 @@ export default function NcpDiagnosisPage({
                 <div className="space-y-2 text-sm">
                   {s.review_reasons?.map(reason => <p key={reason} className="text-sm text-amber-800">{reason}</p>)}
                 </div>
-                <div className="p-3 bg-warm-50 border border-warm-100 rounded-lg">
+                <div className="min-w-0 sm:rounded-lg sm:border sm:border-warm-100 sm:bg-warm-50 sm:p-3">
                   <span className="text-xs font-bold text-warm-400 uppercase tracking-wider block mb-1">PES Statement</span>
                   <p className="line-clamp-3 text-sm font-medium text-warm-800 italic leading-relaxed" title={pes}>{pes}</p>
                 </div>
-                <div className="rounded-lg border border-warm-100 bg-warm-50 p-3 text-xs text-warm-600 space-y-3">
+                <div className="space-y-3 text-xs text-warm-600 sm:rounded-lg sm:border sm:border-warm-100 sm:bg-warm-50 sm:p-3">
                   {s.evidence_by_component ? ([['problem', 'P'], ['etiology', 'E'], ['signs', 'S']] as const).map(([role, label]) => (
                     <div key={role}>
                       <span className="mb-1 block font-bold uppercase tracking-wider text-warm-500">{label} evidence</span>
@@ -1342,7 +1342,7 @@ export default function NcpDiagnosisPage({
       })}
 
       {aiConcerns.length > 0 && (
-        <details className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+        <details className="border-y border-amber-200 bg-amber-50 py-4 sm:rounded-2xl sm:border sm:p-5">
           <summary className="cursor-pointer font-semibold text-amber-900">Possible concerns ({aiConcerns.length})</summary>
           <p className="mt-2 text-sm text-amber-900">Possibilities needing assessment review; not saved diagnoses.</p>
           {aiConcerns.map(concern => (
@@ -1414,7 +1414,7 @@ export default function NcpDiagnosisPage({
       )}
 
       {/* Tab Navigation */}
-      <div className="min-w-0 rounded-none border-0 bg-white shadow-none sm:rounded-xl sm:border sm:border-warm-200 sm:shadow-sm">
+      <div className={`min-w-0 rounded-none border-0 shadow-none ${activeTab === "ai" ? "bg-transparent" : "bg-white"} sm:rounded-xl sm:border sm:border-warm-200 sm:bg-white sm:shadow-sm`}>
         <NcpSectionTabs
           items={TABS.map(tab => ({
             ...tab,

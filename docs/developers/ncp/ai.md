@@ -1,12 +1,14 @@
 # AI features
 
-Verified against source: `0b785906780a026a2c4ad1db9c4d89429a5f65bb` plus incomplete-proposal and explicit-retry corrections in this working tree (2026-10-31).
+Verified against source: `de5d044f10a8d480652c1949df1a84e83e341394` plus mobile diagnosis layout changes in this working tree (2026-10-31).
 
 Purpose: maintain assisted PES wording and monitoring narration. AI does not own deterministic clinical calculations.
 
 PES reasoning/citations: the concise prompt explains ten etiology-category meanings and five assessment-domain sources. E explains a specific contributor; S demonstrates P with distinct recorded findings. Clinical synthesis and paraphrases are allowed; no field-copy or unique-domain requirement applies. E requests one supported causal phrase or documented habitual pattern rather than food inventories or speculative cause lists. S requests minimal distinct monitorable findings, keeping useful measurements/time and omitting duplicate reports, redundant classifications, normal/unrelated results and restated P. One hypothetical bad/good wording pair illustrates style only; facts/numbers must never be copied. Save ceilings are not length targets. The prompt stays within 3,000 bytes; the schema fixture allowance is 9,000 bytes including the example, with runtime payload/output bounds unchanged. NC/NB P uses existing choices and NI uses intake families. Provider `pk`/`ek`/`sk` choose P/E/S references independently; P/S may share proof. Draft cards show the PES sentence once, with grouped plain field labels and review notes, without repeating separate P/E/S text. The saved Diagnosis Table likewise keeps domain, PES and actions without separate component columns. Both PES displays clamp to three lines; the editor retains the full statement. The builder retains separate P/E/S controls. No navigation links or source dumps are added. `PesSuggestionService` never replaces E/S with evidence excerpts. No extra model judge, service or migration is introduced.
 
 Prior education being absent does not establish a knowledge deficit; a medication name, care category or activity estimate alone does not establish a cause. Identical E/S, uncertain contributors and unsupported problem-specific findings generate review notes. These heuristics do not independently establish clinical validity. Activity estimates do not imply bed-bound status; numerical prescription factors and saved intervention snapshots remain unchanged.
+
+Below the existing `sm` breakpoint, diagnosis AI Review uses the page width with flat draft sections and no nested card padding around PES/evidence. Desktop retains the existing cards. Evidence, review notes, three-line PES display and actions remain available; layout changes do not generate or modify drafts.
 
 Optional explanations that explicitly claim excess/excessive, inadequate or insufficient nutrient intake must pass the existing nutrient/direction check against their cited intake evidence. BMI, activity or food lists cannot establish that claim. An unsupported explanation is omitted while the valid PES draft remains available; no extra provider call is made.
 
