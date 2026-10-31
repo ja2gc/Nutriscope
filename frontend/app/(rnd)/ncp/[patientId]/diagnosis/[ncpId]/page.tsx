@@ -647,8 +647,7 @@ export default function NcpDiagnosisPage({
       setError(null);
       setAiUnavailable(null);
       setAiWarning(null);
-      const retry = Boolean(aiMeta?.can_retry && !aiMeta.can_generate && aiSuggestions.length === 0
-        && (aiMeta.has_retryable_rejections || aiMeta.review_outcome === 'rejected' || aiMeta.review_outcome === 'partial'));
+      const retry = Boolean(aiMeta?.can_retry && !aiMeta.can_generate);
       const result = await aiSuggestDiagnoses(ncpId, retry);
       setAiSuggestions([...result.data, ...(result.review_drafts ?? [])]);
       setAiConcerns(result.concerns ?? []);

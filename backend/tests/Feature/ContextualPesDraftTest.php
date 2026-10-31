@@ -50,6 +50,31 @@ class ContextualPesDraftTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_incomplete_known_proposals_become_nonapprovable_concerns_without_inventing_components(): void
+    {
+        foreach (['etiology' => 'cause', 'signs' => 'findings'] as $field => $missing) {
+            $record = $this->knowledgeRecord();
+            $this->provider([[...$this->knowledgeDraft(), $field => '   ']]);
+            $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses";
+            $result = $this->postJson($url.'/ai-suggest')->assertOk()->assertJsonCount(0, 'data')
+                ->assertJsonCount(0, 'review_drafts')->assertJsonCount(1, 'concerns');
+            $this->assertStringContainsString($missing, $result->json('concerns.0.missing'));
+            $this->assertStringNotContainsString('field limit', $result->json('concerns.0.missing'));
+            $this->postJson($url.'/ai-approve', ['draft_id' => $result->json('concerns.0.concern_id')])->assertUnprocessable();
+            $this->getJson($url.'/ai-suggest')->assertOk()->assertJsonCount(1, 'concerns');
+            Http::assertSentCount(1);
+        }
+        $this->assertDatabaseCount('diagnoses', 0);
+    }
+
+    public function test_incomplete_proposals_with_only_unknown_references_do_not_become_concerns(): void
+    {
+        $record = $this->knowledgeRecord();
+        $this->provider([[...$this->knowledgeDraft(), 'etiology' => '', 'evidence_used' => ['unknown_field']]]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()
+            ->assertJsonCount(0, 'data')->assertJsonCount(0, 'review_drafts')->assertJsonCount(0, 'concerns');
+    }
+
     public function test_provider_abstention_stops_generation_until_supporting_evidence_changes(): void
     {
         $record = $this->knowledgeRecord();

@@ -8,7 +8,9 @@ use App\Models\Patient;
 use App\Models\User;
 use App\Services\Diagnosis\PesEligibilityService;
 use App\Services\Diagnosis\PesEvidenceBuilder;
+use App\Support\DiagnosisBuilder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -81,6 +83,32 @@ class PesReviewCacheTest extends TestCase
         $this->provider(array_fill(0, 4, $this->draft()));
         $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")
             ->assertOk()->assertJsonCount(1, 'data');
+    }
+
+    public function test_explicit_retry_includes_omitted_labs_and_rejected_candidates_while_preserving_pending_drafts(): void
+    {
+        $record = $this->record();
+        $record->patient()->update(['sex' => 'Male']);
+        $record->assessment()->update(['physical_activity_level' => 'sedentary', 'social_history' => 'Limited access to nutrition education; back pain limits walking.']);
+        $record->assessment->biochemicalData()->create(['ldl' => 162.41]);
+        $bad = [...$this->draft(), 'candidate_id' => 'physical_inactivity_v2', 'problem_key' => 'Physical Inactivity', 'signs' => '',
+            'evidence_used' => ['social_history', 'physical_activity_level'], 'signs_evidence' => ['physical_activity_level']];
+        $this->provider([$this->draft(), $bad]);
+        $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest";
+        $pendingId = $this->postJson($url)->assertOk()->json('data.0.draft_id');
+        $labels = [];
+        Http::swap(new Factory);
+        Http::fake(['api.anthropic.com/*' => function ($request) use (&$labels) {
+            $payload = json_decode(substr($request['messages'][0]['content'], strlen("input_json:\n")), true);
+            $labels = array_column($payload['candidates'], 1);
+
+            return Http::response(['content' => [['type' => 'text', 'text' => '{"suggestions":[]}']], 'usage' => ['input_tokens' => 10, 'output_tokens' => 5]]);
+        }]);
+        $this->postJson($url, ['retry_rejected' => true])->assertOk()->assertJsonPath('data.0.draft_id', $pendingId)
+            ->assertJsonPath('meta.budget.used', 2);
+        $this->assertContains(DiagnosisBuilder::problemLabel('NC', 'Altered Nutrition-Related Laboratory Values'), $labels);
+        $this->assertContains('Physical inactivity', $labels);
+        $this->assertNotContains(DiagnosisBuilder::problemLabel('NB', 'Food and Nutrition Knowledge Deficit'), $labels);
     }
 
     public function test_non_list_provider_output_is_remembered_as_an_unsuccessful_review(): void

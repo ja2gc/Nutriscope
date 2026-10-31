@@ -70,6 +70,8 @@ Continue immediately with the compact Food Service sequence in `RND Food Service
 
 **On-screen actions**
 
+For diagnosis retry demonstrations, keep existing pending drafts, then click **Generate AI Suggestions** to reconsider omitted or unsuccessful candidates. A proposal missing its cause or supporting findings appears under **Possible concerns** with the missing information stated; it cannot be accepted as a diagnosis. Opening or refreshing AI Review alone does not generate. Verified against `0b785906` plus these corrections (2026-10-31).
+
 Diagnosis AI Review groups drafts under **No issues detected** and **May need more thorough review**; both require RND review. Each draft shows its PES statement once, with supporting evidence and review notes below. Open the help beside each heading; review notes explain draft-specific concerns without claiming a clinical verdict. The second group offers **Review and edit** or **Dismiss**, with ordinary save limits after correction. A collapsed **Possible concerns** section holds incomplete hypotheses and offers **Review assessment** or **Dismiss**, never diagnosis acceptance. Verified against `4d92fcbe` plus these changes (2026-10-31).
 
 1. Sign in as RND and open **Nutrition Care → Patients**.

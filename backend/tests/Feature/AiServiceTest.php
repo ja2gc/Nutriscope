@@ -238,6 +238,9 @@ class AiServiceTest extends TestCase
             $this->assertLessThanOrEqual(3000, strlen($system));
             $this->assertSame(1700, $body['max_tokens']);
             $this->assertStringContainsString('counterevidence', $system);
+            foreach (['inference allowed', 'may contribute to lab P', 'missing E/S=concern'] as $guidance) {
+                $this->assertStringContainsString($guidance, $system);
+            }
             foreach (['beliefs/attitudes', 'cultural', 'knowledge', 'physical function', 'physiological/metabolic', 'psychological', 'social/personal', 'treatment', 'access', 'behavior',
                 'food/activity history', 'anthropometry', 'biochemistry/tests', 'physical findings', 'client history', 'natural short clinical phrases', 'different facts',
                 'one causal phrase', 'not food inventories', 'minimum distinct monitorable findings', 'do not repeat the same change', 'normal/unrelated results'] as $guidance) {
@@ -251,7 +254,7 @@ class AiServiceTest extends TestCase
                 $this->assertArrayNotHasKey('pattern', $draft['properties'][$field]);
                 $this->assertArrayNotHasKey('maxLength', $draft['properties'][$field]);
                 $this->assertSame(
-                    in_array($field, ['n', 'en', 'sn'], true) ? 'Maximum 100 characters.' : ($field === 'p' ? 'Between 1 and 255 characters.' : 'Concise clinical phrase; aim within 400 characters.'),
+                    in_array($field, ['n', 'en', 'sn'], true) ? 'Maximum 100 characters.' : ($field === 'p' ? 'Between 1 and 255 characters.' : 'Nonempty concise clinical phrase; aim within 400 characters.'),
                     $draft['properties'][$field]['description'],
                 );
             }

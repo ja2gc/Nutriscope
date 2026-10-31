@@ -368,7 +368,7 @@ it("keeps Generate clickable after evidence is exhausted and warns on each reque
   expect(diagnoses.aiSuggestDiagnoses).toHaveBeenCalledExactlyOnceWith('fictional-cycle', false);
 });
 
-it("reuses valid partial drafts through the single Generate action", async () => {
+it("retries unresolved candidates while preserving pending partial drafts through Generate", async () => {
   const response = await vi.mocked(diagnoses.fetchPesDraftStatus)("fictional-cycle");
   const warning = "The response did not pass evidence checks. Retry explicitly or update the Assessment.";
   const partial: diagnoses.PesDraftResult = { ...response, data: [{
@@ -387,11 +387,11 @@ it("reuses valid partial drafts through the single Generate action", async () =>
   expect(screen.queryByRole("button", { name: "AI suggestion status" })).toBeNull();
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Generate AI Suggestions" })); });
   expect(screen.queryByText(warning, { exact: false })).toBeNull();
-  expect(diagnoses.aiSuggestDiagnoses).toHaveBeenCalledExactlyOnceWith("fictional-cycle", false);
+  expect(diagnoses.aiSuggestDiagnoses).toHaveBeenCalledExactlyOnceWith("fictional-cycle", true);
   expect(screen.queryByRole("button", { name: /Review again/ })).toBeNull();
 });
 
-it("does not turn a completed review with omitted candidates into a paid retry", async () => {
+it("explicitly retries omitted candidates when Generate is clicked after a completed review", async () => {
   const response = await vi.mocked(diagnoses.fetchPesDraftStatus)("fictional-cycle");
   const complete = { ...response, data: [], meta: { ...response.meta,
     can_generate: false, can_retry: true, review_outcome: "complete" as const } };
@@ -399,7 +399,7 @@ it("does not turn a completed review with omitted candidates into a paid retry",
   vi.mocked(diagnoses.aiSuggestDiagnoses).mockResolvedValue(complete);
   await open(); click("AI Review");
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Generate AI Suggestions" })); });
-  expect(diagnoses.aiSuggestDiagnoses).toHaveBeenCalledExactlyOnceWith("fictional-cycle", false);
+  expect(diagnoses.aiSuggestDiagnoses).toHaveBeenCalledExactlyOnceWith("fictional-cycle", true);
 });
 
 it("keeps a previously failed problem retryable after a later complete response", async () => {

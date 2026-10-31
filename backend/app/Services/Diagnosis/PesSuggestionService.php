@@ -63,9 +63,6 @@ class PesSuggestionService
             }
             $retryProblems = $this->retryProblems($ncpRecord, $evidence);
             $eligible = $this->remaining($ncpRecord, $evidence, $retryRejected);
-            if ($retryRejected && $retryProblems !== []) {
-                $eligible = array_values(array_filter($eligible, fn ($card) => isset($retryProblems[$card['candidate_id']])));
-            }
             if ($eligible === []) {
                 return $this->response($ncpRecord, $state, $evidence, true);
             }
@@ -89,7 +86,8 @@ class PesSuggestionService
             $validated = [];
             $failures = [];
             try {
-                [$validated, $failures, $invalid] = $this->validateProviderResponse($raw, $eligible, $reviewEvidence, $candidateRefs, $evidenceRefs);
+                [$validated, $failures, $invalid, $incomplete] = $this->validateProviderResponse($raw, $eligible, $reviewEvidence, $candidateRefs, $evidenceRefs);
+                $concerns = [...$concerns, ...$incomplete];
                 $rejected = $rejected || ($invalid && ! collect($validated)->contains(fn ($draft) => ! ($draft['review_required'] ?? false)));
             } catch (\RuntimeException $error) {
                 $rejected = true;
@@ -494,6 +492,7 @@ class PesSuggestionService
         $validated = [];
         $failures = [];
         $invalid = false;
+        $incomplete = [];
         foreach ($raw as $draft) {
             $id = null;
             $retryLabel = null;
@@ -789,6 +788,17 @@ class PesSuggestionService
                 ];
             } catch (\RuntimeException $error) {
                 $invalid = true;
+                if (is_array($draft) && is_string($id) && $byId->has($id) && $byId[$id]['problem_key'] !== 'Other'
+                    && is_string($draft['etiology'] ?? null) && is_string($draft['signs'] ?? null)
+                    && (trim($draft['etiology']) === '' || trim($draft['signs']) === '')) {
+                    $keys = array_values(array_intersect(array_filter(is_array($draft['evidence_used'] ?? null) ? $draft['evidence_used'] : [], 'is_string'), array_keys($evidence)));
+                    if ($keys !== [] && $this->eligibility->hasConcern(array_intersect_key($evidence, array_flip($keys)))) {
+                        $missing = array_filter([trim($draft['etiology']) === '' ? 'cause' : null, trim($draft['signs']) === '' ? 'supporting findings' : null]);
+                        $incomplete[] = ['concern_id' => (string) Str::uuid(), 'label' => $byId[$id]['problem_key'],
+                            'missing' => 'Clarify the '.implode(' and ', $missing).' before completing this PES statement.',
+                            'evidence_used' => array_map(fn ($key) => $this->formatEvidence($key, $evidence[$key]), $keys)];
+                    }
+                }
                 // Clinical checks determine the upper lane; retain readable originals for RND investigation.
                 if (is_array($draft) && is_string($id) && $byId->has($id)
                     && is_string($draft['etiology'] ?? null) && trim($draft['etiology']) !== ''
@@ -826,7 +836,7 @@ class PesSuggestionService
             }
         }
 
-        return [$validated, $failures, $invalid];
+        return [$validated, $failures, $invalid, $incomplete];
     }
 
     private function affirmativeFinding(array $values, string $pattern): bool
@@ -876,7 +886,10 @@ class PesSuggestionService
         if ($optional && $limit !== null && mb_strlen($text) > $limit) {
             return '';
         }
-        if ((! $optional && $text === '') || ($limit !== null && mb_strlen($text) > $limit)) {
+        if (! $optional && $text === '') {
+            throw new \RuntimeException('The AI returned an incomplete PES statement.');
+        }
+        if ($limit !== null && mb_strlen($text) > $limit) {
             throw new \RuntimeException('The AI returned diagnosis text exceeding its field limit.');
         }
 

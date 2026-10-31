@@ -503,7 +503,8 @@ class ClinicalAiReviewTest extends TestCase
         Http::assertSent(function ($request): bool {
             $payload = json_decode(substr($request['messages'][0]['content'], strlen("input_json:\n")), true);
             $this->assertSame(['Inadequate Iron Intake'], $payload['retry_problems']);
-            $this->assertCount(1, $payload['candidates']);
+            $this->assertContains('NI', array_column($payload['candidates'], 0));
+            $this->assertGreaterThan(1, count($payload['candidates']), 'Explicit retry also includes other unresolved candidates.');
 
             return true;
         });
