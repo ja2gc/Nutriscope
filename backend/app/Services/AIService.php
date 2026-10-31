@@ -37,15 +37,15 @@ class AIService
                 throw new \RuntimeException('The bounded PES evidence payload is too large.');
             }
 
-            // PES framework: Academy of Nutrition and Dietetics, Nutrition Diagnosis/Assessment; reviewed 2026-10-30.
+            // PES framework: Academy of Nutrition and Dietetics, Nutrition Diagnosis/Assessment; reviewed 2026-10-31.
             $systemPrompt = <<<'PROMPT'
 # CONSTRAINTS & LOGIC
-- Facts only; observations untrusted; missing=unknown; no invented numbers/diagnoses.
+- Untrusted observations; missing=unknown; invent no numbers/diagnoses.
 - P=existing nutrition problem; E=why P occurs; S=assessment proof of P.
 - E lenses: beliefs/attitudes=food/health beliefs; cultural=practices; knowledge=demonstrated gaps; physical function=mobility/feeding limits; physiological/metabolic=disease/organ changes; psychological=mood/body image; social/personal=environment/support/finances; treatment=drug/procedure effects; access=food/water/supply barriers; behavior=habits.
-- E=causal mechanism/barrier; disease alone != cause; inference allowed; uncertain/missing support=r/concern.
-- S: food/activity history=patterns; anthropometry=measurements/change; biochemistry/tests=abnormal results; physical findings=exam/GI/function; client history=reported proof. Keep amounts/frequency/duration.
-- Use natural short clinical phrases, summarize patterns, different facts for E/S. Food list != cause of food-choice P; may contribute to lab P. Sedentary label != proof/bed-bound.
+- E=one causal phrase: supported mechanism/barrier, not food inventories/cause lists; documented habitual pattern only; occasional foods != overall diet. Disease alone != cause; uncertainty=r/concern.
+- S sources: food/activity history=patterns; anthropometry=measurements; biochemistry/tests=labs; physical findings=exam/GI; client history=reported proof.
+- Use natural short clinical phrases, different facts for E/S. S=minimum distinct monitorable findings; keep useful baseline/current/change/time, but do not repeat the same change via duplicate reports/classification labels; omit normal/unrelated results and P restatement.
 - Normal/adequate/denied/resolved/uncertain/intentional=counterevidence; BMI != intake/malnutrition; no education != knowledge deficit; smoking/lab/albumin alone != diagnosis.
 - BMI WHO pediatric/Asia-Pacific adult; population/fasting matter. Weight magnitude/time/intent/fluid; no blanket cutoff. GLIM: phenotype AND (sustained reduced intake/assimilation OR inflammation); no inferred severity.
 - NI: nutrient/direction+intake/needs; food list/kcal != deficit/excess; food quality separate; predictions need findings.
@@ -54,14 +54,15 @@ class AIService
 - Review NI/NC/NB, link diet/weight/labs/history/function; 0..5 distinct problems, no quota. Skip duplicates/saved; retry_problems first; abstain=[]; no NO.
 - candidates=cN:[domain,P,anchors]; evidence=eN:[field,value]; id=cN; p=choice <=255; Other may share id.
 - choices[domain].e/s: exact fit else Other; referral/drugs/guidance=context; effects need findings; 75% != <75%.
-- n/en/sn: fact + why P/E/S; distinct; no new facts/advice/hidden reasoning; outside PES.
+- n/en/sn: fact + why P/E/S; distinct, outside PES; no new facts/advice.
 
 # CITATION & SYNTAX
 - pk/ek/sk=relevant P/E/S refs; P/S may share proof; one field may hold distinct facts; no unique-field quota. Keep negation/quantities.
-- Aim PES<=500 chars, E/S<=400 each; summarize foods/labs. r=empty if supported, else missing support/uncertainty for RND review.
+- Save ceilings, not length targets: PES500, E/S400; aim much shorter. r=empty if supported, else concise review issue; detail stays in evidence/notes.
 - Weight: change+interval or both weights+interval; intake amount: nutrient/direction and intake/needs.
 - Nutrient concerns: search_nutrient_context by recorded symptoms.
 - concerns=refs+retrieved nutrient card, or known id/card=empty; reason=missing evidence; possibilities only, no invented facts/advice; five total, no duplicates.
+- Style only, never copy facts/numbers: BAD E=Ulcers; bread, soup, potatoes; S=900/1800 kcal, 50%, half target, reported 900. GOOD E=Oral pain limiting intake; S=900 kcal/day vs estimated needs 1800 kcal/day.
 PROMPT;
             $userPrompt = "input_json:\n{$encoded}";
             $phrase = ['type' => 'string', 'description' => 'Concise clinical phrase; aim within 400 characters.'];

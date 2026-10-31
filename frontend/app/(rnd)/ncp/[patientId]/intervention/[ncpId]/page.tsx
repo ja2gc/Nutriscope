@@ -1,4 +1,6 @@
 "use client";
+
+import { NcpNoPatientSelected } from "@/components/ncp/NcpNoPatientSelected";
 import { TubeFormulaPlanner } from '@/components/ncp/TubeFormulaPlanner';
 import { formulaItemsPayload } from '@/lib/formulaPlan';
 import { nutritionSupportLabel } from '@/lib/nutritionSupport';
@@ -9,7 +11,7 @@ import dynamic from "next/dynamic";
 import { SectionLoading } from "@/components/ui/SectionLoading";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { useRouter, useSearchParams } from "next/navigation";
-import { User, Lock } from "lucide-react";
+import { Lock } from "lucide-react";
 import {
   fetchIntervention, fetchInterventionPlan, fetchInterventionPlans, createIntervention, updateIntervention, deleteIntervention, autofillIntervention,
   AutofillError, Intervention, type AutofillResult, type InterventionPlanSummary,
@@ -617,7 +619,7 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
         clinicalNotes: guidance?.education_notes ? [guidance.education_notes] : availableGoal ? [availableGoal.description] : [],
       }) : null;
 
-  if (isPlaceholder) return <PlaceholderState />;
+  if (isPlaceholder) return <NcpNoPatientSelected step="Nutrition Intervention" />;
   if (!loading && !workflowLoading && workflowBlock) {
     const routeMismatch = workflowBlock.includes("does not belong");
     const nextHref = routeMismatch
@@ -870,29 +872,6 @@ function InterventionWorkspace({ params }: { params: Promise<PageParams> }) {
           initialStage={intervention?.disease_stage}
         />
       )}
-    </div>
-  );
-}
-
-function PlaceholderState() {
-  return (
-    <div className="space-y-6 font-sans">
-      <div className="border-b border-warm-200 pb-5">
-        <h2 className="text-xl font-extrabold text-warm-900 tracking-tight">Nutrition Intervention</h2>
-      </div>
-      <div className="bg-white border border-warm-200 rounded-2xl p-12 text-center max-w-2xl mx-auto shadow-sm">
-        <div className="p-3.5 bg-warm-50 border border-warm-200 rounded-2xl w-fit mx-auto text-warm-400">
-          <User className="h-8 w-8" />
-        </div>
-        <h3 className="text-base font-bold text-warm-800 mt-4 uppercase tracking-wider">No Patient Selected</h3>
-        <p className="text-sm text-warm-500 mt-2 leading-relaxed">Navigate to the NCP Patients directory and select a patient.</p>
-        <div className="mt-6">
-          <Link href="/ncp/patients"
-            className="inline-flex px-4 py-2.5 bg-forest-900 hover:bg-forest-900 text-white text-sm font-bold uppercase tracking-wider rounded-lg transition-colors">
-            Go to Patients Directory
-          </Link>
-        </div>
-      </div>
     </div>
   );
 }

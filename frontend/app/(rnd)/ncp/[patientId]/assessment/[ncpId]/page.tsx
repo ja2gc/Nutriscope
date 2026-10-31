@@ -1,9 +1,10 @@
 "use client";
 
+import { NcpNoPatientSelected } from "@/components/ncp/NcpNoPatientSelected";
+
 import { NUTRITION_SUPPORT_OPTIONS } from "@/lib/nutritionSupport";
 
 import React, { use, useCallback, useEffect, useState, useRef } from "react";
-import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import layout from './assessmentLayout.module.css';
 import { useEditorChanges } from '@/hooks/useUnsavedChanges';
@@ -1022,21 +1023,7 @@ export default function NcpAssessmentPage({
   useEffect(() => { markAssessmentSaved.current = assessmentGuard.markSaved; }, [assessmentGuard.markSaved]);
 
   // ─── Loading / Placeholder ──────────────────────────────────────────
-  if (isPlaceholder) {
-    return (
-      <div className="space-y-6 font-sans">
-        <NcpBreadcrumb step="Nutrition Assessment" />
-        <div className="bg-white border border-warm-200 rounded-2xl p-12 text-center max-w-2xl mx-auto shadow-sm">
-          <ClipboardCheck className="h-8 w-8 text-warm-300 mx-auto mb-4" />
-          <h3 className="text-base font-bold text-warm-800">No Patient Selected</h3>
-          <p className="text-sm text-warm-500 mt-2">Return to the directory to select or create a patient.</p>
-          <Link href="/ncp/patients" className="inline-flex mt-4 px-4 py-2 bg-forest-900 text-white text-xs font-bold uppercase tracking-wider rounded-lg hover:bg-forest-800 transition-colors">
-            Go to Patients
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  if (isPlaceholder) return <NcpNoPatientSelected step="Nutrition Assessment" />;
 
   if (loadError && !loading) {
     return <div className="p-6 space-y-3"><p role="alert" className="text-sm text-red-700">{loadError}</p><Button onClick={() => { void loadData(); }}>Try again</Button></div>;

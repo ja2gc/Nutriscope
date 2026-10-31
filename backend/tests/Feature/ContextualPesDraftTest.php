@@ -346,7 +346,7 @@ class ContextualPesDraftTest extends TestCase
             $prompt = $body['messages'][0]['content'];
             $payload = json_decode(explode("\noutput_json_schema:", substr($prompt, strlen("input_json:\n")))[0], true);
             $inputCharacters = strlen($body['system'].$prompt.json_encode($body['output_config']['format']['schema'] ?? []));
-            $this->assertLessThanOrEqual(8500, $inputCharacters, 'Category meanings and independently selected P/E/S citations remain bounded.');
+            $this->assertLessThanOrEqual(9000, $inputCharacters, 'Category meanings, concise style example and independently selected P/E/S citations remain bounded.');
             $this->assertArrayNotHasKey('options', $payload);
             $this->assertSame(['NI', 'NB', 'NC'], array_keys($payload['choices']));
             $this->assertArrayNotHasKey('catalog_version', $payload);

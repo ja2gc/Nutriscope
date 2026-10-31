@@ -239,7 +239,8 @@ class AiServiceTest extends TestCase
             $this->assertSame(1700, $body['max_tokens']);
             $this->assertStringContainsString('counterevidence', $system);
             foreach (['beliefs/attitudes', 'cultural', 'knowledge', 'physical function', 'physiological/metabolic', 'psychological', 'social/personal', 'treatment', 'access', 'behavior',
-                'food/activity history', 'anthropometry', 'biochemistry/tests', 'physical findings', 'client history', 'natural short clinical phrases', 'different facts'] as $guidance) {
+                'food/activity history', 'anthropometry', 'biochemistry/tests', 'physical findings', 'client history', 'natural short clinical phrases', 'different facts',
+                'one causal phrase', 'not food inventories', 'minimum distinct monitorable findings', 'do not repeat the same change', 'normal/unrelated results'] as $guidance) {
                 $this->assertStringContainsString($guidance, $system);
             }
             $this->assertSame('json_schema', $body['output_config']['format']['type'] ?? null);

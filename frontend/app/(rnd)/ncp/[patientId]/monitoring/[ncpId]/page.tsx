@@ -1,5 +1,7 @@
 "use client";
 
+import { NcpNoPatientSelected } from "@/components/ncp/NcpNoPatientSelected";
+
 import React, { use, useEffect, useState, useCallback, useRef } from "react";
 import type { EditorLeaveHandle } from "@/hooks/useUnsavedChanges";
 import Link from "next/link";
@@ -231,30 +233,7 @@ export default function NcpMonitoringPage({
   }
 
   // ─── No patient selected ───────────────────────────────────────────────────
-  if (isPlaceholder) {
-    return (
-      <div className="space-y-6 font-sans">
-        <Breadcrumb />
-        <div className="bg-white border border-warm-200 rounded-2xl p-10 sm:p-12 text-center max-w-2xl mx-auto shadow-sm">
-          <h3 className="text-base font-bold text-warm-800 mt-4 uppercase tracking-wider">
-            No Patient Selected
-          </h3>
-          <p className="text-sm text-warm-500 mt-2 leading-relaxed">
-            Please navigate to the NCP Patients directory and select a patient to start or
-            continue their Nutrition Care Process.
-          </p>
-          <div className="mt-6">
-            <Link
-              href="/ncp/patients"
-              className="inline-flex px-4 py-2.5 bg-forest-900 hover:bg-forest-900 active:bg-black text-white text-sm font-bold uppercase tracking-wider rounded-lg transition-colors select-none"
-            >
-              Go to Patients Directory
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (isPlaceholder) return <NcpNoPatientSelected step="Nutrition Monitoring" />;
 
   if (!loading && loadFailed) {
     return <div className="p-6 space-y-3"><p role="alert" className="text-sm text-red-700">{error}</p><button type="button" className="min-h-11 underline" onClick={() => { void loadData(); }}>Try again</button></div>;

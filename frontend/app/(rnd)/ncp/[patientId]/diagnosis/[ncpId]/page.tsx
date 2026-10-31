@@ -1,10 +1,12 @@
 "use client";
 
+import { NcpNoPatientSelected } from "@/components/ncp/NcpNoPatientSelected";
+
 import React, { use, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { SectionLoading } from "@/components/ui/SectionLoading";
 import {
-  Stethoscope, User, ChevronRight,
+  Stethoscope, ChevronRight,
   Plus, Trash2, Pencil, AlertTriangle, CheckCircle2,
   RefreshCw, X, CheckCheck, Lock,
 } from "lucide-react";
@@ -720,23 +722,7 @@ export default function NcpDiagnosisPage({
 
   // ─── Placeholder / Loading ────────────────────────────────────────────────
 
-  if (isPlaceholder) {
-    return (
-      <div className="space-y-6 font-sans">
-        <NcpBreadcrumb step="Nutrition Diagnosis" />
-        <div className="bg-white border border-warm-200 rounded-2xl p-12 text-center max-w-2xl mx-auto shadow-sm">
-          <div className="p-3.5 bg-warm-50 border border-warm-200 rounded-2xl w-fit mx-auto text-warm-400">
-            <User className="h-8 w-8" />
-          </div>
-          <h3 className="text-base font-bold text-warm-800 mt-4 uppercase tracking-wider">No Patient Selected</h3>
-          <p className="text-sm text-warm-500 mt-2 leading-relaxed">Navigate to the NCP Patients directory and select a patient.</p>
-          <Link href="/ncp/patients" className="inline-flex mt-6 px-4 py-2.5 bg-forest-900 hover:bg-forest-900 text-white text-sm font-bold uppercase tracking-wider rounded-lg transition-colors">
-            Go to Patients Directory
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  if (isPlaceholder) return <NcpNoPatientSelected step="Nutrition Diagnosis" />;
 
   if (loadFailed && !loading) {
     return <div className="p-6 space-y-3"><p role="alert" className="text-sm text-red-700">{error}</p><button type="button" className="min-h-11 underline" onClick={() => { void loadData(false); }}>Try again</button></div>;
@@ -827,9 +813,6 @@ export default function NcpDiagnosisPage({
               <tr className="border-b border-warm-100 bg-warm-50/80">
                 <th className="text-left px-4 py-3 text-xs font-extrabold text-warm-500 uppercase tracking-wider w-8">#</th>
                 <th className="text-left px-4 py-3 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Domain</th>
-                <th className="text-left px-4 py-3 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Problem</th>
-                <th className="text-left px-4 py-3 text-xs font-extrabold text-warm-500 uppercase tracking-wider hidden xl:table-cell">Etiology</th>
-                <th className="text-left px-4 py-3 text-xs font-extrabold text-warm-500 uppercase tracking-wider hidden xl:table-cell">S&S</th>
                 <th className="text-left px-4 py-3 text-xs font-extrabold text-warm-500 uppercase tracking-wider">PES Statement</th>
                 <th className="text-right px-4 py-3 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Actions</th>
               </tr>
@@ -846,17 +829,8 @@ export default function NcpDiagnosisPage({
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-warm-800 font-semibold max-w-[160px]">
-                    <span className="line-clamp-2">{d.problem}</span>
-                  </td>
-                  <td className="px-4 py-3 text-warm-600 hidden xl:table-cell max-w-[160px]">
-                    <span className="line-clamp-2">{d.etiology}</span>
-                  </td>
-                  <td className="px-4 py-3 text-warm-600 hidden xl:table-cell max-w-[160px]">
-                    <span className="line-clamp-2">{d.signs_symptoms}</span>
-                  </td>
-                  <td className="px-4 py-3 text-warm-700 max-w-[240px]">
-                    <span className="line-clamp-3 italic text-xs">{d.pes_statement}</span>
+                  <td className="px-4 py-3 text-warm-700 max-w-[640px]">
+                    <span className="line-clamp-3 italic text-xs" title={d.pes_statement}>{d.pes_statement}</span>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
@@ -1309,13 +1283,10 @@ export default function NcpDiagnosisPage({
                 </div>
                 <div className="space-y-2 text-sm">
                   {s.review_reasons?.map(reason => <p key={reason} className="text-sm text-amber-800">{reason}</p>)}
-                  <div><span className="font-bold text-sky-600">P:</span> <span className="text-warm-700">{s.label}</span></div>
-                  <div><span className="font-bold text-sky-600">E:</span> <span className="text-warm-700">{s.etiology}</span></div>
-                  <div><span className="font-bold text-amber-600">S:</span> <span className="text-warm-700">{s.signs}</span></div>
                 </div>
                 <div className="p-3 bg-warm-50 border border-warm-100 rounded-lg">
                   <span className="text-xs font-bold text-warm-400 uppercase tracking-wider block mb-1">PES Statement</span>
-                  <p className="text-xs font-medium text-warm-800 italic leading-relaxed">{pes}</p>
+                  <p className="line-clamp-3 text-sm font-medium text-warm-800 italic leading-relaxed" title={pes}>{pes}</p>
                 </div>
                 <div className="rounded-lg border border-warm-100 bg-warm-50 p-3 text-xs text-warm-600 space-y-3">
                   {s.evidence_by_component ? ([['problem', 'P'], ['etiology', 'E'], ['signs', 'S']] as const).map(([role, label]) => (

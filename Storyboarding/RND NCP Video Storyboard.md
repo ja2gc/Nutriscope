@@ -70,7 +70,7 @@ Continue immediately with the compact Food Service sequence in `RND Food Service
 
 **On-screen actions**
 
-Diagnosis AI Review groups drafts under **No issues detected** and **May need more thorough review**; both require RND review. Open the help beside each heading; review notes explain draft-specific concerns without claiming a clinical verdict. The second group offers **Review and edit** or **Dismiss**, with ordinary save limits after correction. A collapsed **Possible concerns** section holds incomplete hypotheses and offers **Review assessment** or **Dismiss**, never diagnosis acceptance. Verified against `4d92fcbe` plus these changes (2026-10-31).
+Diagnosis AI Review groups drafts under **No issues detected** and **May need more thorough review**; both require RND review. Each draft shows its PES statement once, with supporting evidence and review notes below. Open the help beside each heading; review notes explain draft-specific concerns without claiming a clinical verdict. The second group offers **Review and edit** or **Dismiss**, with ordinary save limits after correction. A collapsed **Possible concerns** section holds incomplete hypotheses and offers **Review assessment** or **Dismiss**, never diagnosis acceptance. Verified against `4d92fcbe` plus these changes (2026-10-31).
 
 1. Sign in as RND and open **Nutrition Care → Patients**.
 2. Select the fictional patient.

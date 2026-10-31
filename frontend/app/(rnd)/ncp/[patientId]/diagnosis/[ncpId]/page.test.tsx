@@ -32,8 +32,8 @@ beforeEach(() => {
   } });
 });
 afterEach(() => { act(() => root.unmount()); document.body.replaceChildren(); vi.resetAllMocks(); });
-async function open() {
-  const params = Promise.resolve({ patientId: "fictional", ncpId: "fictional-cycle" });
+async function open(patientId = "fictional") {
+  const params = Promise.resolve({ patientId, ncpId: patientId === "select-patient" ? "select-ncp" : "fictional-cycle" });
   await act(async () => { root.render(<Suspense fallback={<div>Loading</div>}><Page params={params} /></Suspense>); });
 }
 
@@ -45,9 +45,32 @@ it("separates unverified proposals and offers editing rather than direct approva
   await open(); click("AI Review");
   const section = screen.getByRole("region", { name: "May need more thorough review" });
   expect(section.textContent).toContain("Check the supporting findings.");
+  expect(section.textContent).toContain("Physical inactivity related to Proposed cause as evidenced by Proposed finding");
+  expect(screen.queryByText("P:", { exact: true })).toBeNull();
   expect(section.querySelectorAll("button").length).toBeGreaterThan(0);
   expect(screen.queryByRole("button", { name: "Accept" })).toBeNull();
   expect(screen.getByRole("button", { name: "Review and edit" })).toBeTruthy();
+});
+
+it("uses the shared patient-selection action without loading patient data", async () => {
+  await open("select-patient");
+  expect(screen.getByRole("heading", { name: "No Patient Selected" })).toBeTruthy();
+  expect(screen.getByRole("link", { name: "Go to Patients" }).getAttribute("href")).toBe("/ncp/patients");
+  expect(fetchAssessment).not.toHaveBeenCalled();
+});
+
+it("shows saved diagnoses as a clamped PES statement without repeated component columns", async () => {
+  const result = await diagnoses.fetchDiagnosesPage("fixture");
+  const pes = "Physical inactivity related to pain limiting walking as evidenced by stopped nightly walks";
+  vi.mocked(diagnoses.fetchDiagnosesPage).mockResolvedValue({ ...result, data: [{
+    id: "saved", domain: "NB", problem: "Physical inactivity", etiology: "Pain limiting walking",
+    signs_symptoms: "Stopped nightly walks", pes_statement: pes,
+  }] } as never);
+  await open();
+  expect(screen.queryByRole("columnheader", { name: "Problem" })).toBeNull();
+  expect(screen.queryByRole("columnheader", { name: "Etiology" })).toBeNull();
+  expect(screen.queryByRole("columnheader", { name: "S&S" })).toBeNull();
+  expect(screen.getByText(pes).classList.contains("line-clamp-3")).toBe(true);
 });
 
 it("shows only the current generation failure and clears it after five seconds", async () => {
@@ -359,7 +382,7 @@ it("reuses valid partial drafts through the single Generate action", async () =>
   vi.mocked(diagnoses.fetchPesDraftStatus).mockResolvedValue(partial);
   vi.mocked(diagnoses.aiSuggestDiagnoses).mockResolvedValue(partial);
   await open(); click("AI Review");
-  expect(screen.getByText("Food and Nutrition Knowledge Deficit")).toBeTruthy();
+  expect(screen.getByText(/^Food and Nutrition Knowledge Deficit related to/)).toBeTruthy();
   expect(screen.queryByText(warning, { exact: false })).toBeNull();
   expect(screen.queryByRole("button", { name: "AI suggestion status" })).toBeNull();
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Generate AI Suggestions" })); });
