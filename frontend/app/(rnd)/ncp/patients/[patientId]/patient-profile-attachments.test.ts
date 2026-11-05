@@ -13,7 +13,7 @@ describe("patient profile attachments tab", () => {
     expect(page).toContain("getAttachmentDisplayName");
     expect(page).toContain("title=\"View\"");
     expect(page).toContain("title=\"Download\"");
-    expect(page).toContain("title=\"Delete\"");
+    expect(page).toContain("label=\"Remove attachment\"");
     expect(page).toContain("Biochemical Data");
     expect(page).toContain("Screening Form");
   });

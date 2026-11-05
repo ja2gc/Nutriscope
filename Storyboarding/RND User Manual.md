@@ -164,6 +164,7 @@ Detail/profile pages open from their parent list, item card or selected menu slo
 2. Complete Dietary, Anthropometrics, Client History, Biochemical/Labs, Referral/Screening, and Summary.
 3. If edema is present, enter dry weight.
 4. Upload supporting lab/referral documents if needed; manually enter/verify values because uploads do not OCR/autofill.
+   Open **Supporting documents** and use **Add file** or drag and drop a supported PDF/image. Uploads save immediately. Preview/download documents from their rows; the small X removes only that attachment.
 5. Review calculated BMI, other anthropometrics, and nutritional-risk factors.
 6. Generate or edit the RND Summary.
 7. Choose **Save Assessment**.
@@ -261,6 +262,7 @@ Food Library also includes a full-tab **Food Calculator**, reusing the Food Reca
 7. During execution, monitor actual values, receipt/proof, optional OR, explicit vendor received status, served-day progress, totals, and history.
 8. Correct authorized open-execution values when needed; completed/archived POs are historical records.
 9. Within a vendor, **Actual receipt total** normally follows **Use calculated total**. Enter the receipt's actual charge if cash rounding changes it; returning to **Use calculated total** restores the live item sum without changing item quantities/prices. After reviewing actuals and required evidence, use **Mark vendor received**. A receipt upload alone does not perform that action.
+   Before **Mark vendor received**, use **Add images** or drag and drop receipts/proofs within the displayed limits. Uploads save immediately. The small X removes only its image. Click a thumbnail for the plain viewer, with arrows for multiple images, an exit X and **Remove image**.
 
 #### E. Budget
 
@@ -275,6 +277,7 @@ Food Library also includes a full-tab **Food Calculator**, reusing the Food Reca
 1. Open **Announcements**.
 2. Review the current SOP and History before publishing procedure-sensitive work.
 3. Add an announcement with category, required body text, optional title, pin state, and optional images. Under **Visible to**, select one or more roles; select all three for everyone. Include RND if other RND users should receive it. Audience choices appear in the editor only. The feed previews three body lines; click anywhere on a card for the full post. Verify the author's profile photo and bounded post image.
+   Use **Add images** or drag and drop within the displayed limits. Click a thumbnail to view it, or its small X to remove only that image. Image edits take effect when the announcement is posted or saved.
 4. Edit/delete only authorized posts.
 5. Use **Revise SOP** for a true procedure revision; saving creates a new history version.
 

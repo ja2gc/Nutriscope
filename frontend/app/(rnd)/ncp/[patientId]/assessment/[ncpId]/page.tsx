@@ -13,7 +13,7 @@ import { FoodRecallNutrientFields } from '@/components/ncp/FoodRecallNutrientFie
 import type { FoodRecallPlan } from '@/lib/foodRecall';
 import {
   ClipboardCheck, Utensils, Ruler, UserRound, FlaskConical,
-  FileText, Sparkles, Save, Upload, AlertTriangle,
+  FileText, Sparkles, Save, AlertTriangle,
   Activity, Paperclip, Trash2, Download, Eye, X,
   Shield, Scale, RotateCcw,
 } from "lucide-react";
@@ -40,10 +40,11 @@ import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { DatePicker, DateTimePicker } from "@/components/ui/DatePicker";
 import { CharacterCountTextarea } from "@/components/ui/CharacterCountTextarea";
 import { CharacterCountListInput } from "@/components/ui/CharacterCountListInput";
-import { FittedImageFrame } from "@/components/ui/ImageUploadGallery";
 import { InfoHint } from "@/components/ui/InfoHint";
 import { NcpBreadcrumb } from "@/components/ncp/NcpBreadcrumb";
-import { validateUploadFile } from "@/lib/uploadValidation";
+import { FileUploadField } from "@/components/ui/FileUploadField";
+import { ImageViewer } from "@/components/ui/ImageViewer";
+import { RemoveButton } from "@/components/ui/RemoveButton";
 import { ASSESSMENT_TEXT_LIMITS, FOOD_DISLIKE_LIMIT, FOOD_DISLIKE_MAX_ENTRIES, MEDICATION_LIMIT, ABG_LIMIT, assessmentTextError } from "@/lib/assessmentValidation";
 import { NcpSectionTabs } from "@/components/ncp/NcpSectionTabs";
 
@@ -322,55 +323,6 @@ function SelectInput({ value, onChange, options }: {
 }
 
 
-function DropZone({ label, onUpload, uploading }: {
-  label: string; onUpload: (file: File) => void; uploading: boolean;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [dragOver, setDragOver] = useState(false);
-  const [validationError, setValidationError] = useState<string | null>(null);
-
-  const handleFile = (file: File) => {
-    const validation = validateUploadFile(file, {
-      maxBytes: 10 * 1024 * 1024,
-      allowedTypes: ["application/pdf", "image/jpeg", "image/png"],
-    });
-    if (!validation.valid) {
-      setValidationError(validation.error);
-      return;
-    }
-    setValidationError(null);
-    onUpload(file);
-  };
-
-  return (
-    <div
-      className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all cursor-pointer select-none ${dragOver ? "border-emerald-400 bg-emerald-50/50" : "border-warm-300 hover:border-zinc-400 bg-warm-50/30"
-        }`}
-      onClick={() => inputRef.current?.click()}
-      onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-      onDragLeave={() => setDragOver(false)}
-      onDrop={e => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); }}
-    >
-      <input ref={inputRef} type="file" accept=".pdf,.png,.jpg,.jpeg" className="hidden" onChange={e => { if (e.target.files?.[0]) handleFile(e.target.files[0]); }} />
-      {uploading ? (
-        <div className="space-y-2">
-          <div className="h-1 w-48 mx-auto bg-warm-200 rounded-full overflow-hidden">
-            <div className="h-full bg-emerald-500 rounded-full motion-safe:animate-pulse" style={{ width: "70%" }} />
-          </div>
-          <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Uploading...</p>
-        </div>
-      ) : (
-        <>
-          <Upload className="h-5 w-5 text-warm-400 mx-auto mb-2" />
-          <p className="text-xs font-bold text-warm-600 uppercase tracking-wider">{label}</p>
-          <p className="text-xs text-warm-400 mt-1">Drag and drop or click to upload — PDF, JPEG, PNG (max 10MB)</p>
-        </>
-      )}
-      {validationError && <p role="alert" className="mt-2 text-xs font-semibold text-red-700">{validationError}</p>}
-    </div>
-  );
-}
-
 // ─── Kind → display name map ───────────────────────────────────────────────
 const KIND_LABELS: Record<string, string> = {
   labs: "Biochemical Data",
@@ -383,11 +335,10 @@ function getKindLabel(kind: string) {
 
 // ─── Attachment Lightbox ────────────────────────────────────────────────────
 function AttachmentLightbox({
-  url, isImage, name, onClose, onDelete,
+  url, name, onClose, onDelete,
 }: {
-  url: string; isImage: boolean; name: string; onClose: () => void; onDelete: () => void;
+  url: string; name: string; onClose: () => void; onDelete: () => void;
 }) {
-  const [confirming, setConfirming] = useState(false);
 
   // Close on Escape
   useEffect(() => {
@@ -397,7 +348,6 @@ function AttachmentLightbox({
   }, [onClose]);
 
   function handleDeleteClick() {
-    if (!confirming) { setConfirming(true); return; }
     onDelete();
     onClose();
   }
@@ -414,13 +364,13 @@ function AttachmentLightbox({
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-warm-100">
-          <p className="text-sm font-bold text-warm-700 truncate pr-4">{name}</p>
-          <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-warm-100 px-4 py-3">
+          <p className="min-w-0 flex-1 basis-full truncate pr-4 text-sm font-bold text-warm-700 sm:basis-auto">{name}</p>
+          <div className="flex max-w-full flex-wrap items-center gap-2">
             <a
               href={url}
               download
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold uppercase tracking-wider rounded-lg transition-colors"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-extrabold uppercase tracking-wider text-white transition-colors hover:bg-emerald-700"
             >
               <Download className="h-3 w-3" />
               Download
@@ -428,16 +378,11 @@ function AttachmentLightbox({
             <button
               type="button"
               onClick={handleDeleteClick}
-              onBlur={() => setConfirming(false)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-extrabold uppercase tracking-wider rounded-lg transition-colors ${
-                confirming
-                  ? "bg-red-600 hover:bg-red-700 text-white"
-                  : "bg-warm-100 hover:bg-red-50 text-warm-500 hover:text-red-600"
-              }`}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-warm-100 px-3 py-1.5 text-xs font-extrabold uppercase tracking-wider text-warm-500 transition-colors hover:bg-red-50 hover:text-red-600"
               title="Remove attachment"
             >
               <Trash2 className="h-3 w-3" />
-              {confirming ? "Confirm?" : "Remove"}
+              Remove
             </button>
             <button
               type="button"
@@ -451,15 +396,7 @@ function AttachmentLightbox({
         </div>
         {/* Content */}
         <div className="flex-1 overflow-auto bg-warm-50 flex items-center justify-center min-h-0">
-          {isImage ? (
-            <FittedImageFrame src={url} alt={name} variant="viewer" />
-          ) : (
-            <iframe
-              src={url}
-              title={name}
-              className="w-full h-[75vh] border-0"
-            />
-          )}
+          <iframe src={url} title={name} className="w-full h-[75vh] border-0" />
         </div>
       </div>
     </div>
@@ -469,8 +406,8 @@ function AttachmentLightbox({
 // ─── Attachments Panel ─────────────────────────────────────────────────────
 // Plain supporting-document storage for this NCP cycle (rnd.md §3.1). No OCR.
 // Reused on the Labs and Referral/Screening tabs; both list the cycle's files.
-function AttachmentsPanel({ ncpId, uploadLabel, kind, blurb }: {
-  ncpId: string; uploadLabel: string; kind: string; blurb: string;
+function AttachmentsPanel({ ncpId, uploadLabel, kind, blurb, disabled = false }: {
+  ncpId: string; uploadLabel: string; kind: string; blurb: string; disabled?: boolean;
 }) {
   const [items, setItems] = useState<AttachmentRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -482,6 +419,8 @@ function AttachmentsPanel({ ncpId, uploadLabel, kind, blurb }: {
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
 
   const displayName = getKindLabel(kind);
+  const imageDocuments = items.filter(doc => isImagePath(doc.file_path));
+  const imagePreviews = imageDocuments.map((doc, index) => ({ id: String(doc.id), name: `${displayName} ${index + 1}`, src: getAttachmentFileUrl(doc.id) }));
 
   const load = useCallback(async () => {
     try {
@@ -516,6 +455,7 @@ function AttachmentsPanel({ ncpId, uploadLabel, kind, blurb }: {
     try {
       await deleteAttachment(id);
       await load();
+      setLightbox(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete attachment.");
     } finally {
@@ -526,10 +466,15 @@ function AttachmentsPanel({ ncpId, uploadLabel, kind, blurb }: {
   return (
     <>
       {/* Lightbox portal */}
-      {lightbox && (
+      {lightbox?.isImage && imagePreviews.length > 0 ? <ImageViewer
+        images={imagePreviews}
+        activeIndex={Math.max(0, imageDocuments.findIndex(doc => doc.id === lightbox.docId))}
+        onIndexChange={index => {
+          const doc = imageDocuments[index];
+          setLightbox({ url: getAttachmentFileUrl(doc.id), isImage: true, name: `${displayName} ${index + 1}`, docId: doc.id });
+        }} onClose={() => setLightbox(null)} onRemove={image => handleDelete(Number(image.id))} busy={disabled || uploading || deletingId !== null} error={error} download /> : lightbox && !lightbox.isImage && (
         <AttachmentLightbox
           url={lightbox.url}
-          isImage={lightbox.isImage}
           name={lightbox.name}
           onClose={() => setLightbox(null)}
           onDelete={() => handleDelete(lightbox.docId)}
@@ -548,11 +493,9 @@ function AttachmentsPanel({ ncpId, uploadLabel, kind, blurb }: {
         </summary>
         <div className="space-y-3 border-t border-warm-200 p-4">
           <p className="text-xs text-warm-500 leading-relaxed">{blurb}</p>
-          <DropZone label={uploadLabel} onUpload={handleUpload} uploading={uploading} />
-
-          {error && (
-            <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 font-semibold">{error}</div>
-          )}
+          <FileUploadField label={uploadLabel} buttonLabel="Add file" multiple={false} maxBytes={10 * 1024 * 1024}
+            allowedTypes={["application/pdf", "image/jpeg", "image/png"]} currentCount={meta?.total ?? items.length}
+            busy={uploading} disabled={disabled || deletingId !== null} error={error} onFilesSelected={files => handleUpload(files[0])} />
 
           {loading ? (
             <div className="space-y-2">
@@ -599,15 +542,11 @@ function AttachmentsPanel({ ncpId, uploadLabel, kind, blurb }: {
                       <Download className="h-3.5 w-3.5" />
                     </a>
                     {/* Delete button */}
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(doc.id)}
-                      disabled={deletingId === doc.id}
-                      className="p-1.5 text-warm-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                      title="Remove"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    <RemoveButton
+                      label={`Remove ${docName}`}
+                      onClick={() => { setError(null); void handleDelete(doc.id); }}
+                      disabled={disabled || uploading || deletingId !== null}
+                    />
                   </div>
                 </div>
               );
@@ -1513,7 +1452,8 @@ export default function NcpAssessmentPage({
       <AttachmentsPanel
         ncpId={ncpId}
         kind="labs"
-        uploadLabel="Upload Lab Results (PDF or Image)"
+        uploadLabel="Lab results"
+        disabled={saving}
         blurb="Attach lab sheets and biochemical results for this NCP cycle. Stored for record-keeping and appended to the printed NCP report."
       />
     </div>
@@ -1629,7 +1569,8 @@ export default function NcpAssessmentPage({
             <AttachmentsPanel
               ncpId={ncpId}
               kind="referral"
-              uploadLabel="Upload Referral / Screening Form"
+              uploadLabel="Referral / screening forms"
+              disabled={saving}
               blurb="Attach referral and screening forms for this NCP cycle. Stored for record-keeping and appended to the printed NCP report."
             />
             {/* <div className="bg-forest-900 border border-forest-line rounded-2xl p-5 text-warm-100 shadow-sm">

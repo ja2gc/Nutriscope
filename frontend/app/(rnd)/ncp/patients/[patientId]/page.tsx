@@ -5,7 +5,7 @@ import { PatientContactDetails } from '@/components/ncp/PatientContactDetails';
 import type { EditorLeaveHandle } from '@/hooks/useUnsavedChanges';
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { HeartHandshake, Plus, Trash2, AlertTriangle, Lock, Paperclip, FileText, Download, Eye, X } from "lucide-react";
+import { HeartHandshake, Plus, AlertTriangle, Lock, Paperclip, FileText, Download, Eye, X } from "lucide-react";
 
 import {
   fetchPatientById,
@@ -32,7 +32,8 @@ import { InfoHint } from "@/components/ui/InfoHint";
 import { ReportPreview } from "@/components/ReportPreview";
 import { prepareReport, reportDownloadUrl, reportViewUrl } from "@/services/reportService";
 import { PatientAppointments } from "@/components/ncp/PatientAppointments";
-import { FittedImageFrame } from "@/components/ui/ImageUploadGallery";
+import { ImageViewer } from "@/components/ui/ImageViewer";
+import { RemoveButton } from "@/components/ui/RemoveButton";
 
 type TabKey = "overview" | "adime-records" | "appointments" | "attachments";
 const NCP_STEPS: NcpStep[] = ["assessment", "diagnosis", "intervention", "monitoring"];
@@ -167,12 +168,10 @@ function StepAction({ state }: { state: NcpStepState }) {
 
 function AttachmentLightbox({
   url,
-  isImage,
   name,
   onClose,
 }: {
   url: string;
-  isImage: boolean;
   name: string;
   onClose: () => void;
 }) {
@@ -214,11 +213,7 @@ function AttachmentLightbox({
           </div>
         </div>
         <div className="flex-1 overflow-auto bg-warm-50 flex items-center justify-center min-h-0">
-          {isImage ? (
-            <FittedImageFrame src={url} alt={name} variant="viewer" />
-          ) : (
-            <iframe src={url} title={name} className="w-full h-[75vh] border-0" />
-          )}
+          <iframe src={url} title={name} className="w-full h-[75vh] border-0" />
         </div>
       </div>
     </div>
@@ -257,6 +252,7 @@ function CycleAttachments({ ncpId }: { ncpId: number | string }) {
     try {
       await deleteAttachment(id);
       await load();
+      setLightbox(null);
     } catch {
       setError("Failed to delete attachment.");
     } finally {
@@ -267,13 +263,20 @@ function CycleAttachments({ ncpId }: { ncpId: number | string }) {
   if (loading) {
     return <div role="status" aria-busy="true" aria-label="Loading patient cycles…" className="h-10 bg-warm-100 rounded-lg motion-safe:animate-pulse" />;
   }
+  const imageDocuments = items.filter(doc => isImagePath(doc.file_path));
+  const imagePreviews = imageDocuments.map((doc, index) => ({ id: String(doc.id), name: getAttachmentDisplayName(doc, index, items.length), src: getAttachmentFileUrl(doc.id) }));
 
   return (
     <>
-      {lightbox && (
+      {lightbox?.isImage && imagePreviews.length > 0 ? <ImageViewer
+        images={imagePreviews}
+        activeIndex={Math.max(0, imagePreviews.findIndex(image => image.src === lightbox.url))}
+        onIndexChange={index => {
+          const doc = imageDocuments[index];
+          setLightbox({ url: getAttachmentFileUrl(doc.id), isImage: true, name: getAttachmentDisplayName(doc, index, items.length) });
+        }} onClose={() => setLightbox(null)} onRemove={image => handleDelete(Number(image.id))} busy={deletingId !== null} error={error} download /> : lightbox && !lightbox.isImage && (
         <AttachmentLightbox
           url={lightbox.url}
-          isImage={lightbox.isImage}
           name={lightbox.name}
           onClose={() => setLightbox(null)}
         />
@@ -312,15 +315,11 @@ function CycleAttachments({ ncpId }: { ncpId: number | string }) {
                 >
                   <Download className="h-3.5 w-3.5" />
                 </a>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(doc.id)}
-                  disabled={deletingId === doc.id}
-                  className="p-1.5 text-warm-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                  title="Delete"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                <RemoveButton
+                  label="Remove attachment"
+                  onClick={() => { setError(null); void handleDelete(doc.id); }}
+                  disabled={deletingId !== null}
+                />
               </div>
             );
           })}

@@ -145,6 +145,7 @@ Admin manages access and oversight; RND prepares clinical Food Library data, ope
 
 1. Open **Settings**.
 2. Maintain hospital name, service name, address, accreditation, province, LGU, and report logos.
+   In **Reports → Template Edit → Header Branding → Edit**, choose or drop one supported image per logo slot. Click the image to view it; a replacement's small X restores the saved preview. **Save** applies replacements; **Cancel** discards them.
 3. Set food-service budget per head/day.
 4. Set local display/notification preferences.
 5. Return to Dashboard to confirm metrics after operational changes.

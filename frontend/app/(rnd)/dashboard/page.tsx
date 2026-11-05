@@ -133,6 +133,7 @@ export default function RndDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [announcementsLoading, setAnnouncementsLoading] = useState(true);
   const [announcementsSaving, setAnnouncementsSaving] = useState(false);
+  const [imagesBusy, setImagesBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [announcementError, setAnnouncementError] = useState<string | null>(null);
   const [posts, setPosts] = useState<Announcement[]>([]);
@@ -223,6 +224,7 @@ export default function RndDashboardPage() {
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        if (composerOpen && (announcementsSaving || imagesBusy)) return;
         setComposerOpen(false);
         setEditingPostId(null);
         setViewingPostId(null);
@@ -235,7 +237,7 @@ export default function RndDashboardPage() {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [composerOpen, viewingPostId]);
+  }, [composerOpen, viewingPostId, announcementsSaving, imagesBusy]);
 
   const followUps = useMemo(() => buildFollowUps(appointments), [appointments]);
   const patientCountLabel = loading ? "--" : activePatientTotal.toString();
@@ -329,6 +331,7 @@ export default function RndDashboardPage() {
   }
 
   function closeComposer() {
+    if (imagesBusy) return;
     editRequest.current++; setEditLoading(false);
     setComposerOpen(false);
     setEditingPostId(null);
@@ -351,6 +354,7 @@ export default function RndDashboardPage() {
 
   async function saveAnnouncement(e: React.FormEvent) {
     e.preventDefault();
+    if (announcementsSaving || imagesBusy) return;
 
     const attachments = imageSrcs(draft.images);
     if (!draft.body.trim()) {
@@ -396,6 +400,7 @@ export default function RndDashboardPage() {
   }
 
   function handleModalBackdropClick() {
+    if (composerOpen && (announcementsSaving || imagesBusy)) return;
     closeComposer();
     closeViewer();
   }
@@ -421,6 +426,7 @@ export default function RndDashboardPage() {
               <button
                 type="button"
                 onClick={closeComposer}
+                disabled={announcementsSaving || imagesBusy}
                 className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-warm-200 text-xs font-bold uppercase tracking-wider text-warm-600 hover:text-warm-900 hover:bg-white transition-colors"
               >
                 <X className="h-3.5 w-3.5" />
@@ -501,6 +507,8 @@ export default function RndDashboardPage() {
                 maxBytes={5 * 1024 * 1024}
                 allowedTypes={["image/jpeg", "image/png", "image/webp"]}
                 maxFiles={10}
+                disabled={announcementsSaving}
+                onBusyChange={setImagesBusy}
               />
               </div>
 
@@ -509,6 +517,7 @@ export default function RndDashboardPage() {
                 <Button
                   variant="primary"
                   loading={announcementsSaving}
+                  disabled={imagesBusy}
                   className="w-auto px-4 py-2 text-xs font-bold uppercase tracking-wider"
                 >
                   {editingPostId ? "Save Changes" : "Post Announcement"}

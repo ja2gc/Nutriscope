@@ -705,6 +705,9 @@ function TemplateEditor({ apiPrefix, onFlash }: { apiPrefix: "rnd" | "admin"; on
   const [selectedTemplateRevision, setSelectedTemplateRevision] = useState<ReportTemplateRevision | null>(null);
   const [loadingTemplateHistory, setLoadingTemplateHistory] = useState(false);
   const [savingB, setSavingB] = useState(false);
+  const [logoFiles, setLogoFiles] = useState<{ left: File | null; right: File | null }>({ left: null, right: null });
+  const [logoReading, setLogoReading] = useState({ left: false, right: false });
+  const readingLogo = logoReading.left || logoReading.right;
   const [savingT, setSavingT] = useState<string | null>(null);
 
   const load = useCallback(() => {
@@ -744,14 +747,17 @@ function TemplateEditor({ apiPrefix, onFlash }: { apiPrefix: "rnd" | "admin"; on
 
   async function saveB(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!brandingDraft) return;
+    if (!brandingDraft || readingLogo || savingB) return;
     setSavingB(true);
     try {
       const fd = new FormData(e.currentTarget);
+      if (logoFiles.left) fd.set("logo_left", logoFiles.left);
+      if (logoFiles.right) fd.set("logo_right", logoFiles.right);
       const updated = await (apiPrefix === "admin" ? saveAdminBranding(fd) : saveBranding(fd));
       setBranding(updated);
       setBrandingDraft(updated);
       setEditingBranding(false);
+      setLogoFiles({ left: null, right: null });
       onFlash(true, "Branding saved.");
     } catch (err) {
       onFlash(false, err instanceof Error ? err.message : "Save failed.");
@@ -793,7 +799,7 @@ function TemplateEditor({ apiPrefix, onFlash }: { apiPrefix: "rnd" | "admin"; on
             <Button variant="icon" aria-label="Back to current" title="Back to current" className="h-11 !w-11 border border-warm-200 bg-white" onClick={() => { setBrandingView("current"); setSelectedBrandingRevision(null); }}><ArrowLeft className="h-4 w-4" aria-hidden="true" /></Button>
           ) : !editingBranding && <div className="flex shrink-0 gap-2">
             <Button variant="secondary" onClick={() => showBrandingHistory()} className="!w-auto !py-1.5 !px-3.5 text-sm">History</Button>
-            <Button variant="secondary" onClick={() => { setBrandingDraft(branding); setEditingBranding(true); }} className="!w-auto !py-1.5 !px-3.5 text-sm">Edit</Button>
+            <Button variant="secondary" onClick={() => { setBrandingDraft(branding); setLogoFiles({ left: null, right: null }); setEditingBranding(true); }} className="!w-auto !py-1.5 !px-3.5 text-sm">Edit</Button>
           </div>}
         </div>
         {brandingView === "history" ? (
@@ -831,10 +837,16 @@ function TemplateEditor({ apiPrefix, onFlash }: { apiPrefix: "rnd" | "admin"; on
                 <input name={name} value={value ?? ""} onChange={(e) => setB({ [name]: e.target.value } as Partial<Branding>)} className={inp} />
               </div>
             ))}
-            <div className="space-y-2">{branding.logo_left_path && <Image src={brandingLogoUrl(apiPrefix, "left")} alt="Current left report logo" width={72} height={72} unoptimized className="h-18 w-18 rounded-lg border border-warm-200 bg-white object-contain p-1" />}<ImageFilePicker id="report-logo-left" name="logo_left" label="Left logo" current={branding.logo_left_path} /></div>
-            <div className="space-y-2">{branding.logo_right_path && <Image src={brandingLogoUrl(apiPrefix, "right")} alt="Current right report logo" width={72} height={72} unoptimized className="h-18 w-18 rounded-lg border border-warm-200 bg-white object-contain p-1" />}<ImageFilePicker id="report-logo-right" name="logo_right" label="Right logo" current={branding.logo_right_path} /></div>
+            <ImageFilePicker id="report-logo-left" name="logo_left" label="Left logo" current={branding.logo_left_path}
+              currentSrc={branding.logo_left_path ? brandingLogoUrl(apiPrefix, "left") : undefined} disabled={savingB}
+              onReadingChange={reading => setLogoReading(current => ({ ...current, left: reading }))}
+              onFileChange={file => setLogoFiles(current => ({ ...current, left: file }))} />
+            <ImageFilePicker id="report-logo-right" name="logo_right" label="Right logo" current={branding.logo_right_path}
+              currentSrc={branding.logo_right_path ? brandingLogoUrl(apiPrefix, "right") : undefined} disabled={savingB}
+              onReadingChange={reading => setLogoReading(current => ({ ...current, right: reading }))}
+              onFileChange={file => setLogoFiles(current => ({ ...current, right: file }))} />
           </div>
-          <div className="flex gap-2"><Button variant="primary" type="submit" loading={savingB} className="!w-auto !py-2 !px-4 flex items-center gap-2"><Save className="h-4 w-4" /> Save</Button><Button variant="secondary" type="button" onClick={() => { setBrandingDraft(branding); setEditingBranding(false); }} className="!w-auto !py-2 !px-4">Cancel</Button></div>
+          <div className="flex flex-wrap gap-2"><Button variant="primary" type="submit" loading={savingB} disabled={readingLogo} className="!w-auto !py-2 !px-4 flex items-center gap-2"><Save className="h-4 w-4" /> Save</Button><Button variant="secondary" type="button" disabled={savingB || readingLogo} onClick={() => { setBrandingDraft(branding); setLogoFiles({ left: null, right: null }); setEditingBranding(false); }} className="!w-auto !py-2 !px-4">Cancel</Button></div>
         </form>}
       </Card>
 

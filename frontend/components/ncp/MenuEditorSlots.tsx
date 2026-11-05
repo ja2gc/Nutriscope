@@ -1,5 +1,6 @@
 import { Children, isValidElement, type MouseEvent, type ReactNode } from "react";
-import { Plus, Pencil, X } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
+import { RemoveButton } from "@/components/ui/RemoveButton";
 
 export function MenuEditorActions({ children }: { children: ReactNode }) {
   return <div data-menu-editor-actions className="pointer-events-auto absolute right-1 top-1 z-10 flex shrink-0 justify-end gap-0.5">{children}</div>;
@@ -11,9 +12,10 @@ export function MenuEditorAction({ kind, label, onClick, disabled = false }: {
   onClick: (event: MouseEvent<HTMLButtonElement>) => void;
   disabled?: boolean;
 }) {
-  const Icon = kind === "remove" ? X : Pencil;
-  return <button type="button" data-menu-editor-action={kind} aria-label={label} title={kind === "remove" ? "Remove" : label.startsWith("View") ? "View" : "Edit"} onClick={onClick} disabled={disabled}
-    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded p-0 text-warm-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 disabled:opacity-50 ${kind === "remove" ? "hover:bg-red-50 hover:text-red-600" : "hover:bg-emerald-50 hover:text-emerald-700"}`}>
+  if (kind === "remove") return <RemoveButton label={label} onClick={onClick} disabled={disabled} data-menu-editor-action="remove" />;
+  const Icon = Pencil;
+  return <button type="button" data-menu-editor-action={kind} aria-label={label} title={label.startsWith("View") ? "View" : "Edit"} onClick={onClick} disabled={disabled}
+    className="flex h-6 w-6 shrink-0 items-center justify-center rounded p-0 text-warm-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 disabled:opacity-50 hover:bg-emerald-50 hover:text-emerald-700">
     <Icon className="h-3.5 w-3.5" />
   </button>;
 }

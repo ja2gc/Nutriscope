@@ -22,7 +22,7 @@ describe("ImageUploadGallery", () => {
     expect(markup).toContain("h-[clamp(180px,52vw,420px)]");
   });
 
-  test("renders multiple upload input, removable preview, and pagination controls", () => {
+  test("renders multiple upload input, individual removal and image viewer triggers", () => {
     const markup = renderToStaticMarkup(
       <ImageUploadGallery images={images} onImagesChange={() => undefined} label="Images" />
     );
@@ -30,9 +30,9 @@ describe("ImageUploadGallery", () => {
     expect(markup).toContain("multiple=\"\"");
     expect(markup).toContain("data:image/png;base64,one");
     expect(markup).toContain("aria-label=\"Remove one.png\"");
-    expect(markup).toContain("aria-label=\"Previous image\"");
-    expect(markup).toContain("aria-label=\"Next image\"");
-    expect(markup).toContain("1 / 2");
+    expect(markup).toContain("aria-label=\"Remove two.jpg\"");
+    expect(markup).toContain("aria-label=\"View one.png\"");
+    expect(markup).toContain("aria-label=\"View two.jpg\"");
   });
 
   test("does not render arrows for a single image", () => {

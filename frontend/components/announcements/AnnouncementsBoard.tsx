@@ -83,6 +83,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
   const [editingPostId, setEditingPostId] = useState<string | number | null>(null);
   const [viewingPostId, setViewingPostId] = useState<string | number | null>(null);
   const [saving, setSaving] = useState(false);
+  const [imagesBusy, setImagesBusy] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [draft, setDraft] = useState<AnnouncementDraft>(EMPTY_DRAFT);
   const [editLoading, setEditLoading] = useState(false);
@@ -128,6 +129,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
     document.body.style.overflow = "hidden";
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        if (composerOpen && (saving || imagesBusy)) return;
         setComposerOpen(false);
         setEditingPostId(null);
         setViewingPostId(null);
@@ -138,7 +140,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
       document.body.style.overflow = prev;
       window.removeEventListener("keydown", onKey);
     };
-  }, [composerOpen, viewingPostId]);
+  }, [composerOpen, viewingPostId, saving, imagesBusy]);
 
   const selectedPost = useMemo(
     () => posts.find((p) => p.id === viewingPostId) ?? null,
@@ -199,6 +201,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
   }
 
   function closeComposer() {
+    if (imagesBusy) return;
     editRequest.current++; setEditLoading(false);
     setComposerOpen(false);
     setEditingPostId(null);
@@ -221,6 +224,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
 
   async function saveAnnouncement(e: React.FormEvent) {
     e.preventDefault();
+    if (saving || imagesBusy) return;
     const attachments = imageSrcs(draft.images);
     if (!draft.body.trim()) {
       setSaveError("Body is required.");
@@ -283,7 +287,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
       return (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-forest-900/45 backdrop-blur-sm"
-          onClick={() => { closeComposer(); closeViewer(); }}
+          onClick={() => { if (!saving && !imagesBusy) { closeComposer(); closeViewer(); } }}
         >
           <div
             className="w-full max-w-2xl max-h-[90vh] bg-white border border-warm-200 rounded-3xl overflow-hidden shadow-2xl flex flex-col"
@@ -303,6 +307,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
               <button
                 type="button"
                 onClick={closeComposer}
+                disabled={saving || imagesBusy}
                 className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-warm-200 text-xs font-bold uppercase tracking-wider text-warm-600 hover:text-warm-900 hover:bg-white transition-colors"
               >
                 <X className="h-3.5 w-3.5" />
@@ -394,6 +399,8 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                 maxBytes={5 * 1024 * 1024}
                 allowedTypes={["image/jpeg", "image/png", "image/webp"]}
                 maxFiles={10}
+                disabled={saving}
+                onBusyChange={setImagesBusy}
               />
               </div>
 
@@ -403,6 +410,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                 <Button
                   variant="primary"
                   loading={saving}
+                  disabled={imagesBusy}
                   className="w-auto px-4 py-2 text-xs font-bold uppercase tracking-wider"
                 >
                   {editingPostId ? "Save Changes" : "Post Announcement"}

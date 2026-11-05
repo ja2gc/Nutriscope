@@ -57,9 +57,9 @@ const poStatusLabel = (status: PurchaseOrder["lifecycle_status"]) => ({
   archived: "Archived",
 }[status]);
 const attachmentImages = (attachments: POAttachment[] | undefined | null, type: "receipt" | "proof"): UploadImage[] =>
-  (attachments ?? []).filter((a) => a.type === type).map((a) => ({
+  (attachments ?? []).filter((a) => a.type === type).map((a, index) => ({
     id: String(a.id),
-    name: a.caption ?? `${type} ${a.id}`,
+    name: a.caption?.trim() || `${type === "receipt" ? "Receipt" : "Proof"} ${index + 1}`,
     src: a.url,
   }));
 const spanLabel = (list?: ShoppingList) =>
@@ -616,13 +616,14 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
 }
 
 // ═══ PO detail ════════════════════════════════════════════════════════════════
-function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: PurchaseOrder; suppliers: Supplier[]; onBack: () => void; reload: () => void }) {
+function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: PurchaseOrder; suppliers: Supplier[]; onBack: () => void; reload: () => Promise<void> }) {
   const [groupId, setGroupId] = useState<string | null>(null);
   const [orDraft, setOrDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [deletingImageId, setDeletingImageId] = useState<string | null>(null);
-  const [imageError, setImageError] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<Partial<Record<"receipt" | "proof", string>>>({});
+  const [imageStatus, setImageStatus] = useState<Partial<Record<"receipt" | "proof", string>>>({});
   const [actualError, setActualError] = useState<string | null>(null);
   const [useCalculatedTotal, setUseCalculatedTotal] = useState(true);
   const [receiptTotal, setReceiptTotal] = useState("");
@@ -670,7 +671,7 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
     if (!group) return false;
     setBusy(true);
     setActualError(null);
-    try { await updateVendorGroup(group.id, next); reload(); return true; }
+    try { await updateVendorGroup(group.id, next); await reload(); return true; }
     catch (error) { setActualError(error instanceof Error ? error.message : "Could not save vendor details."); return false; }
     finally { setBusy(false); }
   }
@@ -710,12 +711,15 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
   async function uploadGroupFiles(type: "receipt" | "proof", files: File[]) {
     if (!group || files.length === 0) return;
     setUploadingKey(`${group.id}:${type}`);
-    setImageError(null);
+    setImageError(current => ({ ...current, [type]: undefined }));
+    setImageStatus(current => ({ ...current, [type]: undefined }));
     try {
       await uploadVendorGroupAttachments(group.id, files, type);
-      reload();
+      await reload();
+      setImageStatus(current => ({ ...current, [type]: `${files.length} ${files.length === 1 ? "image uploaded" : "images uploaded"}.` }));
     } catch (e) {
-      setImageError(e instanceof Error ? e.message : "Upload failed.");
+      setImageError(current => ({ ...current, [type]: e instanceof Error ? e.message : "Upload failed." }));
+      throw e;
     } finally {
       setUploadingKey(null);
     }
@@ -726,12 +730,15 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
     const removed = (group.attachments ?? []).filter((a) => a.type === type && !keep.has(String(a.id)));
     if (removed.length === 0) return;
     setDeletingImageId(String(removed[0].id));
-    setImageError(null);
+    setImageError(current => ({ ...current, [type]: undefined }));
+    setImageStatus(current => ({ ...current, [type]: undefined }));
     try {
       await Promise.all(removed.map((a) => deleteAttachment(a.id)));
-      reload();
+      await reload();
+      setImageStatus(current => ({ ...current, [type]: "Image removed." }));
     } catch (e) {
-      setImageError(e instanceof Error ? e.message : "Delete failed.");
+      setImageError(current => ({ ...current, [type]: e instanceof Error ? e.message : "Delete failed." }));
+      throw e;
     } finally { setDeletingImageId(null); }
   }
 
@@ -751,7 +758,7 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
             <h3 className="text-lg font-extrabold text-warm-900">{group.supplier?.name ?? "Unspecified"}</h3>
             <div className="text-xs text-warm-400">Status: {group.status === "received" ? "Received" : "Pending"} · Total {peso(num(group.total_amount))}</div>
           </div>
-          {!locked && <Button variant="primary" onClick={() => void saveActuals(false)} loading={busy} disabled={!hasUnsavedChanges}>Save</Button>}
+          {!locked && <Button variant="primary" onClick={() => void saveActuals(false)} loading={busy} disabled={!hasUnsavedChanges || uploadingKey !== null || deletingImageId !== null}>Save</Button>}
         </div>
 
         <div className="rounded-2xl border border-warm-200 bg-white p-4 shadow-sm">
@@ -852,17 +859,8 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
           </div>
         </div>
 
-        {!receiptLocked && <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-warm-200 bg-white p-4">
-          <Button variant="primary" onClick={() => saveActuals(true)} loading={busy}
-            disabled={!group.evidence_requirements?.receipt_uploaded || !group.evidence_requirements?.proof_uploaded}>
-            Mark vendor received
-          </Button>
-          <span className="text-xs text-warm-500">Receipt and proof are required. OR number is not.</span>
-          {actualError && <span role="alert" className="text-xs font-semibold text-red-600">{actualError}</span>}
-        </div>}
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm">
+        <div className="grid min-w-0 grid-cols-1 items-start gap-5 lg:grid-cols-2">
+          <div className="min-w-0 rounded-2xl border border-warm-200 bg-white p-4 shadow-sm sm:p-5">
             <ImageUploadGallery
               images={attachmentImages(group.attachments, "receipt")}
               onImagesChange={(images) => syncImages("receipt", images)}
@@ -870,14 +868,15 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
               label="Receipt images" emptyText="No receipt images yet."
               uploading={uploadingKey === `${group.id}:receipt`}
               deletingImageId={deletingImageId}
-              error={imageError}
-              disabled={locked}
+              error={imageError.receipt}
+              disabled={locked || busy || uploadingKey !== null || deletingImageId !== null}
               maxBytes={5 * 1024 * 1024}
               allowedTypes={["image/jpeg", "image/png", "image/webp"]}
               maxFiles={2}
             />
+            {imageStatus.receipt && <p role="status" className="mt-3 text-xs text-warm-600">{imageStatus.receipt}</p>}
           </div>
-          <div className="bg-white border border-warm-200 rounded-2xl p-5 shadow-sm">
+          <div className="min-w-0 rounded-2xl border border-warm-200 bg-white p-4 shadow-sm sm:p-5">
             <ImageUploadGallery
               images={attachmentImages(group.attachments, "proof")}
               onImagesChange={(images) => syncImages("proof", images)}
@@ -885,14 +884,23 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
               label="Proof of purchase" emptyText="No proof photos yet."
               uploading={uploadingKey === `${group.id}:proof`}
               deletingImageId={deletingImageId}
-              error={imageError}
-              disabled={locked}
+              error={imageError.proof}
+              disabled={locked || busy || uploadingKey !== null || deletingImageId !== null}
               maxBytes={5 * 1024 * 1024}
               allowedTypes={["image/jpeg", "image/png", "image/webp"]}
               maxFiles={12}
             />
+            {imageStatus.proof && <p role="status" className="mt-3 text-xs text-warm-600">{imageStatus.proof}</p>}
           </div>
         </div>
+        {!receiptLocked && <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-warm-200 bg-white p-4">
+          <Button variant="primary" onClick={() => saveActuals(true)} loading={busy}
+            disabled={uploadingKey !== null || deletingImageId !== null || !group.evidence_requirements?.receipt_uploaded || !group.evidence_requirements?.proof_uploaded}>
+            Mark vendor received
+          </Button>
+          <span className="text-xs text-warm-500">Receipt and proof are required. OR number is not.</span>
+          {actualError && <span role="alert" className="text-xs font-semibold text-red-600">{actualError}</span>}
+        </div>}
         {vendorGuard.dialog}
       </div>
     );
@@ -979,8 +987,8 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
 
 function PoDetail({ id, suppliers, onBack }: { id: string; suppliers: Supplier[]; onBack: () => void }) {
   const [po, setPo] = useState<PurchaseOrder | null>(null);
-  const load = useCallback(() => { getPurchaseOrder(id).then(setPo); }, [id]);
-  useEffect(() => { load(); }, [load]);
+  const load = useCallback(async () => { setPo(await getPurchaseOrder(id)); }, [id]);
+  useEffect(() => { void load(); }, [load]);
   if (!po) return <SectionLoading label="Loading purchase order…" skeleton />;
   return <PurchaseEventDetailView po={po} suppliers={suppliers} onBack={onBack} reload={load} />;
 }

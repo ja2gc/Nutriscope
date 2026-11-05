@@ -1,5 +1,7 @@
 # NutriScope developer map
 
+Web uploads share `FileUploadField`; `ImageUploadGallery` owns thumbnails, `ImageViewer` owns image viewing, and `ImageFilePicker` owns single-logo selection. `RemoveButton` is shared with Menu Calendar/template actions. See [web controls](docs/developers/platform/web.md).
+
 Announcement audiences: `Announcement::audienceRoles()` owns legacy visibility fallback; the shared controller owns role-feed/image access and `NotificationService::fanOutAnnouncement` owns recipients. Both web composers reuse `AnnouncementAudienceSelect`. Source review: `1ba3d15f` plus the audience change, 2026-11-05; see [shared features](docs/developers/shared/README.md).
 
 PES incomplete-proposal/retry inspection: `AIService` permits concise clinical inference; `PesSuggestionService` retains known incomplete proposals as nonapprovable possible concerns and retries omitted/rejected candidates together. The diagnosis Generate action requests that retry even with pending drafts; read-only refresh retains cached results; see [AI](docs/developers/ncp/ai.md).
