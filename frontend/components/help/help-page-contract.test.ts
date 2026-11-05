@@ -32,7 +32,8 @@ describe("Help page contract", () => {
     const page = read("components/help/HelpPage.tsx");
     const questions = read("components/help/HelpQuestionList.tsx");
 
-    expect(page).toContain('htmlFor="help-search"');
+    expect(page).not.toContain('htmlFor="help-search"');
+    expect(read("components/ui/SearchInput.tsx")).toContain('htmlFor={id}');
     expect(page).toContain('id="help-search"');
     expect(page).toContain('aria-live="polite"');
     expect(page).toContain("HelpQuestionList");

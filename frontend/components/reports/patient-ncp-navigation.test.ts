@@ -49,7 +49,7 @@ describe("Patients NCP report navigation", () => {
     expect(browser).toContain("patient_menu_plan");
     expect(patientReports).toContain('instance.type === "ncp_summary" ? "NCP Summary" : "Nutrition Intervention Plan"');
     expect(patients).not.toContain("Choose a patient and ADIME cycle for its NCP Summary and Nutrition Intervention Plan.");
-    expect(help).toContain("Nutrition Intervention Plan and NCP Summary are blocked");
+    expect(help).not.toContain('id: "admin-reports"');
     expect(browser).not.toContain('name: "Patient Menu Plan"');
     expect(help).not.toContain("Patient Menu Plan");
   });

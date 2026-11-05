@@ -36,8 +36,7 @@ export default function LoginScreen() {
       const token: unknown = res.data?.token;
       if (typeof token !== 'string' || !token) {
         setError(
-          'Login endpoint did not return a mobile token. ' +
-          'Check that EXPO_PUBLIC_API_URL points to the Laravel API origin, not the web app proxy.'
+          'Sign-in could not finish. Try again. If it continues, contact your administrator.'
         );
         return;
       }
@@ -74,7 +73,7 @@ export default function LoginScreen() {
           <View className="bg-white px-6 py-7 border border-[#E0E9E4] rounded-[24px] shadow-sm">
             <View className="mb-6 border-b border-zinc-100 pb-4">
               <Text className="text-2xl font-extrabold text-[#16352B]">
-                Welcome back
+                Kitchen staff sign-in
               </Text>
             </View>
 

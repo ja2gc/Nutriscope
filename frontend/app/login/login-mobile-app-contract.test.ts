@@ -38,5 +38,6 @@ describe("login native-app entry contract", () => {
     expect(handoff).toContain("/downloads/nutriscope-fss.apk");
     expect(handoff).not.toContain("Install instructions");
     expect(handoff).toContain("Scan to download the NutriScope Android app");
+    expect(handoff).toContain("Kitchen staff");
   });
 });

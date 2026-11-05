@@ -5,6 +5,16 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 *.log
+.env*
+**/.env*
+credentials.json
+*.jks
+*.keystore
+*.key
+*.pem
+*.p12
+dist
+web-build
 
 backend
 frontend

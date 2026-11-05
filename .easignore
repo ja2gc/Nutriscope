@@ -28,5 +28,15 @@ docker-compose.prod.yml
 output
 tmp
 .aws
+.deploy
+.php-test
+**/credentials.json
+**/*.jks
+**/*.keystore
+**/*.key
+**/*.pem
+**/*.p12
+mobile/dist
+mobile/web-build
 .env*
 **/.env*

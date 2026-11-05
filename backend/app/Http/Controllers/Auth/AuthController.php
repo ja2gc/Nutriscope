@@ -63,14 +63,14 @@ class AuthController extends Controller
             $this->auditFailedLogin('Wrong sign-in platform');
             Auth::logout();
 
-            return response()->json(['message' => 'This app is for Food Service staff only.'], 403);
+            return response()->json(['message' => 'This app is for kitchen staff only.'], 403);
         }
 
         if (! $isApp && $user->isFss()) {
             $this->auditFailedLogin('Wrong sign-in platform');
             Auth::logout();
 
-            return response()->json(['message' => 'Food Service staff must sign in through the mobile app.'], 403);
+            return response()->json(['message' => 'Kitchen staff must sign in through the mobile app.'], 403);
         }
 
         // Revoke only tokens for this device, then issue a fresh one

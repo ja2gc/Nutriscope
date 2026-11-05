@@ -26,7 +26,8 @@ test('mobile Help contains only Shared and FSS guidance', () => {
   const content = read('lib/helpContent.ts');
 
   assert.match(content, /shared-forgot-password/);
-  assert.match(content, /fss-main-tabs/);
+  assert.match(content, /shared-first-login/);
+  assert.doesNotMatch(content, /id: 'fss-main-tabs'|id: 'shared-fss-platform'|id: 'fss-menu-read-only'/);
   assert.match(content, /fss-no-active-menu/);
   assert.match(content, /fss-camera-upload/);
   assert.doesNotMatch(content, /fss-inventory-update/);
@@ -56,8 +57,8 @@ test('mobile Help uses reusable accessible search and disclosures', () => {
 test('APK build identity increments the current signed release', () => {
   const appConfig = JSON.parse(read('app.json'));
 
-  assert.equal(appConfig.expo.version, '1.2.27');
-  assert.equal(appConfig.expo.android.versionCode, 31);
+  assert.equal(appConfig.expo.version, '1.2.28');
+  assert.equal(appConfig.expo.android.versionCode, 32);
   assert.deepEqual(appConfig.expo.platforms, ['android', 'ios']);
   assert.deepEqual(appConfig.expo.android.blockedPermissions, ['android.permission.RECORD_AUDIO']);
 });

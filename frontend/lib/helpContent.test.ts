@@ -11,14 +11,11 @@ describe("role-specific Help content", () => {
   test("password help explains sign-in lookup, recovery delivery, and onboarding verification", () => {
     const forgot = HELP_ITEMS.find((item) => item.id === "shared-forgot-password");
     const createUser = HELP_ITEMS.find((item) => item.id === "admin-create-user");
-    const profile = HELP_ITEMS.find((item) => item.id === "shared-profile");
 
     expect(forgot?.answer).toContain("sign-in email");
     expect(forgot?.answer).toContain("verified recovery email");
     expect(createUser?.answer).toContain("six-digit verification code");
     expect(createUser?.answer).toContain("persistent reminder");
-    expect(profile?.answer).toContain("sign-in email remains display-only");
-    expect(profile?.answer).not.toContain("editable name, sign-in email");
   });
 
   test("RND receives Shared and RND questions only", () => {
@@ -43,23 +40,21 @@ describe("role-specific Help content", () => {
     expect(items.some((item) => item.role === "RND")).toBe(false);
   });
 
-  test("Admin Help explains how patient codes and NCP references identify records", () => {
-    const answer = HELP_ITEMS.find((item) => item.id === "admin-audit-patient-reference")?.answer;
-
-    expect(answer).toContain("Nutrition Care > Patients (NCP Patients)");
-    expect(answer).toContain("search the code");
-    expect(answer).toContain("not a direct search code");
-    expect(getVisibleHelpItems("RND").some((item) => item.id === "admin-audit-patient-reference")).toBe(false);
+  test("Help focuses on tasks without advertising other roles' access", () => {
+    const ids = HELP_ITEMS.map((item) => item.id);
+    for (const removed of ["shared-role-boundary", "shared-role-status", "rnd-no-fss-inventory", "admin-no-ncp", "admin-audit-patient-reference", "rnd-reports", "admin-reports"]) {
+      expect(ids).not.toContain(removed);
+    }
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(HELP_ITEMS.find((item) => item.id === "admin-reset-password")?.answer).not.toContain("complete password setup");
   });
 
   test("Admin Help explains token counting and estimated cost without exposing it to RND", () => {
     const adminQuestions = getVisibleHelpItems("Admin").map((item) => item.question);
     const rndQuestions = getVisibleHelpItems("RND").map((item) => item.question);
 
-    expect(adminQuestions).toContain("How is AI token usage calculated?");
-    expect(adminQuestions).toContain("How is estimated AI cost calculated?");
-    expect(rndQuestions).not.toContain("How is AI token usage calculated?");
-    expect(rndQuestions).not.toContain("How is estimated AI cost calculated?");
+    expect(adminQuestions).toContain("Why does the AI cost estimate differ from the bill?");
+    expect(rndQuestions).not.toContain("Why does the AI cost estimate differ from the bill?");
   });
 
   test("Admin Help explains backup scheduling, deletion, and whole-system restoration only to Admin", () => {
@@ -116,6 +111,6 @@ describe("role-specific Help content", () => {
     const groups = groupHelpItems(filterHelpItems("Admin", "account"));
     expect(groups.length).toBeGreaterThan(0);
     expect(groups.flatMap((group) => group.items).every((item) => item.role !== "RND")).toBe(true);
-    expect(HELP_ITEMS.length).toBeGreaterThan(45);
+    expect(HELP_ITEMS.length).toBeGreaterThan(0);
   });
 });

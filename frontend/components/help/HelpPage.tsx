@@ -40,9 +40,9 @@ export function HelpPage({ role }: { role: WebHelpRole }) {
           <h2 id="help-search-heading" className="text-lg font-extrabold text-warm-900">
             What do you need help with?
           </h2>
-          <label htmlFor="help-search" className="mt-4 block text-sm font-semibold text-warm-700">
+          <p className="mt-4 text-sm font-semibold text-warm-700">
             Search Help
-          </label>
+          </p>
           <SearchInput id="help-search" className="mt-1.5" label="Search Help" value={query} onChange={setQuery} />
           <p aria-live="polite" className="mt-2 text-sm font-medium text-warm-500">
             {normalizedQuery
