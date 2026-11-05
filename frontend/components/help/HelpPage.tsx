@@ -54,7 +54,7 @@ export function HelpPage({ role }: { role: WebHelpRole }) {
 
       {!normalizedQuery && popular.length > 0 && (
         <section aria-labelledby="popular-help-heading" className="overflow-hidden rounded-2xl border border-warm-200 bg-white shadow-sm">
-          <div className="border-b border-warm-100 bg-warm-50 px-4 py-3.5 sm:px-5">
+          <div className="border-b border-warm-200 bg-warm-100 px-4 py-3.5 sm:px-5">
             <h2 id="popular-help-heading" className="text-base font-extrabold text-warm-900">
               Popular questions
             </h2>
@@ -71,7 +71,7 @@ export function HelpPage({ role }: { role: WebHelpRole }) {
               aria-labelledby={`help-group-${slug(group.category)}`}
               className="overflow-hidden rounded-2xl border border-warm-200 bg-white shadow-sm"
             >
-              <div className="border-b border-warm-100 bg-warm-50 px-4 py-3.5 sm:px-5">
+              <div className="border-b border-warm-200 bg-warm-100 px-4 py-3.5 sm:px-5">
                 <h2 id={`help-group-${slug(group.category)}`} className="text-base font-extrabold text-warm-900">
                   {group.category}
                 </h2>

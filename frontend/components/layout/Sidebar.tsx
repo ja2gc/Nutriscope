@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -30,7 +30,45 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
-  const [collapsed, setCollapsed] = useState(false);
+  const [desktopCollapsed, setCollapsed] = useState(false);
+  const [mobile, setMobile] = useState(false);
+  const collapsed = desktopCollapsed && !mobile;
+  const drawer = useRef<HTMLElement>(null);
+  const closeButton = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const viewport = window.matchMedia("(min-width: 48rem)");
+    const updateViewport = () => setMobile(!viewport.matches);
+    updateViewport();
+    viewport.addEventListener("change", updateViewport);
+    return () => viewport.removeEventListener("change", updateViewport);
+  }, []);
+
+  useEffect(() => {
+    if (!mobile || !open) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    closeButton.current?.focus();
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose?.();
+      if (event.key !== "Tab" || !drawer.current) return;
+      const focusable = Array.from(drawer.current.querySelectorAll<HTMLElement>("button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex='-1'])"))
+        .filter(element => !element.closest("[inert]") && element.getClientRects().length > 0);
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (event.shiftKey && document.activeElement === first && last) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last && first) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      previousFocus?.focus();
+    };
+  }, [mobile, open, onClose]);
 
   const [ncpExpanded, setNcpExpanded] = useState(false);
   const [foodServiceExpanded, setFoodServiceExpanded] = useState(false);
@@ -134,6 +172,7 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
             : "text-warm-400 hover:bg-white/5 hover:text-white"
         }`}
         title={collapsed ? label : undefined}
+        onClick={() => onClose?.()}
       >
         <Icon className={`h-4.5 w-4.5 shrink-0 ${active ? "text-brand-green-400" : "text-warm-500"}`} />
         {!collapsed && <span>{label}</span>}
@@ -154,12 +193,18 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
     <>
       {/* Mobile backdrop */}
       <div
+        aria-hidden="true"
         className={`md:hidden fixed inset-0 z-[55] bg-black/50 transition-opacity duration-200 ${
           open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
         onClick={onClose}
       />
       <aside
+        ref={drawer}
+        inert={mobile && !open}
+        role={mobile && open ? "dialog" : undefined}
+        aria-modal={mobile && open ? true : undefined}
+        aria-label="Main navigation"
         className={`bg-forest-900 border-r border-forest-line flex flex-col transition-all duration-200 ease-in-out select-none
           fixed inset-y-0 left-0 z-[60] w-64
           md:relative md:inset-auto md:z-auto md:min-h-screen md:shrink-0
@@ -194,6 +239,15 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
               </button>
             </>
           )}
+          <button
+            ref={closeButton}
+            type="button"
+            onClick={onClose}
+            aria-label="Close navigation"
+            className="md:hidden flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green-400"
+          >
+            <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+          </button>
         </div>
 
         {/* Nav List */}
@@ -201,7 +255,7 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
           {user?.role === "Admin" ? (
             /* ================= ADMIN SIDENAV ================= */
             <>
-              {navLink("/admin/dashboard", true,  "Admin Dashboard",  Compass)}
+              {navLink("/admin/dashboard", true,  "Dashboard",  Compass)}
               {navLink("/admin/announcements", false, "Announcements", Megaphone)}
               {navLink("/admin/users",         false, "Manage Users",  Users)}
               {navLink("/admin/reports",       false, "Reports",       TrendingUp)}
@@ -222,6 +276,7 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
               <div className="space-y-1">
                 <button
                   onClick={toggleNcp}
+                  aria-expanded={isNcpMenuOpen && !collapsed}
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold uppercase tracking-wider transition-all duration-150 cursor-pointer ${
                     isNcpGroupActive
                       ? "bg-white/8 text-white font-bold border-l-2 border-brand-green-400"
@@ -243,6 +298,7 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
                 </button>
 
                 <div
+                  inert={!isNcpMenuOpen || collapsed}
                   className={`transition-all duration-200 ease-in-out overflow-hidden pl-7.5 space-y-1 ${
                     isNcpMenuOpen && !collapsed ? "max-h-60 opacity-100 py-1" : "max-h-0 opacity-0 pointer-events-none"
                   }`}
@@ -260,6 +316,7 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
                         key={label}
                         href={href}
                         prefetch={hasRealNcpCycle && label !== "Patients" ? true : undefined}
+                        onClick={() => onClose?.()}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider transition-all duration-150 ${
                           active ? "text-brand-green-300 font-extrabold" : "text-warm-500 hover:text-warm-300"
                         }`}
@@ -276,6 +333,7 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
               <div className="space-y-1">
                 <button
                   onClick={toggleFoodService}
+                  aria-expanded={isFoodServiceMenuOpen && !collapsed}
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-semibold uppercase tracking-wider transition-all duration-150 cursor-pointer ${
                     isFoodServiceGroupActive
                       ? "bg-white/8 text-white font-bold border-l-2 border-brand-green-400"
@@ -297,6 +355,7 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
                 </button>
 
                 <div
+                  inert={!isFoodServiceMenuOpen || collapsed}
                   className={`transition-all duration-200 ease-in-out overflow-hidden pl-7.5 space-y-1 ${
                     isFoodServiceMenuOpen && !collapsed ? "max-h-96 opacity-100 py-1" : "max-h-0 opacity-0 pointer-events-none"
                   }`}
@@ -312,6 +371,7 @@ export function Sidebar({ open = false, onClose }: { open?: boolean; onClose?: (
                       <Link
                         key={label}
                         href={href}
+                        onClick={() => onClose?.()}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider transition-all duration-150 ${
                           active ? "text-brand-green-300 font-extrabold" : "text-warm-500 hover:text-warm-300"
                         }`}

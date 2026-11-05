@@ -7,11 +7,9 @@ describe("recovery email removal", () => {
     const profile = readFileSync(join(process.cwd(), "components/profile/ProfilePageShell.tsx"), "utf8");
 
     expect(profile).toContain("Current Recovery Email");
-    expect(profile).toContain("No verified recovery email");
-    expect(profile).toContain("Pending verification");
-    expect(profile).toContain('user?.recovery_email_verified ? "New Recovery Email" : "Recovery Email"');
+    expect(profile).not.toContain("Pending verification:");
+    expect(profile).toContain('hasRecoveryEmail ? "New Recovery Email" : "Recovery Email"');
     expect(profile).toContain('user.pending_recovery_email ?? (user.recovery_email_verified ? "" : user.recovery_email ?? "")');
-    expect(profile).toContain('const [editingRecoveryEmail, setEditingRecoveryEmail] = useState(false)');
     expect(profile).toContain("Change Recovery Email");
     expect(profile).toContain("Add Recovery Email");
     expect(profile).toContain("Cancel");

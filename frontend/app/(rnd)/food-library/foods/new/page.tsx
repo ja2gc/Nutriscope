@@ -92,7 +92,6 @@ export default function NewFoodPage() {
             <Database className="h-5 w-5 text-emerald-600" />
             Add Food to Library
           </h2>
-          <p className="text-sm text-warm-500 mt-1 select-none">Manually add a food item not found in USDA FoodData Central.</p>
         </div>
       </div>
 

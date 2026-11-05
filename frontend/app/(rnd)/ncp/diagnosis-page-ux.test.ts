@@ -11,7 +11,8 @@ describe("NCP explicit save and diagnosis UX", () => {
     expect(page).toContain("splitDiagnosisComponent(d.etiology");
     expect(page).toContain("splitDiagnosisComponent(d.signs_symptoms");
     expect(page).toContain("builder_data: s.builder_data");
-    expect(page).toContain("> Edit");
+    expect(page).toContain("onClick={() => handleAiEdit(s)}");
+    expect(page).toContain("review ? 'Review and edit' : 'Edit'");
     expect(page).not.toContain("Edit then Accept");
     expect(page).not.toContain("candidateBuilderSelections(s.candidate_id)");
     expect(page).toContain("b.aiDraftId = s.draft_id");
@@ -39,13 +40,13 @@ describe("NCP explicit save and diagnosis UX", () => {
     expect(page).not.toContain(">Source</span>");
     expect(page).not.toContain("s.source.url");
     expect(page).not.toContain("Cached for this unchanged Assessment");
-    expect(page).toContain("No supported evidence left.");
+    expect(page).toContain("No additional nutrition diagnosis found.");
     expect(page).toContain("External AI drafts are unavailable");
     expect(page).toContain("dismissPesSuggestion");
     expect(page).toContain("> Dismiss");
     expect(page).toContain("Generate AI Suggestions");
     expect(page).not.toContain("<Sparkles");
-    expect(page).toContain("paginateAiDrafts(aiSuggestions, aiDraftsPage)");
+    expect(page).toContain("paginateAiDrafts(drafts, review ? 1 : aiDraftsPage)");
     expect(page).toContain("meta={aiDraftsMeta}");
     expect(page).not.toContain("% confidence");
     expect(page).not.toContain("conditions.push");

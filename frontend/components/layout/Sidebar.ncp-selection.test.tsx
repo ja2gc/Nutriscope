@@ -33,8 +33,17 @@ import { fetchPatientNcpRecords } from "@/services/patientService";
 describe("selected NCP patient navigation", () => {
   let container: HTMLDivElement;
   let root: Root;
+  let desktop: boolean;
+  let viewportChanged: (() => void) | undefined;
 
   beforeEach(() => {
+    desktop = true;
+    viewportChanged = undefined;
+    vi.stubGlobal("matchMedia", vi.fn(() => ({
+      get matches() { return desktop; },
+      addEventListener: (_event: string, listener: () => void) => { viewportChanged = listener; },
+      removeEventListener: vi.fn(),
+    })));
     pathname = "/ncp/patient-uuid/assessment/ncp-uuid";
     userId = 7;
     authenticated = true;
@@ -50,6 +59,7 @@ describe("selected NCP patient navigation", () => {
     await act(async () => root.unmount());
     container.remove();
     sessionStorage.clear();
+    vi.unstubAllGlobals();
   });
 
   async function renderSidebar() {
@@ -59,6 +69,47 @@ describe("selected NCP patient navigation", () => {
   function stepHref(label: string) {
     return [...container.querySelectorAll("a")].find((a) => a.textContent?.trim() === label)?.getAttribute("href");
   }
+
+  it("shows full mobile labels after the desktop sidebar was collapsed", async () => {
+    pathname = "/help";
+    await renderSidebar();
+    await act(async () => container.querySelector<HTMLButtonElement>('[title="Collapse sidebar"]')!.click());
+    expect(container.querySelector('a[href="/dashboard"]')?.textContent).not.toContain("Dashboard");
+    desktop = false;
+    await act(async () => viewportChanged?.());
+    await act(async () => root.render(<Sidebar open onClose={vi.fn()} />));
+    expect(container.querySelector('a[href="/dashboard"]')?.textContent).toContain("Dashboard");
+    expect(container.querySelector('[aria-label="Close navigation"]')).not.toBeNull();
+  });
+
+  it("makes the closed mobile drawer inert without disabling desktop navigation", async () => {
+    desktop = false;
+    await renderSidebar();
+    expect(container.querySelector("aside")?.hasAttribute("inert")).toBe(true);
+    desktop = true;
+    await act(async () => viewportChanged?.());
+    expect(container.querySelector("aside")?.hasAttribute("inert")).toBe(false);
+  });
+
+  it("focuses the mobile close arrow, supports Escape and restores the opener", async () => {
+    desktop = false;
+    const onClose = vi.fn();
+    const opener = document.createElement("button");
+    document.body.append(opener);
+    opener.focus();
+    await act(async () => root.render(<Sidebar open onClose={onClose} />));
+    const close = container.querySelector<HTMLButtonElement>('[aria-label="Close navigation"]');
+    expect(close).not.toBeNull();
+    expect(document.activeElement).toBe(close);
+    await act(async () => close?.click());
+    expect(onClose).toHaveBeenCalledOnce();
+    onClose.mockClear();
+    await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true})));
+    expect(onClose).toHaveBeenCalledOnce();
+    await act(async () => root.render(<Sidebar onClose={onClose} />));
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
+  });
 
   it("fully prefetches only real selected-cycle navigation", async () => {
     await renderSidebar();

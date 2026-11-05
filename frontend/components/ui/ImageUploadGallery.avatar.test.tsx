@@ -4,7 +4,17 @@ import { describe, expect, it } from "vitest";
 import { ImageUploadGallery } from "./ImageUploadGallery";
 
 describe("ImageUploadGallery avatar layout", () => {
-  it("clips the image in an inner circle without clipping the remove button", () => {
+  it("makes the photo itself an accessible edit trigger without a separate upload control", () => {
+    const markup = renderToStaticMarkup(<ImageUploadGallery
+      images={[{ id: "photo", name: "Profile photo", src: "/current-photo.png" }]}
+      onImagesChange={() => undefined} variant="avatar" uploadLabel="Change profile picture"
+    />);
+    expect(markup).toContain('aria-label="Edit profile picture"');
+    expect(markup).toContain('src="/current-photo.png"');
+    expect(markup).not.toContain("Change profile picture");
+  });
+
+  it("clips the image inside the circular edit trigger", () => {
     const markup = renderToStaticMarkup(
       <ImageUploadGallery
         images={[{ id: "photo", name: "Profile photo", src: "data:image/png;base64,AA==" }]}
@@ -18,6 +28,5 @@ describe("ImageUploadGallery avatar layout", () => {
     expect(markup).toMatch(/data-avatar-wrapper="true"[^>]*class="[^"]*relative[^"]*"/);
     expect(markup).not.toMatch(/data-avatar-wrapper="true"[^>]*class="[^"]*overflow-hidden[^"]*"/);
     expect(markup).toMatch(/data-avatar-crop="true"[^>]*class="[^"]*overflow-hidden[^"]*rounded-full[^"]*"/);
-    expect(markup).toMatch(/aria-label="Remove Profile photo"[^>]*class="[^"]*z-20[^"]*"/);
   });
 });

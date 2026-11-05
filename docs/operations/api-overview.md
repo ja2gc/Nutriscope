@@ -28,6 +28,15 @@ Subsequent direct requests send `Accept: application/json` and `Authorization: B
 
 Sources: [login validation](../../backend/app/Http/Requests/Auth/LoginRequest.php), [auth controller](../../backend/app/Http/Controllers/Auth/AuthController.php), [web login](../../frontend/app/api/auth/login/route.ts), [User resource](../../backend/app/Http/Resources/UserResource.php).
 
+Recovery-email routes require an authenticated active account and use the password-reset throttle. [RecoveryEmailController](../../backend/app/Http/Controllers/Auth/RecoveryEmailController.php) scopes each operation to the caller:
+
+| Method and backend path | Purpose |
+|---|---|
+| `PATCH /api/auth/recovery-email` | Validate the new address and send a six-digit code; preserve an existing verified address until verification succeeds |
+| `POST /api/auth/recovery-email/verify` | Verify the code and activate the replacement |
+| `DELETE /api/auth/recovery-email/pending` | Discard the unfinished replacement and invalidate its code; preserve the verified address and onboarding flags; clear an initial unverified address |
+| `DELETE /api/auth/recovery-email` | Explicitly remove the current address and restore the recovery-email setup requirement |
+
 ## Endpoint families
 
 All paths below are Laravel paths, before the external `/mobile-api` prefix.

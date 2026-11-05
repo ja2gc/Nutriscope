@@ -24,7 +24,7 @@ Admin uses the web console. The Admin layout redirects non-Admin users to the RN
 
 | Navigation | Current purpose |
 |---|---|
-| Admin Dashboard | System KPIs, AI usage/cost/caps, quick actions, recent activity |
+| Dashboard | System KPIs, AI usage/cost/caps, quick actions, recent activity |
 | Announcements | Admin announcement board and current/versioned SOP |
 | Manage Users | Account CRUD, role/status, password reset, onboarding creation |
 | Reports | Allowed operational and aggregate reports |

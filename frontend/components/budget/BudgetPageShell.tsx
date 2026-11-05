@@ -366,7 +366,6 @@ export function BudgetPageShell({ apiPrefix, canMutate, crumbs }: BudgetPageShel
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-extrabold text-warm-800">Budget</h1>
-            <p className="text-base text-warm-400 mt-1">Fiscal year allocation and shared budget ledger</p>
           </div>
           {years.length > 0 && (
             <YearSelector years={years} selected={selectedYear} onChange={(y) => { setSelectedYear(y); }} />

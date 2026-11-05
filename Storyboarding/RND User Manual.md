@@ -12,6 +12,8 @@ Use this manual for routine work and staff training. Start with the prerequisite
 
 Use the institution's NutriScope website with an active **RND** account. Complete account setup, read the current SOP and confirm your authorized responsibilities. If you are presenting or practicing, use a separate training installation with fictional records; the steps below are the same work instructions used in normal operation.
 
+On a narrow screen, select **Open navigation** in the top bar. The sidebar shows the full menu; use its top arrow (**Close navigation**), select a destination, tap outside it or press **Escape** to close it. Open **My Profile** through the top-right profile button; account details, recovery email and password appear as sections on one scrolling page.
+
 ### One-time and prerequisite setup
 
 | Feature you want to use | Prepare first | Where to navigate and what to save |
@@ -103,13 +105,19 @@ Detail/profile pages open from their parent list, item card or selected menu slo
 5. **Do later** defers setup. After deferral, the reminder stays until both the password and recovery-email requirements are finished. Select **Open settings** on the reminder to continue in Profile.
 6. Confirm your name in Profile; reports and audit attribution use it. Keep temporary credentials and verification codes private.
 
+### Edit account details and photo
+
+1. Open **Profile** using the top-right profile button. Select **Edit Profile** (**Edit** on narrow screens) to change your name or contact number.
+2. The photo shows your saved picture, or your name's first letter if no picture is saved. Click the circle or its camera badge, then select **Choose profile picture** or **Change profile picture**. Choose a JPEG, PNG or WebP image up to 2 MB, drag/zoom the circular crop and select **Apply crop**. The account editor opens with the new preview.
+3. Review the changes, then select **Save Changes**. To remove a saved picture, open its photo menu and select **Delete profile picture**; the preview returns to your initial and you must save to confirm. **Cancel** discards unsaved details and photo changes. Sign-in email and role are display-only.
+
 ### Add, replace or remove recovery email
 
-1. Open **Profile** from the account menu, then choose **Add Recovery Email** or **Change Recovery Email**.
-2. Enter the intended inbox and select **Send Code**. Enter the newest six-digit code within 10 minutes, then select **Verify Recovery Email**.
-3. Check that the address is verified before leaving. When replacing an address, the old verified inbox continues receiving password resets until the new one is verified.
-4. Removing recovery email disables reset emails until another address is verified and brings back the persistent setup reminder. Verify a replacement promptly.
-5. To change a known password in Profile, enter the current password and enter/confirm the new one. Sign in again after the change.
+1. Open **Profile**. The **Recovery email** section shows the current address, or **Not set**. Select **Add** when no address is set; otherwise select **Edit → Change**. The help icon beside the heading explains verification.
+2. Enter the new inbox and select **Send Verification Code** (**Send code** on narrow screens). If validation or sending fails, correct the error in the email form. After a successful send, the email field is replaced by **Verification Code**. Open the inbox, enter the newest six-digit code within 10 minutes, then select **Verify Recovery Email** (**Verify** on narrow screens).
+3. The section returns to the address display after success. The old inbox remains active until the replacement is verified. **Cancel** discards the unfinished replacement, invalidates its code and returns to the original address; it does not remove the current address. If the code expires, cancel and start again to request a new one.
+4. To remove the current address, select **Edit → Remove** and confirm. Remove is offered before starting a replacement. Removal disables reset emails until another address is verified and brings back the persistent setup reminder. Verify a replacement promptly.
+5. To change a known password, select **Change Password** (**Change** on narrow screens), enter the current password and enter/confirm the new one, then select **Update Password** (**Save** on narrow screens). Sign in again after the change.
 
 ### Forgot password or missing reset email
 

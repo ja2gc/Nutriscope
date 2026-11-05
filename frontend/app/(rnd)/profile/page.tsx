@@ -7,7 +7,6 @@ export default function ProfilePage() {
     <ProfilePageShell
       crumbs={[["Home", "/dashboard"], ["Profile"]]}
       fallbackRole="RND"
-      subtitle="Update your account details. Your name is what appears as Prepared by on reports you file."
     />
   );
 }

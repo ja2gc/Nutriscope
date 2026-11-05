@@ -26,6 +26,17 @@ describe("shared application shell contract", () => {
     expect(sidebar).toContain("await logout()");
   });
 
+  test("uses the full sidebar from the mobile header without a bottom navigation bar", () => {
+    for (const layoutPath of ["app/(rnd)/layout.tsx", "app/admin/layout.tsx"]) {
+      const layout = source(layoutPath);
+
+      expect(layout).toContain("<Sidebar open={sidebarOpen}");
+      expect(layout).toContain("<TopBar onMenuClick={() => setSidebarOpen(true)} />");
+      expect(layout).not.toContain("MobileBottomNav");
+      expect(layout).not.toContain("pb-24");
+    }
+  });
+
   test("does not render decorative page-title icons", () => {
     const pageHeader = source("components/ui/PageHeader.tsx");
 

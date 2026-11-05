@@ -109,7 +109,6 @@ export default function SettingsPage() {
         crumbs={[["Home", "/dashboard"], ["Settings"]]}
         title="Settings"
         icon={<Cog className="h-5 w-5 text-brand-green-600" />}
-        subtitle="Display preferences are saved on this device. Account details live on your Profile."
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">

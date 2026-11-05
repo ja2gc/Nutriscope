@@ -7,10 +7,11 @@ import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from "@/compone
 type InfoHintProps = {
   label: string;
   title?: string;
+  className?: string;
   children: ReactNode;
 };
 
-export function InfoHint({ label, title, children }: InfoHintProps) {
+export function InfoHint({ label, title, className = "", children }: InfoHintProps) {
   const [open, setOpen] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -38,7 +39,7 @@ export function InfoHint({ label, title, children }: InfoHintProps) {
           onFocus={keepOpen}
           onBlur={closeSoon}
           onClick={(event) => { event.preventDefault(); keepOpen(); }}
-          className="inline-flex h-6 w-6 shrink-0 items-center justify-center text-warm-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40"
+          className={`inline-flex h-6 w-6 shrink-0 items-center justify-center text-warm-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 ${className}`}
         >
           <CircleHelp className="h-4 w-4" aria-hidden="true" />
         </button>

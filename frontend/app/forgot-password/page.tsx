@@ -44,12 +44,6 @@ export default function ForgotPasswordPage() {
               <Mail className="h-4 w-4 text-emerald-600" />
               Reset Password
             </h1>
-            <p className="mt-1 text-sm text-warm-500">
-              Enter your sign-in email to request a password reset.
-            </p>
-            <p className="mt-2 text-xs leading-relaxed text-warm-400">
-              We will send the reset link to the verified recovery email saved for that account.
-            </p>
           </div>
 
           <form onSubmit={submit} className="space-y-4">
@@ -72,6 +66,9 @@ export default function ForgotPasswordPage() {
               disabled={loading}
               autoComplete="email"
             />
+            <p className="text-xs leading-relaxed text-warm-400">
+              We will send the reset link to the verified recovery email saved for that account.
+            </p>
             <Button type="submit" loading={loading} fullWidth>
               Send Reset Link
             </Button>

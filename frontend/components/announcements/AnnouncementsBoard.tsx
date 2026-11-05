@@ -69,11 +69,8 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
   const apiUpdate = isAdmin ? updateAdminAnnouncement : updateAnnouncement;
   const apiDelete = isAdmin ? deleteAdminAnnouncement : deleteAnnouncement;
 
-  // Breadcrumb and permission guidance differ per variant.
+  // Breadcrumb differs per variant.
   const breadcrumbRoot = isAdmin ? "Admin" : "Home";
-  const subtitle = isAdmin
-    ? "Admin announcements can be pinned and sent to selected roles."
-    : null;
 
   const { user } = useAuth();
   const [posts, setPosts] = useState<Announcement[]>([]);
@@ -537,7 +534,6 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
           <h2 className="text-xl font-extrabold text-warm-900 tracking-tight">
             Announcements
           </h2>
-          {subtitle && <p className="text-sm text-warm-500 mt-1 select-none">{subtitle}</p>}
         </div>
         <Button
           variant="primary"

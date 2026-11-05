@@ -64,7 +64,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "Shared",
     category: "Account & Access",
     question: "How do I add or change my recovery email?",
-    answer: "Open Profile > Add Recovery Email or Change Recovery Email, enter an inbox you can access, and choose Send Code. Enter the six-digit code and choose Verify Recovery Email. Codes expire after 10 minutes; after requesting another, use the newest code. Your previous verified address stays in use until the replacement is verified. Removing recovery disables password-reset emails until another address is verified.",
+    answer: "Open Profile. Beside Recovery email, choose Add if no address is set, or Edit > Change to replace it. Enter an inbox you can access and choose Send Verification Code (Send code on narrow screens). The code field appears after a successful send; enter the six-digit code within 10 minutes and choose Verify Recovery Email (Verify on narrow screens). Cancel discards the replacement and keeps the current address. To remove the current address, use Edit > Remove and confirm. Password-reset emails are unavailable until another recovery address is verified.",
     keywords: ["login email", "forgot password", "verification"],
   },
   {
@@ -72,7 +72,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "Shared",
     category: "Account & Access",
     question: "How do I change my password while signed in?",
-    answer: "Open Profile, enter the current password, then enter and confirm a new password of at least eight characters. If the current password is unknown, use password recovery or contact Admin.",
+    answer: "Open Profile and choose Change Password (Change on narrow screens). Enter the current password, then enter and confirm a new password of at least eight characters. Choose Update Password (Save on narrow screens). If the current password is unknown, use password recovery or contact Admin.",
     keywords: ["security", "profile", "eight characters"],
   },
   {

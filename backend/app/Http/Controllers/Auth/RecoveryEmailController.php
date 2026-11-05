@@ -116,6 +116,32 @@ class RecoveryEmailController extends Controller
         ]);
     }
 
+    public function cancelPending(): JsonResponse
+    {
+        $this->auditLogger->assertAvailable();
+        $user = DB::transaction(function (): User {
+            $user = request()->user()->newQuery()->lockForUpdate()->findOrFail(request()->user()->getKey());
+            $hasVerifiedEmail = $user->recovery_email_verified_at !== null;
+            if (! $user->pending_recovery_email && ! $user->recovery_email_verification_code && ($hasVerifiedEmail || ! $user->recovery_email)) {
+                return $user;
+            }
+            $user->forceFill([
+                'recovery_email' => $hasVerifiedEmail ? $user->recovery_email : null,
+                'pending_recovery_email' => null,
+                'recovery_email_verification_code' => null,
+                'recovery_email_verification_expires_at' => null,
+            ])->save();
+            $this->recordRecoveryEmailChange($user, [$hasVerifiedEmail ? 'pending_recovery_email' : 'recovery_email']);
+
+            return $user;
+        });
+
+        return response()->json([
+            'message' => 'Recovery email change cancelled.',
+            'user' => new UserResource($user),
+        ]);
+    }
+
     public function destroy(): JsonResponse
     {
         $user = request()->user();
@@ -141,7 +167,7 @@ class RecoveryEmailController extends Controller
         ]);
     }
 
-    private function recordRecoveryEmailChange(User $user): void
+    private function recordRecoveryEmailChange(User $user, array $fields = ['recovery_email']): void
     {
         $this->auditLogger->record(
             AuditAction::Updated,
@@ -150,7 +176,7 @@ class RecoveryEmailController extends Controller
             subject: $user,
             details: [
                 'subject_label' => 'Recovery email',
-                'changed_fields' => ['recovery_email'],
+                'changed_fields' => $fields,
                 'subject_public_id' => $user->uuid,
             ],
             actor: $user,

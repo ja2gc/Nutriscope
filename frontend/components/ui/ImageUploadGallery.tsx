@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Upload, X } from "lucide-react";
+import React, { useMemo, useRef, useState } from "react";
+import { Camera, ChevronLeft, ChevronRight, Upload, X } from "lucide-react";
 import { validateUploadFiles } from "@/lib/uploadValidation";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 export type UploadImage = {
   id: string;
@@ -133,6 +134,7 @@ export function ImageUploadGallery({
   variant = "default",
   uploadLabel,
   removeLabel,
+  avatarFallback,
   maxBytes = 5 * 1024 * 1024,
   allowedTypes = ["image/jpeg", "image/png", "image/webp"],
   maxFiles = 15,
@@ -150,6 +152,7 @@ export function ImageUploadGallery({
   variant?: "default" | "avatar";
   uploadLabel?: string;
   removeLabel?: string;
+  avatarFallback?: React.ReactNode;
   maxBytes?: number;
   allowedTypes?: readonly string[];
   maxFiles?: number;
@@ -160,6 +163,8 @@ export function ImageUploadGallery({
   const isAvatar = variant === "avatar";
   const hasMany = !isAvatar && images.length > 1;
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
 
   const inputId = useMemo(() => `image-upload-${label.toLowerCase().replace(/\W+/g, "-")}`, [label]);
 
@@ -173,6 +178,7 @@ export function ImageUploadGallery({
       );
       if (!validation.valid) {
         setValidationError(validation.error);
+        if (isAvatar) setAvatarMenuOpen(true);
         return;
       }
       setValidationError(null);
@@ -199,24 +205,59 @@ export function ImageUploadGallery({
     setActiveIndex((current) => (current + offset + images.length) % images.length);
   }
 
-  return (
-    <div className="space-y-2">
-      <label htmlFor={inputId} className="text-xs font-semibold text-warm-500 uppercase tracking-wider">
-        {label}
-      </label>
-      <input
-        id={inputId}
-        type="file"
-        accept={allowedTypes.join(",")}
-        multiple={!isAvatar}
-        disabled={disabled || uploading}
-        onChange={(event) => { void handleFileChange(event); }}
-        className="sr-only"
-      />
+  const input = <input
+    ref={fileInput}
+    id={inputId}
+    type="file"
+    accept={allowedTypes.join(",")}
+    multiple={!isAvatar}
+    disabled={disabled || uploading}
+    tabIndex={isAvatar ? -1 : undefined}
+    aria-hidden={isAvatar || undefined}
+    onChange={(event) => { void handleFileChange(event); }}
+    className="peer sr-only"
+  />;
+
+  if (isAvatar) {
+    return <div className="shrink-0">
+      {input}
+      <Popover open={avatarMenuOpen} onOpenChange={setAvatarMenuOpen}>
+        <PopoverTrigger asChild>
+          <button type="button" aria-label="Edit profile picture" disabled={disabled || uploading}
+            data-avatar-wrapper="true"
+            className="relative block h-12 w-12 rounded-full bg-warm-100 transition-shadow hover:ring-2 hover:ring-brand-green-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green-500 disabled:opacity-50 sm:h-20 sm:w-20">
+            <span data-avatar-crop="true" className="flex h-full w-full items-center justify-center overflow-hidden rounded-full border border-warm-200 text-2xl font-bold text-brand-green-800">
+              {activeImage ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={activeImage.src} alt={activeImage.name} className="block h-full w-full object-cover" />
+              ) : avatarFallback ?? emptyText}
+            </span>
+            <span aria-hidden="true" className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-forest-900 text-white">
+              <Camera className="h-3.5 w-3.5" />
+            </span>
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="start" sideOffset={8} className="w-[min(16rem,calc(100vw-2rem))] p-1">
+          <button type="button" onClick={() => { setAvatarMenuOpen(false); fileInput.current?.click(); }}
+            className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold text-warm-700 hover:bg-warm-50 focus-visible:bg-warm-50 focus-visible:outline-none">
+            <Upload aria-hidden="true" className="h-4 w-4 shrink-0" />{uploadLabel ?? "Choose profile picture"}
+          </button>
+          {activeImage && <button type="button" disabled={deletingImageId === activeImage.id}
+            onClick={() => { setAvatarMenuOpen(false); void removeImage(activeIndex); }}
+            className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold text-red-700 hover:bg-red-50 focus-visible:bg-red-50 focus-visible:outline-none">
+            <X aria-hidden="true" className="h-4 w-4 shrink-0" />{removeLabel ?? `Remove ${activeImage.name}`}
+          </button>}
+          {(error ?? validationError) && <p role="alert" className="px-3 py-2 text-xs font-semibold text-red-700">{error ?? validationError}</p>}
+        </PopoverContent>
+      </Popover>
+    </div>;
+  }
+
+  const uploadControl = (
       <label
         htmlFor={disabled || uploading ? undefined : inputId}
         aria-disabled={disabled || uploading}
-        className={`inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${
+        className={`inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-wider transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-emerald-500/40 ${
           disabled || uploading
             ? "cursor-not-allowed border-warm-200 bg-warm-100 text-warm-400"
             : "cursor-pointer border-forest-900 bg-forest-900 text-white hover:bg-forest-800"
@@ -225,6 +266,15 @@ export function ImageUploadGallery({
         <Upload className="h-3.5 w-3.5" />
         {uploading ? "Uploading..." : (uploadLabel ?? "Upload image")}
       </label>
+  );
+
+  return (
+    <div className="space-y-2">
+      <label htmlFor={inputId} className="text-xs font-semibold text-warm-500 uppercase tracking-wider">
+        {label}
+      </label>
+      {input}
+      {uploadControl}
       {(error ?? validationError) && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
           {error ?? validationError}
@@ -233,27 +283,15 @@ export function ImageUploadGallery({
 
       {activeImage ? (
         <div
-          data-avatar-wrapper={isAvatar ? "true" : undefined}
-          className={`relative bg-white ${
-            isAvatar ? "mx-auto h-36 w-36" : "overflow-hidden rounded-lg border border-warm-200"
-          }`}
+          className="relative overflow-hidden rounded-lg border border-warm-200 bg-white"
         >
-          {isAvatar ? (
-            <div data-avatar-crop="true" className="h-full w-full overflow-hidden rounded-full border border-warm-200">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={activeImage.src} alt={activeImage.name} className="block h-full w-full object-cover" />
-            </div>
-          ) : (
-            <FittedImageFrame src={activeImage.src} alt={activeImage.name} />
-          )}
+          <FittedImageFrame src={activeImage.src} alt={activeImage.name} />
           <button
             type="button"
             aria-label={removeLabel ?? `Remove ${activeImage.name}`}
             onClick={() => removeImage(activeIndex)}
             disabled={disabled || deletingImageId === activeImage.id}
-            className={`absolute z-20 inline-flex h-8 min-w-8 items-center justify-center rounded-full bg-forest-900/90 px-2 text-white shadow-sm hover:bg-forest-800 disabled:cursor-wait disabled:opacity-70 ${
-              isAvatar ? "-right-1 -top-1" : "right-2 top-2"
-            }`}
+            className="absolute right-2 top-2 z-20 inline-flex h-8 min-w-8 items-center justify-center rounded-full bg-forest-900/90 px-2 text-white shadow-sm hover:bg-forest-800 disabled:cursor-wait disabled:opacity-70"
           >
             {deletingImageId === activeImage.id ? <span className="text-xs font-bold">Removing...</span> : <X className="h-4 w-4" />}
           </button>
@@ -283,9 +321,7 @@ export function ImageUploadGallery({
           )}
         </div>
       ) : (
-        <div className={`border border-dashed border-warm-200 text-center text-sm text-warm-400 bg-white ${
-          isAvatar ? "mx-auto flex h-36 w-36 items-center justify-center rounded-full p-4" : "rounded-lg p-6"
-        }`}>
+        <div className="rounded-lg border border-dashed border-warm-200 bg-white p-6 text-center text-sm text-warm-400">
           {emptyText}
         </div>
       )}

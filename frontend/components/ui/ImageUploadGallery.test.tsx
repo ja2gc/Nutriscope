@@ -76,8 +76,8 @@ describe("ImageUploadGallery", () => {
 
     expect(markup).not.toContain("multiple=\"\"");
     expect(markup).toContain("rounded-full");
-    expect(markup).toContain("Change profile picture");
-    expect(markup).toContain("aria-label=\"Delete profile picture\"");
+    expect(markup).toContain("aria-label=\"Edit profile picture\"");
+    expect(markup).not.toContain("Change profile picture");
     expect(markup).not.toContain("blur-2xl");
   });
 });

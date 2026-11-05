@@ -56,9 +56,6 @@ function ResetPasswordForm() {
               <KeyRound className="h-4 w-4 text-emerald-600" />
               Set New Password
             </h1>
-            <p className="mt-1 text-sm text-warm-500">
-              Use the reset link sent to your verified recovery email.
-            </p>
           </div>
 
           <form onSubmit={submit} className="space-y-4">

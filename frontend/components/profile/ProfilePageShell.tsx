@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Mail, KeyRound, ShieldCheck, PencilLine, X } from "lucide-react";
+import { PencilLine } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
+import { InfoHint } from "@/components/ui/InfoHint";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { ImageUploadGallery, imagesFromSrcs, imageSrcs, readImages, type UploadImage } from "@/components/ui/ImageUploadGallery";
@@ -14,6 +16,7 @@ import {
   updateRecoveryEmail,
   verifyRecoveryEmail,
   removeRecoveryEmail,
+  cancelPendingRecoveryEmail,
   type User,
 } from "@/services/authService";
 import {
@@ -27,11 +30,10 @@ import { validateUploadFile } from "@/lib/uploadValidation";
 
 type ProfilePageShellProps = {
   crumbs: [string, string?][];
-  subtitle: string;
   fallbackRole: User["role"];
 };
 
-export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePageShellProps) {
+export function ProfilePageShell({ crumbs, fallbackRole }: ProfilePageShellProps) {
   const { user, refreshUser } = useAuth();
 
   const [firstName, setFirstName] = useState("");
@@ -56,12 +58,25 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
 
   const [recoveryEmail, setRecoveryEmail] = useState("");
   const [recoveryCode, setRecoveryCode] = useState("");
-  const [editingRecoveryEmail, setEditingRecoveryEmail] = useState(false);
+  const [recoveryStep, setRecoveryStep] = useState<"view" | "actions" | "email" | "code">("view");
+  const [cancellingRecoveryEmail, setCancellingRecoveryEmail] = useState(false);
   const [savingRecoveryEmail, setSavingRecoveryEmail] = useState(false);
   const [verifyingRecoveryEmail, setVerifyingRecoveryEmail] = useState(false);
   const [removingRecoveryEmail, setRemovingRecoveryEmail] = useState(false);
   const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
+  const hasRecoveryEmail = Boolean(user?.recovery_email_verified && user.recovery_email);
+  const recoveryBusy = savingRecoveryEmail || verifyingRecoveryEmail || removingRecoveryEmail || cancellingRecoveryEmail;
+
+  useEffect(() => {
+    if (!profileDone && !passwordDone && !recoveryMessage) return;
+    const timer = window.setTimeout(() => {
+      setProfileDone(false);
+      setPasswordDone(false);
+      setRecoveryMessage(null);
+    }, 3000);
+    return () => window.clearTimeout(timer);
+  }, [profileDone, passwordDone, recoveryMessage]);
 
   useEffect(() => {
     if (user) {
@@ -167,7 +182,7 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
       await refreshUser();
       setRecoveryCode("");
       setRecoveryMessage(result.message);
-      setEditingRecoveryEmail(false);
+      setRecoveryStep("code");
     } catch (err) {
       setRecoveryError(err instanceof Error ? err.message : "Failed to update recovery email.");
     } finally {
@@ -184,7 +199,9 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
       await verifyRecoveryEmail(recoveryCode);
       await refreshUser();
       setRecoveryCode("");
-      setRecoveryMessage("Recovery email verified.");
+      setRecoveryEmail("");
+      setRecoveryStep("view");
+      setRecoveryMessage("Recovery email updated.");
     } catch (err) {
       setRecoveryError(err instanceof Error ? err.message : "Failed to verify recovery email.");
     } finally {
@@ -203,7 +220,7 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
       setRecoveryCode("");
       await refreshUser();
       setRecoveryMessage(result.message);
-      setEditingRecoveryEmail(false);
+      setRecoveryStep("view");
     } catch (err) {
       setRecoveryError(err instanceof Error ? err.message : "Failed to remove recovery email.");
     } finally {
@@ -211,14 +228,31 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
     }
   }
 
-  function cancelRecoveryEmailEdit() {
-    if (user) {
-      setRecoveryEmail(
-        user.pending_recovery_email ?? (user.recovery_email_verified ? "" : user.recovery_email ?? ""),
-      );
-    }
+  function startRecoveryEmailChange() {
+    setRecoveryEmail("");
+    setRecoveryCode("");
+    setRecoveryMessage(null);
     setRecoveryError(null);
-    setEditingRecoveryEmail(false);
+    setRecoveryStep("email");
+  }
+
+  async function cancelRecoveryEmailEdit() {
+    setRecoveryError(null);
+    setCancellingRecoveryEmail(true);
+    try {
+      if (recoveryStep === "code" || user?.pending_recovery_email || (!user?.recovery_email_verified && user?.recovery_email)) {
+        await cancelPendingRecoveryEmail();
+        await refreshUser();
+      }
+      setRecoveryEmail("");
+      setRecoveryCode("");
+      setRecoveryMessage(null);
+      setRecoveryStep("view");
+    } catch (err) {
+      setRecoveryError(err instanceof Error ? err.message : "Failed to cancel recovery email change.");
+    } finally {
+      setCancellingRecoveryEmail(false);
+    }
   }
 
   function cancelPasswordEdit() {
@@ -230,51 +264,54 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
   }
 
   return (
-    <div className="space-y-6 font-sans">
+    <div className="mx-auto w-full max-w-5xl space-y-6 font-sans">
       <PageHeader
         crumbs={crumbs}
         title="My Profile"
-        subtitle={subtitle}
       />
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))] gap-6 items-start">
-        <Card className="p-6">
-          <div className="mb-5 flex items-center justify-between gap-3">
-            <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-warm-900">
-              <Mail className="h-4 w-4 text-emerald-600" />
-              Account Details
-            </h3>
-            {!editingProfile && (
-              <Button type="button" variant="secondary" onClick={() => setEditingProfile(true)} className="w-auto">
-                <PencilLine className="h-4 w-4" /> Edit Profile
-              </Button>
-            )}
+      <Card className="divide-y divide-warm-200">
+        <section aria-labelledby="profile-account-heading" className="min-w-0 space-y-6 p-4 sm:p-8">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:gap-5">
+            <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-3 sm:gap-4">
+              <ImageUploadGallery
+                images={profileImages}
+                onImagesChange={(images) => {
+                  setProfileImages(images.slice(-1));
+                  setProfilePhotoIntent(images.length > 0 ? "replace" : "remove");
+                  setEditingProfile(true);
+                  setProfileDone(false);
+                }}
+                onFilesSelected={handleProfilePhotoFiles}
+                label="Profile Photo"
+                avatarFallback={<span role="img" aria-label="Default profile picture">{user ? personDisplayName(user).trim().charAt(0).toUpperCase() : ""}</span>}
+                error={profilePhotoError}
+                maxBytes={2 * 1024 * 1024}
+                allowedTypes={["image/png", "image/jpeg", "image/webp"]}
+                maxFiles={1}
+                disabled={savingProfile}
+                variant="avatar"
+                uploadLabel={profileImages.length > 0 ? "Change profile picture" : "Choose profile picture"}
+                removeLabel="Delete profile picture"
+              />
+              <div className="min-w-0">
+                <div className="break-words text-xl font-bold text-warm-900">{user ? personDisplayName(user) : "Profile"}</div>
+                <div className="mt-1 text-sm text-warm-500">{user?.role ?? fallbackRole}</div>
+              </div>
+            </div>
+            {!editingProfile && <Button type="button" variant="secondary" aria-label="Edit Profile" onClick={() => { setProfileDone(false); setEditingProfile(true); }} className="min-h-11 w-auto px-3 sm:px-4">
+              <PencilLine className="hidden h-4 w-4 sm:block" aria-hidden="true" /><span className="sm:hidden">Edit</span><span className="hidden sm:inline">Edit Profile</span>
+            </Button>}
           </div>
+          <h2 id="profile-account-heading" className="text-base font-bold text-warm-900">Account details</h2>
           {editingProfile ? <form onSubmit={handleProfileSubmit} className="space-y-4">
-            <ImageUploadGallery
-              images={profileImages}
-              onImagesChange={(images) => {
-                setProfileImages(images.slice(-1));
-                setProfilePhotoIntent(images.length > 0 ? "replace" : "remove");
-              }}
-              onFilesSelected={handleProfilePhotoFiles}
-              label="Profile Photo"
-              emptyText="Profile photo preview appears here after upload."
-              error={profilePhotoError}
-              maxBytes={2 * 1024 * 1024}
-              allowedTypes={["image/png", "image/jpeg", "image/webp"]}
-              maxFiles={1}
-              variant="avatar"
-              uploadLabel={profileImages.length > 0 ? "Change profile picture" : "Upload profile picture"}
-              removeLabel="Delete profile picture"
-            />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input label="First Name" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="min-h-11" />
               <Input label="Last Name" value={lastName} onChange={(e) => setLastName(e.target.value)} className="min-h-11" />
             </div>
             <div>
               <div className="text-sm font-semibold text-warm-600">Sign-in email</div>
-              <div className="mt-1 text-sm text-warm-400">{user?.email}</div>
+              <div className="mt-1 break-all text-sm text-warm-500">{user?.email}</div>
             </div>
             <Input label="Contact Number" value={contactNumber} onChange={(e) => setContactNumber(e.target.value)} />
             <div className="flex flex-col gap-1.5">
@@ -283,137 +320,95 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
                 {user?.role ?? fallbackRole}
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-3 pt-1">
-              <Button type="submit" loading={savingProfile} className="w-auto">Save Changes</Button>
-              <Button type="button" variant="secondary" onClick={cancelProfileEdit} disabled={savingProfile} className="w-auto">
-                <X className="h-4 w-4" /> Cancel
+            <div className="flex items-center justify-end gap-2 pt-2 sm:gap-3">
+              <Button type="button" size="sm" variant="secondary" onClick={cancelProfileEdit} disabled={savingProfile} className="min-h-11 w-auto">
+                Cancel
               </Button>
-              {profileDone && <span className="text-sm font-semibold text-emerald-600">Saved.</span>}
+              <Button type="submit" size="sm" loading={savingProfile} className="min-h-11 w-auto">Save Changes</Button>
             </div>
             {profileError && <p className="text-sm font-semibold text-red-600">{profileError}</p>}
           </form> : (
-            <div className="space-y-5">
-              <div className="flex items-center gap-4">
-                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full border border-warm-200 bg-warm-50">
-                  {user?.profile_photo ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={user.profile_photo} alt={personDisplayName(user)} className="h-full w-full object-cover" />
-                  ) : null}
-                </div>
-                <div className="min-w-0">
-                  <div className="truncate text-lg font-bold text-warm-900">{user ? personDisplayName(user) : "Profile"}</div>
-                  <div className="truncate text-sm text-warm-400">{user?.email}</div>
-                </div>
+            <div className="space-y-6">
+              <div>
+                <dl className="grid min-w-0 grid-cols-1 gap-5 sm:grid-cols-2">
+                  <div className="min-w-0"><dt className="text-sm text-warm-500">Sign-in email</dt><dd className="mt-1 break-all text-sm font-semibold text-warm-900">{user?.email}</dd></div>
+                  <div><dt className="text-sm text-warm-500">Contact number</dt><dd className="mt-1 break-words text-sm font-semibold text-warm-900">{user?.contact_number || "Not provided"}</dd></div>
+                </dl>
               </div>
-              <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div><dt className="text-xs font-bold uppercase tracking-wider text-warm-400">Contact Number</dt><dd className="mt-1 text-sm font-semibold text-warm-700">{user?.contact_number || "Not provided"}</dd></div>
-                <div><dt className="text-xs font-bold uppercase tracking-wider text-warm-400">Role / Designation</dt><dd className="mt-1 text-sm font-semibold text-warm-700">{user?.role ?? fallbackRole}</dd></div>
-              </dl>
               {profileDone && <span className="text-sm font-semibold text-emerald-600">Saved.</span>}
             </div>
           )}
-        </Card>
+        </section>
 
-        <Card className="p-6">
-          <h3 className="text-sm font-bold text-warm-900 uppercase tracking-wider flex items-center gap-2 mb-5">
-            <ShieldCheck className="h-4 w-4 text-emerald-600" />
-            Recovery Email
-          </h3>
-          <p className="-mt-3 mb-5 text-sm leading-relaxed text-warm-500">
-            A six-digit verification code is required before a new recovery email becomes active. An existing verified address stays active until its replacement is verified.
-          </p>
-          <div className="mb-5 rounded-xl border border-warm-100 bg-warm-50 p-4">
-            <p className="text-xs font-bold uppercase tracking-wider text-warm-400">Current Recovery Email</p>
-            {user?.recovery_email_verified && user.recovery_email ? (
-              <div className="mt-1 flex flex-wrap items-center gap-2">
-                <span className="break-all text-sm font-semibold text-warm-800">{user.recovery_email}</span>
-                <span className="text-xs font-bold text-emerald-600">Verified</span>
-              </div>
-            ) : (
-              <p className="mt-1 text-sm font-semibold text-warm-600">No verified recovery email</p>
+        <section aria-labelledby="profile-recovery-heading" className="min-w-0 space-y-5 p-4 sm:p-8">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 sm:gap-x-5">
+            <div className="grid min-h-11 min-w-0 grid-cols-[minmax(0,auto)_2.75rem] items-center justify-start">
+              <h2 id="profile-recovery-heading" className="text-base font-bold text-warm-900">Recovery email</h2>
+              <InfoHint label="About recovery email" title="Recovery email" className="min-h-11 min-w-11">
+                A six-digit verification code is required before a new recovery email becomes active. An existing verified address stays active until its replacement is verified.
+              </InfoHint>
+            </div>
+            {(recoveryStep === "view" || recoveryStep === "actions") && (
+              hasRecoveryEmail ? <Popover open={recoveryStep === "actions"} onOpenChange={open => { setRecoveryMessage(null); setRecoveryError(null); setRecoveryStep(open ? "actions" : "view"); }}>
+                <PopoverTrigger asChild>
+                  <Button type="button" variant="secondary" aria-label="Edit Recovery Email" className="col-start-2 row-start-1 min-h-11 w-auto px-3 sm:px-4">Edit</Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" onCloseAutoFocus={event => event.preventDefault()} className="w-[min(16rem,calc(100vw-2rem))] p-1">
+                  <Button type="button" variant="ghost" aria-label="Change Recovery Email" onClick={startRecoveryEmailChange} className="min-h-11 w-full justify-start">Change</Button>
+                  <Button type="button" variant="ghost" aria-label="Remove Recovery Email" disabled={recoveryBusy} onClick={() => void handleRecoveryEmailRemove()} className="min-h-11 w-full justify-start text-red-700">Remove</Button>
+                  <Button type="button" variant="ghost" disabled={recoveryBusy} onClick={() => void cancelRecoveryEmailEdit()} className="min-h-11 w-full justify-start">Cancel</Button>
+                </PopoverContent>
+              </Popover> : <Button type="button" variant="secondary" aria-label="Add Recovery Email" onClick={startRecoveryEmailChange} className="col-start-2 row-start-1 min-h-11 w-auto px-3 sm:px-4">Add</Button>
             )}
-            {(user?.pending_recovery_email || (!user?.recovery_email_verified && user?.recovery_email)) && (
-              <p className="mt-2 break-all text-sm text-amber-700">
-                <span className="font-semibold">Pending verification:</span>{" "}
-                {user.pending_recovery_email ?? user.recovery_email}
-              </p>
-            )}
+            {(recoveryStep === "view" || recoveryStep === "actions") && <div className="col-span-2 min-w-0" aria-label="Current Recovery Email">
+              <p className="break-all text-sm font-semibold text-warm-700">{hasRecoveryEmail ? user?.recovery_email : "Not set"}</p>
+            </div>}
           </div>
-          {editingRecoveryEmail ? <form onSubmit={handleRecoveryEmailSubmit} className="space-y-4">
-            <Input
-              label={user?.recovery_email_verified ? "New Recovery Email" : "Recovery Email"}
-              type="email"
-              value={recoveryEmail}
-              onChange={(e) => setRecoveryEmail(e.target.value)}
-              required
-              autoComplete="email"
-            />
-            <p className="-mt-2 text-xs text-warm-400">
-              A verification code will be sent to the new address to confirm ownership.
-            </p>
-            <div className="flex items-center gap-3">
-              <Button type="submit" loading={savingRecoveryEmail} className="w-auto">
-                Send Verification Code
-              </Button>
-              <Button type="button" variant="secondary" onClick={cancelRecoveryEmailEdit} className="w-auto">
-                Cancel
+          {recoveryStep === "email" && <form onSubmit={handleRecoveryEmailSubmit} className="space-y-4">
+            <Input label={hasRecoveryEmail ? "New Recovery Email" : "Recovery Email"} type="email" value={recoveryEmail}
+              onChange={event => setRecoveryEmail(event.target.value)} required autoComplete="email" autoFocus disabled={recoveryBusy} />
+            <div className="flex items-center justify-end gap-2 sm:gap-3">
+              <Button type="button" size="sm" variant="secondary" disabled={recoveryBusy} onClick={() => void cancelRecoveryEmailEdit()} className="min-h-11 w-auto">Cancel</Button>
+              <Button type="submit" size="sm" aria-label="Send Verification Code" loading={savingRecoveryEmail} disabled={recoveryBusy} className="min-h-11 w-auto">
+                <span className="sm:hidden">Send code</span><span className="hidden sm:inline">Send Verification Code</span>
               </Button>
             </div>
-          </form> : (
-            <div className="flex flex-wrap items-center gap-3">
-              <Button type="button" variant="secondary" onClick={() => setEditingRecoveryEmail(true)} className="w-auto">
-                {user?.recovery_email || user?.pending_recovery_email ? "Change Recovery Email" : "Add Recovery Email"}
+          </form>}
+          {recoveryStep === "code" && <form onSubmit={handleRecoveryEmailVerify} className="space-y-4">
+            <p className="break-words text-sm text-warm-500">Enter the code sent to <span className="break-all font-semibold">{recoveryEmail}</span>.</p>
+            <Input label="Verification Code" value={recoveryCode} onChange={event => setRecoveryCode(event.target.value)}
+              required inputMode="numeric" maxLength={6} autoComplete="one-time-code" autoFocus disabled={recoveryBusy} />
+            <div className="flex items-center justify-end gap-2 sm:gap-3">
+              <Button type="button" size="sm" variant="secondary" disabled={recoveryBusy} onClick={() => void cancelRecoveryEmailEdit()} className="min-h-11 w-auto">Cancel</Button>
+              <Button type="submit" size="sm" aria-label="Verify Recovery Email" loading={verifyingRecoveryEmail} disabled={recoveryBusy} className="min-h-11 w-auto">
+                <span className="sm:hidden">Verify</span><span className="hidden sm:inline">Verify Recovery Email</span>
               </Button>
-              {(user?.recovery_email || user?.pending_recovery_email) && (
-              <Button type="button" variant="secondary" loading={removingRecoveryEmail} onClick={() => void handleRecoveryEmailRemove()} className="w-auto">
-                Remove Recovery Email
-              </Button>
-              )}
             </div>
-          )}
+          </form>}
+          {recoveryMessage && <p role="status" className="text-sm font-semibold text-emerald-600">{recoveryMessage}</p>}
+          {recoveryError && <p role="alert" className="text-sm font-semibold text-red-600">{recoveryError}</p>}
+        </section>
 
-          {(Boolean(user?.pending_recovery_email)
-            || Boolean(!user?.recovery_email_verified && user?.recovery_email)) && (
-            <form onSubmit={handleRecoveryEmailVerify} className="mt-5 space-y-4 border-t border-warm-100 pt-5">
-              <Input
-                label="Verification Code"
-                value={recoveryCode}
-                onChange={(e) => setRecoveryCode(e.target.value)}
-                required
-                inputMode="numeric"
-                maxLength={6}
-              />
-              <Button type="submit" loading={verifyingRecoveryEmail} className="w-auto">Verify Recovery Email</Button>
-            </form>
-          )}
-          {recoveryMessage && <p className="mt-3 text-sm font-semibold text-emerald-600">{recoveryMessage}</p>}
-          {recoveryError && <p className="mt-3 text-sm font-semibold text-red-600">{recoveryError}</p>}
-        </Card>
-
-        <Card className="p-6">
-          <h3 className="text-sm font-bold text-warm-900 uppercase tracking-wider flex items-center gap-2 mb-5">
-            <KeyRound className="h-4 w-4 text-emerald-600" />
-            Change Password
-          </h3>
-          {editingPassword ? <form onSubmit={handlePasswordSubmit} className="space-y-4">
+        <section aria-labelledby="profile-password-heading" className="min-w-0 space-y-5 p-4 sm:p-8">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:gap-5">
+            <h2 id="profile-password-heading" className="text-base font-bold text-warm-900">Password</h2>
+            {!editingPassword && <Button type="button" variant="secondary" aria-label="Change Password" onClick={() => { setPasswordDone(false); setEditingPassword(true); }} className="min-h-11 w-auto px-3 sm:px-4">
+              <span className="sm:hidden">Change</span><span className="hidden sm:inline">Change Password</span>
+            </Button>}
+          </div>
+          {editingPassword && <form onSubmit={handlePasswordSubmit} className="space-y-4">
             <Input label="Current Password" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required autoComplete="current-password" />
             <Input label="New Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} autoComplete="new-password" />
             <Input label="Confirm New Password" type="password" value={passwordConfirmation} onChange={(e) => setPasswordConfirmation(e.target.value)} required minLength={8} autoComplete="new-password" />
-            <div className="flex items-center gap-3 pt-1">
-              <Button type="submit" loading={savingPassword} className="w-auto">Update Password</Button>
-              <Button type="button" variant="secondary" onClick={cancelPasswordEdit} className="w-auto">Cancel</Button>
+            <div className="flex items-center justify-end gap-2 pt-1 sm:gap-3">
+              <Button type="button" size="sm" variant="secondary" onClick={cancelPasswordEdit} className="min-h-11 w-auto">Cancel</Button>
+              <Button type="submit" size="sm" aria-label="Update Password" loading={savingPassword} className="min-h-11 w-auto"><span className="sm:hidden">Save</span><span className="hidden sm:inline">Update Password</span></Button>
             </div>
             {passwordError && <p className="text-sm font-semibold text-red-600">{passwordError}</p>}
-          </form> : (
-            <div className="space-y-3">
-              <Button type="button" variant="secondary" onClick={() => { setPasswordDone(false); setEditingPassword(true); }} className="w-auto">
-                Change Password
-              </Button>
-              {passwordDone && <p className="text-sm font-semibold text-emerald-600">Password updated.</p>}
-            </div>
-          )}
-        </Card>
-      </div>
+          </form>}
+          {passwordDone && <p className="text-sm font-semibold text-emerald-600">Password updated.</p>}
+        </section>
+      </Card>
 
       {pendingProfilePhoto && (
         <ProfilePhotoCropDialog
@@ -422,6 +417,8 @@ export function ProfilePageShell({ crumbs, subtitle, fallbackRole }: ProfilePage
           onApply={(croppedImage) => {
             setProfileImages([{ ...pendingProfilePhoto, src: croppedImage }]);
             setProfilePhotoIntent("replace");
+            setEditingProfile(true);
+            setProfileDone(false);
             setPendingProfilePhoto(null);
           }}
         />

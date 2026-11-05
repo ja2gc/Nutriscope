@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from "react";
 import { User, loginUser, logoutUser, fetchCurrentUser } from "@/services/authService";
 
 interface AuthContextType {
@@ -20,12 +20,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [initializing, setInitializing] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const photoRevision = useRef(0);
 
   const refreshUser = useCallback(async () => {
     try {
       setError(null);
       const currentUser = await fetchCurrentUser();
-      setUser(currentUser);
+      setUser(currentUser.profile_photo?.split("?")[0] === "/api/auth/profile-photo"
+        ? { ...currentUser, profile_photo: `/api/auth/profile-photo?v=${++photoRevision.current}` }
+        : currentUser);
     } catch (err: unknown) {
       setUser(null);
       const message = err instanceof Error ? err.message : "";

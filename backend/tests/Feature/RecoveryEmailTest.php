@@ -17,6 +17,54 @@ class RecoveryEmailTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_cancelling_replacement_preserves_the_verified_address_and_invalidates_the_code(): void
+    {
+        $user = User::factory()->create([
+            'recovery_email' => 'current@example.com',
+            'recovery_email_verified_at' => now(),
+            'pending_recovery_email' => 'replacement@example.com',
+            'recovery_email_verification_code' => Hash::make('123456'),
+            'recovery_email_verification_expires_at' => now()->addMinutes(10),
+            'must_set_recovery_email' => false,
+        ]);
+        $other = User::factory()->create(['pending_recovery_email' => 'other@example.com']);
+
+        $this->actingAs($user, 'sanctum')->deleteJson('/api/auth/recovery-email/pending')
+            ->assertOk()
+            ->assertJsonPath('user.recovery_email', 'current@example.com')
+            ->assertJsonPath('user.recovery_email_verified', true)
+            ->assertJsonPath('user.pending_recovery_email', null)
+            ->assertJsonPath('user.must_set_recovery_email', false);
+        $this->assertNull($user->fresh()->recovery_email_verification_code);
+        $this->assertNull($user->fresh()->recovery_email_verification_expires_at);
+        $this->assertSame('other@example.com', $other->fresh()->pending_recovery_email);
+        $this->actingAs($user->fresh(), 'sanctum')->postJson('/api/auth/recovery-email/verify', ['code' => '123456'])
+            ->assertUnprocessable();
+        $this->deleteJson('/api/auth/recovery-email/pending')->assertOk()
+            ->assertJsonPath('user.recovery_email', 'current@example.com');
+        $this->assertStringNotContainsString('replacement@example.com', Activity::query()->get()->toJson());
+    }
+
+    public function test_cancelling_initial_verification_clears_only_the_unverified_address(): void
+    {
+        $user = User::factory()->create([
+            'recovery_email' => 'unverified@example.com',
+            'recovery_email_verified_at' => null,
+            'recovery_email_verification_code' => Hash::make('123456'),
+            'recovery_email_verification_expires_at' => now()->addMinutes(10),
+            'must_set_recovery_email' => true,
+        ]);
+        $this->actingAs($user, 'sanctum')->deleteJson('/api/auth/recovery-email/pending')
+            ->assertOk()->assertJsonPath('user.recovery_email', null)
+            ->assertJsonPath('user.must_set_recovery_email', true);
+        $this->assertNull($user->fresh()->recovery_email_verification_code);
+    }
+
+    public function test_cancelling_recovery_verification_requires_authentication(): void
+    {
+        $this->deleteJson('/api/auth/recovery-email/pending')->assertUnauthorized();
+    }
+
     public function test_user_can_remove_a_verified_recovery_email(): void
     {
         $user = User::factory()->create([

@@ -2,6 +2,8 @@
 
 Purpose: locate features used across roles and distinguish their shared backend rules from role-specific presentation. Shared does not mean every role can perform every action.
 
+`RecoveryEmailController::cancelPending` owns cancellation of an unfinished recovery-email change: authenticated active users can clear their own pending address/code while preserving the verified recovery address and onboarding flags. Initial unverified addresses are cleared. Verification and cancellation take the same user row lock, and cancelled codes cannot be accepted. Explicit `destroy` remains the operation that removes the current recovery address. The web Profile shell owns the display/actions/email/code steps; native consumers keep their existing flow. See the [API overview](../../operations/api-overview.md#authentication-and-account-access).
+
 | Feature | Backend/source authority | Consumers/reference |
 |---|---|---|
 | Login, profile/photos, password and onboarding | [AuthController](../../../backend/app/Http/Controllers/Auth/AuthController.php), [User](../../../backend/app/Models/User.php), [auth routes](../../../backend/routes/api.php) | [Web auth](../../../frontend/contexts/AuthContext.tsx), [mobile auth](../../../mobile/lib/auth.ts), [backend map](../platform/backend.md) |

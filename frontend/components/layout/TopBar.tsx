@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { Bell, Menu, User as UserIcon } from "lucide-react";
+import { Bell, Menu } from "lucide-react";
 import { fetchUnreadCount } from "@/services/notificationService";
 import { personDisplayName } from "@/lib/personName";
 
@@ -86,7 +86,7 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={user.profile_photo} alt={personDisplayName(user)} className="h-full w-full object-cover" />
               ) : (
-                <UserIcon className="h-4 w-4" />
+                <span aria-hidden="true" className="text-sm font-bold">{personDisplayName(user).trim().charAt(0).toUpperCase()}</span>
               )}
             </div>
           </button>

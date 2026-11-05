@@ -110,6 +110,8 @@ Route::prefix('auth')->group(function () {
             ->middleware('throttle:password-reset');
         Route::delete('recovery-email', [RecoveryEmailController::class, 'destroy'])
             ->middleware('throttle:password-reset');
+        Route::delete('recovery-email/pending', [RecoveryEmailController::class, 'cancelPending'])
+            ->middleware('throttle:password-reset');
         Route::post('recovery-email/verify', [RecoveryEmailController::class, 'verify'])
             ->middleware('throttle:password-reset');
         Route::post('password', [AuthController::class, 'updatePassword'])->middleware('throttle:password-change');
