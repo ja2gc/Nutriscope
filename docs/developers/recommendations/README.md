@@ -4,7 +4,7 @@ Proposed improvements for future developers. Start with the [grouped developer i
 
 ## Connectivity: current behavior and future work
 
-Connectivity inspection verified against source: `db7bff65dd597e2cab4ddcd83ded569ff88dd03a` (2026-10-29). The proposals below are future work, not implemented capabilities or an approved implementation specification.
+Connectivity inspection. The proposals below are future work, not implemented capabilities or an approved implementation specification.
 
 ### Current boundaries
 
@@ -18,7 +18,7 @@ Connectivity inspection verified against source: `db7bff65dd597e2cab4ddcd83ded56
 
 Keep this work separate from offline synchronization. Existing API authorization, validation and successful-response requirements still apply.
 
-1. First candidate: explicitly disable automatic route prefetch on [Sidebar](../../../frontend/components/layout/Sidebar.tsx) and [MobileBottomNav](../../../frontend/components/layout/MobileBottomNav.tsx) links. These currently use Next Link's default prefetch behavior. This limits speculative route downloads, with the tradeoff that opening a destination may require downloading its resources then. It does not reduce that destination's own API payloads or implement native-app caching. Verify the actual benefit in a production build; automatic prefetch is disabled in development.
+1. First candidate: explicitly disable automatic route prefetch on [Sidebar](../../../frontend/components/layout/Sidebar.tsx) links. These currently use Next Link's default prefetch behavior. This limits speculative route downloads, with the tradeoff that opening a destination may require downloading its resources then. It does not reduce that destination's own API payloads or implement native-app caching. Verify the actual benefit in a production build; automatic prefetch is disabled in development.
 2. Profile repeated requests and payload sizes before adding caching. Reuse the [existing refresh convention](../platform/web.md) that preserves mounted content during post-save reconciliation. For mobile, inspect each query's freshness needs and mutation invalidation before changing its policy; do not apply a blanket freshness window to clinical or operational data.
 3. Check compression in the actual serving topology before changing proxy configuration. Installed Next.js 16.3.3 documents gzip as enabled by default for its server; repository snippets do not establish the live host's compression behavior. Fonts are already bundled through `next/font/local` in [the root layout](../../../frontend/app/layout.tsx).
 

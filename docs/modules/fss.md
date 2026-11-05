@@ -1,7 +1,5 @@
 # FSS Module — Current Role and Workflow
 
-Verified against current Expo navigation, rendered screens, and Laravel role gates on **2026-08-27**.
-
 ## Role Purpose
 
 FSS executes daily food-service work prepared by RND:
@@ -197,7 +195,7 @@ First-login accounts replace the temporary password first, then submit a recover
 - [FAQ](../FAQ.md)
 - [Role How-To Guide](../ROLE-HOW-TO.md)
 - [Storyboards](../STORYBOARD.md)
-- [Mobile maintenance](../developers/food-service/mobile.md) and [EAS/APK releases](../mobile-apk-release.md)
+- [Mobile maintenance](../developers/food-service/mobile.md) and [EAS/APK releases](../operations/mobile-release.md)
 - [FSS Mobile Flowchart](<Flowcharts/FSS Mobile Execution Flow.md>)
 - [Food Service Flowchart](<Flowcharts/Food Service Operations.md>)
 

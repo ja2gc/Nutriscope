@@ -1,10 +1,8 @@
 # Database
 
-Verified against committed source: `53230ce3f4e471b243d0fe0a8ef0b5fbfa89a891` (2026-10-23).
-
 Purpose: find authoritative stored meaning and preserve existing records.
 
-Start with [data semantics](data-semantics.md) to trace field ownership and consumers, then [NCP fields](../ncp/data.md) or [food-service fields](../food-service/data.md) for domain examples. Configuration variables have a separate [environment map](../operations/environment.md).
+Start with [data semantics](data-semantics.md) to trace field ownership and consumers, then [NCP fields](../ncp/data.md) or [food-service fields](../food-service/data.md) for domain examples. Configuration variables have a separate [environment map](../../operations/environment.md).
 
 - [Migrations](../../../backend/database/migrations) declare schema evolution; [Models](../../../backend/app/Models) define casts/relationships; [Enums](../../../backend/app/Enums) contain some persisted values.
 - [HasPublicId](../../../backend/app/Models/Concerns/HasPublicId.php) separates public UUIDs from internal relation keys.

@@ -1,14 +1,13 @@
-# Presentation storyboards
+# Role user manuals and daily routines
 
-Verified against committed source: `53230ce3f4e471b243d0fe0a8ef0b5fbfa89a891` (2026-10-23).
+Document version: 1.0 | Issued: 5 November 2026
 
-The canonical presentation sequences live in the repository-root [Storyboarding directory](../Storyboarding):
+The repository-root [Storyboarding directory](../Storyboarding) contains the maintained **user manuals**, organized by role:
 
-- [RND Nutrition Care Process](<../Storyboarding/RND NCP Video Storyboard.md>)
-- [RND Food Service Operations](<../Storyboarding/RND Food Service Operations Video Storyboard.md>)
-- [FSS Mobile App](<../Storyboarding/FSS Mobile App Video Storyboard.md>)
-- [Admin Web Console](<../Storyboarding/Admin Web Console Video Storyboard.md>)
+- [RND Website User Manual](<../Storyboarding/RND User Manual.md>): clinical data setup, ADIME/visits, intervention prerequisites, food-service Inventory/Menu Items, templates, weekly menus, purchasing, receiving, budget, reports and account tools.
+- [FSS Android User Manual](<../Storyboarding/FSS User Manual.md>): installation/account setup, shift routine, menu review, Meal Prep population, purchasing evidence, daily logs, reporting periods and shared tools.
+- [Admin Website User Manual](<../Storyboarding/Admin User Manual.md>): first administrative setup, accounts, usage oversight, SOP, reports, budget, audit, backups/recovery and settings.
 
-Review the intended demo revision and current user-visible behavior before recording a video.
+Each manual explains what must exist first, where to navigate and click, what to enter/save and what result to confirm. The daily sequence is a practical routine, not camera directions or narration.
 
-User instructions: [FAQ](FAQ.md), [Role How-To](ROLE-HOW-TO.md). Maintenance/setup: [developer map](../DEVELOPERS.md).
+Start at [Role user manuals](ROLE-HOW-TO.md) for the page-directory links and cross-role handoff. Technical installation belongs in the [setup and turnover manual](operations/README.md).

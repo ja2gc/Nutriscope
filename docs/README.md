@@ -1,17 +1,19 @@
 # Documentation index
 
-Verified against committed source: `14a954e0a1167d781cf007a61c610dff297f952a` (2026-10-24).
+Document version: 1.0 | Issued: 5 November 2026
 
 Start with [DEVELOPERS.md](../DEVELOPERS.md) for task-to-source routing. The guides below describe current responsibilities; source and authorized runtime evidence outrank older narrative.
 
 | Need | Documentation |
 |---|---|
 | Developer tasks, modules and rules | [Developer map](../DEVELOPERS.md), [AGENTS](../AGENTS.md) |
-| Accounts, keys, deployment and ownership | [Operations](developers/operations/README.md), [VPS setup](operations/vps-setup.md), [turnover](operations/turnover.md), [five Actions secrets](developers/operations/environment.md#github-actions-repository-secrets-obtain-enter-and-replace) |
+| Project ownership, academic/portfolio use and reusable code | [Proposed license terms](../LICENSE.md) |
+| Accounts, keys, deployment and ownership | [Installation and turnover manual](operations/README.md), [VPS setup](operations/vps-setup.md), [turnover](operations/turnover.md), [five Actions secrets](operations/environment.md#github-actions-repository-secrets-obtain-enter-and-replace) |
 | Local setup and checks | [Setup](developers/platform/local-setup.md), [testing](developers/platform/testing.md) |
-| EAS Cloud, signing and APK updates | [Android releases](mobile-apk-release.md) |
-| User-facing help and role tasks | [FAQ](FAQ.md), [Role How-To](ROLE-HOW-TO.md) |
-| Current presentation sequences | [Storyboard index](STORYBOARD.md) → repository-root Storyboarding/ |
+| EAS Cloud, signing and APK updates | [Android releases](operations/mobile-release.md) |
+| Every user screen and daily work by role | [Role user manual](ROLE-HOW-TO.md), [page directory](ROLE-HOW-TO.md#page-directory), [daily workflow](ROLE-HOW-TO.md#daily-and-periodic-work), [FAQ](FAQ.md) |
+| API URLs, authentication and contracts | [API overview](operations/api-overview.md) |
+| Separate role manuals and daily routines | [User manual directory](STORYBOARD.md) → repository-root Storyboarding/ |
 | Detailed role/domain behavior | [RND](modules/rnd.md), [FSS](modules/fss.md), [Admin](modules/admin.md) |
 | Deeper flow diagrams | [Flowchart index](module-workflow-flowchart.md), [Flowcharts](modules/Flowcharts) |
 | Clinical rationale | [intervention goals](logic/intervention-goals.md), [meal algorithm](logic/meal-algorithm.md), [recommend/avoid](logic/recommend-avoid.md) |

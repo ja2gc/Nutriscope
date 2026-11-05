@@ -1,7 +1,5 @@
 # Food Service Operations — Current End-to-End Flow
 
-Verified against the implemented RND web, FSS native mobile app, Laravel services, reports, and demo seeders on **2026-08-27**.
-
 ## Operational Story
 
 ```mermaid

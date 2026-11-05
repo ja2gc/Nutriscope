@@ -1,17 +1,13 @@
-# NutriScope deployment and turnover
+# NutriScope deployment
 
-Verified against committed source: `53230ce3f4e471b243d0fe0a8ef0b5fbfa89a891` (2026-10-23).
+Use the maintained [installation and turnover manual](docs/operations/README.md).
 
-This is the entry point for setup and ownership transfer. Follow the focused guides in order:
+- [Accounts and collected values](docs/operations/accounts.md)
+- [VPS, Docker, Nginx, DNS and SSL setup](docs/operations/vps-setup.md)
+- [Production environment and GitHub secrets](docs/operations/environment.md)
+- [Initial data and current seeding requirements](docs/operations/initial-data.md)
+- [Existing-system transfer](docs/operations/turnover.md)
+- [Manual R2 recovery when Admin is unavailable](docs/operations/backup-recovery.md#manual-recovery-when-the-admin-screen-is-unavailable)
+- [Role user manuals](docs/ROLE-HOW-TO.md)
 
-1. [Developer map](DEVELOPERS.md) — locate apps and the owner of each behavior.
-2. [Accounts and turnover](docs/operations/turnover.md) — institution ownership, DNS inventory, existing-data cutover and recovery.
-3. [Environment map](docs/developers/operations/environment.md) — variable names, required secrets and Compose precedence.
-4. [Integration accounts](docs/developers/operations/integrations.md) — USDA, Anthropic, Resend, Cloudflare R2 and conditional Render usage.
-5. [Replacement VPS](docs/operations/vps-setup.md) — Ubuntu/Docker setup, current roles, host Nginx, DNS, certificates, release and verification.
-6. [EAS Cloud / Android updates](docs/mobile-apk-release.md) — project ownership, signing, build profiles, publication and stable download URLs.
-7. [Backup and recovery](docs/operations/backup-recovery.md) — what to preserve and what must be independently tested.
-
-The repository declares Laravel, Next.js, MySQL, Redis, worker/scheduler and release roles. It does not declare an active PaddleOCR/OMR container, Nginx container or Certbot container. The old root deployment instructions have been replaced from current source; do not use nginx/init-ssl.sh for the documented host-Nginx topology.
-
-Runbook commands are for a future authorized operator. Confirm the destination, effective settings and recovery prerequisites before executing them.
+The detailed procedures are maintained together in `docs/operations/`.

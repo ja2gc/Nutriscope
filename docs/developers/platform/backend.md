@@ -1,7 +1,5 @@
 # Backend
 
-Verified against committed source: `53230ce3f4e471b243d0fe0a8ef0b5fbfa89a891` (2026-10-23).
-
 Purpose: maintain the shared Laravel API without moving business rules into clients.
 
 | Concern | Current owner |
@@ -26,7 +24,7 @@ Related: [clinical](../ncp/README.md), [food service](../food-service/README.md)
 | Change | Start at |
 |---|---|
 | Login, logout, onboarding, own profile/photo/password | [AuthController](../../../backend/app/Http/Controllers/Auth/AuthController.php), [auth routes](../../../backend/routes/api.php), [auth requests](../../../backend/app/Http/Requests/Auth) |
-| Forgotten password and verified recovery address | [PasswordResetController](../../../backend/app/Http/Controllers/Auth/PasswordResetController.php), [RecoveryEmailController](../../../backend/app/Http/Controllers/Auth/RecoveryEmailController.php), [User](../../../backend/app/Models/User.php), [mail setup](../operations/integrations.md) |
+| Forgotten password and verified recovery address | [PasswordResetController](../../../backend/app/Http/Controllers/Auth/PasswordResetController.php), [RecoveryEmailController](../../../backend/app/Http/Controllers/Auth/RecoveryEmailController.php), [User](../../../backend/app/Models/User.php), [mail setup](../../operations/integrations.md) |
 | Staff accounts and administrative password reset | [UserController](../../../backend/app/Http/Controllers/Admin/UserController.php), [admin requests](../../../backend/app/Http/Requests/Admin) |
 | Notification creation, read/dismiss lifecycle and expiry | [NotificationService](../../../backend/app/Services/NotificationService.php), [NotificationLifecycleService](../../../backend/app/Services/NotificationLifecycleService.php), [NotificationController](../../../backend/app/Http/Controllers/RND/NotificationController.php), [schedules](../../../backend/bootstrap/app.php) |
 | Announcements and SOP authoring/history | [Admin announcements](../../../backend/app/Http/Controllers/Admin/AnnouncementController.php), [RND announcements](../../../backend/app/Http/Controllers/RND/AnnouncementController.php), [SopController](../../../backend/app/Http/Controllers/SopController.php) |

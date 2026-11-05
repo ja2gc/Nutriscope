@@ -1,7 +1,5 @@
 # Admin — Current Operations Flow
 
-Verified against current Admin web pages and Laravel Admin/report/backup guards on **2026-09-04**.
-
 ## Admin Navigation and Responsibilities
 
 ```mermaid
@@ -12,7 +10,7 @@ flowchart TD
     B --> E["AI Usage and Token Caps"]
     B --> F["Announcements and SOP"]
     B --> G["Allowed Reports"]
-    B --> H["Read-only Budget"]
+    B --> H["Budget setup and manual adjustments"]
     B --> I["Settings and Branding"]
     B --> J["Notifications and Profile"]
     B --> K["Help: Shared and Admin-only guidance"]
@@ -99,7 +97,7 @@ flowchart TD
     C --> D["Paginated restore-point list"]
     D --> E{"Admin action"}
     E -->|"Create backup now"| F["Independent manual point with no automatic expiry"]
-    E -->|"Delete"| G["Recently Deleted for 48 hours"]
+    E -->|"Delete"| G["Recently Deleted for 7 days"]
     G -->|"Keep backup"| D
     G -->|"Delete permanently"| H["Confirmed purge and Audit Log"]
     E -->|"Restore"| I["Fresh authentication and exact confirmation"]

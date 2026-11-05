@@ -1,7 +1,5 @@
 # NutriScope overview
 
-Verified against committed source: `53230ce3f4e471b243d0fe0a8ef0b5fbfa89a891` (2026-10-23).
-
 NutriScope supports clinical nutrition care, meal planning, food-service operations and administration.
 
 - RND uses the web console for NCP, clinical food data, operational planning and reports.

@@ -1,6 +1,6 @@
 # Developer documentation
 
-Verified against committed source: `53230ce3f4e471b243d0fe0a8ef0b5fbfa89a891` (2026-10-23).
+Document version: 1.0 | Issued: 5 November 2026
 
 Choose the business area first. Each area links to its backend owners, web/mobile consumers, tests and data meaning; platform guides hold cross-cutting implementation details.
 
@@ -17,6 +17,6 @@ Choose the business area first. Each area links to its backend owners, web/mobil
 
 [Root task map](../../DEVELOPERS.md) routes common changes. This is the only developer-docs tree. It organizes existing responsibilities; it does not introduce new application modules or claim exhaustive field-by-field coverage.
 
-Recommendations/index addition verified at `db7bff65dd597e2cab4ddcd83ded569ff88dd03a` (2026-10-29). The recommendations guide distinguishes inspected current behavior from proposed future work.
+The recommendations guide distinguishes inspected current behavior from proposed future work.
 
 When maintaining a feature, update the affected domain guide and field-semantics notes only for verified changes. Follow links to user/domain references instead of duplicating them.

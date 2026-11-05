@@ -28,7 +28,7 @@ flowchart TD
     P --> Q{"Verification passed?"}
     Q -->|"No"| R["Mark Failed, show safe result, notify configured contact, and audit activity"]
     Q -->|"Yes"| S["Add to Restore points and audit activity"]
-    S --> T["Apply automatic retention: 3 daily, 2 weekly, or 3 monthly; manual points do not auto-expire"]
+    S --> T["Expire schedule coverage after 4 daily days, 14 weekly days, or 3 calendar months; manual points do not auto-expire"]
 ```
 
 Disabling a schedule stops future periods only. It does not delete or reclassify existing restore points. A manual backup never satisfies an automatic period.
@@ -39,11 +39,11 @@ Disabling a schedule stops future periods only. It does not delete or reclassify
 flowchart TD
     A["Restore point reaches its last assigned expiry"] --> B{"Protected by active restoration?"}
     B -->|"Yes"| C["Keep in Restore points until restoration finishes"]
-    B -->|"No"| D["Move archive, manifest, and file references to Recently deleted for 48 hours"]
+    B -->|"No"| D["Move archive, manifest, and file references to Recently deleted for 7 days"]
     D --> E{"Admin acts before deadline?"}
     E -->|"Keep"| F["Return backup to Restore points"]
     F --> G["Keep backup rescues the restore point only; it does not restore application data"]
-    E -->|"Delete permanently or wait 48 hours"| H["Purge archive and manifest"]
+    E -->|"Delete permanently or wait 7 days"| H["Purge archive and manifest"]
     H --> I["Purge protected file copies only when no remaining restore point references them"]
     I --> J["Record purge result in Audit Logs"]
 ```
@@ -95,7 +95,7 @@ flowchart TD
     W --> X["Verify rollback, exit maintenance mode, mark Rolled Back, notify, and audit"]
 ```
 
-Each attempt creates its own Pre-restore backup, even if the later restoration step fails. After Completed, Failed, Rolled Back, or Cancelled, that backup remains protected for 48 hours. If restoration or rollback is still active at 48 hours, protection continues until the process reaches a terminal status, then the 48-hour window begins. Newer records are not merged or placed in a review database; after a successful older restore they exist only in this access-controlled recovery safety snapshot.
+Each attempt creates its own Pre-restore backup, even if the later restoration step fails. After Completed, Failed, Rolled Back, or Cancelled, that backup remains protected for 7 days. If restoration or rollback is still active at 7 days, protection continues until the process reaches a terminal status, then the 7-day window begins. Newer records are not merged or placed in a review database; after a successful older restore they exist only in this access-controlled recovery safety snapshot.
 
 ## Recovery Boundaries
 

@@ -1,7 +1,5 @@
 # Clinical Care — Current NCP/ADIME Flow
 
-Verified against current RND pages, appointment workflow, Laravel controllers, and rendered reports on **2026-09-29**.
-
 ## End-to-End Flow
 
 ```mermaid

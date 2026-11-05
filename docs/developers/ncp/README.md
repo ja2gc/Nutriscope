@@ -1,8 +1,6 @@
 # Nutrition care process
 
-Verified against committed source: `ce7078a41a9082eba5ae749639bcfa0cf1b45a82` plus diagnosis changes in this working tree (2026-10-28).
-
-Classification paths additionally verified against `79ee23b53a0ba047faa791cdb8e5b7fcb1211429` plus this working tree (2026-10-25): `Assessment::classifyBmi`, its derived API field, diagnosis/monitoring evidence and current census/NCP report presentation. See [data meaning](data.md) and [AI maintenance](ai.md).
+Classification paths: `Assessment::classifyBmi`, its derived API field, diagnosis/monitoring evidence and current census/NCP report presentation. See [data meaning](data.md) and [AI maintenance](ai.md).
 
 Purpose: locate nutrition calculations and NCP workflow authority.
 

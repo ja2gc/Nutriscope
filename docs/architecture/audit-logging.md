@@ -131,7 +131,7 @@ Opening the global audit list or a contextual history creates no audit event. Re
 
 Audit presentation covers new fiscal-year setup/opening allocation, `per_head_day_limit` changes, manual ledger inputs, existing corrections, PO deductions, balances, fiscal year, actor/system actor, safe operational reference, and the existing bounded reason where supplied. Budget setup, per-head/day changes, and ledger events remain transactional.
 
-Admin budget access is read-only. The redesign adds no approve/reject/flag action, mandatory Admin review, budget approval workflow, or budget-ledger reversal workflow. Existing ledger immutability and behavior are preserved. A future reversal design would require a separately approved linked entry rather than modifying the original.
+Admin can create fiscal-year budgets and add manual ledger adjustments, as can RND. Audit history remains read-only. There is no budget approval or budget-ledger reversal workflow. Existing ledger entries are immutable; corrections use a documented new adjustment rather than rewriting the original entry.
 
 ## Authorization and shared RND access
 

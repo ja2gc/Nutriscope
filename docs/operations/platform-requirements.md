@@ -1,8 +1,8 @@
 # Platform requirements
 
-Verified against committed source: `548c0e3268a8b7d26b598caf287fa11f6d236725` plus the deployment/resource changes in this working tree (2026-10-23).
+Document version: 1.0 | Issued: 5 November 2026
 
-Purpose: preserve the current service contract when changing hosting providers.
+Preserve the service contract below when choosing a plan or changing hosting providers. **Minimum VPS RAM: 2 GB.** The project's reference VPS was **DigitalOcean Premium Intel, 2 GB RAM, 70 GB NVMe SSD**. Clients may choose any plan with at least 2 GB RAM or use another VPS provider. The reference disk size and branded plan are examples, not required purchases.
 
 | Role | Requirement / source |
 |---|---|
@@ -19,10 +19,31 @@ Purpose: preserve the current service contract when changing hosting providers.
 | Primary private files | Persistent named volume or deliberately migrated private S3/R2 bucket |
 | Backup destination | Separate private storage, protected credentials/archive password and tested retention/recovery |
 | APK distribution | Signed APK + metadata in /var/www/nutriscope-downloads, stable HTTPS routes |
-| Outbound integrations | Only the [configured services](../developers/operations/integrations.md); email/AI/USDA and storage access as required |
+| Outbound integrations | Only the [configured services](integrations.md); email/AI/USDA and storage access as required |
 
 [Compose](../../docker-compose.yml) plus [production overlay](../../docker-compose.prod.yml) express the current container topology. No OCR/OMR container is required by these files. Report cache is reproducible; private files and database history are not.
 
-Resource sufficiency, managed-provider equivalents, existing schema/grants and recovery completeness are Unverified. Builds run off-host; loading images and running releases still require headroom. Memory ceilings total more than 2 GiB and do not reserve RAM: simultaneous peaks can still exhaust a small host. Do not select a VPS using memory/price assumptions without checking concurrent runtime demand, swap and memory pressure.
+Builds run off-host; image loading and releases still need memory/disk headroom. The 2 GB minimum is the installation floor, not a capacity guarantee for every workload. Container memory ceilings total more than 2 GiB and do not reserve RAM; simultaneous peaks can exhaust a small host. Keep swap available and measure reports, concurrent requests, queues and backup work. Increase capacity when sustained pressure or growth requires it. Validate the selected host and recovery target before accepting traffic.
 
-Procedures: [VPS setup](vps-setup.md), [turnover](turnover.md), [environment](../developers/operations/environment.md), [backup/recovery](backup-recovery.md).
+## Changing the VPS provider or plan
+
+The institution may change provider, resource tier or disk size. The application is not tied to DigitalOcean. Keep existing secret names; `DROPLET_*` names are a deployment contract, not a provider restriction.
+
+| Change | Configure/check |
+|---|---|
+| Different provider, same Ubuntu amd64 target | Use its signup/instance/console/firewall screens, then the same [Ubuntu setup commands](vps-setup.md); record the actual initial sudo user |
+| New public address | GitHub `DROPLET_HOST`, website A/AAAA records, provider/host allowlists and monitoring targets |
+| New SSH server/OS reinstall | Independently obtain the new host fingerprint and replace `DROPLET_HOST_FINGERPRINT`; re-establish operator/CI keys |
+| Different deploy user | Ownership/permissions, `DROPLET_USER`, its `authorized_keys`, repository key and `~/Nutriscope` checkout |
+| Custom SSH port | Both workflows currently assume port 22; change and review their SSH/SCP/upload configuration before changing the live port |
+| Different CPU architecture | Current images are built on Linux amd64 runners; ARM needs an explicit compatible image-build/platform workflow change |
+| Different OS | Adapt package manager, Docker repository, SSH/systemd, firewall and Certbot instructions; Ubuntu commands are not universal Linux commands |
+| More/less RAM, CPU or disk | Keep at least 2 GB RAM, review Compose ceilings and swap, monitor pressure and retain disk headroom for database, uploads and two image generations |
+| New disk/host | Preserve Compose project identity, restore database and protected files with keys, configure Nginx/TLS, downloads and backup access; never treat a volume change as an empty-data reset |
+| Same domain, different VPS IP | Public application URLs can stay unchanged; update DNS and SSH target, then verify web/mobile/API/download paths |
+| New domain | Update backend URLs/cookies, Nginx certificate/server names, mobile build/API/update URLs and QR/download consumers using [the full matrix](turnover.md#every-place-to-update-when-addresses-or-accounts-change) |
+| Managed application host such as Render | Reproduce all roles, release process and durable storage; the SSH deploy workflow and host Certbot commands do not apply unchanged |
+
+Changing VPS provider does not itself require replacing Resend, USDA, Anthropic, R2 or Expo accounts. Review IP restrictions and institutional ownership. Changing R2 credentials does not copy stored objects. Use [turnover](turnover.md) when any existing data is retained.
+
+Procedures: [VPS setup](vps-setup.md), [turnover](turnover.md), [environment](environment.md), [backup/recovery](backup-recovery.md).

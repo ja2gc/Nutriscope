@@ -212,7 +212,7 @@ ai_usage_logs           id, user_id, model, tokens_input, tokens_output,
 
 ### Confirmed Implemented Tables
 
-- Hand-verified against `database/migrations` on 2026-06-15 (the earlier "auto-verified" claim was not accurate — `budgets` and `food_service_recipes` owner columns and `budgets`/`budget_daily_logs` columns were corrected after checking the migrations).
+- The migration definitions in `backend/database/migrations` are the schema authority; trace current field meaning and writers through the domain data guides.
 - `budgets.rnd_user_id`: budgets are RND-owned planning artifacts (migration `2026_06_15_020000` renamed `fss_user_id` → `rnd_user_id`); FSS has read-only access via `/api/fss/budgets`.
 - `ncp_records.risk_score` is the canonical system-calculated risk score column.
 - Inventory/Recipes decoupled into clinical `food_items` / `recipes` and operational `fs_items` / `food_service_recipes`.

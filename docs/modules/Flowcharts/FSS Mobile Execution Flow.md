@@ -1,7 +1,5 @@
 # FSS Mobile — Current Execution Flow
 
-Verified against current Expo Router screens on **2026-08-27**.
-
 ## Access and Navigation
 
 ```mermaid
@@ -63,7 +61,7 @@ flowchart TD
     C2 -->|"Whole group"| C3["Change vendor for all"]
     C2 -->|"One item"| C4["Change vendor on item row"]
     C2 -->|"No"| D
-    C3 --> D["Review planned values; expand calculation details only if needed"]
+    C3 --> D["Review planned values; expand Vendor line details to review purchase lines"]
     C4 --> D
     D --> E["Confirm actual quantity and unit price"]
     E --> F["Upload receipt and proof"]

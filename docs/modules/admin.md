@@ -1,7 +1,5 @@
 # Admin Module — Current Role and Workflow
 
-Verified against current Admin web pages, shared components, and Laravel role/report/backup guards on **2026-09-05**. This replaces older text saying the Admin frontend still needed rebuilding; the current light-theme Admin console is live.
-
 ## Role Purpose
 
 Admin owns system administration and operational oversight:
@@ -11,7 +9,7 @@ Admin owns system administration and operational oversight:
 - AI usage/cost oversight and daily/monthly token caps;
 - announcements and versioned SOP;
 - allowed operational/aggregate reports;
-- read-only budget oversight;
+- fiscal-year budget setup, manual adjustments and ledger oversight;
 - report/hospital branding and shared food-service budget setting;
 - automatic backup schedules, restore-point retention, and staged whole-system recovery initiation;
 - Admin notifications, profile, and local preferences.
@@ -30,7 +28,7 @@ Admin uses the web console. The Admin layout redirects non-Admin users to the RN
 | Announcements | Admin announcement board and current/versioned SOP |
 | Manage Users | Account CRUD, role/status, password reset, onboarding creation |
 | Reports | Allowed operational and aggregate reports |
-| Budget | Read-only fiscal-year summary, ledger, activity |
+| Budget | Fiscal-year setup, manual adjustments, summary, ledger, activity |
 | Audit Logs | Structured event browser, filters, history, export, retention |
 | Backups | Automatic schedules, restore-point views, Recently deleted, and staged recovery |
 | Help | Searchable Shared and Admin-only account, oversight, audit, settings, and report guidance |
@@ -121,13 +119,13 @@ This is enforced in the report controller/model, not only hidden in the UI. Admi
 
 ## Budget Oversight
 
-Admin Budget uses the shared budget shell in read-only mode. Admin can select a fiscal year and inspect:
+Admin Budget uses the shared budget shell with mutation controls enabled. Admin can select a fiscal year and inspect:
 
 - allocation/summary;
 - ledger entries;
 - budget activity.
 
-Admin cannot create a fiscal-year budget or make a manual ledger adjustment from this page. Those are RND operations.
+Admin can create a fiscal-year budget and record manual ledger adjustments with a type, amount and reason, as RND can. The shared BudgetController owns these mutations; the web shell enables them with `canMutate=true`. Existing ledger rows remain immutable, and mutations are audited.
 
 ## Settings
 
@@ -152,7 +150,7 @@ Admin can view restore points, create a manual backup, and independently enable 
 
 Three primary views separate **Restore points**, **Failed**, and **Recently deleted** records. **Backup activity** appears only while work is Queued, Creating, or Verifying, and active whole-system work appears in **Restoration activity**. Wrapping filters separate Daily, Weekly, Monthly, Manual, and Pre-restore points; one automatic archive appears under every schedule filter it satisfies. Lists use server pagination. Automatic points show their expiry date. Manual points have no automatic expiry.
 
-**Delete** moves an eligible restore point to Recently deleted for 48 hours. **Keep backup** rescues it during that window without restoring application data. Failed records can be removed after confirmation, and Recently deleted points can be deleted permanently after a separate confirmation. Active restoration, the latest verified point, and an unexpired Pre-restore backup remain protected and do not advertise Delete.
+**Delete** moves an eligible restore point to Recently deleted for 7 days. **Keep backup** rescues it during that window without restoring application data. Failed records can be removed after confirmation, and Recently deleted points can be deleted permanently after a separate confirmation. Active restoration, the latest verified point, and an unexpired Pre-restore backup remain protected and do not advertise Delete.
 
 Whole-system recovery requires fresh authentication and exact confirmation, then runs through protected queued work rather than inside the browser request. It creates a Pre-restore backup (the recovery safety snapshot), restores one temporary MySQL database, and verifies matching private uploads before changing production. The selected single-Droplet switcher remains gated by Redis-backed maintenance mode and `BACKUP_RESTORE_ENABLED`; when disabled, recovery stops safely at Ready. When enabled after readiness acceptance, it transactionally restores validated application data and matching protected uploads, preserves current recovery records, Audit Logs, and immutable audit revisions, and automatically restores the Pre-restore backup on failure. Each restoration attempt creates its own protected copy, including an attempt that later fails. Backup archives, credentials, and raw secrets are never exposed to the browser.
 
@@ -187,7 +185,7 @@ Admin does not:
 
 - enter Assessment, Diagnosis, Intervention, Monitoring, or patient meal plans;
 - access Nutrition Intervention Plan or NCP Summary;
-- modify RND fiscal-year allocation/ledger adjustments from Admin Budget;
+- directly rewrite existing immutable budget-ledger entries;
 - use FSS mobile execution tools;
 - treat audit events as a substitute for underlying clinical authorization;
 - expose raw audit JSON or clinical value diffs.

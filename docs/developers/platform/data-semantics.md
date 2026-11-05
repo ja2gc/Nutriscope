@@ -1,20 +1,18 @@
 # Data semantics and variable tracing
 
-Verified against committed source: `53230ce3f4e471b243d0fe0a8ef0b5fbfa89a891` (2026-10-23).
-
 Purpose: learn what data means before changing a field, formula, status or configuration. This is a navigation guide, not a second database schema or an exhaustive variable glossary.
 
 ## Pick the type of variable
 
 | Kind | Authority and next guide |
 |---|---|
-| Environment/configuration setting | [Environment map](../operations/environment.md) → backend/config or Compose/build profile; effective overrides matter |
+| Environment/configuration setting | [Environment map](../../operations/environment.md) → backend/config or Compose/build profile; effective overrides matter |
 | Clinical measurement, prescription or workflow value | [NCP data](../ncp/data.md) → model, FormRequest, calculation context and persistence service |
 | Operational quantity, price, population or snapshot | [Food-service data](../food-service/data.md) → calculation/lifecycle service and model casts |
 | Account, role, notification or shared setting | [Shared feature owners](../shared/README.md) → actual route/authorization and model |
-| Schema column, JSON shape or persisted status | [Migrations](../../../backend/database/migrations/), [Models](../../../backend/app/Models/), [Enums](../../../backend/app/Enums/), [database guide](database.md) |
+| Schema column, JSON shape or persisted status | [Migrations](../../../backend/database/migrations), [Models](../../../backend/app/Models), [Enums](../../../backend/app/Enums), [database guide](database.md) |
 | UI-only state, filter, cache key or formatted display | Actual frontend page/hook/service or mobile client, then corresponding backend contract; [web](web.md) |
-| Report, revision or job payload | [Reports](../../../backend/app/Services/Reports/), [audit serializers](../../../backend/app/Services/Audit/Revisions/Serializers/), [Jobs](../../../backend/app/Jobs/), [operations](../operations/README.md) |
+| Report, revision or job payload | [Reports](../../../backend/app/Services/Reports), [audit serializers](../../../backend/app/Services/Audit/Revisions/Serializers), [Jobs](../../../backend/app/Jobs), [operations](../operations/README.md) |
 
 ## Trace a field end to end
 

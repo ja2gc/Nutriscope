@@ -1,7 +1,5 @@
 # Architecture
 
-Verified against committed source: `53230ce3f4e471b243d0fe0a8ef0b5fbfa89a891` (2026-10-23).
-
 Purpose: locate system boundaries before changing behavior.
 
 Browse the [domain index](../README.md) before implementation details. NCP and food service each link their backend rules, clients, tests and data meaning; shared role features have their own map. These are documentation groups, not new application module boundaries. [Data semantics](data-semantics.md) explains how to trace a field end to end.

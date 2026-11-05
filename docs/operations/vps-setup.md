@@ -1,14 +1,34 @@
 # Set up a replacement VPS
 
-Verified against committed source: `14a954e0a1167d781cf007a61c610dff297f952a` (2026-10-24).
+Document version: 1.0 | Issued: 5 November 2026
 
-Purpose: operator runbook for the existing Compose roles on a fresh Ubuntu 24.04 LTS VPS. This is a documented target setup, **not evidence that a new host was configured or tested**. They change the target host unless marked read-only.
+Use these commands on a fresh Ubuntu 24.04 LTS **amd64/x86-64** VPS with at least **2 GB RAM**. The project reference was DigitalOcean Premium Intel, 2 GB RAM, 70 GB NVMe SSD. The client may select another plan or VPS provider; use the [provider-change checklist](platform-requirements.md#changing-the-vps-provider-or-plan). Commands change the target host unless marked read-only. Complete [account/value collection](accounts.md) first.
 
 For an existing system, follow [turnover/cutover](turnover.md) before the data/release steps. Do not treat a move as a fresh empty installation.
 
-Before provisioning, the receiving team needs institution-controlled VPS billing/console access, repository access, registrar/authoritative DNS access and custody of required application/backup/signing keys. Decide whether the domain stays the same. Use the [address/account change matrix](turnover.md#every-place-to-update-when-addresses-or-accounts-change) to record all destinations privately; a new IP alone does not require changing domain-based app URLs. The [five GitHub secret instructions](../developers/operations/environment.md#github-actions-repository-secrets-obtain-enter-and-replace) explain exact sources, entry screens and replacement rules.
+Before provisioning, the receiving team needs institution-controlled VPS billing/console access, repository access, registrar/authoritative DNS access and custody of required application/backup/signing keys. Decide whether the domain stays the same. Use the [address/account change matrix](turnover.md#every-place-to-update-when-addresses-or-accounts-change) to record all destinations privately; a new IP alone does not require changing domain-based app URLs. The [five GitHub secret instructions](environment.md#github-actions-repository-secrets-obtain-enter-and-replace) explain exact sources, entry screens and replacement rules.
 
 ## 1. Prepare the host
+
+### First connection
+
+On the trusted provider console, obtain the public host-key fingerprint before accepting the workstation's first SSH prompt:
+
+**Read-only — provider console, initial root/sudo-capable account:**
+
+```sh
+sudo ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub -E sha256
+```
+
+Save the `SHA256:...` field as `VPS_SSH_HOST_FINGERPRINT`. Never copy the private host-key file. From workstation PowerShell/Bash, replace `INITIAL_SSH_USER` and `ORIGIN_IP` with your saved values:
+
+**Connection — workstation; first accepted connection writes known_hosts:**
+
+```sh
+ssh -i ~/.ssh/nutriscope-operator INITIAL_SSH_USER@ORIGIN_IP
+```
+
+Compare the prompt's fingerprint with the console value before accepting. DigitalOcean Ubuntu normally starts with `root`; another provider may use `ubuntu` or a different sudo-capable account. Use the provider's actual account. Commands below use `sudo`, including when run from the initial privileged account.
 
 Use a sudo-capable operator account, SSH public-key login and provider console recovery. Allow only SSH (actual configured port), HTTP 80 and HTTPS 443 at the provider firewall. Keep another SSH session open while changing access. Do not expose MySQL/Redis/container ports publicly.
 
@@ -16,7 +36,7 @@ Use a sudo-capable operator account, SSH public-key login and provider console r
 
 ```sh
 sudo apt-get update
-sudo apt-get install -y ca-certificates curl git nginx snapd
+sudo apt-get install -y ca-certificates curl git nginx snapd nano ufw openssl dnsutils
 ```
 
 Install Docker from the [official Ubuntu repository instructions](https://docs.docker.com/engine/install/ubuntu/) (check supported OS and existing-package conflicts first):
@@ -33,6 +53,47 @@ sudo systemctl enable --now docker nginx
 ```
 
 **Read-only:** sudo docker version; sudo docker compose version; free -h; df -h; sudo ss -lntp. Use current Compose with support for the production overlay's !reset tag. Use sudo for Docker or grant a trusted deploy account Docker access (equivalent to root); don't add untrusted users.
+
+The host needs no separate production PHP/Composer/Node/MySQL installation: those application dependencies are in the Docker images. Do not use a Docker convenience script on an existing host to replace its installation blindly.
+
+**State-changing — fresh VPS, initial sudo-capable account; SSH port must remain 22 for the current workflows:**
+
+```sh
+sudo ufw allow 22/tcp
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw enable
+sudo ufw status verbose
+```
+
+Allow SSH before enabling the firewall and test a second connection. Provider firewalls/security groups must allow the same traffic. Docker-published ports can bypass ordinary UFW assumptions; keep the repository's loopback bindings for MySQL, Redis, backend and frontend. See [Docker firewall limitations](https://docs.docker.com/engine/install/ubuntu/#firewall-limitations).
+
+**Read-only — VPS:**
+
+```sh
+free -h
+swapon --show
+df -h
+uname -m
+```
+
+Require `x86_64` for the existing runner-built images. Check that swap is available on the 2 GB reference host. If no swap exists and the provider supports a normal Ubuntu ext4 swap file, the following creates a 2 GiB example. Do not replace an existing swap setup or use it on a filesystem requiring a different swap procedure.
+
+**State-changing — fresh VPS only, sudo-capable account; stop if `/swapfile` already exists:**
+
+```sh
+if test -e /swapfile; then
+    printf 'STOP: /swapfile already exists; inspect the existing swap setup.\n'
+else
+    sudo fallocate -l 2G /swapfile &&
+    sudo chmod 600 /swapfile &&
+    sudo mkswap /swapfile &&
+    sudo swapon /swapfile &&
+    sudo nano /etc/fstab
+fi
+```
+
+Add `/swapfile none swap sw 0 0` once, save and exit. Verify `swapon --show`. Swap does not replace the 2 GB minimum RAM or establish workload capacity; monitor actual pressure. Do not rerun the initialization commands on existing swap.
 
 ## 2. Clone and configure
 
@@ -51,6 +112,36 @@ sudo install -d -m 0755 -o deploy -g deploy /var/www/nutriscope-downloads
 
 Verify a new SSH session as that account before changing/removing old access. Reconnect after group changes. Confirm it can run docker without a password prompt: the current CI workflow invokes docker directly, not through interactive sudo. Store the CI private SSH key only in the institution's Actions secret/secret manager. A private repository also needs clone/pull authentication: use an institution-owned read-only repository deploy key or approved credential helper, never a token embedded in the clone URL. Verify Git host fingerprints through a trusted channel before accepting them.
 
+In the editor, add `OPERATOR_SSH_PUBLIC_KEY` and `CI_SSH_PUBLIC_KEY` as separate complete lines. Save `DEPLOY_USER=deploy` in the private register. From a **new workstation session** test `ssh -i ~/.ssh/nutriscope-operator deploy@ORIGIN_IP`; on the server run `whoami` and `docker version`. Continue as `deploy`, not root. The setup account's sudo password is distinct from the CI private key and MySQL password.
+
+### Repository read access
+
+**State-changing — VPS, deploy user, home directory; fresh key path only:**
+
+```sh
+cd ~
+ssh-keygen -t ed25519 -C "nutriscope-repository" -f ~/.ssh/nutriscope-repository
+nano ~/.ssh/config
+```
+
+Use an empty passphrase for this dedicated server automation key. Add the following SSH configuration, preserving unrelated entries:
+
+```sshconfig
+Host github.com
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/nutriscope-repository
+    IdentitiesOnly yes
+```
+
+Set `chmod 600 ~/.ssh/config ~/.ssh/nutriscope-repository`. Read **only** `~/.ssh/nutriscope-repository.pub` in a private terminal/editor, save it as `REPOSITORY_DEPLOY_PUBLIC_KEY`, then in GitHub open **repository → Settings → Deploy keys → Add deploy key**. Give it an institutional name, paste the public key and leave **Allow write access** unchecked. The private partner stays protected on the VPS. This authorizes VPS-to-GitHub fetches; it is not `DROPLET_SSH_KEY`.
+
+**Connection check — VPS, deploy user:** `ssh -T git@github.com`. Compare the first host prompt with [GitHub's published SSH fingerprints](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints) before accepting. GitHub reports successful authentication without shell access and may return exit status 1; that message is expected. Then clone using `REPOSITORY_SSH_URL` from the **Code → SSH** form. See [deploy-key management](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/managing-deploy-keys).
+
+### Optional removal of direct root/password SSH
+
+After operator **and CI** key login to `deploy` work and provider recovery access is confirmed, use `sudo nano /etc/ssh/sshd_config.d/00-nutriscope.conf` to set `PermitRootLogin no`, `PasswordAuthentication no` and `KbdInteractiveAuthentication no`, each on its own line. Keep port 22. Check included configuration precedence and verify effective values with `sudo sshd -T`; Ubuntu uses the first obtained value for most directives. Run `sudo sshd -t` and only on success `sudo systemctl reload ssh`. Keep the old session open while verifying a new one. This changes SSH access, not the MySQL root account. Follow [Ubuntu OpenSSH guidance](https://ubuntu.com/server/docs/how-to/security/openssh-server/).
+
 Clone the institution-owned repository using its actual URL (replace the placeholder) into the deploy account's home directory. The current GitHub workflow expects ~/Nutriscope.
 
 ```sh
@@ -63,7 +154,7 @@ cp -n backend/.env.production.example backend/.env.production
 chmod 600 backend/.env.production
 ```
 
-Privately edit backend/.env.production as an operator; never paste it into a ticket/chat. Use the [environment map](../developers/operations/environment.md) and [integration value sources](../developers/operations/integrations.md#replacement-account-value-sources). New installs need a newly generated APP_KEY; moves must preserve the existing one. Provision the backup bucket/password and sender domain before enabling their jobs.
+Use the [final collected-value table and nano instructions](environment.md#enter-the-collected-values) to edit `backend/.env.production`; never paste it into a ticket/chat. New installs need a newly generated APP_KEY; moves must preserve the existing one. Provision the backup bucket/password and sender domain before enabling their jobs.
 
 **State-changing — new installation only, on the trusted Linux operator machine:** generate a key for this backend's AES-256-CBC default without printing it. The directory creation must succeed with a new, unused path before generating the file; stop if the directory already exists.
 
@@ -95,7 +186,7 @@ config --quiet validates without printing resolved secret values. Never paste pl
 
 The following start services and may write data. Take the approved branch:
 - **Move existing data:** pause old writers, capture/restore a coherent MySQL+file set at the compatible revision and preserve keys, following [turnover](turnover.md). Complete that reviewed transfer before release migrations. Do not seed demo data.
-- **Fresh installation:** the empty DB requires migrations and a reviewed reference-data/admin setup. [DatabaseSeeder](../../backend/database/seeders/DatabaseSeeder.php) includes demo identities and patients; do not run it wholesale. There is no verified turnkey institution-only bootstrap command in this runbook: approve the initial admin/reference-data list before acceptance.
+- **Fresh installation:** follow [initial data and seeding](initial-data.md) before the full release. The current template seeder requires an RND and specific food-service dishes. The default `DatabaseSeeder` includes exhibition identities/patients/history and is not a clean-client bootstrap. If institutional initialization has not been supplied, stop before release. The isolated exhibition commands are documented separately on that page.
 
 Build the reviewed revision on an existing Linux amd64 build machine or Actions
 runner, not the small production VPS. This uses the existing Dockerfiles and no
@@ -110,14 +201,28 @@ docker image save nutriscope-backend:latest nutriscope-frontend:latest | gzip -1
 ```
 
 Transfer only this archive over independently verified SSH. Do not transfer a
-working directory, env file, database, or private key with the images. On the
-destination, in the same reviewed source revision, with the archive in `.deploy/`:
+working directory, env file, database, or private key with the images.
+
+**State-changing — trusted Bash builder/workstation, reviewed checkout:**
+
+```sh
+ssh -i ~/.ssh/nutriscope-actions deploy@ORIGIN_IP 'mkdir -p ~/Nutriscope/.deploy'
+scp -i ~/.ssh/nutriscope-actions images.tar.gz deploy@ORIGIN_IP:~/Nutriscope/.deploy/images.tar.gz
+```
+
+Verify SSH's host prompt independently as above. On the destination, as `deploy`
+in `~/Nutriscope`, require its checkout revision to match `release_sha` from the
+builder before using the archive. Set the protected Compose password/function
+from section 2 in this Bash session. Use `dc up -d mysql redis` to start the data
+services. Complete the chosen restore/initialization branch before release.
+
+**State-changing — VPS, deploy user, `~/Nutriscope`:**
 
 ```sh
 gzip -dc .deploy/images.tar.gz | sudo docker image load
 sudo docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' nutriscope-backend:latest nutriscope-frontend:latest
 dc up -d mysql redis
-# AFTER the chosen data plan, backup and migration review:
+# ONLY after the chosen restore/initialization branch is complete:
 dc --profile release run --rm --pull never backend_release
 dc up -d --no-build --pull never backend backend_worker backend_scheduler frontend
 rm -f -- .deploy/images.tar.gz
@@ -129,11 +234,15 @@ them against production.
 
 [Release script](../../backend/docker-release.sh) caches config/routes/views, runs migrate --force, seeds FoodServiceMenuTemplateSeeder and runs demographic-census catch-up. It is a data-changing release step, not just a build. Review its suitability before each migration/transfer.
 
+The archive commands above are a first-host bootstrap/build path, not a second CI system. Subsequent releases use Actions. On an exhibition-only empty database, load the images and then use [the exhibition initialization order](initial-data.md#exhibition-dataset-only) instead of attempting the ordinary release first.
+
 [Production ports](../../docker-compose.prod.yml) are backend 127.0.0.1:8080 and frontend 127.0.0.1:3000. MySQL and Redis also publish loopback in the base file. No PaddleOCR/OMR, Nginx-container or Certbot-container service is declared.
 
 ## 4. Host Nginx
 
 Create /etc/nginx/sites-available/nutriscope using sudoedit. Replace example.org and www.example.org with the chosen domain. This is an example **host** configuration; the old nginx/default.conf expects a container hostname and is not this setup.
+
+For an institutional subdomain, use `server_name nutriscope.hospital.org;` and request a certificate only for that hostname unless a separate www hostname is actually configured. Preserve all unrelated Nginx sites. Check that ports 3000, 8080, 3306 and 6379 are available before reusing an existing server; changing bindings also requires corresponding upstream/deploy health-check changes. The [domain edit table](accounts.md#domain-options-and-configuration-locations) lists every affected configuration file.
 
 ```nginx
 server {
@@ -184,6 +293,8 @@ sudo systemctl reload nginx
 sudo certbot renew --dry-run
 ```
 
+For the single-subdomain example, the certificate command is `sudo certbot --nginx -d nutriscope.hospital.org`. Do not request `www.nutriscope.hospital.org` unless you deliberately created and routed that name too. Use the actual chosen hostname in every later HTTPS check.
+
 Follow [Certbot's current Nginx instructions](https://certbot.eff.org/instructions?os=snap&ws=nginx), including conflicts with OS-packaged Certbot. Check renewal timers with systemctl list-timers. Generate a new host certificate; do not copy the old private certificate key. nginx/init-ssl.sh is stale for this topology: it refers to absent nginx/certbot services and must not be used.
 
 ## 6. Verify before accepting traffic
@@ -203,6 +314,12 @@ Then use controlled test accounts for web login/logout, mobile login, an authori
 Keep the old host recoverable until [turnover acceptance](turnover.md) passes. Validate destination resources, certificates, DNS, database grants and complete restore before cutover.
 
 ## 7. Future releases
+
+### Enable the workflow and deploy
+
+After host preparation, database initialization/restore, proxy setup and the five [repository secrets](environment.md#github-actions-repository-secrets-obtain-enter-and-replace) are complete, open **GitHub repository → Actions → Deploy to VPS → Enable workflow** if disabled. A push to `main` triggers deployment (except a push changing only `mobile/release.json`). This workflow has no **Run workflow** manual-dispatch input. For an existing run of the current `main` commit, **Re-run all jobs** can redeploy that commit; an older SHA is deliberately rejected once `main` has advanced.
+
+In the run, check the frontend type check, image build, transfer and SSH deployment jobs. A green image build alone does not prove deployment or client acceptance. Do not manually rerun migrations or the full default seeder after a successful release. The workflow updates the pre-existing checkout; it does not clone the repo or generate `backend/.env.production`.
 
 The [deploy workflow](../../.github/workflows/deploy.yml) runs on main pushes and
 checks frontend types. It builds both images on the Actions runner, stamps their
@@ -237,8 +354,7 @@ After success, the dedicated NutriScope host automatically removes only
 **dangling** images older than 24 hours, including legacy unlabeled builds.
 Tagged current/rollback images and images referenced by containers remain
 protected by Docker. Volumes, backups, uploads and build cache are outside this
-cleanup. Verified at `bddf0345069cdd061a3532f89f8caf72c8208678` plus this change
-(2026-10-30). Do not add blanket
+cleanup. Do not add blanket
 `system prune`, `image prune --all`, or volume cleanup. Rollback tags are images,
 not a database rollback or a complete recovery procedure; review schema
 compatibility before using them.

@@ -1,7 +1,5 @@
 # NutriScope Frequently Asked Questions
 
-Verified against the current web, mobile, Laravel role gates, and rendered reports on **2026-09-26**. This is the user-facing FAQ and source for the role-scoped in-app Help pages. When this file conflicts with an older diagram or plan, current application code wins.
-
 ## Start Here
 
 - **RND:** use the web console for Nutrition Care Process (NCP), clinical food data, food-service planning, announcements/SOP, and reports.
@@ -162,23 +160,15 @@ No. NutriScope derives a score from the entered factors. RND can switch to manua
 
 ### How do I write a diagnosis?
 
-Open Diagnosis, choose **Add New Diagnosis**, then build Problem, Etiology, and Signs/Symptoms. For Intake, choose **Vitamins** or **Minerals**, then select the specific nutrient from its dropdown. Clinical and Behavioral problem lists, and every Etiology and Signs/Symptoms list, include an **Other** checkbox that reveals a 75-character field. Selected options and enabled Other text compose PES. Additional notes contain reasoning only and are saved separately. Review the editable PES statement and choose **Save Diagnosis**.
+Open Diagnosis, choose **Add New Diagnosis**, then build Problem, Etiology, and Signs/Symptoms. For Intake, choose **Vitamins** or **Minerals**, then select the specific nutrient from its dropdown. Clinical and Behavioral problem lists, and every Etiology and Signs/Symptoms list, include an **Other** checkbox that reveals a text field. Follow its visible character counter. Selected options and enabled Other text compose PES. Additional notes contain reasoning only and are saved separately. Review the editable PES statement and choose **Save Diagnosis**.
 
 ### Can AI create a diagnosis automatically?
 
-AI receives relevant calculated BMI/classification and weight changes; height and screening risk are not routinely sent. Adult BMI classification uses Asia-Pacific bands and stays separate from screening and PES diagnosis. BMI/%IBW alone does not establish malnutrition or its severity.
+No. Open **AI Review → Generate AI Suggestions**, review the proposals and their **Evidence used**, and check them against the saved Assessment. Review notes and any **May need review** group before accepting. Incomplete possible concerns are not approvable diagnoses. Use the manual PES builder when a suggestion is unsuitable.
 
-Pediatric BMI classification uses the official [WHO 2007 sex-specific monthly bands](https://www.who.int/toolkits/growth-reference-data-for-5to19-years/indicators/bmi-for-age) at 61–228 completed months; Asia-Pacific bands apply afterward. Month 60 shows BMI without a class. Ages 0–4 retain measurements but omit BMI because the under-five growth calculator is not implemented. Adult IBW/BMR/TEE panel estimates are withheld through month 228; the separate prescription calculator retains its pediatric methods. This is a band lookup, not a full growth assessment or an exact z-score calculator. MUAC screening labels apply only at 6–59 months and do not establish overall nutrition status. The BMI card's info button explains its reference and exclusions.
+Generation does not save a diagnosis. Review the final Problem, Etiology and Signs/Symptoms, then accept or save explicitly. Pending proposals can be reopened without generating again; generating again requests another review, including retry of omitted or rejected candidates. An empty result does not prove that no nutrition problem exists.
 
-No. Open **AI Review** and choose **Generate AI Suggestions**. One pass considers eligible nutrition problems and proposes at most three prioritized supported drafts, displayed two per page. Multiple drafts may share a domain. Relevant referral/medication information and selected clinical guidance provide context; patient names are removed. Medical diagnoses do not replace nutrition diagnoses. Normal findings, denied symptoms, history and uncertainty do not independently establish a problem.
-
-Each card shows **Evidence used**. Supported P/E/S explanations appear in Extra Notes, Additional Etiology Notes and Additional Signs and Symptoms Notes; unsupported or repetitive explanations are omitted. Notes allow 100 generated characters each and stay outside PES. Edit selects matching choices and places supported unmatched wording in **Other**. Approval saves the issued draft and its evidence provenance. Duplicate checks include manual/saved diagnoses and pending drafts. Relevant evidence changes or related deletion reopen review, including older custom diagnoses. Deletion alone does not generate; a new draft still needs current evidence. With exhausted evidence, **Generate AI Suggestions** stays clickable and indicates that no additional applicable nutrition diagnosis was found, without token use. When all output is withheld, one message explains that no additional supported nutrition diagnosis could be generated. This does not establish that no applicable diagnosis exists. The button keeps the same label for an explicit retry and retains valid drafts; no automatic retry occurs. When valid drafts remain, the partial-rejection warning is hidden.
-
-Diagnosis allows **ten generation attempts per RND per ten minutes**, independently from monitoring. Another patient or cycle does not reset the allowance. Unsuccessful attempts count; cached reads, status, empty candidate sets, acceptance and dismissal do not. The visible button explains when generation is unavailable and refreshes after expiry. RND must accept or save an edited draft; generation never creates a saved diagnosis. Manual entry remains available.
-
-Pending drafts are retained when you leave. Reopening them does not call the provider. Complete and valid empty results close reviewed candidates; partial rejection allows deliberate retry. Repeated exhausted checks do not fill unused draft slots. Requests use short references and constrained output. Clinical validation remains mandatory, and provider usage is recorded even when output is withheld.
-
-Versioned guidance and its source editions are maintained in the [clinical AI library](developers/ncp/ai.md#selective-clinical-context), checked October 24, 2026. Only matching guidance is sent; no runtime web search occurs. No fixed Academy recommendation for diagnosis count is claimed. RND review remains required.
+Use the [RND user manual](<../Storyboarding/RND User Manual.md>) for the Diagnosis workflow and [clinical AI reference](developers/ncp/ai.md) for evidence handling, limits, provider configuration and stored review behavior.
 
 ### What happens when I set an intervention goal?
 
@@ -303,7 +293,7 @@ The planned limit comes from **Settings → Food Service Budget**. Estimated val
 
 ### Who can change the fiscal-year budget?
 
-RND can set up budgets and create manual ledger adjustments. Admin's Budget page is read-only, but Admin can change the shared budget-per-head/day setting in Admin Settings.
+RND and Admin can set up fiscal-year budgets and create manual ledger adjustments. Review the amount, type and reason before saving, then confirm the audited ledger entry and balance. Admin can also change the shared budget-per-head/day setting in Admin Settings. Existing ledger entries remain immutable.
 
 ## Reports Questions
 
@@ -411,7 +401,7 @@ User totals by role, patient count as an aggregate KPI, monthly AI calls/tokens 
 
 ### What do AI token caps do?
 
-Admin can set daily and monthly token limits; blank means unlimited. Caps, dashboard totals and chart periods use Philippine calendar days/months. Diagnosis and Monitoring use Claude Haiku 5.5; default estimated rates are USD 0.10 input and USD 0.50 output per million tokens for these bounded requests, following [Anthropic's pricing](https://platform.claude.com/docs/en/about-claude/pricing). Admin can update the two rates independently.
+Admin can set daily and monthly token limits; blank means unlimited. Caps use Philippine calendar days/months. AI Usage Explorer defaults to Manila and also supports UTC for comparison. Diagnosis and Monitoring share the configured Anthropic model; the checked production configuration uses **claude-sonnet-5-5**. The two estimated-cost rates are editable settings, not a promise of current provider pricing. Compare them with the institution's actual provider pricing and invoice; see [AI configuration](developers/ncp/ai.md).
 
 Changing a rate does not change saved input/output token counts or reprice saved USD estimates. Each later call uses the updated rates; the daily/monthly graph adds each call's saved estimate, including old-rate and new-rate calls on the same day. Peso amounts use the dashboard's exchange-rate conversion.
 
@@ -433,7 +423,7 @@ Hospital/report branding and logos, food-service budget-per-head/day setting, lo
 
 ### What is Admin's Budget access?
 
-Read-only fiscal-year summaries, ledger entries, and activity history. Budget creation and manual adjustment remain RND responsibilities.
+Admin can inspect fiscal-year summaries, ledger entries and activity history, create a fiscal-year budget, and record a manual ledger adjustment. Existing ledger entries cannot be directly rewritten. FSS budget access remains read-only.
 
 ### How do automatic backup schedules avoid duplicates?
 
@@ -441,7 +431,7 @@ Daily, weekly, and monthly schedules are independent. Each runs after the displa
 
 ### How long are restore points kept, and what does Delete do?
 
-Automatic retention keeps the latest 3 daily, 2 weekly, and 3 monthly restore points. Manual restore points have no automatic expiry. **Delete** moves an eligible point to **Recently deleted** for 48 hours. **Keep backup** returns it to **Restore points**; **Delete permanently** or expiry purges it when no active restoration protects it. A Pre-restore backup remains protected for 48 hours after restoration finishes, so protected rows do not show Delete.
+Automatic backup coverage expires after 4 days for daily, 14 days for weekly and 3 calendar months for monthly schedules. One backup may cover several schedules; check its Final expiration. Manual restore points have no automatic expiry. **Delete** moves an eligible point to **Recently deleted** for 7 days. **Keep backup** returns it to **Restore points**; **Delete permanently** or expiry purges it when no active restoration protects it. A Pre-restore backup remains protected for 7 days after restoration finishes, so protected rows do not show Delete.
 
 ### What do the backup views, activity stages, and types mean?
 
@@ -449,7 +439,7 @@ Automatic retention keeps the latest 3 daily, 2 weekly, and 3 monthly restore po
 
 ### What happens when Admin restores the whole system?
 
-Restore requires the current password and exact confirmation phrase. A queued job creates and verifies a Pre-restore backup (the recovery safety snapshot), restores the selected archive into one temporary MySQL database, validates the database and matching private files, and only then enters maintenance mode to switch application data. Newer records are replaced rather than merged. A successful switch signs users out, removes the temporary database, preserves backup and audit history, and keeps the Pre-restore backup for 48 hours. A failure leaves production unchanged or automatically rolls it back.
+Restore requires the current password and exact confirmation phrase. A queued job creates and verifies a Pre-restore backup (the recovery safety snapshot), restores the selected archive into one temporary MySQL database, validates the database and matching private files, and only then enters maintenance mode to switch application data. Newer records are replaced rather than merged. A successful switch signs users out, removes the temporary database, preserves backup and audit history, and keeps the Pre-restore backup for 7 days. A failure leaves production unchanged or automatically rolls it back.
 
 ## When to Escalate
 

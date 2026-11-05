@@ -1,7 +1,5 @@
 # Stack and version authority
 
-Verified against committed source: `53230ce3f4e471b243d0fe0a8ef0b5fbfa89a891` (2026-10-23).
-
 | Layer | Source of truth |
 |---|---|
 | Laravel / PHP | [composer.json](../../backend/composer.json), [composer.lock](../../backend/composer.lock), [backend Dockerfile](../../backend/Dockerfile): Laravel ^13.8, container PHP 8.4 |

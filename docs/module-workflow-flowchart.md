@@ -1,7 +1,5 @@
 # Module workflow diagrams
 
-Verified against committed source: `53230ce3f4e471b243d0fe0a8ef0b5fbfa89a891` (2026-10-23).
-
 Use the focused diagrams below with the current source and role guides. They explain workflow intent, not verified live state.
 
 - [Clinical care](<modules/Flowcharts/Clinical Care (NCP) Operations.md>) → [clinical maintenance](developers/ncp/README.md)

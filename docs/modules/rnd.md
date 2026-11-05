@@ -1,7 +1,5 @@
 # RND Module — Current Role and Workflow
 
-Verified against current frontend navigation, Laravel routes/controllers, report output, and shared services on **2026-09-28**. Code is authoritative; older plans describe history only.
-
 ## Role Purpose
 
 RND owns two work lanes:
@@ -26,10 +24,10 @@ RND signs in through the web console. The current sidebar is:
 | Nutrition Care → Intervention | Prescription, meal plan, education, counseling, and goals |
 | Nutrition Care → Monitoring | Follow-up visit log and progress trends |
 | Food Service → Inventory | Ingredient/supply reference catalog |
-| Food Service → Menu Cycle | Weekly operational menu planning |
+| Food Service → Menu Calendar | Weekly operational menu planning |
 | Food Service → Budget | Fiscal-year budget and ledger management |
 | Food Service → Procurement | Food/supplies lists, POs, vendors, execution follow-up |
-| Food Service → Foods | Food-service recipes and single-item foods |
+| Food Service → Inventory → Menu Items | Food-service recipes and single-item foods |
 | Reports | Live report browser, archives, templates/branding |
 | Notifications | Announcements and follow-up reminders |
 | Help | Searchable Shared and RND-only account, clinical, food-service, communication, and report guidance |

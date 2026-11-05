@@ -1,7 +1,5 @@
 # Local setup
 
-Verified against committed source: `53230ce3f4e471b243d0fe0a8ef0b5fbfa89a891` (2026-10-23).
-
 Purpose: prepare an isolated developer installation.
 
 Use PHP compatible with backend/composer.lock (the container uses PHP 8.4), Composer 2, Node matching the Dockerfile (20), npm and Docker Compose. Commit lockfiles; do not solve installation failures by upgrading dependencies.
@@ -40,4 +38,4 @@ The web server-only LARAVEL_API_URL points to the backend /api endpoint. A physi
 
 Do not run composer setup blindly: its script generates a key and migrates. Do not run DatabaseSeeder on an institutional database; it includes demo accounts/patients. Fresh production initialization requires the explicitly reviewed reference-data/admin provisioning list in [turnover](../../operations/turnover.md).
 
-Related: [testing](testing.md), [environment](../operations/environment.md), [mobile](../food-service/mobile.md).
+Related: [testing](testing.md), [environment](../../operations/environment.md), [mobile](../food-service/mobile.md).

@@ -1,10 +1,10 @@
 # Food-service data meaning
 
-Verified against committed source: `7c6a1623c557582e2883d30866fc188e05f8b21b` plus menu portion/reset changes in this working tree (2026-10-27).
-
 Purpose: distinguish operational planning, purchasing, receiving and completed history. It covers both web and FSS-mobile consumers; see [workflow owners](README.md) and [mobile](mobile.md).
 
-Shopping-list naming and conversion verified against `ef419e88` plus this working tree (2026-10-27). `ShoppingList::defaultName` owns fallback names: `Menu Shopping list` with the suggested calendar span, `Shopping list` with the manual procurement date, and `Supplies list` with its procurement date. `ShoppingListController` applies the same fallback for suggested previews, creation, and explicitly blank rename requests; supplied names remain editable until conversion. Resources expose the stored name to web/audit consumers. `PurchaseOrder::displayName` prepends PO, PP, or PPA for order/report listings; the PO number is separate. Existing stored names are not backfilled.
+Budget mutation ownership is shared by the RND and Admin route groups in [api.php](../../../backend/routes/api.php), both calling [BudgetController](../../../backend/app/Http/Controllers/FSS/BudgetController.php). The two web pages reuse [BudgetPageShell](../../../frontend/components/budget/BudgetPageShell.tsx) with `canMutate=true`. FSS budget routes expose reads only. Fiscal-year setup and manual adjustments change the shared budget/ledger; they are not separate role-specific balances. Existing ledger rows remain immutable. See [Admin operation](../../modules/admin.md#budget-oversight) and [daily role instructions](<../../../Storyboarding/RND User Manual.md#e-budget>).
+
+Shopping-list naming and conversion. `ShoppingList::defaultName` owns fallback names: `Menu Shopping list` with the suggested calendar span, `Shopping list` with the manual procurement date, and `Supplies list` with its procurement date. `ShoppingListController` applies the same fallback for suggested previews, creation, and explicitly blank rename requests; supplied names remain editable until conversion. Resources expose the stored name to web/audit consumers. `PurchaseOrder::displayName` prepends PO, PP, or PPA for order/report listings; the PO number is separate. Existing stored names are not backfilled.
 
 Web creation defaults to `manilaCalendarToday`. Suggested lists require start date, number of days, and positive estimated servings. Missing Menu Calendar plans block both preview and saving, with exact dates shown through the shared save-dialog design. Manual food/supplies require only a procurement date and always display that date, even without `days_span`.
 
