@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\Audit\AuditEventPresenter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class FoodItemControllerTest extends TestCase
@@ -18,6 +19,23 @@ class FoodItemControllerTest extends TestCase
     private User $rnd;
 
     private User $fss;
+
+    public function test_food_library_no_longer_exposes_or_stores_ready_to_eat(): void
+    {
+        $this->assertFalse(Schema::hasColumn('food_items', 'ready_to_eat'));
+        $food = FoodItem::factory()->create(['category' => 'fruit']);
+
+        $this->actingAs($this->rnd)->getJson('/api/rnd/food-items/'.$food->uuid)
+            ->assertOk()->assertJsonMissingPath('data.ready_to_eat');
+
+        $this->actingAs($this->rnd)->putJson('/api/rnd/food-items/'.$food->uuid, [
+            'ready_to_eat' => true,
+        ])->assertUnprocessable()->assertJsonValidationErrors('ready_to_eat');
+
+        $this->actingAs($this->rnd)->postJson('/api/rnd/food-items', [
+            'name' => 'Retired flag', 'calories' => 80, 'ready_to_eat' => false,
+        ])->assertUnprocessable()->assertJsonValidationErrors('ready_to_eat');
+    }
 
     public function test_legacy_clinical_count_alias_remains_compatible_when_editing_its_baseline(): void
     {

@@ -27,4 +27,4 @@ For a new or changed semantic rule, add a short note to the owning domain's data
 
 Stored statuses are not all enums, and allowed input values alone don't define legal transitions. Search controllers/services/events and reports using that value. Dates can represent a calendar service date or an instant; inspect timezone boundaries before converting them. Migration files declare intended history, not proof of production schema.
 
-Full navigation aids: [schema reference](../../database-schema.md), [person-name compatibility](../../architecture/person-name-compatibility.md), [database guide](database.md). These must be checked against source for the specific change.
+Related navigation: [person-name compatibility](../../architecture/person-name-compatibility.md) and [database guide](database.md). Check the relevant source and authorized schema evidence for the specific change.

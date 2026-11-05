@@ -2,6 +2,16 @@
 
 Purpose: distinguish operational planning, purchasing, receiving and completed history. It covers both web and FSS-mobile consumers; see [workflow owners](README.md) and [mobile](mobile.md).
 
+## Backend menu fields and snack placement
+
+`MenuItemPicker` offers Food Service recipes and edible catalog items without a meal-slot category restriction. Menu Calendar/templates support ordered multiple lines in any slot; hiding separate AM/PM rows does not prevent placing snacks in Breakfast, Lunch or Dinner. `FoodServiceRecipeController` accepts `meal`, `snack`, `beverage`. Catalog `kind` accepts `ingredient` or `supply`.
+
+`menu_cycle_days.servings_override` is a backend input in the bulk day requests/writer and a costing input in `MenuCycleCostService::aggregate`, ahead of estimated population. Per-slot recipe edits and shopping-list population synchronization clear it; costing simulations also use an in-memory override. The web planner has no independent override control.
+
+`is_event` and `event_allocation` are backend metadata in the bulk day requests/writer, returned by `MenuCycleResource` and captured/displayed in menu audit revisions. The web planner submits false/null and has no event-allocation control. These fields do not drive the costing engine or provide an event-catering UI.
+
+## Purchasing and receiving data
+
 Budget mutation ownership is shared by the RND and Admin route groups in [api.php](../../../backend/routes/api.php), both calling [BudgetController](../../../backend/app/Http/Controllers/FSS/BudgetController.php). The two web pages reuse [BudgetPageShell](../../../frontend/components/budget/BudgetPageShell.tsx) with `canMutate=true`. FSS budget routes expose reads only. Fiscal-year setup and manual adjustments change the shared budget/ledger; they are not separate role-specific balances. Existing ledger rows remain immutable. See [Admin operation](../../modules/admin.md#budget-oversight) and [daily role instructions](<../../../Storyboarding/RND User Manual.md#e-budget>).
 
 Shopping-list naming and conversion. `ShoppingList::defaultName` owns fallback names: `Menu Shopping list` with the suggested calendar span, `Shopping list` with the manual procurement date, and `Supplies list` with its procurement date. `ShoppingListController` applies the same fallback for suggested previews, creation, and explicitly blank rename requests; supplied names remain editable until conversion. Resources expose the stored name to web/audit consumers. `PurchaseOrder::displayName` prepends PO, PP, or PPA for order/report listings; the PO number is separate. Existing stored names are not backfilled.

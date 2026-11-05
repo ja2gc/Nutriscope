@@ -22,7 +22,7 @@ class StoreFoodItemRequest extends FormRequest
             'name' => $isPost ? 'required|string|max:255' : 'sometimes|string|max:255',
             'calories' => $isPost ? 'required|numeric|between:0,10000|decimal:0,2' : 'sometimes|numeric|between:0,10000|decimal:0,2',
             'category' => 'sometimes|nullable|string|max:100',
-            'ready_to_eat' => 'sometimes|nullable|boolean',
+            'ready_to_eat' => 'prohibited',
             'protein' => 'sometimes|nullable|numeric|between:0,1000|decimal:0,2',
             'carbs' => 'sometimes|nullable|numeric|between:0,1000|decimal:0,2',
             'fat' => 'sometimes|nullable|numeric|between:0,1000|decimal:0,2',

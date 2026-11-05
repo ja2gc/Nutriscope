@@ -1,10 +1,11 @@
 # NutriScope — Intervention Goals: Clinical and Calculation Reference
 
-**Reviewed:** 21 October 2026.
-**Follow-up source and implementation audit:** 25 October 2026, against source revision `79ee23b53a0ba047faa791cdb8e5b7fcb1211429`. This audit clarifies existing defaults and implementation limits; it does not introduce automatic clinical suitability selection.
-**Status:** Version 2 implemented locally; release and live acceptance are separate checks. This reference separates verified source recommendations from local defaults. Numerical eligibility, overrides and follow-up still require the RND's assessment.
+This reference separates clinical source recommendations from local implementation defaults.
+Numerical eligibility, overrides and follow-up require the RND's assessment.
 
-PHP `NutritionPrescriptionService::autofill` is the current calculation authority for previews and saves. The browser displays the server snapshot and never reconstructs a historical formula from current measurements. `prescription-targets.json` and `autofillLegacy` retain version-1 regression behavior only. Historical values, labels and generated report files are not bulk-rewritten. Use the [clinical maintenance map](../developers/ncp/README.md) for current owners and tests; historical planning remains in Git history.
+`NutritionPrescriptionService::autofill` owns prescription previews and saves. The browser displays
+the server snapshot; saved plans and reports retain their captured measurement basis. See the
+[clinical maintenance map](../developers/ncp/README.md) for source owners and regression tests.
 
 ## Clinical, reporting, and privacy boundary
 
@@ -455,21 +456,18 @@ override an individualized prescription.
 
 ### 15.2 Generator and template contract
 
-- Rice and other carbohydrate foods are direct meal-plan items, not wrapper recipes. Their quantity
-  therefore scales independently from the main dish.
-- A recipe may contain rice only when rice is structurally defining, such as arroz caldo,
-  champorado, lugaw, or another true rice-based dish. A complete meal with intrinsic carbohydrate
-  receives no automatic carbohydrate side.
-- `Use rice as carb` limits automatic side-carbohydrate candidates to the pinned rice foods. When
-  off, rice is excluded from that candidate pool and the generator chooses among suitable non-rice
-  foods. Candidate selection remains allergy-filtered, prescription-scored, and varied within the
-  best-fitting choices.
-- The generator adds a side carbohydrate only when it improves prescription fit. This supports
-  smaller or absent carbohydrate sides when required by the RND-confirmed goal and targets.
-- The general `custom` pattern and confirmed maternal generation may add a vegetable side when the
-  selected main dish does not already contain vegetables. Raw aromatics such as garlic are not
-  standalone snacks; category fallback permits fruit only, while a vegetable must be explicitly
-  marked ready-to-eat to enter the snack pool.
+- New oral plans use measured Menu Items (`Recipe` records), including carbohydrate sides and
+  snacks. A single-Ingredient food can be represented by a Menu Item; its planned serving quantity
+  scales independently from the main dish. Historical raw-food plans keep their saved snapshots.
+- Seeded recipes contain rice when it is structurally defining, such as arroz caldo, champorado
+  or lugaw. Separate Carb Menu Items keep side portions independently adjustable.
+- The current generator requires a selected `carb` Menu Item or **Exclude carbs**. It validates
+  measured Ingredients, yield, positive energy and patient allergens before fitting portions.
+  Main-meal candidates use category `meal`; AM/PM candidates use `snack`. Recipe `meal_types`
+  metadata does not restrict automatic slot eligibility.
+- Raw Ingredients are not automatically added as snacks or vegetable sides.
+  Represent a standalone food as a measured Menu Item
+  when it should be selectable. Food Service uses its separate operational catalog and planner.
 - Patient PDFs keep the existing meal schedule presentation, omit snack rows with no items, and
   show portion details in compact three-column rows. A repeated dish or food uses one detail card;
   distinct saved amounts remain separately labelled and linked from their menu cells. Carbohydrates
@@ -482,6 +480,9 @@ override an individualized prescription.
   the safety exception: both seeded variants preserve frequent intake. The maternal patterns are
   derived from the official NNC/DOH food-group and serving guidance above and are not represented
   as an exact government therapeutic diet.
+
+Implementation owners: `MealPlanService::generate`, `filterByMealType` and the intervention menu
+controls. See [clinical library field ownership](../developers/ncp/data.md#clinical-food-library-and-menu-planning).
 
 ### 15.3 Dated-plan and print boundary
 
@@ -528,46 +529,3 @@ No new clinical source was introduced for this workflow boundary. Meal compositi
 No new clinical or nutrition source was introduced for these presentation decisions.
 
 ---
-
-## 16. Changelog
-
-Entries before 21 October 2026 describe historical decisions, not endorsement of superseded clinical claims.
-
-| Date | Change |
-|---|---|
-| 2026-10-22 | **Approved refinement.** Energy direction and kcal amount are the only added routine prescription controls; existing final fields handle other overrides. Read-only suggestions sit in neutral bordered collapsible sections below their related fields; patient suggestions contain no calorie homework and never write to fields automatically. One-time conversion recalculates plans without snapshots from their recorded measurement source, preserving IDs/dates and all existing note fields. Missing evidence uses Custom Plan without inferred diagnoses/doses. Encrypted originals are verified on persistent private storage before mutation; existing menu quantities are rescaled. Active linked report caches expire for normal reprepare; archived bytes stay frozen. No reseeding or conversion/version UI. |
-| 2026-10-21 | **Clinical/source audit and approved seven-goal design.** Replaced disputed calculation guidance with explicit source scope, proposed local defaults, independent energy/fluid controls, pediatric limitations, concise per-type notes and conditional food advice. Added saved calculation/provenance requirements. Version 2 implementation now uses the shared PHP calculator, persisted inputs and independent controls. Version-1 fixtures remain frozen; the later user-approved one-time conversion supersedes the initial no-conversion decision. |
-| 2026-10-03 | **Census download, fluid display, and menu-calendar boundary reconciled.** Census adds all nutritional-status totals and a direct identity-free selected-view PDF; fluid displays required, food-provided, and remaining drinking amounts without affecting meal generation; Menu Calendar retains only the letterhead, saved weekly menu, applicable snack rows, and signatories. No new clinical or nutrition source was introduced. |
-| 2026-10-02 | **Census and PES presentation override reconciled.** Census year/month summaries show age/sex, risk, and aggregate Nutrition care category totals. The category remains separate from confirmed medical diagnosis. PES cards show Assessment evidence but not source labels; server-side source gating remains authoritative. No new clinical or nutrition source was introduced. |
-| 2026-09-29 | **Dated-plan workflow and print boundary reconciled.** Complete immutable Intervention Plans replace active revision consumers; Monitoring remains visit data only; each plan owns zero or one menu; reports use newest-plan or selected-plan semantics. Added the 1,200-per-field/2,200-combined guidance limit and long-bond menu-first print contract. No new clinical source was introduced. |
-| 2026-09-28 | **Deployed QA follow-up reconciled.** Repeated foods now share one compact portion card with separately referenced saved amounts. This changes presentation only; no new nutrition calculation or external clinical source was introduced. Monitoring target-status, progressive help, and food-alert disclosure were aligned with the already approved clinical/runtime contract. |
-| 2026-09-28 | **Meal-plan composition research and runtime boundary documented.** Added Academy, PDRI, FNRI Food Exchange List, Nutritional Guidelines, Pinggang Pinoy, maternal-menu, and current U.S. guideline review locations. The hierarchy makes the individualized prescription authoritative and limits Pinggang Pinoy to a visual cross-check; direct carbohydrates, rice preference, intrinsic-carbohydrate, balanced custom, maternal composition, snack safety, and goal-specific review rules are explicit. |
-| 2026-09-21 | **Maternal and fluid runtime contract locked.** TEE remains BMR × PAL; trimester-specific energy and +27 g/day protein modifiers use PDRI 2015 Summary Tables 1–2 (rev. Sept 2018); fluid is guidance outside meal-plan scaling; goal stages remain progressively disclosed. |
-| 2026-09-20 | **Clinical/reporting/privacy boundary documented.** Diagnosis categories remain separate from nutrition diagnoses and intervention goals; pregnancy/lactation remains a PDRI modifier; oncology requires individualized goal selection. Required calculation inputs and privacy limitations are explicit. Runtime pregnancy values and TEE inputs were reconciled with current code. |
-| 2026-07-17 | **Severe prescriptions changed to flat full targets.** Removed staged low-calorie output and phase metadata. Severe `malnutrition` and `weight_gain` use 32.5 kcal/kg by default; micronutrients appear only with numeric targets. |
-| 2026-06-28 | **Calf circumference removed from assessment entirely** (column dropped, UI/request/resource fields removed). Was an AWGS muscle-mass proxy that fed no calculation. |
-| 2026-06-28 | **Verification pass (51 values confirmed, 4 corrected).** CKD sodium, diabetic fiber, BMI risk labeling, and GLIM weight-loss criteria were corrected. |
-| 2026-06-28 | **Consolidated into single source of truth.** Merged `intervention-goals.md` and `intervention-goals-asia-pacific-research.md`. Research doc retired. |
-| 2026-06-28 | **PDRI 2015 adopted as baseline.** Carb 55–75% / fat 15–30% / fiber 20–25 g / sodium < 2000 mg / free sugars < 10% E. Replaces IOM DRI as the national reference (FDA Circular 2023-009). |
-| 2026-06-28 | **AP BMI is the default** for all Filipino patients. Western cut-points retained as reference column only. |
-| 2026-06-28 | **Weight-loss BMI bands updated to AP:** `overweight` 23–24.9 / `class_1` 25–29.9 / `class_2` 30–34.9 / `class_3` ≥ 35. |
-| 2026-06-28 | **Diabetic `stage_2` trigger** changed from BMI ≥ 25 to BMI ≥ 23 (AP overweight threshold). |
-| 2026-06-28 | **Cardiac mild sodium** tightened from < 2300 mg to < 2000 mg (PDRI / WHO alignment). |
-| 2026-06-28 | **CKD stage 1–2 sodium** updated from < 2300 mg to < 2000 mg (PDRI alignment). |
-| 2026-06-28 | **MUAC removed from adult malnutrition classification** (poorly standardized in Asian hospital context). Retained in pediatric 6–59 mo and in assessment schema for clinical documentation. |
-| 2026-06-28 | **Muscle mass / AWGS / ASMI / calf circumference** removed from calculation logic entirely. These are GLIM diagnostic inputs recorded in the assessment schema; they do not feed the prescription calculator. |
-| 2026-06-28 | **Waist circumference / hip / WHR** clarified: assessment/diagnostic fields only; not calculation inputs. |
-| 2026-06-28 | **GLIM low-BMI Asian cut-points filled** (previously "adjust per regional thresholds" with no numbers): age < 70 moderate < 18.5 / severe < 17.0; age ≥ 70 moderate < 20.0 / severe < 17.8. |
-| 2026-06-28 | **Edema flag added** to engine inputs: blocks prescription output until RND confirms dry weight. |
-| 2026-06-28 | **Pregnancy/lactation add-ons** added as step 8 in the calculation chain (PDRI 2015). |
-| 2026-06-28 | **Double-count guard documented:** high_protein and malnutrition flat-rate goals must not receive an additional TEE stress factor. |
-| 2026-06-11 | Asia-Pacific BMI default (D1); weight-loss disease_stage re-cut to AP (D2); diabetic stage_2 trigger BMI ≥ 23 (D3) |
-| 2026-06-11 | Weight-basis rule M2 pinned; machine-readable spec `prescription-targets.json` established |
-| 2026-06-08 | Liver disease protein restriction labeled contraindicated; ESPEN/EASL alignment |
-| 2026-06-08 | CKD energy individualized per KDOQI 2020 (25–35 kcal/kg, default 30) |
-| 2026-06-08 | Section 10 added (Malnutrition vs Weight Gain clinical distinction) |
-| 2026-06-06 | Removed `fluid_restriction` as standalone goal type |
-
----
-
-*This reference records the revised clinical design and its limits. The shared PHP version-2 service is the current runtime authority; `prescription-targets.json` version 1 records legacy behavior only. The explicitly approved one-time conversion updates old plans from their recorded measurement source; ordinary edits and birthdays never recalculate historical plans.*

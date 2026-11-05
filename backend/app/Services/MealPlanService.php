@@ -613,12 +613,6 @@ class MealPlanService
     ): ?object {
         $residuals = $this->foodMatchingTargets($residuals);
         $eligible = $this->filterByMealType($pool, $mealType);
-        if ($this->isSnackSlot($mealType)) {
-            $foodOnly = $eligible->where('source', 'food_item')->values();
-            if ($foodOnly->isNotEmpty()) {
-                $eligible = $foodOnly;
-            }
-        }
         if ($eligible->isEmpty()) {
             $eligible = $pool;
         }
@@ -652,12 +646,7 @@ class MealPlanService
 
         usort($scored, fn ($a, $b) => $a['score'] <=> $b['score']);
 
-        // For interchangeable ready-to-eat snacks, randomise among the closest few so the
-        // bounded reconciliation pass doesn't collapse weekly snack variety to one item.
-        $allFood = collect($scored)->every(fn ($s) => $s['recipe']->source === 'food_item');
-        $window = $allFood ? min(5, count($scored)) : 1;
-
-        return $scored[array_rand(array_slice($scored, 0, $window, true))]['recipe'];
+        return $scored[0]['recipe'];
     }
 
     // ── Post-generation ±10% validation (4.3) ────────────────────────────────

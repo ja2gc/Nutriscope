@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "description": "Canonical, machine-readable prescription target spec. Single source of truth for the nutrition engine in BOTH runtimes (PHP backend = authoritative; TS frontend = mirror for live preview). Derived from docs/logic/intervention-goals.md + intervention-goals-asia-pacific-research.md. Golden cases at the end are frozen expected outputs that both engines must reproduce exactly.",
+  "description": "Frozen regression fixtures for NutritionPrescriptionService::autofillLegacy. These vectors are test inputs, not the current prescription API contract or clinical guidance. Current calculation ownership and behavior are documented in docs/logic/intervention-goals.md.",
   "generated": "2026-06-11",
   "rounding": "All g/kcal/ml outputs are Math.round (half-up) to whole numbers. %IBW and intermediate weights are NOT rounded before use.",
   "decisions": {

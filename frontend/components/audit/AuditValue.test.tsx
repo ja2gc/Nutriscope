@@ -15,7 +15,7 @@ describe("AuditValue", () => {
     expect(render({ type: "quantity", value: 150, unit: "g" })).toContain("150 g");
     expect(render({ type: "number", value: 140 })).toContain("140");
     expect(render({ type: "boolean", value: true })).toContain("Yes");
-    expect(render({ type: "enum", value: "ready_to_eat" })).toContain("Ready to eat");
+    expect(render({ type: "enum", value: "main_dish" })).toContain("Main dish");
     expect(render({ type: "reference", value: "PO-2026-0142" })).toContain("PO-2026-0142");
     expect(render({ type: "date", value: "2026-07-15" })).toContain("Jul 15, 2026");
     expect(render({ type: "field_list", value: ["serving_size", "serving_unit"] })).toContain("Serving size, Serving unit");

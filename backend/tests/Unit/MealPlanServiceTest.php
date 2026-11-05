@@ -57,7 +57,6 @@ class MealPlanServiceTest extends TestCase
             $fruit = FoodItem::forceCreate([
                 'name' => "Test Fruit {$i}",
                 'category' => 'fruit',
-                'ready_to_eat' => true,
                 'calories' => 80 + $i,
                 'protein' => 1,
                 'carbs' => 20,
@@ -294,32 +293,23 @@ class MealPlanServiceTest extends TestCase
         $this->assertArrayHasKey('water_g', $snapshot);
     }
 
-    public function test_ready_to_eat_resolution_uses_flag_then_category(): void
+    public function test_fruit_ingredients_cannot_replace_missing_snack_menu_items(): void
     {
-        // Category allowlist default
-        $this->assertTrue((new FoodItem(['category' => 'fruit']))->isReadyToEat());
-        $this->assertFalse((new FoodItem(['category' => 'vegetable']))->isReadyToEat());
-        $this->assertFalse((new FoodItem(['category' => 'protein']))->isReadyToEat());
-        $this->assertFalse((new FoodItem(['category' => null]))->isReadyToEat());
+        $this->seedRecipes(15);
+        Recipe::where('category', 'snack')->update(['category' => 'carb']);
+        $ncp = $this->makeNcpWithIntervention();
 
-        // Explicit flag overrides the category in both directions
-        $this->assertTrue((new FoodItem(['category' => 'protein', 'ready_to_eat' => true]))->isReadyToEat());
-        $this->assertTrue((new FoodItem(['category' => 'vegetable', 'ready_to_eat' => true]))->isReadyToEat());
-        $this->assertFalse((new FoodItem(['category' => 'fruit', 'ready_to_eat' => false]))->isReadyToEat());
+        $result = (new MealPlanService)->generate($ncp, now()->startOfWeek()->toDateString(), excludeCarbs: true);
 
-        FoodItem::forceCreate(['name' => 'Apple', 'category' => 'fruit']);
-        FoodItem::forceCreate(['name' => 'Garlic (Raw)', 'category' => 'vegetable']);
-        FoodItem::forceCreate(['name' => 'Cucumber Slices', 'category' => 'vegetable', 'ready_to_eat' => true]);
-
-        $this->assertEqualsCanonicalizing(
-            ['Apple', 'Cucumber Slices'],
-            FoodItem::query()->readyToEat()->pluck('name')->all(),
-        );
+        $this->assertIsArray($result);
+        $this->assertTrue($result['insufficient_suitable_foods']);
+        $this->assertContains('am_snack', $result['missing_meal_types']);
+        $this->assertDatabaseCount('meal_plans', 0);
     }
 
     public function test_snack_menu_items_fill_snack_slots_without_direct_ingredients(): void
     {
-        // Direct ready-to-eat Ingredients must not replace measured Snack Menu Items.
+        // Direct Ingredients must not replace measured Snack Menu Items.
         $this->seedRecipes(15);
         foreach (['Apple', 'Banana', 'Orange', 'Pear', 'Mango'] as $name) {
             FoodItem::forceCreate([

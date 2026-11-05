@@ -1,5 +1,22 @@
 # NCP data meaning
 
+## Clinical food library and menu planning
+
+`MealPlanService::generate` builds candidates from measured Recipes only. Main slots use category `meal`; AM/PM slots use `snack`. Ingredient category does not make a food eligible as a standalone snack. The Food Library forms manage nutrients, measured serving size/unit and allergens.
+
+Backend fields and saved-plan references have consumers beyond the web forms:
+
+| Field | Writer and consumers |
+|---|---|
+| `food_items.unit_price`, `recipes.cost` | `FoodItemPricesSeeder` writes illustrative clinical prices; `Recipe::recalculateTotals` scales prices by measured Ingredient quantities and persists cost, which `RecipeResource` returns. These are separate from operational Food Service pricing. |
+| `recipes.meal_types` | `StoreRecipeRequest` and `RecipeController` accept backend metadata; `RecipeSeeder` also writes it. Recipe Resources, candidate metadata and recipe audit revisions retain it. Automatic slot eligibility uses category instead, and the current web forms do not edit this metadata. |
+| `meal_plan_items.food_item_id`, `meal_plan_items.fdc_id` and template raw-food references | Saved raw-food rows are read by `MealPlanController`, `MealPlanService`, `MealPlanItemController` and report generators; model relationships and Ingredient deletion protection also use these references. Current manual/generator inputs use Menu Items. Frozen nutrient snapshots preserve each saved plan's nutrient basis. |
+| Recipe categories | Requests accept `meal`, `carb`, `snack`, `tube_feeding`. |
+
+Regression coverage lives in the Food Library, meal-plan, seeder and audit suites. See [data tracing](../platform/data-semantics.md) when changing a field.
+
+## Clinical assessment and care data
+
 Diagnosis lab evidence: `PesEvidenceBuilder` adds each abnormal flag's `unit` from `MonitoringPlanService::laboratoryUnit`, reusing its existing `LAB_META`. The AI and citation formatter consume this alongside the unchanged numeric `value` and `status`; `laboratory_values`, stored biochemical data and reference ranges retain their existing meaning. Unknown metadata units remain null. No conversion or new measurement is inferred.
 
 PES review data: `PesSuggestionService` writes `PesSuggestionState.validated_response` with independent `evidence_by_component` (`problem`, `etiology`, `signs` arrays of `{key,text}`), `review_required` and `review_reasons`. The API partitions entries into `data` and `review_drafts`; neither collection is a saved diagnosis. Readable proposals failing clinical/source/length checks retain original E/S in the latter, with only known references and an unchanged full assessment fingerprint where needed. Legacy P refs fall back to S; provider schema requires separate `pk`. Approval or deliberate review/edit/save snapshots provenance in `Diagnosis.ai_provenance`; direct approval of review-required drafts is blocked. Source hashes and relevant context/model/library revisions invalidate pending drafts, preserving saved diagnoses. The web displays grouped plain field labels, without Assessment navigation links. E/S Other fields and final E/S save allow 400 characters each, complete PES 500, Problem Other 75; original overlong drafts remain editable, without truncation. New Problem groups open fully; saved editing opens selected groups. No Assessment values or intervention snapshots are rewritten.

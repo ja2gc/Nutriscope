@@ -1,9 +1,7 @@
-// Nutrition prescription engine — FRONTEND MIRROR (live preview only).
-// AUTHORITATIVE source of truth is the backend NutritionPrescriptionService (PHP).
-// Both engines implement docs/logic/prescription-targets.json EXACTLY; the 90 frozen
-// golden cases in that file are asserted in both runtimes to prevent drift.
-// Persisted prescriptions MUST come from the backend autofill endpoint — this module
-// exists so the RND sees an instant value while typing.
+// Assessment, monitoring and summary calculation helpers.
+// Prescription previews and saves use the backend NutritionPrescriptionService.
+// The prescription-targets.json vectors cover autofillLegacy regression behavior;
+// they do not define the current prescription API contract.
 
 import whoBmi from './who-bmi-for-age.json' with { type: 'json' };
 
@@ -168,13 +166,8 @@ export interface PatientMetrics {
 }
 
 /**
- * Auto-fills a nutrition prescription based on goal_type + disease_stage.
- * Mirrors docs/logic/prescription-targets.json. RND can override any value.
- * AUTHORITATIVE values come from the backend; this is the live-preview mirror.
- *
- * Applies the PDRI pregnancy/lactation modifier on top of the goal result, in
- * lockstep with the PHP NutritionPrescriptionService so the live preview never
- * drifts from the persisted backend value.
+ * Compatibility calculation exercised by the frontend regression tests.
+ * Current prescription previews and saves use the backend autofill endpoint.
  */
 export function autofillPrescription(
   goalType: string,

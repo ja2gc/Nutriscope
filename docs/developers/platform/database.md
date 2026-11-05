@@ -8,7 +8,7 @@ Start with [data semantics](data-semantics.md) to trace field ownership and cons
 - [HasPublicId](../../../backend/app/Models/Concerns/HasPublicId.php) separates public UUIDs from internal relation keys.
 - [NcpRecord](../../../backend/app/Models/NcpRecord.php) links clinical children. A HasOne relationship alone is not a database uniqueness constraint.
 - [Budget](../../../backend/app/Models/Budget.php) computes fiscal-year balance from ledger entries; [BudgetLedgerListener](../../../backend/app/Listeners/BudgetLedgerListener.php) records completion deductions.
-- [Schema reference](../../database-schema.md) helps navigation; migrations/models and authorized actual schema evidence outrank prose.
+- Inspect the configured database with authorized schema tools for installed tables, columns, indexes and constraints; use migrations/models to trace source ownership.
 
 For a field or status change, check migrations, casts/fillables, validation, Resources, revision serializers, jobs, reports and both clients. Preserve decimals, identifiers and historical meaning. Prefer additive, forward-only changes; never rewrite applied migrations. Verify the actual migration state before deployment.
 

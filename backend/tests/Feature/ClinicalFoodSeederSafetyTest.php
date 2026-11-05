@@ -38,10 +38,9 @@ class ClinicalFoodSeederSafetyTest extends TestCase
         $this->assertSame($firstCount, FoodItem::query()->count());
         $this->assertSame(1, FoodItem::query()->where('name', 'Steamed White Rice')->count());
         $this->assertNotNull(FoodItem::query()->where('name', 'Steamed White Rice')->value('usda_fdc_id'));
-        $readyFoods = FoodItem::query()->whereNotNull('usda_fdc_id')->readyToEat()->get();
-        $this->assertNotEmpty($readyFoods);
-        $this->assertTrue($readyFoods->every(fn (FoodItem $food): bool => $food->category === 'fruit'));
-        $this->assertFalse(FoodItem::query()->where('name', 'Garlic (Raw)')->firstOrFail()->isReadyToEat());
+        $garlic = FoodItem::query()->where('name', 'Garlic (Raw)')->firstOrFail();
+        $this->assertGreaterThan(0, (float) $garlic->calories);
+        $this->assertArrayNotHasKey('ready_to_eat', $garlic->getAttributes());
     }
 
     public function test_price_seeder_sets_canonical_prices_then_recalculates_recipe_costs(): void

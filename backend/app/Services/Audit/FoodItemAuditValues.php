@@ -12,7 +12,6 @@ final class FoodItemAuditValues
         return [
             'name' => (string) $food->name,
             'category' => $food->category,
-            'ready_to_eat' => $food->ready_to_eat,
             'usda_fdc_id' => $food->usda_fdc_id,
             'serving_size' => $food->serving_size !== null ? (float) $food->serving_size : null,
             'serving_unit' => $food->serving_unit,

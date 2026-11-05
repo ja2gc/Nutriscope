@@ -104,7 +104,7 @@ class AuditValuePresenter
             'sodium_mg' => 'number', 'water_g' => 'number', 'servings' => 'number',
             'protein' => 'number', 'carbs' => 'number', 'fat' => 'number',
             'unit_price' => 'currency', 'usda_fdc_id' => 'reference',
-            'ready_to_eat' => 'boolean', 'is_active' => 'boolean',
+            'is_active' => 'boolean',
         ],
         AuditDomain::System->value => [
             'status' => 'enum', 'is_active' => 'boolean', 'retention_enabled' => 'boolean',

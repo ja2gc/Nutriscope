@@ -76,7 +76,7 @@ class FsItemController extends Controller
      * The reference catalog — the backend list of ingredients/supplies that recipes
      * and procurement are built from. NOT a stock ledger: items carry no quantity, only
      * how they're bought (unit + cost) and their auto-suggested vendor. Optionally
-     * filtered by kind (ingredient | supply | ready_to_eat).
+     * filtered by kind (ingredient | supply).
      */
     public function catalog(Request $request): JsonResponse
     {

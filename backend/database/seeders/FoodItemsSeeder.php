@@ -58,20 +58,6 @@ class FoodItemsSeeder extends Seeder
             }
         }
 
-        // Pin the curated demo interpretation so raw garlic and cooked
-        // vegetables cannot appear as standalone snacks, while fruit can.
-        $foods = array_map(function (array $food): array {
-            if (($food['ready_to_eat'] ?? null) === null) {
-                if (($food['category'] ?? null) === 'fruit') {
-                    $food['ready_to_eat'] = true;
-                } elseif (($food['category'] ?? null) === 'vegetable') {
-                    $food['ready_to_eat'] = false;
-                }
-            }
-
-            return $food;
-        }, $foods);
-
         return array_values($foods);
     }
 

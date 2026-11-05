@@ -17,7 +17,7 @@ Start with [DEVELOPERS.md](../DEVELOPERS.md) for task-to-source routing. The gui
 | Detailed role/domain behavior | [RND](modules/rnd.md), [FSS](modules/fss.md), [Admin](modules/admin.md) |
 | Deeper flow diagrams | [Flowchart index](module-workflow-flowchart.md), [Flowcharts](modules/Flowcharts) |
 | Clinical rationale | [intervention goals](logic/intervention-goals.md), [meal algorithm](logic/meal-algorithm.md), [recommend/avoid](logic/recommend-avoid.md) |
-| Schema and security references | [Schema](database-schema.md), [Security](security/security.md) |
+| Database and security references | [Database guide](developers/platform/database.md), [Security](security/security.md) |
 | Audit/search/compatibility design rationale | [Architecture references](architecture) |
 | Food-service maintenance detail | [Domain map](developers/food-service/README.md), [detailed invariants](developers/food-service/reference.md) |
 | Forms | [Nutriscope Forms](<Nutriscope Forms>) |

@@ -6,8 +6,6 @@ export interface FoodItem {
   id: string;
   name: string;
   category: string | null;
-  /** null = auto (eligible as a snack if category is fruit/vegetable); true/false = explicit override */
-  ready_to_eat: boolean | null;
   usda_fdc_id: number | null;
   calories: string;
   protein: string | null;
@@ -104,7 +102,6 @@ export type FoodItemPayload = {
   name: string;
   calories: number;
   category?: string | null;
-  ready_to_eat?: boolean | null;
   protein?: number | null;
   carbs?: number | null;
   fat?: number | null;

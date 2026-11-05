@@ -81,7 +81,6 @@ class MealPlanControllerTest extends TestCase
     {
         $foods = FoodItem::factory(5)->create([
             'category' => 'fruit',
-            'ready_to_eat' => true,
             'serving_size' => 100,
             'serving_unit' => 'g',
         ]);
