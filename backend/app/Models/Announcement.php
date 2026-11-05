@@ -20,11 +20,19 @@ class Announcement extends Model
         'attachment',
         'pinned',
         'visibility',
+        'audiences',
     ];
 
     protected $casts = [
         'pinned' => 'boolean',
+        'audiences' => 'array',
     ];
+
+    /** @return list<string> */
+    public function audienceRoles(): array
+    {
+        return $this->audiences ?? ($this->visibility === 'All' ? ['RND', 'FSS', 'Admin'] : [$this->visibility]);
+    }
 
     public function user(): BelongsTo
     {

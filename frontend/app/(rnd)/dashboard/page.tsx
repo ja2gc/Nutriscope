@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ImageCarousel, ImageUploadGallery, imagesFromSrcs, imageSrcs, type UploadImage } from "@/components/ui/ImageUploadGallery";
+import { AnnouncementAudienceSelect } from "@/components/announcements/AnnouncementAudienceSelect";
 import { AnnouncementAuthorAvatar } from "@/components/announcements/AnnouncementAuthorAvatar";
 import { fetchPatients } from "@/services/patientService";
 import { fetchUpcomingAppointments, transitionAppointment, type AppointmentQueueFilter, type NcpAppointment } from "@/services/ncpAppointmentService";
@@ -14,12 +15,12 @@ import {
   Announcement,
   AnnouncementCategory,
   AnnouncementVisibility,
+  AnnouncementRole,
   type AnnouncementPayload,
   createAnnouncement,
   fetchAnnouncements,
   updateAnnouncement,
 } from "@/services/announcementService";
-import { categoryStyles } from "@/components/announcements/AnnouncementsBoard";
 import { FssDashboardSummary, getFssDashboard } from "@/services/menuCycleService";
 import { MoreHorizontal, PencilLine, X } from "lucide-react";
 import { personDisplayName } from "@/lib/personName";
@@ -27,6 +28,7 @@ import { personDisplayName } from "@/lib/personName";
 type AnnouncementDraft = {
   category: AnnouncementCategory;
   visibility: AnnouncementVisibility;
+  audiences: AnnouncementRole[];
   pinned: boolean;
   title: string;
   body: string;
@@ -147,6 +149,7 @@ export default function RndDashboardPage() {
   const [draft, setDraft] = useState<AnnouncementDraft>({
     category: "General",
     visibility: "All",
+      audiences: ["RND", "FSS", "Admin"],
     pinned: false,
     title: "",
     body: "",
@@ -268,6 +271,7 @@ export default function RndDashboardPage() {
     setDraft({
       category: "General",
       visibility: "All",
+      audiences: ["RND", "FSS", "Admin"],
       pinned: false,
       title: "",
       body: "",
@@ -304,6 +308,7 @@ export default function RndDashboardPage() {
     setDraft({
       category: post.category,
       visibility: post.visibility,
+      audiences: post.audiences ?? (post.visibility === "All" ? ["RND", "FSS", "Admin"] : [post.visibility]),
       pinned: post.pinned,
       title: post.title,
       body: post.body,
@@ -356,6 +361,7 @@ export default function RndDashboardPage() {
     const payload: AnnouncementPayload = {
       category: draft.category,
       visibility: draft.visibility,
+      audiences: draft.audiences,
       pinned: draft.pinned,
       title: draft.title.trim() || "Announcement",
       body: draft.body.trim(),
@@ -442,21 +448,7 @@ export default function RndDashboardPage() {
                   </select>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-warm-500 uppercase tracking-wider">
-                    Visibility
-                  </label>
-                  <select
-                    name="visibility"
-                    value={draft.visibility}
-                    onChange={handleDraftChange}
-                    className="w-full px-3 py-2 text-base bg-white border border-warm-300 rounded-xl text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
-                  >
-                    <option value="All">All</option>
-                    <option value="FSS">FSS</option>
-                    <option value="Admin">Admin</option>
-                  </select>
-                </div>
+                <AnnouncementAudienceSelect value={draft.audiences} onChange={(audiences) => setDraft((prev) => ({ ...prev, audiences }))} />
 
                 <div className="space-y-1.5 sm:col-span-2">
                   <label className="text-xs font-semibold text-warm-500 uppercase tracking-wider">
@@ -512,17 +504,8 @@ export default function RndDashboardPage() {
               />
               </div>
 
-              <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-warm-100 bg-white px-5 py-4">
-                <div className="flex flex-wrap gap-2">
-                  {Object.entries(categoryStyles).map(([label, className]) => (
-                    <span
-                      key={label}
-                      className={`inline-flex px-2.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider border ${className}`}
-                    >
-                      {label}
-                    </span>
-                  ))}
-                </div>
+              <div className="sticky bottom-0 flex items-center justify-end gap-3 border-t border-warm-100 bg-white px-5 py-4">
+
                 <Button
                   variant="primary"
                   loading={announcementsSaving}
@@ -598,12 +581,12 @@ export default function RndDashboardPage() {
 
                       <div className="flex items-center gap-2">
                         {selectedPost.pinned && (
-                          <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider border bg-orange-50 text-[#EA580C] border-orange-200">
+                          <span className="text-xs font-medium text-warm-500">
                             Pinned
                           </span>
                         )}
                         <span
-                          className={`inline-flex px-2.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider border ${categoryStyles[selectedPost.category]}`}
+                          className="text-xs font-medium text-warm-500"
                         >
                           {selectedPost.category}
                         </span>
@@ -881,12 +864,12 @@ export default function RndDashboardPage() {
 
                           <div className="flex max-w-full flex-wrap items-center justify-end gap-1.5">
                             {post.pinned && (
-                              <span className="inline-flex rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-xs font-extrabold uppercase tracking-wider text-[#EA580C]">
+                              <span className="text-xs font-medium text-warm-500">
                                 Pinned
                               </span>
                             )}
                             <span
-                              className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-extrabold uppercase tracking-wider ${categoryStyles[post.category]}`}
+                              className="text-xs font-medium text-warm-500"
                             >
                               {post.category}
                             </span>

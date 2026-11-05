@@ -3,6 +3,7 @@ import type { PaginationMeta } from "@/components/ui/Pagination";
 
 export type { PaginationMeta };
 export type AnnouncementCategory = "General" | "Event" | "Operational" | "Urgent" | "Memo";
+export type AnnouncementRole = "RND" | "FSS" | "Admin";
 export type AnnouncementVisibility = "FSS" | "Admin" | "All";
 
 export interface Announcement {
@@ -14,6 +15,7 @@ export interface Announcement {
   attachments?: string[];
   pinned: boolean;
   visibility: AnnouncementVisibility;
+  audiences?: AnnouncementRole[];
   created_at: string;
   updated_at: string;
   can_edit: boolean;
@@ -31,6 +33,7 @@ export interface AnnouncementPayload {
   body: string;
   category: AnnouncementCategory;
   visibility: AnnouncementVisibility;
+  audiences?: AnnouncementRole[];
   attachment?: string | null;
   attachments?: string[];
   pinned?: boolean;

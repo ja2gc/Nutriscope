@@ -26,6 +26,8 @@ class UpdateAnnouncementRequest extends FormRequest
             'attachments' => ['sometimes', 'array', 'max:10'],
             'attachments.*' => ['string', new AnnouncementImageDataUrl],
             'visibility' => ['sometimes', 'required', Rule::in(['FSS', 'Admin', 'All'])],
+            'audiences' => ['sometimes', 'required', 'array', 'list', 'min:1', 'max:3'],
+            'audiences.*' => ['required', 'string', 'distinct', Rule::in(['RND', 'FSS', 'Admin'])],
             'pinned' => ['sometimes', 'boolean'],
         ];
     }

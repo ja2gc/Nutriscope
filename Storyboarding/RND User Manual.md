@@ -266,7 +266,7 @@ Food Library also includes a full-tab **Food Calculator**, reusing the Food Reca
 
 1. Open **Announcements**.
 2. Review the current SOP and History before publishing procedure-sensitive work.
-3. Add an announcement with category, audience, required body text, optional title, pin state, and optional images. The feed previews three body lines; click anywhere on a card for the full post. Verify the author's profile photo and bounded post image.
+3. Add an announcement with category, required body text, optional title, pin state, and optional images. Under **Visible to**, select one or more roles; select all three for everyone. Include RND if other RND users should receive it. Audience choices appear in the editor only. The feed previews three body lines; click anywhere on a card for the full post. Verify the author's profile photo and bounded post image.
 4. Edit/delete only authorized posts.
 5. Use **Revise SOP** for a true procedure revision; saving creates a new history version.
 

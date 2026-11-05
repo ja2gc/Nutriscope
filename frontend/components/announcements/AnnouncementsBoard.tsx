@@ -6,11 +6,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Pagination, PaginationMeta } from "@/components/ui/Pagination";
 import { ImageCarousel, ImageUploadGallery, imagesFromSrcs, imageSrcs, type UploadImage } from "@/components/ui/ImageUploadGallery";
+import { AnnouncementAudienceSelect } from "@/components/announcements/AnnouncementAudienceSelect";
 import { AnnouncementAuthorAvatar } from "@/components/announcements/AnnouncementAuthorAvatar";
 import {
   Announcement,
   AnnouncementCategory,
   AnnouncementVisibility,
+  AnnouncementRole,
   type AnnouncementPayload,
   fetchAdminAnnouncements,
   createAdminAnnouncement,
@@ -24,21 +26,12 @@ import {
 import { PencilLine, Trash2, X } from "lucide-react";
 import { SopBanner } from "./SopBanner";
 
-// Shared category pill styles — exported so other files (e.g. the RND dashboard)
-// can import instead of redefining.
-export const categoryStyles: Record<AnnouncementCategory, string> = {
-  General: "bg-warm-100 text-warm-700 border-warm-200",
-  Event: "bg-orange-50 text-[#EA580C] border-orange-200",
-  Operational: "bg-sky-50 text-sky-700 border-sky-100",
-  Urgent: "bg-red-50 text-red-700 border-red-100",
-  Memo: "bg-sky-50 text-sky-700 border-sky-200",
-};
-
 type AnnouncementDraft = {
   title: string;
   body: string;
   category: AnnouncementCategory;
   visibility: AnnouncementVisibility;
+  audiences: AnnouncementRole[];
   pinned: boolean;
   images: UploadImage[];
 };
@@ -48,6 +41,7 @@ const EMPTY_DRAFT: AnnouncementDraft = {
   body: "",
   category: "General",
   visibility: "All",
+  audiences: ["RND", "FSS", "Admin"],
   pinned: false,
   images: [],
 };
@@ -78,7 +72,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
   // Breadcrumb and permission guidance differ per variant.
   const breadcrumbRoot = isAdmin ? "Admin" : "Home";
   const subtitle = isAdmin
-    ? "Admin announcements can be pinned and sent to FSS, Admin, or all departments."
+    ? "Admin announcements can be pinned and sent to selected roles."
     : null;
 
   const { user } = useAuth();
@@ -188,6 +182,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
       body: post.body,
       category: post.category,
       visibility: post.visibility,
+      audiences: post.audiences ?? (post.visibility === "All" ? ["RND", "FSS", "Admin"] : [post.visibility]),
       pinned: post.pinned,
       images: imagesFromSrcs(post.attachments?.length ? post.attachments : (post.attachment ? [post.attachment] : [])),
     });
@@ -240,6 +235,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
       body: draft.body.trim(),
       category: draft.category,
       visibility: draft.visibility,
+      audiences: draft.audiences,
       pinned: draft.pinned,
       attachment: attachments[0] ?? null,
       attachments,
@@ -339,21 +335,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                   </select>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-warm-500 uppercase tracking-wider">
-                    Visibility
-                  </label>
-                  <select
-                    name="visibility"
-                    value={draft.visibility}
-                    onChange={handleDraftChange}
-                    className="w-full px-3 py-2 text-base bg-white border border-warm-300 rounded-xl text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
-                  >
-                    <option value="All">All</option>
-                    <option value="FSS">FSS</option>
-                    <option value="Admin">Admin</option>
-                  </select>
-                </div>
+                <AnnouncementAudienceSelect value={draft.audiences} onChange={(audiences) => setDraft((prev) => ({ ...prev, audiences }))} />
 
                 <div className="space-y-1.5 sm:col-span-2">
                   <label className="text-xs font-semibold text-warm-500 uppercase tracking-wider">
@@ -401,7 +383,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                     Pin to top of feed
                   </label>
                   {draft.pinned && (
-                    <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-extrabold uppercase tracking-wider border bg-orange-50 text-[#EA580C] border-orange-200">
+                    <span className="text-xs font-medium text-warm-500">
                       Pinned
                     </span>
                   )}
@@ -419,17 +401,8 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
               </div>
 
               {/* Footer */}
-              <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-warm-100 bg-white px-5 py-4">
-                <div className="flex flex-wrap gap-2">
-                  {Object.entries(categoryStyles).map(([label, cls]) => (
-                    <span
-                      key={label}
-                      className={`inline-flex px-2.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider border ${cls}`}
-                    >
-                      {label}
-                    </span>
-                  ))}
-                </div>
+              <div className="sticky bottom-0 flex items-center justify-end gap-3 border-t border-warm-100 bg-white px-5 py-4">
+
                 <Button
                   variant="primary"
                   loading={saving}
@@ -464,7 +437,7 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
               <h3 className="text-sm font-bold text-warm-900 uppercase tracking-[0.18em]">
                 Announcement
               </h3>
-              <div className="flex max-w-full flex-wrap items-center justify-end gap-2">
+              <div className="flex max-w-full flex-wrap items-center gap-x-3 gap-y-2">
                 {selectedPost.can_edit && <button
                   type="button"
                   onClick={() => openEdit(selectedPost)}
@@ -499,18 +472,16 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                       </div>
                       <div className="flex items-center gap-2">
                         {selectedPost.pinned && (
-                          <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider border bg-orange-50 text-[#EA580C] border-orange-200">
+                          <span className="text-xs font-medium text-warm-500">
                             Pinned
                           </span>
                         )}
                         <span
-                          className={`inline-flex px-2.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider border ${categoryStyles[selectedPost.category]}`}
+                          className="text-xs font-medium text-warm-500"
                         >
                           {selectedPost.category}
                         </span>
-                        <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider border bg-warm-50 text-warm-600 border-warm-200">
-                          {selectedPost.visibility}
-                        </span>
+
                       </div>
                     </div>
 
@@ -635,20 +606,18 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
                         </div>
                       </div>
 
-                      <div className="flex max-w-full flex-wrap items-center justify-end gap-2">
+                      <div className="flex max-w-full flex-wrap items-center gap-x-3 gap-y-2">
                         {post.pinned && (
-                          <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider border bg-orange-50 text-[#EA580C] border-orange-200">
+                          <span className="text-xs font-medium text-warm-500">
                             Pinned
                           </span>
                         )}
                         <span
-                          className={`inline-flex px-2.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider border ${categoryStyles[post.category]}`}
+                          className="text-xs font-medium text-warm-500"
                         >
                           {post.category}
                         </span>
-                        <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider border bg-warm-50 text-warm-500 border-warm-200">
-                          {post.visibility}
-                        </span>
+
 
                         {/* Edit / Delete — stop propagation so click doesn't open viewer */}
                         {post.can_edit && <button

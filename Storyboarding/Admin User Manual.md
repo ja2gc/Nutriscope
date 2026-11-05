@@ -122,7 +122,7 @@ Admin manages access and oversight; RND prepares clinical Food Library data, ope
 ### 4. Announcements and SOP
 
 1. Open **Announcements**.
-2. Publish system/department posts with audience, category, pin state, text, and images.
+2. Publish system/department posts with category, pin state, text, and images. Under **Visible to**, select one or more roles; select all three for everyone. Audience choices appear in the editor only. Authors retain access to their own posts; Admin retains oversight access to all posts.
 3. Edit/delete through the Admin board.
 4. Revise SOP only for approved procedural change; confirm the new version appears in History.
 
@@ -157,7 +157,7 @@ Admin manages access and oversight; RND prepares clinical Food Library data, ope
 
 1. Open **Help** in the sidebar to search Shared and Admin-only answers; no RND clinical guidance is exposed.
 2. Use Profile to update personal identity/contact/photo, view the sign-in email, manage recovery email and change the password.
-3. Use Notifications for Admin/All announcements and system alerts.
+3. Use Notifications for announcements addressed to Admin and system alerts.
 
 ## End-of-work check
 

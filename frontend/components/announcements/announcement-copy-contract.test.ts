@@ -11,11 +11,16 @@ describe("announcement copy", () => {
     expect(dashboard).not.toContain("Posted to department announcements");
   });
 
-  it("wraps tags and owner actions inside announcement cards", () => {
+  it("wraps plain metadata and owner actions inside announcement cards", () => {
     const board = readFileSync(join(process.cwd(), "components/announcements/AnnouncementsBoard.tsx"), "utf8");
     const dashboard = readFileSync(join(process.cwd(), "app/(rnd)/dashboard/page.tsx"), "utf8");
 
-    expect(board).toContain('className="flex max-w-full flex-wrap items-center justify-end gap-2"');
+    expect(board).toContain('className="flex max-w-full flex-wrap items-center gap-x-3 gap-y-2"');
+    for (const source of [board, dashboard]) {
+      expect(source).not.toContain("categoryStyles");
+      expect(source).not.toContain("{post.visibility}");
+      expect(source).not.toContain("{selectedPost.visibility}");
+    }
     expect(dashboard).toContain('className="flex max-w-full flex-wrap items-center justify-end gap-1.5"');
     expect(board).not.toMatch(/<Megaphone\b/);
     expect(board).toContain("post.can_edit &&");

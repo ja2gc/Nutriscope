@@ -33,14 +33,14 @@ class AnnouncementController extends Controller
         $announcements = Announcement::query()
             ->with('user:id,uuid,name,first_name,last_name,role,profile_photo_stored_object_id')
             ->when($request->string('announcement_id')->toString(), fn ($query, $id) => $query->where('uuid', $id))
-            ->when($user->role === 'RND', function ($query) use ($user) {
-                $query->where(function ($nested) use ($user) {
-                    $nested->where('visibility', 'All')
+            ->when($user->role !== 'Admin', function ($query) use ($user) {
+                $query->where(function ($visible) use ($user) {
+                    $visible->whereJsonContains('audiences', $user->role)
+                        ->orWhere(function ($legacy) use ($user) {
+                            $legacy->whereNull('audiences')->whereIn('visibility', [$user->role, 'All']);
+                        })
                         ->orWhere('user_id', $user->id);
                 });
-            })
-            ->when($user->role === 'FSS', function ($query) {
-                $query->whereIn('visibility', ['FSS', 'All']);
             })
             ->when($user->role === 'Admin', fn ($query) => $query)
             ->when($request->string('sort')->toString() !== 'latest', fn ($query) => $query->orderByDesc('pinned'))
@@ -61,6 +61,7 @@ class AnnouncementController extends Controller
             $announcement = $this->audited(function () use ($data, $user): Announcement {
                 $announcement = Announcement::create([
                     ...$data,
+                    'visibility' => $data['visibility'] ?? 'All',
                     'user_id' => $user->id,
                     'pinned' => in_array($user->role, ['Admin', 'RND'], true) ? (bool) ($data['pinned'] ?? false) : false,
                 ]);
@@ -108,6 +109,10 @@ class AnnouncementController extends Controller
 
         if (! in_array($user->role, ['Admin', 'RND'], true)) {
             unset($data['pinned']);
+        }
+
+        if (array_key_exists('visibility', $data) && ! array_key_exists('audiences', $data)) {
+            $data['audiences'] = null;
         }
 
         try {
@@ -192,12 +197,8 @@ class AnnouncementController extends Controller
     private function assertVisible(Request $request, Announcement $announcement): void
     {
         $user = $request->user();
-        $visible = match ($user->role) {
-            'Admin' => true,
-            'FSS' => in_array($announcement->visibility, ['FSS', 'All'], true),
-            'RND' => $announcement->visibility === 'All' || $announcement->user_id === $user->id,
-            default => false,
-        };
+        $visible = $user->role === 'Admin' || $announcement->user_id === $user->id
+            || in_array($user->role, $announcement->audienceRoles(), true);
         abort_unless($visible, 404);
     }
 

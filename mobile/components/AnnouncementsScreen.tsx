@@ -18,7 +18,7 @@ import { PaginatedResponse, flattenUniquePages, getNextPageParam } from '../lib/
 import { useMobileServerPage } from '../lib/useMobileServerPage';
 import { fetchSop } from '../lib/sop';
 import { AnnouncementAuthorAvatar, AnnouncementMedia } from './AnnouncementMedia';
-import { AnnouncementCard, CATEGORY, fmt, type Announcement } from './AnnouncementCard';
+import { AnnouncementCard, fmt, type Announcement } from './AnnouncementCard';
 
 async function fetchAnnouncements(page: number): Promise<PaginatedResponse<Announcement>> {
   const res = await api.get<PaginatedResponse<Announcement>>('/api/fss/announcements', {
@@ -184,12 +184,12 @@ export default function AnnouncementsScreen() {
                 </View>
                 <View className="flex-row flex-wrap gap-2 mt-3">
                   {selected.pinned && (
-                    <View className="px-2 py-0.5 rounded-full bg-orange-50 border border-orange-200">
-                      <Text className="text-[9px] font-extrabold uppercase tracking-wider text-orange-700">Pinned</Text>
+                    <View>
+                      <Text className="text-xs font-medium text-gray-500">Pinned</Text>
                     </View>
                   )}
-                  <View className={`px-2 py-0.5 rounded-full ${(CATEGORY[selected.category] ?? CATEGORY.General).bg}`}>
-                    <Text className={`text-[9px] font-extrabold uppercase tracking-wider ${(CATEGORY[selected.category] ?? CATEGORY.General).text}`}>
+                  <View>
+                    <Text className="text-xs font-medium text-gray-500">
                       {selected.category}
                     </Text>
                   </View>

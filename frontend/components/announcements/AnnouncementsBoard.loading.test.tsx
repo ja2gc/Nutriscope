@@ -25,7 +25,9 @@ test("hydrates compact attachments only when editing and omits them from a text-
     await act(async()=>fireEvent.click(screen.getByRole("button",{name:"Edit"})));
     expect(screen.getByRole("status").textContent).toContain("Loading announcement for editing");
     await act(async()=>finish({data:[{...post,attachments:["data:image/png;base64,ZmFrZQ=="]}],meta}));
+    await act(async()=>fireEvent.click(screen.getByRole("checkbox", {name:"Admin"})));
     await act(async()=>fireEvent.click(screen.getByRole("button",{name:"Save Changes"})));
+    expect(updateAnnouncement).toHaveBeenCalledWith("fictional", expect.objectContaining({audiences:["RND", "FSS"]}));
     expect(updateAnnouncement).toHaveBeenCalledWith("fictional", expect.not.objectContaining({attachments:expect.anything()}));
   } finally {act(()=>root.unmount());container.remove();vi.resetAllMocks();}
 });

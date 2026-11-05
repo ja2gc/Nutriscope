@@ -26,6 +26,7 @@ class AnnouncementResource extends JsonResource
             'attachments' => $attachments,
             'pinned' => $this->pinned,
             'visibility' => $this->visibility,
+            'audiences' => $this->audienceRoles(),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             'can_edit' => $isOwner,

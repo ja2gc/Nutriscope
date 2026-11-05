@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Announcement;
+use App\Models\Notification;
 use App\Models\StoredObject;
 use App\Models\User;
 use App\Services\StoredObjectStorage;
@@ -14,6 +15,40 @@ use Tests\TestCase;
 class AnnouncementFeatureTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_multiple_audiences_control_feed_images_and_notifications(): void
+    {
+        $owner = $this->user('Admin', 'audience-owner@example.com');
+        $rnd = $this->user('RND', 'audience-rnd@example.com');
+        $fss = $this->user('FSS', 'audience-fss@example.com');
+        $admin = $this->user('Admin', 'audience-admin@example.com');
+        $response = $this->actingAs($owner, 'sanctum')->postJson('/api/admin/announcements', [
+            'title' => 'Team update', 'body' => 'Fictional update.', 'category' => 'General',
+            'visibility' => 'All', 'audiences' => ['RND', 'FSS'],
+            'attachment' => 'data:image/png;base64,'.base64_encode($this->pngBytes()),
+        ])->assertCreated()->assertJsonPath('data.audiences', ['RND', 'FSS']);
+        $id = $response->json('data.id');
+        $imageUrl = null;
+        foreach ([[$rnd, 'rnd'], [$fss, 'fss']] as [$actor, $prefix]) {
+            $feed = $this->actingAs($actor, 'sanctum')->getJson("/api/{$prefix}/announcements?attachment_format=urls")
+                ->assertOk()->assertJsonPath('data.0.id', $id);
+            $imageUrl = $feed->json('data.0.attachments.0');
+            $this->get($imageUrl)->assertOk();
+        }
+        $post = Announcement::where('uuid', $id)->firstOrFail();
+        $this->assertContains($rnd->id, Notification::where('source_id', $post->id)->pluck('user_id')->all());
+        $this->assertNotContains($admin->id, Notification::where('source_id', $post->id)->pluck('user_id')->all());
+        $this->actingAs($owner, 'sanctum')->patchJson("/api/admin/announcements/{$id}", ['audiences' => ['RND']])->assertOk();
+        $this->actingAs($fss, 'sanctum')->getJson('/api/fss/announcements')->assertOk()->assertJsonCount(0, 'data');
+        $this->get($imageUrl)->assertNotFound();
+        foreach ([[], ['Unknown'], ['RND', 'RND']] as $roles) {
+            $this->actingAs($owner, 'sanctum')->patchJson("/api/admin/announcements/{$id}", ['audiences' => $roles])->assertUnprocessable();
+        }
+        $this->actingAs($owner, 'sanctum')->patchJson("/api/admin/announcements/{$id}", ['visibility' => 'FSS'])
+            ->assertOk()->assertJsonPath('data.audiences', ['FSS']);
+        $this->actingAs($rnd, 'sanctum')->getJson('/api/rnd/announcements')->assertOk()->assertJsonCount(0, 'data');
+        $this->actingAs($fss, 'sanctum')->getJson('/api/fss/announcements')->assertOk()->assertJsonPath('data.0.id', $id);
+    }
 
     public function test_compact_images_preserve_legacy_output_and_stream_only_visible_associated_objects(): void
     {

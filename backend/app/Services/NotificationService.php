@@ -61,8 +61,7 @@ class NotificationService
         $recipients = User::query()
             ->where('is_active', true)
             ->where('id', '!=', $announcement->user_id)
-            ->when($announcement->visibility === 'FSS', fn ($q) => $q->where('role', 'FSS'))
-            ->when($announcement->visibility === 'Admin', fn ($q) => $q->where('role', 'Admin'))
+            ->whereIn('role', $announcement->audienceRoles())
             ->get(['id']);
 
         return $this->notify(

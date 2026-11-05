@@ -14,13 +14,6 @@ export interface Announcement {
   created_at: string;
 }
 
-export const CATEGORY: Record<string, { bg: string; text: string }> = {
-  General: { bg: 'bg-zinc-100', text: 'text-zinc-700' },
-  Event: { bg: 'bg-orange-50', text: 'text-orange-700' },
-  Operational: { bg: 'bg-emerald-50', text: 'text-emerald-700' },
-  Urgent: { bg: 'bg-red-50', text: 'text-red-700' },
-  Memo: { bg: 'bg-sky-50', text: 'text-sky-700' },
-};
 
 export function fmt(date: string): string {
   return new Date(date).toLocaleString('en-US', {
@@ -29,7 +22,6 @@ export function fmt(date: string): string {
 }
 
 export function AnnouncementCard({ item, onPress }: { item: Announcement; onPress: () => void }) {
-  const cat = CATEGORY[item.category] ?? CATEGORY.General;
   return (
     <TouchableOpacity
       className="rounded-2xl border border-gray-200 bg-white p-4 mb-3"
@@ -46,12 +38,12 @@ export function AnnouncementCard({ item, onPress }: { item: Announcement; onPres
       </View>
       <View className="mt-2 flex-row flex-wrap gap-1.5">
         {item.pinned && (
-          <View className="px-2 py-0.5 rounded-full bg-orange-50 border border-orange-200">
-            <Text className="text-[9px] font-extrabold uppercase tracking-wider text-orange-700">Pinned</Text>
+          <View>
+            <Text className="text-xs font-medium text-gray-500">Pinned</Text>
           </View>
         )}
-        <View className={`px-2 py-0.5 rounded-full ${cat.bg}`}>
-          <Text className={`text-[9px] font-extrabold uppercase tracking-wider ${cat.text}`}>{item.category}</Text>
+        <View>
+          <Text className="text-xs font-medium text-gray-500">{item.category}</Text>
         </View>
       </View>
       <Text className="text-sm font-bold text-gray-900 mt-2">{item.title}</Text>
