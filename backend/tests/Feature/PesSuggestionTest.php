@@ -166,6 +166,7 @@ class PesSuggestionTest extends TestCase
 
     public function test_provider_payload_is_deidentified_and_token_bounded(): void
     {
+        config()->set('services.anthropic.model', 'claude-sonnet-5-5');
         $patient = Patient::factory()->create([
             'name' => 'Fictional Private Name',
             'first_name' => 'Fictional',
@@ -200,7 +201,8 @@ class PesSuggestionTest extends TestCase
             $serialized = json_encode($body);
             $content = $body['messages'][0]['content'] ?? '';
 
-            $this->assertLessThanOrEqual(1800, $body['max_tokens']);
+            $this->assertSame('claude-sonnet-5-5', $body['model']);
+            $this->assertSame(4096, $body['max_tokens']);
             $this->assertLessThanOrEqual(18000, strlen($content));
             foreach (['Fictional Private Name', 'SECRET-HOSPITAL-42', 'Secret address', 'Dr Secret', '1980-01-02'] as $forbidden) {
                 $this->assertStringNotContainsString($forbidden, $serialized);

@@ -4,11 +4,19 @@ Windows cached-configuration handling.
 
 Purpose: select checks and establish isolation before execution. Commands below are defined by the repository scripts or the indicated tools; establish isolation before running them.
 
+## Deployment gate
+
+[deploy.yml](../../../.github/workflows/deploy.yml) runs the complete PHPUnit suite in the `backend_tests` job using PHP 8.4 and a disposable MySQL 8.4 service. Its synthetic database credentials and API placeholders are independent of production secrets. The job verifies the database identity and UTC clock before running `vendor/bin/phpunit`; the separate `frontend_typecheck` job checks web types. Deployment requires both jobs to pass before images are built or transferred.
+
+The disposable MySQL account can create/drop the additional temporary schemas required by migration-contract tests. Those privileges apply only to the runner's service. Production, local demo data, private dotenv files and provider credentials are not test inputs.
+
 ## Isolation comes first
 
 Read [phpunit.xml](../../../backend/phpunit.xml), [TestCase](../../../backend/tests/TestCase.php), [Composer scripts](../../../backend/composer.json), [Vitest config](../../../frontend/vitest.config.ts) and the actual target tests. The PHPUnit template uses MySQL/root on localhost and RefreshDatabase tests can destroy data. Its names/defaults do not prove safety; shell variables and cached config can override assumptions.
 
 Use a separately created disposable MySQL database/account, synthetic records, separate files/cache, fake mail/HTTP and blocked external network. Verify effective resolved targets before framework initialization or destructive traits. Do not run tests on the deployed server. Never inspect non-example dotenv files through an agent or use production credentials. If isolation cannot be established, stop and record the blocker.
+
+Keep the disposable MySQL server/session in UTC to match Laravel's `app.timezone`. Report-operation fixtures should set explicit `available_at` values rather than rely on a database-created timestamp. Preserve expected configuration contracts such as the private S3-compatible backup disk; use storage fakes in tests that exercise bytes rather than globally changing its driver. Route-inventory tests inspect the booted test application's routes without requiring development-tool endpoints.
 
 On Windows, do not assume a drive-letter APP_CONFIG_CACHE value resolves as absolute. Inspect the application's resolved cached-config path and require configurationIsCached() before boot; fail closed when it is false. A backend-relative native path can avoid this issue. Verify both SELECT DATABASE() and CURRENT_USER() against the authorized disposable schema/account before RefreshDatabase. A pre-test identity guard should use the generated test configuration directly, without booting a second Laravel application and registering exception handlers outside PHPUnit's lifecycle.
 

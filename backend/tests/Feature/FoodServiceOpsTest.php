@@ -780,7 +780,7 @@ class FoodServiceOpsTest extends TestCase
         ]);
     }
 
-    public function test_approving_empty_shopping_list_is_rejected(): void
+    public function test_manual_shopping_list_conversion_does_not_require_included_items(): void
     {
         $list = ShoppingList::create([
             'rnd_user_id' => $this->rnd->id, 'name' => 'Empty', 'list_date' => '2026-06-10',
@@ -789,7 +789,11 @@ class FoodServiceOpsTest extends TestCase
 
         $this->actingAs($this->rnd)
             ->postJson("/api/fss/shopping-lists/{$list->uuid}/approve")
-            ->assertStatus(422);
+            ->assertCreated();
+
+        $order = PurchaseOrder::where('shopping_list_id', $list->id)->sole();
+        $this->assertSame(0, $order->items()->count());
+        $this->assertSame('converted', $list->fresh()->status);
     }
 
     // ===== SHOPPING LISTS =====

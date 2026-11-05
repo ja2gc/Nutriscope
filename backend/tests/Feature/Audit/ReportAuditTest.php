@@ -591,6 +591,8 @@ class ReportAuditTest extends TestCase
     {
         $operation = ReportFileOperation::query()->create([
             'operation' => 'delete',
+            'phase' => ReportFileOperation::PHASE_FINALIZED,
+            'available_at' => now()->subSecond(),
             'original_path' => 'reports/safe.pdf',
             'quarantine_path' => 'reports-quarantine/safe.pdf',
         ]);
@@ -614,6 +616,8 @@ class ReportAuditTest extends TestCase
         Storage::disk('public')->put('reports-quarantine/sweep.pdf', '%PDF');
         ReportFileOperation::query()->create([
             'operation' => 'delete',
+            'phase' => ReportFileOperation::PHASE_FINALIZED,
+            'available_at' => now()->subSecond(),
             'original_path' => 'reports/sweep.pdf',
             'quarantine_path' => 'reports-quarantine/sweep.pdf',
         ]);
@@ -621,6 +625,30 @@ class ReportAuditTest extends TestCase
         $this->assertSame(0, Artisan::call('reports:process-file-operations'));
         $this->assertDatabaseCount('report_file_operations', 0);
         Storage::disk('public')->assertMissing('reports-quarantine/sweep.pdf');
+    }
+
+    public function test_report_file_worker_preserves_operations_until_their_due_time(): void
+    {
+        Storage::fake('public');
+        Storage::disk('public')->put('reports-quarantine/scheduled.pdf', '%PDF');
+        $operation = ReportFileOperation::query()->create([
+            'operation' => 'delete',
+            'phase' => ReportFileOperation::PHASE_FINALIZED,
+            'available_at' => now()->addMinutes(10),
+            'original_path' => 'reports/scheduled.pdf',
+            'quarantine_path' => 'reports-quarantine/scheduled.pdf',
+        ]);
+        $job = new ProcessReportFileOperation($operation->id);
+
+        $job->handle(app(ReportArchiveStorage::class), app(BrandingAssetStorage::class));
+        $this->assertModelExists($operation);
+        $this->assertSame(0, (int) $operation->fresh()->attempts);
+        Storage::disk('public')->assertExists('reports-quarantine/scheduled.pdf');
+
+        $this->travel(11)->minutes();
+        $job->handle(app(ReportArchiveStorage::class), app(BrandingAssetStorage::class));
+        $this->assertModelMissing($operation);
+        Storage::disk('public')->assertMissing('reports-quarantine/scheduled.pdf');
     }
 
     public function test_branding_upload_is_audited_and_preserves_legacy_logo(): void

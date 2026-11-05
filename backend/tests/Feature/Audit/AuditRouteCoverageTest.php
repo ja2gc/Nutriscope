@@ -3,9 +3,9 @@
 namespace Tests\Feature\Audit;
 
 use App\Models\Concerns\AuditsChanges;
+use Illuminate\Support\Facades\Route;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\ExpectationFailedException;
-use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
 class AuditRouteCoverageTest extends TestCase
@@ -30,13 +30,10 @@ class AuditRouteCoverageTest extends TestCase
 
     public function test_every_unsafe_route_has_an_audit_classification_and_reason(): void
     {
-        $routeList = new Process(
-            [PHP_BINARY, base_path('artisan'), 'route:list', '--json'],
-            base_path(),
-            ['APP_ENV' => 'local'],
-        );
-        $routeList->mustRun();
-        $routes = json_decode($routeList->getOutput(), true, flags: JSON_THROW_ON_ERROR);
+        $routes = collect(Route::getRoutes()->getRoutes())->map(fn ($route): array => [
+            'method' => implode('|', $route->methods()),
+            'uri' => $route->uri(),
+        ])->all();
 
         $actualUnsafeRoutes = collect($routes)
             ->filter(fn (array $route) => collect(explode('|', $route['method']))
@@ -50,11 +47,6 @@ class AuditRouteCoverageTest extends TestCase
 
         $this->assertIsArray($coverage);
         $this->assertNotEmpty($coverage);
-        $this->assertSame(
-            'Laravel\\Boost\\BoostServiceProvider@registerRoutes',
-            $coverage['POST _boost/browser-logs']['source'],
-        );
-
         $expectedUnsafeRoutes = array_keys($coverage);
         sort($expectedUnsafeRoutes);
         $this->assertSame($expectedUnsafeRoutes, $actualUnsafeRoutes, 'Unsafe route inventory changed; classify every added or removed route.');

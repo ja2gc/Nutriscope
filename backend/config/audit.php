@@ -48,13 +48,6 @@ return [
     ],
     /* Every unsafe route must be reviewed; there is no fallback classifier. */
     'route_coverage' => [
-        'POST _boost/browser-logs' => [
-            'classification' => 'intentionally_not_audited',
-            'source' => 'Laravel\\Boost\\BoostServiceProvider@registerRoutes',
-            'owner_task' => 4,
-            'implementation_state' => 'implemented',
-            'reason' => 'Laravel Boost development telemetry is outside the application API.',
-        ],
         'PUT api/admin/ai-usage-limits' => [
             'classification' => 'intentionally_not_audited',
             'source' => 'App\\Http\\Controllers\\Admin\\AiUsageLimitController@update',
@@ -278,6 +271,13 @@ return [
             'owner_task' => 5,
             'implementation_state' => 'implemented',
             'reason' => 'Removing a recovery email changes password-recovery security state and emits a sanitized event without address or verification material.',
+        ],
+        'DELETE api/auth/recovery-email/pending' => [
+            'classification' => 'explicit_event',
+            'source' => 'App\\Http\\Controllers\\Auth\\RecoveryEmailController@cancelPending',
+            'owner_task' => 5,
+            'implementation_state' => 'implemented',
+            'reason' => 'Cancelling pending recovery-email verification emits a sanitized account-security event without address or verification material.',
         ],
         'POST api/auth/recovery-email/verify' => [
             'classification' => 'explicit_event',

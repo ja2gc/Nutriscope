@@ -92,6 +92,8 @@ class NutritionMenuTaxonomyMigrationTest extends TestCase
             $table->string('goal_type')->nullable();
             $table->string('disease_stage')->nullable();
             $table->string('maternal_status')->nullable();
+            $table->string('nutrition_support', 30)->nullable();
+            $table->json('formula_items')->nullable();
             $table->timestamps();
         });
         $schema->create('meal_plan_template_days', function (Blueprint $table): void {

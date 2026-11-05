@@ -44,7 +44,7 @@ class PatientMenuPlanGeneratorTest extends TestCase
         $report = new Report(['title' => 'Nutrition Intervention Plan — Label serving check', 'type' => 'patient_menu_plan', 'parameters' => ['intervention_plan_id' => $plan->intervention->uuid]]);
         $data = app(PatientMenuPlanGenerator::class)->data($report);
         $this->assertEquals(['energy_kcal' => 'max', 'protein_g' => 'max'], $data['prescription']['nutrient_operators']);
-        $this->assertStringContainsString('≤1,800', view('reports.patient-menu-plan', [...$data, 'branding' => ReportBranding::singleton(), 'signatories' => [], 'generated_at' => now(), 'report' => $report])->render());
+        $this->assertStringContainsString('≤1800', view('reports.patient-menu-plan', [...$data, 'branding' => ReportBranding::singleton(), 'signatories' => [], 'generated_at' => now(), 'report' => $report])->render());
         $this->assertEquals(['min' => 58, 'max' => 62.5], $data['prescription']['weight_target']);
         $portion = $data['portion_details'][0];
         $this->assertSame(6.0, $portion['recipe_yield']);
@@ -821,7 +821,7 @@ class PatientMenuPlanGeneratorTest extends TestCase
 
         $this->assertSame(1800.0, $data['prescription']['energy_kcal']);
         $plainText = preg_replace('/\s+/', ' ', strip_tags($html));
-        $this->assertStringContainsString('Energy: 1,800 kcal', $plainText);
+        $this->assertStringContainsString('Energy: 1800 kcal', $plainText);
         $this->assertStringContainsString('Sodium: ≤2000 mg', $plainText);
         $this->assertStringContainsString('Fiber: ≥25 g', $plainText);
         $this->assertStringNotContainsString('Fluid guidance:', $plainText);

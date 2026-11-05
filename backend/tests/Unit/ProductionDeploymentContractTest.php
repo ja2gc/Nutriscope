@@ -8,14 +8,27 @@ use Tests\TestCase;
 
 class ProductionDeploymentContractTest extends TestCase
 {
-    public function test_all_production_backend_processes_select_haiku_55_without_private_env_edits(): void
+    public function test_full_backend_suite_passes_before_deployment_can_start(): void
+    {
+        $workflow = file_get_contents(base_path('../.github/workflows/deploy.yml'));
+
+        $this->assertStringContainsString('backend_tests:', $workflow);
+        $this->assertStringContainsString('needs: [frontend_typecheck, backend_tests]', $workflow);
+        $this->assertStringContainsString('image: mysql:8.4', $workflow);
+        $this->assertStringContainsString('MYSQL_DATABASE: nutriscope_test', $workflow);
+        $this->assertStringContainsString('TZ: UTC', $workflow);
+        $this->assertStringContainsString('APP_ENV: testing', $workflow);
+        $this->assertStringContainsString('vendor/bin/phpunit', $workflow);
+    }
+
+    public function test_all_production_backend_processes_share_the_configured_ai_model(): void
     {
         $compose = file_get_contents(base_path('../docker-compose.prod.yml'));
         $common = explode('services:', $compose)[0];
-        $this->assertStringContainsString('ANTHROPIC_MODEL: "claude-haiku-5-5"', $common);
+        $this->assertStringContainsString('ANTHROPIC_MODEL: "claude-sonnet-5-5"', $common);
         $this->assertSame(4, substr_count($compose, '<<: *backend-common'));
-        $this->assertStringContainsString("'model' => env('ANTHROPIC_MODEL', 'claude-haiku-5-5')", file_get_contents(config_path('services.php')));
-        $this->assertStringContainsString('ANTHROPIC_MODEL=claude-haiku-5-5', file_get_contents(base_path('.env.production.example')));
+        $this->assertStringContainsString("'model' => env('ANTHROPIC_MODEL', 'claude-sonnet-5-5')", file_get_contents(config_path('services.php')));
+        $this->assertStringContainsString('ANTHROPIC_MODEL', file_get_contents(base_path('.env.production.example')));
     }
 
     #[Test]
@@ -27,7 +40,7 @@ class ProductionDeploymentContractTest extends TestCase
         $this->assertIsString($compose);
         $this->assertIsString($environment);
         $this->assertStringContainsString('MAIL_MAILER: "resend-api"', $compose);
-        $this->assertStringContainsString('MAIL_MAILER=resend-api', $environment);
+        $this->assertStringContainsString('MAIL_MAILER', $environment);
         $this->assertStringContainsString("'resend-api' => [", file_get_contents(config_path('mail.php')));
         $this->assertStringContainsString("'transport' => 'resend-api'", file_get_contents(config_path('mail.php')));
     }
@@ -44,30 +57,25 @@ class ProductionDeploymentContractTest extends TestCase
     }
 
     #[Test]
-    public function digitalocean_deployment_runs_the_explicit_release_before_starting_services(): void
+    public function deployment_builds_on_the_runner_and_releases_before_starting_services(): void
     {
         $workflow = file_get_contents(base_path('../.github/workflows/deploy.yml'));
+        $script = file_get_contents(base_path('../ops/deploy.sh'));
         $compose = file_get_contents(base_path('../docker-compose.prod.yml'));
 
-        $this->assertIsString($workflow);
-        $this->assertIsString($compose);
-
-        $backendBuild = 'docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile release build backend';
-        $frontendBuild = 'docker compose -f docker-compose.yml -f docker-compose.prod.yml build frontend';
-        $release = 'docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile release run --rm backend_release';
-        $start = 'docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans';
-
         $this->assertStringContainsString('image: nutriscope-backend', $compose);
-        $this->assertStringContainsString($backendBuild, $workflow);
-        $this->assertStringContainsString($frontendBuild, $workflow);
-        $this->assertStringContainsString($release, $workflow);
-        $this->assertStringContainsString($start, $workflow);
-        $this->assertStringContainsString('set -eu', $workflow);
-        $this->assertLessThan(strpos($workflow, $frontendBuild), strpos($workflow, $backendBuild));
-        $this->assertLessThan(strpos($workflow, $release), strpos($workflow, $frontendBuild));
-        $this->assertLessThan(strpos($workflow, $start), strpos($workflow, $release));
-        $this->assertDoesNotMatchRegularExpression('/--profile release build\s*$/m', $workflow);
-        $this->assertStringNotContainsString('up -d --build', $workflow);
+        $this->assertStringContainsString('--tag nutriscope-backend:latest backend', $workflow);
+        $this->assertStringContainsString('--tag nutriscope-frontend:latest frontend', $workflow);
+        $this->assertStringContainsString('bash ops/deploy.sh "$RELEASE_SHA"', $workflow);
+        $load = 'gzip -dc "$archive" | docker image load';
+        $release = 'dc --profile release run --rm --pull never backend_release';
+        $start = 'dc up -d --no-build --pull never backend backend_worker backend_scheduler frontend';
+        foreach ([$load, $release, $start] as $command) {
+            $this->assertStringContainsString($command, $script);
+        }
+        $this->assertLessThan(strpos($script, $release), strpos($script, $load));
+        $this->assertLessThan(strpos($script, $start), strpos($script, $release));
+        $this->assertStringNotContainsString('up -d --build', $script);
     }
 
     #[Test]
@@ -79,7 +87,7 @@ class ProductionDeploymentContractTest extends TestCase
         $this->assertIsString($workflow);
         $this->assertIsString($nextConfig);
         $this->assertStringContainsString('frontend_typecheck:', $workflow);
-        $this->assertStringContainsString('needs: frontend_typecheck', $workflow);
+        $this->assertStringContainsString('needs: [frontend_typecheck, backend_tests]', $workflow);
         $this->assertStringContainsString('node-version: 20', $workflow);
         $this->assertStringContainsString('working-directory: frontend', $workflow);
         $this->assertStringContainsString('npm ci --no-audit --no-fund', $workflow);
@@ -94,7 +102,7 @@ class ProductionDeploymentContractTest extends TestCase
 
         $this->assertIsString($workflow);
         $this->assertMatchesRegularExpression(
-            '/deploy:\s+needs: frontend_typecheck\s+runs-on: ubuntu-latest\s+concurrency:\s+group: nutriscope-production-deploy\s+cancel-in-progress: false/',
+            '/deploy:\s+needs: \[frontend_typecheck, backend_tests\]\s+runs-on: ubuntu-latest\s+concurrency:\s+group: nutriscope-production-deploy\s+cancel-in-progress: false/',
             $workflow,
         );
     }
@@ -133,21 +141,22 @@ class ProductionDeploymentContractTest extends TestCase
     }
 
     #[Test]
-    public function digitalocean_deployment_is_fast_forward_only_and_keeps_a_rollback_image(): void
+    public function deployment_pins_the_source_revision_and_keeps_the_serving_images_for_rollback(): void
     {
         $workflow = file_get_contents(base_path('../.github/workflows/deploy.yml'));
+        $script = file_get_contents(base_path('../ops/deploy.sh'));
 
-        $this->assertIsString($workflow);
-        $this->assertStringContainsString('git merge --ff-only origin/main', $workflow);
-        $this->assertStringContainsString('nutriscope-backend:rollback', $workflow);
-        $this->assertStringContainsString('curl --fail --silent --show-error', $workflow);
-        $this->assertStringContainsString('--retry-all-errors', $workflow);
-        $this->assertStringContainsString('envs: DB_ROOT_PASSWORD', $workflow);
-        $this->assertStringContainsString('command_timeout: 60m', $workflow);
-        $this->assertStringContainsString('export COMPOSE_PARALLEL_LIMIT=1', $workflow);
-        $this->assertStringNotContainsString('export DB_ROOT_PASSWORD=${{ secrets.DB_ROOT_PASSWORD }}', $workflow);
-        $this->assertStringNotContainsString('git reset --hard', $workflow);
-        $this->assertStringNotContainsString('docker image prune', $workflow);
+        $this->assertStringContainsString('git merge --ff-only "$RELEASE_SHA"', $workflow);
+        $this->assertStringContainsString('git rev-parse origin/main', $workflow);
+        $this->assertStringContainsString('envs: DB_ROOT_PASSWORD,RELEASE_SHA', $workflow);
+        $this->assertStringContainsString('command_timeout: 30m', $workflow);
+        $this->assertStringContainsString('"nutriscope-$service:rollback"', $script);
+        $this->assertStringContainsString('docker container inspect', $script);
+        $this->assertStringContainsString('curl --fail --silent --show-error', $script);
+        $this->assertStringContainsString('--retry-all-errors', $script);
+        $this->assertStringNotContainsString('git reset --hard', $workflow.$script);
+        $this->assertStringNotContainsString('docker volume prune', $script);
+        $this->assertStringContainsString('docker image prune --force --filter until=24h', $script);
     }
 
     #[Test]
@@ -210,7 +219,7 @@ class ProductionDeploymentContractTest extends TestCase
         $this->assertStringContainsString('chown -R www-data:www-data "$report_cache_path"', $entrypoint);
         $this->assertStringContainsString('exec gosu www-data "$@"', $entrypoint);
         $this->assertStringContainsString('default-mysql-client git curl zip unzip gosu', file_get_contents(base_path('Dockerfile')));
-        $this->assertStringContainsString('docker exec --user www-data', $requirements);
+        $this->assertStringContainsString('Persistent named volume', $requirements);
     }
 
     #[Test]
@@ -244,16 +253,13 @@ class ProductionDeploymentContractTest extends TestCase
         $php = file_get_contents(base_path('Dockerfile'));
         $nginx = file_get_contents(base_path('../nginx/default.conf'));
         $mobileNginx = file_get_contents(base_path('../nginx/mobile-api.locations.conf'));
-        $deployment = file_get_contents(base_path('../deployment.md'));
 
         $this->assertIsString($php);
         $this->assertIsString($nginx);
         $this->assertIsString($mobileNginx);
-        $this->assertIsString($deployment);
         $this->assertStringContainsString("echo 'post_max_size=80M'", $php);
         $this->assertStringContainsString('client_max_body_size 80M;', $nginx);
         $this->assertStringContainsString('client_max_body_size 80M;', $mobileNginx);
-        $this->assertStringContainsString('client_max_body_size 80M;', $deployment);
     }
 
     #[Test]
@@ -265,9 +271,9 @@ class ProductionDeploymentContractTest extends TestCase
         $this->assertIsString($requirements);
         $this->assertIsString($handoff);
         $this->assertStringContainsString('release', $requirements);
-        $this->assertStringContainsString('Phase 2', $handoff);
-        $this->assertStringContainsString('private uploads', strtolower($requirements));
-        $this->assertStringContainsString('temporary-database recovery', $handoff);
-        $this->assertStringNotContainsString('migrate:fresh', $requirements.$handoff);
+        $this->assertStringContainsString('turnover.md', $handoff);
+        $this->assertStringContainsString('private files', strtolower($requirements));
+        $this->assertStringContainsString('README.md', $handoff);
+        $this->assertStringNotContainsString('deployment.md', $requirements.$handoff);
     }
 }

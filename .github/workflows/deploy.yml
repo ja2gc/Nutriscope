@@ -12,6 +12,79 @@ defaults:
     shell: bash
 
 jobs:
+  backend_tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      APP_ENV: testing
+      APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      APP_MAINTENANCE_DRIVER: file
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: nutriscope_test
+      DB_USERNAME: root
+      DB_PASSWORD: testing
+      DB_URL: ""
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+      MAIL_MAILER: array
+      ANTHROPIC_API_KEY: test-key
+      USDA_API_KEY: test-key
+      BACKUP_ACCESS_KEY_ID: test-key
+      BACKUP_SECRET_ACCESS_KEY: test-key
+      BACKUP_BUCKET: test-backups
+      BACKUP_ENDPOINT: http://127.0.0.1:1
+      BACKUP_DEFAULT_REGION: us-east-1
+      BACKUP_USE_PATH_STYLE_ENDPOINT: "true"
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: nutriscope_test
+          MYSQL_ROOT_PASSWORD: testing
+          MYSQL_ROOT_HOST: "%"
+          TZ: UTC
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -ptesting"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: pdo_mysql, pdo_sqlite, mbstring, gd, intl, bcmath, zip, exif
+          coverage: none
+          tools: composer:v2
+
+      - name: Install backend dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Verify disposable test database
+        run: |
+          php <<'PHP'
+          <?php
+          $pdo = new PDO('mysql:host=127.0.0.1;port=3306;dbname=nutriscope_test', 'root', 'testing');
+          $identity = $pdo->query('SELECT DATABASE(), CURRENT_USER(), TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP(), NOW())')->fetch(PDO::FETCH_NUM);
+          if ($identity[0] !== 'nutriscope_test' || ! str_starts_with($identity[1], 'root@') || (int) $identity[2] !== 0) {
+              throw new RuntimeException('Unexpected test database identity or timezone.');
+          }
+          PHP
+
+      - name: Run full Laravel test suite
+        run: vendor/bin/phpunit
+
   frontend_typecheck:
     runs-on: ubuntu-latest
     defaults:
@@ -36,7 +109,7 @@ jobs:
         run: npx tsc --noEmit
 
   deploy:
-    needs: frontend_typecheck
+    needs: [frontend_typecheck, backend_tests]
     runs-on: ubuntu-latest
     concurrency:
       group: nutriscope-production-deploy

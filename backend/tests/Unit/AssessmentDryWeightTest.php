@@ -69,6 +69,7 @@ class AssessmentDryWeightTest extends TestCase
     private function storeAssessmentValidator(array $data): \Illuminate\Validation\Validator
     {
         $request = StoreAssessmentRequest::create('/assessment', 'POST', $data);
+        $request->merge(['nutrition_support' => 'oral']);
         $request->setContainer($this->app);
         $request->setRedirector($this->app['redirect']);
 

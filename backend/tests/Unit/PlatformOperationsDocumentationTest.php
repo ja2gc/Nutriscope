@@ -8,22 +8,23 @@ use Tests\TestCase;
 class PlatformOperationsDocumentationTest extends TestCase
 {
     #[Test]
-    public function phase_one_operations_guides_cover_the_portable_runtime_and_backup_boundaries(): void
+    public function operations_guides_link_the_runtime_recovery_and_turnover_authorities(): void
     {
         $requirements = $this->readDocument('platform-requirements.md');
         $recovery = $this->readDocument('backup-recovery.md');
         $handoff = $this->readDocument('phase-2-platform-handoff.md');
 
-        foreach (['web', 'worker', 'scheduler', 'release', '/up', 'MySQL', 'Redis'] as $requirement) {
-            $this->assertStringContainsString($requirement, $requirements);
+        foreach (['backend', 'frontend', 'worker', 'scheduler', 'release', '/up', 'mysql', 'redis'] as $requirement) {
+            $this->assertStringContainsString($requirement, strtolower($requirements));
         }
 
-        foreach (['disabled by default', '4 days', '14 days', '3 calendar months', '7-day', 'Recently Deleted', 'temporary MySQL', 'non-mutating', 'safety snapshot', 'prepared bytes'] as $requirement) {
+        foreach (['nutriscope-backups.php', 'filesystems.php', 'isolated temporary target', 'BACKUP_RESTORE_ENABLED', 'APP_KEY', 'turnover.md'] as $requirement) {
             $this->assertStringContainsString($requirement, $recovery);
         }
 
-        foreach (['Name.com', 'BACKUP_*', 'client-owned', 'MFA', 'phase-1.5-complete', 'old DigitalOcean droplet'] as $requirement) {
+        foreach (['README.md', 'turnover.md', 'vps-setup.md', 'environment.md', 'integrations.md', 'mobile-release.md'] as $requirement) {
             $this->assertStringContainsString($requirement, $handoff);
+            $this->assertFileExists(base_path('../docs/operations/'.$requirement));
         }
 
         $this->assertStringNotContainsString('Technical Operator website role', $handoff);

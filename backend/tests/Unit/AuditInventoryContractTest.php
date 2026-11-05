@@ -8,7 +8,6 @@ use Illuminate\Support\Facades\Schema;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use SplFileInfo;
-use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
 class AuditInventoryContractTest extends TestCase
@@ -190,13 +189,10 @@ class AuditInventoryContractTest extends TestCase
 
     public function test_mutation_and_read_sensitive_route_inventories_are_explicit(): void
     {
-        $routeList = new Process(
-            [PHP_BINARY, base_path('artisan'), 'route:list', '--json'],
-            base_path(),
-            ['APP_ENV' => 'local'],
-        );
-        $routeList->mustRun();
-        $routes = json_decode($routeList->getOutput(), true, flags: JSON_THROW_ON_ERROR);
+        $routes = collect(Route::getRoutes()->getRoutes())->map(fn ($route): array => [
+            'method' => implode('|', $route->methods()),
+            'uri' => $route->uri(),
+        ])->all();
 
         $unsafe = collect($routes)
             ->filter(fn (array $route): bool => collect(explode('|', $route['method']))

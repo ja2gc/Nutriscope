@@ -218,6 +218,7 @@ class AiServiceTest extends TestCase
 
     public function test_pes_draft_instruction_is_compact_with_native_json_contract(): void
     {
+        config()->set('services.anthropic.model', 'claude-sonnet-5-5');
         Http::fake(['api.anthropic.com/*' => Http::response([
             'content' => [['type' => 'text', 'text' => json_encode($this->providerSuggestions())]],
             'usage' => ['input_tokens' => 100, 'output_tokens' => 50],
@@ -236,7 +237,8 @@ class AiServiceTest extends TestCase
             $this->assertStringContainsString("input_json:\n", $prompt);
             $this->assertStringNotContainsString('output_json_schema:', $prompt);
             $this->assertLessThanOrEqual(3000, strlen($system));
-            $this->assertSame(1700, $body['max_tokens']);
+            $this->assertSame('claude-sonnet-5-5', $body['model']);
+            $this->assertSame(4096, $body['max_tokens']);
             $this->assertStringContainsString('counterevidence', $system);
             foreach (['inference allowed', 'may contribute to lab P', 'missing E/S=concern'] as $guidance) {
                 $this->assertStringContainsString($guidance, $system);
