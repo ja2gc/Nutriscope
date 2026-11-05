@@ -29,7 +29,7 @@ Changing credentials/project settings or building uploads source to an external 
 
 For a separate source-only build directory, exclude all non-example environment files and private credentials before copying. With `EAS_NO_VCS=1`, explicitly set `EAS_PROJECT_ROOT` to that directory; otherwise the CLI can still select an enclosing Git root. On PowerShell use `$env:EAS_PROJECT_ROOT=(Get-Location).Path`; on Bash use `export EAS_PROJECT_ROOT="$PWD"`. The directory needs the mobile manifest, lockfile, assets and source. Inspect the upload root and archive contents before uploading; see [Expo's project upload rules](https://docs.expo.dev/build-reference/project-upload/).
 
-1. Update expo.version and android.versionCode in [mobile/app.json](../../mobile/app.json). Use an increasing human version **and** versionCode: [appUpdate.ts](../../mobile/lib/appUpdate.ts) compares the version string, not just versionCode.
+1. Update expo.version and android.versionCode in [mobile/app.json](../../mobile/app.json). Always increase versionCode: [appUpdate.ts](../../mobile/lib/appUpdate.ts) compares Android version codes, falling back to version names when the installed code is unavailable. Renaming the human version may require a manual download for older clients that compare names.
 2. Review [eas.json](../../mobile/eas.json). preview and production both currently produce APKs; development is a development client and uses a different API endpoint. For the current proxy, EXPO_PUBLIC_API_URL includes /mobile-api, not /api. Never bake secret keys into EXPO_PUBLIC variables.
 3. Run the appropriate [safe checks](../developers/platform/testing.md). Preserve backend/web/mobile API compatibility and verify the actual SDK from the lockfile.
 4. Request the intended cloud build:

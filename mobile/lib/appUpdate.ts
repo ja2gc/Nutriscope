@@ -30,7 +30,11 @@ export async function checkForAppUpdate(): Promise<{ current: string; release: A
   if (!response.ok) throw new Error('Update information is unavailable.');
   const release = await response.json() as AppRelease;
   const current = Constants.expoConfig?.version ?? '0.0.0';
-  return { current, release, available: isNewerVersion(release.version, current) };
+  const currentCode = Constants.expoConfig?.android?.versionCode;
+  const available = typeof currentCode === 'number'
+    ? Number.isInteger(release.version_code) && release.version_code > currentCode
+    : isNewerVersion(release.version, current);
+  return { current, release, available };
 }
 
 export async function openAppDownloadPage(): Promise<void> {
