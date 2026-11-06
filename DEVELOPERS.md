@@ -77,7 +77,11 @@ Web mutation refresh behavior is owned by each screen's local loader and saved-r
 
 Procurement's page and `SuppliersPanel` reuse the shopping-list table layout for horizontal scrolling and single-line names on narrow screens. Shared `Pagination` owns wrapping and button targets; directory footers remain outside table scrollers. Source review: `50752dd4` plus this layout change, 2026-11-06; see [web table guidance](docs/developers/platform/web.md).
 
+Website section-tab containment is owned by shared `Tabs`, `TabBar` and the existing page-local tab rows: single-line buttons scroll within the row instead of shrinking or stacking at phone widths. Existing NCP section tabs already follow it. Source review: `6ad8a880` plus this tab layout change, 2026-11-06; see [web controls](docs/developers/platform/web.md).
+
 Low-bandwidth loading stays with the existing screen/service owners: Diagnosis separates AI status; Monitoring separates history pagination; patient profiles separate past cycles; Procurement/Inventory defer supplier choices. Native Menu/Meal Prep share `mobile/lib/menuQueries.ts`; `AnnouncementResource`/`AnnouncementController` own opt-in protected image delivery. See [web](docs/developers/platform/web.md), [mobile](docs/developers/food-service/mobile.md) and [shared contracts](docs/developers/shared/README.md). No offline persistence or workflow-rule change is introduced.
+
+Mobile dashboard task rows and today's single-column meals remain owned by `mobile/app/(tabs)/index.tsx`. `AppHeader` owns the unboxed two-color branding shared across primary tabs; `AnnouncementMedia`'s existing avatar is reused by announcements, header and account menu, waiting for bearer authentication before fetching protected photos and falling back to initials. `ReportsScreen` disables future-day navigation and shows period progress before opening; the daily-log screen also guards future dates. Source review: `6ad8a880` plus this mobile UI change, 2026-11-06; see [mobile maintenance](docs/developers/food-service/mobile.md).
 
 Intervention's page-local `loadPlans` also reuses the latest full plan when its public UUID matches the selection; older-plan links retain their separate read. See [web loading ownership](docs/developers/platform/web.md).
 

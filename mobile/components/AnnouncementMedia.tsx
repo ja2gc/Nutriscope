@@ -31,8 +31,13 @@ export function AnnouncementAuthorAvatar({
   const name = author?.name?.trim() || 'Staff';
 
   useEffect(() => {
-    void getToken().then(setToken);
+    let cancelled = false;
     setFailed(false);
+    if (photo && !photo.startsWith('data:')) {
+      void getToken().then(value => { if (!cancelled) setToken(value); })
+        .catch(() => { if (!cancelled) setFailed(true); });
+    }
+    return () => { cancelled = true; };
   }, [photo]);
 
   return (
@@ -40,7 +45,7 @@ export function AnnouncementAuthorAvatar({
       className="shrink-0 items-center justify-center overflow-hidden rounded-full bg-emerald-800"
       style={{ width: size, height: size }}
     >
-      {photo && !failed ? (
+      {photo && !failed && (photo.startsWith('data:') || token) ? (
         <Image
           source={authenticatedImageSource(api.defaults.baseURL ?? '', photo, token)}
           accessibilityLabel={`${name} profile photo`}

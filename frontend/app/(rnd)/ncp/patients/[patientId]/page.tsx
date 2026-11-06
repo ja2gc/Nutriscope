@@ -635,12 +635,12 @@ export default function PatientProfilePage({
 
       {/* ── Tabs ─────────────────────────────────────────────────────────────── */}
       <div className="border-b border-warm-200 select-none">
-        <nav className="flex space-x-6">
+        <nav className="flex min-w-0 max-w-full flex-nowrap space-x-6 overflow-x-auto overflow-y-hidden overscroll-x-contain" aria-label="Patient sections">
           {(["overview", "adime-records", "appointments", "attachments"] as TabKey[]).map((tab) => (
             <button
               key={tab}
               onClick={() => contactLeaveRef.current ? contactLeaveRef.current.requestLeave(() => setActiveTab(tab)) : setActiveTab(tab)}
-              className={`pb-4 text-sm font-extrabold uppercase tracking-wider border-b-2 transition-all ${
+              className={`min-h-11 shrink-0 whitespace-nowrap pb-4 text-sm font-extrabold uppercase tracking-wider border-b-2 transition-all ${
                 activeTab === tab
                   ? "border-emerald-600 text-emerald-800"
                   : "border-transparent text-warm-400 hover:text-warm-600"

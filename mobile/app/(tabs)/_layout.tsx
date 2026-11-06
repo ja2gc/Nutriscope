@@ -30,7 +30,7 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <LayoutDashboard color={color} size={size} />
           ),
-          header: () => <AppHeader title="Dashboard" />,
+          header: () => <AppHeader />,
         }}
       />
       <Tabs.Screen
@@ -40,7 +40,7 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <Newspaper color={color} size={size} />
           ),
-          header: () => <AppHeader title="Announcements & SOP" />,
+          header: () => <AppHeader />,
         }}
       />
       <Tabs.Screen
@@ -50,7 +50,7 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <CalendarDays color={color} size={size} />
           ),
-          header: () => <AppHeader title="Menu" />,
+          header: () => <AppHeader />,
         }}
       />
       <Tabs.Screen
@@ -60,7 +60,7 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <ChefHat color={color} size={size} />
           ),
-          header: () => <AppHeader title="Meal Preparation" />,
+          header: () => <AppHeader />,
         }}
       />
       <Tabs.Screen
@@ -70,7 +70,7 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <ClipboardCheck color={color} size={size} />
           ),
-          header: () => <AppHeader title="Accomplishments" />,
+          header: () => <AppHeader />,
         }}
       />
       <Tabs.Screen
@@ -80,7 +80,7 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <ShoppingCart color={color} size={size} />
           ),
-          header: () => <AppHeader title="Procurement" />,
+          header: () => <AppHeader />,
         }}
       />
     </Tabs>

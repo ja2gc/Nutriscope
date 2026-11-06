@@ -102,7 +102,7 @@ test('dashboard shows three latest announcement cards while the feed pages ten',
   assert.match(dashboard, /meals to record, open Meal Prep/);
   assert.match(dashboard, /logs due, open Accomplish/);
   assert.match(dashboard, /pending purchase orders, open Procurement/);
-  assert.match(dashboard, /w-1\/2/);
+  assert.doesNotMatch(dashboard, /w-1\/2|This week’s menu|Includes earlier days/);
   assert.doesNotMatch(dashboard, /Next action|View image/);
   assert.doesNotMatch(dashboard, /<Bell|<Pin|<ShoppingBag|<CalendarDays|<ClipboardList/);
 });

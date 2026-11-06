@@ -31,14 +31,14 @@ export default function TabBar({
 
   return (
     <div
-      className={`flex overflow-x-auto border-b border-warm-200 ${containerClass}`}
+      className={`flex min-w-0 max-w-full flex-nowrap overflow-x-auto overflow-y-hidden overscroll-x-contain border-b border-warm-200 ${containerClass}`}
     >
       {tabs.map((tab) => (
         <button
           key={tab.key}
           type="button"
           onClick={() => onTabChange(tab.key)}
-          className={`relative flex items-center gap-1.5 px-4 py-3 text-xs font-bold uppercase tracking-wider whitespace-nowrap border-b-2 transition-all cursor-pointer ${
+          className={`relative flex min-h-11 shrink-0 items-center gap-1.5 px-4 py-3 text-xs font-bold uppercase tracking-wider whitespace-nowrap border-b-2 transition-all cursor-pointer ${
             activeTab === tab.key
               ? `${tabTheme.active} bg-white`
               : "text-warm-500 border-transparent hover:text-warm-700 hover:bg-white/50"

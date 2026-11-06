@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { AlertTriangle, Bell, UserCircle } from 'lucide-react-native';
+import { AlertTriangle, Bell } from 'lucide-react-native';
 import { useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,6 +9,7 @@ import type { UserProfile } from '../lib/auth';
 import BrandLogo from './BrandLogo';
 import { MOBILE_THEME } from '../lib/theme';
 import AccountMenu from './AccountMenu';
+import { AnnouncementAuthorAvatar } from './AnnouncementMedia';
 
 async function fetchUnreadCount(): Promise<number> {
   const res = await api.get<{ count: number }>('/api/notifications/unread-count');
@@ -20,11 +21,7 @@ async function fetchMe(): Promise<UserProfile> {
   return 'data' in response.data ? response.data.data : response.data;
 }
 
-interface AppHeaderProps {
-  title: string;
-}
-
-export default function AppHeader({ title }: AppHeaderProps) {
+export default function AppHeader() {
   const insets = useSafeAreaInsets();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -50,21 +47,15 @@ export default function AppHeader({ title }: AppHeaderProps) {
       className="bg-[#FBFCFB] border-b border-[#E2EAE5]"
     >
       <View className="flex-row items-center justify-between px-4 h-16">
-        <View className="flex-row items-center gap-3">
-          <View className="h-10 w-10 rounded-2xl bg-[#EAF7F1] items-center justify-center border border-[#D2EBDF]">
-            <BrandLogo size={24} showWordmark={false} />
-          </View>
-          <View>
-            <Text className="text-[10px] font-bold uppercase tracking-widest text-[#7A8D85]">Nutriscope</Text>
-            <Text className="text-base font-extrabold text-[#16352B]">{title}</Text>
-          </View>
+        <View className="min-w-0 flex-1 flex-row items-center gap-2.5 pr-2">
+          <BrandLogo size={32} />
         </View>
 
-        <View className="flex-row items-center gap-2">
+        <View className="shrink-0 flex-row items-center gap-2">
           {/* Bell */}
           <TouchableOpacity
             onPress={() => router.push('/notifications')}
-            className="w-10 h-10 rounded-xl bg-white border border-[#E5ECE8] items-center justify-center"
+            className="w-12 h-12 items-center justify-center"
             accessibilityLabel={
               unreadCount > 0
                 ? `Notifications, ${unreadCount} unread`
@@ -73,7 +64,7 @@ export default function AppHeader({ title }: AppHeaderProps) {
             hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
           >
             <View className="relative">
-              <Bell color={MOBILE_THEME.colors.text} size={19} />
+              <Bell color={MOBILE_THEME.colors.text} size={24} />
               {unreadCount > 0 && (
                 <View className="absolute -top-1.5 -right-2 bg-red-500 rounded-full min-w-[16px] h-4 items-center justify-center px-0.5">
                   <Text className="text-white text-[10px] font-bold tabular-nums leading-none">
@@ -87,11 +78,11 @@ export default function AppHeader({ title }: AppHeaderProps) {
           {/* Account */}
           <TouchableOpacity
             onPress={() => setMenuOpen(true)}
-            className="w-10 h-10 rounded-xl bg-white border border-[#E5ECE8] items-center justify-center"
+            className="w-12 h-12 items-center justify-center"
             accessibilityLabel="Open profile menu"
             hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
           >
-            <UserCircle color={MOBILE_THEME.colors.text} size={19} />
+            <AnnouncementAuthorAvatar author={{ name: user?.display_name, profile_photo: user?.profile_photo }} size={32} />
           </TouchableOpacity>
         </View>
       </View>

@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
+import { ChefHat, ChevronRight, ClipboardCheck, ShoppingCart } from 'lucide-react-native';
 import { useCallback } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -41,22 +42,27 @@ export default function DashboardScreen() {
   const logsDue = periods.data?.reduce((total, period) => total + period.days.filter((day) => day.date <= today && !day.logged).length, 0);
   return <ScrollView className="flex-1 bg-[#F4F7F5]" contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 20 }} refreshControl={<RefreshControl refreshing={dashboard.isFetching || announcement.isFetching || periods.isFetching} onRefresh={onRefresh} tintColor="#087F5B" />}>
     {dashboard.isError && <TouchableOpacity onPress={() => { void dashboard.refetch(); }} className="min-h-12 justify-center"><Text className="text-sm text-red-700">Could not refresh dashboard. Showing previously loaded data. Tap to retry.</Text></TouchableOpacity>}
-    <View className="flex-row gap-2">
-      <TouchableOpacity onPress={() => router.push('/(tabs)/prep')} className="min-h-20 flex-1 rounded-2xl border border-[#E2EAE5] bg-white px-3 py-2" accessibilityRole="button" accessibilityLabel={`${data.meals_to_log_today} meals to record, open Meal Prep`}><Text className="text-[11px] font-semibold text-[#6B7F77]">Meals to record</Text><Text className="text-xl font-extrabold text-[#16352B]">{data.meals_to_log_today}</Text></TouchableOpacity>
-      <TouchableOpacity onPress={() => router.push('/(tabs)/accomplishments')} className="min-h-20 flex-1 rounded-2xl border border-[#E2EAE5] bg-white px-3 py-2" accessibilityRole="button" accessibilityLabel={`${logsDue ?? 'Unknown'} logs due, open Accomplish`}><Text className="text-[11px] font-semibold text-[#6B7F77]">Logs due</Text><Text className="text-xl font-extrabold text-[#16352B]">{logsDue ?? '—'}</Text></TouchableOpacity>
-      <TouchableOpacity onPress={() => router.push('/(tabs)/procurement')} className="min-h-20 flex-1 rounded-2xl border border-[#E2EAE5] bg-white px-3 py-2" accessibilityRole="button" accessibilityLabel={`${data.pending_pos_count} pending purchase orders, open Procurement`}><Text className="text-[11px] font-semibold text-[#6B7F77]">Pending POs</Text><Text className="text-xl font-extrabold text-[#16352B]">{data.pending_pos_count}</Text></TouchableOpacity>
+    <Text className="mb-2 px-1 text-xs font-bold uppercase tracking-wide text-[#6B7F77]">Remaining tasks</Text>
+    <View className="overflow-hidden rounded-2xl border border-[#E2EAE5] bg-white">
+      <TouchableOpacity onPress={() => router.push('/(tabs)/prep')} className="min-h-20 flex-row items-center gap-3 border-b border-[#EDF2EF] px-4 py-4" accessibilityRole="button" accessibilityLabel={`${data.meals_to_log_today} meals to record, open Meal Prep`}>
+        <View className="h-10 w-10 items-center justify-center rounded-xl bg-[#EAF7F1]"><ChefHat color="#087F5B" size={21} /></View><Text className="flex-1 text-sm font-bold text-[#16352B]">Meals to record</Text><Text className="text-xl font-extrabold tabular-nums text-[#16352B]">{data.meals_to_log_today}</Text><ChevronRight color="#7A8D85" size={18} />
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => router.push('/(tabs)/accomplishments')} className="min-h-20 flex-row items-center gap-3 border-b border-[#EDF2EF] px-4 py-4" accessibilityRole="button" accessibilityLabel={`${logsDue ?? 'Unknown'} logs due, open Accomplish`}>
+        <View className="h-10 w-10 items-center justify-center rounded-xl bg-[#EAF7F1]"><ClipboardCheck color="#087F5B" size={21} /></View><Text className="flex-1 text-sm font-bold text-[#16352B]">Logs due</Text><Text className="text-xl font-extrabold tabular-nums text-[#16352B]">{logsDue ?? '—'}</Text><ChevronRight color="#7A8D85" size={18} />
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => router.push('/(tabs)/procurement')} className="min-h-20 flex-row items-center gap-3 px-4 py-4" accessibilityRole="button" accessibilityLabel={`${data.pending_pos_count} pending purchase orders, open Procurement`}>
+        <View className="h-10 w-10 items-center justify-center rounded-xl bg-[#EAF7F1]"><ShoppingCart color="#087F5B" size={21} /></View><Text className="flex-1 text-sm font-bold text-[#16352B]">Pending POs</Text><Text className="text-xl font-extrabold tabular-nums text-[#16352B]">{data.pending_pos_count}</Text><ChevronRight color="#7A8D85" size={18} />
+      </TouchableOpacity>
     </View>
 
-    <TouchableOpacity onPress={() => router.push('/(tabs)/menu')} className="mt-3 min-h-16 justify-center rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3" accessibilityRole="button" accessibilityLabel="Open this week's menu"><Text className="text-xs font-bold uppercase tracking-wide text-emerald-700">This week’s menu</Text><Text className="mt-1 text-sm font-semibold text-[#16352B]" numberOfLines={1}>{data.active_cycle?.service_day_count ? `${data.active_cycle.name} · ${data.active_cycle.service_day_count} planned days` : 'Menu not planned for this week yet.'}</Text></TouchableOpacity>
-
-    <TouchableOpacity onPress={() => router.push('/(tabs)/menu')} className="mt-3 rounded-2xl border border-[#E2EAE5] bg-white px-3 py-2" accessibilityRole="button" accessibilityLabel="Open today's menu">
-      <Text className="text-xs font-bold uppercase tracking-wide text-[#6B7F77]">Today’s meals</Text>
-      {data.today_service.length ? <View className="mt-1 flex-row flex-wrap">
-        {data.today_service.map((row) => <View key={row.id} className="w-1/2 border-t border-[#E2EAE5] px-1 py-1.5">
-          <Text className="text-[10px] font-semibold uppercase text-[#6B7F77]">{row.meal_type.replace(/_/g, ' ')}</Text>
-          <Text className="text-xs text-[#30483F]" numberOfLines={2}>{row.name}</Text>
+    <TouchableOpacity onPress={() => router.push('/(tabs)/menu')} className="mt-4 rounded-2xl border border-[#E2EAE5] bg-white px-4" accessibilityRole="button" accessibilityLabel="Open today's menu">
+      <View className="min-h-14 flex-row items-center justify-between gap-3"><Text className="text-base font-extrabold text-[#16352B]">Today’s meals</Text><ChevronRight color="#087F5B" size={20} /></View>
+      {data.today_service.length ? <View>
+        {data.today_service.map((row) => <View key={row.id} className="border-t border-[#EDF2EF] py-3">
+          <Text className="text-[10px] font-bold uppercase tracking-wide text-[#087F5B]">{row.meal_type.replace(/_/g, ' ')}</Text>
+          <Text className="mt-1 text-sm font-semibold leading-5 text-[#30483F]">{row.name}</Text>
         </View>)}
-      </View> : <Text className="mt-1 text-sm text-[#6B7F77]">No meals planned for today.</Text>}
+      </View> : <Text className="border-t border-[#EDF2EF] py-4 text-sm text-[#6B7F77]">No meals planned for today.</Text>}
     </TouchableOpacity>
 
     <View className="mt-3">

@@ -5,6 +5,7 @@ export interface UserProfile {
   first_name: string | null;
   last_name: string | null;
   display_name: string;
+  profile_photo?: string | null;
   /** @deprecated Use display_name for presentation. */
   name: string;
   email: string;

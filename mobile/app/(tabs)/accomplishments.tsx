@@ -107,6 +107,7 @@ export default function AccomplishmentsScreen() {
 
   const submit = () => {
     setMessage(null);
+    if (selectedDate > today) { setMessage({ kind: 'error', text: 'Future dates are not available for logging.' }); return; }
     if (locked) { setMessage({ kind: 'error', text: 'This period is read-only.' }); return; }
     if (rowsQuery.isLoading || rowsQuery.isError) { setMessage({ kind: 'error', text: 'Could not check existing logs. Retry before saving.' }); return; }
     const values = Object.values(numbers).map((value) => Number.parseInt(value || '0', 10));
@@ -116,7 +117,7 @@ export default function AccomplishmentsScreen() {
 
   const selectDate = (event: DateTimePickerEvent, date?: Date) => {
     if (Platform.OS === 'android') setShowPicker(false);
-    if (event.type !== 'dismissed' && date) { setSelectedDate(localDateKey(date)); setMessage(null); }
+    if (event.type !== 'dismissed' && date && localDateKey(date) <= today) { setSelectedDate(localDateKey(date)); setMessage(null); }
   };
   const goToday = () => { setSelectedDate(todayManilaKey()); setShowPicker(false); setMessage(null); };
   const moveDay = (days: number) => {
@@ -136,7 +137,7 @@ export default function AccomplishmentsScreen() {
         </TouchableOpacity>)}
     </View>
 
-    {section === 'reports' ? <ReportsScreen embedded onEditDay={(date) => { setSelectedDate(date); setSection('log'); setMessage(null); }} /> : <ScrollView className="flex-1" contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 28 }} keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="#087F5B" />}>
+    {section === 'reports' ? <ReportsScreen embedded onEditDay={(date) => { if (date > today) return; setSelectedDate(date); setSection('log'); setMessage(null); }} /> : <ScrollView className="flex-1" contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 28 }} keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="#087F5B" />}>
       <View className="rounded-[22px] bg-white border border-[#E2EAE5] p-4">
         <Text className="text-xs font-bold uppercase tracking-widest text-[#6B7F77]">Log date</Text>
         <View className="mt-2 flex-row items-center gap-2">

@@ -1362,7 +1362,7 @@ export default function ProcurementPage() {
       {Object.keys(genMissing).length > 0 && <MenuPlansNeededDialog missing={genMissing} onClose={() => setGenMissing({})} />}
 
       {/* Tabs */}
-      <div className="flex border-b border-warm-200">
+      <div className="flex min-w-0 max-w-full flex-nowrap overflow-x-auto overflow-y-hidden overscroll-x-contain border-b border-warm-200" aria-label="Procurement sections">
         {([
           ["food-lists", "Food Shopping Lists"],
           ["supplies-lists", "Supplies Lists"],
@@ -1370,7 +1370,7 @@ export default function ProcurementPage() {
           ["suppliers", "Suppliers"],
         ] as const).map(([k, label]) => (
           <button key={k} onClick={() => supplierLeaveRef.current ? supplierLeaveRef.current.requestLeave(() => setTab(k)) : setTab(k)}
-            className={`px-5 py-3 text-base font-semibold border-b-2 transition-colors cursor-pointer ${
+            className={`min-h-11 shrink-0 whitespace-nowrap px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors cursor-pointer ${
               tab === k ? "border-emerald-600 text-emerald-700" : "border-transparent text-warm-500 hover:text-warm-800"
             }`}>
             {label}

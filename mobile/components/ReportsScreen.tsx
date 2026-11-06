@@ -16,6 +16,7 @@ import { MobilePagination } from './MobilePagination';
 import { SearchInput } from './SearchInput';
 import { getNextPageParam, paginateItems } from '../lib/pagination';
 import { useMobileServerPage } from '../lib/useMobileServerPage';
+import { todayManilaKey } from '../lib/localDate';
 
 function fmtDate(d: string): string {
   return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -137,6 +138,7 @@ function ReportDetail({ id, onBack }: { id: string; onBack: () => void }) {
 }
 
 function PeriodDetail({ start, onBack, onEditDay, onOpenReport }: { start: string; onBack: () => void; onEditDay: (date: string) => void; onOpenReport: (id: string) => void }) {
+  const today = todayManilaKey();
   const queryClient = useQueryClient();
   const [dayPage, setDayPage] = useState(1);
   const { data: period, isLoading, isError, refetch } = useQuery({ queryKey: ['fss-accomplishment-period', start], queryFn: () => getAccomplishmentPeriod(start) });
@@ -158,7 +160,10 @@ function PeriodDetail({ start, onBack, onEditDay, onOpenReport }: { start: strin
     {isLoading ? <ActivityIndicator color="#087F5B" /> : isError || !period ? <TouchableOpacity onPress={() => refetch()} className="min-h-12 rounded-xl bg-white p-4"><Text>Could not load period. Tap to retry.</Text></TouchableOpacity> : <>
       <View className="rounded-2xl border border-gray-200 bg-white p-4"><Text className="text-lg font-extrabold text-[#16352B]">{fmtDate(period.start)} – {fmtDate(period.end)}</Text><Text className="mt-1 text-sm text-gray-600">{period.saved_days}/{period.expected_days} days logged · {period.status === 'draft' ? 'In progress' : period.status === 'pending' ? 'Submitted for review' : period.status === 'rejected' ? 'Needs correction' : 'Approved'}</Text></View>
       {period.rejection_reason && <View className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4"><Text className="font-bold text-amber-900">Reason for correction</Text><Text className="mt-1 text-sm text-amber-900">{period.rejection_reason}</Text></View>}
-      <View className="mt-3 overflow-hidden rounded-2xl border border-gray-200 bg-white">{days.items.map((day) => <TouchableOpacity key={day.date} onPress={() => onEditDay(day.date)} className="min-h-14 flex-row items-center justify-between gap-3 border-b border-gray-100 px-4 py-2" accessibilityRole="button" accessibilityLabel={`${fmtDate(day.date)}, ${day.logged ? day.off_duty ? 'off duty log saved' : 'log saved' : 'no log'}, open daily log`}><Text className="font-semibold text-gray-800">{fmtDate(day.date)}</Text><Text className={`text-sm ${day.logged ? 'text-emerald-700' : 'text-amber-700'}`}>{day.logged ? day.off_duty ? 'Off duty' : 'Saved' : 'Missing'}</Text></TouchableOpacity>)}</View>
+      <View className="mt-3 overflow-hidden rounded-2xl border border-gray-200 bg-white">{days.items.map((day) => {
+        const future = day.date > today;
+        return <TouchableOpacity key={day.date} disabled={future} onPress={() => { if (!future) onEditDay(day.date); }} className={`min-h-14 flex-row items-center justify-between gap-3 border-b border-gray-100 px-4 py-2 ${future ? 'bg-gray-50' : ''}`} accessibilityRole="button" accessibilityState={{ disabled: future }} accessibilityLabel={`${fmtDate(day.date)}, ${future ? 'not available yet' : day.logged ? day.off_duty ? 'off duty log saved' : 'log saved' : 'no log'}${future ? '' : ', open daily log'}`}><Text className={`font-semibold ${future ? 'text-gray-400' : 'text-gray-800'}`}>{fmtDate(day.date)}</Text><Text className={`text-sm ${future ? 'text-gray-400' : day.logged ? 'text-emerald-700' : 'text-amber-700'}`}>{future ? 'Upcoming' : day.logged ? day.off_duty ? 'Off duty' : 'Saved' : 'Missing'}</Text></TouchableOpacity>;
+      })}</View>
       <MobilePagination page={days.page} pages={days.pages} total={days.total} onPrevious={() => setDayPage(days.page - 1)} onNext={() => setDayPage(days.page + 1)} />
       {(period.status === 'draft' || period.status === 'rejected') && <TouchableOpacity onPress={() => action.mutate('submit')} disabled={action.isPending || period.saved_days !== period.expected_days} className={`mt-4 min-h-12 items-center justify-center rounded-xl ${action.isPending || period.saved_days !== period.expected_days ? 'bg-gray-300' : 'bg-[#087F5B]'}`} accessibilityRole="button"><Text className="font-bold text-white">Submit for review</Text></TouchableOpacity>}
       {(period.status === 'draft' || period.status === 'rejected') && period.saved_days !== period.expected_days && <Text className="mt-2 text-sm text-gray-600">Save a log for every day before submitting.</Text>}

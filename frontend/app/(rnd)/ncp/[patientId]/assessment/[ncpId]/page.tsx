@@ -1465,7 +1465,7 @@ export default function NcpAssessmentPage({
 
     return (
       <div className="space-y-4">
-        <div role="tablist" aria-label="Referral and screening sections" className="grid grid-cols-1 gap-2 rounded-xl border border-warm-200 bg-warm-50/60 p-1.5 sm:grid-cols-3">
+        <div role="tablist" aria-label="Referral and screening sections" className="flex min-w-0 max-w-full flex-nowrap gap-2 overflow-x-auto overflow-y-hidden overscroll-x-contain rounded-xl border border-warm-200 bg-warm-50/60 p-1.5">
           {REFERRAL_SECTIONS.map((section) => (
             <button
               key={section.key}
@@ -1473,7 +1473,7 @@ export default function NcpAssessmentPage({
               role="tab"
               aria-selected={referralSection === section.key}
               onClick={() => setReferralSection(section.key)}
-              className={`min-h-11 rounded-lg px-3 py-2 text-xs font-extrabold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${referralSection === section.key
+              className={`min-h-11 shrink-0 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-extrabold uppercase tracking-wider transition-colors sm:flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${referralSection === section.key
                   ? "bg-white text-emerald-700 shadow-sm"
                   : "text-warm-500 hover:bg-white/70 hover:text-warm-800"
                 }`}

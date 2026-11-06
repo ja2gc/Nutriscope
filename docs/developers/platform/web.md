@@ -2,6 +2,8 @@
 
 Purpose: find Next.js screens, existing controls and API transport.
 
+Page section tabs remain a single horizontal row at narrow widths: bounded containers scroll horizontally and buttons do not shrink or wrap their labels. `components/ui/Tabs.tsx` owns the shared compact 44-pixel-minimum layout for Food Library, Inventory, Reports and admin screens; its optional fill behavior applies from the small breakpoint upward. `TabBar` follows the same scrolling boundary. Procurement, patient profiles, assessment referral sections, diagnosis domains, Announcements/SOP and accomplishment views keep their existing state/leave handlers with the same containment. `NcpSectionTabs` already uses this pattern. Source review: `6ad8a880` plus the tab layout change, 2026-11-06; no domain workflow is changed.
+
 Non-profile uploads share `FileUploadField` for drag-and-drop, keyboard/click selection, visible limits and feedback. Actions stack below the heading on narrow screens. `ImageUploadGallery` provides image-only thumbnails with an individual X; `RemoveButton` is shared with Menu Calendar/template actions. `ImageViewer` provides plain image viewing, arrows, exit and permitted removal, with keyboard focus management. Filenames are not shown as captions.
 
 Announcement images save with Post/Save; procurement images save immediately and precede Mark vendor received. `ImageFilePicker` supports one logo per slot; clearing a replacement restores the saved preview. `ReportsBrowser` submits selected files, including drops. Assessment retains single-file PDF/image uploads and document rows. Existing validation, permissions and storage contracts remain authoritative.

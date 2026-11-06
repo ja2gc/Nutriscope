@@ -39,7 +39,7 @@ export function Tabs<K extends string>({
   }
 
   return (
-    <div role="tablist" aria-label={ariaLabel} className={`flex border-b border-warm-200 ${className}`}>
+    <div role="tablist" aria-label={ariaLabel} className={`flex min-w-0 max-w-full flex-nowrap overflow-x-auto overflow-y-hidden overscroll-x-contain border-b border-warm-200 ${className}`}>
       {items.map((t, i) => {
         const active = t.key === value;
         return (
@@ -51,7 +51,7 @@ export function Tabs<K extends string>({
             tabIndex={active ? 0 : -1}
             onClick={() => onChange(t.key)}
             onKeyDown={(e) => onKeyDown(e, i)}
-            className={`flex items-center gap-2 py-3 text-base font-semibold border-b-2 -mb-px cursor-pointer transition-colors rounded-t-md ${fill ? "min-w-0 flex-1 justify-center px-2 text-center text-sm leading-tight sm:px-3 sm:text-base" : "px-5"} ${tabTheme.focus} ${
+            className={`flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px cursor-pointer transition-colors rounded-t-md ${fill ? "sm:flex-1 justify-center text-center" : ""} ${tabTheme.focus} ${
               active
                 ? tabTheme.active
                 : tabTheme.inactive

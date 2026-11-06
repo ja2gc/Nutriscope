@@ -115,7 +115,7 @@ describe("Food Library USDA search", () => {
     const tabs = Array.from(container.querySelectorAll('[aria-label="Food Library sections"] button'));
     expect(container.querySelector('[role="tablist"][aria-label="Food Library sections"]')).not.toBeNull();
     expect(tabs[0].getAttribute('aria-selected')).toBe('true');
-    expect(container.querySelector('[aria-label="Food Library sections"]')?.className).not.toContain('overflow-x-auto');
+    expect(container.querySelector('[aria-label="Food Library sections"]')?.className).toContain('overflow-x-auto');
     expect(tabs.map((tab) => tab.textContent)).toEqual(["Ingredients", "Menu Items", "Templates", "Food Calculator"]);
     const ingredientFilters = container.querySelector('[aria-label="Ingredient groups"]')!;
     expect(Array.from(ingredientFilters.querySelectorAll("button")).map((button) => button.textContent)).toEqual(["All", "protein", "carbs", "vegetable", "fat", "dairy", "fruit"]);

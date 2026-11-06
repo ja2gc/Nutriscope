@@ -519,9 +519,9 @@ export function AnnouncementsBoard({ variant }: { variant: "admin" | "rnd" }) {
 
   // ---------- Page ----------
 
-  const tabs = <div className="flex max-w-sm gap-1 rounded-xl bg-warm-100 p-1" role="tablist" aria-label="Announcements and SOP">
-    <button type="button" role="tab" aria-selected={section === "announcements"} onClick={() => setSection("announcements")} className={`min-h-11 flex-1 rounded-lg px-3 text-sm font-bold ${section === "announcements" ? "bg-white text-emerald-700 shadow-sm" : "text-warm-600"}`}>Announcements</button>
-    <button type="button" role="tab" aria-selected={section === "sop"} onClick={() => setSection("sop")} className={`min-h-11 flex-1 rounded-lg px-3 text-sm font-bold ${section === "sop" ? "bg-white text-emerald-700 shadow-sm" : "text-warm-600"}`}>SOP</button>
+  const tabs = <div className="flex min-w-0 max-w-sm flex-nowrap gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain rounded-xl bg-warm-100 p-1" role="tablist" aria-label="Announcements and SOP">
+    <button type="button" role="tab" aria-selected={section === "announcements"} onClick={() => setSection("announcements")} className={`min-h-11 shrink-0 flex-1 whitespace-nowrap rounded-lg px-3 text-sm font-bold ${section === "announcements" ? "bg-white text-emerald-700 shadow-sm" : "text-warm-600"}`}>Announcements</button>
+    <button type="button" role="tab" aria-selected={section === "sop"} onClick={() => setSection("sop")} className={`min-h-11 shrink-0 flex-1 whitespace-nowrap rounded-lg px-3 text-sm font-bold ${section === "sop" ? "bg-white text-emerald-700 shadow-sm" : "text-warm-600"}`}>SOP</button>
   </div>;
 
   if (section === "sop") return <div className="space-y-6 font-sans">{tabs}<SopBanner historyHref={isAdmin ? "/admin/announcements/sop-history" : "/announcements/sop-history"} /></div>;

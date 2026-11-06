@@ -65,7 +65,7 @@ test('final navigation separates daily tabs, header actions, and account menu', 
   assert.doesNotMatch(tabs, /Notices/);
   assert.match(tabs, /Newspaper/);
   assert.match(header, /<Bell/);
-  assert.match(header, /<UserCircle/);
+  assert.match(header, /<AnnouncementAuthorAvatar/);
   assert.doesNotMatch(header, /Megaphone|Newspaper/);
   ['Profile', 'Notifications', 'Help', 'Settings', 'Check for updates', 'Sign out'].forEach((label) => assert.match(menu, new RegExp(label)));
   assert.doesNotMatch(menu, /Announcements & SOP/);

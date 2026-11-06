@@ -878,14 +878,14 @@ export default function NcpDiagnosisPage({
     <div className="space-y-6 max-w-2xl">
       <div>
         <SectionLabel>Step 1: Select Diagnostic Domain</SectionLabel>
-        <div className="flex gap-4 flex-wrap border-b border-warm-200">
+        <div className="flex min-w-0 max-w-full flex-nowrap gap-4 overflow-x-auto overflow-y-hidden overscroll-x-contain border-b border-warm-200" aria-label="Diagnostic domains">
           {(["NI", "NC", "NB", "NO"] as const).map(d => (
             <button
               key={d}
               type="button"
               disabled={hasNoDiagnosis || (d === "NO" && (diagnosesMeta?.total ?? 0) > 0)}
               onClick={() => setBuilder({ ...defaultBuilder(), domain: d, editingId: builder.editingId, aiDraftId: d === "NO" ? undefined : builder.aiDraftId })}
-              className={`px-1 py-2 text-sm font-semibold border-b-2 transition-colors cursor-pointer ${
+              className={`min-h-11 shrink-0 whitespace-nowrap px-1 py-2 text-sm font-semibold border-b-2 transition-colors cursor-pointer ${
                 builder.domain === d
                   ? "border-emerald-700 text-emerald-800"
                   : "border-transparent text-warm-600 hover:text-warm-900"
