@@ -37,6 +37,7 @@ export interface Patient {
   updated_at: string;
   can_delete?: boolean | null;
   last_assessment_date?: string | null;
+  last_clinical_review_at?: string | null;
   next_appointment_at?: string | null;
   risk_score?: number | string | null;
   latest_ncp_id?: number | null;

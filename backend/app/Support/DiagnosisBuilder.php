@@ -135,8 +135,15 @@ class DiagnosisBuilder
             $builder[$part.'_other'] = $builder[$part.'_checks'] === [] ? $text : '';
         }
         if ($domain === 'NI' && preg_match('/^(Inadequate|Excessive) (.+) Intake$/i', $problem, $matches)) {
+            $builder['ni_pattern'] = 'intake';
             $builder['ni_direction'] = $matches[1];
-            $builder['ni_nutrient'] = $matches[2];
+            $builder['ni_nutrient'] = collect(array_merge(...array_values($options['nutrients'])))
+                ->first(fn ($option) => mb_strtolower($option) === mb_strtolower($matches[2])) ?? $matches[2];
+            if (strtolower($matches[2]) === 'carbohydrate') {
+                $builder['ni_nutrient'] = 'Carbohydrates';
+            } elseif (strtolower($matches[2]) === 'oral') {
+                $builder['ni_nutrient'] = 'Oral Intake';
+            }
             $builder['problem_other'] = '';
         } elseif ($domain === 'NI') {
             $builder['problem_other'] = '';
@@ -147,6 +154,13 @@ class DiagnosisBuilder
                 $builder['ni_direction'] = $matches[1];
                 $builder['ni_group'] = strtolower($matches[2]) === 'vitamin' ? 'Vitamins' : 'Minerals';
                 $builder['ni_nutrient'] = $matches[3];
+                if ($builder['ni_group'] === 'Vitamins') {
+                    $builder['ni_nutrient'] = collect($options['nutrients']['vitamin'])->first(fn ($option) => mb_strtolower(preg_replace('/^vitamin\s+/i', '', $option)) === mb_strtolower($matches[3])) ?? $matches[3];
+                }
+            } elseif (preg_match('/^(Inadequate|Excessive) ((?:enteral|parenteral) nutrition infusion)$/i', $problem, $matches)) {
+                $builder['ni_pattern'] = 'intake';
+                $builder['ni_direction'] = $matches[1];
+                $builder['ni_nutrient'] = ucfirst($matches[2]);
             } elseif (preg_match('/^(Increased|Decreased) nutrient needs: (.+)$/', $problem, $matches)) {
                 $builder['ni_pattern'] = 'needs';
                 $builder['ni_direction'] = $matches[1] === 'Increased' ? 'Inadequate' : 'Excessive';

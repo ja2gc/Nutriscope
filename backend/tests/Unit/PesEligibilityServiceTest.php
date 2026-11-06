@@ -11,6 +11,19 @@ use Tests\TestCase;
 
 class PesEligibilityServiceTest extends TestCase
 {
+    public function test_ai_intake_drafts_select_existing_controls_instead_of_other_text(): void
+    {
+        foreach ([['Inadequate energy intake', 'Energy', ''], ['Inadequate carbohydrate intake', 'Carbohydrates', ''],
+            ['Inadequate vitamin intake: D', 'Vitamin D', 'Vitamins'], ['Excessive mineral intake: Iron', 'Iron', 'Minerals'],
+            ['Inadequate enteral nutrition infusion', 'Enteral nutrition infusion', '']] as [$problem, $nutrient, $group]) {
+            $builder = DiagnosisBuilder::fromDraft('NI', $problem, 'Recorded cause', 'Recorded finding');
+            $this->assertSame('intake', $builder['ni_pattern']);
+            $this->assertSame($nutrient, $builder['ni_nutrient']);
+            $this->assertSame($group, $builder['ni_group'] ?? '');
+            $this->assertSame('', $builder['problem_other']);
+        }
+    }
+
     public function test_applicable_lab_flags_do_not_depend_on_bmi_population_or_sex(): void
     {
         $service = app(PesEligibilityService::class);

@@ -39,6 +39,7 @@ class PatientResource extends JsonResource
             'can_delete' => $this->resource->getAttribute('can_delete'),
             // This reflects when the assessment was created, not when the NCP record was last changed.
             'last_assessment_date' => $latestNcpRecord?->assessment?->created_at,
+            'last_clinical_review_at' => $this->resource->getAttribute('last_clinical_review_at'),
             'next_appointment_at' => $this->resource->getAttribute('next_appointment_at'),
             'risk_score' => $latestNcpRecord?->risk_score,
             'latest_ncp_id' => $latestNcpRecord?->uuid,

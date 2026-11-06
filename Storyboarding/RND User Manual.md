@@ -142,6 +142,7 @@ Detail/profile pages open from their parent list, item card or selected menu slo
 
 1. Open **Nutrition Care → Patients**.
 2. Search/filter and open an existing patient, or choose **Create Patient & Start Assessment**.
+   **Last Clinical Review** shows the latest Assessment/lab or Monitoring save, or a valid visit start/finish, across the patient's care cycles. It displays **Today** or days ago using Manila calendar days. Scheduled-only, cancelled and discarded mistaken visits do not advance this date.
 3. On a patient profile, use:
    - **Overview** for identity, current status, risk, and current-cycle snapshot.
    - **ADIME Records** for the current cycle and the always-visible, two-per-page Past Records history.

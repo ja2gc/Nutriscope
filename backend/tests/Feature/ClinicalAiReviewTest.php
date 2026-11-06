@@ -19,11 +19,34 @@ use Tests\TestCase;
 
 class ClinicalAiReviewTest extends TestCase
 {
+    public function test_native_selection_preserves_a_supported_specific_problem_option(): void
+    {
+        $record = $this->record();
+        $record->patient->update(['sex' => 'Male']);
+        $record->assessment()->update(['weight' => 90, 'usual_weight' => 90, 'height' => 180, 'dietary_intake' => 'Frequent energy-dense meals.']);
+        Http::swap(new Factory);
+        Http::fake(['api.anthropic.com/*' => function ($request) {
+            $payload = json_decode(substr($request['messages'][0]['content'], strlen("input_json:\n")), true);
+            $candidate = collect($payload['candidates'])->search(fn ($item) => $item[1] === 'Overweight/obesity');
+            $problem = collect($payload['problems'])->search(fn ($item) => $item[1] === 'Obese, Class I');
+            $cause = collect($payload['evidence'])->search(fn ($item) => $item[0] === 'dietary_intake');
+            $sign = collect($payload['evidence'])->search(fn ($item) => $item[0] === 'bmi');
+
+            return Http::response(['content' => [['type' => 'text', 'text' => json_encode(['suggestions' => [[
+                'id' => $candidate, 'p' => $problem, 'pk' => [$sign], 'e' => 'Frequent energy-dense meals', 'ek' => [$cause],
+                's' => 'BMI 27.78', 'sk' => [$sign], 'r' => '', 'n' => '', 'en' => '', 'sn' => '',
+            ]]])]], 'usage' => ['input_tokens' => 100, 'output_tokens' => 50]]);
+        }]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()
+            ->assertJsonPath('data.0.label', 'Obese, Class I')
+            ->assertJsonPath('data.0.builder_data.problem_checks', ['Obese, Class I']);
+    }
+
     public function test_condition_in_another_assessment_field_is_a_citation_review_not_an_absence_claim(): void
     {
         $record = $this->record();
         $record->patient->update(['sex' => 'Male']);
-        $record->assessment()->update(['medical_history' => 'Diabetes documented.', 'dietary_intake' => 'Frequent sugary drinks.']);
+        $record->assessment()->update(['physical_assessment' => 'Diabetes documented.', 'dietary_intake' => 'Frequent sugary drinks.']);
         $record->assessment->biochemicalData()->create(['ldl' => 162]);
         $this->provider([[...$this->draft(), 'candidate_id' => 'altered_labs_v2', 'domain' => 'NC',
             'problem_key' => 'Altered Nutrition-Related Laboratory Values', 'etiology' => 'Diabetes-related metabolic changes',
@@ -33,6 +56,8 @@ class ClinicalAiReviewTest extends TestCase
         $notes = implode(' ', $result->json('review_drafts.0.review_reasons'));
         $this->assertStringContainsString('appears elsewhere in the Assessment', $notes);
         $this->assertStringNotContainsString('not recorded', $notes);
+        $record->assessment()->update(['physical_assessment' => 'No concerning physical findings.']);
+        $this->getJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonCount(0, 'review_drafts');
     }
 
     public function test_native_problem_selection_maps_to_the_existing_builder_option(): void

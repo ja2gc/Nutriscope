@@ -6,11 +6,15 @@ use App\Enums\AuditAction;
 use App\Enums\AuditCategory;
 use App\Enums\AuditModule;
 use App\Models\AuditActivity;
+use App\Models\BiochemicalData;
+use App\Models\Monitoring;
+use App\Models\NcpAppointment;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 class ClinicalAttributionService
@@ -24,7 +28,28 @@ class ClinicalAttributionService
         $this->decorateNcpRecords($records);
 
         $activities = $this->latestActivities('root_patient_id', $patients->modelKeys());
+        $labDates = BiochemicalData::query()
+            ->join('assessments', 'assessments.id', '=', 'biochemical_data.assessment_id')
+            ->join('ncp_records', 'ncp_records.id', '=', 'assessments.ncp_record_id')
+            ->whereIn('ncp_records.patient_id', $patients->modelKeys())
+            ->selectRaw('ncp_records.patient_id, MAX(biochemical_data.updated_at) AS reviewed_at')
+            ->groupBy('ncp_records.patient_id')->pluck('reviewed_at', 'patient_id');
+        $monitoringDates = Monitoring::query()
+            ->join('ncp_records', 'ncp_records.id', '=', 'monitorings.ncp_record_id')
+            ->whereIn('ncp_records.patient_id', $patients->modelKeys())
+            ->selectRaw('ncp_records.patient_id, MAX(monitorings.updated_at) AS reviewed_at')
+            ->groupBy('ncp_records.patient_id')->pluck('reviewed_at', 'patient_id');
+        $visitDates = NcpAppointment::query()
+            ->whereIn('patient_id', $patients->modelKeys())
+            ->whereIn('status', ['in_progress', 'completed', 'ended_early'])
+            ->selectRaw('patient_id, MAX(COALESCE(finished_at, started_at)) AS reviewed_at')
+            ->groupBy('patient_id')->pluck('reviewed_at', 'patient_id');
         foreach ($patients as $patient) {
+            $reviewedAt = collect([
+                ...$patient->ncpRecords->map(fn (NcpRecord $record) => $record->assessment?->updated_at?->toDateTimeString()),
+                $labDates->get($patient->id), $monitoringDates->get($patient->id), $visitDates->get($patient->id),
+            ])->filter()->max();
+            $patient->setAttribute('last_clinical_review_at', $reviewedAt ? Carbon::parse($reviewedAt)->toISOString() : null);
             $latestRecord = $patient->ncpRecords->first();
             $patient->setAttribute('latest_ncp_created_by', $latestRecord?->getAttribute('created_by'));
             $patient->setAttribute(

@@ -444,6 +444,8 @@ class PesSuggestionService
         foreach ($raw as $draft) {
             $id = null;
             $retryLabel = null;
+            $selectedLabel = null;
+            $crossFieldReview = false;
             try {
                 if (! is_array($draft)) {
                     throw new \RuntimeException('The AI returned an unexpected diagnosis shape.');
@@ -468,6 +470,7 @@ class PesSuggestionService
                             throw new \RuntimeException('The selected Problem does not match this candidate.');
                         }
                         $draft['p'] = $selection[1];
+                        $selectedLabel = $selection[1];
                     }
                     $draft['pk'] ??= $draft['sk'] ?? null;
                     $invalidRefs = false;
@@ -502,7 +505,7 @@ class PesSuggestionService
                 if ($candidate['problem_key'] !== 'Other' && ($draft['problem_key'] ?? null) !== $label) {
                     throw new \RuntimeException('The AI changed a supplied nutrition problem.');
                 }
-                $label = DiagnosisBuilder::problemLabel($candidate['domain'], $label, (string) ($draft['signs'] ?? ''));
+                $label = DiagnosisBuilder::problemLabel($candidate['domain'], $selectedLabel ?? $label, (string) ($draft['signs'] ?? ''));
                 if (! in_array($label, DiagnosisBuilder::aiProblems(in_array(mb_strtolower($label), ['malnutrition', 'malnutrition (undernutrition)'], true) ? 'NI' : $candidate['domain']), true)) {
                     throw new \RuntimeException('Select a nutrition problem from the existing diagnosis options.');
                 }
@@ -634,6 +637,7 @@ class PesSuggestionService
                     foreach ($conditions[0] as $condition) {
                         if (stripos($source, $condition) === false) {
                             if (stripos($assessmentSource, $condition) !== false) {
+                                $crossFieldReview = true;
                                 $reviewReasons[] = 'The proposed condition appears elsewhere in the Assessment; confirm its relevance and update the supporting citations.';
 
                                 continue;
@@ -750,6 +754,7 @@ class PesSuggestionService
                     'label' => $label, 'etiology' => $etiology, 'signs' => $signs,
                     'builder_data' => $builder, ...$notes, 'evidence_refs' => $refs,
                     'review_required' => $reviewReasons !== [], 'review_reasons' => array_values(array_unique($reviewReasons)),
+                    ...($crossFieldReview ? ['review_context_hash' => $this->fingerprint($evidence)] : []),
                     'evidence_by_component' => $componentEvidence,
                     'context_hash' => $this->contextHash($id, $evidence, array_column($refs, 'key')),
                     'evidence_used' => array_map(fn ($key) => $this->formatEvidence($key, $evidence[$key]), array_values(array_unique($keys))),
@@ -762,7 +767,7 @@ class PesSuggestionService
                     && is_string($draft['etiology'] ?? null) && trim($draft['etiology']) !== ''
                     && is_string($draft['signs'] ?? null) && trim($draft['signs']) !== '') {
                     $candidate = $byId[$id];
-                    $reviewLabel = $candidate['problem_key'] === 'Other' ? ($draft['problem_key'] ?? '') : $candidate['problem_key'];
+                    $reviewLabel = $selectedLabel ?? ($candidate['problem_key'] === 'Other' ? ($draft['problem_key'] ?? '') : $candidate['problem_key']);
                     $reviewDomain = is_string($reviewLabel) && $this->eligibility->canonicalProblem($reviewLabel) === 'malnutrition undernutrition' ? 'NI' : $candidate['domain'];
                     $reviewLabel = is_string($reviewLabel) ? DiagnosisBuilder::problemLabel($reviewDomain, $reviewLabel, $draft['signs']) : '';
                     if (in_array($reviewLabel, DiagnosisBuilder::aiProblems($reviewDomain), true)) {

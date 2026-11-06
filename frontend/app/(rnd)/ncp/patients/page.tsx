@@ -17,30 +17,9 @@ import { personDisplayName, requiredPersonNameFields } from "@/lib/personName";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { HeartHandshake, X } from "lucide-react";
 import { ClinicalAttribution } from "@/components/ncp/ClinicalAttribution";
+import { manilaRelativeDate } from "@/lib/calendarDate";
 
-function formatRelativeDate(value?: string | null) {
-  if (!value) {
-    return "";
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  const diffDays = Math.round((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-
-  if (diffDays === 0) {
-    return "Today";
-  }
-
-  if (diffDays > 0) {
-    return diffDays === 1 ? "In 1 day" : `In ${diffDays} days`;
-  }
-
-  const absDays = Math.abs(diffDays);
-  return absDays === 1 ? "1 day ago" : `${absDays} days ago`;
-}
+const formatRelativeDate = manilaRelativeDate;
 
 function riskMeta(score?: number | string | null) {
   if (score === null || score === undefined || score === "") {
@@ -247,7 +226,7 @@ export default function NcpPatientsPage() {
                   <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Name</th>
                   <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Age / Sex</th>
                   <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Physician</th>
-                  <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Last Assessment</th>
+                  <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Last Clinical Review</th>
                   <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Next Appointment</th>
                   <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Risk Status</th>
                   <th className="px-5 py-4 text-xs font-extrabold text-warm-500 uppercase tracking-wider">Clinical Attribution</th>
@@ -277,9 +256,9 @@ export default function NcpPatientsPage() {
                       </td>
 
                       <td className="px-5 py-4 text-sm text-warm-600">
-                        {patient.last_assessment_date ? (
+                        {patient.last_clinical_review_at ? (
                           <span className="font-semibold text-warm-700">
-                            {formatRelativeDate(patient.last_assessment_date)}
+                            {formatRelativeDate(patient.last_clinical_review_at)}
                           </span>
                         ) : (
                           <span className="text-warm-400">No assessment yet</span>

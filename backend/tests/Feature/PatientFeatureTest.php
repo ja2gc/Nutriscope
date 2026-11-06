@@ -3,9 +3,12 @@
 namespace Tests\Feature;
 
 use App\Jobs\DeleteQuarantinedClinicalFile;
+use App\Models\Assessment;
 use App\Models\AuditActivity;
 use App\Models\Intervention;
 use App\Models\MealPlan;
+use App\Models\Monitoring;
+use App\Models\NcpAppointment;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\ScreeningDocument;
@@ -13,6 +16,7 @@ use App\Models\User;
 use App\Services\Audit\AuditLogger;
 use App\Services\ClinicalDocumentStorage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
@@ -23,6 +27,54 @@ use Tests\TestCase;
 class PatientFeatureTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_last_clinical_review_tracks_assessment_and_monitoring_saves_across_cycles(): void
+    {
+        $this->travelTo(Carbon::parse('2026-11-01 04:00:00'));
+        $rnd = User::factory()->rnd()->create();
+        $patient = Patient::factory()->create();
+        $record = NcpRecord::factory()->create(['patient_id' => $patient->id, 'rnd_user_id' => $rnd->id]);
+        $assessment = Assessment::factory()->create(['ncp_record_id' => $record->id]);
+        $this->actingAs($rnd, 'sanctum');
+        $url = '/api/rnd/patients';
+        $this->getJson($url)->assertOk()->assertJsonPath('data.0.last_clinical_review_at', '2026-11-01T04:00:00.000000Z');
+        $this->travelTo(Carbon::parse('2026-11-04 04:00:00'));
+        $assessment->update(['dietary_intake' => 'Updated fictional intake history.']);
+        $this->getJson($url)->assertOk()->assertJsonPath('data.0.last_clinical_review_at', '2026-11-04T04:00:00.000000Z');
+        $this->travelTo(Carbon::parse('2026-11-04 06:00:00'));
+        $assessment->biochemicalData()->create(['ldl' => 162]);
+        $this->getJson($url)->assertOk()->assertJsonPath('data.0.last_clinical_review_at', '2026-11-04T06:00:00.000000Z');
+        $this->travelTo(Carbon::parse('2026-11-05 04:00:00'));
+        Monitoring::factory()->create(['ncp_record_id' => $record->id, 'observed_at' => '2026-11-03']);
+        NcpRecord::factory()->create(['patient_id' => $patient->id, 'rnd_user_id' => $rnd->id]);
+        $this->getJson($url)->assertOk()->assertJsonPath('data.0.last_clinical_review_at', '2026-11-05T04:00:00.000000Z');
+        $this->getJson("/api/rnd/patients/{$patient->uuid}")->assertOk()->assertJsonPath('last_clinical_review_at', '2026-11-05T04:00:00.000000Z');
+        $this->travelBack();
+    }
+
+    public function test_discarded_starts_and_cancelled_appointments_do_not_count_as_clinical_reviews(): void
+    {
+        $rnd = User::factory()->rnd()->create();
+        $patient = Patient::factory()->create();
+        $this->actingAs($rnd, 'sanctum');
+        $url = '/api/rnd/patients';
+        foreach (['scheduled', 'cancelled', 'no_show', 'rescheduled'] as $status) {
+            NcpAppointment::factory()->create(['patient_id' => $patient->id, 'rnd_user_id' => $rnd->id, 'status' => $status]);
+        }
+        $this->getJson($url)->assertOk()->assertJsonPath('data.0.last_clinical_review_at', null);
+        $visit = NcpAppointment::factory()->create(['patient_id' => $patient->id, 'rnd_user_id' => $rnd->id,
+            'status' => 'in_progress', 'started_at' => '2026-11-06 04:00:00', 'worked_on' => []]);
+        $this->getJson($url)->assertOk()->assertJsonPath('data.0.last_clinical_review_at', '2026-11-06T04:00:00.000000Z');
+        $this->patchJson("/api/rnd/ncp-appointments/{$visit->uuid}", ['action' => 'discard'])->assertOk();
+        $this->getJson($url)->assertOk()->assertJsonPath('data.0.last_clinical_review_at', null);
+        $visit = NcpAppointment::factory()->create(['patient_id' => $patient->id, 'rnd_user_id' => $rnd->id,
+            'source' => 'walk_in', 'status' => 'in_progress', 'started_at' => '2026-11-06 04:00:00', 'worked_on' => []]);
+        $this->patchJson("/api/rnd/ncp-appointments/{$visit->uuid}", ['action' => 'discard'])->assertNoContent();
+        $this->getJson($url)->assertOk()->assertJsonPath('data.0.last_clinical_review_at', null);
+        NcpAppointment::factory()->create(['patient_id' => $patient->id, 'rnd_user_id' => $rnd->id,
+            'status' => 'completed', 'started_at' => '2026-11-06 04:00:00', 'finished_at' => '2026-11-06 05:00:00']);
+        $this->getJson($url)->assertOk()->assertJsonPath('data.0.last_clinical_review_at', '2026-11-06T05:00:00.000000Z');
+    }
 
     public function test_rnd_can_list_patients()
     {
