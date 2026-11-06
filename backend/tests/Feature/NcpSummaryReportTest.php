@@ -553,6 +553,6 @@ class NcpSummaryReportTest extends TestCase
         $this->assertSame('Low Risk', NcpSummaryGenerator::riskBand(1.0));
         $this->assertSame('Moderate Risk', NcpSummaryGenerator::riskBand(3.0));
         $this->assertSame('High Risk', NcpSummaryGenerator::riskBand(4.0));
-        $this->assertSame('—', NcpSummaryGenerator::riskBand(null));
+        $this->assertSame('', NcpSummaryGenerator::riskBand(null));
     }
 }

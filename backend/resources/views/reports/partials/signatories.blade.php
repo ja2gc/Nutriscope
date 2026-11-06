@@ -5,11 +5,13 @@
         @foreach(array_chunk($sigs, 2) as $pair)
             <tr>
                 @foreach($pair as $sig)
+                    @if($sig === null)<td style="border:0;"></td>@else
                     <td>
                         <div class="sig-label">{{ $sig['label'] ?? '' }}</div>
                         <div class="sig-name">{{ $sig['name'] ?? '' }}</div>
                         <div class="sig-title">{{ $sig['title'] ?? '' }}</div>
                     </td>
+                    @endif
                 @endforeach
                 @if(count($pair) === 1)<td style="border:0;"></td>@endif
             </tr>

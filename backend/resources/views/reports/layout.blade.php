@@ -4,9 +4,16 @@
     <meta charset="utf-8">
     <title>{{ $report->title ?? 'Report' }}</title>
     <style>
+        @php($reportFontPath = storage_path('app/private-uploads/report-fonts'))
+        @if(is_file($reportFontPath.'/calibri.ttf'))
+        @font-face { font-family: Calibri; font-style: normal; font-weight: normal; src: url('{{ $reportFontPath }}/calibri.ttf') format('truetype'); }
+        @font-face { font-family: Calibri; font-style: normal; font-weight: bold; src: url('{{ $reportFontPath }}/calibrib.ttf') format('truetype'); }
+        @font-face { font-family: Calibri; font-style: italic; font-weight: normal; src: url('{{ $reportFontPath }}/calibrii.ttf') format('truetype'); }
+        @font-face { font-family: Calibri; font-style: italic; font-weight: bold; src: url('{{ $reportFontPath }}/calibriz.ttf') format('truetype'); }
+        @endif
         @page { size: {{ ($paper_orientation ?? 'portrait') === 'landscape' ? '13in 8.5in' : '8.5in 13in' }}; margin: 0.45in; }
         * { box-sizing: border-box; }
-        body { font-family: DejaVu Sans, sans-serif; color: #111; font-size: 11px; margin: 0; }
+        body { font-family: Calibri, DejaVu Sans, sans-serif; color: #111; font-size: 11px; margin: 0; }
         .doc { padding: 4px 2px; }
         h1, h2, h3 { margin: 0; }
         .center { text-align: center; }
@@ -38,6 +45,8 @@
         .sigs { width: 100%; margin-top: 28px; table-layout: fixed; }
         .sigs tr { page-break-inside: avoid; }
         .sigs td { vertical-align: bottom; padding: 0 18px; width: 50%; word-wrap: break-word; }
+        .sigs td:first-child { padding-left: 0; }
+        .sigs td:last-child { padding-right: 0; }
         .sig-name { font-size: 10px; font-weight: bold; border-top: 1px solid #333; padding-top: 2px; text-transform: uppercase; }
         .sig-title { font-size: 9px; line-height: 1.2; color: #333; }
         .sig-label { font-size: 10px; margin-bottom: 26px; }

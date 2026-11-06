@@ -97,7 +97,7 @@ class ReportPaperSizeTest extends TestCase
         $this->assertStringNotContainsString("report-page{{ \$i > 0 ? ' page-start' : '' }}", $procurement);
     }
 
-    public function test_procurement_pack_first_page_uses_the_shared_hospital_letterhead(): void
+    public function test_procurement_pack_air_preserves_the_shared_header_and_blank_manual_fields(): void
     {
         $branding = new ReportBranding([
             'hospital_name' => 'Romana Pangan District Hospital',
@@ -114,7 +114,7 @@ class ReportPaperSizeTest extends TestCase
                 'supplier' => null,
                 'po' => $po,
                 'order_date' => 'Sep 30, 2026',
-                'or_number' => '-',
+                'or_number' => 'RECORDED-OR-99',
                 'air_items' => [],
                 'statement_items' => [],
                 'grand_total' => 0,
@@ -123,7 +123,11 @@ class ReportPaperSizeTest extends TestCase
             ]],
             'branding' => $branding,
             'air_signatories' => [],
-            'statement_signatories' => [],
+            'statement_signatories' => [
+                ['role' => 'buyer', 'label' => 'Buyer:', 'name' => 'Captured Buyer', 'title' => 'Nutritionist-Dietitian II/Buyer'],
+                ['role' => 'verified_by', 'label' => 'Verified:', 'name' => 'Captured Verifier', 'title' => 'Administrative Officer V'],
+                ['role' => 'examined_by', 'label' => 'Examined:', 'name' => 'Captured Examiner', 'title' => 'Chief of Hospital II'],
+            ],
             'summary_signatories' => [],
             'report' => new Report(['title' => 'Procurement Pack']),
             'paper_orientation' => 'portrait',
@@ -135,6 +139,22 @@ class ReportPaperSizeTest extends TestCase
         $this->assertNotFalse($firstTitle);
         $this->assertNotFalse($firstHospitalName);
         $this->assertLessThan($firstTitle, $firstHospitalName);
+        $air = strstr($html, 'STATEMENT OF MARKETING PURCHASED', true);
+        $this->assertStringContainsString('Zamboanga del Sur', $air);
+        $this->assertStringContainsString('Labangan', $air);
+        $this->assertStringContainsString('Complete:', $air);
+        $this->assertStringContainsString('Partial:', $air);
+        $this->assertStringContainsString('Invoice', $air);
+        $this->assertStringNotContainsString('PO-1', $air);
+        $this->assertStringNotContainsString('RECORDED-OR-99', $air);
+        $this->assertStringNotContainsString('AIR No: 1', $air);
+        $document = new \DOMDocument;
+        @$document->loadHTML($html);
+        $xpath = new \DOMXPath($document);
+        $this->assertStringContainsString('Captured Buyer', $xpath->evaluate('string((//table[@class="sigs"])[2]/tr[1]/td[2])'));
+        $this->assertStringNotContainsString('Captured Buyer', $xpath->evaluate('string((//table[@class="sigs"])[2]/tr[1]/td[1])'));
+        $this->assertStringContainsString('Captured Verifier', $xpath->evaluate('string((//table[@class="sigs"])[2]/tr[2]/td[1])'));
+        $this->assertStringContainsString('Captured Examiner', $xpath->evaluate('string((//table[@class="sigs"])[2]/tr[2]/td[2])'));
     }
 
     public function test_shared_letterhead_is_a_block_that_dompdf_keeps_on_dense_first_pages(): void
@@ -144,5 +164,12 @@ class ReportPaperSizeTest extends TestCase
         $this->assertStringContainsString('class="report-letterhead"', $letterhead);
         $this->assertStringNotContainsString('<table style="width:100%; border:0;">', $letterhead);
         $this->assertStringNotContainsString('page-break-inside:avoid', $letterhead);
+    }
+
+    public function test_missing_report_breakdown_values_are_blank(): void
+    {
+        $html = view('reports.partials._breakdown', ['heading' => 'Missing values', 'data' => []])->render();
+        $this->assertStringNotContainsString('No data', $html);
+        $this->assertStringContainsString('<td></td><td></td>', $html);
     }
 }

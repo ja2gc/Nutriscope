@@ -23,6 +23,8 @@ use Illuminate\Support\Facades\Storage;
  */
 class ProcurementPackGenerator implements ReportGenerator
 {
+    public const APPEARANCE_VERSION = 'air-reference-v2-calibri';
+
     public function type(): string
     {
         return 'procurement_pack';
@@ -161,7 +163,7 @@ class ProcurementPackGenerator implements ReportGenerator
             'po' => $po,
             'vendor_group' => $group,
             'supplier' => $supplier,
-            'or_number' => $group?->or_number ?? $po->or_number ?? 'Not provided',
+            'or_number' => $group?->or_number ?? $po->or_number ?? '',
             'is_final' => $po->final_locked_at !== null,
             'air_items' => $airItems,
             'statement_items' => $statementItems,

@@ -9,48 +9,7 @@
             @if(! $pack['is_final'])
                 <p class="center bold" style="color:#9a3412; border:1px solid #fdba74; padding:6px;">DRAFT / INCOMPLETE - receiving is not finished</p>
             @endif
-            {{-- ===== Page 1: Acceptance & Inspection Report ===== --}}
-            @include('reports.partials.letterhead', ['title' => 'ACCEPTANCE AND INSPECTION REPORT'])
-
-        <table style="border:0; margin-bottom:4px;" class="meta">
-            <tr>
-                <td style="border:0;">Supplier: <span class="bold">{{ $pack['supplier']->name ?? '________' }}</span></td>
-                <td style="border:0;">AIR No: {{ $pack['po']->id }}</td>
-            </tr>
-            <tr>
-                <td style="border:0;">P.O. No: {{ $pack['po']->po_number }} &nbsp; Date: {{ $pack['order_date'] }}</td>
-                <td style="border:0;">O.R. No: {{ $pack['or_number'] }}</td>
-            </tr>
-            <tr>
-                <td style="border:0;" colspan="2">Requisition Office/Dept.: {{ $branding->hospital_name }}</td>
-            </tr>
-        </table>
-
-        <table class="grid">
-            <thead>
-                <tr><th style="width:50px;">Item No.</th><th style="width:80px;">Unit</th><th>Description</th><th class="right" style="width:80px;">Quantity</th></tr>
-            </thead>
-            <tbody>
-                @foreach($pack['air_items'] as $it)
-                    <tr>
-                        <td class="center">{{ $it['item_no'] }}</td>
-                        <td>{{ $it['unit'] }}</td>
-                        <td>{{ $it['description'] }}</td>
-                        <td class="right">{{ rtrim(rtrim(number_format($it['quantity'], 2), '0'), '.') }}</td>
-                    </tr>
-                @endforeach
-            </tbody>
-        </table>
-
-        <table style="border:0; margin-top:8px;" class="meta">
-            <tr>
-                <td style="border:0;">Date Received: {{ $pack['order_date'] }}</td>
-                <td style="border:0;">Date Inspected: {{ $pack['order_date'] }}</td>
-            </tr>
-            <tr><td style="border:0;" colspan="2" class="muted">Inspected and verified and found OK as to quantity and specifications.</td></tr>
-        </table>
-
-            @include('reports.partials.signatories', ['signatories' => $air_signatories])
+            @include('reports.partials.acceptance-inspection')
         </div>
 
         {{-- ===== Page 2: Statement of Marketing Purchased ===== --}}
@@ -86,7 +45,15 @@
 
         <p style="margin-top:8px; font-size:10px;">I hereby certify that I have purchased the above named articles, their quantity and at the price set forth above and that I have paid therefore the total sum of <span class="bold">₱ {{ number_format($pack['grand_total'], 2) }}</span> out of the funds advanced to me for such purpose.</p>
 
-            @include('reports.partials.signatories', ['signatories' => $statement_signatories])
+            @php
+                $statementSigs = collect($statement_signatories ?? [])->keyBy('role');
+            @endphp
+            @include('reports.partials.signatories', ['signatories' => [
+                null,
+                ['label' => '', 'name' => $statementSigs['buyer']['name'] ?? '', 'title' => $statementSigs['buyer']['title'] ?? ''],
+                ['label' => 'Verified as to Quantity/Quality and Found Correct :', 'name' => $statementSigs['verified_by']['name'] ?? '', 'title' => $statementSigs['verified_by']['title'] ?? ''],
+                ['label' => 'Examined and Approved:', 'name' => $statementSigs['examined_by']['name'] ?? '', 'title' => $statementSigs['examined_by']['title'] ?? ''],
+            ]])
         </div>
 
         {{-- ===== Page 3: Summary of Marketing ===== --}}

@@ -1,5 +1,7 @@
 # NCP data meaning
 
+Report-only missing-value presentation is owned by `NcpSummaryGenerator` and the report Blade views: absent risk scores, BMI classifications, support modes, diagnoses, targets and nutrient amounts leave their fields blank. Recorded zero values and known clinical values remain intact; persisted clinical fields and calculations are unchanged. Census buckets for unscored/unclassified records remain meaningful aggregate categories. Verified source: `0e1927e2` plus the blank-report-field change, 2026-11-06.
+
 ## Clinical food library and menu planning
 
 `MealPlanService::generate` builds candidates from measured Recipes only. Main slots use category `meal`; AM/PM slots use `snack`. Ingredient category does not make a food eligible as a standalone snack. The Food Library forms manage nutrients, measured serving size/unit and allergens.

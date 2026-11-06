@@ -84,9 +84,9 @@ class NcpSummaryGenerator implements ReportGenerator
                 'religion' => $assessment?->religion ?? $patient?->religion,
             ],
             'assessment' => $assessment,
-            'nutrition_support' => NutritionSupport::label($ncp->nutrition_support),
+            'nutrition_support' => $ncp->nutrition_support ? NutritionSupport::label($ncp->nutrition_support) : '',
             'biochem' => $assessment?->biochemicalData,
-            'nutritional_status' => Assessment::classifyBmi($assessment?->calculateBmi(), $patient?->dob?->diffInYears($ncp->created_at), (bool) $assessment?->edema_present, $assessment?->pregnancy_lactation_status, $patient?->sex, $patient?->dob ? (int) $patient->dob->diffInMonths($ncp->created_at) : null) ?? 'Not classified',
+            'nutritional_status' => Assessment::classifyBmi($assessment?->calculateBmi(), $patient?->dob?->diffInYears($ncp->created_at), (bool) $assessment?->edema_present, $assessment?->pregnancy_lactation_status, $patient?->sex, $patient?->dob ? (int) $patient->dob->diffInMonths($ncp->created_at) : null) ?? '',
             'assessment_age_months' => $patient?->dob ? (int) $patient->dob->diffInMonths($ncp->created_at) : null,
             'risk_score' => $ncp->risk_score,
             'risk_band' => self::riskBand($ncp->risk_score !== null ? (float) $ncp->risk_score : null),
@@ -165,7 +165,7 @@ class NcpSummaryGenerator implements ReportGenerator
     public static function riskBand(?float $score): string
     {
         if ($score === null) {
-            return '—';
+            return '';
         }
 
         return match (true) {

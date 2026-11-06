@@ -364,7 +364,6 @@ function InstancesPanel({
   const [instances, setInstances] = useState<ReportInstance[]>([]);
   const [coveredMonth, setCoveredMonth] = useState("");
   const [procurementKind, setProcurementKind] = useState("all");
-  const [updatingReports, setUpdatingReports] = useState(false);
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
   const [busy, setBusy] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ report: ReportItem; label: string } | null>(null);
@@ -390,26 +389,6 @@ function InstancesPanel({
 
   const pagedShown = instances;
   const hasProcurementSpan = entry.type === "procurement_pack" || entry.type === "program_project_activity";
-
-  async function updateExistingReports() {
-    setUpdatingReports(true);
-    try {
-      let updated = 0;
-      let reportPage = 1;
-      let lastPage = 1;
-      do {
-        const batch = await listInstances(entry.type, { page: reportPage, per_page: 10, procurement_kind: procurementKind, covered_month: coveredMonth, search: debouncedSearch }, apiPrefix);
-        lastPage = batch.meta.last_page;
-        for (const instance of batch.data.instances) {
-          await prepareReport(entry.type, { ...instance.params, refresh_layout: 1 }, apiPrefix);
-          updated++;
-        }
-        reportPage++;
-      } while (reportPage <= lastPage);
-      onFlash(true, `Updated ${updated} reports.`);
-    } catch (error) { onFlash(false, error instanceof Error ? error.message : 'Could not update the reports.'); }
-    finally { setUpdatingReports(false); }
-  }
 
   async function onPreview(i: ReportInstance) {
     if (i.available === false) return;
@@ -470,10 +449,9 @@ function InstancesPanel({
             onMonthChange={(month) => { setCoveredMonth(month === null ? "" : `${filterYear}-${String(month).padStart(2, "0")}`); setPage(1); }}
             onYearChange={(year) => { setFilterYear(year); if (coveredMonth) setCoveredMonth(`${year}-${coveredMonth.slice(5, 7)}`); setPage(1); }} />
         </div>
-        {hasProcurementSpan && <div className="mt-3 max-w-sm"><label className={lbl} htmlFor="report-procurement-type">Procurement type</label><select id="report-procurement-type" aria-label="Procurement type" className={inp} value={procurementKind} disabled={updatingReports} onChange={(event) => { setProcurementKind(event.target.value); setPage(1); }}>
+        {hasProcurementSpan && <div className="mt-3 max-w-sm"><label className={lbl} htmlFor="report-procurement-type">Procurement type</label><select id="report-procurement-type" aria-label="Procurement type" className={inp} value={procurementKind} onChange={(event) => { setProcurementKind(event.target.value); setPage(1); }}>
           <option value="all">All</option><option value="suggested_food">Menu-suggested food</option><option value="manual_food">Manual food</option><option value="supplies">Supplies</option>
         </select></div>}
-        {entry.type === 'program_project_activity' && apiPrefix !== 'fss' && <Button variant="secondary" className="mt-3" loading={updatingReports} disabled={updatingReports || loading} onClick={() => void updateExistingReports()}>Update existing reports</Button>}
       </div>}
 
       {loading ? (
@@ -879,7 +857,7 @@ function TemplateEditor({ apiPrefix, onFlash }: { apiPrefix: "rnd" | "admin"; on
 
       {/* Signatories per report */}
       <div className="grid lg:grid-cols-2 gap-4">
-        {templates.filter((template) => !isClinicalAutoFilledSignatory(template)).map((saved) => {
+        {templates.filter((template) => !isClinicalAutoFilledSignatory(template) && template.type !== "procurement_pack").map((saved) => {
           const t = editingTemplateId === saved.id && templateDraft ? templateDraft : saved;
           const viewingHistory = historyTemplateId === saved.id;
           const displayed = viewingHistory && selectedTemplateRevision ? selectedTemplateRevision : t;
@@ -908,10 +886,11 @@ function TemplateEditor({ apiPrefix, onFlash }: { apiPrefix: "rnd" | "admin"; on
               </div>
               {selectedTemplateRevision.signatories.length === 0 ? <p className="text-xs text-warm-400">No signatory block.</p> : (
                 <div className="space-y-2">
-                  {selectedTemplateRevision.signatories.map((s, i) => <div key={`${s.role}-${i}`} className="grid grid-cols-1 gap-1 sm:grid-cols-[90px_1fr_1fr] sm:gap-2">
-                    <span className="text-xs font-bold text-warm-400 uppercase sm:truncate" title={s.label}>{s.label}</span>
-                    <span className="break-words text-sm text-warm-800">{s.name || "—"}</span>
-                    <span className="break-words text-sm text-warm-600">{s.title || "—"}</span>
+                  <div className="grid grid-cols-2 gap-2 text-xs font-bold text-warm-500 sm:grid-cols-[90px_minmax(0,1fr)_minmax(0,1fr)]"><span aria-hidden="true" className="hidden sm:block" /><span>Name</span><span>Position</span></div>
+                  {selectedTemplateRevision.signatories.map((s, i) => <div key={`${s.role}-${i}`} className="grid grid-cols-2 gap-2 sm:grid-cols-[90px_minmax(0,1fr)_minmax(0,1fr)]">
+                    <span className="col-span-2 break-words text-xs font-bold text-warm-400 uppercase sm:col-span-1" title={saved.type === "inspection_report" ? s.title ?? "" : s.label}>{saved.type === "inspection_report" ? s.role === "conforme" ? "Conforme:" : s.title : s.label}</span>
+                    <span className="break-words text-sm text-warm-800">{s.name}</span>
+                    <span className="break-words text-sm text-warm-600">{s.title}</span>
                   </div>)}
                 </div>
               )}
@@ -919,10 +898,11 @@ function TemplateEditor({ apiPrefix, onFlash }: { apiPrefix: "rnd" | "admin"; on
               <p className="text-xs text-warm-400">No signatory block.</p>
             ) : (
               <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2 text-xs font-bold text-warm-500 sm:grid-cols-[90px_minmax(0,1fr)_minmax(0,1fr)]"><span aria-hidden="true" className="hidden sm:block" /><span>Name</span><span>Position</span></div>
                 {(t.signatories ?? []).map((s, i) => (
-                  <div key={`${s.role}-${i}`} className="grid grid-cols-1 gap-1 sm:grid-cols-[90px_1fr_1fr] sm:gap-2 sm:items-center">
-                    <span className="text-xs font-bold text-warm-400 uppercase sm:truncate" title={s.label}>{s.label}</span>
-                    {editingTemplateId === t.id ? <><input value={s.name ?? ""} onChange={(e) => editSig(t.id, i, "name", e.target.value)} className={`${inp} !py-1.5`} /><input value={s.title ?? ""} onChange={(e) => editSig(t.id, i, "title", e.target.value)} className={`${inp} !py-1.5`} /></> : <><span className="text-sm text-warm-800">{s.name || "—"}</span><span className="text-sm text-warm-600">{s.title || "—"}</span></>}
+                  <div key={`${s.role}-${i}`} className="grid grid-cols-2 gap-2 sm:grid-cols-[90px_minmax(0,1fr)_minmax(0,1fr)] sm:items-center">
+                    <span className="col-span-2 break-words text-xs font-bold text-warm-400 uppercase sm:col-span-1" title={t.type === "inspection_report" ? s.title ?? "" : s.label}>{t.type === "inspection_report" ? s.role === "conforme" ? "Conforme:" : s.title : s.label}</span>
+                    {editingTemplateId === t.id ? <><input aria-label={`${s.title || s.label} name`} value={s.name ?? ""} onChange={(e) => editSig(t.id, i, "name", e.target.value)} className={`${inp} min-w-0 !py-2.5 sm:!py-1.5`} /><input aria-label={`${s.title || s.label} position`} value={s.title ?? ""} onChange={(e) => editSig(t.id, i, "title", e.target.value)} className={`${inp} min-w-0 !py-2.5 sm:!py-1.5`} /></> : <><span className="break-words text-sm text-warm-800">{s.name}</span><span className="break-words text-sm text-warm-600">{s.title}</span></>}
                   </div>
                 ))}
               </div>

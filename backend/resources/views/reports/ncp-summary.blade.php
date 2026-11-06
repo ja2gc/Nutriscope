@@ -127,7 +127,7 @@
     @forelse($diagnoses as $d)
         <div style="margin-bottom:3px;">• {{ $d['pes'] }}{{ $d['domain'] ? ' (' . $d['domain'] . ')' : '' }}</div>
     @empty
-        <div class="muted">No diagnosis recorded.</div>
+        <div></div>
     @endforelse
 
     {{-- Intervention --}}
@@ -140,7 +140,7 @@
     @endif
     <div class="prescription-line">
         @foreach(['energy_kcal' => ['Energy', 'kcal'], 'carbs_g' => ['Carbohydrate', 'g'], 'protein_g' => ['Protein', 'g'], 'fat_g' => ['Fat', 'g'], 'fluid_ml' => ['Fluid', 'mL']] as $key => [$label, $unit])
-            @if(!$loop->first) · @endif<span class="bold">{{ $label }}:</span> @if($intervention?->{$key} !== null)@include('reports.partials.nutrient-prescription', ['limit' => [($intervention->nutrient_operators[$key] ?? 'target') => $intervention->{$key}, 'unit' => $unit], 'precision' => 0])@else — {{ $unit }}@endif
+            @if(!$loop->first) · @endif<span class="bold">{{ $label }}:</span> @if($intervention?->{$key} !== null)@include('reports.partials.nutrient-prescription', ['limit' => [($intervention->nutrient_operators[$key] ?? 'target') => $intervention->{$key}, 'unit' => $unit], 'precision' => 0])@endif
         @endforeach
     </div>
     <div class="prescription-line">
@@ -187,14 +187,12 @@
                     <td>
                         @php($intake = is_array($m->lab_values) ? $m->lab_values : [])
                         @if(isset($intake['energy_kcal']))
-                            Energy: {{ number_format($intake['energy_kcal'], 0, '.', '') }} / @if($intervention?->energy_kcal !== null)@include('reports.partials.nutrient-prescription', ['limit' => [($intervention->nutrient_operators['energy_kcal'] ?? 'target') => $intervention->energy_kcal, 'unit' => 'kcal'], 'precision' => 0])@else — kcal @endif<br>
+                            Energy: {{ number_format($intake['energy_kcal'], 0, '.', '') }} / @if($intervention?->energy_kcal !== null)@include('reports.partials.nutrient-prescription', ['limit' => [($intervention->nutrient_operators['energy_kcal'] ?? 'target') => $intervention->energy_kcal, 'unit' => 'kcal'], 'precision' => 0])@endif<br>
                         @endif
                         @if(isset($intake['protein_g']))
                             Protein: {{ number_format($intake['protein_g'], 0, '.', '') }} /
                             @if($intervention?->protein_g !== null)
                                 @include('reports.partials.nutrient-prescription', ['limit' => [($intervention->nutrient_operators['protein_g'] ?? 'target') => $intervention->protein_g, 'unit' => 'g'], 'precision' => 0])
-                            @else
-                                — g
                             @endif
                             <br>
                         @endif
@@ -222,7 +220,7 @@
                 @foreach($attachments as $doc)
                     <tr>
                         <td>{{ $doc->original_name ?? basename($doc->file_path) }}</td>
-                        <td>{{ $doc->type ?? '—' }}</td>
+                        <td>{{ $doc->type ?? '' }}</td>
                         <td>{{ optional($doc->created_at)->format('M j, Y') }}</td>
                     </tr>
                 @endforeach

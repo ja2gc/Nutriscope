@@ -11,6 +11,7 @@ use App\Models\Report;
 use App\Models\ReportBranding;
 use App\Models\ReportTemplate;
 use App\Models\User;
+use App\Services\Reports\Generators\ProcurementPackGenerator;
 use App\Services\Reports\Generators\ProgramProjectActivityGenerator;
 use App\Services\Reports\ReportConfigurationSnapshot;
 use App\Services\Reports\ReportCoveredDate;
@@ -45,8 +46,13 @@ class PrepareSavedReport
         $title = $this->titleFor($type, $parameters, $sourceTemplate['name'] ?? $template?->name ?? $type);
         $report = $existing ?? Report::query()->where('archive_identity', $identity)->first();
         $created = $report === null;
-        $refreshLayout = $refreshLayout && $type === 'program_project_activity'
-            && $report?->appearance_version !== ProgramProjectActivityGenerator::APPEARANCE_VERSION;
+        $appearanceVersion = match ($type) {
+            'program_project_activity' => ProgramProjectActivityGenerator::APPEARANCE_VERSION,
+            'procurement_pack' => ProcurementPackGenerator::APPEARANCE_VERSION,
+            default => 'v1',
+        };
+        $refreshLayout = $refreshLayout && in_array($type, ['program_project_activity', 'procurement_pack'], true)
+            && $report?->appearance_version !== $appearanceVersion;
         if ($type === 'accomplishment_report' && in_array($report?->review_state, ['pending', 'approved'], true)) {
             return $report->fresh(['user:id,uuid,name,first_name,last_name', 'officialFile']);
         }
@@ -97,7 +103,7 @@ class PrepareSavedReport
                 'parameters' => $parameters,
                 'status' => 'completed',
                 'template_version' => $templateVersion,
-                'appearance_version' => $type === 'program_project_activity' ? ProgramProjectActivityGenerator::APPEARANCE_VERSION : 'v1',
+                'appearance_version' => $appearanceVersion,
                 'snapshot' => $snapshot,
                 'report_covered_until' => $coveredUntil,
                 'report_covered_from' => $coveredFrom,
@@ -105,7 +111,7 @@ class PrepareSavedReport
             ]);
         } else {
             if ($refreshLayout) {
-                $report->forceFill(['appearance_version' => ProgramProjectActivityGenerator::APPEARANCE_VERSION, 'title' => $title]);
+                $report->forceFill(['appearance_version' => $appearanceVersion, 'title' => $title]);
             }
             $report->forceFill([
                 'parameters' => $parameters,

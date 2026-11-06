@@ -283,7 +283,7 @@ Food Library also includes a full-tab **Food Calculator**, reusing the Food Reca
 
 ### 6. Reports
 
-For **PPA** and **Procurement Pack**, **Procurement type** defaults to **All** and can select **Menu-suggested food**, **Manual food**, or **Supplies**. Suggested-food PPA output shows recorded served counts for each service date with one total cost. Manual/supplies PPAs show purchased items and procurement date without menu, population or per-head sections. Use **Update existing reports** in PPA Browse to apply the revised output to the selected saved reports; filed archives remain unchanged.
+For **PPA** and **Procurement Pack**, **Procurement type** defaults to **All** and can select **Menu-suggested food**, **Manual food**, or **Supplies**. Suggested-food PPA output shows recorded served counts for each service date with one total cost. Manual/supplies PPAs show purchased items and procurement date without menu, population or per-head sections. AIR keeps the hospital header/logos and centered item table, leaves manual PO/invoice fields blank, and includes Complete/Partial entries. In **Template Edit**, enter AIR signatory names under their position labels. Filed reports retain their captured configuration.
 
 1. Open **Reports → Browse**.
 2. Choose Food Service or Clinical report type.

@@ -24,7 +24,6 @@
                             @forelse($grid[$meal][$day] ?? [] as $name)
                                 <div>{{ $name }}</div>
                             @empty
-                                <span class="muted">—</span>
                             @endforelse
                         </td>
                     @endforeach

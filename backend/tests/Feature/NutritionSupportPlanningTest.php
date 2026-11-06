@@ -188,7 +188,9 @@ class NutritionSupportPlanningTest extends TestCase
                 $this->assertStringContainsString('200 g', $html);
                 $text = preg_replace('/\s+/', ' ', strip_tags($html));
                 $this->assertStringContainsString('Sodium 40 mg', $text);
-                $this->assertStringContainsString('Potassium Not recorded', $text);
+                $this->assertStringContainsString('Potassium', $text);
+                $this->assertStringNotContainsString('Not recorded', $text);
+                $this->assertStringNotContainsString('No target set', $text);
                 $this->assertStringNotContainsString('Iron', $text);
                 $this->assertLessThan(strpos($html, 'Nutrient profile'), strpos($html, 'Portion details'));
             }

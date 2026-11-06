@@ -59,6 +59,6 @@ describe("report template editor", () => {
   test("omits clinical templates whose signatories cannot be edited", () => {
     const browser = readFileSync(join(root, "components", "reports", "ReportsBrowser.tsx"), "utf8");
 
-    expect(browser).toContain("templates.filter((template) => !isClinicalAutoFilledSignatory(template)).map((saved) => {");
+    expect(browser).toContain('templates.filter((template) => !isClinicalAutoFilledSignatory(template) && template.type !== "procurement_pack").map((saved) => {');
   });
 });

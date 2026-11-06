@@ -23,7 +23,7 @@ use Carbon\Carbon;
  */
 class ProgramProjectActivityGenerator implements ReportGenerator
 {
-    public const APPEARANCE_VERSION = 'ppa-daily-output-v2';
+    public const APPEARANCE_VERSION = 'ppa-daily-output-v3-calibri';
 
     /** Canonical meal_type key (matches the DB enum) => printable label. */
     public const MEALS = [

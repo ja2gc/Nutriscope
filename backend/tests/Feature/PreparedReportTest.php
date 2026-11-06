@@ -101,6 +101,7 @@ class PreparedReportTest extends TestCase
         $action = app(PrepareSavedReport::class);
 
         $first = $action->execute($actor, 'procurement_pack', ['purchase_order_id' => 10]);
+        $first->update(['appearance_version' => 'v1']);
         $createdAt = $first->created_at->copy();
         $updatedAt = $first->updated_at->copy();
         $identity = $first->uuid;

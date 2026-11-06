@@ -9,6 +9,7 @@ use App\Models\Report;
 use App\Models\ReportBranding;
 use App\Models\ShoppingList;
 use App\Models\User;
+use App\Services\Reports\Generators\ProcurementPackGenerator;
 use App\Services\Reports\Generators\ProgramProjectActivityGenerator;
 use App\Services\Reports\ReportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -113,30 +114,32 @@ class ProcurementReportKindsTest extends TestCase
         }
     }
 
-    public function test_saved_ppa_layout_update_is_explicit_and_preserves_identity_and_branding(): void
+    public function test_saved_purchasing_layout_update_is_explicit_and_preserves_identity_and_branding(): void
     {
         Storage::fake('report_cache');
         Storage::fake(config('filesystems.private_uploads'));
         $this->mock(ReportService::class, function ($mock): void {
             $mock->shouldReceive('signatoriesFor')->andReturn([]);
-            $mock->shouldReceive('buildPdf')->twice()->andReturn(['bytes' => "%PDF-1.4\noriginal\n%%EOF"], ['bytes' => "%PDF-1.4\nupdated\n%%EOF"]);
+            $mock->shouldReceive('buildPdf')->times(4)->andReturn(['bytes' => "%PDF-1.4\noriginal\n%%EOF"], ['bytes' => "%PDF-1.4\nupdated\n%%EOF"], ['bytes' => "%PDF-1.4\noriginal\n%%EOF"], ['bytes' => "%PDF-1.4\nupdated\n%%EOF"]);
         });
-        $po = $this->order('suggested_food');
-        $prepare = app(PrepareSavedReport::class);
-        $params = ['purchase_order_id' => (string) $po->id];
-        $original = $prepare->execute($po->fss, 'program_project_activity', $params);
-        $original->update(['appearance_version' => 'v1']);
-        $untouched = $prepare->execute($po->fss, 'program_project_activity', $params);
-        $this->assertSame($original->official_file_stored_object_id, $untouched->official_file_stored_object_id);
-        $updated = $prepare->execute($po->fss, 'program_project_activity', $params, refreshLayout: true);
-        $this->assertSame($original->uuid, $updated->uuid);
-        $this->assertSame($original->archive_identity, $updated->archive_identity);
-        $this->assertSame($original->snapshot, $updated->snapshot);
-        $this->assertTrue($original->created_at->equalTo($updated->created_at));
-        $this->assertNotSame($original->official_file_stored_object_id, $updated->official_file_stored_object_id);
-        $this->assertSame(ProgramProjectActivityGenerator::APPEARANCE_VERSION, $updated->appearance_version);
-        $again = $prepare->execute($po->fss, 'program_project_activity', $params, refreshLayout: true);
-        $this->assertSame($updated->official_file_stored_object_id, $again->official_file_stored_object_id);
+        foreach (['program_project_activity', 'procurement_pack'] as $type) {
+            $po = $this->order('suggested_food');
+            $prepare = app(PrepareSavedReport::class);
+            $params = ['purchase_order_id' => (string) $po->id];
+            $original = $prepare->execute($po->fss, $type, $params);
+            $original->update(['appearance_version' => 'v1']);
+            $untouched = $prepare->execute($po->fss, $type, $params);
+            $this->assertSame($original->official_file_stored_object_id, $untouched->official_file_stored_object_id);
+            $updated = $prepare->execute($po->fss, $type, $params, refreshLayout: true);
+            $this->assertSame($original->uuid, $updated->uuid);
+            $this->assertSame($original->archive_identity, $updated->archive_identity);
+            $this->assertSame($original->snapshot, $updated->snapshot);
+            $this->assertTrue($original->created_at->equalTo($updated->created_at));
+            $this->assertNotSame($original->official_file_stored_object_id, $updated->official_file_stored_object_id);
+            $this->assertSame($type === 'program_project_activity' ? ProgramProjectActivityGenerator::APPEARANCE_VERSION : 'air-reference-v2-calibri', $updated->appearance_version);
+            $again = $prepare->execute($po->fss, $type, $params, refreshLayout: true);
+            $this->assertSame($updated->official_file_stored_object_id, $again->official_file_stored_object_id);
+        }
     }
 
     public function test_procurement_pdf_layouts_render_for_each_kind(): void
@@ -148,6 +151,36 @@ class ProcurementReportKindsTest extends TestCase
                 $pdf = app(ReportService::class)->buildPdf($report)['bytes'];
                 $this->assertStringStartsWith('%PDF-', $pdf);
             }
+        }
+    }
+
+    public function test_air_keeps_dense_items_without_blank_rows_and_uses_captured_signatories(): void
+    {
+        $po = $this->order('manual_food');
+        $report = new Report(['parameters' => ['purchase_order_id' => $po->id], 'snapshot' => [
+            'procurement_form_signatories' => ['inspection_report' => [
+                ['role' => 'inspected_by', 'name' => 'Captured Inspector', 'title' => 'OIC-PGSO'],
+                ['role' => 'verified_by', 'name' => 'Captured Verifier', 'title' => 'Administrative Officer V'],
+                ['role' => 'conforme', 'name' => 'Captured End User', 'title' => 'Nutritionist-Dietitian II/End User'],
+                ['role' => 'approved_by', 'name' => 'Captured Approver', 'title' => 'Chief of Hospital II'],
+            ]],
+        ]]);
+        $data = app(ProcurementPackGenerator::class)->data($report);
+        $this->assertSame('', $data['packs'][0]['or_number']);
+        $data['packs'][0]['air_items'] = array_map(fn (int $number) => [
+            'item_no' => $number, 'unit' => 'kg', 'description' => 'Item '.$number, 'quantity' => $number,
+        ], range(1, 31));
+        $html = view('reports.procurement-pack', array_merge($data, [
+            'report' => $report, 'branding' => new ReportBranding(['province' => 'PROVINCE OF PAMPANGA', 'lgu' => 'LGU']),
+            'paper_orientation' => 'portrait',
+        ]))->render();
+        $this->assertSame(1, substr_count($html, 'ACCEPTANCE AND INSPECTION REPORT'));
+        $document = new \DOMDocument;
+        @$document->loadHTML($html);
+        $xpath = new \DOMXPath($document);
+        $this->assertSame(31, $xpath->query('//table[contains(@class,"air-items")]/tbody/tr')->length);
+        foreach (['Captured Inspector', 'Captured Verifier', 'Captured End User', 'Captured Approver', 'Complete:', 'Partial:', 'CONFORME:'] as $label) {
+            $this->assertSame(1, substr_count($html, $label));
         }
     }
 }

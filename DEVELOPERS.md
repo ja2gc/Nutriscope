@@ -1,6 +1,6 @@
 # NutriScope developer map
 
-Procurement report kinds, PPA daily output and explicit saved-layout refresh are owned by `ReportController`, `ProgramProjectActivityGenerator`, `PrepareSavedReport` and the existing `ReportsBrowser`. Completion captures daily served counts; manual food/supplies omit population-only presentation. Linked PO labels use `displayName`. Source review: `4c532ca7` plus these changes, 2026-11-06; see [food-service data](docs/developers/food-service/data.md#purchasing-report-types-and-ppa-output).
+Procurement report kinds and PPA daily output are owned by `ReportController`, `ProgramProjectActivityGenerator`, `PrepareSavedReport` and `ReportsBrowser`. AIR rendering lives in `reports/partials/acceptance-inspection`; its editor labels name inputs by position. Shared report layout owns Calibri and signature margins. Completion captures daily served counts; manual food/supplies omit population-only presentation. Linked PO labels use `displayName`. Source review: `0e1927e2` plus the AIR changes, 2026-11-06; see [food-service data](docs/developers/food-service/data.md#purchasing-report-types-and-ppa-output) and [report operations](docs/developers/operations/README.md#changing-reports-and-operational-behavior).
 
 Web uploads share `FileUploadField`; `ImageUploadGallery` owns thumbnails, `ImageViewer` owns image viewing, and `ImageFilePicker` owns single-logo selection. `RemoveButton` is shared with Menu Calendar/template actions. See [web controls](docs/developers/platform/web.md).
 
