@@ -120,10 +120,10 @@ class DispatchDueBackups
 
     private function expiresAt(BackupRetentionTier $category, CarbonImmutable $target): CarbonImmutable
     {
-        return match ($category) {
+        return (match ($category) {
             BackupRetentionTier::Daily => $target->addDays(config('nutriscope-backups.retention.daily')),
             BackupRetentionTier::Weekly => $target->addWeeks(config('nutriscope-backups.retention.weekly')),
             BackupRetentionTier::Monthly => $target->addMonthsNoOverflow(config('nutriscope-backups.retention.monthly')),
-        };
+        })->utc();
     }
 }

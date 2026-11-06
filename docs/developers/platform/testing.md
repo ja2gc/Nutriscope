@@ -14,6 +14,8 @@ The disposable MySQL account can create/drop the additional temporary schemas re
 
 Read [phpunit.xml](../../../backend/phpunit.xml), [TestCase](../../../backend/tests/TestCase.php), [Composer scripts](../../../backend/composer.json), [Vitest config](../../../frontend/vitest.config.ts) and the actual target tests. The PHPUnit template uses MySQL/root on localhost and RefreshDatabase tests can destroy data. Its names/defaults do not prove safety; shell variables and cached config can override assumptions.
 
+Install dependencies from the committed lock files and confirm installed versions match before interpreting test results. An existing `vendor/` directory alone does not establish that local tests use the same dependencies as CI.
+
 Use a separately created disposable MySQL database/account, synthetic records, separate files/cache, fake mail/HTTP and blocked external network. Verify effective resolved targets before framework initialization or destructive traits. Do not run tests on the deployed server. Never inspect non-example dotenv files through an agent or use production credentials. If isolation cannot be established, stop and record the blocker.
 
 Keep the disposable MySQL server/session in UTC to match Laravel's `app.timezone`. Report-operation fixtures should set explicit `available_at` values rather than rely on a database-created timestamp. Preserve expected configuration contracts such as the private S3-compatible backup disk; use storage fakes in tests that exercise bytes rather than globally changing its driver. Route-inventory tests inspect the booted test application's routes without requiring development-tool endpoints.

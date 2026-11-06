@@ -32,6 +32,7 @@ class SharedRndClinicalAccessTest extends TestCase
         $ncp = NcpRecord::factory()->create([
             'patient_id' => $patient->id,
             'rnd_user_id' => $creator->id,
+            'status' => 'active',
         ]);
         Assessment::factory()->create([
             'ncp_record_id' => $ncp->id,

@@ -217,13 +217,16 @@ class BackupScheduleSettingsTest extends TestCase
         config(['app.timezone' => 'UTC']);
         $previousTimezone = date_default_timezone_get();
         date_default_timezone_set('UTC');
-        Carbon::setTestNow(Carbon::parse('2027-08-01 02:00:00', 'Asia/Manila'));
+        Carbon::setTestNow(Carbon::parse('2027-08-01 02:00:00', 'Asia/Manila')->utc());
         BackupScheduleSetting::current()->update(['daily' => true, 'weekly' => true, 'monthly' => true]);
 
         try {
             $backup = app(DispatchDueBackups::class)->handle(now('Asia/Manila')->toImmutable());
             $periods = $backup->schedulePeriods()->get()->keyBy(fn ($period) => $period->category->value);
 
+            $this->assertSame('2027-08-04 17:30:00', $periods['daily']->getRawOriginal('expires_at'));
+            $this->assertSame('2027-08-14 17:30:00', $periods['weekly']->getRawOriginal('expires_at'));
+            $this->assertSame('2027-10-31 17:30:00', $periods['monthly']->getRawOriginal('expires_at'));
             $this->assertTrue($periods['daily']->expires_at->equalTo(Carbon::parse('2027-08-05 01:30:00', 'Asia/Manila')));
             $this->assertTrue($periods['weekly']->expires_at->equalTo(Carbon::parse('2027-08-15 01:30:00', 'Asia/Manila')));
             $this->assertTrue($periods['monthly']->expires_at->equalTo(Carbon::parse('2027-11-01 01:30:00', 'Asia/Manila')));
