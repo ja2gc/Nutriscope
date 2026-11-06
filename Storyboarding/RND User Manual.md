@@ -283,6 +283,8 @@ Food Library also includes a full-tab **Food Calculator**, reusing the Food Reca
 
 ### 6. Reports
 
+For **PPA** and **Procurement Pack**, **Procurement type** defaults to **All** and can select **Menu-suggested food**, **Manual food**, or **Supplies**. Suggested-food PPA output shows recorded served counts for each service date with one total cost. Manual/supplies PPAs show purchased items and procurement date without menu, population or per-head sections. Use **Update existing reports** in PPA Browse to apply the revised output to the selected saved reports; filed archives remain unchanged.
+
 1. Open **Reports → Browse**.
 2. Choose Food Service or Clinical report type.
 3. For **Patients NCP** under Clinical, choose the patient, choose one ADIME cycle, then open only the reports filed under that cycle.

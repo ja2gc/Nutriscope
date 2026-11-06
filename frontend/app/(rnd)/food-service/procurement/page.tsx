@@ -1182,7 +1182,7 @@ export default function ProcurementPage() {
           message: blockingOrder.lifecycle_status === "open_execution"
             ? "Delete the linked PO first."
             : `This list is linked to a ${status} PO and can't be deleted.`,
-          related: `Linked PO: ${blockingOrder.po_number} (${status}).`,
+          related: `Linked PO: ${blockingOrder.display_name ?? `PO — ${list.name}`} (${status}).`,
           nextStep: blockingOrder.lifecycle_status === "open_execution"
             ? "Delete it under Purchase Orders; this list will return to draft."
             : "Its date span stays reserved for this PO record.",

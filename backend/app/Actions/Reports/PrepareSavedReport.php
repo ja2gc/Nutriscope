@@ -11,6 +11,7 @@ use App\Models\Report;
 use App\Models\ReportBranding;
 use App\Models\ReportTemplate;
 use App\Models\User;
+use App\Services\Reports\Generators\ProgramProjectActivityGenerator;
 use App\Services\Reports\ReportConfigurationSnapshot;
 use App\Services\Reports\ReportCoveredDate;
 use App\Services\Reports\ReportService;
@@ -26,7 +27,7 @@ class PrepareSavedReport
         private readonly ReportConfigurationSnapshot $configuration,
     ) {}
 
-    public function execute(User $actor, string $type, array $parameters, ?Report $existing = null, bool $freeze = true): Report
+    public function execute(User $actor, string $type, array $parameters, ?Report $existing = null, bool $freeze = true, bool $refreshLayout = false): Report
     {
         if ($type === 'demographic_census') {
             throw new \InvalidArgumentException('Demographic Census no longer creates filed PDF reports.');
@@ -44,15 +45,18 @@ class PrepareSavedReport
         $title = $this->titleFor($type, $parameters, $sourceTemplate['name'] ?? $template?->name ?? $type);
         $report = $existing ?? Report::query()->where('archive_identity', $identity)->first();
         $created = $report === null;
+        $refreshLayout = $refreshLayout && $type === 'program_project_activity'
+            && $report?->appearance_version !== ProgramProjectActivityGenerator::APPEARANCE_VERSION;
         if ($type === 'accomplishment_report' && in_array($report?->review_state, ['pending', 'approved'], true)) {
             return $report->fresh(['user:id,uuid,name,first_name,last_name', 'officialFile']);
         }
         if ($report?->status === 'archived'
             || ($report?->snapshot['was_archived'] ?? false)
-            || $report?->hasFinalizedPurchaseOrderFile()) {
+            || ($report?->hasFinalizedPurchaseOrderFile() && ! $refreshLayout)) {
             return $report->fresh(['user:id,uuid,name,first_name,last_name', 'officialFile']);
         }
         if ($report !== null
+            && ! $refreshLayout
             && in_array($type, ['procurement_pack', 'program_project_activity'], true)
             && $report->official_file_stored_object_id !== null
             && in_array(
@@ -93,13 +97,16 @@ class PrepareSavedReport
                 'parameters' => $parameters,
                 'status' => 'completed',
                 'template_version' => $templateVersion,
-                'appearance_version' => 'v1',
+                'appearance_version' => $type === 'program_project_activity' ? ProgramProjectActivityGenerator::APPEARANCE_VERSION : 'v1',
                 'snapshot' => $snapshot,
                 'report_covered_until' => $coveredUntil,
                 'report_covered_from' => $coveredFrom,
                 'review_state' => $type === 'accomplishment_report' && ($parameters['review_workflow'] ?? false) ? 'draft' : null,
             ]);
         } else {
+            if ($refreshLayout) {
+                $report->forceFill(['appearance_version' => ProgramProjectActivityGenerator::APPEARANCE_VERSION, 'title' => $title]);
+            }
             $report->forceFill([
                 'parameters' => $parameters,
                 'snapshot' => $snapshot,

@@ -12,9 +12,10 @@ class PurchaseOrderResource extends JsonResource
     public function toArray(Request $request): array
     {
         $servedPopulationProgress = null;
-        if ($this->relationLoaded('shoppingList') && $this->shoppingList && $this->procurement_track === 'food') {
+        if ($this->relationLoaded('shoppingList') && $this->shoppingList?->list_type === 'suggested' && $this->procurement_track === 'food') {
             $servedPopulationProgress = app(PurchaseOrderLifecycleService::class)
                 ->servedPopulationProgress($this->shoppingList);
+            unset($servedPopulationProgress['by_date']);
         }
 
         return [

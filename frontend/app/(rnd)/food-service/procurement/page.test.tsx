@@ -121,6 +121,14 @@ describe("Food Service procurement display", () => {
     await act(async () => { root.render(<ProcurementPage />); await Promise.resolve(); });
   }
 
+  test('linked-list deletion identifies the PO by its readable name', async () => {
+    mockListShoppingLists.mockResolvedValue({ data: [makeList({ status: 'converted', purchase_orders: [{ id: 'po-1', po_number: 'PO-CODE-123', display_name: 'PO — Draft list', lifecycle_status: 'open_execution' }] })], meta: null } as never);
+    await renderPage();
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Delete Draft list"]')!.click());
+    expect(container.textContent).toContain('Linked PO: PO — Draft list');
+    expect(container.textContent).not.toContain('PO-CODE-123');
+  });
+
   test("shows shopping lists without waiting for supplier choices", async () => {
     const { listAllSuppliers } = await import("@/services/supplierService");
     vi.mocked(listAllSuppliers).mockReturnValueOnce(new Promise(() => {}));

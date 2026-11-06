@@ -38,6 +38,18 @@ Web creation defaults to `manilaCalendarToday`. Suggested lists require start da
 
 Money/quantity casts differ by model; preserve precision through API types, edits, conversion and reports. The presence of decimal:6 storage does not guarantee every consumer preserves all digits. Read the complete round trip before changing it.
 
+## Purchasing report types and PPA output
+
+Suggested PPA table rows begin the Menu cell with the calendar day number and align that day's numeric patient count in Output, without dates in the Output column. Total Output is the table footer; Average cost per head a day retains its existing position below the table. Total Cost and Target Date remain shared across the date rows.
+
+Verified source: `4c532ca7` plus the procurement-report changes, 2026-11-06. `ReportController::instances` validates `procurement_kind` (`all`, `suggested_food`, `manual_food`, `supplies`) for PPA/Procurement Pack feeds before search, covered-month filtering and pagination. All is the initial web selection. A legacy order without a known shopping-list type remains in All rather than being guessed into a food subtype.
+
+PPA supports completed manual food and supplies purchases as well as suggested food. `ProgramProjectActivityGenerator` prints item descriptions, actual quantities/units, one total cost and procurement date for manual/supplies; it omits menu, patient-output and per-head sections. Procurement Pack retains its purchasing forms. Suggested food keeps one aggregate price and prints actual served counts by service date. `PurchaseOrderLifecycleService` captures the date-to-count map in `ProgramProjectActivity.execution_payload.served_populations` when completion freezes output. The generator reads that frozen map first; for older POs it uses the existing locked meal-prep logs only when their sum matches the frozen `actual_output_patients`, otherwise retaining the recorded total without inventing a daily split. The public PO progress shape stays unchanged and is null for manual food/supplies.
+
+RND/Admin can explicitly choose **Update existing reports** in PPA Browse, using the current type/month/search selection. The existing prepare action accepts validated `refresh_layout` only for PPA and preserves the saved report identity, creation date, parameters and captured branding/signatories while replacing an older-layout PDF through the normal storage path. Updated files use `ppa-daily-output-v2`; repeats retain the same file. Normal preview never refreshes a final file, and archived reports remain filed. Explicit updates are audited.
+
+Shopping-list resources expose linked PO `display_name`, which the deletion dialog uses instead of an opaque PO number. Naming remains owned by the existing `ShoppingList::defaultName` and `PurchaseOrder::displayName` helpers; conversion locks remain unchanged.
+
 ## Vendor receipt total
 
 `PurchaseOrderVendorGroup.receipt_total_override` is nullable money with two decimal places: null means automatic, including existing records; a non-null value means a fixed actual receipt amount, even when it equals the calculated amount or zero. `recalculateTotal()` owns the effective `total_amount`: the override when present, otherwise the existing sum of actual quantity × price (or planned line total when actuals are missing), rounded once to cents. The nullable override is necessary to persist the checkbox mode; it is not another unit price.

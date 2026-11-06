@@ -51,7 +51,7 @@ export interface ShoppingList {
   estimated_total?: number | null;
   estimated_budget_per_head_per_day?: number | null;
   release_readiness?: ReleaseReadiness | null;
-  purchase_orders?: { id: string; po_number: string; lifecycle_status: "open_execution" | "completed" | "archived" }[];
+  purchase_orders?: { id: string; po_number: string; display_name?: string; lifecycle_status: "open_execution" | "completed" | "archived" }[];
   items: ShoppingListItem[];
 }
 

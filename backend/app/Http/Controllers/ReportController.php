@@ -14,6 +14,7 @@ use App\Models\Intervention;
 use App\Models\MealPlan;
 use App\Models\NcpRecord;
 use App\Models\Patient;
+use App\Models\PurchaseOrder;
 use App\Models\Report;
 use App\Models\ReportArchiveSetting;
 use App\Models\User;
@@ -141,11 +142,25 @@ class ReportController extends Controller
 
         $dates = $request->validate([
             'covered_month' => ['nullable', 'date_format:Y-m'],
+            'procurement_kind' => ['nullable', 'in:all,suggested_food,manual_food,supplies'],
         ]);
 
         $source = $browser->sourceFor($type);
         $filters = $request->only(['year', 'month']);
         $instances = $source->instances($filters);
+        if (in_array($type, ['procurement_pack', 'program_project_activity'], true)
+            && ($dates['procurement_kind'] ?? 'all') !== 'all') {
+            $orders = PurchaseOrder::with('shoppingList')->whereIn('id', array_column(array_column($instances, 'params'), 'purchase_order_id'))->get()->keyBy('id');
+            $instances = array_values(array_filter($instances, static function (array $instance) use ($orders, $dates): bool {
+                $po = $orders->get($instance['params']['purchase_order_id']);
+                $kind = $po?->procurement_track === 'supplies' ? 'supplies'
+                    : match ($po?->shoppingList?->list_type) {
+                        'suggested' => 'suggested_food', 'manual' => 'manual_food', default => null
+                    };
+
+                return $kind === $dates['procurement_kind'];
+            }));
+        }
         $instances = $this->filterReportInstances($instances, $request->string('search')->toString());
         if (! in_array($type, self::CLINICAL_TYPES, true)) {
             $archivedKeys = Report::query()->where('type', $type)->where('status', 'archived')
@@ -421,6 +436,10 @@ class ReportController extends Controller
 
     public function prepare(PrepareReportRequest $request, string $type, ReportService $reports, ReportBrowser $browser, PrepareSavedReport $prepare): JsonResponse
     {
+        $request->validate(['refresh_layout' => ['sometimes', 'boolean']]);
+        $refreshLayout = $request->boolean('refresh_layout');
+        abort_if($refreshLayout && $type !== 'program_project_activity', 422, 'Layout updates apply to PPA reports.');
+        abort_if($refreshLayout && ! in_array($request->user()?->role, ['RND', 'Admin'], true), 403);
         abort_if($type === 'accomplishment_report', 409, 'Submit the period through My Reports.');
         $this->rejectCensusPdf($type);
         abort_unless($reports->supports($type) && $browser->supports($type), 404, 'Unknown report type.');
@@ -433,7 +452,13 @@ class ReportController extends Controller
         $this->authorizeClinicalReportContext($type, $params);
         $this->assertPatientMenuPlanRenderable($type, $params);
         abort_unless($browser->sourceFor($type)->hasData($params), 404, 'No data for this report period.');
-        $report = $prepare->execute($request->user(), $type, $params, freeze: false);
+        if ($refreshLayout) {
+            $this->auditLogger->assertAvailable();
+        }
+        $report = $prepare->execute($request->user(), $type, $params, freeze: $refreshLayout, refreshLayout: $refreshLayout);
+        if ($refreshLayout) {
+            $this->auditReportAccess($report, AuditAction::Updated);
+        }
         $this->applyReportContext($report, $type, $params);
 
         return response()->json(['data' => new ReportResource($report)]);
@@ -510,7 +535,7 @@ class ReportController extends Controller
      */
     private function renderParams(Request $request, string $type): array
     {
-        $params = $request->except(['year', 'month']);
+        $params = $request->except(['year', 'month', 'refresh_layout']);
         if (Auth::user()?->role === 'FSS' && $type === 'accomplishment_report') {
             $params['fss_user_id'] = Auth::id();
         }

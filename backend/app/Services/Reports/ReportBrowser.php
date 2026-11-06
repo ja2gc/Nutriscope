@@ -40,7 +40,6 @@ class ReportBrowser
                 fn () => PurchaseOrder::query()
                     ->select('purchase_orders.*')
                     ->selectRaw('COALESCE(order_date, DATE(completed_at)) as report_browse_date')
-                    ->where('procurement_track', 'food')
                     ->whereIn('lifecycle_status', ['completed', 'archived'])
                     ->whereHas('programProjectActivity')
                     ->with(['programProjectActivity', 'shoppingList']),

@@ -6,6 +6,7 @@ use App\Models\MenuCycle;
 use App\Models\ProgramProjectActivity;
 use App\Models\PurchaseOrder;
 use App\Models\Report;
+use App\Services\FSS\PurchaseOrderLifecycleService;
 use App\Services\MenuCycleCostService;
 use App\Services\Reports\Contracts\ReportGenerator;
 use App\Support\ReportPaper;
@@ -22,6 +23,8 @@ use Carbon\Carbon;
  */
 class ProgramProjectActivityGenerator implements ReportGenerator
 {
+    public const APPEARANCE_VERSION = 'ppa-daily-output-v2';
+
     /** Canonical meal_type key (matches the DB enum) => printable label. */
     public const MEALS = [
         'breakfast' => 'Breakfast',
@@ -72,13 +75,29 @@ class ProgramProjectActivityGenerator implements ReportGenerator
     {
         $params = $report->parameters ?? [];
         if (! empty($params['purchase_order_id'])) {
-            $po = PurchaseOrder::with(['programProjectActivity', 'shoppingList'])
-                ->where('procurement_track', 'food')
+            $po = PurchaseOrder::with(['programProjectActivity', 'shoppingList', 'items'])
                 ->whereIn('lifecycle_status', ['completed', 'archived'])
                 ->findOrFail($params['purchase_order_id']);
 
             $ppa = $po->programProjectActivity;
             abort_unless($ppa, 404, 'No PPA snapshot exists for this purchase order.');
+
+            $suggestedFood = $po->isFoodTrack() && $po->shoppingList?->list_type === 'suggested';
+            if (! $suggestedFood) {
+                $date = $po->order_date ?? $po->shoppingList?->list_date ?? $po->completed_at;
+
+                return [
+                    'is_suggested_food' => false,
+                    'activity' => $ppa->activity,
+                    'purchase_items' => $po->items->map(fn ($item) => [
+                        'description' => $item->description,
+                        'quantity' => $item->actual_qty ?? $item->purchase_qty ?? $item->qty,
+                        'unit' => $item->purchase_unit ?? $item->unit,
+                    ])->all(),
+                    'total_cost' => round((float) $po->total_amount, 2),
+                    'inclusive_label' => $date?->format('m/d/y') ?? '',
+                ];
+            }
 
             $start = optional($ppa->period_start)->toDateString()
                 ?? optional($po->shoppingList?->period_start)->toDateString();
@@ -88,8 +107,15 @@ class ProgramProjectActivityGenerator implements ReportGenerator
 
             $output = (int) ($ppa->actual_output_patients ?? 0);
             $totalCost = round((float) ($ppa->actual_total_cost ?? $po->total_amount ?? 0), 2);
+            $daily = $ppa->execution_payload['served_populations'] ?? app(PurchaseOrderLifecycleService::class)
+                ->servedPopulationProgress($po->shoppingList)['by_date'] ?? [];
+            if (array_sum($daily) !== $output) {
+                $daily = [];
+            }
 
             return [
+                'is_suggested_food' => true,
+                'served_populations' => $daily,
                 'activity' => $ppa->activity ?: 'Food Subsistence for Patients',
                 'cycle' => null,
                 'menu_days' => $this->menuDaysForRange($start, $end),
@@ -142,6 +168,8 @@ class ProgramProjectActivityGenerator implements ReportGenerator
         }
 
         return [
+            'is_suggested_food' => true,
+            'served_populations' => [],
             'activity' => 'Food Subsistence for Patients',
             'cycle' => $cycle,
             'menu_days' => $menuDays,

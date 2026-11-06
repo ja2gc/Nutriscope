@@ -301,6 +301,7 @@ class PurchaseOrderLifecycleService
                         'actual_budget_per_head_per_day' => $actualPerHead,
                         'service_days_done' => $prep['done'],
                         'service_days_expected' => $prep['expected'],
+                        'served_populations' => $prep['by_date'] ?? [],
                     ],
                 ]);
             }
@@ -380,9 +381,7 @@ class PurchaseOrderLifecycleService
         }
         $params = ['purchase_order_id' => (string) $po->id, 'prepared_by_name' => $actor->display_name];
         $this->prepareSavedReport->execute($actor, 'procurement_pack', $params);
-        if ($po->isFoodTrack()
-            && $po->programProjectActivity?->period_start !== null
-            && $po->programProjectActivity?->period_end !== null) {
+        if ($po->programProjectActivity !== null) {
             $this->prepareSavedReport->execute($actor, 'program_project_activity', $params);
         }
     }
@@ -475,7 +474,7 @@ class PurchaseOrderLifecycleService
     }
 
     /**
-     * @return array{expected:int, done:int, served:int}
+     * @return array{expected:int, done:int, served:int, by_date?:array<string,int>}
      */
     public function servedPopulationProgress(?ShoppingList $shoppingList): array
     {
@@ -521,6 +520,8 @@ class PurchaseOrderLifecycleService
             'expected' => count($expectedDates),
             'done' => $logs->pluck('service_date')->map(fn ($date) => Carbon::parse($date)->toDateString())->unique()->count(),
             'served' => (int) $logs->sum('served_population'),
+            'by_date' => $logs->groupBy(fn ($log) => Carbon::parse($log->service_date)->toDateString())
+                ->map(fn ($dailyLogs) => (int) $dailyLogs->sum('served_population'))->sortKeys()->all(),
         ];
     }
 

@@ -87,7 +87,7 @@ export interface CatalogEntry { type: string; name: string; desc: string; icon: 
 
 // Full catalog — used by the RND page
 export const FULL_CATALOG: CatalogEntry[] = [
-  { type: "program_project_activity", name: "Program Project Activity", desc: "Weekly menu, cost, headcount & inclusive dates.", icon: CalendarRange, group: "Food Service" },
+  { type: "program_project_activity", name: "Program Project Activity", desc: "Purchase activity, items and costs.", icon: CalendarRange, group: "Food Service" },
   { type: "menu_calendar", name: "Menu Calendar", desc: "Printable Mon→Sun grid for the kitchen.", icon: CalendarDays, group: "Food Service" },
   { type: "procurement_pack", name: "Procurement Pack", desc: "AIR + Statement + Summary of Marketing.", icon: PackageCheck, group: "Food Service" },
   { type: "accomplishment_report", name: "Accomplishment Report", desc: "Per-staff semi-monthly duty sheet + diet-list headcount logged by FSS.", icon: ClipboardList, group: "Food Service" },
@@ -97,7 +97,7 @@ export const FULL_CATALOG: CatalogEntry[] = [
 
 // Admin-allowed catalog: RND parity minus patient-specific reports.
 export const ADMIN_CATALOG: CatalogEntry[] = [
-  { type: "program_project_activity", name: "Program Project Activity", desc: "Weekly menu, cost, headcount & inclusive dates.", icon: CalendarRange, group: "Food Service" },
+  { type: "program_project_activity", name: "Program Project Activity", desc: "Purchase activity, items and costs.", icon: CalendarRange, group: "Food Service" },
   { type: "menu_calendar", name: "Menu Calendar", desc: "Printable Mon-Sun grid for the kitchen.", icon: CalendarDays, group: "Food Service" },
   { type: "procurement_pack", name: "Procurement Pack", desc: "AIR + Statement + Summary of Marketing.", icon: PackageCheck, group: "Food Service" },
   { type: "accomplishment_report", name: "Accomplishment Report", desc: "Per-staff semi-monthly duty sheet + diet-list headcount logged by FSS.", icon: ClipboardList, group: "Food Service" },
@@ -363,6 +363,8 @@ function InstancesPanel({
   const [axis, setAxis] = useState<ReportAxis>("entity");
   const [instances, setInstances] = useState<ReportInstance[]>([]);
   const [coveredMonth, setCoveredMonth] = useState("");
+  const [procurementKind, setProcurementKind] = useState("all");
+  const [updatingReports, setUpdatingReports] = useState(false);
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
   const [busy, setBusy] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ report: ReportItem; label: string } | null>(null);
@@ -378,15 +380,36 @@ function InstancesPanel({
     let alive = true;
     if (!quietRefresh.current) setLoading(true);
     quietRefresh.current = false;
-    listInstances(entry.type, { page, per_page: 10, search: debouncedSearch, covered_month: coveredMonth }, apiPrefix)
+    listInstances(entry.type, { page, per_page: 10, search: debouncedSearch, covered_month: coveredMonth,
+      ...(["procurement_pack", "program_project_activity"].includes(entry.type) ? { procurement_kind: procurementKind } : {}) }, apiPrefix)
       .then((r) => { if (alive) { setAxis(r.data.axis); setInstances(r.data.instances); setInstancesMeta(r.meta); } })
       .catch((e) => { if (alive) onFlash(false, e instanceof Error ? e.message : "Failed to load."); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [entry.type, apiPrefix, onFlash, page, coveredMonth, debouncedSearch, refreshVersion]);
+  }, [entry.type, apiPrefix, onFlash, page, coveredMonth, procurementKind, debouncedSearch, refreshVersion]);
 
   const pagedShown = instances;
   const hasProcurementSpan = entry.type === "procurement_pack" || entry.type === "program_project_activity";
+
+  async function updateExistingReports() {
+    setUpdatingReports(true);
+    try {
+      let updated = 0;
+      let reportPage = 1;
+      let lastPage = 1;
+      do {
+        const batch = await listInstances(entry.type, { page: reportPage, per_page: 50, procurement_kind: procurementKind, covered_month: coveredMonth, search: debouncedSearch }, apiPrefix);
+        lastPage = batch.meta.last_page;
+        for (const instance of batch.data.instances) {
+          await prepareReport(entry.type, { ...instance.params, refresh_layout: 1 }, apiPrefix);
+          updated++;
+        }
+        reportPage++;
+      } while (reportPage <= lastPage);
+      onFlash(true, `Updated ${updated} reports.`);
+    } catch (error) { onFlash(false, error instanceof Error ? error.message : 'Could not update the reports.'); }
+    finally { setUpdatingReports(false); }
+  }
 
   async function onPreview(i: ReportInstance) {
     if (i.available === false) return;
@@ -447,6 +470,10 @@ function InstancesPanel({
             onMonthChange={(month) => { setCoveredMonth(month === null ? "" : `${filterYear}-${String(month).padStart(2, "0")}`); setPage(1); }}
             onYearChange={(year) => { setFilterYear(year); if (coveredMonth) setCoveredMonth(`${year}-${coveredMonth.slice(5, 7)}`); setPage(1); }} />
         </div>
+        {hasProcurementSpan && <div className="mt-3 max-w-sm"><label className={lbl} htmlFor="report-procurement-type">Procurement type</label><select id="report-procurement-type" aria-label="Procurement type" className={inp} value={procurementKind} disabled={updatingReports} onChange={(event) => { setProcurementKind(event.target.value); setPage(1); }}>
+          <option value="all">All</option><option value="suggested_food">Menu-suggested food</option><option value="manual_food">Manual food</option><option value="supplies">Supplies</option>
+        </select></div>}
+        {entry.type === 'program_project_activity' && apiPrefix !== 'fss' && <Button variant="secondary" className="mt-3" loading={updatingReports} disabled={updatingReports || loading} onClick={() => void updateExistingReports()}>Update existing reports</Button>}
       </div>}
 
       {loading ? (
