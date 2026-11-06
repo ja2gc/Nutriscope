@@ -87,12 +87,19 @@ class PesEvidenceBuilder
         if ($labs !== null) {
             $values = array_intersect_key($labs->getAttributes(), app(LabFlagService::class)->ranges($patient?->sex));
             $evidence['laboratory_values'] = array_filter($values, static fn ($value): bool => $value !== null && is_numeric($value));
-            if ($age !== null && $age >= 18 && $evidence['sex'] !== 'unknown' && ($assessment->pregnancy_lactation_status ?? 'none') === 'none') {
+            if ($age !== null && $age >= 18 && ($assessment->pregnancy_lactation_status ?? 'none') === 'none') {
                 $flags = app(LabFlagService::class)->flag($values, $patient?->sex);
+                if ($evidence['sex'] === 'unknown') {
+                    $flags = array_diff_key($flags, array_flip(['hemoglobin', 'hematocrit', 'creatinine', 'hdl']));
+                }
                 foreach ($flags as $key => $flag) {
                     $flags[$key]['unit'] = MonitoringPlanService::laboratoryUnit($key);
                 }
-                if (! preg_match('/\b(fasting (?:blood )?(?:glucose|sugar)|fbs)\b/i', $assessment->medical_history ?? '')) {
+                $fastingContext = collect(['medical_history', 'dietary_intake', 'present_diet', 'physical_assessment'])
+                    ->flatMap(fn ($field) => preg_split('/[.;\n]+/', (string) $assessment->{$field}))
+                    ->contains(fn ($clause) => preg_match('/\b(fasting (?:blood )?(?:glucose|sugar)|fbs)\b/i', $clause)
+                        && ! preg_match('/\b(?:not|non[- ]?|no)\s*fasting|\brandom\b|\b(?:unknown|unclear|unconfirmed|unspecified|not confirmed)\b/i', $clause));
+                if (! $fastingContext) {
                     unset($flags['glucose']);
                 }
                 $evidence['laboratory_flags'] = $flags;

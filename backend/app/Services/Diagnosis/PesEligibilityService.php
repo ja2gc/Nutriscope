@@ -188,7 +188,7 @@ class PesEligibilityService
             'swallowing_chewing_difficulty_v1' => $text('chewing_swallowing_difficulties'),
             'altered_gi_function_v1' => $text('gi_symptoms'),
             'food_medication_interaction_v1' => $text('nutrient_drug_interaction') && ($evidence['medication_count'] ?? 0) > 0,
-            'altered_labs_v2' => ! empty($evidence['laboratory_flags']) && in_array($evidence['age_group'] ?? null, ['adult', 'elderly'], true) && ($evidence['sex'] ?? 'unknown') !== 'unknown',
+            'altered_labs_v2' => ! empty($evidence['laboratory_flags']),
             'clinical_other_v2' => $text('physical_assessment') || $text('medical_history') || $text('body_composition') || $text('food_intolerance')
                 || (in_array($evidence['age_group'] ?? null, ['adult', 'elderly'], true) && ($evidence['bmi'] ?? 0) > 0 && $evidence['bmi'] < (($evidence['age_70_plus'] ?? false) ? 20 : 18.5)),
             default => str_ends_with($id, '_v2') && ($text('knowledge_notes') || $text('social_history') || $text('lifestyle') || $text('dietary_intake')),

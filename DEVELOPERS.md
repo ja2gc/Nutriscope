@@ -6,7 +6,7 @@ Web uploads share `FileUploadField`; `ImageUploadGallery` owns thumbnails, `Imag
 
 Announcement audiences: `Announcement::audienceRoles()` owns legacy visibility fallback; the shared controller owns role-feed/image access and `NotificationService::fanOutAnnouncement` owns recipients. Both web composers reuse `AnnouncementAudienceSelect`. Source review: `1ba3d15f` plus the audience change, 2026-11-05; see [shared features](docs/developers/shared/README.md).
 
-PES incomplete-proposal/retry inspection: `AIService` permits concise clinical inference; `PesSuggestionService` retains known incomplete proposals as nonapprovable possible concerns and retries omitted/rejected candidates together. The diagnosis Generate action requests that retry even with pending drafts; read-only refresh retains cached results; see [AI](docs/developers/ncp/ai.md).
+PES review: `AIService` requires supplied Problem selections; `DiagnosisBuilder` maps existing terms to selected controls. `PesSuggestionService` withholds incomplete proposals, retains complete drafts requiring review, and prioritizes reopened Problems after dismissal/deletion. Read-only refresh remains cached. Source review: `36d63e53` plus diagnosis changes, 2026-11-06; see [AI](docs/developers/ncp/ai.md).
 
 Diagnosis lab-unit metadata reuses `MonitoringPlanService::laboratoryUnit`; `PesEvidenceBuilder` adds units to abnormal lab evidence without changing measurements or ranges. `DiagnosisBuilder::problemLabel` matches existing terms after cleaning display hints and case.
 
@@ -14,7 +14,7 @@ PES review: `AIService` owns shared Sonnet configuration and concise category/do
 
 Activity estimates: `NutritionPrescriptionService` owns adult factors and report labels; `nutritionCalculations.ts` mirrors them for Assessment, Monitoring and summary generation. Sedentary is separate from bed-bound functional status. `PesEligibilityService` excludes prior-education history alone as knowledge-deficit proof; `PesSuggestionService` rejects identical cause/sign findings after grounding; see [NCP data](docs/developers/ncp/data.md).
 
-Nutrient reference discovery and possible concerns: `ClinicalAiContext` searches recorded findings, `AIService` permits one lookup, and `PesSuggestionService` validates and stores concerns separately from approvable PES drafts; the existing diagnosis page owns review/dismiss actions; see [AI guidance](docs/developers/ncp/ai.md) and [NCP data](docs/developers/ncp/data.md).
+Nutrient reference discovery: `ClinicalAiContext` searches recorded findings and `AIService` permits one lookup for PES reasoning. The separate Possible concerns output/card has been removed; review notes belong to individual complete drafts. See [AI guidance](docs/developers/ncp/ai.md) and [NCP data](docs/developers/ncp/data.md).
 
 Diagnosis keeps the existing P/E/S append builder. `DiagnosisBuilder` owns terminology formatting and selection metadata; `DiagnosisController` owns the exclusive clinician-recorded NO decision. `PesSuggestionService` owns evidence checks, duplicate protection and review reuse; `ClinicalAiContext` selects brief guidance on the server. See [NCP AI](docs/developers/ncp/ai.md) and [NCP data](docs/developers/ncp/data.md).
 

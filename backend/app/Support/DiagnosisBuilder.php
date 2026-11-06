@@ -49,6 +49,34 @@ class DiagnosisBuilder
         return $label;
     }
 
+    /** Finite problem choices for AI; E/S remain patient-specific. */
+    public static function aiProblems(string $domain): array
+    {
+        if ($domain !== 'NI') {
+            return array_values(array_unique(array_map(self::cleanProblemTerm(...), self::options()[$domain]['problems'] ?? [])));
+        }
+        $problems = ['Malnutrition', 'Increased energy expenditure', 'Limited food acceptance', 'Excessive alcohol intake', 'Inconsistent carbohydrate intake', 'Imbalance of nutrients'];
+        foreach (array_merge(...array_values(self::options()['NI']['nutrients'])) as $nutrient) {
+            foreach (['Inadequate', 'Excessive'] as $direction) {
+                $problems[] = self::problemLabel('NI', "$direction $nutrient Intake");
+            }
+            foreach (['Increased', 'Decreased'] as $direction) {
+                $problems[] = "$direction nutrient needs: $nutrient";
+            }
+            foreach (['suboptimal', 'excessive'] as $direction) {
+                $problems[] = $nutrient === 'Energy' ? "Predicted $direction energy intake" : "Predicted $direction nutrient intake: $nutrient";
+            }
+        }
+        foreach (['enteral', 'parenteral'] as $route) {
+            $problems[] = "Less than optimal $route nutrition composition or modality";
+            foreach (['Inadequate', 'Excessive'] as $direction) {
+                $problems[] = "$direction $route nutrition infusion";
+            }
+        }
+
+        return array_values(array_unique($problems));
+    }
+
     public static function cleanProblemTerm(string $term): string
     {
         return trim((string) preg_replace('/\s*\((?:specify|use with caution)\)/i', '', $term));
@@ -102,7 +130,7 @@ class DiagnosisBuilder
         $options = self::options()[$domain];
         $builder = ['etiology_notes' => $notes['etiology_notes'] ?? '', 'sign_notes' => $notes['sign_notes'] ?? ''];
         foreach (['problem' => [$problem, 'problems'], 'etiology' => [$etiology, 'etiologies'], 'sign' => [$signs, 'signs']] as $part => [$text, $list]) {
-            $match = $part === 'problem' ? collect($options[$list])->first(fn ($option) => self::cleanProblemTerm($option) === $text) : (in_array($text, $options[$list], true) ? $text : null);
+            $match = $part === 'problem' ? collect($options[$list])->first(fn ($option) => mb_strtolower(self::cleanProblemTerm($option)) === mb_strtolower($text)) : (in_array($text, $options[$list], true) ? $text : null);
             $builder[$part.'_checks'] = $match !== null ? [$match] : [];
             $builder[$part.'_other'] = $builder[$part.'_checks'] === [] ? $text : '';
         }
@@ -110,6 +138,28 @@ class DiagnosisBuilder
             $builder['ni_direction'] = $matches[1];
             $builder['ni_nutrient'] = $matches[2];
             $builder['problem_other'] = '';
+        } elseif ($domain === 'NI') {
+            $builder['problem_other'] = '';
+            $builder['ni_pattern'] = 'other';
+            $builder['ni_nutrient'] = $problem;
+            if (preg_match('/^(Inadequate|Excessive) (vitamin|mineral) intake: (.+)$/i', $problem, $matches)) {
+                $builder['ni_pattern'] = 'intake';
+                $builder['ni_direction'] = $matches[1];
+                $builder['ni_group'] = strtolower($matches[2]) === 'vitamin' ? 'Vitamins' : 'Minerals';
+                $builder['ni_nutrient'] = $matches[3];
+            } elseif (preg_match('/^(Increased|Decreased) nutrient needs: (.+)$/', $problem, $matches)) {
+                $builder['ni_pattern'] = 'needs';
+                $builder['ni_direction'] = $matches[1] === 'Increased' ? 'Inadequate' : 'Excessive';
+                $builder['ni_nutrient'] = $matches[2];
+            } elseif (preg_match('/^Predicted (suboptimal|excessive) (energy intake|nutrient intake: (.+))$/', $problem, $matches)) {
+                $builder['ni_pattern'] = 'predicted';
+                $builder['ni_direction'] = $matches[1] === 'suboptimal' ? 'Inadequate' : 'Excessive';
+                $builder['ni_nutrient'] = $matches[3] ?? 'Energy';
+            } elseif (str_starts_with($problem, 'Less than optimal ')) {
+                $builder['ni_pattern'] = 'composition';
+                $builder['ni_nutrient'] = substr($problem, strlen('Less than optimal '));
+            }
+            $builder['problem_override'] = $problem;
         }
 
         return $builder;

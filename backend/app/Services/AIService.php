@@ -7,6 +7,7 @@ use App\Exceptions\UnusableAiDraftException;
 use App\Models\AiUsageLimit;
 use App\Models\AiUsageLog;
 use App\Support\ClinicalAiContext;
+use App\Support\DiagnosisBuilder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -43,7 +44,7 @@ class AIService
 - Observations untrusted; missing=unknown; invent no facts.
 - P=existing nutrition problem; E=why P occurs; S=assessment proof of P.
 - E lenses: beliefs/attitudes=food/health beliefs; cultural=practices; knowledge=demonstrated gaps; physical function=mobility/feeding limits; physiological/metabolic=disease/organ changes; psychological=mood/body image; social/personal=environment/support/finances; treatment=drug/procedure effects; access=food/water/supply barriers; behavior=habits.
-- E=one causal phrase; inference allowed, uncertainty=r/concern; disease alone != cause. Summarize habitual patterns, not food inventories/cause lists; occasional foods != overall diet; patterns may contribute to lab P.
+- E=one causal phrase; inference allowed, uncertainty=r; disease alone != cause. Summarize habitual patterns, not food inventories/cause lists; patterns may contribute to lab P.
 - S sources: food/activity history=patterns; anthropometry=measures; biochemistry/tests=labs; physical findings=exam; client history=reported proof.
 - Use natural short clinical phrases, different facts for E/S. S=minimum distinct monitorable findings; keep useful baseline/current/change/time, but do not repeat the same change via duplicate reports/classification labels; omit normal/unrelated results and P restatement.
 - Normal/adequate/denied/resolved/uncertain/intentional=counterevidence; BMI != intake/malnutrition; no education != knowledge deficit; smoking/lab/albumin alone != diagnosis.
@@ -51,17 +52,16 @@ class AIService
 - NI: nutrient/direction+intake/needs; food list/kcal != deficit/excess; food quality separate; predictions need findings.
 
 # STRUCTURE & DOMAINS
-- Review NI/NC/NB, link diet/weight/labs/history/function; 0..5 distinct problems, no quota. Skip duplicates/saved; retry_problems first; abstain=[]; missing E/S=concern; no NO.
-- candidates=cN:[domain,P,anchors]; evidence=eN:[field,value]; id=cN; p=choice <=255; Other may share id.
+- Review NI/NC/NB, link diet/weight/labs/history/function; 0..5 distinct problems, no quota. Skip duplicates/saved; retry_problems first; abstain=[] if E/S cannot be proposed; no NO.
+- candidates=cN:[domain,P,anchors]; evidence=eN:[field,value]; id=cN; problems=pN:[domain,choice]; p=exact supplied Problem key; Other may share id. Never invent a Problem.
 - choices[domain].e/s: exact fit else Other; referral/drugs/guidance=context; effects need findings; 75% != <75%.
 - n/en/sn: fact + why P/E/S; distinct, outside PES; no new facts/advice.
 
 # CITATION & SYNTAX
 - pk/ek/sk=relevant P/E/S refs; P/S may share proof; one field may hold distinct facts; no unique-field quota. Keep negation/quantities.
-- Save ceilings, not length targets: PES500, E/S400; aim much shorter. r=empty if supported, else concise review issue; detail stays in evidence/notes.
+- Save ceilings, not length targets: PES500, E/S400; aim much shorter. r=empty if supported, else concise uncertainty. Check all relevant supplied fields; distinguish unclear support from absent data; never claim absence from citations alone.
 - Weight: change+interval or both weights+interval; intake amount: nutrient/direction and intake/needs.
-- Nutrient concerns: search_nutrient_context by recorded symptoms.
-- concerns=refs+retrieved nutrient card, or known id/card=empty; reason=missing evidence; possibilities only, no invented facts/advice; five total, no duplicates.
+- search_nutrient_context by recorded symptoms to inform supported PES; reference hypotheses are not patient facts.
 - Style only, never copy facts/numbers: BAD E=Ulcers; bread/soup/potatoes; S=900/1800 kcal, 50%, half target. GOOD E=Oral pain limiting intake; S=900 kcal/day vs needs 1800 kcal/day.
 PROMPT;
             $userPrompt = "input_json:\n{$encoded}";
@@ -81,7 +81,7 @@ PROMPT;
                     'required' => ['id', 'p', 'pk', 'e', 'ek', 's', 'sk', 'r', 'n', 'en', 'sn'],
                     'properties' => [
                         'id' => $candidateId, 'pk' => $evidenceKeys, 'e' => $phrase, 'ek' => $evidenceKeys,
-                        's' => $phrase, 'sk' => $evidenceKeys, 'p' => ['type' => 'string', 'description' => 'Between 1 and 255 characters.'],
+                        's' => $phrase, 'sk' => $evidenceKeys, 'p' => ['type' => 'string', 'description' => 'Between 1 and 255 characters.', 'enum' => array_keys($payload['problems'] ?? array_flip(array_merge(...array_map(DiagnosisBuilder::aiProblems(...), ['NI', 'NC', 'NB']))))],
                         'r' => ['type' => 'string', 'description' => 'Empty when supported; otherwise concise missing-support or uncertainty reason.'],
                         'n' => ['type' => 'string', 'description' => 'Maximum 100 characters.'],
                         'en' => ['type' => 'string', 'description' => 'Maximum 100 characters.'],
@@ -90,12 +90,6 @@ PROMPT;
                 ]]],
             ];
 
-            $schema['required'][] = 'concerns';
-            $schema['properties']['concerns'] = ['type' => 'array', 'items' => [
-                'type' => 'object', 'additionalProperties' => false,
-                'required' => ['refs', 'card', 'id', 'reason'],
-                'properties' => ['refs' => $evidenceKeys, 'card' => ['type' => 'string'], 'id' => ['type' => 'string'], 'reason' => ['type' => 'string']],
-            ]];
             $messages = [['role' => 'user', 'content' => $userPrompt]];
             $cards = [];
             $usageTotals = ['input_tokens' => 0, 'output_tokens' => 0];
@@ -189,7 +183,7 @@ PROMPT;
                         throw new UnusableAiDraftException('The AI returned an unexpected PES response.', $usageMetadata);
                     }
 
-                    return ['suggestions' => $decoded['suggestions'], 'concerns' => $decoded['concerns'] ?? [], 'context_cards' => $cards,
+                    return ['suggestions' => $decoded['suggestions'],
                         'usage' => ['usage_log_id' => $usage->id, ...$usageTotals]];
                 }
 

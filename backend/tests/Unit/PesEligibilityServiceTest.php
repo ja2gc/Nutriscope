@@ -11,6 +11,28 @@ use Tests\TestCase;
 
 class PesEligibilityServiceTest extends TestCase
 {
+    public function test_applicable_lab_flags_do_not_depend_on_bmi_population_or_sex(): void
+    {
+        $service = app(PesEligibilityService::class);
+        $evidence = ['age_group' => 'pediatric', 'sex' => 'unknown', 'laboratory_flags' => ['ldl' => ['value' => 162, 'status' => 'HIGH']]];
+        $this->assertContains('altered_labs_v2', array_column($service->eligible($evidence), 'candidate_id'));
+        $evidence['existing_problem_keys'] = ['Altered nutrition-related laboratory values'];
+        $this->assertNotContains('altered_labs_v2', array_column($service->eligible($evidence), 'candidate_id'));
+    }
+
+    public function test_ai_problem_choices_use_existing_terms_and_preserve_builder_selection(): void
+    {
+        foreach (['NC', 'NB'] as $domain) {
+            foreach (DiagnosisBuilder::aiProblems($domain) as $problem) {
+                $builder = DiagnosisBuilder::fromDraft($domain, $problem, 'Recorded contributor', 'Recorded finding');
+                $this->assertNotEmpty($builder['problem_checks']);
+                $this->assertSame('', $builder['problem_other']);
+            }
+        }
+        $this->assertContains('Inadequate vitamin intake: D', DiagnosisBuilder::aiProblems('NI'));
+        $this->assertNotContains('A newly invented problem', DiagnosisBuilder::aiProblems('NC'));
+    }
+
     public function test_activity_history_can_establish_cessation_without_a_calculation_label(): void
     {
         $service = app(PesEligibilityService::class);
@@ -126,7 +148,7 @@ class PesEligibilityServiceTest extends TestCase
     {
         $catalog = app(PesRuleCatalog::class);
 
-        $this->assertSame('2026-10-31-v27:'.ClinicalAiContext::version().':'.config('services.anthropic.model'), $catalog->version());
+        $this->assertSame('2026-11-06-v28:'.ClinicalAiContext::version().':'.config('services.anthropic.model'), $catalog->version());
         $this->assertEqualsCanonicalizing(['NI', 'NC', 'NB'], array_values(array_unique(array_column($catalog->cards(), 'domain'))));
 
         foreach ($catalog->cards() as $card) {

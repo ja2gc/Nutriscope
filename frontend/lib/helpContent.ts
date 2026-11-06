@@ -212,7 +212,7 @@ export const HELP_ITEMS: HelpItem[] = [
     role: "RND",
     category: "Diagnosis & Intervention",
     question: "How should I use AI Review suggestions?",
-    answer: "Check each draft against Assessment and its supporting notes. Items marked May need review need closer checking; incomplete possible concerns cannot be accepted as diagnoses. Accept only a clinically supported statement, or enter the diagnosis manually. Check Assessment before generating again if no useful suggestion is returned.",
+    answer: "Check each draft against Assessment and its supporting notes. Items marked May need more thorough review need closer checking; Accept only a clinically supported statement, or enter the diagnosis manually. Check Assessment before generating again if no useful suggestion is returned.",
     keywords: ["suggestion", "accept", "edit", "checkbox", "dismiss", "manual", "review"],
   },
   {

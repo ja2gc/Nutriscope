@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Models\Assessment;
+use App\Models\BiochemicalData;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Services\Diagnosis\PesEvidenceBuilder;
@@ -11,6 +12,41 @@ use Tests\TestCase;
 
 class PesEvidenceBuilderTest extends TestCase
 {
+    public function test_fasting_context_can_be_recorded_outside_medical_history(): void
+    {
+        $record = new NcpRecord;
+        $record->created_at = '2026-11-06';
+        $record->setRelation('patient', new Patient(['dob' => '1990-01-01', 'sex' => 'Male']));
+        $assessment = new Assessment(['pregnancy_lactation_status' => 'none', 'physical_assessment' => 'Fasting blood glucose collected.']);
+        $assessment->setRelation('biochemicalData', new BiochemicalData(['glucose' => 120]));
+        $record->setRelation('assessment', $assessment);
+        $record->setRelation('diagnoses', collect());
+        $this->assertArrayHasKey('glucose', app(PesEvidenceBuilder::class)->build($record)['laboratory_flags']);
+        foreach (['Non-fasting blood glucose.', 'FBS not confirmed.', 'Random glucose.'] as $context) {
+            $assessment->physical_assessment = $context;
+            $this->assertArrayNotHasKey('laboratory_flags', app(PesEvidenceBuilder::class)->build($record));
+        }
+    }
+
+    public function test_unknown_sex_keeps_only_sex_independent_adult_lab_flags(): void
+    {
+        $record = new NcpRecord;
+        $record->created_at = '2026-11-06';
+        $record->setRelation('patient', new Patient(['dob' => '2008-01-01']));
+        $assessment = new Assessment(['pregnancy_lactation_status' => 'none']);
+        $assessment->setRelation('biochemicalData', new BiochemicalData(['ldl' => 162, 'hemoglobin' => 9]));
+        $record->setRelation('assessment', $assessment);
+        $record->setRelation('diagnoses', collect());
+        $evidence = app(PesEvidenceBuilder::class)->build($record);
+        $this->assertArrayHasKey('ldl', $evidence['laboratory_flags']);
+        $this->assertArrayNotHasKey('hemoglobin', $evidence['laboratory_flags']);
+        $record->patient->dob = '2015-01-01';
+        $this->assertArrayNotHasKey('laboratory_flags', app(PesEvidenceBuilder::class)->build($record));
+        $record->patient->dob = '1990-01-01';
+        $assessment->pregnancy_lactation_status = 'pregnant_t2';
+        $this->assertArrayNotHasKey('laboratory_flags', app(PesEvidenceBuilder::class)->build($record));
+    }
+
     public function test_bmi_classification_uses_asia_pacific_bands_without_screening_or_ibw_overrides(): void
     {
         foreach ([[15, 'Underweight'], [18.49, 'Underweight'], [18.5, 'Normal'], [22.99, 'Normal'], [23, 'Overweight'], [24.99, 'Overweight'], [25, 'Obese Class I'], [29.99, 'Obese Class I'], [30, 'Obese Class II'], [35, 'Obese Class II']] as [$bmi, $label]) {

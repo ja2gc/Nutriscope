@@ -178,7 +178,7 @@ Detail/profile pages open from their parent list, item card or selected menu slo
 5. Review and edit the generated PES statement.
 6. Save the diagnosis.
 7. Optional: open **AI Review** and choose **Generate AI Suggestions**. Opening/refreshing review alone does not generate. Review the PES, evidence and review notes in **No issues detected** or **May need more thorough review**; both groups still require clinical judgment.
-8. Use **Review and edit** when a draft needs correction. **Possible concerns** contains incomplete proposals; choose **Review assessment** or dismiss them. They cannot be accepted as complete diagnoses. On generation failure, retry or add the diagnosis manually; do not treat a failed request as a completed clinical review.
+8. Use **Review and edit** when a draft needs correction. Review notes describe uncertainty in the cited support; check the whole Assessment before correcting the draft. Incomplete proposals are not displayed as diagnoses. On generation failure, retry or add the diagnosis manually; do not treat a failed request as a completed clinical review.
 
 #### E. Intervention and Patient Meal Plan
 

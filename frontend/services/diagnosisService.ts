@@ -88,7 +88,6 @@ export interface PesDraftMeta {
 export interface PesDraftResult {
   data: AiSuggestion[];
   review_drafts?: AiSuggestion[];
-  concerns?: Array<{ concern_id: string; label: string; missing: string; evidence_used: string[] }>;
   meta: PesDraftMeta;
 }
 

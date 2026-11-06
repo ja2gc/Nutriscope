@@ -6,7 +6,7 @@ use App\Support\ClinicalAiContext;
 
 class PesRuleCatalog
 {
-    public const VERSION = '2026-10-31-v27';
+    public const VERSION = '2026-11-06-v28';
 
     private const ACADEMY_SOURCE = [
         'id' => 'academy_ncp_diagnosis_2026',

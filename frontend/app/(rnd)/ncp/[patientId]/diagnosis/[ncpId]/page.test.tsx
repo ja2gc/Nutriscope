@@ -131,12 +131,12 @@ it.each([
   expect((screen.getByText(otherGroup).closest("details") as HTMLDetailsElement).open).toBe(false);
 });
 
-it("shows symptom concerns separately without a diagnosis approval action", async () => {
+it("does not display legacy symptom concerns or a diagnosis approval action", async () => {
   const result = await diagnoses.fetchPesDraftStatus("fixture");
-  vi.mocked(diagnoses.fetchPesDraftStatus).mockResolvedValue({ ...result, concerns: [{ concern_id: "concern", label: "Vitamin A inadequacy concern", missing: "Clarify intake history", evidence_used: ["Physical findings: Night blindness"] }] });
+  vi.mocked(diagnoses.fetchPesDraftStatus).mockResolvedValue({ ...result, concerns: [{ concern_id: "concern", label: "Vitamin A inadequacy concern", missing: "Clarify intake history", evidence_used: ["Physical findings: Night blindness"] }] } as never);
   await open(); click("AI Review");
-  expect(screen.getByText("Possible concerns (1)")).toBeTruthy();
-  expect(screen.getByRole("link", { name: "Review assessment", hidden: true })).toBeTruthy();
+  expect(screen.queryByText("Possible concerns (1)")).toBeNull();
+  expect(screen.queryByRole("link", { name: "Review assessment", hidden: true })).toBeNull();
   expect(screen.queryByRole("button", { name: "Accept" })).toBeNull();
 });
 

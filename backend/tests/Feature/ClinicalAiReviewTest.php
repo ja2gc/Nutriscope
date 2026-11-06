@@ -19,9 +19,71 @@ use Tests\TestCase;
 
 class ClinicalAiReviewTest extends TestCase
 {
+    public function test_condition_in_another_assessment_field_is_a_citation_review_not_an_absence_claim(): void
+    {
+        $record = $this->record();
+        $record->patient->update(['sex' => 'Male']);
+        $record->assessment()->update(['medical_history' => 'Diabetes documented.', 'dietary_intake' => 'Frequent sugary drinks.']);
+        $record->assessment->biochemicalData()->create(['ldl' => 162]);
+        $this->provider([[...$this->draft(), 'candidate_id' => 'altered_labs_v2', 'domain' => 'NC',
+            'problem_key' => 'Altered Nutrition-Related Laboratory Values', 'etiology' => 'Diabetes-related metabolic changes',
+            'signs' => 'LDL 162 mg/dL', 'evidence_used' => ['dietary_intake', 'laboratory_flags'],
+            'etiology_evidence' => ['dietary_intake'], 'signs_evidence' => ['laboratory_flags']]]);
+        $result = $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonCount(1, 'review_drafts');
+        $notes = implode(' ', $result->json('review_drafts.0.review_reasons'));
+        $this->assertStringContainsString('appears elsewhere in the Assessment', $notes);
+        $this->assertStringNotContainsString('not recorded', $notes);
+    }
+
+    public function test_native_problem_selection_maps_to_the_existing_builder_option(): void
+    {
+        $record = $this->record();
+        Http::swap(new Factory);
+        Http::fake(['api.anthropic.com/*' => function ($request) {
+            $payload = json_decode(substr($request['messages'][0]['content'], strlen("input_json:\n")), true);
+            $candidate = collect($payload['candidates'])->search(fn ($item) => str_contains(strtolower($item[1]), 'knowledge'));
+            $problem = collect($payload['problems'])->search(fn ($item) => str_contains(strtolower($item[1]), 'knowledge deficit'));
+            $cause = collect($payload['evidence'])->search(fn ($item) => $item[0] === 'social_history');
+            $sign = collect($payload['evidence'])->search(fn ($item) => $item[0] === 'knowledge_notes');
+            $this->assertContains($problem, $request['output_config']['format']['schema']['properties']['suggestions']['items']['properties']['p']['enum']);
+
+            return Http::response(['content' => [['type' => 'text', 'text' => json_encode(['suggestions' => [[
+                'id' => $candidate, 'p' => $problem, 'pk' => [$sign], 'e' => 'Limited access to nutrition education', 'ek' => [$cause],
+                's' => 'Cannot identify carbohydrate foods', 'sk' => [$sign], 'r' => '', 'n' => '', 'en' => '', 'sn' => '',
+            ]]])]], 'usage' => ['input_tokens' => 100, 'output_tokens' => 50]]);
+        }]);
+        $result = $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonCount(1, 'data');
+        $this->assertNotEmpty($result->json('data.0.builder_data.problem_checks'));
+        $this->assertSame('', $result->json('data.0.builder_data.problem_other'));
+    }
+
+    public function test_invented_other_problem_is_not_retained_even_in_review_lane(): void
+    {
+        $record = $this->record();
+        $this->provider([[...$this->draft(), 'candidate_id' => 'behavioral_other_v2', 'problem_key' => 'Invented nutrition knowledge problem']]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()
+            ->assertJsonCount(0, 'data')->assertJsonCount(0, 'review_drafts');
+    }
+
+    public function test_dismissed_problem_is_prioritized_on_next_generation(): void
+    {
+        $record = $this->record();
+        $this->provider([$this->draft()]);
+        $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest";
+        $draft = $this->postJson($url)->assertOk()->json('data.0');
+        $this->postJson($url, ['dismissed_draft_id' => $draft['draft_id']])->assertOk();
+        $this->provider([$this->draft()]);
+        $this->postJson($url)->assertOk()->assertJsonCount(1, 'data');
+        Http::assertSent(function ($request) use ($draft): bool {
+            $payload = json_decode(substr($request['messages'][0]['content'], strlen("input_json:\n")), true);
+
+            return in_array($draft['label'], $payload['retry_problems'] ?? [], true);
+        });
+    }
+
     use RefreshDatabase;
 
-    public function test_general_lab_concern_can_request_clarification_without_a_nutrient_card(): void
+    public function test_legacy_incomplete_concerns_are_not_exposed_as_drafts(): void
     {
         $record = $this->record();
         $record->assessment->biochemicalData()->create(['ldl' => 162.41]);
@@ -36,8 +98,8 @@ class ClinicalAiReviewTest extends TestCase
             ]]])]], 'usage' => ['input_tokens' => 100, 'output_tokens' => 50]]);
         }]);
         $result = $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonCount(0, 'data')
-            ->assertJsonCount(1, 'concerns')->assertJsonPath('concerns.0.missing', 'Clarify dietary and medical contributors.');
-        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-approve", ['draft_id' => $result->json('concerns.0.concern_id')])->assertUnprocessable();
+            ->assertJsonMissingPath('concerns')->assertJsonCount(0, 'review_drafts');
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-approve", ['draft_id' => 'legacy-concern'])->assertUnprocessable();
     }
 
     public function test_failed_clinical_check_retains_original_text_only_in_review_lane(): void
@@ -447,7 +509,7 @@ class ClinicalAiReviewTest extends TestCase
             ->assertJsonPath('data.0.label', 'Inadequate protein intake')->assertJsonPath('meta.has_retryable_rejections', false);
         Http::assertSent(function ($request): bool {
             $payload = json_decode(substr($request['messages'][0]['content'], strlen("input_json:\n")), true);
-            $this->assertContains('Inadequate Protein Intake', $payload['retry_problems']);
+            $this->assertContains('Inadequate protein intake', $payload['retry_problems']);
 
             return true;
         });
@@ -502,7 +564,7 @@ class ClinicalAiReviewTest extends TestCase
         $this->postJson($url.'/ai-suggest', ['retry_rejected' => true])->assertOk()->assertJsonPath('meta.has_retryable_rejections', true);
         Http::assertSent(function ($request): bool {
             $payload = json_decode(substr($request['messages'][0]['content'], strlen("input_json:\n")), true);
-            $this->assertSame(['Inadequate Iron Intake'], $payload['retry_problems']);
+            $this->assertSame(['Inadequate mineral intake: Iron'], $payload['retry_problems']);
             $this->assertContains('NI', array_column($payload['candidates'], 0));
             $this->assertGreaterThan(1, count($payload['candidates']), 'Explicit retry also includes other unresolved candidates.');
 

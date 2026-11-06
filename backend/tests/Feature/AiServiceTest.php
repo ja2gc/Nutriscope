@@ -38,7 +38,7 @@ class AiServiceTest extends TestCase
             && $request['output_config']['effort'] === 'low' && $request['max_tokens'] === 512);
     }
 
-    public function test_symptom_only_concern_is_cached_dismissible_and_cannot_be_approved_as_a_diagnosis(): void
+    public function test_legacy_symptom_concerns_are_withheld_and_cannot_be_approved(): void
     {
         $record = NcpRecord::factory()->create(['patient_id' => Patient::factory()->create()->id, 'rnd_user_id' => $this->rnd->id, 'status' => 'draft']);
         Assessment::factory()->create(['ncp_record_id' => $record->id, 'physical_assessment' => 'Night blindness reported.']);
@@ -58,12 +58,12 @@ class AiServiceTest extends TestCase
             ]])]], 'usage' => ['input_tokens' => 150, 'output_tokens' => 60]]);
         }]);
         $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses";
-        $response = $this->postJson($url.'/ai-suggest')->assertOk()->assertJsonCount(0, 'data')->assertJsonCount(1, 'concerns');
-        $id = $response->json('concerns.0.concern_id');
+        $response = $this->postJson($url.'/ai-suggest')->assertOk()->assertJsonCount(0, 'data')->assertJsonMissingPath('concerns');
+        $id = 'legacy-concern';
         $this->postJson($url.'/ai-approve', ['draft_id' => $id])->assertStatus(422);
-        $this->postJson($url.'/ai-suggest')->assertOk()->assertJsonCount(1, 'concerns');
+        $this->postJson($url.'/ai-suggest')->assertOk()->assertJsonMissingPath('concerns');
         Http::assertSentCount(2);
-        $this->postJson($url.'/ai-suggest', ['dismissed_draft_id' => $id])->assertOk()->assertJsonCount(0, 'concerns');
+        $this->postJson($url.'/ai-suggest', ['dismissed_draft_id' => $id])->assertUnprocessable();
         $this->assertDatabaseCount('diagnoses', 0);
     }
 
@@ -76,8 +76,9 @@ class AiServiceTest extends TestCase
                 ['label' => 'Possible vitamin A inadequacy', 'refs' => ['e1'], 'card' => 'vitamin_a_inadequate', 'missing' => 'Clarify intake and absorption history'],
             ]])]], 'usage' => ['input_tokens' => 150, 'output_tokens' => 60]]);
         $result = app(AIService::class)->draftPes(['evidence' => ['e1' => ['physical_assessment', 'Night blindness reported.']], 'candidates' => []]);
-        $this->assertArrayHasKey('vitamin_a_inadequate', $result['context_cards']);
-        $this->assertCount(1, $result['concerns']);
+        $this->assertArrayNotHasKey('context_cards', $result);
+        Http::assertSent(fn ($request) => count($request['messages']) === 3 && str_contains(json_encode($request['messages'][2]), 'vitamin_a_inadequate'));
+        $this->assertArrayNotHasKey('concerns', $result);
         $this->assertSame(250, $result['usage']['input_tokens']);
         $this->assertDatabaseCount('ai_usage_logs', 2);
         Http::assertSentCount(2);
@@ -240,7 +241,7 @@ class AiServiceTest extends TestCase
             $this->assertSame('claude-sonnet-5-5', $body['model']);
             $this->assertSame(4096, $body['max_tokens']);
             $this->assertStringContainsString('counterevidence', $system);
-            foreach (['inference allowed', 'may contribute to lab P', 'missing E/S=concern'] as $guidance) {
+            foreach (['inference allowed', 'may contribute to lab P', 'abstain=[] if E/S cannot be proposed'] as $guidance) {
                 $this->assertStringContainsString($guidance, $system);
             }
             foreach (['beliefs/attitudes', 'cultural', 'knowledge', 'physical function', 'physiological/metabolic', 'psychological', 'social/personal', 'treatment', 'access', 'behavior',
