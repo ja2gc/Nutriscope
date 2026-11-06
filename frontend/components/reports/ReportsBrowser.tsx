@@ -856,7 +856,7 @@ function TemplateEditor({ apiPrefix, onFlash }: { apiPrefix: "rnd" | "admin"; on
       </Card>
 
       {/* Signatories per report */}
-      <div className="grid lg:grid-cols-2 gap-4">
+      <div className="grid xl:grid-cols-2 gap-4">
         {templates.filter((template) => !isClinicalAutoFilledSignatory(template) && template.type !== "procurement_pack").map((saved) => {
           const t = editingTemplateId === saved.id && templateDraft ? templateDraft : saved;
           const viewingHistory = historyTemplateId === saved.id;
@@ -886,8 +886,8 @@ function TemplateEditor({ apiPrefix, onFlash }: { apiPrefix: "rnd" | "admin"; on
               </div>
               {selectedTemplateRevision.signatories.length === 0 ? <p className="text-xs text-warm-400">No signatory block.</p> : (
                 <div className="space-y-2">
-                  <div className="grid grid-cols-2 gap-2 text-xs font-bold text-warm-500 sm:grid-cols-[90px_minmax(0,1fr)_minmax(0,1fr)]"><span aria-hidden="true" className="hidden sm:block" /><span>Name</span><span>Position</span></div>
-                  {selectedTemplateRevision.signatories.map((s, i) => <div key={`${s.role}-${i}`} className="grid grid-cols-2 gap-2 sm:grid-cols-[90px_minmax(0,1fr)_minmax(0,1fr)]">
+                  <div className="grid grid-cols-2 gap-2 text-xs font-bold text-warm-500 sm:grid-cols-[120px_minmax(0,1fr)_minmax(0,1fr)]"><span aria-hidden="true" className="hidden sm:block" /><span>Name</span><span>Position</span></div>
+                  {selectedTemplateRevision.signatories.map((s, i) => <div key={`${s.role}-${i}`} className="grid grid-cols-2 gap-2 sm:grid-cols-[120px_minmax(0,1fr)_minmax(0,1fr)]">
                     <span className="col-span-2 break-words text-xs font-bold text-warm-400 uppercase sm:col-span-1" title={saved.type === "inspection_report" ? s.title ?? "" : s.label}>{saved.type === "inspection_report" ? s.role === "conforme" ? "Conforme:" : s.title : s.label}</span>
                     <span className="break-words text-sm text-warm-800">{s.name}</span>
                     <span className="break-words text-sm text-warm-600">{s.title}</span>
@@ -898,9 +898,9 @@ function TemplateEditor({ apiPrefix, onFlash }: { apiPrefix: "rnd" | "admin"; on
               <p className="text-xs text-warm-400">No signatory block.</p>
             ) : (
               <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-2 text-xs font-bold text-warm-500 sm:grid-cols-[90px_minmax(0,1fr)_minmax(0,1fr)]"><span aria-hidden="true" className="hidden sm:block" /><span>Name</span><span>Position</span></div>
+                <div className="grid grid-cols-2 gap-2 text-xs font-bold text-warm-500 sm:grid-cols-[120px_minmax(0,1fr)_minmax(0,1fr)]"><span aria-hidden="true" className="hidden sm:block" /><span>Name</span><span>Position</span></div>
                 {(t.signatories ?? []).map((s, i) => (
-                  <div key={`${s.role}-${i}`} className="grid grid-cols-2 gap-2 sm:grid-cols-[90px_minmax(0,1fr)_minmax(0,1fr)] sm:items-center">
+                  <div key={`${s.role}-${i}`} className="grid grid-cols-2 gap-2 sm:grid-cols-[120px_minmax(0,1fr)_minmax(0,1fr)] sm:items-center">
                     <span className="col-span-2 break-words text-xs font-bold text-warm-400 uppercase sm:col-span-1" title={t.type === "inspection_report" ? s.title ?? "" : s.label}>{t.type === "inspection_report" ? s.role === "conforme" ? "Conforme:" : s.title : s.label}</span>
                     {editingTemplateId === t.id ? <><input aria-label={`${s.title || s.label} name`} value={s.name ?? ""} onChange={(e) => editSig(t.id, i, "name", e.target.value)} className={`${inp} min-w-0 !py-2.5 sm:!py-1.5`} /><input aria-label={`${s.title || s.label} position`} value={s.title ?? ""} onChange={(e) => editSig(t.id, i, "title", e.target.value)} className={`${inp} min-w-0 !py-2.5 sm:!py-1.5`} /></> : <><span className="break-words text-sm text-warm-800">{s.name}</span><span className="break-words text-sm text-warm-600">{s.title}</span></>}
                   </div>

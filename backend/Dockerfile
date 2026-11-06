@@ -51,7 +51,8 @@ RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' \
         /etc/apache2/conf-available/*.conf
 
 # Storage permissions
-RUN chown -R www-data:www-data storage bootstrap/cache \
+RUN mkdir -p storage/fonts \
+    && chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh

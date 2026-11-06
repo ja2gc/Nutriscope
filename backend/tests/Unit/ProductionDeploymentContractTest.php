@@ -219,6 +219,7 @@ class ProductionDeploymentContractTest extends TestCase
         $this->assertStringContainsString('chown -R www-data:www-data "$report_cache_path"', $entrypoint);
         $this->assertStringContainsString('exec gosu www-data "$@"', $entrypoint);
         $this->assertStringContainsString('default-mysql-client git curl zip unzip gosu', file_get_contents(base_path('Dockerfile')));
+        $this->assertStringContainsString('mkdir -p storage/fonts', file_get_contents(base_path('Dockerfile')));
         $this->assertStringContainsString('Persistent named volume', $requirements);
     }
 
