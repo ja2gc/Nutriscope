@@ -33,6 +33,7 @@ test('updating saved PPAs is an explicit action and sends the layout refresh fla
   const update = [...container.querySelectorAll('button')].find(button => button.textContent === 'Update existing reports');
   expect(update).toBeDefined();
   await act(async () => update!.click());
+  expect(listInstances).toHaveBeenLastCalledWith('program_project_activity', expect.objectContaining({ page: 1, per_page: 10 }), 'rnd');
   expect(prepareReport).toHaveBeenCalledWith('program_project_activity', { purchase_order_id: 'po-1', refresh_layout: 1 }, 'rnd');
   await act(async () => root.unmount()); container.remove(); vi.clearAllMocks();
 });

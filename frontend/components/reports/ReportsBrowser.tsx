@@ -398,7 +398,7 @@ function InstancesPanel({
       let reportPage = 1;
       let lastPage = 1;
       do {
-        const batch = await listInstances(entry.type, { page: reportPage, per_page: 50, procurement_kind: procurementKind, covered_month: coveredMonth, search: debouncedSearch }, apiPrefix);
+        const batch = await listInstances(entry.type, { page: reportPage, per_page: 10, procurement_kind: procurementKind, covered_month: coveredMonth, search: debouncedSearch }, apiPrefix);
         lastPage = batch.meta.last_page;
         for (const instance of batch.data.instances) {
           await prepareReport(entry.type, { ...instance.params, refresh_layout: 1 }, apiPrefix);
