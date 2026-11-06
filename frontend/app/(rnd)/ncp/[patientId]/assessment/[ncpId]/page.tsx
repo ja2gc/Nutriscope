@@ -1853,10 +1853,16 @@ export default function NcpAssessmentPage({
           {tabContent[activeTab]}
           <div hidden={activeTab !== 'dietary'} className="mt-4">
             <AssessmentSection legend="Food Recall">
-              <Field label="Food recall notes (optional)">
-                <TextArea ariaLabel="Food recall notes" value={assessment.dietary_intake ?? ''}
+              <div data-assessment-field>
+                <div className="mb-1.5 flex h-4 items-center gap-1.5">
+                  <label htmlFor="food-recall-notes" className="text-xs font-bold text-warm-500 uppercase tracking-wider">Food recall notes (optional)</label>
+                  <InfoHint label="What to write in food recall notes" title="Food recall notes">
+                    Highlight key findings from the Food Recall Calculator: intake below, meeting, or above assessed needs. Include amounts when useful. If adequate, say so; if uncertain, note what needs review. Keep diet descriptions in Present Diet.
+                  </InfoHint>
+                </div>
+                <TextArea id="food-recall-notes" ariaLabel="Food recall notes" value={assessment.dietary_intake ?? ''}
                   onChange={value => updateField('dietary_intake', value)} maxLength={ASSESSMENT_TEXT_LIMITS.dietary_intake} />
-              </Field>
+              </div>
               <FoodRecallNutrientFields values={Object.fromEntries(Object.entries(assessment.intake_nutrients ?? { energy_kcal: null }).map(([key, value]) => [key, value == null ? '' : String(value)]))}
                 onChange={values => updateField('intake_nutrients', Object.fromEntries(Object.entries(values).map(([key, value]) => [key, value.trim() === '' ? null : value])))}
                 renderField={(field, value, onChange) => <Field label={`${field.label} intake (${field.unit})`}><TextInput type="number" ariaLabel={`${field.label} intake`} value={value} onChange={onChange} min={0} max={field.max} step={0.01} /></Field>} />

@@ -10,6 +10,7 @@ import { useEditorChanges, type EditorLeaveHandle } from "@/hooks/useUnsavedChan
 import { Button } from "@/components/ui/Button";
 import { numericStepBase } from "@/components/ui/NumericInput";
 import { CharacterCountTextarea } from "@/components/ui/CharacterCountTextarea";
+import { InfoHint } from "@/components/ui/InfoHint";
 import { ASSESSMENT_TEXT_LIMITS } from "@/lib/assessmentValidation";
 import { MONITORING_TEXT_LIMITS, monitoringTextError } from "@/lib/monitoringValidation";
 import type { Intervention } from "@/services/interventionService";
@@ -466,10 +467,15 @@ export default function LogVisitForm({ ncpId, plan, context, intervention, onSub
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <ToggleGroup label="Diet Compliance" options={COMPLIANCE_OPTIONS} value={compliance} onChange={setCompliance} />
             <ToggleGroup label="GI Tolerance" options={GI_OPTIONS} value={giTolerance} onChange={setGiTolerance} />
-            <label>
-              <FieldLabel>Intake Notes</FieldLabel>
-              <CharacterCountTextarea aria-label="Intake Notes" autoGrow value={intakeNotes} onChange={setIntakeNotes} maxLength={MONITORING_TEXT_LIMITS.intake_notes} rows={3} className="w-full resize-none overflow-hidden rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
-            </label>
+            <div>
+              <div className="mb-1.5 flex h-4 items-center gap-1.5">
+                <label htmlFor="monitoring-intake-notes" className="text-xs font-bold uppercase tracking-widest text-warm-500">Intake Notes</label>
+                <InfoHint label="What to write in intake notes" title="Intake notes">
+                  Highlight key findings from the Food Recall Calculator: intake below, meeting, or above assessed needs. Include amounts when useful. If adequate, say so; if uncertain, note what needs review.
+                </InfoHint>
+              </div>
+              <CharacterCountTextarea id="monitoring-intake-notes" aria-label="Intake Notes" autoGrow value={intakeNotes} onChange={setIntakeNotes} maxLength={MONITORING_TEXT_LIMITS.intake_notes} rows={3} className="w-full resize-none overflow-hidden rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
+            </div>
             <label>
               <FieldLabel>Symptoms and Tolerance</FieldLabel>
               <CharacterCountTextarea aria-label="Symptoms and Tolerance" autoGrow value={symptoms} onChange={setSymptoms} maxLength={MONITORING_TEXT_LIMITS.symptoms} rows={3} className="w-full resize-none overflow-hidden rounded-lg border border-warm-200 bg-white px-3 py-2.5 text-base text-warm-900" />
