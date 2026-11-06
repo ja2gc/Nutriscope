@@ -52,6 +52,24 @@ it("separates unverified proposals and offers editing rather than direct approva
   expect(screen.getByRole("button", { name: "Review and edit" })).toBeTruthy();
 });
 
+it("shows recorded values and units alongside the evidence field labels", async () => {
+  const state = await diagnoses.fetchPesDraftStatus("fixture");
+  const proposal = { draft_id: "lab-review", domain: "NC", label: "Altered nutrition-related laboratory values",
+    etiology: "Proposed contributor", signs: "Recorded lab findings", builder_data: {}, extra_notes: "", evidence_used: [],
+    review_required: true, review_reasons: ["Check the full Assessment."], evidence_by_component: {
+      problem: [{ key: "laboratory_flags", text: "Laboratory findings: HbA1c: 8.4 % HIGH; LDL: 125 mg/dL HIGH" }],
+      etiology: [{ key: "dietary_intake", text: "Dietary intake: Frequent sweet beverages" }],
+      signs: [{ key: "laboratory_flags", text: "Laboratory findings: HbA1c: 8.4 % HIGH; LDL: 125 mg/dL HIGH" },
+        { key: "weight_kg", text: "Current weight: 62 kg" }],
+    } };
+  vi.mocked(diagnoses.fetchPesDraftStatus).mockResolvedValue({ ...state, review_drafts: [proposal] } as never);
+  await open(); click("AI Review");
+  const section = screen.getByRole("region", { name: "May need more thorough review" });
+  expect(section.textContent).toContain("Laboratory findings: HbA1c: 8.4 % HIGH; LDL: 125 mg/dL HIGH");
+  expect(section.textContent).toContain("Dietary intake: Frequent sweet beverages");
+  expect(section.textContent).toContain("Current weight: 62 kg");
+});
+
 it("uses the shared patient-selection action without loading patient data", async () => {
   await open("select-patient");
   expect(screen.getByRole("heading", { name: "No Patient Selected" })).toBeTruthy();
@@ -100,7 +118,7 @@ it("opens every problem group when creating a diagnosis", async () => {
   }
 });
 
-it("shows plain evidence for each PES component without field navigation links", async () => {
+it("shows recorded evidence for each PES component without field navigation links", async () => {
   const state = await diagnoses.fetchPesDraftStatus("fixture");
   vi.mocked(diagnoses.fetchPesDraftStatus).mockResolvedValue({ ...state, data: [{ draft_id: "component-draft", domain: "NB",
     label: "Food- and nutrition-related knowledge deficit", etiology: "Limited nutrition education", signs: "Cannot identify carbohydrate foods",
@@ -113,8 +131,8 @@ it("shows plain evidence for each PES component without field navigation links",
   expect(screen.getByText("P evidence")).toBeTruthy();
   expect(screen.getByText("E evidence")).toBeTruthy();
   expect(screen.getByText("S evidence")).toBeTruthy();
-  expect(screen.getByText("Social history")).toBeTruthy();
-  expect(screen.queryByText("Social history: Limited nutrition education")).toBeNull();
+  expect(screen.getByText("Social history: Limited nutrition education")).toBeTruthy();
+  expect(screen.getAllByText("Knowledge notes: Cannot identify carbohydrate foods")).toHaveLength(2);
   expect(screen.queryByRole("link", { name: "Social history" })).toBeNull();
   expect(screen.queryByText("Legacy evidence")).toBeNull();
 });

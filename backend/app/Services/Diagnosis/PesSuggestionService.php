@@ -622,7 +622,7 @@ class PesSuggestionService
                 $reportedReview = $this->component($draft['review_reason'] ?? '', null, true);
                 $uncertainCause = (bool) preg_match('/^(possible|suspected|potential)\b/i', $etiology);
                 if ($reportedReview !== '') {
-                    $reviewReasons[] = $reportedReview;
+                    $reviewReasons[] = 'Check the full Assessment, including other fields, to confirm the proposed cause and supporting findings.';
                 }
                 if ($uncertainCause) {
                     $reviewReasons[] = 'Confirm the proposed contributor; it remains uncertain.';
@@ -721,7 +721,7 @@ class PesSuggestionService
                 }
                 foreach ([$label, $etiology, $signs] as $wording) {
                     if ($this->hasNewNumbers($wording, $citedEvidence)) {
-                        throw new \RuntimeException('The AI added a measurement or threshold not present in its evidence.');
+                        throw new \RuntimeException('Check the measurements and thresholds against the full Assessment and their citations; relevant values may be recorded in another field.');
                     }
                 }
                 if (str_contains($canonical, 'weight loss') && ($evidence['weight_change_direction'] ?? 'unknown') !== 'loss') {

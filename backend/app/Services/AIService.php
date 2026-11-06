@@ -59,7 +59,7 @@ class AIService
 
 # CITATION & SYNTAX
 - pk/ek/sk=P/E/S refs; P/S may share proof; no unique-field quota; preserve negation/quantities.
-- Save ceilings, not targets: PES500, E/S400; aim shorter. r=uncertainty or empty if supported. Check all supplied fields; unclear citations != absent Assessment data.
+- Save ceilings, not targets: PES500, E/S400; aim shorter. r=empty if supported, else request review of all Assessment fields; never assert absence.
 - Weight=change+interval or both weights+interval; intake=nutrient/direction+intake/needs.
 - search_nutrient_context: recorded symptoms for PES guidance; hypotheses != patient facts.
 - Style only, never copy: BAD E=Ulcers; bread; S=900/1800 kcal,50%. GOOD E=Oral pain limiting intake; S=900 vs needs 1800 kcal/day.
@@ -84,7 +84,7 @@ PROMPT;
                     'properties' => [
                         'id' => $candidateId, 'pk' => $evidenceReference, 'e' => $phrase, 'ek' => $evidenceReference,
                         's' => $phrase, 'sk' => $evidenceReference, 'p' => ['type' => 'string', 'description' => 'Between 1 and 255 characters.', 'enum' => array_keys($payload['problems'] ?? array_flip(array_merge(...array_map(DiagnosisBuilder::aiProblems(...), ['NI', 'NC', 'NB']))))],
-                        'r' => ['type' => 'string', 'description' => 'Empty when supported; otherwise concise missing-support or uncertainty reason.'],
+                        'r' => ['type' => 'string', 'description' => 'Empty if supported; otherwise request Assessment review; never assert absence.'],
                         'n' => ['type' => 'string', 'description' => 'Maximum 100 characters.'],
                         'en' => ['type' => 'string', 'description' => 'Maximum 100 characters.'],
                         'sn' => ['type' => 'string', 'description' => 'Maximum 100 characters.'],

@@ -1291,7 +1291,7 @@ export default function NcpDiagnosisPage({
                     <div key={role}>
                       <span className="mb-1 block font-bold uppercase tracking-wider text-warm-500">{label} evidence</span>
                       <ul className="list-disc space-y-1 pl-4">
-                        {s.evidence_by_component?.[role].map(item => <li key={item.key}>{item.text.split(': ', 1)[0]}</li>)}
+                        {s.evidence_by_component?.[role].map(item => <li key={item.key} className="break-words">{item.text}</li>)}
                       </ul>
                     </div>
                   )) : (

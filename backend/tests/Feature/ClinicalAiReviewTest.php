@@ -19,6 +19,33 @@ use Tests\TestCase;
 
 class ClinicalAiReviewTest extends TestCase
 {
+    public function test_uncited_measurement_prompts_review_of_other_fields_without_claiming_it_was_invented(): void
+    {
+        $record = $this->record();
+        $record->assessment()->update(['weight' => 62, 'usual_weight' => 62]);
+        $this->provider([[...$this->draft(), 'signs' => 'Cannot identify carbohydrate foods; weight 62 kg']]);
+        $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses";
+        $result = $this->postJson($url.'/ai-suggest')->assertOk()->assertJsonCount(0, 'data')
+            ->assertJsonPath('review_drafts.0.review_reasons', ['Check the measurements and thresholds against the full Assessment and their citations; relevant values may be recorded in another field.']);
+        $this->postJson($url.'/ai-approve', ['draft_id' => $result->json('review_drafts.0.draft_id')])->assertUnprocessable();
+    }
+
+    public function test_ai_review_comments_become_verification_requests_including_after_refresh(): void
+    {
+        $message = 'Check the full Assessment, including other fields, to confirm the proposed cause and supporting findings.';
+        foreach (['No barrier recorded.', 'No cause documented anywhere.', 'Supporting findings are absent.',
+            'The assessment contains no relevant history.', 'Check the proposed cause and citations.'] as $comment) {
+            $record = $this->record();
+            $this->provider([[...$this->draft(), 'review_reason' => $comment]]);
+            $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses";
+            $result = $this->postJson($url.'/ai-suggest')->assertOk()->assertJsonCount(0, 'data')
+                ->assertJsonPath('review_drafts.0.review_reasons', [$message]);
+            $this->getJson($url.'/ai-suggest')->assertOk()->assertJsonPath('review_drafts.0.review_reasons', [$message]);
+            $this->postJson($url.'/ai-approve', ['draft_id' => $result->json('review_drafts.0.draft_id')])->assertUnprocessable();
+            Http::assertSentCount(1);
+        }
+    }
+
     public function test_native_selection_preserves_a_supported_specific_problem_option(): void
     {
         $record = $this->record();
