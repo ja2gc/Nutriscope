@@ -75,6 +75,8 @@ Read [AGENTS.md](AGENTS.md) before changes. Update only affected guides in the s
 
 Web mutation refresh behavior is owned by each screen's local loader and saved-response callback; follow the [web refresh convention](docs/developers/platform/web.md).
 
+Procurement's page and `SuppliersPanel` reuse the shopping-list table layout for horizontal scrolling and single-line names on narrow screens. Shared `Pagination` owns wrapping and button targets; directory footers remain outside table scrollers. Source review: `50752dd4` plus this layout change, 2026-11-06; see [web table guidance](docs/developers/platform/web.md).
+
 Low-bandwidth loading stays with the existing screen/service owners: Diagnosis separates AI status; Monitoring separates history pagination; patient profiles separate past cycles; Procurement/Inventory defer supplier choices. Native Menu/Meal Prep share `mobile/lib/menuQueries.ts`; `AnnouncementResource`/`AnnouncementController` own opt-in protected image delivery. See [web](docs/developers/platform/web.md), [mobile](docs/developers/food-service/mobile.md) and [shared contracts](docs/developers/shared/README.md). No offline persistence or workflow-rule change is introduced.
 
 Intervention's page-local `loadPlans` also reuses the latest full plan when its public UUID matches the selection; older-plan links retain their separate read. See [web loading ownership](docs/developers/platform/web.md).

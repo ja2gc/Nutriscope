@@ -211,7 +211,8 @@ export function SuppliersPanel({ leaveRef }: { leaveRef?: Ref<EditorLeaveHandle>
 
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       {/* Table */}
-      <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
+      <div className="min-w-0 w-full max-w-full bg-white border border-warm-200 rounded-2xl shadow-sm">
+        <div role="region" aria-label="Supplier directory" tabIndex={0} className="min-w-0 w-full max-w-full overflow-x-auto rounded-t-2xl">
         {loading ? (
           <SectionLoading label="Loading vendors…" skeleton />
         ) : suppliers.length === 0 ? (
@@ -220,7 +221,7 @@ export function SuppliersPanel({ leaveRef }: { leaveRef?: Ref<EditorLeaveHandle>
             <p className="text-sm text-warm-400 font-medium">No vendors yet. Add your first one.</p>
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <table aria-label="Suppliers" className="w-full min-w-[800px] text-sm">
             <thead className="bg-warm-50 border-b border-warm-100">
               <tr>
                 {["Vendor", "Description", "Contact", "Payment Terms", "Actions"].map((h) => (
@@ -231,7 +232,7 @@ export function SuppliersPanel({ leaveRef }: { leaveRef?: Ref<EditorLeaveHandle>
             <tbody className="divide-y divide-zinc-100">
               {suppliers.map((s) => (
                 <tr key={s.id} className="hover:bg-warm-50/60 transition-colors">
-                  <td className="px-4 py-3 font-semibold text-warm-800">{s.name}</td>
+                  <td className="min-w-60 whitespace-nowrap px-4 py-3 font-semibold text-warm-800">{s.name}</td>
                   <td className="px-4 py-3 text-warm-600">{s.category || "—"}</td>
                   <td className="min-w-64 px-4 py-3 text-warm-600"><ContactDetailsSummary value={contactDetailsFrom(s)} compact /></td>
                   <td className="px-4 py-3 text-warm-500">{s.payment_terms || "—"}</td>
@@ -263,6 +264,7 @@ export function SuppliersPanel({ leaveRef }: { leaveRef?: Ref<EditorLeaveHandle>
             </tbody>
           </table>
         )}
+        </div>
         <Pagination meta={meta} page={page} onPageChange={setPage} />
       </div>
     </div>

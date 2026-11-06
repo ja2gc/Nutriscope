@@ -501,12 +501,12 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
       {itemPickerOpen && <MenuItemPicker title={`Add ${isSupplies ? "supply" : "food"} item`} itemLabel={isSupplies ? "Supply" : "Ingredient"} query={itemSearch} onQueryChange={(value) => { setItemSearch(value); setSelectedItem(null); setItemPickerPage(1); setItemResults([]); }} filters={isSupplies ? undefined : <div className="[&_button]:min-h-11"><ButtonFilterGroup label="Grocery" size="sm" value={groceryFilter} onChange={(value) => { setGroceryFilter(value as typeof groceryFilter); setItemPickerPage(1); setItemResults([]); }} options={[{ value: "", label: "All" }, { value: "non_auto", label: "Non-auto grocery" }, { value: "auto", label: "Auto grocery" }]} /></div>} loading={itemPickerLoading} error={itemError || null} items={itemResults.map((item) => ({ id: item.id, name: item.name, detail: `${item.base_unit} · ${item.unit_cost ? peso(num(item.unit_cost)) : "no price"}` }))} onSelect={(id) => { const item = itemResults.find((result) => result.id === id); if (item) selectManualItem(item); }} onClose={() => setItemPickerOpen(false)} meta={itemPickerMeta} page={itemPickerPage} onPageChange={setItemPickerPage} />}
 
       {/* Cart table */}
-      <div className="min-w-0 w-full max-w-full bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
+      <div role="region" aria-label="Shopping list items" tabIndex={0} className="min-w-0 w-full max-w-full bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
         <table aria-label="Shopping List purchase items" className="w-full min-w-[1100px] text-sm">
           <thead className="bg-warm-50 border-b border-warm-100">
             <tr>
               {["Buy", "Item", "Purchase Qty", "Unit", "Vendor", "Cost/unit", "Total", ""].map((h) => (
-                <th key={h} className="px-3 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
+                <th key={h} className="whitespace-nowrap px-3 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
               ))}
             </tr>
           </thead>
@@ -520,7 +520,7 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
                     onChange={(e) => patchItem(it.id, { included_in_po: e.target.checked })}
                     className="h-4 w-4 accent-emerald-600" aria-label={`Include ${it.ingredient_name} in PO`} />
                 </td>
-                <td className="min-w-44 break-words px-3 py-2 font-semibold text-warm-800">
+                <td className="min-w-44 whitespace-nowrap px-3 py-2 font-semibold text-warm-800">
                   {it.ingredient_name}
                   {!it.included_in_po && <input aria-label={`Exclusion note for ${it.ingredient_name}`} value={it.exclusion_note ?? ""}
                     disabled={list.status === "converted"} onChange={(e) => patchItem(it.id, { exclusion_note: e.target.value || null })}
@@ -779,11 +779,11 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
           </label>
         </div>
 
-        <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
-          <table className="w-full text-sm">
+        <div role="region" aria-label="Purchase order items" tabIndex={0} className="min-w-0 w-full max-w-full bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
+          <table aria-label="Purchase order actual items" className="w-full min-w-[1100px] text-sm">
             <thead className="bg-warm-50 border-b border-warm-100">
               <tr>{["Item", "Actual Quantity", "Unit", "Actual Cost/unit", "Actual Total", "Actions"].map((h) => (
-                <th key={h} className="px-3 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
+                <th key={h} className="whitespace-nowrap px-3 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
               ))}</tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
@@ -795,7 +795,7 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
                   : num(draft?.qty ?? item.actual_qty);
                 const quantityValue = quantityInputValue(draft?.totalEdited && actualPrice > 0 ? num(draft.total) / actualPrice : draft?.qty ?? item.actual_qty);
                 return <tr key={item.id} className="[&>td]:align-top">
-                  <td className="px-3 py-2">
+                  <td className="min-w-44 whitespace-nowrap px-3 py-2">
                     <div className="flex min-h-8 items-center font-semibold text-warm-800">{item.description}</div>
                   </td>
                   <td className="px-3 py-2"><input aria-label={`Actual quantity for ${item.description}`} type="number" min={numericStepBase(quantityValue)} step="0.1" disabled={receiptLocked}
@@ -954,17 +954,17 @@ function PurchaseEventDetailView({ po, suppliers, onBack, reload }: { po: Purcha
           </div>
         </div>
       )}
-      <div className="bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
-        <table className="w-full text-sm">
+      <div role="region" aria-label="Purchase order vendors" tabIndex={0} className="min-w-0 w-full max-w-full bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
+        <table aria-label="Purchase order vendors" className="w-full min-w-[800px] text-sm">
           <thead className="bg-warm-50 border-b border-warm-100">
             <tr>{["Vendor", "Items", "OR #", "Evidence", "Total", "Actions"].map((h) => (
-              <th key={h} className="px-4 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
+              <th key={h} className="whitespace-nowrap px-4 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
             ))}</tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
             {(po.vendor_groups ?? []).map((g) => (
               <tr key={g.id} className="hover:bg-warm-50/60">
-                <td className="px-4 py-3 font-semibold text-warm-800">{g.supplier?.name ?? "Unassigned vendor"}</td>
+                <td className="min-w-60 whitespace-nowrap px-4 py-3 font-semibold text-warm-800">{g.supplier?.name ?? "Unassigned vendor"}</td>
                 <td className="px-4 py-3 text-warm-500">{g.items?.length ?? 0}</td>
                 <td className="px-4 py-3 text-warm-500">{g.or_number_display}</td>
                 <td className="px-4 py-3 text-warm-500">
@@ -1380,7 +1380,8 @@ export default function ProcurementPage() {
 
       {loadError && <p role="alert" className="text-sm text-red-700">{loadError}</p>}
       {tab === "suppliers" ? <SuppliersPanel leaveRef={supplierLeaveRef} /> : (
-        <div className="overflow-x-auto bg-white border border-warm-200 rounded-2xl shadow-sm">
+        <div className="min-w-0 w-full max-w-full bg-white border border-warm-200 rounded-2xl shadow-sm">
+          <div role="region" aria-label="Procurement directory" tabIndex={0} className="min-w-0 w-full max-w-full overflow-x-auto rounded-t-2xl">
           {loading ? (
             <SectionLoading label="Loading procurement…" skeleton />
           ) : (tab === "food-lists" || tab === "supplies-lists") ? (
@@ -1400,14 +1401,14 @@ export default function ProcurementPage() {
                 <thead className="bg-warm-50 border-b border-warm-100">
                   <tr>
                     {["Name", tab === "food-lists" ? "Span" : "Date", "Items", "Status", "Actions"].map((h) => (
-                      <th key={h} className="px-3 py-2 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
+                      <th key={h} className="whitespace-nowrap px-3 py-2 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
                   {visibleLists.map((l) => (
                     <tr key={l.id} className="hover:bg-warm-50/60">
-                      <td className="min-w-60 px-3 py-2">
+                      <td className="min-w-60 whitespace-nowrap px-3 py-2">
                         <span className="font-semibold text-warm-800">{l.name}</span>
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-warm-500">
@@ -1452,16 +1453,16 @@ export default function ProcurementPage() {
                 <p className="text-sm text-warm-400 font-medium">No purchase orders yet. Convert a shopping list to generate a PO.</p>
               </div>
             ) : (
-              <table className="w-full text-sm">
+              <table aria-label="Purchase orders" className="w-full min-w-[800px] text-sm">
                 <thead className="bg-warm-50 border-b border-warm-100">
                   <tr>{["PO", "Track", "Current total", "Vendors", "Status", "Actions"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
+                    <th key={h} className="whitespace-nowrap px-4 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
                   ))}</tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
                   {pos.map((po) => (
                     <tr key={po.id} className="hover:bg-warm-50/60">
-                      <td className="px-4 py-3">
+                      <td className="min-w-60 whitespace-nowrap px-4 py-3">
                         <span className="font-semibold text-warm-800">{po.display_name}</span>
                         <div className="text-xs text-warm-400">{po.order_date ?? "No order date"}</div>
                       </td>
@@ -1474,11 +1475,11 @@ export default function ProcurementPage() {
                           {po.procurement_track ?? "food"}
                         </span>
                       </td>
-                      <td className="px-4 py-3 font-mono text-warm-700">
+                      <td className="whitespace-nowrap px-4 py-3 font-mono text-warm-700">
                         {peso(num(po.current_total_amount))}
                       </td>
                       <td className="px-4 py-3 text-warm-500">{po?.vendor_groups?.length ?? 0}</td>
-                      <td className="px-4 py-3 text-warm-500">{poStatusLabel(po.lifecycle_status)}</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-warm-500">{poStatusLabel(po.lifecycle_status)}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
                           <button
@@ -1505,6 +1506,7 @@ export default function ProcurementPage() {
               </table>
             )
           )}
+          </div>
           {tab !== "pos" && <Pagination meta={listMeta} page={listPage} onPageChange={setListPage} />}
           {tab === "pos" && <Pagination meta={poMeta} page={poPage} onPageChange={setPoPage} />}
         </div>
