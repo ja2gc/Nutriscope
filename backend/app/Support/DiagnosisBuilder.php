@@ -60,6 +60,9 @@ class DiagnosisBuilder
             foreach (['Inadequate', 'Excessive'] as $direction) {
                 $problems[] = self::problemLabel('NI', "$direction $nutrient Intake");
             }
+            if ($nutrient === 'Oral') {
+                continue;
+            }
             foreach (['Increased', 'Decreased'] as $direction) {
                 $problems[] = "$direction nutrient needs: $nutrient";
             }

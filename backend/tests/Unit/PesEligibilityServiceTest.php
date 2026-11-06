@@ -43,6 +43,7 @@ class PesEligibilityServiceTest extends TestCase
             }
         }
         $this->assertContains('Inadequate vitamin intake: D', DiagnosisBuilder::aiProblems('NI'));
+        $this->assertNotContains('Increased nutrient needs: Oral', DiagnosisBuilder::aiProblems('NI'));
         $this->assertNotContains('A newly invented problem', DiagnosisBuilder::aiProblems('NC'));
     }
 

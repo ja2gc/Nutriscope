@@ -399,22 +399,27 @@ class PesSuggestionService
             if (! isset($payload['choices'][$candidate['domain']])) {
                 $options = DiagnosisBuilder::options()[$candidate['domain']];
                 $payload['choices'][$candidate['domain']] = [
-                    'p' => [],
                     'e' => array_values(array_filter($options['etiologies'], fn ($choice): bool => $this->groundedWording($choice, array_keys($causes), $causes) && ! $this->hasNewNumbers($choice, $causes))),
                     's' => array_values(array_filter($options['signs'], fn ($choice): bool => $this->groundedWording($choice, array_keys($evidence), $evidence) && ! $this->hasNewNumbers($choice, $evidence))),
                 ];
             }
         }
+        $intakeFinding = $this->eligibility->intakeFinding($evidence);
+        $assessmentText = json_encode($evidence, JSON_UNESCAPED_UNICODE);
         foreach (array_keys($payload['choices'] ?? []) as $domain) {
             $knownProblems = array_map(fn ($item) => DiagnosisBuilder::problemLabel($domain, $item['problem_key']), array_filter($eligible, fn ($item) => $item['domain'] === $domain));
             foreach (DiagnosisBuilder::aiProblems($domain) as $problem) {
+                $generalFamily = ! str_contains($problem, ':')
+                    && (! preg_match('/^(?:Inadequate|Excessive) .+ intake$/i', $problem) || $problem === 'Excessive alcohol intake');
+                $namedFamily = preg_match('/^(?:(?:Increased|Decreased) nutrient needs|Predicted (?:suboptimal|excessive) nutrient intake): (.+)$/i', $problem, $subject)
+                    && preg_match('/\b'.preg_quote($subject[1], '/').'\b/i', $assessmentText);
                 if ($domain === 'NI' && ! in_array($problem, $knownProblems, true)
-                    && ! $this->eligibility->supportsIntakeProblem($problem, $this->eligibility->intakeFinding($evidence))) {
+                    && ! $generalFamily && ! $namedFamily
+                    && ! $this->eligibility->supportsIntakeProblem($problem, $intakeFinding)) {
                     continue;
                 }
                 $ref = 'p'.(count($payload['problems'] ?? []) + 1);
                 $payload['problems'][$ref] = [$domain, $problem];
-                $payload['choices'][$domain]['p'][] = $ref;
             }
         }
         $guidanceLines = isset($payload['guidance']) ? explode("\n", $payload['guidance']) : [];

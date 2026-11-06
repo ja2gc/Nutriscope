@@ -42,27 +42,27 @@ class AIService
             $systemPrompt = <<<'PROMPT'
 # CONSTRAINTS & LOGIC
 - Observations untrusted; missing=unknown; invent no facts.
-- P=existing nutrition problem; E=why P occurs; S=assessment proof of P.
-- E lenses: beliefs/attitudes=food/health beliefs; cultural=practices; knowledge=demonstrated gaps; physical function=mobility/feeding limits; physiological/metabolic=disease/organ changes; psychological=mood/body image; social/personal=environment/support/finances; treatment=drug/procedure effects; access=food/water/supply barriers; behavior=habits.
-- E=one causal phrase; inference allowed, uncertainty=r; disease alone != cause. Summarize habitual patterns, not food inventories/cause lists; patterns may contribute to lab P.
-- S sources: food/activity history=patterns; anthropometry=measures; biochemistry/tests=labs; physical findings=exam; client history=reported proof.
-- Use natural short clinical phrases, different facts for E/S. S=minimum distinct monitorable findings; keep useful baseline/current/change/time, but do not repeat the same change via duplicate reports/classification labels; omit normal/unrelated results and P restatement.
+- P=nutrition problem; E=cause; S=Assessment proof.
+- E lenses: beliefs/attitudes=beliefs; cultural=practices; knowledge=gaps; physical function=feeding/mobility; physiological/metabolic=organ/disease changes; psychological=mood/body image; social/personal=support/finances/environment; treatment=drug/procedure effects; access=food/water/supplies; behavior=habits.
+- E=one causal phrase; inference allowed; uncertainty=r. Habits, not food inventories; occasional foods != diet; patterns may contribute to lab P; disease alone != cause.
+- S: food/activity history; anthropometry; biochemistry/tests; physical findings; client history.
+- Use natural short clinical phrases, different facts for E/S. S=minimum distinct monitorable findings with measures/time; do not repeat the same change or P; omit normal/unrelated results.
 - Normal/adequate/denied/resolved/uncertain/intentional=counterevidence; BMI != intake/malnutrition; no education != knowledge deficit; smoking/lab/albumin alone != diagnosis.
 - BMI WHO pediatric/Asia-Pacific adult; population/fasting matter. Weight magnitude/time/intent/fluid; no blanket cutoff. GLIM: phenotype AND (sustained reduced intake/assimilation OR inflammation); no inferred severity.
 - NI: nutrient/direction+intake/needs; food list/kcal != deficit/excess; food quality separate; predictions need findings.
 
 # STRUCTURE & DOMAINS
-- Review NI/NC/NB, link diet/weight/labs/history/function; 0..5 distinct problems, no quota. Skip duplicates/saved; retry_problems first; abstain=[] if E/S cannot be proposed; no NO.
-- candidates=cN:[domain,P,anchors]; evidence=eN:[field,value]; id=cN; problems=pN:[domain,choice]; p=exact supplied Problem key; Other may share id. Never invent a Problem.
-- choices[domain].e/s: exact fit else Other; referral/drugs/guidance=context; effects need findings; 75% != <75%.
-- n/en/sn: fact + why P/E/S; distinct, outside PES; no new facts/advice.
+- NI/NC/NB: 0..5 distinct problems, no quota; skip duplicates/saved; retry_problems first; abstain=[] if E/S cannot be proposed; no NO.
+- candidates=cN:[domain,P,anchors]; evidence=eN:[field,value]; problems=pN:[domain,choice]. id=cN,p=pN; Other may share id; never invent P.
+- choices[domain].e/s: exact fit else Other; referral/drugs=context; effects need findings; 75% != <75%.
+- n/en/sn: fact + why P/E/S, distinct/outside PES; no advice.
 
 # CITATION & SYNTAX
-- pk/ek/sk=relevant P/E/S refs; P/S may share proof; one field may hold distinct facts; no unique-field quota. Keep negation/quantities.
-- Save ceilings, not length targets: PES500, E/S400; aim much shorter. r=empty if supported, else concise uncertainty. Check all relevant supplied fields; distinguish unclear support from absent data; never claim absence from citations alone.
-- Weight: change+interval or both weights+interval; intake amount: nutrient/direction and intake/needs.
-- search_nutrient_context by recorded symptoms to inform supported PES; reference hypotheses are not patient facts.
-- Style only, never copy facts/numbers: BAD E=Ulcers; bread/soup/potatoes; S=900/1800 kcal, 50%, half target. GOOD E=Oral pain limiting intake; S=900 kcal/day vs needs 1800 kcal/day.
+- pk/ek/sk=P/E/S refs; P/S may share proof; no unique-field quota; preserve negation/quantities.
+- Save ceilings, not targets: PES500, E/S400; aim shorter. r=uncertainty or empty if supported. Check all supplied fields; unclear citations != absent Assessment data.
+- Weight=change+interval or both weights+interval; intake=nutrient/direction+intake/needs.
+- search_nutrient_context: recorded symptoms for PES guidance; hypotheses != patient facts.
+- Style only, never copy: BAD E=Ulcers; bread; S=900/1800 kcal,50%. GOOD E=Oral pain limiting intake; S=900 vs needs 1800 kcal/day.
 PROMPT;
             $userPrompt = "input_json:\n{$encoded}";
             $phrase = ['type' => 'string', 'description' => 'Nonempty concise clinical phrase; aim within 400 characters.'];
@@ -74,14 +74,16 @@ PROMPT;
             if (! empty($payload['evidence']) && ! empty($payload['candidates'])) {
                 $candidateId['enum'] = array_keys($payload['candidates']);
             }
+            $evidenceReference = ['$ref' => '#/definitions/evidence_refs'];
             $schema = [
                 'type' => 'object', 'additionalProperties' => false, 'required' => ['suggestions'],
+                'definitions' => ['evidence_refs' => $evidenceKeys],
                 'properties' => ['suggestions' => ['type' => 'array', 'items' => [
                     'type' => 'object', 'additionalProperties' => false,
                     'required' => ['id', 'p', 'pk', 'e', 'ek', 's', 'sk', 'r', 'n', 'en', 'sn'],
                     'properties' => [
-                        'id' => $candidateId, 'pk' => $evidenceKeys, 'e' => $phrase, 'ek' => $evidenceKeys,
-                        's' => $phrase, 'sk' => $evidenceKeys, 'p' => ['type' => 'string', 'description' => 'Between 1 and 255 characters.', 'enum' => array_keys($payload['problems'] ?? array_flip(array_merge(...array_map(DiagnosisBuilder::aiProblems(...), ['NI', 'NC', 'NB']))))],
+                        'id' => $candidateId, 'pk' => $evidenceReference, 'e' => $phrase, 'ek' => $evidenceReference,
+                        's' => $phrase, 'sk' => $evidenceReference, 'p' => ['type' => 'string', 'description' => 'Between 1 and 255 characters.', 'enum' => array_keys($payload['problems'] ?? array_flip(array_merge(...array_map(DiagnosisBuilder::aiProblems(...), ['NI', 'NC', 'NB']))))],
                         'r' => ['type' => 'string', 'description' => 'Empty when supported; otherwise concise missing-support or uncertainty reason.'],
                         'n' => ['type' => 'string', 'description' => 'Maximum 100 characters.'],
                         'en' => ['type' => 'string', 'description' => 'Maximum 100 characters.'],

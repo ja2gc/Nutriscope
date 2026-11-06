@@ -7,6 +7,7 @@ use App\Models\Diagnosis;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\User;
+use App\Support\DiagnosisBuilder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -28,10 +29,16 @@ class PesCitedDraftTest extends TestCase
         return $record;
     }
 
-    private function provider(string $domain, array $draft, ?string $invalidRole = null): void
+    private function provider(string $domain, array $draft, ?string $invalidRole = null, bool $requireSelection = false): void
     {
-        Http::fake(['api.anthropic.com/*' => function ($request) use ($domain, $draft, $invalidRole) {
+        Http::fake(['api.anthropic.com/*' => function ($request) use ($domain, $draft, $invalidRole, $requireSelection) {
             $payload = json_decode(substr($request['messages'][0]['content'], strlen("input_json:\n")), true);
+            $label = DiagnosisBuilder::problemLabel($domain, $draft['p']);
+            $selection = collect($payload['problems'] ?? [])->search(fn ($problem) => $problem[0] === $domain && strcasecmp($problem[1], $label) === 0);
+            if ($requireSelection) {
+                $this->assertNotFalse($selection, 'Supported Problems must be supplied as selectable references to the real provider.');
+                $draft['p'] = $selection;
+            }
             $id = collect($payload['candidates'])->search(fn ($candidate) => $candidate[0] === $domain && strcasecmp($candidate[1], $draft['candidate'] ?? 'Other') === 0);
             unset($draft['candidate'], $draft['pk']);
             $refs = array_flip(array_column($payload['evidence'], 0));
@@ -51,12 +58,12 @@ class PesCitedDraftTest extends TestCase
     }
 
     #[DataProvider('citedCases')]
-    public function test_cited_standard_custom_and_predicted_drafts_remain_available_for_rnd_review(string $domain, array $assessment, array $draft): void
+    public function test_cited_selectable_standard_and_predicted_drafts_remain_available_for_rnd_review(string $domain, array $assessment, array $draft): void
     {
         $record = $this->record($assessment);
         $draft += ['n' => 'The cited assessment pattern supports this problem for review.',
             'en' => 'The cited history explains the proposed barrier.', 'sn' => 'The cited finding is the proposed indicator to follow.'];
-        $this->provider($domain, $draft);
+        $this->provider($domain, $draft, requireSelection: true);
         $url = "/api/rnd/ncp-records/{$record->uuid}/diagnoses";
         $response = $this->postJson($url.'/ai-suggest')->assertOk();
         $this->assertCount(1, $response->json('data'));
@@ -85,8 +92,6 @@ class PesCitedDraftTest extends TestCase
                     's' => 'BMI classification: Obese Class I', 'sk' => ['bmi_classification']]],
             'qualitative prediction without a numeric target' => ['NI', ['medical_history' => 'Back injury restricts activity during recovery.', 'present_diet' => 'Usual portions expected to continue during inactivity.'],
                 ['p' => 'Predicted excessive energy intake', 'pk' => ['present_diet', 'medical_history'], 'e' => 'Back injury restricts activity during recovery', 'ek' => ['medical_history'], 's' => 'Usual portions expected to continue during inactivity', 'sk' => ['present_diet']]],
-            'custom nutrient with documented inadequacy' => ['NI', ['dietary_intake' => 'Choline intake below documented requirements.', 'social_history' => 'Cultural food practices exclude eggs and several protein foods.'],
-                ['p' => 'Inadequate choline intake', 'e' => 'Cultural food practices exclude eggs and several protein foods', 'ek' => ['social_history'], 's' => 'Choline intake below documented requirements', 'sk' => ['dietary_intake']]],
             'swallowing with a neurological history' => ['NC', ['medical_history' => 'Recent stroke affects swallowing.', 'chewing_swallowing_difficulties' => 'Yes', 'chewing_swallowing_details' => 'Coughs with thin liquids.'],
                 ['p' => 'Swallowing difficulty', 'pk' => ['chewing_swallowing_difficulties'], 'e' => 'Recent stroke affects swallowing', 'ek' => ['medical_history'], 's' => 'Coughs with thin liquids', 'sk' => ['chewing_swallowing_difficulties']]],
             'GI function with treatment context' => ['NC', ['medical_history' => 'Loose stools began after a new treatment.', 'diarrhea_notes' => 'Yes', 'diarrhea_details' => 'Loose stools after meals.'],
@@ -116,6 +121,17 @@ class PesCitedDraftTest extends TestCase
                 'e' => 'Limited nutrition education', 'ek' => ['social_history'], 's' => 'Cannot explain food labels', 'sk' => ['knowledge_notes']], $missing);
             $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()->assertJsonCount(0, 'data');
         }
+    }
+
+    public function test_unlisted_problem_is_withheld_even_when_its_intake_evidence_is_documented(): void
+    {
+        $record = $this->record(['dietary_intake' => 'Choline intake below documented requirements.',
+            'social_history' => 'Cultural food practices exclude eggs and several protein foods.']);
+        $this->provider('NI', ['p' => 'Inadequate choline intake', 'e' => 'Cultural food practices exclude eggs and several protein foods',
+            'ek' => ['social_history'], 's' => 'Choline intake below documented requirements', 'sk' => ['dietary_intake']]);
+        $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()
+            ->assertJsonCount(0, 'data')->assertJsonCount(0, 'review_drafts');
+        $this->assertDatabaseCount('diagnoses', 0);
     }
 
     public function test_one_weight_alone_does_not_establish_a_weight_change(): void

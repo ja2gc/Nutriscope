@@ -251,7 +251,12 @@ class AiServiceTest extends TestCase
             }
             $this->assertSame('json_schema', $body['output_config']['format']['type'] ?? null);
             $schema = $body['output_config']['format']['schema'];
+            $payload = json_decode(substr($prompt, strlen("input_json:\n")), true);
+            $this->assertSame(array_keys($payload['evidence']), $schema['definitions']['evidence_refs']['items']['enum']);
             $draft = $schema['properties']['suggestions']['items'];
+            foreach (['pk', 'ek', 'sk'] as $role) {
+                $this->assertSame(['$ref' => '#/definitions/evidence_refs'], $draft['properties'][$role]);
+            }
             $this->assertFalse($draft['additionalProperties']);
             foreach (['e', 's', 'p', 'n', 'en', 'sn'] as $field) {
                 $this->assertArrayNotHasKey('pattern', $draft['properties'][$field]);
@@ -349,18 +354,11 @@ class AiServiceTest extends TestCase
     private function boundedPayload(): array
     {
         return [
-            'catalog_version' => '2026-09-21-v1',
-            'candidates' => [[
-                'candidate_id' => 'unintended_weight_loss_v1',
-                'problem_key' => 'Unintended Weight Loss',
-                'domain' => 'NC',
-                'evidence' => [
-                    'weight_loss_percentage' => 6.5,
-                    'weight_change_period' => ['value' => 2, 'unit' => 'months'],
-                    'appetite' => 'decreased',
-                ],
-                'source_id' => 'academy_ncp_diagnosis_2026',
-            ]],
+            'evidence' => ['e1' => ['weight_loss_percentage', 6.5],
+                'e2' => ['weight_change_period', ['value' => 2, 'unit' => 'months']],
+                'e3' => ['appetite', 'decreased']],
+            'candidates' => ['c1' => ['NC', 'Unintended weight loss', ['e1', 'e2']]],
+            'problems' => ['p1' => ['NC', 'Unintended weight loss']],
         ];
     }
 
