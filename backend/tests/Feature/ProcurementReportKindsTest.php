@@ -147,7 +147,6 @@ class ProcurementReportKindsTest extends TestCase
                 $report = new Report(['type' => $type, 'parameters' => ['purchase_order_id' => $po->id]]);
                 $pdf = app(ReportService::class)->buildPdf($report)['bytes'];
                 $this->assertStringStartsWith('%PDF-', $pdf);
-                file_put_contents(base_path('tmp/'.$type.'-'.$kind.'.pdf'), $pdf);
             }
         }
     }
