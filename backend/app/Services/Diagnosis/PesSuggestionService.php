@@ -451,6 +451,8 @@ class PesSuggestionService
             $retryLabel = null;
             $selectedLabel = null;
             $crossFieldReview = false;
+            $complete = false;
+            $invalidRefs = false;
             try {
                 if (! is_array($draft)) {
                     throw new \RuntimeException('The AI returned an unexpected diagnosis shape.');
@@ -478,7 +480,6 @@ class PesSuggestionService
                         $selectedLabel = $selection[1];
                     }
                     $draft['pk'] ??= $draft['sk'] ?? null;
-                    $invalidRefs = false;
                     foreach (['p', 'e', 's'] as $role) {
                         $keys = $draft[$role.'k'] ?? null;
                         if (($role !== 'p' && ! is_string($draft[$role] ?? null)) || ! is_array($keys)
@@ -499,9 +500,6 @@ class PesSuggestionService
                         'evidence_used' => array_values(array_unique([...$draft['ek'], ...$draft['sk'], ...$draft['pk']])),
                         'extra_notes' => $draft['n'] ?? '', 'etiology_notes' => $draft['en'] ?? '', 'sign_notes' => $draft['sn'] ?? '',
                     ];
-                    if ($invalidRefs) {
-                        throw new \RuntimeException('Check the assessment details supporting the cause and findings; some references could not be matched.');
-                    }
                 }
                 if (($draft['domain'] ?? null) !== $candidate['domain'] || ($draft['source_id'] ?? null) !== $candidate['source']['id']) {
                     throw new \RuntimeException('The AI returned an unsupported PES domain or source.');
@@ -553,6 +551,12 @@ class PesSuggestionService
                     continue;
                 }
                 $retryLabel = $label;
+                $etiology = $this->component($draft['etiology'] ?? null, null);
+                $signs = $this->component($draft['signs'] ?? null, null);
+                $complete = true;
+                if ($invalidRefs) {
+                    throw new \RuntimeException('Check the assessment details supporting the cause and findings; some references could not be matched.');
+                }
                 $keys = $draft['evidence_used'] ?? null;
                 if (! is_array($keys) || $keys === []) {
                     throw new \RuntimeException('Supporting references were not supplied with this draft; check the Assessment and cite the relevant findings.');
@@ -617,8 +621,6 @@ class PesSuggestionService
                     && array_intersect($requiredCandidates, array_column($this->eligibility->eligible($signEvidence), 'candidate_id')) === []) {
                     $reviewReasons[] = 'Confirm that the cited findings support this nutrition problem.';
                 }
-                $etiology = $this->component($draft['etiology'] ?? null, null);
-                $signs = $this->component($draft['signs'] ?? null, null);
                 $reportedReview = $this->component($draft['review_reason'] ?? '', null, true);
                 $uncertainCause = (bool) preg_match('/^(possible|suspected|potential)\b/i', $etiology);
                 if ($reportedReview !== '') {
@@ -768,7 +770,7 @@ class PesSuggestionService
             } catch (\RuntimeException $error) {
                 $invalid = true;
                 // Clinical checks determine the upper lane; retain readable originals for RND investigation.
-                if (is_array($draft) && is_string($id) && $byId->has($id)
+                if ($complete && is_array($draft) && is_string($id) && $byId->has($id)
                     && is_string($draft['etiology'] ?? null) && trim($draft['etiology']) !== ''
                     && is_string($draft['signs'] ?? null) && trim($draft['signs']) !== '') {
                     $candidate = $byId[$id];
@@ -855,7 +857,7 @@ class PesSuggestionService
         if ($optional && $limit !== null && mb_strlen($text) > $limit) {
             return '';
         }
-        if (! $optional && $text === '') {
+        if (! $optional && ($text === '' || preg_match('/^x+$/i', $text))) {
             throw new \RuntimeException('The AI returned an incomplete PES statement.');
         }
         if ($limit !== null && mb_strlen($text) > $limit) {

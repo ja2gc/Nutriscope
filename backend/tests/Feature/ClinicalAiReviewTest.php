@@ -19,6 +19,18 @@ use Tests\TestCase;
 
 class ClinicalAiReviewTest extends TestCase
 {
+    public function test_placeholder_components_are_withheld_from_both_draft_lanes(): void
+    {
+        foreach ([['etiology' => 'x'], ['signs' => 'X'], ['etiology' => 'x', 'signs' => 'x', 'etiology_evidence' => ['unknown_field']]] as $components) {
+            $record = $this->record();
+            $this->provider([[...$this->draft(), ...$components, 'review_reason' => 'Check the proposed cause.']]);
+            $this->postJson("/api/rnd/ncp-records/{$record->uuid}/diagnoses/ai-suggest")->assertOk()
+                ->assertJsonCount(0, 'data')->assertJsonCount(0, 'review_drafts')
+                ->assertJsonPath('meta.can_retry', true);
+            Http::assertSentCount(1);
+        }
+    }
+
     public function test_uncited_measurement_prompts_review_of_other_fields_without_claiming_it_was_invented(): void
     {
         $record = $this->record();
