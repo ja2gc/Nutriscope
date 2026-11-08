@@ -84,7 +84,7 @@ The retained clinical templates include their existing example names/content. Th
 | `FoodItemsSeeder` | Synchronizes the pinned local USDA-derived clinical foods; preserves unrelated manual foods; no network access |
 | `ClinicalRulesSeeder` | Synchronizes canonical clinical rules and removes obsolete rule identities |
 | `RecipeSeeder`, `FoodItemPricesSeeder`, `InterventionMealPlanTemplateSeeder` | Retained clinical definitions and illustrative prices, scoped as described above; canonical recipe ingredients/template lines are synchronized |
-| `FsCatalogSeeder` | Creates missing ingredients/supplies and the supplier named in the purchasing forms; preserves matching existing catalog records |
+| `FsCatalogSeeder` | Creates missing ingredients/supplies with prices per named buying format and the supplier named in the purchasing forms; preserves matching existing catalog records; stops for review of recognizable older production package definitions |
 | `FoodServiceRecipeSeeder` | Creates missing food-service recipes with 50-serving baselines; preserves existing recipes and ingredient edits |
 | `FoodServiceMenuTemplateSeeder` | Creates missing September menu-post rotations; preserves existing templates and their lines |
 | `AiUsageLimitSeeder` | Initializes missing usage settings; preserves existing settings |
@@ -140,12 +140,16 @@ vendor/bin/phpunit tests/Feature/DatabaseSeederRepeatabilityTest.php
 vendor/bin/phpunit
 ```
 
-The production tests check Admin-only initialization, no operational history, all 84 planned meal cells, grocery exclusions, compatible units, 50-to-100 scaling, retained clinical references, edited-record preservation and the production demo guard. The repeatability test exercises the full optional demo sequence twice. Neither test command is an instruction to seed a running website.
+The production tests check Admin-only initialization, no operational history, all 84 planned meal cells, grocery exclusions, compatible package units/costs, 50-to-100 scaling, retained clinical references, edited-record preservation, older-package review and the production demo guard. The repeatability test exercises the full optional demo sequence twice. Neither test command is an instruction to seed a running website.
 
 ## Existing installations and normal releases
 
 For a server transfer, restore the coherent database/protected-file set, preserve keys and existing accounts, and follow [turnover](turnover.md#existing-system-migration-sequence). Do not reseed as a substitute for restoration.
 
 The normal [release script](../../backend/docker-release.sh) applies migrations and runs census catch-up. It does not run production or demo seeders and has no dependency on demo accounts or demo recipes. Adding missing references to an existing institution is an explicit maintenance operation; review the synchronization behavior above first. Existing demo records are not automatically removed by the production seeder.
+
+If default seeding reports **Review the existing packaged Inventory items**, it found recognizable older production definitions using generic names and measured-unit prices. The full default seed rolls back; it does not add parallel package references or rewrite linked quantities. Repeating the command will not perform a conversion.
+
+Review that database on a restored local copy first. For each affected item, establish the actual package, price per package and matching recipe amounts; review direct-item portions in editable menus and templates as well. Inventory's unit-correction workflow can update incompatible editable recipe/menu ingredients, but a catalog rename alone cannot determine new quantities or package yields. Preserve staff edits and frozen purchasing/service history. Apply the reviewed correction through an explicitly authorized maintenance operation, then rerun the default seed if missing references are still needed. Do not delete institutional records, change only unit labels, or switch to demo seeding to bypass the check. A new production-style installation uses the default seed directly on its clean database.
 
 Related: [database maintenance](../developers/platform/database.md), [food-service data](../developers/food-service/data.md), [NCP data](../developers/ncp/data.md).

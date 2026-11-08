@@ -33,12 +33,15 @@ class FoodServiceRecipeSeeder extends Seeder
 
         DB::transaction(function () use ($data, $items, $owner): void {
             foreach ($data['recipes'] as $name => $definition) {
+                $hasPackages = array_intersect_key($definition['ingredients'], $data['package_notes']) !== [];
                 $recipe = FoodServiceRecipe::query()->firstOrCreate(['name' => $name], [
                     'rnd_user_id' => $owner->id,
                     'category' => 'meal',
                     'servings' => 50,
                     'portion_label' => $definition['portion'] ?? '1 serving',
-                    'prep_notes' => 'Estimated 50-serving kitchen baseline using raw ingredient amounts. Adjust after a measured kitchen batch. Salt and pepper are adjusted to taste. '.($definition['notes'] ?? ''),
+                    'prep_notes' => 'Estimated 50-serving kitchen baseline using raw ingredient amounts. Adjust after a measured kitchen batch. Salt and pepper are adjusted to taste. '
+                        .($hasPackages ? 'Package counts and fractions are estimates. Confirm the supplied package contents and drained yields; staff divide and portion as needed. ' : '')
+                        .($definition['notes'] ?? ''),
                 ]);
                 if (! $recipe->wasRecentlyCreated) {
                     continue;

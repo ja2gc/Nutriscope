@@ -35,7 +35,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { VendorChangeControls } from "@/components/foodservice/VendorChangeControls";
 import { PurchaseValueComparison } from "@/components/foodservice/PurchaseValueComparison";
 import { ShoppingListCopyCard } from "@/components/foodservice/ShoppingListCopyCard";
-import { compatibleRecipeUnits, foodServiceUnitFactor } from "@/lib/foodServiceUnits";
+import { compatibleRecipeUnits, foodServiceUnitFactor, isCountPurchaseUnit } from "@/lib/foodServiceUnits";
 import { addCalendarDays, manilaCalendarToday } from "@/lib/calendarDate";
 import { quantityInputValue } from "@/lib/foodServiceFormat";
 
@@ -121,8 +121,12 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
   const [nameDraft, setNameDraft] = useState("");
   const [addingItem, setAddingItem] = useState(false);
   const [itemDrafts, setItemDrafts] = useState<Record<string, { qty?: string; price?: string; total?: string }>>({});
+  const [roundingUndo, setRoundingUndo] = useState<Record<string, Pick<ShoppingListItem, 'purchase_qty' | 'quantity_mode'> & { rounding_quantity: string }> | null>(null);
+  const [roundingAction, setRoundingAction] = useState<'original' | 'up' | 'down'>('original');
 
   const load = useCallback(() => {
+    setRoundingUndo(null);
+    setRoundingAction('original');
     if (id) {
       getShoppingList(id).then((saved) => { setList(saved); setSavedSnapshot(shoppingSnapshot(saved)); });
     } else if (initialDraft) {
@@ -153,6 +157,9 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
   useEffect(() => { load(); }, [load]);
 
   function patchItem(itemId: string, patch: Parameters<typeof updateListItem>[1]) {
+    if (patch.included_in_po !== undefined || patch.purchase_unit !== undefined) setRoundingUndo(null);
+    else if (patch.purchase_qty !== undefined) setRoundingUndo((current) => current?.[itemId]
+      ? { ...current, [itemId]: { ...current[itemId], rounding_quantity: String(patch.purchase_qty) } } : current);
     setList((current) => current ? { ...current, items: current.items.map((item) => {
       if (item.id !== itemId) return item;
       let next: ShoppingListItem = { ...item, ...patch as Partial<ShoppingListItem> };
@@ -171,6 +178,8 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
   }
 
   function resetGeneratedItems() {
+    setRoundingUndo(null);
+    setRoundingAction('original');
     setList((current) => current ? { ...current, items: current.items.map((item) => {
       if (item.source !== 'generated' || !item.generation_baseline) return item;
       const baseline = item.generation_baseline;
@@ -197,6 +206,8 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
   }
 
   function scaleServings(value: string) {
+    setRoundingUndo(null);
+    setRoundingAction('original');
     setServingsInput(value);
     const population = Number(value);
     if (!Number.isInteger(population) || population < 1) return;
@@ -277,6 +288,7 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
   }
 
   function removeItem(itemId: string) {
+    setRoundingUndo(null);
     setList((current) => current ? { ...current, items: current.items.filter((item) => item.id !== itemId) } : current);
   }
 
@@ -328,6 +340,8 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
       setList(saved);
       setSavedSnapshot(shoppingSnapshot(saved));
       setItemDrafts({});
+      setRoundingUndo(null);
+      setRoundingAction('original');
       setEditingName(false);
       setServingsInput(null);
       onSaved(saved);
@@ -350,6 +364,46 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
   if (!list) return <SectionLoading label="Loading shopping list…" skeleton />;
 
   const isSupplies = list.procurement_track === "supplies";
+  const fractionalPackages = list.status === 'draft' && list.list_type === 'suggested' && !isSupplies
+    ? list.items.filter((item) => {
+      const quantity = num(item.purchase_qty ?? item.qty);
+      const draft = itemDrafts[item.id];
+      const validDraft = [draft?.qty, draft?.total].every((value) => value === undefined || value.trim() !== '' && Number.isFinite(Number(value)) && Number(value) >= 0);
+      return item.included_in_po && validDraft && isCountPurchaseUnit(item.purchase_unit ?? item.unit)
+        && Number.isFinite(quantity) && quantity > 0 && !Number.isInteger(Number(quantity.toFixed(6)));
+    }) : [];
+  const reviewIds = new Set([...fractionalPackages.map((item) => item.id), ...Object.keys(roundingUndo ?? {})]);
+  const orderedItems = [...list.items.filter((item) => reviewIds.has(item.id)), ...list.items.filter((item) => !reviewIds.has(item.id))];
+  const invalidPackageDraft = [...reviewIds].some((id) => Object.values(itemDrafts[id] ?? {}).some((value) => value !== undefined && (!value.trim() || !Number.isFinite(Number(value)) || Number(value) < 0)));
+
+  function roundPackages(direction: 'up' | 'down') {
+    if (!list) return;
+    const originals = { ...roundingUndo };
+    for (const item of fractionalPackages) {
+      originals[item.id] ??= { purchase_qty: item.purchase_qty ?? item.qty, quantity_mode: item.quantity_mode, rounding_quantity: item.purchase_qty ?? item.qty };
+    }
+    const ids = new Set(Object.keys(originals));
+    if (ids.size === 0) return;
+    setRoundingUndo(originals);
+    setList({ ...list, items: list.items.map((item) => {
+      const original = originals[item.id];
+      if (!original) return item;
+      const quantity = (direction === 'up' ? Math.ceil : Math.floor)(Number(num(original.rounding_quantity).toFixed(6)));
+      return { ...item, purchase_qty: String(quantity), quantity_mode: 'manual', total: (quantity * num(item.purchase_price ?? item.unit_price)).toFixed(2) };
+    }) });
+    setItemDrafts((current) => Object.fromEntries(Object.entries(current).map(([id, draft]) => [id, ids.has(id) ? { price: draft.price } : draft])));
+    setSaveError('');
+  }
+
+  function undoRounding() {
+    if (!list || !roundingUndo) return;
+    setList({ ...list, items: list.items.map((item) => {
+      const previous = roundingUndo[item.id];
+      return previous ? { ...item, purchase_qty: previous.purchase_qty, quantity_mode: previous.quantity_mode, total: (num(previous.purchase_qty) * num(item.purchase_price ?? item.unit_price)).toFixed(2) } : item;
+    }) });
+    setItemDrafts((current) => Object.fromEntries(Object.entries(current).map(([id, draft]) => [id, roundingUndo[id] ? { price: draft.price } : draft])));
+    setRoundingUndo(null);
+  }
   const estimatedTotal = list.items.filter((item) => item.included_in_po).reduce((sum, item) => sum + num(item.total), 0);
   const budgetPerHeadPerDay = list.estimate_population && list.days_span
     ? estimatedTotal / (list.estimate_population * list.days_span) : null;
@@ -416,7 +470,7 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
 
       {/* One estimate applies to every covered service day. */}
       {!isSupplies && list.period_start && list.period_end && (
-        <div className="overflow-hidden rounded-2xl border border-warm-200 bg-white p-3 shadow-sm">
+        <div className="border-b border-warm-200 pb-5 lg:rounded-2xl lg:border lg:bg-white lg:p-3 lg:shadow-sm">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-5">
             <div className="min-w-0 flex flex-col gap-1">
               <div className="flex items-center gap-1">
@@ -465,7 +519,7 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
       {/* Total for supplies list */}
       {isSupplies && (
         <div className="flex items-center gap-3">
-          <div className="px-4 py-2.5 rounded-xl border bg-emerald-50 border-emerald-200 text-emerald-700 text-sm font-semibold flex items-center gap-2">
+          <div className="text-emerald-700 text-sm font-semibold flex items-center gap-2 lg:rounded-xl lg:border lg:border-emerald-200 lg:bg-emerald-50 lg:px-4 lg:py-2.5">
             <span className="text-lg font-extrabold">{peso(estimatedTotal)}</span>
             <span className="opacity-70">total</span>
           </div>
@@ -474,7 +528,7 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
 
       {/* Manual additions work for food and supply lists. */}
       {list.status === "draft" && (
-        <div className="bg-white border border-warm-200 rounded-2xl p-4 shadow-sm">
+        <div className="border-b border-warm-200 pb-5 lg:rounded-2xl lg:border lg:bg-white lg:p-4 lg:shadow-sm">
           <div className="text-xs font-extrabold text-warm-500 uppercase tracking-wider mb-3">Add {isSupplies ? "supply" : "food"} item</div>
           <div className="flex flex-wrap items-end gap-3">
             <div className="min-w-48 flex-1">
@@ -501,20 +555,47 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
       {itemPickerOpen && <MenuItemPicker title={`Add ${isSupplies ? "supply" : "food"} item`} itemLabel={isSupplies ? "Supply" : "Ingredient"} query={itemSearch} onQueryChange={(value) => { setItemSearch(value); setSelectedItem(null); setItemPickerPage(1); setItemResults([]); }} filters={isSupplies ? undefined : <div className="[&_button]:min-h-11"><ButtonFilterGroup label="Grocery" size="sm" value={groceryFilter} onChange={(value) => { setGroceryFilter(value as typeof groceryFilter); setItemPickerPage(1); setItemResults([]); }} options={[{ value: "", label: "All" }, { value: "non_auto", label: "Non-auto grocery" }, { value: "auto", label: "Auto grocery" }]} /></div>} loading={itemPickerLoading} error={itemError || null} items={itemResults.map((item) => ({ id: item.id, name: item.name, detail: `${item.base_unit} · ${item.unit_cost ? peso(num(item.unit_cost)) : "no price"}` }))} onSelect={(id) => { const item = itemResults.find((result) => result.id === id); if (item) selectManualItem(item); }} onClose={() => setItemPickerOpen(false)} meta={itemPickerMeta} page={itemPickerPage} onPageChange={setItemPickerPage} />}
 
       {/* Cart table */}
-      <div role="region" aria-label="Shopping list items" tabIndex={0} className="min-w-0 w-full max-w-full bg-white border border-warm-200 rounded-2xl shadow-sm overflow-x-auto">
+      {reviewIds.size > 0 && <section aria-label="Fractional packages" className="flex flex-wrap items-end justify-between gap-4 border-t-2 border-warm-300 pt-4">
+        <div>
+          <h2 className="text-sm font-bold text-warm-800">Package quantities</h2>
+          <p role="status" className="text-sm text-warm-500">{fractionalPackages.length > 0
+            ? `${fractionalPackages.length} package${fractionalPackages.length === 1 ? '' : 's'} with a fractional quantity.`
+            : 'Package quantities adjusted. Review before saving.'}</p>
+          <p className="text-sm text-warm-500">Applies only to Packages to review below.</p>
+        </div>
+        <div className="flex w-full min-w-0 flex-wrap items-end gap-2 sm:w-auto">
+          <div className="min-w-0 flex-[1_1_10rem]">
+            <label htmlFor="package-quantity-action" className="mb-1 block text-sm font-semibold text-warm-700">Rounding for these packages</label>
+            <select id="package-quantity-action" aria-label="Rounding for these packages" value={roundingAction} disabled={busy}
+              onChange={(event) => setRoundingAction(event.target.value as typeof roundingAction)}
+              className="min-h-11 w-full rounded-lg border border-warm-200 bg-white px-3 py-2 text-base text-warm-800 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+              <option value="original">Original</option>
+              <option value="up">Round up</option>
+              <option value="down">Round down</option>
+            </select>
+          </div>
+          <Button variant="secondary" aria-label="Apply package rounding" className="min-h-11" disabled={busy || (roundingAction === 'original' ? !roundingUndo : invalidPackageDraft || fractionalPackages.length === 0 && !roundingUndo)}
+            onClick={() => roundingAction === 'original' ? undoRounding() : roundPackages(roundingAction)}>Apply</Button>
+        </div>
+      </section>}
+      <div role="region" aria-label="Shopping list items" tabIndex={0} className="min-w-0 w-full max-w-full border-y border-warm-200 overflow-x-auto lg:rounded-2xl lg:border lg:bg-white lg:shadow-sm">
         <table aria-label="Shopping List purchase items" className="w-full min-w-[1100px] text-sm">
-          <thead className="bg-warm-50 border-b border-warm-100">
+          <thead className="bg-warm-100 border-b border-warm-200">
             <tr>
               {["Buy", "Item", "Purchase Qty", "Unit", "Vendor", "Cost/unit", "Total", ""].map((h) => (
-                <th key={h} className="whitespace-nowrap px-3 py-3 text-left text-xs font-bold text-warm-500 uppercase tracking-wider">{h}</th>
+                <th key={h} className="whitespace-nowrap px-3 py-3 text-left text-xs font-bold text-warm-700 uppercase tracking-wider">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
             {list.items.length === 0 ? (
               <tr><td colSpan={8} className="px-3 py-8 text-center text-warm-400">No items yet.</td></tr>
-            ) : list.items.map((it) => (
-              <tr key={it.id} className={`hover:bg-warm-50/60 ${it.included_in_po ? "" : "opacity-55"}`}>
+            ) : orderedItems.map((it, index) => (
+              <React.Fragment key={it.id}>
+              {reviewIds.size > 0 && (index === 0 || index === reviewIds.size) && <tr className="bg-warm-50">
+                <th id={index === 0 ? 'package-review-heading' : 'other-items-heading'} colSpan={8} scope="colgroup" className="px-3 py-3 text-left text-sm font-bold text-warm-700">{index === 0 ? 'Packages to review' : 'Other items'}</th>
+              </tr>}
+              <tr aria-describedby={reviewIds.size > 0 ? reviewIds.has(it.id) ? 'package-review-heading' : 'other-items-heading' : undefined} className={`hover:bg-warm-50/60 ${it.included_in_po ? "" : "opacity-55"}`}>
                 <td className="px-3 py-2">
                   <input type="checkbox" checked={it.included_in_po} disabled={list.status === "converted"}
                     onChange={(e) => patchItem(it.id, { included_in_po: e.target.checked })}
@@ -577,6 +658,7 @@ function ListDetail({ id, initialDraft, suppliers, onBack, onSaved, onPosGenerat
                   )}
                 </td>
               </tr>
+              </React.Fragment>
             ))}
           </tbody>
           {list.items.length > 0 && (

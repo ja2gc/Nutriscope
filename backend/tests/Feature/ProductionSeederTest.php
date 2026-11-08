@@ -56,7 +56,7 @@ class ProductionSeederTest extends TestCase
         $this->assertGreaterThan(40, FoodServiceRecipe::query()->count());
         $this->assertSame(4, MenuCycleTemplate::query()->count());
         $vendor = DB::table('suppliers')->where('name', 'Noralyn Macaballug, RPDH-MPC')->value('id');
-        $this->assertSame($vendor, FsItem::query()->where('name', 'Egg')->sole()->default_supplier_id);
+        $this->assertSame($vendor, FsItem::query()->where('name', 'Egg (tray)')->sole()->default_supplier_id);
         $this->assertNull(FsItem::query()->where('name', 'Ground beef')->sole()->default_supplier_id);
         foreach (['patients', 'ncp_records', 'menu_cycles', 'shopping_lists', 'purchase_orders', 'budgets', 'budget_ledger', 'announcements', 'notifications', 'sops', 'reports', 'stored_objects', 'activity_log'] as $table) {
             $this->assertSame(0, DB::table($table)->count(), $table.' must not contain seeded operational history.');
@@ -85,10 +85,10 @@ class ProductionSeederTest extends TestCase
                 $this->assertNotSame($line->recipe_id === null, $line->fs_item_id === null);
             }
         }
-        foreach (['Rice', 'Cooking oil', 'Salt', 'Ground black pepper'] as $name) {
+        foreach (['Rice', 'Canola oil (1 L bottle)', 'Salt', 'Ground black pepper'] as $name) {
             $this->assertFalse(FsItem::query()->where('name', $name)->sole()->include_in_generated_lists);
         }
-        foreach (['Soy sauce', 'Vinegar', 'Oyster sauce'] as $name) {
+        foreach (['Soy sauce (1 gallon bottle)', 'Vinegar (1 gallon bottle)', 'Oyster sauce (1 L bottle)'] as $name) {
             $this->assertTrue(FsItem::query()->where('name', $name)->sole()->include_in_generated_lists);
         }
         $this->assertFalse(FsItem::query()->where('name', 'like', '%lemongrass%')->exists());
@@ -144,11 +144,61 @@ class ProductionSeederTest extends TestCase
             $this->assertEqualsWithDelta($fifty['total_cost'] * 2, $hundred['total_cost'], 0.02, $recipe->name);
             foreach ($fifty['ingredient_usage'] as $index => $usage) {
                 $this->assertEqualsWithDelta($usage['quantity'] * 2, $hundred['ingredient_usage'][$index]['quantity'], 0.000002);
-                $this->assertNotContains($usage['name'], ['Rice', 'Cooking oil', 'Salt', 'Ground black pepper']);
+                $this->assertNotContains($usage['name'], ['Rice', 'Canola oil (1 L bottle)', 'Salt', 'Ground black pepper']);
             }
         }
         $mami = FoodServiceRecipe::query()->where('name', 'Mami')->sole();
-        $this->assertTrue($mami->ingredients()->whereHas('fsItem', fn ($query) => $query->where('name', 'Fresh miki noodles'))->exists());
+        $this->assertTrue($mami->ingredients()->whereHas('fsItem', fn ($query) => $query->where('name', 'Fresh miki noodles (pack)'))->exists());
+    }
+
+    public function test_packaged_recipes_use_purchased_containers_and_keep_their_costs_when_scaled(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+        $bread = FsItem::query()->where('name', 'Sliced loaf bread (1 loaf)')->sole();
+        $this->assertSame('pack', $bread->base_unit);
+        $this->assertSame(80.0, (float) $bread->purchase_price);
+        $soy = FsItem::query()->where('name', 'Soy sauce (1 gallon bottle)')->sole();
+        $this->assertSame('pc', $soy->base_unit);
+        $this->assertSame(245.0, (float) $soy->purchase_price);
+        $this->assertTrue($soy->include_in_generated_lists);
+        $oil = FsItem::query()->where('name', 'Canola oil (1 L bottle)')->sole();
+        $this->assertSame('pc', $oil->base_unit);
+        $this->assertFalse($oil->include_in_generated_lists);
+        $this->assertSame(170.0, (float) $oil->purchase_price);
+        foreach (['Evaporated milk (can)' => 70, 'Tuna flakes (can)' => 115, 'Mayonnaise (bottle)' => 245] as $name => $price) {
+            $item = FsItem::query()->where('name', $name)->sole();
+            $this->assertSame('pc', $item->base_unit);
+            $this->assertSame((float) $price, (float) $item->purchase_price);
+            $this->assertStringContainsString('not specified', $item->notes);
+        }
+        $sandwich = FoodServiceRecipe::query()->where('name', 'Tuna Sandwich')->sole();
+        $ingredient = $sandwich->ingredients()->where('fs_item_id', $bread->id)->sole();
+        $this->assertSame('pack', $ingredient->unit);
+        $this->assertSame(5.0, (float) $ingredient->quantity);
+        $fifty = collect(MenuCycleCostService::recipeProfile($sandwich, 50)['ingredient_usage'])->keyBy('name');
+        $hundred = collect(MenuCycleCostService::recipeProfile($sandwich, 100)['ingredient_usage'])->keyBy('name');
+        $this->assertSame(5.0, (float) $fifty[$bread->name]['quantity']);
+        $this->assertSame(400.0, (float) $fifty[$bread->name]['cost']);
+        $this->assertSame(10.0, (float) $hundred[$bread->name]['quantity']);
+        $this->assertSame(800.0, (float) $hundred[$bread->name]['cost']);
+        $this->assertFalse(FsItem::query()->whereIn('name', ['Sliced loaf bread', 'Soy sauce', 'Evaporated milk', 'Cooking oil'])->exists());
+    }
+
+    public function test_older_seed_units_require_review_before_new_references_are_added(): void
+    {
+        FsItem::factory()->create([
+            'name' => 'Soy sauce', 'base_unit' => 'L', 'purchase_unit' => 'L', 'purchase_price' => 80,
+            'notes' => 'September 2026 reference price in the stated unit. Update to the current supplier price before purchasing.',
+        ]);
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Review the existing packaged Inventory items');
+        try {
+            $this->seed(DatabaseSeeder::class);
+        } finally {
+            $this->assertSame(1, FsItem::query()->count());
+            $this->assertSame(0, User::query()->count());
+            $this->assertSame(0, FoodServiceRecipe::query()->count());
+        }
     }
 
     public function test_initial_admin_requires_supplied_details_and_never_uses_demo_credentials(): void

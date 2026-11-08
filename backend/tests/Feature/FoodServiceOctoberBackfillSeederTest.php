@@ -12,7 +12,7 @@ use Carbon\CarbonImmutable;
 use Database\Seeders\Demo\AdminUserSeeder;
 use Database\Seeders\Demo\FoodServiceDemoSeeder;
 use Database\Seeders\Demo\FoodServiceOctoberBackfillSeeder;
-use Database\Seeders\FsCatalogSeeder;
+use Database\Seeders\Demo\FsCatalogSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -33,6 +33,7 @@ class FoodServiceOctoberBackfillSeederTest extends TestCase
         CarbonImmutable::setTestNow('2026-09-21 12:00:00 Asia/Manila');
         $this->seed(AdminUserSeeder::class);
         $this->seed(FsCatalogSeeder::class);
+        $this->assertDatabaseHas('fs_items', ['name' => 'Egg', 'base_unit' => 'pc']);
         $this->seed(FoodServiceDemoSeeder::class);
 
         $existingMenu = MenuCycle::query()->whereDate('week_start_date', '2026-09-21')->sole();

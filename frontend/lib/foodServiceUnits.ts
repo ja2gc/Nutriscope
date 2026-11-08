@@ -5,6 +5,10 @@ const volume: Record<string, number> = { ml: 1, milliliter: 1, millilitre: 1, cc
 const recipeUnits = [...CATALOG_UNIT_OPTIONS.filter((unit) => unit !== "sack"), "cup", "oz", "tbsp", "tsp"];
 const normalize = (unit: string) => unit.trim().toLowerCase();
 
+export function isCountPurchaseUnit(unit: string): boolean {
+  return ["pc", "piece", "pieces", "pcs", "pack", "bundle", "tray", "unit"].includes(normalize(unit));
+}
+
 export function foodServiceUnitFactor(from: string, to: string): number | null {
   const source = normalize(from);
   const target = normalize(to);

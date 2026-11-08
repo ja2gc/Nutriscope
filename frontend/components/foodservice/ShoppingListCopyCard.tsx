@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { ChevronDown, Copy } from "lucide-react";
-import { Card } from "@/components/ui/Card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { formatFoodServiceNumber } from "@/lib/foodServiceFormat";
 import type { ShoppingListItem } from "@/services/procurementService";
@@ -30,12 +29,12 @@ export function ShoppingListCopyCard({ items }: { items: CopyItem[] }) {
   }
 
   return (
-    <Card className="overflow-hidden p-0">
+    <section aria-label="Shopping list summary" className="min-w-0 border-b border-warm-200 pb-3 lg:rounded-2xl lg:border lg:bg-white lg:p-0 lg:shadow-sm">
       <Collapsible open={open} onOpenChange={setOpen}>
-        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 lg:px-3 lg:py-2">
           <CollapsibleTrigger asChild>
             <button type="button" aria-label={open ? "Hide shopping list" : "Show shopping list"}
-              className="flex min-h-10 min-w-40 flex-1 cursor-pointer items-center justify-between gap-2 rounded-lg px-2 text-left transition-colors hover:bg-warm-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500/30">
+              className="flex min-h-11 min-w-40 flex-1 cursor-pointer items-center justify-between gap-2 rounded-lg text-left transition-colors hover:bg-warm-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500/30 lg:px-2">
               <span className="text-xs font-extrabold uppercase tracking-wider text-warm-600">Shopping list <span className="font-semibold text-warm-400">({items.length})</span></span>
               <ChevronDown className={`h-4 w-4 shrink-0 text-warm-400 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
             </button>
@@ -46,7 +45,7 @@ export function ShoppingListCopyCard({ items }: { items: CopyItem[] }) {
             {copied ? "Copied" : "Copy list"}
           </button>
         </div>
-        <CollapsibleContent className="border-t border-warm-100 px-3 py-2">
+        <CollapsibleContent className="pt-3 lg:border-t lg:border-warm-100 lg:px-3 lg:py-2">
           {items.length > 0 ? (
             <div>
               <div className="mb-1 flex items-center justify-between border-b border-warm-100 pb-1 text-xs font-bold uppercase tracking-wider text-warm-400">
@@ -54,7 +53,7 @@ export function ShoppingListCopyCard({ items }: { items: CopyItem[] }) {
               </div>
               <ul aria-label="Shopping list items" className="grid grid-cols-1 gap-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                 {items.map((item) => (
-                  <li key={item.id} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-warm-100 px-2 py-1 text-sm leading-5 text-warm-800">
+                  <li key={item.id} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-warm-100 py-2 text-sm leading-5 text-warm-800 lg:rounded-lg lg:border lg:px-2 lg:py-1">
                     <span className="min-w-0 break-words">{item.ingredient_name}</span>
                     <span className="whitespace-nowrap font-mono tabular-nums">{formatFoodServiceNumber(item.purchase_qty ?? item.qty)} {item.purchase_unit ?? item.unit}</span>
                   </li>
@@ -66,6 +65,6 @@ export function ShoppingListCopyCard({ items }: { items: CopyItem[] }) {
           {copyError && <p role="alert" className="mt-1 text-xs font-semibold text-red-600">{copyError}</p>}
         </CollapsibleContent>
       </Collapsible>
-    </Card>
+    </section>
   );
 }

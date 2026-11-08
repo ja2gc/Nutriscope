@@ -83,7 +83,7 @@ export default function RndLayout({
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-warm-50 font-sans">
+    <div className="flex h-screen overflow-hidden bg-white font-sans lg:bg-warm-50">
       {/* Persistent Left Sidebar */}
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 

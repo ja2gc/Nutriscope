@@ -218,6 +218,126 @@ describe("Food Service procurement display", () => {
     expect(Number(container.querySelector<HTMLInputElement>('[aria-label="Purchase quantity for Rice"]')?.value)).toBe(40);
   });
 
+  function packageList(overrides: Partial<ShoppingList> = {}): ShoppingList {
+    return makeList({ list_type: 'suggested', estimate_population: 50,
+      period_start: '2026-10-04', period_end: '2026-10-04', days_span: 1,
+      items: [
+        ['bread', 'Bread (1 loaf)', 'pack', '2.5', true],
+        ['soy', 'Soy sauce (1 gallon bottle)', 'pc', '0.25', true],
+        ['bundle', 'Bihon (bundle)', 'bundle', '1.5', true],
+        ['tray', 'Eggs (tray)', 'tray', '1.5', true],
+        ['unit', 'Meal boxes (carton)', 'unit', '1.5', true],
+        ['mass', 'Meat', 'kg', '2.5', true],
+        ['volume', 'Milk', 'L', '0.5', true],
+        ['whole', 'Pandesal', 'pc', '50', true],
+        ['excluded', 'Available cans', 'pc', '0.5', false],
+      ].map(([id, name, unit, qty, included]) => ({
+        id: String(id), fs_item_id: 1, fs_item_uuid: String(id), ingredient_name: String(name),
+        source: 'generated', item_type: 'ingredient', qty: String(qty), unit: String(unit),
+        purchase_qty: String(qty), purchase_unit: String(unit), purchase_price: '10', unit_price: '10',
+        total: String(Number(qty) * 10), supplier_id: null, included_in_po: Boolean(included), exclusion_note: null,
+        generation_baseline: { estimate_population: 50, qty: Number(qty), unit: String(unit), unit_price: 10,
+          purchase_qty: Number(qty), purchase_unit: String(unit), purchase_price: 10, supplier_id: null,
+          scaled_quantity: Number(qty), scaled_unit: String(unit) },
+      })), ...overrides });
+  }
+
+  const buttonNamed = (label: string) => Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(button => button.textContent?.trim() === label);
+  const purchaseInput = (name: string) => container.querySelector<HTMLInputElement>(`[aria-label="Purchase quantity for ${name}"]`)!;
+  async function chooseRounding(value: string) {
+    const select = container.querySelector<HTMLSelectElement>('[aria-label="Rounding for these packages"]')!;
+    expect(select).not.toBeNull();
+    await act(async () => { select.value = value; select.dispatchEvent(new Event('change', { bubbles: true })); });
+  }
+  async function applyRounding(value: string) {
+    await chooseRounding(value);
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Apply package rounding"]')!.click());
+  }
+
+  test('groups only fractional included packages and rounds every package up in one click before saving', async () => {
+    await openList(packageList());
+    const group = container.querySelector('[aria-label="Fractional packages"]');
+    expect(group).not.toBeNull();
+    expect(purchaseInput('Soy sauce (1 gallon bottle)').closest('tr')?.getAttribute('aria-describedby')).toBe('package-review-heading');
+    for (const name of ['Meat', 'Milk', 'Pandesal', 'Available cans']) {
+      expect(purchaseInput(name).closest('tr')?.getAttribute('aria-describedby')).toBe('other-items-heading');
+    }
+    await chooseRounding('up');
+    expect(Number(purchaseInput('Bread (1 loaf)').value)).toBe(2.5);
+    expect(Number(purchaseInput('Soy sauce (1 gallon bottle)').value)).toBe(0.25);
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Apply package rounding"]')!.click());
+    expect(Number(purchaseInput('Bread (1 loaf)').value)).toBe(3);
+    expect(Number(purchaseInput('Soy sauce (1 gallon bottle)').value)).toBe(1);
+    for (const name of ['Bihon (bundle)', 'Eggs (tray)', 'Meal boxes (carton)']) expect(Number(purchaseInput(name).value)).toBe(2);
+    expect(Number(purchaseInput('Meat').value)).toBe(2.5);
+    expect(Number(purchaseInput('Milk').value)).toBe(0.5);
+    expect(Number(purchaseInput('Available cans').value)).toBe(0.5);
+    expect(Number(container.querySelector<HTMLInputElement>('[aria-label="Total for Bread (1 loaf)"]')!.value)).toBe(30);
+    await act(async () => buttonNamed('Save Shopping List')!.click());
+    const items = mockUpdateShoppingList.mock.calls[0][1].items!;
+    expect(items.find(item => item.id === 'bread')).toMatchObject({ purchase_qty: 3, quantity_mode: 'manual' });
+    expect(items.find(item => item.id === 'soy')).toMatchObject({ purchase_qty: 1, purchase_unit: 'pc' });
+  });
+
+  test('rounds all packages down including to zero and can undo to the exact prior quantities', async () => {
+    await openList(packageList());
+    await applyRounding('up');
+    await chooseRounding('down');
+    expect(Number(purchaseInput('Soy sauce (1 gallon bottle)').value)).toBe(1);
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Apply package rounding"]')!.click());
+    expect(Number(purchaseInput('Bread (1 loaf)').value)).toBe(2);
+    expect(Number(purchaseInput('Soy sauce (1 gallon bottle)').value)).toBe(0);
+    expect(Number(purchaseInput('Bihon (bundle)').value)).toBe(1);
+    await chooseRounding('original');
+    expect(Number(purchaseInput('Bread (1 loaf)').value)).toBe(2);
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Apply package rounding"]')!.click());
+    expect(Number(purchaseInput('Bread (1 loaf)').value)).toBe(2.5);
+    expect(Number(purchaseInput('Soy sauce (1 gallon bottle)').value)).toBe(0.25);
+    expect(Number(container.querySelector<HTMLInputElement>('[aria-label="Total for Soy sauce (1 gallon bottle)"]')!.value)).toBe(2.5);
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Back to Shopping Lists"]')!.click());
+    expect(container.querySelector('[aria-label="Unsaved Shopping List"]')).toBeNull();
+  });
+
+  test('reset restores the generated package suggestions after bulk rounding and a new population', async () => {
+    await openList(packageList());
+    await applyRounding('up');
+    await act(async () => setInputValue(container.querySelector<HTMLInputElement>('[aria-label="Estimated servings"]')!, '100'));
+    expect(Number(purchaseInput('Bread (1 loaf)').value)).toBe(6);
+    await act(async () => buttonNamed('Reset generated items')!.click());
+    expect(Number(purchaseInput('Bread (1 loaf)').value)).toBe(5);
+    expect(Number(purchaseInput('Soy sauce (1 gallon bottle)').value)).toBe(0.5);
+    await chooseRounding('original');
+    expect(container.querySelector<HTMLButtonElement>('[aria-label="Apply package rounding"]')!.disabled).toBe(true);
+  });
+
+  test('rounds a manually edited package only on Apply and can still restore the pre-rounding quantities', async () => {
+    await openList(packageList());
+    await applyRounding('up');
+    await act(async () => setInputValue(purchaseInput('Bread (1 loaf)'), '4.5'));
+    await chooseRounding('down');
+    expect(Number(purchaseInput('Bread (1 loaf)').value)).toBe(4.5);
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Apply package rounding"]')!.click());
+    expect(Number(purchaseInput('Bread (1 loaf)').value)).toBe(4);
+    await applyRounding('original');
+    expect(Number(purchaseInput('Bread (1 loaf)').value)).toBe(2.5);
+    expect(Number(purchaseInput('Soy sauce (1 gallon bottle)').value)).toBe(0.25);
+  });
+
+  test('keeps package inputs mounted when a manual edit resolves the fractional quantity', async () => {
+    await openList(packageList());
+    const input = purchaseInput('Bread (1 loaf)');
+    input.focus();
+    await act(async () => setInputValue(input, '3'));
+    expect(document.activeElement).toBe(input);
+    expect(purchaseInput('Bread (1 loaf)')).toBe(input);
+  });
+
+  test.each([{ status: 'converted' as const }, { list_type: 'manual' as const }])('does not offer bulk rounding outside a suggested draft: %j', async (overrides) => {
+    await openList(packageList(overrides));
+    expect(container.querySelector('[aria-label="Rounding for these packages"]')).toBeNull();
+    expect(container.querySelector('[aria-label="Apply package rounding"]')).toBeNull();
+  });
+
   async function openPurchaseOrder(overrides: Partial<PurchaseOrder> = {}) {
     const po = makePo(overrides);
     mockListPurchaseOrders.mockResolvedValue({ data: [po], meta });
