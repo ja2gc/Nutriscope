@@ -9,7 +9,7 @@ class AiUsageLimitSeeder extends Seeder
 {
     public function run(): void
     {
-        AiUsageLimit::current()->update([
+        AiUsageLimit::query()->firstOrCreate([], [
             'daily_token_limit' => 35_000,
             'monthly_token_limit' => 1_000_000,
             'input_cost_per_1m_tokens_usd' => 0.1,

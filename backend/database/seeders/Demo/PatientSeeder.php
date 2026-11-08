@@ -1,6 +1,6 @@
 <?php
 
-namespace Database\Seeders;
+namespace Database\Seeders\Demo;
 
 use App\Models\Assessment;
 use App\Models\BiochemicalData;
@@ -19,7 +19,6 @@ use App\Services\MealPlanService;
 use App\Services\RiskScoreCalculator;
 use App\Support\InterventionGuidance;
 use Carbon\Carbon;
-use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -36,7 +35,7 @@ use Illuminate\Support\Facades\DB;
  * Rebuilds each demo clinical graph while retaining the stable patient row keyed
  * by hospital number.
  */
-class PatientSeeder extends Seeder
+class PatientSeeder extends DemoSeeder
 {
     public function run(): void
     {

@@ -186,7 +186,7 @@ config --quiet validates without printing resolved secret values. Never paste pl
 
 The following start services and may write data. Take the approved branch:
 - **Move existing data:** pause old writers, capture/restore a coherent MySQL+file set at the compatible revision and preserve keys, following [turnover](turnover.md). Complete that reviewed transfer before release migrations. Do not seed demo data.
-- **Fresh installation:** follow [initial data and seeding](initial-data.md) before the full release. The current template seeder requires an RND and specific food-service dishes. The default `DatabaseSeeder` includes exhibition identities/patients/history and is not a clean-client bootstrap. If institutional initialization has not been supplied, stop before release. The isolated exhibition commands are documented separately on that page.
+- **Fresh installation:** follow [initial data and seeding](initial-data.md) before enabling public traffic and scheduled writers. Configure the initial Admin privately, apply migrations and run the production `DatabaseSeeder` for reference data. It creates no fictional patients or operational history. Normal releases do not seed data. Local/demo initialization uses the separate `Database\Seeders\Demo\DatabaseSeeder` on a disposable installation, as documented on that page.
 
 Build the reviewed revision on an existing Linux amd64 build machine or Actions
 runner, not the small production VPS. This uses the existing Dockerfiles and no
@@ -232,7 +232,7 @@ Require both printed image revisions to equal the reviewed source SHA before
 running the release. These are operator instructions, not authorization to run
 them against production.
 
-[Release script](../../backend/docker-release.sh) caches config/routes/views, runs migrate --force, seeds FoodServiceMenuTemplateSeeder and runs demographic-census catch-up. It is a data-changing release step, not just a build. Review its suitability before each migration/transfer.
+[Release script](../../backend/docker-release.sh) caches config/routes/views, runs migrate --force and runs demographic-census catch-up. It does not seed accounts, catalogs or menus. It is a data-changing release step, not just a build. Review its suitability before each migration/transfer; reference initialization is an explicit [separate procedure](initial-data.md).
 
 The archive commands above are a first-host bootstrap/build path, not a second CI system. Subsequent releases use Actions. On an exhibition-only empty database, load the images and then use [the exhibition initialization order](initial-data.md#exhibition-dataset-only) instead of attempting the ordinary release first.
 

@@ -1,17 +1,16 @@
 <?php
 
-namespace Database\Seeders;
+namespace Database\Seeders\Demo;
 
 use App\Models\Sop;
 use App\Models\User;
 use Carbon\Carbon;
-use Illuminate\Database\Seeder;
 
 /**
  * Standard Operating Procedure with a short revision history so the SOP banner +
  * History (audit trail) have data. Append-only: each row is a version; latest = current.
  */
-class SopSeeder extends Seeder
+class SopSeeder extends DemoSeeder
 {
     public function run(): void
     {

@@ -1,16 +1,15 @@
 <?php
 
-namespace Database\Seeders;
+namespace Database\Seeders\Demo;
 
 use App\Models\StoredObject;
 use App\Models\User;
 use App\Services\StoredObjectStorage;
-use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Throwable;
 
-class ProfilePhotoSeeder extends Seeder
+class ProfilePhotoSeeder extends DemoSeeder
 {
     private const DEMO_PHOTOS = [
         'admin@nutriscope.local' => ['asset' => 'admin.jpg', 'original_name' => 'seed-profile-admin-pexels-7780946.jpg'],

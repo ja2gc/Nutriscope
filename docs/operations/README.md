@@ -27,7 +27,7 @@ Follow the linked order rather than running every command on every page. State-c
 
 ## What deployment does
 
-GitHub Actions builds backend/frontend images, transfers them over SSH, updates an **existing** `~/Nutriscope` checkout, runs the release and checks local HTTP/image health. The release runs migrations, food-service menu-template seeding and census catch-up. It does not create provider accounts, provision Ubuntu, clone the repository initially, write production secrets, configure DNS/Nginx/Certbot or create the initial institution accounts and catalog. See [initial data](initial-data.md) before the first full release.
+GitHub Actions builds backend/frontend images, transfers them over SSH, updates an **existing** `~/Nutriscope` checkout, runs the release and checks local HTTP/image health. The release runs migrations and census catch-up; it does not run seeders. It does not create provider accounts, provision Ubuntu, clone the repository initially, write production secrets or configure DNS/Nginx/Certbot. A fresh institution uses the explicit production Admin/reference-data procedure in [initial data](initial-data.md); the same guide separates local demo initialization and automated testing.
 
 The website uses Next.js and Laravel; MySQL, Redis, a queue worker and a scheduler run in Docker. Host Nginx terminates HTTPS. Private uploads use a persistent local volume by default; R2 is the separate backup destination. There is no active Render or OCR service in this Compose deployment.
 

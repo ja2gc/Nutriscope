@@ -36,6 +36,6 @@ npm start
 
 The web server-only LARAVEL_API_URL points to the backend /api endpoint. A physical phone cannot use your workstation's localhost; set EXPO_PUBLIC_API_URL to a reachable **non-production** test endpoint. Check EAS profile env overrides before building.
 
-Do not run composer setup blindly: its script generates a key and migrates. Do not run DatabaseSeeder on an institutional database; it includes demo accounts/patients. Fresh production initialization requires the explicitly reviewed reference-data/admin provisioning list in [turnover](../../operations/turnover.md).
+Do not run composer setup blindly: its script generates a key and migrates. The default `DatabaseSeeder` initializes production references and one explicitly configured Admin. For fictional local patients, staff and food-service history, use `php artisan db:seed --class='Database\Seeders\Demo\DatabaseSeeder'` only against the separate local database. See [initial data and seeding](../../operations/initial-data.md) for production setup, demo credentials, owner-scoped clinical references and rerun behavior. Automated tests require their own [isolated test environment](testing.md#isolation-comes-first).
 
 Related: [testing](testing.md), [environment](../../operations/environment.md), [mobile](../food-service/mobile.md).

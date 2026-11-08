@@ -18,7 +18,7 @@ class ActiveInterventionPlanContractTest extends TestCase
     {
         foreach ([
             app_path('Http/Controllers/RND/MealPlanController.php'),
-            database_path('seeders/PatientSeeder.php'),
+            database_path('seeders/Demo/PatientSeeder.php'),
         ] as $path) {
             $this->assertStringNotContainsString("'intervention_revision_id' =>", file_get_contents($path), $path);
         }

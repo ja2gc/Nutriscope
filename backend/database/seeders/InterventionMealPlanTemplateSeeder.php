@@ -11,6 +11,8 @@ use RuntimeException;
 
 class InterventionMealPlanTemplateSeeder extends Seeder
 {
+    use ResolvesReferenceOwner;
+
     /** Source and clinical-boundary record: docs/logic/intervention-goals.md §15. */
     private const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -37,10 +39,7 @@ class InterventionMealPlanTemplateSeeder extends Seeder
 
     private function seedTemplates(bool $missingOnly = false, ?string $onlyName = null): void
     {
-        $rnd = User::query()->where('role', 'RND')->first();
-        if (! $rnd) {
-            throw new RuntimeException('Intervention templates require a seeded RND user.');
-        }
+        $rnd = $this->referenceOwner();
 
         $recipes = Recipe::query()->with('ingredients.foodItem')->where('rnd_user_id', $rnd->id)->get()->keyBy('name');
 

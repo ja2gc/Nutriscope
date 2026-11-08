@@ -1,12 +1,11 @@
 <?php
 
-namespace Database\Seeders;
+namespace Database\Seeders\Demo;
 
 use App\Models\Announcement;
 use App\Models\User;
-use Illuminate\Database\Seeder;
 
-class AnnouncementSeeder extends Seeder
+class AnnouncementSeeder extends DemoSeeder
 {
     public function run(): void
     {

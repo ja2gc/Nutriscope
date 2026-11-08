@@ -4,12 +4,13 @@ namespace Database\Seeders;
 
 use App\Models\FoodItem;
 use App\Models\Recipe;
-use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
 class RecipeSeeder extends Seeder
 {
+    use ResolvesReferenceOwner;
+
     private const LEGACY_RECIPE_NAMES = [
         'Boiled Chicken Breast with White Rice' => 'Boiled Chicken Breast',
         'Chicken Breast with Brown Rice' => 'Chicken Breast with Pechay',
@@ -29,10 +30,7 @@ class RecipeSeeder extends Seeder
 
     public function run(): void
     {
-        $rnd = User::where('role', 'RND')->first();
-        if (! $rnd) {
-            return;
-        }
+        $rnd = $this->referenceOwner();
 
         $recipes = [
             // ── Soft / Liquid Diet ────────────────────────────────────────────
@@ -520,7 +518,7 @@ class RecipeSeeder extends Seeder
             }
 
             $created = DB::transaction(function () use ($recipeData, $rnd, $ingredientRows, $batchServings): bool {
-                // Update only this canonical demo recipe; unrelated RND recipes survive reruns.
+                // Update only this canonical reference recipe; unrelated RND recipes survive reruns.
                 $recipe = Recipe::updateOrCreate(
                     ['rnd_user_id' => $rnd->id, 'name' => $recipeData['name']],
                     [

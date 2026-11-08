@@ -6,10 +6,10 @@ use App\Models\Announcement;
 use App\Models\Notification;
 use App\Models\Sop;
 use App\Models\User;
-use Database\Seeders\AdminUserSeeder;
-use Database\Seeders\AnnouncementSeeder;
-use Database\Seeders\NotificationSeeder;
-use Database\Seeders\SopSeeder;
+use Database\Seeders\Demo\AdminUserSeeder;
+use Database\Seeders\Demo\AnnouncementSeeder;
+use Database\Seeders\Demo\NotificationSeeder;
+use Database\Seeders\Demo\SopSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 

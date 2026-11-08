@@ -5,7 +5,7 @@ namespace Tests\Feature;
 use App\Models\FoodItem;
 use App\Models\Recipe;
 use App\Services\UsdaService;
-use Database\Seeders\AdminUserSeeder;
+use Database\Seeders\Demo\AdminUserSeeder;
 use Database\Seeders\FoodItemPricesSeeder;
 use Database\Seeders\FoodItemsSeeder;
 use Database\Seeders\RecipeSeeder;

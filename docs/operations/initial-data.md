@@ -1,63 +1,51 @@
 # Initial data and seeding
 
-Document version: 1.0 | Issued: 5 November 2026
+Migrations prepare the schema. Production seeds initialize accounts and reference catalogs. Demo seeds create fictional records for a separate training installation. A restore preserves an existing installation's data and files.
 
-Database migrations create/update the schema. Seeders insert or update application data. Restoring an existing installation is a third operation: it preserves its accounts, records and files. Choose the applicable path before starting worker/scheduler roles or the release.
+## Choose the correct path
 
-## Existing installation transferred to a new VPS
+| Purpose | Use | Result |
+|---|---|---|
+| New production installation | `php artisan db:seed --force` | One initial Admin and production reference data; no fictional patients or operational history |
+| Local development or demonstration | `php artisan db:seed --class='Database\Seeders\Demo\DatabaseSeeder'` | Fictional Admin/RND/FSS accounts, patients, menus, purchasing, attendance and supporting demo content |
+| Automated tests | PHPUnit with an explicitly isolated test database | Each test creates its own required fixtures; no manual demo initialization |
+| Existing installation or server transfer | Restore and normal release procedure | Retains accounts, records, settings and protected files; no automatic seeding |
 
-Follow [turnover](turnover.md#existing-system-migration-sequence). Restore a coherent database and protected-file set, preserve `APP_KEY`, and retain the passwords for historical backups. Do not run `DatabaseSeeder`, `AdminUserSeeder` or a demo reset. Existing institutional administrators remain in the restored database; use **Admin → Manage Users** to create named receiving-team accounts and complete their password/recovery onboarding.
+Production seeders are in [backend/database/seeders](../../backend/database/seeders). Optional demo seeders are in [seeders/Demo](../../backend/database/seeders/Demo). The production food-service definitions are in [data/food-service.php](../../backend/database/seeders/data/food-service.php); the local clinical-food dataset is in the same data directory. Profile/receipt assets under `seeders/assets` belong to the demo path.
 
-After restoring the compatible dataset, the normal release applies pending migrations and runs `FoodServiceMenuTemplateSeeder`. Check that its RND account, food-service catalog and referenced dishes exist before release. Do not use a failed deployment as permission to reseed operational data.
+## Fresh production installation
 
-## New empty database
+These commands change the selected database. Use them only for the approved new installation, after confirming its database, configuration and protected storage. Keep public traffic and scheduled writers stopped until setup is complete.
 
-The repository does not contain a dedicated institution-only bootstrap command. Do not describe `php artisan db:seed --force` as a clean production initialization: the default seeder creates exhibition accounts, fictional patients and operational history. A new empty database also cannot complete the normal release until its menu-template dependencies exist.
-
-Before accepting a clean installation, the application maintainer must supply the approved initial administrator, an RND account, reference data and the food-service dishes required by the release. Use a separately prepared institutional dataset or an approved initialization procedure. **Stop before the first full release if this dataset/procedure has not been supplied.** Do not remove seeders, bypass the release checks, reuse known demo passwords or invent patients/purchase orders to make deployment pass.
-
-This boundary applies to a clean client database; it does not prevent the host, accounts, configuration, images, DNS or TLS from being prepared. Keep public traffic and scheduled writers disabled until initialization and acceptance are complete.
-
-## What the current seeders do
-
-Source: [DatabaseSeeder](../../backend/database/seeders/DatabaseSeeder.php) and the named classes in [database/seeders](../../backend/database/seeders).
-
-| Seeder/group | Current content and handling |
-|---|---|
-| `AdminUserSeeder` | Fixed exhibition Admin/RND/FSS identities and demo passwords; not an institution-only administrator bootstrap |
-| `ProfilePhotoSeeder`, `PatientSeeder` | Fictional demonstration identities/assets and clinical records; exclude from a clean client installation |
-| `FoodItemsSeeder` | Synchronizes the pinned, local USDA-derived clinical-food dataset; no runtime USDA key/network call is needed for this import |
-| `ClinicalRulesSeeder` | Synchronizes clinical recommendation rules and removes obsolete rule identities; requires clinical-owner approval, not blind routine reseeding |
-| `RecipeSeeder`, `FoodItemPricesSeeder` | RND-owned clinical recipes and illustrative market pricing; reseeding can replace ingredients/prices and recalculate costs |
-| `InterventionMealPlanTemplateSeeder` | RND-owned clinical templates with demo-labelled names; requires the corresponding recipes and RND owner |
-| `FsCatalogSeeder` | Food-service catalog with sample prices; synchronizes matching names and can overwrite institutional costs |
-| `FoodServiceDemoSeeder` | Food-service recipes plus fictional suppliers, cycles, purchasing, consumption and budgets; not a reference-only recipe import |
-| `FoodServiceMenuTemplateSeeder` | Reusable seven-day templates; requires an existing RND and referenced food-service recipe/item names; runs in every normal release |
-| `AiUsageLimitSeeder` | Writes configured usage limits and cost settings; review against institutional settings/provider billing rather than rerunning as maintenance |
-| `ReportTemplateSeeder` | Report catalog/signatory defaults; review receiving institution's names/titles and configure report settings before use |
-| `AnnouncementSeeder`, `NotificationSeeder`, `SopSeeder` | Exhibition communications/history; exclude from a clean client installation |
-
-Food library imports are useful reference data, but that does not make the entire default seeder production-safe. Importing foods does not provide the distinct food-service catalog or its dish recipes. Recipe/template ownership must refer to the intended institutional RND account.
-
-## Release-owned data operations
-
-[docker-release.sh](../../backend/docker-release.sh) runs the following automatically during a normal deployment:
+1. Prepare the environment from the [production example](../../backend/.env.production.example), following [environment setup](environment.md). Preserve an existing `APP_KEY`; generate one only for a new installation.
+2. Supply `SEED_ADMIN_FIRST_NAME`, `SEED_ADMIN_LAST_NAME`, `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` privately. Use the receiving administrator's real account details and a unique temporary password of at least eight characters. There is no default production login.
+3. From `backend/`, with the intended production environment selected, run:
 
 ```sh
+php artisan config:cache
 php artisan migrate --force
-php artisan db:seed --class=FoodServiceMenuTemplateSeeder --force
-php artisan reports:demographic-census-catch-up
+php artisan db:seed --force
 ```
 
-These commands are **state-changing reference excerpts**, not an additional step to run after every deployment. The release also caches configuration/routes/views and creates the storage link. It does not call the full `DatabaseSeeder` or provision the initial staff accounts.
+4. Sign in as the initial Admin, change the temporary password and complete recovery-email setup. Create named RND/FSS accounts through **Admin → Manage Users**.
+5. Review **Reports → Template Edit**, institutional signatories, AI limits/cost settings and the food-service catalog's estimated prices before operational use.
+6. Assign clinical references to the real RND as described below. Remove the four bootstrap Admin values from the protected environment and rebuild the configuration cache. Retain the institution's normal application settings and keys.
+7. Complete the [installation acceptance checks](maintenance.md#acceptance-checklist), then start the normal service roles.
 
-`FoodServiceMenuTemplateSeeder` stops if an RND user is missing or a planned dish/item is missing. Its required names are defined in its `templates()` method. Dishes currently come from the exhibition food-service recipe setup; `FsCatalogSeeder` alone does not supply all of them. This is why a generic empty-database deployment is insufficient.
+An existing active Admin is preserved: the seeder does not rename it, reset its password or create additional staff accounts. If no active Admin exists, incomplete or invalid bootstrap details stop seeding.
 
-## Exhibition dataset only
+### Production sign-in credentials
 
-On a **confirmed disposable exhibition installation**, after its images, protected configuration and database are ready, use the same Bash `dc` function as [VPS setup](vps-setup.md#2-clone-and-configure).
+| Seeded role | Sign-in email | Initial password | Required first-login work |
+|---|---|---|---|
+| Admin | The operator-supplied value of `SEED_ADMIN_EMAIL` | The privately supplied value of `SEED_ADMIN_PASSWORD` | Change the temporary password and verify a recovery email |
+| RND / FSS | No production account is seeded | Admin supplies a unique temporary password when creating each named account | Complete the same account-setup requirements |
 
-**State-changing — exhibition VPS, deploy user, `~/Nutriscope`; never a client/retained database:**
+There is no universal production email/password pair. Record the institution's actual credentials in its authorized password manager or private turnover record, separately from repository documentation. The configured email is the initial sign-in identifier; `SEED_REFERENCE_EMAIL` selects a reference-data owner and does not create another login.
+
+### Production Docker Compose
+
+Use the Bash `dc` function and protected root-password setup from [VPS setup](vps-setup.md#2-clone-and-configure), in the repository root. After preparing the backend image and protected environment, these are state-changing initialization commands:
 
 ```sh
 dc up -d mysql redis
@@ -67,10 +55,97 @@ dc --profile release run --rm --pull never backend_release
 dc up -d --no-build --pull never backend backend_worker backend_scheduler frontend
 ```
 
-The command after the service name overrides its normal release command; the container entrypoint still waits for MySQL and drops CLI privileges. Seeding creates the full fictional graph. It can reset parts of its named demo graph and update catalog/reference settings. Do not treat it as harmless because some seeders use upserts. Never run `migrate:fresh`, delete a volume or clear tables to convert a retained installation into an exhibition installation.
+The container entrypoint prepares its configuration and drops CLI commands to `www-data`. Supplying a command after `backend_release` overrides that service's normal release command. Complete first-login, reference-data review and acceptance before enabling public traffic.
 
-## Maintaining this procedure when seeding changes
+### Clinical references for a real RND
 
-The maintainer of [DatabaseSeeder](../../backend/database/seeders/DatabaseSeeder.php) and [docker-release.sh](../../backend/docker-release.sh) owns the initialization contract. When those files change, update this page in the same change: exact command/order, initial account creation and recovery, retained reference imports, data each command writes, required ownership/dependencies, and rerun behavior. Verify on an isolated empty database, then verify rerunning does not create duplicates or overwrite institutional configuration unexpectedly. Do not leave removed class names in operator commands.
+Clinical foods, recipes, prices, rules and intervention templates remain in production seeding. The initial Admin can hold bootstrap reference attribution without becoming an RND or gaining clinical permissions.
+
+Clinical templates and automatic recipe selection are scoped to their owner. After creating an RND, set `SEED_REFERENCE_EMAIL` to that active RND's email in the selected environment and rebuild configuration. Then, from `backend/`:
+
+```sh
+php artisan config:cache
+php artisan db:seed --class=RecipeSeeder --force
+php artisan db:seed --class=FoodItemPricesSeeder --force
+php artisan db:seed --class=InterventionMealPlanTemplateSeeder --force
+```
+
+With Docker, use `dc --profile release run --rm --pull never backend_release` before each `php artisan db:seed` command; each new container rebuilds its own configuration from the environment.
+
+The email must identify an active RND or Admin. Without it, reference seeders select the first active RND by ID, otherwise the first active Admin. Use an explicit email when several RND accounts exist. Repeat for another RND only when that account should receive these clinical references.
+
+The retained clinical templates include their existing example names/content. They are starting references for RND review, not patient prescriptions. These commands synchronize that owner's named clinical recipes/templates and illustrative clinical prices; they can replace edits to those canonical definitions. They do not create patients or change clinical snack-generation behavior.
+
+## Production content and reruns
+
+| Seeder | Content and rerun behavior |
+|---|---|
+| `AdminUserSeeder` | Creates only the initial Admin when no active Admin exists; preserves existing credentials |
+| `FoodItemsSeeder` | Synchronizes the pinned local USDA-derived clinical foods; preserves unrelated manual foods; no network access |
+| `ClinicalRulesSeeder` | Synchronizes canonical clinical rules and removes obsolete rule identities |
+| `RecipeSeeder`, `FoodItemPricesSeeder`, `InterventionMealPlanTemplateSeeder` | Retained clinical definitions and illustrative prices, scoped as described above; canonical recipe ingredients/template lines are synchronized |
+| `FsCatalogSeeder` | Creates missing ingredients/supplies and the supplier named in the purchasing forms; preserves matching existing catalog records |
+| `FoodServiceRecipeSeeder` | Creates missing food-service recipes with 50-serving baselines; preserves existing recipes and ingredient edits |
+| `FoodServiceMenuTemplateSeeder` | Creates missing September menu-post rotations; preserves existing templates and their lines |
+| `AiUsageLimitSeeder` | Initializes missing usage settings; preserves existing settings |
+| `ReportTemplateSeeder` | Creates missing report definitions; preserves existing signatories and configuration |
+
+Production seeds create no patients, clinical histories, actual menu cycles, shopping lists, purchase orders, budgets, attendance, announcements, notifications, SOP revision history, report files or uploaded assets. The production seed sequence is transactional; it restores the prior audit-suppression setting after completion or failure.
+
+Food-service recipes and template references require the catalog first. A catalog unit incompatible with a required ingredient stops recipe seeding for review. Seeding is not a tool for converting existing manually configured units or deleting demo records from a retained database.
+
+For menu, ingredient, price and grocery semantics, see [food-service data](../developers/food-service/data.md#seeded-food-service-references). Review estimates with the kitchen before purchasing; a reconciled spreadsheet total does not prove an exact recipe yield or current price.
+
+## Local development and demo training
+
+Use a separate disposable local database and local storage, following [local setup](../developers/platform/local-setup.md). Set `APP_ENV=local`; leave `SEED_REFERENCE_EMAIL` unset for the standard demo. Do not copy production configuration or patient data.
+
+From `backend/`, after confirming the local database:
+
+```sh
+composer install
+# New local installation only:
+php artisan key:generate
+php artisan config:clear
+php artisan migrate
+php artisan db:seed --class='Database\Seeders\Demo\DatabaseSeeder'
+php artisan serve --host=127.0.0.1 --port=8000
+```
+
+The demo seed does not require production bootstrap Admin values. Its fictional accounts are:
+
+| Role | Sign-in email | Public demo password |
+|---|---|---|
+| Admin | `admin@nutriscope.local` | `nutriscope2024!` |
+| RND | `rnd@nutriscope.local` | `nutriscope2024!` |
+| FSS | `fss@nutriscope.local` | `nutriscope2024!` |
+
+The public demo password is `nutriscope2024!`. These are local demonstration credentials only.
+
+Rerunning the same demo command refreshes its named fictional graph and retains unrelated records, but can replace demonstration recipes, catalogs and history. Demo seeders are blocked when the application environment is `production`, including when `--force` is supplied. Changing the environment label does not make an institutional database disposable.
+
+The separate `Demo\FoodServiceOctoberBackfillSeeder` is a date-specific exhibition utility, not part of ordinary production or demo initialization. It requires its source demo menus and must not be used to manufacture institutional service history.
+
+To test a production-style setup locally instead, supply synthetic `SEED_ADMIN_*` values and run the default `php artisan db:seed` on a separate clean local database. Do not combine both datasets to assess a clean production installation.
+
+## Automated tests
+
+Follow [test isolation](../developers/platform/testing.md#isolation-comes-first) before running any database test. Confirm the effective database/account and configuration cache; a database name ending in `_test` alone is not proof of isolation. Tests use factories and explicitly selected seeders, not a manually populated demonstration database.
+
+From `backend/`, with the isolated test environment established:
+
+```sh
+vendor/bin/phpunit tests/Feature/ProductionSeederTest.php
+vendor/bin/phpunit tests/Feature/DatabaseSeederRepeatabilityTest.php
+vendor/bin/phpunit
+```
+
+The production tests check Admin-only initialization, no operational history, all 84 planned meal cells, grocery exclusions, compatible units, 50-to-100 scaling, retained clinical references, edited-record preservation and the production demo guard. The repeatability test exercises the full optional demo sequence twice. Neither test command is an instruction to seed a running website.
+
+## Existing installations and normal releases
+
+For a server transfer, restore the coherent database/protected-file set, preserve keys and existing accounts, and follow [turnover](turnover.md#existing-system-migration-sequence). Do not reseed as a substitute for restoration.
+
+The normal [release script](../../backend/docker-release.sh) applies migrations and runs census catch-up. It does not run production or demo seeders and has no dependency on demo accounts or demo recipes. Adding missing references to an existing institution is an explicit maintenance operation; review the synchronization behavior above first. Existing demo records are not automatically removed by the production seeder.
 
 Related: [database maintenance](../developers/platform/database.md), [food-service data](../developers/food-service/data.md), [NCP data](../developers/ncp/data.md).

@@ -103,7 +103,7 @@ Historical `prepared_by_name`, report staff/signatory values, and audit `propert
 
 The account and patient factories emit nonblank split fields and a synchronized deprecated value. Their explicit `legacyName()` state is reserved for compatibility tests.
 
-`AdminUserSeeder` uses stable email addresses and upgrades the seeded names without resetting established passwords. `PatientSeeder` uses hospital numbers `HN-2026-0042` and `HN-2026-0078`, retains patient IDs and public UUIDs across reruns, removes only the deterministic demo clinical graph, and leaves another patient with the same display name untouched.
+Production `AdminUserSeeder` requires explicit initial administrator details, reuses the normal person-name validation/synchronization and preserves any active Admin's identity and password. The optional `Demo\AdminUserSeeder` maintains the fixed fictional account names without resetting established passwords. `Demo\PatientSeeder` uses hospital numbers `HN-2026-0042` and `HN-2026-0078`, retains patient IDs and public UUIDs across reruns, removes only its deterministic demo clinical graph, and leaves another patient with the same display name untouched. See [initial data and seeding](../operations/initial-data.md) for the separate commands.
 
 Base/demo seed execution is wrapped with activity logging disabled while model events remain enabled. UUID creation therefore still runs, and setup does not produce anonymous audit noise.
 

@@ -8,6 +8,7 @@ This group covers planning through execution across RND web and FSS mobile. Foll
 
 | Responsibility | Source |
 |---|---|
+| Production catalog, 50-serving recipes and menu-post templates | [FsCatalogSeeder](../../../backend/database/seeders/FsCatalogSeeder.php), [FoodServiceRecipeSeeder](../../../backend/database/seeders/FoodServiceRecipeSeeder.php), [FoodServiceMenuTemplateSeeder](../../../backend/database/seeders/FoodServiceMenuTemplateSeeder.php), [food-service definitions](../../../backend/database/seeders/data/food-service.php); [data meaning](data.md#seeded-food-service-references) |
 | Menu costs and generated shopping quantities | [MenuCycleCostService](../../../backend/app/Services/MenuCycleCostService.php), [ShoppingListPopulationService](../../../backend/app/Services/FSS/ShoppingListPopulationService.php) |
 | PO readiness, vendor changes and completion | [PurchaseOrderLifecycleService](../../../backend/app/Services/FSS/PurchaseOrderLifecycleService.php) |
 | Confirmed receiving | [ReceivingService](../../../backend/app/Services/FSS/ReceivingService.php) |
@@ -20,6 +21,6 @@ Follow menu → generated/manual shopping row → PO snapshot → actual receivi
 
 When changing fields, check Resources, audit revision serializers, generated reports and both clients. Extend matching existing components/services; avoid duplicating calculations in clients.
 
-[Detailed maintenance reference](reference.md) preserves domain invariants and deeper file relationships; its older verification date is explicit. [RND](../../modules/rnd.md) and [FSS](../../modules/fss.md) explain user workflows.
+[Detailed maintenance reference](reference.md) describes domain invariants and deeper file relationships. [RND](../../modules/rnd.md) and [FSS](../../modules/fss.md) explain user workflows. Production, local/demo and automated-test setup commands belong to [initial data and seeding](../../operations/initial-data.md).
 
 Tests: [FoodShoppingListGenerationTest](../../../backend/tests/Feature/FoodShoppingListGenerationTest.php), [PurchaseOrderReadinessTest](../../../backend/tests/Feature/PurchaseOrderReadinessTest.php), [PurchaseOrderExecutionLockTest](../../../backend/tests/Feature/PurchaseOrderExecutionLockTest.php), [BudgetLedgerTest](../../../backend/tests/Feature/BudgetLedgerTest.php). Commands: [testing](../platform/testing.md).

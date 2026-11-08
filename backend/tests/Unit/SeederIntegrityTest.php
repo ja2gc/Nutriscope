@@ -166,7 +166,7 @@ class SeederIntegrityTest extends TestCase
 
     public function test_patient_seeder_uses_stable_hospital_keys_instead_of_display_names(): void
     {
-        $content = file_get_contents(database_path('seeders/PatientSeeder.php'));
+        $content = file_get_contents(database_path('seeders/Demo/PatientSeeder.php'));
 
         $this->assertStringNotContainsString("Patient::where('name'", $content);
         $this->assertStringContainsString("Patient::updateOrCreate(\n            ['hospital_number'", $content);

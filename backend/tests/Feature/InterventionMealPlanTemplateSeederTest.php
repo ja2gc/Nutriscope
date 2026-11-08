@@ -6,7 +6,7 @@ use App\Models\FoodItem;
 use App\Models\MealPlanTemplate;
 use App\Models\Recipe;
 use App\Models\User;
-use Database\Seeders\AdminUserSeeder;
+use Database\Seeders\Demo\AdminUserSeeder;
 use Database\Seeders\FoodItemsSeeder;
 use Database\Seeders\InterventionMealPlanTemplateSeeder;
 use Database\Seeders\RecipeSeeder;

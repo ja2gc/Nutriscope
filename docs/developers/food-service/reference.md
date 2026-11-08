@@ -1,13 +1,12 @@
 # Food Service Operations — Developer Maintenance Guide
 
-Last verified: **2026-09-09**.
 
-This is the detailed domain reference linked from [food-service maintenance](README.md), not a second entry point. Location/reference links checked against commit `53230ce3f4e471b243d0fe0a8ef0b5fbfa89a891` on 2026-10-23. Verify the relevant rule in source/tests before changing it.
+This detailed domain reference is linked from [food-service maintenance](README.md). Use the owning source and tests when changing a domain rule; [data meaning](data.md) describes the stored fields and their consumers.
 
 ## Behavioral Invariants
 
 1. Recipe measurements remain exact baseline data.
-2. `fs_items.include_in_generated_lists = false` only suppresses auto-generation; it never removes a recipe ingredient.
+2. `fs_items.include_in_generated_lists = false` suppresses generated grocery usage and recipe-ingredient costing while retaining the ingredient for preparation.
 3. Suggested-list generation requires one positive `estimate_population` for the span. Do not reintroduce per-slot overrides.
 4. Generated rows are recalculated and cannot be deleted. Users change purchase fields or set `included_in_po = false`. Manual rows survive recalculation and may be deleted.
 5. PO approval copies included rows only and rechecks centralized suggested estimate/coverage readiness under the shopping-list lock. No item-confirmation, vendor/cost, allocation or budget-balance gate applies to conversion. Names default from the procurement date/span; see [data meaning](data.md) .
@@ -16,7 +15,7 @@ This is the detailed domain reference linked from [food-service maintenance](REA
 8. Open vendor reassignment reuses the vendor-group PATCH endpoint. It may move a whole group or one line, must merge an existing destination group, and is blocked by source/destination evidence, received status, or PO completion.
 9. Procurement reports consume every PO line. Do not filter by shopping-list row source; manual additions and fully manual lists are valid report inputs.
 10. A menu slot may contain multiple ordered lines. Preserve line UUID/order across templates, APIs, web/mobile views, costing, and PO snapshots.
-11. Food-service menus/templates contain meal lines only. Keep catalog `Rice` in kilograms for the existing generated-list add-item path; do not reintroduce rice into seeded cycles/templates or create a second shopping-list feature.
+11. Food-service templates support ordered recipes and single catalog foods within each meal. Production rotations follow the menu posts, including drinks and desserts in their corresponding main meals. Rice remains a kilogram catalog item with Auto Grocery off and is included in the recipe where the post explicitly names it. Source data and purchasing behavior are described in [seeded references](data.md#seeded-food-service-references).
 
 ## Main Files
 
@@ -30,7 +29,8 @@ This is the detailed domain reference linked from [food-service maintenance](REA
 | Receiving/catalog price/comparison | `ReceivingService.php`, `PurchaseOrderResource.php` | `PurchaseValueComparison.tsx`, `FssPurchaseOrders.tsx`, mobile `procurement.tsx` |
 | Reports | `ProcurementPackGenerator.php`, procurement-pack Blade, `ProgramProjectActivityGenerator.php` | Reports browser |
 | Auditing | Shopping-list and PO revision serializers, `config/audit.php` | `AuditTrail.tsx` |
-| Demo | `FsCatalogSeeder.php`, `FoodServiceDemoSeeder.php`, `FoodServiceMenuTemplateSeeder.php` | — |
+| Production reference inputs | `database/seeders/FsCatalogSeeder.php`, `FoodServiceRecipeSeeder.php`, `FoodServiceMenuTemplateSeeder.php`, `data/food-service.php` | [Initialization and seeding](../../operations/initial-data.md) |
+| Optional local/demo graph | `database/seeders/Demo/DatabaseSeeder.php` and the named classes in that directory | [Local/demo procedure](../../operations/initial-data.md#local-development-and-demo-training) |
 
 ## Data Flow
 

@@ -14,6 +14,7 @@ Choose the business area first. Each area links to its backend owners, web/mobil
 | [Data semantics](platform/data-semantics.md) | What fields mean, units, statuses, snapshots, derived values and how to trace their consumers |
 | [Operations](operations/README.md) | Accounts/integrations/env, jobs, files/reports, hosting, backup and ownership transfer |
 | [Local setup](platform/local-setup.md), [testing](platform/testing.md) | Developer installation and safe verification |
+| [Initial data and seeding](../operations/initial-data.md) | Production Admin/reference initialization, optional local/demo data, clinical owner selection and automated-test commands |
 
 [Root task map](../../DEVELOPERS.md) routes common changes. This is the only developer-docs tree. It organizes existing responsibilities; it does not introduce new application modules or claim exhaustive field-by-field coverage.
 

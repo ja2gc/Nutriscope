@@ -116,15 +116,7 @@ class ReportTemplateSeeder extends Seeder
         ];
 
         foreach ($templates as $t) {
-            $existing = ReportTemplate::query()->where('type', $t['type'])->first();
-            if ($existing && $existing->name === $t['name']
-                && $existing->blade_view === $t['blade_view']
-                && $existing->description === $t['description']
-                && $existing->signatories == $t['signatories']
-                && $existing->is_active) {
-                continue;
-            }
-            ReportTemplate::updateOrCreate(
+            ReportTemplate::firstOrCreate(
                 ['type' => $t['type']],
                 [
                     'name' => $t['name'],

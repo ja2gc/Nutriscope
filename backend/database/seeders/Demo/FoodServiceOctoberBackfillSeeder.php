@@ -1,6 +1,6 @@
 <?php
 
-namespace Database\Seeders;
+namespace Database\Seeders\Demo;
 
 use App\Http\Controllers\FSS\PurchaseOrderController;
 use App\Models\DietListCount;
@@ -18,7 +18,6 @@ use App\Services\FSS\PurchaseOrderLifecycleService;
 use App\Services\FSS\ShoppingListPopulationService;
 use App\Services\MenuCycleCostService;
 use Carbon\CarbonImmutable;
-use Illuminate\Database\Seeder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -26,7 +25,7 @@ use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
 /** One-off, additive fictional backfill for the October 15, 2026 exhibition recording. */
-class FoodServiceOctoberBackfillSeeder extends Seeder
+class FoodServiceOctoberBackfillSeeder extends DemoSeeder
 {
     private const FIRST_DAY = '2026-09-15';
 
@@ -41,6 +40,9 @@ class FoodServiceOctoberBackfillSeeder extends Seeder
 
     public function run(): void
     {
+        if (app()->environment('production')) {
+            throw new RuntimeException('Demo backfill is disabled in production.');
+        }
         $rnd = User::query()->where('role', 'RND')->firstOrFail();
         $fss = User::query()->where('role', 'FSS')->firstOrFail();
         $today = CarbonImmutable::now('Asia/Manila')->toDateString();

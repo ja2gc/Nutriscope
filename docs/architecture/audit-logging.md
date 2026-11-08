@@ -168,7 +168,7 @@ There is no external append-only sink, integrity export, or hash chain. The data
 
 ## Seed and demo behavior
 
-`DatabaseSeeder` wraps ordinary seeding in `activity()->withoutLogs()`, so base/current seeders create no anonymous audit noise. Seeders are required to be idempotent and to use current name, enum, validation, report, and business contracts. By explicit owner decision, no dedicated audit-event/demo-history seeder exists and no synthetic clinical audit values are inserted.
+Production `DatabaseSeeder` and the separate `Demo\DatabaseSeeder` scope `audit.seeding.suppress_model_events` around their calls and restore its previous value afterward. Model UUID hooks remain active; explicit system audit events from real demo lifecycle services are not globally disabled. Production creates reference inputs without fictional operational history. Demo seeders create their connected fictional graph through the existing services. No dedicated audit-event seeder or synthetic clinical audit values are inserted. Commands and rerun behavior are in [initial data and seeding](../operations/initial-data.md).
 
 ## Monitoring and incident operations
 

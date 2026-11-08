@@ -18,7 +18,7 @@ On a narrow screen, select **Open navigation** in the top bar. The sidebar shows
 
 | Task | Navigate and act | Check before proceeding |
 |---|---|---|
-| Confirm first administrator | Sign in with the institutional account supplied through the approved initial-data/turnover process | Do not use a public exhibition account as the permanent institutional administrator |
+| Confirm first administrator | Operator uses the production initialization procedure; sign in with the supplied institutional Admin account | Change the temporary password and complete recovery-email setup; production initialization creates no fictional staff or patients |
 | Establish staff access | **Manage Users**; create named RND/FSS/Admin accounts with the correct role and temporary password | Securely deliver credentials; users complete their own password and recovery-email setup |
 | Prepare institutional reports | **Settings** and authorized **Reports → Template Edit** | Hospital/service identity, logos and appropriate signatory defaults reflect the institution |
 | Configure budget | **Budget → Fiscal Year Setup** and **Settings → Food Service Budget** | Confirm allocation and shared per-head/day value; later manual adjustments need type, amount and reason |

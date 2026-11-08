@@ -12,7 +12,7 @@ Start with [data semantics](data-semantics.md) to trace field ownership and cons
 
 For a field or status change, check migrations, casts/fillables, validation, Resources, revision serializers, jobs, reports and both clients. Preserve decimals, identifiers and historical meaning. Prefer additive, forward-only changes; never rewrite applied migrations. Verify the actual migration state before deployment.
 
-Use [factories](../../../backend/database/factories) and synthetic fixtures for legacy-shape tests. [DatabaseSeeder](../../../backend/database/seeders/DatabaseSeeder.php) includes demo accounts and patients: it is not a clean production bootstrap.
+Use [factories](../../../backend/database/factories) and synthetic fixtures for tests. [DatabaseSeeder](../../../backend/database/seeders/DatabaseSeeder.php) initializes production reference data and one configured Admin without operational history. The optional [Demo seeders](../../../backend/database/seeders/Demo) create fictional development/training data and reject the production environment. [Initial data and seeding](../../operations/initial-data.md) owns the exact commands, account prerequisites, clinical reference ownership and rerun behavior.
 
 Do not infer deployed constraints, duplicate prevalence or production compatibility from local source. Migration/restore commands require a separately approved target and recovery plan.
 

@@ -1,6 +1,6 @@
 <?php
 
-namespace Database\Seeders;
+namespace Database\Seeders\Demo;
 
 use App\Models\Budget;
 use App\Models\BudgetLedger;
@@ -30,7 +30,6 @@ use App\Services\MenuCycleCostService;
 use App\Services\StoredObjectStorage;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Database\Seeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -50,7 +49,7 @@ use Throwable;
  * Idempotent: replaces only this seeder's named fictional graph and preserves
  * unrelated operational records.
  */
-class FoodServiceDemoSeeder extends Seeder
+class FoodServiceDemoSeeder extends DemoSeeder
 {
     private const DEMO_RECEIPT_NAME = 'nutriscope-seeded-pexels-receipt-14647295.jpg';
 

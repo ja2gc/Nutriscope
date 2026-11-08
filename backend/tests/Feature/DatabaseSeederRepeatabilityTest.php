@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use Database\Seeders\DatabaseSeeder;
+use Database\Seeders\Demo\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;

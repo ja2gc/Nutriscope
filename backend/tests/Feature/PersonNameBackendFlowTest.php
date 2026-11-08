@@ -16,7 +16,7 @@ use App\Models\Report;
 use App\Models\Sop;
 use App\Models\User;
 use App\Services\Audit\AuditLogger;
-use Database\Seeders\PatientSeeder;
+use Database\Seeders\Demo\PatientSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;

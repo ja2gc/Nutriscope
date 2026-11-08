@@ -8,7 +8,7 @@ class FoodServiceDemoSeederSourceTest extends TestCase
 {
     public function test_demo_po_budget_deductions_are_system_processed(): void
     {
-        $content = file_get_contents(__DIR__.'/../../database/seeders/FoodServiceDemoSeeder.php');
+        $content = file_get_contents(__DIR__.'/../../database/seeders/Demo/FoodServiceDemoSeeder.php');
 
         $this->assertStringContainsString(
             'PurchaseOrderLifecycleService',
@@ -25,7 +25,7 @@ class FoodServiceDemoSeederSourceTest extends TestCase
 
     public function test_demo_food_procurement_uses_tuesday_to_thursday_and_friday_to_monday_spans(): void
     {
-        $content = file_get_contents(__DIR__.'/../../database/seeders/FoodServiceDemoSeeder.php');
+        $content = file_get_contents(__DIR__.'/../../database/seeders/Demo/FoodServiceDemoSeeder.php');
 
         $this->assertStringContainsString('$weekStart->copy()->addDay()->toDateString()', $content);
         $this->assertStringContainsString('$weekStart->copy()->addDays(3)->toDateString()', $content);
@@ -41,8 +41,8 @@ class FoodServiceDemoSeederSourceTest extends TestCase
 
     public function test_demo_uses_current_generation_and_receiving_rules(): void
     {
-        $catalog = file_get_contents(__DIR__.'/../../database/seeders/FsCatalogSeeder.php');
-        $demo = file_get_contents(__DIR__.'/../../database/seeders/FoodServiceDemoSeeder.php');
+        $catalog = file_get_contents(__DIR__.'/../../database/seeders/Demo/FsCatalogSeeder.php');
+        $demo = file_get_contents(__DIR__.'/../../database/seeders/Demo/FoodServiceDemoSeeder.php');
 
         $this->assertStringContainsString("'include_in_generated_lists'", $catalog);
         $this->assertStringContainsString('cascadeMenuDays($start, $end, $estimate)', $demo);
@@ -54,7 +54,7 @@ class FoodServiceDemoSeederSourceTest extends TestCase
 
     public function test_demo_receipt_uses_the_existing_purchase_order_attachment_storage_pipeline(): void
     {
-        $demo = file_get_contents(__DIR__.'/../../database/seeders/FoodServiceDemoSeeder.php');
+        $demo = file_get_contents(__DIR__.'/../../database/seeders/Demo/FoodServiceDemoSeeder.php');
 
         $this->assertStringContainsString('PurchaseOrderAttachmentStorage', $demo);
         $this->assertStringContainsString('UploadedFile', $demo);
@@ -63,7 +63,7 @@ class FoodServiceDemoSeederSourceTest extends TestCase
 
     public function test_demo_accomplishments_use_one_current_form_record_per_staff_date(): void
     {
-        $content = file_get_contents(__DIR__.'/../../database/seeders/FoodServiceDemoSeeder.php');
+        $content = file_get_contents(__DIR__.'/../../database/seeders/Demo/FoodServiceDemoSeeder.php');
 
         $this->assertStringContainsString("'ward' => 'Accomplishment report'", $content);
         $this->assertStringContainsString("'collected_ward_diet_lists'", $content);

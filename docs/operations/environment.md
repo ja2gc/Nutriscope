@@ -13,6 +13,12 @@ Purpose: identify where settings belong. This is a variable-name map; supply sec
 - [frontend/.env.example](../../frontend/.env.example) defines server-only LARAVEL_API_URL. Production Compose supplies http://backend/api.
 - [mobile/.env.example](../../mobile/.env.example) and [mobile/eas.json](../../mobile/eas.json) govern EXPO_PUBLIC_API_URL; profile env values must be reviewed before builds. Public mobile/build variables are visible to users, so never put keys there.
 
+## Initial seeding settings
+
+[config/seeding.php](../../backend/config/seeding.php) reads `SEED_ADMIN_FIRST_NAME`, `SEED_ADMIN_LAST_NAME`, `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` for the initial production Admin. They are required only when no active Admin exists. Supply them privately; remove the bootstrap values after account setup and rebuild the configuration cache. Existing Admin passwords are not reset by reseeding.
+
+`SEED_REFERENCE_EMAIL` optionally selects the active RND/Admin owner for retained clinical references. Use the real RND's email after creating that account, then rebuild the configuration cache before running the owner-scoped seeders. Production, local/demo and automated-test commands are separated in [initial data and seeding](initial-data.md). A production environment blocks demo seeders, including with `--force`.
+
 ## GitHub Actions repository secrets: obtain, enter and replace
 
 These five names are deployment inputs, not five provider accounts. `DROPLET_*` is a historical name: keep the names even when the destination is not DigitalOcean. Both workflows assume the normal SSH port 22; neither currently supplies a custom port. A different SSH port requires a reviewed workflow change before deployment.

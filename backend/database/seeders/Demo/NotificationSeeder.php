@@ -1,13 +1,12 @@
 <?php
 
-namespace Database\Seeders;
+namespace Database\Seeders\Demo;
 
 use App\Models\Announcement;
 use App\Models\Notification;
 use App\Services\NotificationService;
-use Illuminate\Database\Seeder;
 
-class NotificationSeeder extends Seeder
+class NotificationSeeder extends DemoSeeder
 {
     private const RETIRED_TITLES = [
         'Pending PO needs review',

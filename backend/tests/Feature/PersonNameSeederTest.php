@@ -6,8 +6,8 @@ use App\Models\AuditActivity;
 use App\Models\NcpRecord;
 use App\Models\Patient;
 use App\Models\User;
-use Database\Seeders\AdminUserSeeder;
-use Database\Seeders\PatientSeeder;
+use Database\Seeders\Demo\AdminUserSeeder;
+use Database\Seeders\Demo\PatientSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 

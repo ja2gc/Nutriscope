@@ -2,41 +2,36 @@
 
 namespace Database\Seeders;
 
+use App\Actions\Identity\SynchronizePersonName;
 use App\Models\User;
+use App\Rules\PersonName;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
 
 class AdminUserSeeder extends Seeder
 {
     public function run(): void
     {
-        $this->seedAccount('admin@nutriscope.local', 'Elena', 'Villanueva', 'Admin');
-        $this->seedAccount('rnd@nutriscope.local', 'Rosa Mae', 'Dela Cruz', 'RND');
-        $this->seedAccount('fss@nutriscope.local', 'Maria', 'Santos', 'FSS');
-    }
-
-    private function seedAccount(string $email, string $firstName, string $lastName, string $role): void
-    {
-        $displayName = "{$firstName} {$lastName}";
-        $user = User::firstOrCreate(
-            ['email' => $email],
-            [
-                'first_name' => $firstName,
-                'last_name' => $lastName,
-                'name' => $displayName,
-                'password' => Hash::make('nutriscope2024!'),
-                'role' => $role,
-                'is_active' => true,
-            ],
-        );
-
-        $user->forceFill([
-            'first_name' => $firstName,
-            'last_name' => $lastName,
-            'name' => $displayName,
-        ]);
-        if ($user->isDirty(['first_name', 'last_name', 'name'])) {
-            $user->save();
+        if (User::query()->where('role', 'Admin')->where('is_active', true)->exists()) {
+            return;
         }
+
+        $data = Validator::make(config('seeding.admin', []), [
+            'first_name' => ['required', 'string', new PersonName],
+            'last_name' => ['required', 'string', new PersonName],
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
+            'password' => ['required', 'string', 'min:8'],
+        ])->validate();
+
+        $data = app(SynchronizePersonName::class)->forCreate($data);
+        User::query()->create([
+            ...$data,
+            'password' => Hash::make($data['password']),
+            'role' => 'Admin',
+            'is_active' => true,
+            'must_change_password' => true,
+            'must_set_recovery_email' => true,
+        ]);
     }
 }
