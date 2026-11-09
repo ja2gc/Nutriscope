@@ -2,6 +2,8 @@
 
 Purpose: maintain the Expo food-service API consumer and distribute updates.
 
+Demo video: [Emphive_MobileDemo.mp4](../../../media/Emphive_MobileDemo.mp4) replaces the phone screen in the “Your daily overview” scene (4.10–9.70 seconds) with an Android emulator recording of the current dashboard. Recorded from source revision `97cb53a1` through Expo Go on 9 November 2026; this is source-preview verification, not a new APK release. The original audio, titles, scene timing and other scenes are retained.
+
 Dashboard presentation (`app/(tabs)/index.tsx`): three tappable rows show Meals to record, Logs due and Pending POs with their existing counts and destinations. Today's meals use one full-width row per menu line; the separate weekly-menu dashboard card is removed. Menu remains a primary tab. All primary tabs reuse `AppHeader` with the existing 32-pixel logo and green/orange NutriScope wordmark on one line, without a page name or background tile. Header actions use unboxed 48-pixel touch targets.
 
 Accomplishment navigation: `ReportsScreen` keeps the existing `saved_days/expected_days` progress on period cards before opening them. Its future-day rows are disabled and labeled Upcoming, using Manila today; `app/(tabs)/accomplishments.tsx` also guards report callbacks, date-picker results and submission against future dates. Current and past days remain reachable. The rendered regression is `lib/accomplishmentNavigation.test.mts` using the frontend Vitest runner.

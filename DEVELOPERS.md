@@ -56,6 +56,7 @@ Prefer browsing by area? Open the [grouped developer index](docs/developers/READ
 | Install or transfer the client system | docker-compose.yml; docker-compose.prod.yml; .github/workflows/deploy.yml; ops/deploy.sh | [Installation and turnover manual](docs/operations/README.md), [initial data](docs/operations/initial-data.md) |
 | Recover manually when Admin cannot open backups | backend/app/Services/Backup/BackupArchiveInspector.php; BackupManifestService.php; ProtectedObjectStore.php; MysqlDatabaseRestoreManager.php | [Manual R2 recovery](docs/operations/backup-recovery.md#manual-recovery-when-the-admin-screen-is-unavailable) |
 | Train RND, FSS or Admin staff | Storyboarding/; frontend/components/layout/Sidebar.tsx; mobile/app/(tabs)/_layout.tsx | [Role user manuals](docs/ROLE-HOW-TO.md), [daily routines](docs/ROLE-HOW-TO.md#daily-and-periodic-work) |
+| Find the mobile demo video and dashboard recording basis | media/Emphive_MobileDemo.mp4; mobile/app/(tabs)/index.tsx | [Mobile demo provenance](docs/developers/food-service/mobile.md) |
 | Add an endpoint or permission | backend/app/Http/; backend/app/Policies/ | [Backend](docs/developers/platform/backend.md) |
 | Change web screens, inputs, validation or uploads | frontend/components/ui/; frontend/hooks/; frontend/lib/uploadValidation.ts | [Web](docs/developers/platform/web.md) |
 | Change visual styling or shared controls | frontend/app/globals.css; frontend/components/ui/ | [Web](docs/developers/platform/web.md) |
