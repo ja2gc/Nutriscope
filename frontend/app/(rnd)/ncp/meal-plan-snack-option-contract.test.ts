@@ -10,8 +10,9 @@ describe("meal-plan snack exclusion option", () => {
     ), "utf8");
     const service = readFileSync(join(process.cwd(), "services/mealPlanService.ts"), "utf8");
 
-    expect(editor).toContain("Exclude snacks");
-    expect(editor).toMatch(/type="checkbox"[\s\S]*checked=\{excludeSnacks\}/);
+    const dialog = readFileSync(join(process.cwd(), 'components/ncp/MealPlanOptionsDialog.tsx'), 'utf8');
+    expect(dialog).toContain("Exclude snacks");
+    expect(dialog).toMatch(/type="checkbox"[\s\S]*checked=\{excludeSnacks\}/);
     expect(editor).toContain("exclude_snacks: excludeSnacks");
     expect(service).toContain("exclude_snacks?: boolean");
   });
@@ -23,9 +24,10 @@ describe("meal-plan snack exclusion option", () => {
     ), "utf8");
     const service = readFileSync(join(process.cwd(), "services/mealPlanService.ts"), "utf8");
 
-    expect(editor).toContain("Exclude carbs");
+    const dialog = readFileSync(join(process.cwd(), 'components/ncp/MealPlanOptionsDialog.tsx'), 'utf8');
+    expect(dialog).toContain("Exclude carbs");
     expect(editor).toContain("carb_menu_item_id: carb!.id");
-    expect(editor).toContain("Choose Carb Menu Item");
+    expect(editor).toContain("MealPlanOptionsDialog");
     expect(service).toContain("exclude_carbs: false; carb_menu_item_id: string");
     expect(editor).not.toContain("use_rice_as_carb");
     expect(service).not.toContain("use_rice_as_carb");

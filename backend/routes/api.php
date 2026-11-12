@@ -201,6 +201,7 @@ Route::middleware(['auth:sanctum', 'active', 'role:RND'])->prefix('rnd')->group(
     Route::post('ncp-records/{ncpRecord}/meal-plans', [MealPlanController::class, 'store']);
     Route::get('ncp-records/{ncpRecord}/meal-plans/{mealPlan}', [MealPlanController::class, 'show']);
     Route::patch('ncp-records/{ncpRecord}/meal-plans/{mealPlan}', [MealPlanController::class, 'update']);
+    Route::patch('ncp-records/{ncpRecord}/meal-plans/{mealPlan}/carbs', [MealPlanController::class, 'editCarbs']);
     Route::post('ncp-records/{ncpRecord}/meal-plans/{mealPlan}/scale-to-prescription', [MealPlanController::class, 'scaleToPrescription']);
     Route::delete('ncp-records/{ncpRecord}/meal-plans/{mealPlan}', [MealPlanController::class, 'destroy']);
     Route::post('ncp-records/{ncpRecord}/meal-plans/{mealPlan}/clear', [MealPlanController::class, 'clear']);

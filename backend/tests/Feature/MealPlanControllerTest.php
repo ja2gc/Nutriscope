@@ -28,6 +28,153 @@ class MealPlanControllerTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_bulk_ingredient_edits_use_trusted_nutrients_and_skip_hidden_snacks(): void
+    {
+        [$ncp, $intervention] = $this->makeInterventionWithNcpRecord();
+        $food = FoodItem::factory()->create(['allergens' => [], 'serving_size' => 100, 'serving_unit' => 'g', 'calories' => 100]);
+        $carb = Recipe::factory()->create(['rnd_user_id' => $this->rnd->id, 'category' => 'carb', 'servings' => 1]);
+        $carb->ingredients()->create(['food_item_id' => $food->id, 'quantity' => 100, 'unit' => 'g']);
+        $carb->recalculateTotals();
+        $base = "/api/rnd/ncp-records/{$ncp->uuid}/meal-plans";
+        $id = $this->actingAs($this->rnd)->postJson($base, ['intervention_plan_id' => $intervention->uuid, 'week_start_date' => '2026-11-09'])->assertCreated()->json('data.id');
+        $this->patchJson("{$base}/{$id}/carbs", ['recipe_id' => $carb->uuid, 'quantity' => 2])->assertOk();
+        $plan = MealPlan::where('uuid', $id)->firstOrFail();
+        $snack = $plan->days()->where('meal_type', 'am_snack')->firstOrFail()->items()->create(['recipe_id' => $carb->id, 'quantity' => 1.5, 'unit' => 'serving', 'nutrient_snapshot' => $carb->planSnapshot()]);
+        $this->patchJson("{$base}/{$id}", ['snacks_hidden' => true])->assertOk();
+        $ingredients = [['food_item_id' => $food->uuid, 'quantity' => 50, 'unit' => 'g']];
+        $this->patchJson("{$base}/{$id}/carbs", ['source_recipe_id' => $carb->uuid, 'quantity' => 3, 'ingredients' => $ingredients])->assertOk();
+        $this->assertSame(21, MealPlanItem::where('quantity', 3)->count());
+        $this->assertEquals(50, MealPlanItem::where('quantity', 3)->firstOrFail()->nutrient_snapshot['calories']);
+        $this->assertEquals(100, $carb->fresh()->total_calories);
+        $this->assertEquals(1.5, $snack->fresh()->quantity);
+        $this->assertEquals(100, $snack->fresh()->nutrient_snapshot['calories']);
+        $ingredients[0]['unit'] = 'mL';
+        $this->patchJson("{$base}/{$id}/carbs", ['source_recipe_id' => $carb->uuid, 'quantity' => 4, 'ingredients' => $ingredients])->assertUnprocessable();
+        $this->assertSame(21, MealPlanItem::where('quantity', 3)->count());
+        $this->patchJson("{$base}/{$id}/carbs", ['source_recipe_id' => $carb->uuid, 'remove' => true])->assertOk();
+        $this->assertSame(1, MealPlanItem::count());
+        $this->patchJson("{$base}/{$id}", ['snacks_hidden' => false])->assertOk();
+        $this->assertEquals(1.5, $snack->fresh()->quantity);
+    }
+
+    public function test_carb_validation_preserves_all_items_and_historical_menus_are_read_only(): void
+    {
+        [$ncp, $intervention] = $this->makeInterventionWithNcpRecord();
+        $food = FoodItem::factory()->create(['allergens' => []]);
+        $carb = Recipe::factory()->create(['rnd_user_id' => $this->rnd->id, 'category' => 'carb', 'servings' => 1]);
+        $carb->ingredients()->create(['food_item_id' => $food->id, 'quantity' => 100, 'unit' => 'g']);
+        $carb->recalculateTotals();
+        $base = "/api/rnd/ncp-records/{$ncp->uuid}/meal-plans";
+        $id = $this->actingAs($this->rnd)->postJson($base, ['intervention_plan_id' => $intervention->uuid, 'week_start_date' => '2026-11-09'])->assertCreated()->json('data.id');
+        $this->patchJson("{$base}/{$id}/carbs", ['recipe_id' => $carb->uuid, 'quantity' => 2])->assertOk();
+        $this->patchJson("{$base}/{$id}/carbs", ['source_recipe_id' => $carb->uuid, 'multiplier' => 0])->assertUnprocessable();
+        $this->patchJson("{$base}/{$id}/carbs", ['source_recipe_id' => $carb->uuid, 'multiplier' => 100000])->assertUnprocessable();
+        $this->assertSame(21, MealPlanItem::where('quantity', 2)->count());
+        $day = MealPlan::where('uuid', $id)->firstOrFail()->days()->where('meal_type', 'breakfast')->firstOrFail();
+        $item = $day->items()->firstOrFail();
+        $foreign = Recipe::factory()->create(['category' => 'carb']);
+        $this->patchJson("{$base}/{$id}/carbs", ['source_recipe_id' => $carb->uuid, 'recipe_id' => $foreign->uuid])->assertUnprocessable();
+        $this->patchJson("{$base}/{$id}/days/{$day->uuid}/items/{$item->uuid}", ['recipe_id' => $foreign->uuid])->assertUnprocessable();
+        $this->assertSame(21, MealPlanItem::where('recipe_id', $carb->id)->count());
+        Intervention::factory()->create(['ncp_record_id' => $ncp->id]);
+        $this->patchJson("{$base}/{$id}/carbs", ['source_recipe_id' => $carb->uuid, 'quantity' => 1])->assertForbidden();
+        $this->patchJson("{$base}/{$id}", ['snacks_hidden' => true])->assertForbidden();
+        $this->assertSame(21, MealPlanItem::where('quantity', 2)->count());
+    }
+
+    public function test_single_carb_replacement_changes_only_one_slot_and_rejects_allergens(): void
+    {
+        [$ncp, $intervention] = $this->makeInterventionWithNcpRecord();
+        $food = FoodItem::factory()->create(['allergens' => []]);
+        $carb = Recipe::factory()->create(['rnd_user_id' => $this->rnd->id, 'category' => 'carb', 'servings' => 1]);
+        $carb->ingredients()->create(['food_item_id' => $food->id, 'quantity' => 100, 'unit' => 'g']);
+        $carb->recalculateTotals();
+        $replacement = $carb->replicate(['uuid']);
+        $replacement->name = 'Replacement Carb';
+        $replacement->save();
+        $replacement->ingredients()->create(['food_item_id' => $food->id, 'quantity' => 50, 'unit' => 'g']);
+        $replacement->recalculateTotals();
+        $base = "/api/rnd/ncp-records/{$ncp->uuid}/meal-plans";
+        $id = $this->actingAs($this->rnd)->postJson($base, ['intervention_plan_id' => $intervention->uuid, 'week_start_date' => '2026-11-09'])->assertCreated()->json('data.id');
+        $this->patchJson("{$base}/{$id}/carbs", ['recipe_id' => $carb->uuid, 'quantity' => 2])->assertOk();
+        $day = MealPlan::where('uuid', $id)->firstOrFail()->days()->where('meal_type', 'breakfast')->firstOrFail();
+        $item = $day->items()->firstOrFail();
+        $this->patchJson("{$base}/{$id}/days/{$day->uuid}/items/{$item->uuid}", ['recipe_id' => $replacement->uuid, 'quantity' => 1.5])->assertOk()->assertJsonPath('data.recipe_id', $replacement->uuid)->assertJsonPath('data.recipe_category', 'carb');
+        $this->assertSame(20, MealPlanItem::where('recipe_id', $carb->id)->count());
+        $this->assertSame(1, MealPlanItem::where('recipe_id', $replacement->id)->count());
+        Assessment::factory()->create(['ncp_record_id' => $ncp->id, 'allergies' => ['milk']]);
+        $food->update(['allergens' => ['milk']]);
+        $this->patchJson("{$base}/{$id}/carbs", ['source_recipe_id' => $carb->uuid, 'recipe_id' => $replacement->uuid])->assertUnprocessable();
+        $this->assertSame(20, MealPlanItem::where('recipe_id', $carb->id)->count());
+    }
+
+    public function test_bulk_carb_edits_include_manual_copies_but_leave_other_recipes_and_library_unchanged(): void
+    {
+        [$ncp, $intervention] = $this->makeInterventionWithNcpRecord();
+        $food = FoodItem::factory()->create(['allergens' => []]);
+        $recipes = collect(['White rice', 'Brown rice'])->map(function ($name) use ($food) {
+            $recipe = Recipe::factory()->create(['rnd_user_id' => $this->rnd->id, 'name' => $name, 'category' => 'carb', 'servings' => 1]);
+            $recipe->ingredients()->create(['food_item_id' => $food->id, 'quantity' => 100, 'unit' => 'g']);
+            $recipe->recalculateTotals();
+
+            return $recipe;
+        });
+        $base = "/api/rnd/ncp-records/{$ncp->uuid}/meal-plans";
+        $id = $this->actingAs($this->rnd)->postJson($base, ['intervention_plan_id' => $intervention->uuid, 'week_start_date' => '2026-11-09'])->assertCreated()->json('data.id');
+        $plan = MealPlan::where('uuid', $id)->firstOrFail();
+        foreach (['breakfast', 'lunch'] as $meal) {
+            $day = $plan->days()->where('day_of_week', 'Monday')->where('meal_type', $meal)->firstOrFail();
+            $this->postJson("{$base}/{$id}/days/{$day->uuid}/items", ['recipe_id' => $recipes[0]->uuid, 'quantity' => 1.5, 'unit' => 'serving'])->assertCreated();
+        }
+        $this->patchJson("{$base}/{$id}/carbs", ['source_recipe_id' => $recipes[0]->uuid, 'multiplier' => 2])->assertOk();
+        $this->assertSame([3.0, 3.0], MealPlanItem::orderBy('id')->get()->map(fn ($item) => (float) $item->quantity)->all());
+        $this->patchJson("{$base}/{$id}/carbs", ['source_recipe_id' => $recipes[0]->uuid, 'recipe_id' => $recipes[1]->uuid])->assertOk();
+        $this->assertSame(2, MealPlanItem::where('recipe_id', $recipes[1]->id)->count());
+        $this->patchJson("{$base}/{$id}/carbs", ['recipe_id' => $recipes[0]->uuid, 'quantity' => 2])->assertOk();
+        $this->assertSame(21, MealPlanItem::where('recipe_id', $recipes[0]->id)->count());
+        $this->patchJson("{$base}/{$id}/carbs", ['source_recipe_id' => $recipes[1]->uuid, 'quantity' => 1])->assertOk();
+        $this->assertSame(21, MealPlanItem::where('recipe_id', $recipes[0]->id)->where('quantity', 2)->count());
+        $this->patchJson("{$base}/{$id}/carbs", ['source_recipe_id' => $recipes[1]->uuid, 'remove' => true])->assertOk();
+        $this->assertSame(0, MealPlanItem::where('recipe_id', $recipes[1]->id)->count());
+        $this->assertSame(21, MealPlanItem::where('recipe_id', $recipes[0]->id)->count());
+        $this->assertSame(1.0, (float) $recipes[0]->fresh()->servings);
+        $this->assertTrue($plan->fresh()->needs_rescaling);
+    }
+
+    public function test_hiding_snack_rows_preserves_their_items_and_restores_them_unchanged(): void
+    {
+        [$ncp, $intervention] = $this->makeInterventionWithNcpRecord();
+        $base = "/api/rnd/ncp-records/{$ncp->uuid}/meal-plans";
+        $id = $this->actingAs($this->rnd)->postJson($base, ['intervention_plan_id' => $intervention->uuid, 'week_start_date' => '2026-11-09'])->assertCreated()->json('data.id');
+        $plan = MealPlan::where('uuid', $id)->firstOrFail();
+        foreach (['breakfast', 'am_snack', 'pm_snack'] as $meal) {
+            $day = $plan->days()->where('day_of_week', 'Monday')->where('meal_type', $meal)->firstOrFail();
+            MealPlanItem::factory()->create(['meal_plan_day_id' => $day->id]);
+        }
+        $this->patchJson("{$base}/{$id}", ['snacks_hidden' => true])->assertOk()->assertJsonPath('data.snacks_hidden', true);
+        $this->assertSame(3, MealPlanItem::count());
+        $this->assertSame(35, $plan->days()->count());
+        $this->patchJson("{$base}/{$id}", ['snacks_hidden' => false])->assertOk()->assertJsonPath('data.snacks_hidden', false);
+        $this->assertSame(3, MealPlanItem::count());
+    }
+
+    public function test_template_inherits_explicit_snack_removal_without_guessing_from_empty_rows(): void
+    {
+        [$ncp, $intervention] = $this->makeInterventionWithNcpRecord();
+        $food = FoodItem::factory()->create(['allergens' => []]);
+        $recipe = Recipe::factory()->create(['rnd_user_id' => $this->rnd->id, 'category' => 'carb', 'servings' => 1]);
+        $recipe->ingredients()->create(['food_item_id' => $food->id, 'quantity' => 100, 'unit' => 'g']);
+        $recipe->recalculateTotals();
+        $payload = ['name' => 'Main meals only', 'snacks_hidden' => true, 'lines' => [['recipe_id' => $recipe->uuid, 'day_of_week' => 'Monday', 'meal_type' => 'breakfast', 'quantity' => 2, 'unit' => 'serving']]];
+        $template = $this->actingAs($this->rnd)->postJson('/api/rnd/meal-plan-templates', $payload)->assertCreated()->assertJsonPath('data.snacks_hidden', true)->json('data.id');
+        $this->postJson("/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/from-template", ['intervention_plan_id' => $intervention->uuid, 'template_id' => $template, 'week_start_date' => '2026-11-09'])->assertCreated()->assertJsonPath('data.snacks_hidden', true);
+        $payload['snacks_hidden'] = false;
+        $this->postJson('/api/rnd/meal-plan-templates', $payload)->assertCreated()->assertJsonPath('data.snacks_hidden', false);
+        $payload['snacks_hidden'] = true;
+        $payload['lines'][0]['meal_type'] = 'am_snack';
+        $this->postJson('/api/rnd/meal-plan-templates', $payload)->assertCreated()->assertJsonPath('data.snacks_hidden', true);
+    }
+
     public function test_explicit_regeneration_replaces_items_and_failed_generation_preserves_the_menu(): void
     {
         [$ncp, $intervention] = $this->makeInterventionWithNcpRecord();

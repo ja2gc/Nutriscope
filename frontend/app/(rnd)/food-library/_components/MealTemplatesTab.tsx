@@ -1,29 +1,31 @@
 "use client";
 
-import { useCallback, useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
+import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from "react";
 import { Button } from "@/components/ui/Button";
-import { WeeklyMenuCalendar, MENU_SLOTS } from "@/components/ncp/WeeklyMenuCalendar";
+import { WeeklyMenuCalendar, MENU_SLOTS, MENU_DAYS } from "@/components/ncp/WeeklyMenuCalendar";
+import { CarbMenuEditor } from '@/components/ncp/CarbMenuEditor';
+import { ClinicalMenuItemEditor } from '@/components/ncp/ClinicalMenuItemEditor';
+import { type MealPlanOptions } from '@/components/ncp/MealPlanOptionsDialog';
 import { MenuEditorSlots, MenuEditorActions, MenuEditorAction } from "@/components/ncp/MenuEditorSlots";
-import { RecipeMenuItemProfile } from "@/components/ncp/MenuItemProfile";
 import { Pagination, type PaginationMeta } from "@/components/ui/Pagination";
 import { MenuItemPicker } from "@/components/ncp/MenuItemPicker";
 import ButtonFilterGroup from "@/components/ui/ButtonFilterGroup";
 import { useUnsavedChanges, type EditorLeaveHandle } from "@/hooks/useUnsavedChanges";
 import { ArrowLeft } from "lucide-react";
-import { formatMealPlanAmount as formatTemplateDisplayNumber } from "@/lib/mealPlanNutrition";
+import { formatMealPlanAmount as formatTemplateDisplayNumber, recipeMenuSnapshot } from "@/lib/mealPlanNutrition";
 import { MENU_ITEM_CATEGORIES, menuItemCategoryLabel } from "@/lib/menuItemCategories";
 import { FormulaCollection } from '@/components/ncp/FormulaCollection';
 import { formulaItemsPayload, type FormulaItem } from '@/lib/formulaPlan';
-import { fetchRecipes, type Recipe } from "@/services/foodLibraryService";
+import { fetchRecipes, fetchRecipeById, type Recipe } from "@/services/foodLibraryService";
 import {
   deleteMealPlanTemplate, fetchMealPlanTemplate, fetchMealPlanTemplates,
-  saveLibraryMealPlanTemplate, type LibraryTemplateLine, type MealPlanTemplate, type NutrientSnapshot,
+  saveLibraryMealPlanTemplate, type MealPlanItem, type LibraryTemplateLine, type MealPlanTemplate, type NutrientSnapshot,
 } from "@/services/mealPlanService";
 
 const MEALS = MENU_SLOTS;
 
-type EditorLine = LibraryTemplateLine & { key: number; itemName: string; snapshot?: NutrientSnapshot | null };
-type EditorState = { id?: string; name: string; description: string; lines: EditorLine[]; readOnly?: boolean; nutritionSupport?: 'oral' | 'tube_feeding'; formulaItems?: FormulaItem[] };
+type EditorLine = LibraryTemplateLine & { key: number; itemName: string; recipe_category?: string | null; snapshot?: NutrientSnapshot | null };
+type EditorState = { id?: string; name: string; description: string; lines: EditorLine[]; snacksHidden?: boolean; readOnly?: boolean; nutritionSupport?: 'oral' | 'tube_feeding'; formulaItems?: FormulaItem[] };
 let nextLineKey = 0;
 
 function TemplateEditor({ initial, onClose, onSaved, leaveRef }: {
@@ -45,9 +47,10 @@ function TemplateEditor({ initial, onClose, onSaved, leaveRef }: {
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [optionsMode, setOptionsMode] = useState<'add' | 'edit' | null>(null);
   const pickerTrigger = useRef<HTMLButtonElement | null>(null);
   const profileTrigger = useRef<HTMLButtonElement | null>(null);
-  const [profile, setProfile] = useState<{ id: string; name: string; snapshot?: NutrientSnapshot | null } | null>(null);
+  const [profile, setProfile] = useState<{ id: string; name: string; key: number; snapshot?: NutrientSnapshot | null } | null>(null);
 
   function closeProfile() {
     setProfile(null);
@@ -64,7 +67,7 @@ function TemplateEditor({ initial, onClose, onSaved, leaveRef }: {
   function openProfile(line: EditorLine, trigger: HTMLButtonElement) {
     if (!line.recipe_id) return;
     profileTrigger.current = trigger;
-    setProfile({ id: line.recipe_id, name: line.itemName, snapshot: line.snapshot });
+    setProfile({ id: line.recipe_id, name: line.itemName, key: line.key, snapshot: line.snapshot });
   }
 
   useEffect(() => {
@@ -97,6 +100,7 @@ function TemplateEditor({ initial, onClose, onSaved, leaveRef }: {
       meal_type: meal,
       food_item_id: null,
       recipe_id: item.id,
+      recipe_category: item.category,
       itemName: item.name,
       quantity: 1,
       unit: "serving",
@@ -128,9 +132,10 @@ function TemplateEditor({ initial, onClose, onSaved, leaveRef }: {
     try {
       await saveLibraryMealPlanTemplate({
         name: draft.name.trim(),
+        snacks_hidden: Boolean(draft.snacksHidden),
         description: draft.description.trim() || null,
-        lines: draft.lines.map(({ source_template_item_id, day_of_week, meal_type, food_item_id, recipe_id, quantity, unit }) => ({
-          ...(source_template_item_id ? { source_template_item_id } : {}), day_of_week, meal_type, food_item_id, recipe_id, quantity, unit: unit.trim(),
+        lines: draft.lines.map(({ source_template_item_id, day_of_week, meal_type, food_item_id, recipe_id, quantity, unit, ingredients }) => ({
+          ...(source_template_item_id ? { source_template_item_id } : {}), day_of_week, meal_type, food_item_id, recipe_id, quantity, unit: unit.trim(), ...(ingredients ? { ingredients } : {}),
         })),
       }, draft.id);
       guard.allowNavigation();
@@ -147,7 +152,29 @@ function TemplateEditor({ initial, onClose, onSaved, leaveRef }: {
   const guard = useUnsavedChanges({ dirty: !draft.readOnly && JSON.stringify(draft) !== JSON.stringify(initial), onSave: save });
   useImperativeHandle(leaveRef, () => ({ requestLeave: guard.requestLeave }), [guard.requestLeave]);
 
-  if (profile) return <RecipeMenuItemProfile id={profile.id} name={profile.name} snapshot={profile.snapshot} onBack={closeProfile} />;
+  const carbEntries = draft.lines.filter(line => !draft.snacksHidden || !['am_snack', 'pm_snack'].includes(line.meal_type)).map(line => ({ recipeId: line.recipe_id ?? null, name: line.itemName, category: line.recipe_category ?? line.snapshot?.recipe_category, quantity: line.quantity, snapshot: line.snapshot }));
+  async function applyCarbOptions(options: MealPlanOptions, selected: Recipe | null, editedSnapshot: NutrientSnapshot | null) {
+    const replacement = selected ? await fetchRecipeById(selected.id) : null;
+    const snapshot = editedSnapshot ?? (replacement ? recipeMenuSnapshot(replacement) : null);
+    const lines = draft.lines.filter(line => !(options.remove && line.recipe_id === options.source_recipe_id && (line.recipe_category ?? line.snapshot?.recipe_category) === 'carb' && (!draft.snacksHidden || !['am_snack', 'pm_snack'].includes(line.meal_type)))).map(line => {
+      if (draft.snacksHidden && ['am_snack', 'pm_snack'].includes(line.meal_type)) return line;
+      const applies = line.recipe_id === options.source_recipe_id && (line.recipe_category ?? line.snapshot?.recipe_category) === 'carb';
+      if (!applies) return line;
+      const quantity = options.quantity ?? line.quantity;
+      if (!(quantity >= 0.01 && quantity <= 99999.99)) throw new Error('Resulting servings must be between 0.01 and 99999.99.');
+      return replacement && replacement.id !== line.recipe_id ? { ...line, source_template_item_id: undefined, recipe_id: replacement.id, recipe_category: replacement.category, itemName: replacement.name, snapshot, quantity } : { ...line, quantity, ...(options.ingredients ? { ingredients: options.ingredients, snapshot } : {}) };
+    });
+    if (!options.source_recipe_id && replacement) for (const day of MENU_DAYS) for (const meal of ['breakfast', 'lunch', 'dinner']) {
+      if (!lines.some(line => line.day_of_week === day && line.meal_type === meal && line.recipe_id === replacement.id)) lines.push({ key: ++nextLineKey, day_of_week: day, meal_type: meal, recipe_id: replacement.id, recipe_category: replacement.category, itemName: replacement.name, snapshot, ingredients: options.ingredients, quantity: options.quantity ?? 1, unit: 'serving' });
+    }
+    setDraft({ ...draft, lines });
+  }
+  const profileLine = draft.lines.find(line => line.key === profile?.key);
+  const profileItem = useMemo((): MealPlanItem | null => profileLine ? { id: String(profileLine.key), meal_plan_day_id: '', recipe_id: profileLine.recipe_id ?? null, recipe_category: profileLine.recipe_category, quantity: String(profileLine.quantity), unit: profileLine.unit, nutrient_snapshot: profileLine.snapshot ?? null, ingredients: profileLine.ingredients, food_item_id: null, fdc_id: null, source: 'recipe', ai_suggested: false } : null, [profileLine]);
+  if (optionsMode) return <CarbMenuEditor mode={optionsMode} items={carbEntries} onBack={() => setOptionsMode(null)} onApply={applyCarbOptions} />;
+  if (profileItem) return <ClinicalMenuItemEditor item={profileItem} readOnly={draft.readOnly} backLabel="Back to template" onBack={closeProfile} onSave={async (payload, snapshot) => {
+    setDraft(current => ({ ...current, lines: current.lines.map(line => line.key === profileLine!.key ? { ...line, quantity: payload.quantity ?? line.quantity, snapshot, ...(payload.ingredients ? { ingredients: payload.ingredients } : {}) } : line) }));
+  }} />;
 
   return (
     <section aria-label={draft.readOnly ? "View meal template" : draft.id ? "Edit meal template" : "Create meal template"}>
@@ -169,10 +196,12 @@ function TemplateEditor({ initial, onClose, onSaved, leaveRef }: {
           </label>
         </div>
 
+        {!draft.readOnly && draft.nutritionSupport !== 'tube_feeding' && <div className="mt-4 flex flex-wrap gap-2"><Button variant="secondary" onClick={() => setOptionsMode('add')}>Add carbs</Button>{carbEntries.some(item => item.category === 'carb') && <Button variant="secondary" onClick={() => setOptionsMode('edit')}>Edit carbs</Button>}</div>}
         <div className="mt-5 space-y-2">
-          {draft.nutritionSupport === 'tube_feeding' ? <FormulaCollection items={draft.formulaItems ?? []} onChange={items => setDraft(current => ({ ...current, formulaItems: items }))} readOnly={draft.readOnly} editPortions={false} /> : <WeeklyMenuCalendar renderCell={(cellDay, cellMeal) => {
+          {draft.nutritionSupport === 'tube_feeding' ? <FormulaCollection items={draft.formulaItems ?? []} onChange={items => setDraft(current => ({ ...current, formulaItems: items }))} readOnly={draft.readOnly} editPortions={false} /> : <WeeklyMenuCalendar snacksHidden={Boolean(draft.snacksHidden)} onSnackVisibilityChange={draft.readOnly ? undefined : visible => setDraft({ ...draft, snacksHidden: !visible })} getItemCount={(day, meal) => draft.lines.filter(line => line.day_of_week === day && line.meal_type === meal).length} renderCell={(cellDay, cellMeal, minimumItems) => {
             const lines = draft.lines.filter((line) => line.day_of_week === cellDay && line.meal_type === cellMeal);
             return <MenuEditorSlots
+            minimumItems={minimumItems}
             itemActions={lines.map((line) => line.recipe_id ? { label: `View ${line.itemName}`, onOpen: (trigger) => void openProfile(line, trigger) } : undefined)}
             items={lines.map((line) => <div key={line.key} className="flex h-full flex-col justify-between gap-1">
               <MenuEditorActions>
@@ -234,6 +263,7 @@ export function MealTemplatesTab({ leaveRef }: { leaveRef?: Ref<EditorLeaveHandl
         readOnly,
         name: detail.name,
         description: detail.description ?? "",
+        snacksHidden: Boolean(detail.snacks_hidden),
         nutritionSupport: detail.nutrition_support ?? 'oral',
         formulaItems: detail.formula_items ?? [],
         lines: detail.days.flatMap((day) => day.items.map((item) => ({
@@ -243,6 +273,7 @@ export function MealTemplatesTab({ leaveRef }: { leaveRef?: Ref<EditorLeaveHandl
           meal_type: day.meal_type,
           food_item_id: item.food_item_id,
           recipe_id: item.recipe_id,
+          recipe_category: item.recipe_category,
           itemName: item.nutrient_snapshot?.name ?? item.food_name ?? "Unavailable item",
           snapshot: item.nutrient_snapshot,
           quantity: Number(item.quantity),

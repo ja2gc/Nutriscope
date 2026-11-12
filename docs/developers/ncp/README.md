@@ -1,5 +1,7 @@
 # Nutrition care process
 
+Oral Intervention and Food Library templates share `CarbMenuEditor` for the separate Add carbs picker and Edit carbs cards, and `ClinicalMenuItemEditor` for ordinary and bulk food edits. `MealPlanOptionsDialog` scopes generation choices to Generate meal plan. `MealPlanController`/`MealPlanService` own patient mutations and prescription scaling. Templates preserve portions and Show snack slots. `IngredientPicker` gives `MenuItemCreateForm` and the library Menu Item editor existing-Ingredient search or USDA import-and-select through the existing service. See [menu data meaning](data.md#clinical-food-library-and-menu-planning) for scope, grouping and persistence.
+
 Classification paths: `Assessment::classifyBmi`, its derived API field, diagnosis/monitoring evidence and current census/NCP report presentation. See [data meaning](data.md) and [AI maintenance](ai.md).
 
 Purpose: locate nutrition calculations and NCP workflow authority.

@@ -20,10 +20,11 @@ class MealPlan extends Model
     protected bool $auditRedactValues = true;
 
     protected $fillable = [
-        'intervention_id', 'patient_id', 'week_start_date', 'generation_type', 'needs_rescaling', 'scaled_at', 'status',
+        'intervention_id', 'patient_id', 'week_start_date', 'generation_type', 'needs_rescaling', 'scaled_at', 'status', 'snacks_hidden',
     ];
 
     protected $casts = [
+        'snacks_hidden' => 'boolean',
         'week_start_date' => 'date',
         'needs_rescaling' => 'boolean',
         'scaled_at' => 'datetime',
@@ -40,7 +41,7 @@ class MealPlan extends Model
 
     protected function auditAttributes(): array
     {
-        return ['intervention_id', 'patient_id', 'week_start_date', 'generation_type', 'needs_rescaling', 'scaled_at', 'status'];
+        return ['intervention_id', 'patient_id', 'week_start_date', 'generation_type', 'needs_rescaling', 'scaled_at', 'status', 'snacks_hidden'];
     }
 
     public function intervention(): BelongsTo

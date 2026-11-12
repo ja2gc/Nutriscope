@@ -923,6 +923,13 @@ return [
             'implementation_state' => 'implemented',
             'reason' => 'Meal-plan persistence for PATCH api/rnd/ncp-records/{ncpRecord}/meal-plans/{mealPlan} is covered by its redacted clinical model event.',
         ],
+        'PATCH api/rnd/ncp-records/{ncpRecord}/meal-plans/{mealPlan}/carbs' => [
+            'classification' => 'explicit_event',
+            'source' => 'App\\Http\\Controllers\\RND\\MealPlanController@editCarbs',
+            'owner_task' => 6,
+            'implementation_state' => 'implemented',
+            'reason' => 'Carb edits emit a sanitized NCP-root update event without logging clinical values.',
+        ],
         'DELETE api/rnd/ncp-records/{ncpRecord}/meal-plans/{mealPlan}' => [
             'classification' => 'model_event',
             'source' => 'App\\Models\\MealPlan::AuditsChanges',

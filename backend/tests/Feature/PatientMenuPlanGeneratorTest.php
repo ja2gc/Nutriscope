@@ -15,6 +15,7 @@ use App\Models\RecipeIngredient;
 use App\Models\Report;
 use App\Models\ReportBranding;
 use App\Models\User;
+use App\Services\MealPlanService;
 use App\Services\NutritionPrescriptionService;
 use App\Services\Reports\Generators\PatientMenuPlanGenerator;
 use App\Services\Reports\ReportBrowser;
@@ -29,6 +30,35 @@ use Tests\TestCase;
 class PatientMenuPlanGeneratorTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_hidden_snacks_are_preserved_but_excluded_from_scaling_and_report(): void
+    {
+        $plan = $this->makePlan();
+        $plan->update(['snacks_hidden' => true]);
+        foreach (['breakfast' => 'Fictional Rice', 'am_snack' => 'Fictional Hidden Snack'] as $meal => $name) {
+            $recipe = Recipe::factory()->create(['rnd_user_id' => $plan->intervention->ncpRecord->rnd_user_id, 'category' => 'carb', 'name' => $name, 'servings' => 1]);
+            $food = FoodItem::factory()->create(['serving_size' => 100, 'serving_unit' => 'g']);
+            $recipe->ingredients()->create(['food_item_id' => $food->id, 'quantity' => 100, 'unit' => 'g']);
+            $recipe->recalculateTotals();
+            $day = $plan->days()->create(['day_of_week' => 'Monday', 'meal_type' => $meal]);
+            $day->items()->create(['recipe_id' => $recipe->id, 'quantity' => 1.5, 'unit' => 'serving', 'nutrient_snapshot' => $recipe->planSnapshot()]);
+        }
+        app(MealPlanService::class)->scaleToPrescription($plan, $plan->intervention);
+        $this->assertEquals(1.5, $plan->days()->where('meal_type', 'am_snack')->firstOrFail()->items()->firstOrFail()->quantity);
+        $report = new Report(['title' => 'Fictional menu visibility check', 'type' => 'patient_menu_plan', 'parameters' => ['intervention_plan_id' => $plan->intervention->uuid]]);
+        $data = app(PatientMenuPlanGenerator::class)->data($report);
+        $encoded = json_encode([$data['grid'], $data['portion_details']]);
+        $this->assertStringContainsString('Fictional Rice', $encoded);
+        $this->assertStringNotContainsString('Fictional Hidden Snack', $encoded);
+        $built = app(ReportService::class)->buildPdf($report);
+        $this->assertStringStartsWith('%PDF-', $built['bytes']);
+        if ($artifact = getenv('NUTRISCOPE_MENU_PDF_QA_PATH')) {
+            file_put_contents($artifact, $built['bytes']);
+        }
+        $plan->update(['snacks_hidden' => false]);
+        $restored = app(PatientMenuPlanGenerator::class)->data($report);
+        $this->assertStringContainsString('Fictional Hidden Snack', json_encode($restored['grid']));
+    }
 
     public function test_label_based_menu_item_retains_recipe_yield_and_measured_portions_in_reports(): void
     {

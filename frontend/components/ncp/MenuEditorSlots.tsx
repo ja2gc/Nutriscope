@@ -20,7 +20,7 @@ export function MenuEditorAction({ kind, label, onClick, disabled = false }: {
   </button>;
 }
 
-export function MenuEditorSlots({ items, itemActions, addLabel, addAriaLabel, onAdd, readOnly = false, emptyLabel = "—", compact = false }: {
+export function MenuEditorSlots({ items, itemActions, addLabel, addAriaLabel, onAdd, readOnly = false, emptyLabel = "—", compact = false, minimumItems = 0 }: {
   items: ReactNode[];
   itemActions?: Array<{ id?: string; label: string; onOpen: (trigger: HTMLButtonElement) => void } | undefined>;
   addLabel: string;
@@ -29,6 +29,7 @@ export function MenuEditorSlots({ items, itemActions, addLabel, addAriaLabel, on
   readOnly?: boolean;
   emptyLabel?: string;
   compact?: boolean;
+  minimumItems?: number;
 }) {
   return (
     <div className="grid gap-2" data-menu-editor-slots>
@@ -38,12 +39,13 @@ export function MenuEditorSlots({ items, itemActions, addLabel, addAriaLabel, on
           {item}
         </div>
       ))}
+      {Array.from({ length: Math.max(0, minimumItems - items.length) }, (_, index) => <div key={`empty-${index}`} data-menu-editor-placeholder aria-hidden="true" className={`rounded-lg border border-warm-100 bg-warm-50/50 ${compact ? 'min-h-16' : 'h-32'}`} />)}
       {!readOnly && onAdd ? (
         <button type="button" data-menu-editor-add aria-label={addAriaLabel ?? addLabel} onClick={onAdd}
           className="flex min-h-10 w-full items-center justify-center gap-1 rounded-lg border border-dashed border-warm-300 px-2 py-2 text-xs font-semibold text-warm-500 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700">
           <Plus className="h-3.5 w-3.5" />{addLabel}
         </button>
-      ) : items.length === 0 ? (
+      ) : items.length === 0 && minimumItems === 0 ? (
         <div data-menu-editor-empty className="flex h-32 items-center justify-center rounded-lg border border-warm-100 bg-warm-50/50 text-xs text-warm-300">{emptyLabel}</div>
       ) : null}
     </div>

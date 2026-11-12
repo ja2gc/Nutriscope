@@ -5,6 +5,7 @@ import type { RecipeIngredient } from "./foodLibraryService";
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface NutrientSnapshot {
+  recipe_category?: string | null;
   recipe_reset_baseline?: NutrientSnapshot;
   recipe_reset_quantity?: number;
   fdc_id?: number | null;
@@ -26,6 +27,7 @@ export interface NutrientSnapshot {
 }
 
 export interface MealPlanItem {
+  recipe_category?: string | null;
   id: string;
   meal_plan_day_id: string;
   food_item_id: string | null;
@@ -75,6 +77,7 @@ export interface MealPlanDay {
 }
 
 export interface MealPlan {
+  snacks_hidden?: boolean;
   id: string;
   intervention_plan_id: string;
   week_start_date: string;
@@ -123,6 +126,20 @@ export async function createMealPlan(
 }
 
 // ─── Meal Plan Items API ──────────────────────────────────────────────────────
+
+export async function updateMealPlanCarbs(ncpId: string, planId: string, options: { source_recipe_id?: string; recipe_id?: string; quantity?: number; ingredients?: MealPlanItem['ingredients']; remove?: boolean }): Promise<{ plan: MealPlan; items: MealPlanItem[] }> {
+  const response = await apiFetch(`/api/rnd/ncp-records/${ncpId}/meal-plans/${planId}/carbs`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(options) });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? 'Could not edit carbs.');
+  return { plan: body.data, items: body.items };
+}
+
+export async function setMealPlanSnackRows(ncpId: string, planId: string, removed: boolean): Promise<MealPlan> {
+  const response = await apiFetch(`/api/rnd/ncp-records/${ncpId}/meal-plans/${planId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ snacks_hidden: removed }) });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.message ?? 'Could not update snack rows.');
+  return body.data;
+}
 
 /** Fetch all items for a plan in one request — replaces 35 individual calls. */
 export async function fetchAllMealPlanItems(
@@ -212,6 +229,7 @@ export async function generateMealPlan(
 }
 
 export interface MealPlanTemplate {
+  snacks_hidden?: boolean;
   nutrition_support?: 'oral' | 'tube_feeding';
   id: string;
   name: string;
@@ -223,6 +241,7 @@ export interface MealPlanTemplate {
 }
 
 export interface MealPlanTemplateItem {
+  recipe_category?: string | null;
   id: string;
   food_item_id: string | null;
   recipe_id: string | null;
@@ -250,6 +269,7 @@ export interface MealPlanTemplateDetail extends MealPlanTemplate {
 }
 
 export interface LibraryTemplateLine {
+  ingredients?: MealPlanItem['ingredients'];
   source_template_item_id?: string | null;
   day_of_week: string;
   meal_type: string;
@@ -260,6 +280,7 @@ export interface LibraryTemplateLine {
 }
 
 export interface LibraryTemplatePayload {
+  snacks_hidden?: boolean;
   nutrition_support?: 'oral' | 'tube_feeding';
   formula_items?: ReturnType<typeof import('@/lib/formulaPlan').formulaItemsPayload>;
   source_intervention_id?: string;
@@ -320,7 +341,7 @@ export async function createPlanFromTemplate(
   ncpId: string,
   payload: {
     intervention_plan_id: string; template_id?: string; source_meal_plan_id?: string; week_start_date: string;
-    meal_plan_id?: string; preview?: boolean; scale?: boolean;
+    meal_plan_id?: string; preview?: boolean; scale?: boolean; snacks_hidden?: boolean;
     lines?: (LibraryTemplateLine & { source_template_item_id?: string | null; source_meal_plan_item_id?: string | null; ingredient_overrides?: { id: number; quantity: number }[] })[];
   }
 ): Promise<{
@@ -389,7 +410,7 @@ export async function updateMealPlanItem(
   // DI-03: the client never sends a nutrient snapshot. For recipe ingredient
   // edits, send per-ingredient quantity overrides; the server recomputes the
   // snapshot from trusted food data.
-  payload: { quantity?: number; ingredient_overrides?: { id: number; quantity: number }[]; ingredients?: { food_item_id: string; quantity: number; unit: string }[] }
+  payload: { recipe_id?: string; quantity?: number; ingredient_overrides?: { id: number; quantity: number }[]; ingredients?: { food_item_id: string; quantity: number; unit: string }[] }
 ): Promise<MealPlanItem> {
   const res = await apiFetch(
     `/api/rnd/ncp-records/${ncpId}/meal-plans/${planId}/days/${dayId}/items/${itemId}`,

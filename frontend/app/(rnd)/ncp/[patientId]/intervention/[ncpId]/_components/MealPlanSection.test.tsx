@@ -74,6 +74,8 @@ vi.mock("@/services/foodLibraryService", () => ({
 afterEach(() => {
   document.body.innerHTML = "";
   vi.clearAllMocks();
+  vi.mocked(fetchRecipes).mockReset().mockResolvedValue({ data: [{ id: "snack-1", name: "Fruit cup", category: "snack", servings: 1, total_calories: "80", total_protein: "1", total_carbs: "20", total_fat: "0", ingredients: [] }], meta: null } as never);
+  vi.mocked(generateMealPlan).mockReset().mockResolvedValue({ insufficient_recipes: true, count: 0, message: "Add more Menu Items." });
   vi.mocked(createPlanFromTemplate).mockReset();
   vi.mocked(fetchMealPlanTemplate).mockReset();
   vi.mocked(fetchMealPlans).mockReset().mockResolvedValue([{ id: 'plan-1', intervention_plan_id: 'intervention-1', week_start_date: '2026-10-05', generation_type: 'manual', scale_status: 'available', scaled_at: null, status: 'draft', days: [{ id: 'day-1', day_of_week: 'Monday', meal_type: 'breakfast', flagged: false }] }]);
@@ -110,7 +112,7 @@ it('keeps generation and clear controls available when a saved menu already exis
   const container = document.createElement('div'); document.body.append(container); const root = createRoot(container);
   await act(async () => root.render(<MealPlanSection ncpId="ncp-1" interventionPlanId="intervention-1" prescriptionTargets={{ energy: 2000, protein: 75, carbs: 250, fat: 65, fluid: 2000 }} />));
   try {
-    expect(container.textContent).toContain('Auto-Generate');
+    expect(container.textContent).toContain('Generate meal plan');
     expect(container.textContent).toContain('Clear menu');
     expect(container.textContent).not.toContain('Save week');
     expect(container.textContent).not.toContain('Discard draft');
@@ -122,8 +124,9 @@ it('ignores a completed generation response after switching to another intervent
   vi.mocked(generateMealPlan).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
   const { container, root } = await renderEmptyPlanner();
   try {
-    await act(async () => container.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());
-    await act(async () => Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'Auto-Generate')!.click());
+    await act(async () => getByRole(container, 'button', { name: 'Generate meal plan' }).click());
+    await act(async () => getByRole(container, 'radio', { name: 'Exclude carbs' }).click());
+    await act(async () => getByRole(container, 'button', { name: 'Generate' }).click());
     await act(async () => root.render(<MealPlanSection ncpId="ncp-1" interventionPlanId="intervention-2" prescriptionTargets={{ energy: 1800, protein: 70, carbs: 250, fat: 55, fluid: 2000 }} />));
     await act(async () => finish({ id: 'late-generated-menu', intervention_plan_id: 'intervention-1', week_start_date: '2026-10-19', generation_type: 'auto', scale_status: 'already_scaled', scaled_at: '', status: 'draft', days: [] }));
     expect(container.textContent).not.toContain('Clear menu');
@@ -182,7 +185,7 @@ it("ignores a late previous-menu lookup after switching care cycles", async () =
   } finally { await act(async () => root.unmount()); }
 });
 
-it.each(['Create Menu', 'Load Template', 'Auto-Generate'])("retains %s through intervention save failure and resumes with the new UUID", async (action) => {
+it.each(['Create Menu', 'Load Template'])("retains %s through intervention save failure and resumes with the new UUID", async (action) => {
   vi.mocked(fetchMealPlans).mockResolvedValueOnce([]);
   const save = vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce('new-intervention');
   function NewIntervention() {
@@ -195,24 +198,16 @@ it.each(['Create Menu', 'Load Template', 'Auto-Generate'])("retains %s through i
   await act(async () => root.render(<NewIntervention />));
   try {
     expect(container.textContent).toContain('Weekly Meal Plan');
-    for (const label of ['Create Menu', 'Load Template', 'Auto-Generate']) expect(button(label)).toBeDefined();
+    for (const label of ['Create Menu', 'Load Template', 'Generate meal plan']) expect(button(label)).toBeDefined();
     expect(fetchMealPlans).toHaveBeenCalledWith('ncp-new');
-    const excludeSnacks = Array.from(container.querySelectorAll('label')).find((row) => row.textContent?.includes('Exclude snacks'))!.querySelector('input')!;
-    await act(async () => excludeSnacks.click());
     await act(async () => button(action).click());
     expect(container.textContent).not.toContain('Save intervention and continue');
     expect(createMealPlan).not.toHaveBeenCalled(); expect(generateMealPlan).not.toHaveBeenCalled();
     expect(save).toHaveBeenCalledTimes(1);
-    expect(excludeSnacks.checked).toBe(true);
     await act(async () => button(action).click());
     expect(save).toHaveBeenCalledTimes(2);
     if (action === 'Create Menu') expect(createMealPlan).toHaveBeenCalledWith('ncp-new', expect.objectContaining({ intervention_plan_id: 'new-intervention' }));
     if (action === 'Load Template') expect(container.textContent).toContain('No templates saved yet.');
-    if (action === 'Auto-Generate') {
-      expect(container.textContent).toContain('Choose Carb Menu Item');
-      expect(generateMealPlan).not.toHaveBeenCalled();
-      expect(excludeSnacks.checked).toBe(true);
-    }
   } finally { await act(async () => root.unmount()); }
 });
 
@@ -246,13 +241,14 @@ it("previews a template calendar and persists the selected template without extr
     expect(container.textContent).not.toContain('Save week');
     expect(container.textContent).not.toContain('Discard draft');
     expect(container.textContent).toContain('Clear menu');
-    expect(container.textContent).toContain('Auto-Generate');
+    expect(container.textContent).toContain('Generate meal plan');
   } finally { await act(async () => root.unmount()); }
 });
 
 it("allows Exclude snacks for liver disease", async () => {
   const { container, root } = await renderEmptyPlanner("liver_disease");
   try {
+    await act(async () => getByRole(container, "button", { name: "Generate meal plan" }).click());
     const label = Array.from(container.querySelectorAll("label")).find((element) => element.textContent?.includes("Exclude snacks"))!;
     expect(label.querySelector("input")?.disabled).toBe(false);
   } finally { await act(async () => root.unmount()); }
@@ -304,27 +300,27 @@ it("keeps a historical week readable without template loading or edit actions", 
     expect(container.querySelector('table[aria-label="Weekly menu calendar"]')).not.toBeNull();
     expect(container.querySelector('[aria-label="View Historical breakfast"]')).not.toBeNull();
     expect(container.querySelector('button[title="Edit"]')).toBeNull();
-    expect(Array.from(container.querySelectorAll('button')).some((button) => /Load Template|Save week|Save Template|Auto-Generate|Create Menu|^Add$/.test(button.textContent ?? ''))).toBe(false);
+    expect(Array.from(container.querySelectorAll('button')).some((button) => /Load Template|Save week|Save Template|Generate meal plan|Create Menu|^Add$/.test(button.textContent ?? ''))).toBe(false);
     expect(createPlanFromTemplate).not.toHaveBeenCalled();
   } finally { await act(async () => root.unmount()); }
 });
 
-it("preselects an available Carb before generation and allows changing it", async () => {
+it("requires an explicit Carb choice inside generation options", async () => {
   const { container, root } = await renderEmptyPlanner();
   const carb = { id: "carb-1", rnd_user_id: 1, name: "Oats", category: "carb", meal_types: null, prep_notes: null, servings: 1, total_calories: "150", total_protein: "5", total_carbs: "25", total_fat: "2", prepared_portion_amount: null, prepared_portion_unit: null, micronutrients: {}, ingredients: [], created_at: "", updated_at: "" };
   vi.mocked(fetchRecipes).mockResolvedValueOnce({ data: [carb, { ...carb, id: "carb-2", name: "Sweet potato" }] });
   try {
-    const generate = Array.from(container.querySelectorAll("button")).find((button) => button.textContent?.includes("Auto-Generate"))!;
+    const generate = Array.from(container.querySelectorAll("button")).find((button) => button.textContent?.includes("Generate meal plan"))!;
     await act(async () => generate.click());
     expect(generateMealPlan).not.toHaveBeenCalled();
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 300)); });
-    const dialog = container.querySelector('[aria-label="Choose Carb Menu Item"]')!;
+    const dialog = container.querySelector('[role="dialog"][aria-label="Generate meal plan"]')!;
     expect(dialog).not.toBeNull();
-    expect(fetchRecipes).toHaveBeenCalledWith("", "carb", 1);
-    const confirm = Array.from(dialog.querySelectorAll("button")).find((button) => button.textContent?.trim() === "Generate week")!;
+    expect(fetchRecipes).toHaveBeenCalledWith("", "carb", 1, 10);
+    const confirm = Array.from(dialog.querySelectorAll("button")).find((button) => button.textContent?.trim() === "Generate")!;
     expect(confirm.disabled).toBe(false);
-    const choices = dialog.querySelectorAll<HTMLInputElement>('input[type="radio"]');
-    expect(choices[0].checked).toBe(true);
+    const choices = dialog.querySelectorAll<HTMLInputElement>('input[name="selected-carb"]');
+    expect(choices[0].checked).toBe(false);
     await act(async () => choices[1].click());
     await act(async () => confirm.click());
     expect(generateMealPlan).toHaveBeenCalledWith("ncp-1", expect.objectContaining({ exclude_carbs: false, carb_menu_item_id: "carb-2" }));
@@ -334,11 +330,10 @@ it("preselects an available Carb before generation and allows changing it", asyn
 it("generates without a Carb selection when Exclude carbs is checked", async () => {
   const { container, root } = await renderEmptyPlanner();
   try {
-    const label = Array.from(container.querySelectorAll("label")).find((element) => element.textContent?.includes("Exclude carbs"));
-    expect(label).toBeDefined();
-    await act(async () => label!.querySelector("input")!.click());
-    const generate = Array.from(container.querySelectorAll("button")).find((button) => button.textContent?.includes("Auto-Generate"))!;
-    await act(async () => generate.click());
+    expect(container.querySelector('[aria-label="Exclude carbs"]')).toBeNull();
+    await act(async () => getByRole(container, 'button', { name: 'Generate meal plan' }).click());
+    await act(async () => getByRole(container, 'radio', { name: 'Exclude carbs' }).click());
+    await act(async () => getByRole(container, 'button', { name: 'Generate' }).click());
     expect(generateMealPlan).toHaveBeenCalledWith("ncp-1", expect.objectContaining({ exclude_carbs: true }));
     expect(container.querySelector('[aria-label="Choose Carb Menu Item"]')).toBeNull();
   } finally { await act(async () => root.unmount()); }
@@ -449,7 +444,7 @@ it("shows scaled ingredient amounts per person and removes the generic scale sli
   expect(editor.querySelector('input[aria-label^="Amount of"]')?.getAttribute("step")).toBe("0.1");
   const save = Array.from(editor.querySelectorAll("button")).find((button) => button.textContent?.trim() === "Save Changes")!;
   await act(async () => save.click());
-  expect(updateMealPlanItem).toHaveBeenCalledWith("ncp-1", "plan-1", "day-1", "item-1", { quantity: 1.5, ingredients: [{ food_item_id: 'food-1', quantity: 0.4, unit: 'kg' }] });
+  expect(updateMealPlanItem).toHaveBeenCalledWith("ncp-1", "plan-1", "day-1", "item-1", { quantity: 1.5 });
 
   await act(async () => root.unmount());
 });

@@ -73,6 +73,9 @@ class PatientMenuPlanGenerator implements ReportGenerator
         $portionGroupIndexes = [];
         $fluidByDay = array_fill_keys(self::WEEK, 0.0);
         foreach ($mealPlan->days as $day) {
+            if ($mealPlan->snacks_hidden && in_array($day->meal_type, ['am_snack', 'pm_snack'], true)) {
+                continue;
+            }
             // meal_type is stored raw ('breakfast'); the grid is keyed by display
             // labels ('Breakfast'). Map before lookup or every item is dropped.
             $label = self::MEAL_TYPE_LABELS[$day->meal_type] ?? $day->meal_type;

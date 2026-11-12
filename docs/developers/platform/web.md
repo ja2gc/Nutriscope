@@ -1,6 +1,12 @@
 # Web
 
+Weekly menu cells use `MenuEditorSlots.minimumItems` to show empty item-sized placeholders up to the largest item count in the meal row. `WeeklyMenuCalendar` receives counts from clinical menus/templates; `MenuCycleWorkspace` supplies the same row maximum for operational menus and template previews. Placeholders contain no controls or saved records. The existing Add item action stays after the aligned item positions.
+
+Clinical generation reuses `UnsavedChangesDialog` through `MealPlanOptionsDialog`, with labelled inputs, Cancel/close, Escape, focus containment and focus restoration. Add carbs uses the existing searchable, paginated `MenuItemPicker`; Edit carbs uses recipe cards with pencil/delete actions through `CarbMenuEditor`. `ClinicalMenuItemEditor` is shared with ordinary clinical slots and template slots. Group deletion reuses `DeleteActionDialog`. Clinical **Show snack slots** persists visibility and excludes hidden contents from clinical use; operational **Show snack slots** remains a display preference.
+
 Purpose: find Next.js screens, existing controls and API transport.
+
+`IngredientPicker` owns clinical ingredient selection for `MenuItemCreateForm` and the Food Library Menu Item edit page, reusing `MenuItemPicker` and the existing Food Library/USDA services. Its source selector separates paginated Ingredients from USDA search; import success selects the saved Ingredient in the active row, while errors keep the editor open.
 
 `app/(rnd)/layout.tsx` gives narrow RND screens a white background; desktop retains the existing warm page background. Shopping-list detail and its copy summary remove outer card padding on narrow screens while retaining cards at the large breakpoint. The purchase table keeps its own horizontal scroller. Its column header uses `warm-100` with darker `warm-700` text; package/other-item separators use the lighter `warm-50`, against white item rows.
 

@@ -5,7 +5,7 @@ import { X } from 'lucide-react';
 import SearchInput from '@/components/ui/SearchInput';
 import { Pagination, type PaginationMeta } from '@/components/ui/Pagination';
 
-export function MenuItemPicker({ title = 'Add Menu Item', itemLabel = 'Menu Item', query, onQueryChange, loading, error, items, onSelect, onClose, busyId, meta, page = 1, onPageChange, filters, showSearch = true }: {
+export function MenuItemPicker({ title = 'Add Menu Item', itemLabel = 'Menu Item', query, onQueryChange, loading, error, items, onSelect, onClose, busyId, meta, page = 1, onPageChange, filters, showSearch = true, searchLabel }: {
   title?: string;
   itemLabel?: 'Menu Item' | 'Ingredient' | 'Supply' | 'Template';
   query: string;
@@ -21,6 +21,7 @@ export function MenuItemPicker({ title = 'Add Menu Item', itemLabel = 'Menu Item
   onPageChange?: (page: number) => void;
   filters?: ReactNode;
   showSearch?: boolean;
+  searchLabel?: string;
 }) {
   const pluralLabel = itemLabel === 'Template' ? 'Templates' : itemLabel === 'Ingredient' ? 'Ingredients' : itemLabel === 'Supply' ? 'Supplies' : 'Menu Items';
   const panel = useRef<HTMLDivElement>(null);
@@ -58,7 +59,7 @@ export function MenuItemPicker({ title = 'Add Menu Item', itemLabel = 'Menu Item
           const button = event.target instanceof Element ? event.target.closest('button[aria-pressed]') : null;
           if (button && button.getAttribute('aria-pressed') !== 'true') setRequestPending(true);
         }} className="max-w-full [@media(max-height:420px)]:overflow-x-auto [@media(max-height:420px)]:[&_.flex.flex-wrap]:flex-nowrap [@media(max-height:420px)]:[&_button]:whitespace-nowrap">{filters}</div>}
-        {showSearch && <SearchInput label={`Search ${pluralLabel}`} value={query} onChange={(value) => { setRequestPending(true); onQueryChange(value); }} loading={isLoading} />}
+        {showSearch && <SearchInput label={searchLabel ?? `Search ${pluralLabel}`} value={query} onChange={(value) => { if (!busyId) { setRequestPending(true); onQueryChange(value); } }} loading={isLoading} />}
       </div>
       <div data-picker-results aria-busy={isLoading} className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 pb-3">
         {!isLoading && error && <p role="alert" className="text-sm text-red-700">{error}</p>}

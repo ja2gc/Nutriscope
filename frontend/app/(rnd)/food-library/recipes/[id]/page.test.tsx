@@ -5,16 +5,41 @@ import { createRoot } from "react-dom/client";
 import { expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import EditRecipePage from "./page";
-import { fetchFoodItems } from "@/services/foodLibraryService";
+import { fetchFoodItems, searchUsda, importUsdaFood, updateRecipe } from "@/services/foodLibraryService";
 
 const { profileParams } = vi.hoisted(() => ({ profileParams: new URLSearchParams() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }), useSearchParams: () => profileParams }));
 vi.mock("@/services/foodLibraryService", () => ({
-  updateRecipe: vi.fn(), fetchFoodItems: vi.fn(),
+  updateRecipe: vi.fn(), fetchFoodItems: vi.fn(), searchUsda: vi.fn(), importUsdaFood: vi.fn(),
   fetchRecipeById: vi.fn(async () => ({ id: "recipe-1", name: "Measured Meal", category: "meal", servings: 5, total_calories: '500', total_protein: '50', total_carbs: '100', total_fat: '10', micronutrients: { iron: 10 }, ingredients: [{ id: 1, quantity: "0.5", unit: "kg", food_item: { id: "food-1", name: "Measured Ingredient", serving_size: "100", serving_unit: "g", calories: "100", protein: "10", carbs: "20", fat: "2", micronutrients: { iron: 2 } } }] })),
 }));
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+
+test('imports a searched USDA Ingredient into the new row and saves its library identity with the menu item', async () => {
+  const food = { id: 'imported-food', name: 'Fictional USDA ingredient', serving_size: '100', serving_unit: 'mL', calories: '40', protein: '2', carbs: '5', fat: '1' };
+  vi.mocked(fetchFoodItems).mockResolvedValueOnce({ data: [] });
+  vi.mocked(searchUsda).mockResolvedValueOnce([{ fdc_id: 12345, name: food.name, calories: 40 }] as never);
+  vi.mocked(importUsdaFood).mockResolvedValueOnce(food as never);
+  const container = document.createElement('div'); document.body.append(container); const root = createRoot(container);
+  const user = userEvent.setup();
+  try {
+    await act(async () => root.render(<Suspense fallback={null}><EditRecipePage params={Promise.resolve({ id: 'recipe-1' })} /></Suspense>));
+    await act(async () => user.click(Array.from(container.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Add Item')!));
+    await act(async () => user.click(container.querySelector('[aria-label="Choose ingredient 2"]')!));
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 210)); });
+    await act(async () => user.click(Array.from(container.querySelectorAll('button')).find(button => button.textContent === 'Import from USDA')!));
+    await act(async () => user.type(container.querySelector('input[type="search"]')!, 'oats'));
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 210)); });
+    await act(async () => user.click(container.querySelector(`[aria-label="Add ${food.name}"]`)!));
+    expect(importUsdaFood).toHaveBeenCalledWith(12345);
+    expect(container.querySelector('[aria-label="Choose ingredient 2"]')?.textContent).toContain(food.name);
+    expect((container.querySelector('[aria-label="Ingredient 2 unit"]') as HTMLSelectElement).value).toBe('mL');
+    await act(async () => user.type(container.querySelector('[aria-label="Ingredient 2 quantity"]')!, '50'));
+    await act(async () => user.click(Array.from(container.querySelectorAll('button')).find(button => button.textContent === 'Save Changes')!));
+    expect(updateRecipe).toHaveBeenLastCalledWith('recipe-1', expect.objectContaining({ ingredients: expect.arrayContaining([{ food_item_id: food.id, quantity: 50, unit: 'mL' }]) }));
+  } finally { await act(async () => root.unmount()); container.remove(); }
+});
 
 test("existing Menu Item keeps batch amounts and converts macro and micro previews", async () => {
   const container = document.createElement("div");

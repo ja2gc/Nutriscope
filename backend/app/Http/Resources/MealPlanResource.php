@@ -14,6 +14,7 @@ class MealPlanResource extends JsonResource
             'intervention_plan_id' => $this->whenLoaded('intervention', fn () => $this->intervention?->uuid),
             'week_start_date' => $this->week_start_date?->toDateString(),
             'generation_type' => $this->generation_type,
+            'snacks_hidden' => (bool) $this->snacks_hidden,
             'scale_status' => $this->needs_rescaling ? 'available' : 'already_scaled',
             'scaled_at' => $this->scaled_at,
             'status' => $this->status,

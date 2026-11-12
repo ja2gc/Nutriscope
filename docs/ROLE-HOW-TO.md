@@ -1,7 +1,5 @@
 # NutriScope role user manuals
 
-Document version: 1.0 | Issued: 5 November 2026
-
 Choose your role below. Each manual contains prerequisites, initial data/setup dependencies, a page directory with navigation labels, numbered procedures, daily and periodic work, and completion checks. These are user instructions for normal operation and staff training.
 
 | Role | Manual | Platform and responsibility |
@@ -11,6 +9,8 @@ Choose your role below. Each manual contains prerequisites, initial data/setup d
 | Admin | [Admin User Manual](<../Storyboarding/Admin User Manual.md>) | Website: accounts, AI usage, announcements/SOP, operational reports, budget, audit, backups/recovery, branding and preferences |
 
 The maintained manuals live in the repository-root **Storyboarding/** directory. This page is their entry point; the full instructions are maintained in the role files rather than repeated here. The [FAQ](FAQ.md) and role-scoped in-app Help answer individual questions. The [installation and turnover manual](operations/README.md) covers technical operators, dependencies, account collection, server commands, production configuration, deployment and recovery.
+
+The RND manual covers the clinical Generate meal plan dialog, Add/Edit carbs across matching recipes, individual slot changes, and saved Show snack slots setting in menus and Oral templates. Menu Calendar and template grids show empty visual positions where a day has fewer items than another day in the same meal row.
 
 ## Page directory
 

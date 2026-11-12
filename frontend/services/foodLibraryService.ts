@@ -62,6 +62,7 @@ export interface Recipe {
 }
 
 export interface UsdaSearchResult {
+  library_food?: FoodItem | null;
   fdc_id: number;
   name: string;
   data_type: string | null;

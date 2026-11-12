@@ -8,14 +8,13 @@ import Link from "next/link";
 import { useEditorChanges } from "@/hooks/useUnsavedChanges";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MenuItemProfile, MENU_ITEM_NUTRIENT_UNITS as NUTRIENT_UNITS } from "@/components/ncp/MenuItemProfile";
-import { MenuItemPicker } from "@/components/ncp/MenuItemPicker";
-import type { PaginationMeta } from "@/components/ui/Pagination";
+import { IngredientPicker } from "@/components/ncp/IngredientPicker";
 import { CookingPot, ArrowLeft, Search, Plus, X, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { InfoHint } from "@/components/ui/InfoHint";
 import { canonicalClinicalUnit, clinicalIngredientFactor, clinicalRecipeUnits, CLINICAL_UNIT_HINT } from "@/lib/clinicalUnits";
 import { MENU_ITEM_CATEGORIES } from "@/lib/menuItemCategories";
-import { fetchRecipeById, updateRecipe, fetchFoodItems, Recipe, FoodItem, RecipeIngredientPayload } from "@/services/foodLibraryService";
+import { fetchRecipeById, updateRecipe, Recipe, FoodItem, RecipeIngredientPayload } from "@/services/foodLibraryService";
 
 interface IngredientRow {
   key: number;
@@ -78,12 +77,7 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
   const [ingredients, setIngredients] = useState<IngredientRow[]>([]);
   const [showMicros, setShowMicros] = useState(false);
   const [pickerRowKey, setPickerRowKey] = useState<number | null>(null);
-  const [ingredientQuery, setIngredientQuery] = useState("");
-  const [ingredientResults, setIngredientResults] = useState<FoodItem[]>([]);
-  const [ingredientMeta, setIngredientMeta] = useState<PaginationMeta | null>(null);
-  const [ingredientPage, setIngredientPage] = useState(1);
-  const [ingredientLoading, setIngredientLoading] = useState(false);
-  const [ingredientSearchError, setIngredientSearchError] = useState<string | null>(null);
+
 
   useEffect(() => {
     fetchRecipeById(id)
@@ -107,31 +101,8 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
       .finally(() => setLoading(false));
   }, [id]);
 
-  useEffect(() => {
-    if (pickerRowKey === null) return;
-    let cancelled = false;
-    setIngredientLoading(true);
-    setIngredientSearchError(null);
-    const timer = window.setTimeout(async () => {
-      try {
-        const result = await fetchFoodItems(ingredientQuery.trim(), "all", ingredientPage);
-        if (!cancelled) { setIngredientResults(result.data); setIngredientMeta(result.meta ?? null); }
-      } catch (cause) {
-        if (!cancelled) setIngredientSearchError(cause instanceof Error ? cause.message : "Ingredient search failed. Try again.");
-      } finally {
-        if (!cancelled) setIngredientLoading(false);
-      }
-    }, 180);
-    return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [ingredientPage, ingredientQuery, pickerRowKey]);
-
   function openIngredientPicker(key: number) {
     setPickerRowKey(key);
-    setIngredientQuery("");
-    setIngredientPage(1);
-    setIngredientResults([]);
-    setIngredientMeta(null);
-    setIngredientSearchError(null);
   }
 
   const updateRow = (idx: number, patch: Partial<IngredientRow>) =>
@@ -341,7 +312,7 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
           </div>
         );
       })()}
-      {pickerRowKey !== null && <MenuItemPicker title="Add Ingredient" itemLabel="Ingredient" query={ingredientQuery} onQueryChange={(value) => { setIngredientQuery(value); setIngredientPage(1); setIngredientResults([]); }} loading={ingredientLoading} error={ingredientSearchError} items={ingredientResults.map((food) => ({ id: food.id, name: food.name, detail: `${food.calories} kcal · P ${food.protein ?? 0}g · C ${food.carbs ?? 0}g · F ${food.fat ?? 0}g` }))} onSelect={(foodId) => { const food = ingredientResults.find((item) => item.id === foodId); if (food) selectFood(pickerRowKey, food); }} onClose={() => setPickerRowKey(null)} meta={ingredientMeta} page={ingredientPage} onPageChange={setIngredientPage} />}
+      {pickerRowKey !== null && <IngredientPicker onSelect={food => selectFood(pickerRowKey, food)} onClose={() => setPickerRowKey(null)} />}
     </div>
   );
 }

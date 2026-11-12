@@ -28,6 +28,8 @@ class UsdaController extends Controller
 
         try {
             $results = $this->usda->search($request->query('query'));
+            $saved = FoodItem::whereIn('usda_fdc_id', array_column($results, 'fdc_id'))->get()->keyBy('usda_fdc_id');
+            $results = array_map(fn (array $result) => [...$result, 'library_food' => isset($saved[$result['fdc_id']]) ? new FoodItemResource($saved[$result['fdc_id']]) : null], $results);
 
             return response()->json(['data' => $results]);
         } catch (RuntimeException $e) {

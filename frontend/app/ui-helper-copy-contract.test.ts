@@ -139,7 +139,10 @@ describe("UI helper copy contract", () => {
     const mealPlan = read("app/(rnd)/ncp/[patientId]/intervention/[ncpId]/_components/MealPlanSection.tsx");
 
     expect(assessment).toContain("<InfoHint");
-    expect(mealPlan).toContain('label="How allergies and dislikes affect meal generation"');
+    const generationOptions = read('components/ncp/MealPlanOptionsDialog.tsx');
+    expect(mealPlan).toContain('MealPlanOptionsDialog');
+    expect(generationOptions).toContain('Recorded allergens excluded:');
+    expect(generationOptions).toContain('Food dislikes flagged for review:');
     expect(assessment).not.toContain("⚠ These allergens will be hard-excluded");
     expect(mealPlan).not.toContain("Auto-generate will exclude recipes containing:");
     expect(mealPlan).not.toContain("these are <em>not</em> excluded from the plan");

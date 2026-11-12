@@ -2,7 +2,7 @@
 
 import { numericStepBase } from "@/components/ui/NumericInput";
 import { quantityInputValue } from "@/lib/foodServiceFormat";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useEditorChanges } from "@/hooks/useUnsavedChanges";
 import { useRouter } from "next/navigation";
@@ -10,14 +10,13 @@ import { CookingPot, ArrowLeft, Search, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { InfoHint } from "@/components/ui/InfoHint";
 import { MenuItemProfile } from "@/components/ncp/MenuItemProfile";
-import { MenuItemPicker } from "@/components/ncp/MenuItemPicker";
-import type { PaginationMeta } from "@/components/ui/Pagination";
+import { IngredientPicker } from "@/components/ncp/IngredientPicker";
 import { clinicalIngredientMicronutrients } from "@/lib/clinicalUnits";
 import { canonicalClinicalUnit, clinicalIngredientFactor, clinicalRecipeUnits, CLINICAL_UNIT_HINT } from "@/lib/clinicalUnits";
 import { CLINICAL_BASELINE_UNITS } from "@/lib/clinicalUnits";
 import { MENU_ITEM_CATEGORIES } from "@/lib/menuItemCategories";
 import { ALL_MICROS } from "@/lib/nutritionCalculations";
-import { createRecipe, fetchFoodItems, FoodItem, RecipeIngredientPayload, type RecipePayload, type Recipe } from "@/services/foodLibraryService";
+import { createRecipe, FoodItem, RecipeIngredientPayload, type RecipePayload, type Recipe } from "@/services/foodLibraryService";
 
 const COMMON_ALLERGENS = ["milk", "eggs", "fish", "shellfish", "tree nuts", "peanuts", "wheat", "soybeans"];
 const LABEL_NUTRIENTS = [
@@ -66,12 +65,7 @@ export function MenuItemCreateForm({ onCreate, onCancel }: {
   const [prepNotes, setPrepNotes] = useState("");
   const [ingredients, setIngredients] = useState<IngredientRow[]>([newRow()]);
   const [pickerRowKey, setPickerRowKey] = useState<number | null>(null);
-  const [ingredientQuery, setIngredientQuery] = useState("");
-  const [ingredientResults, setIngredientResults] = useState<FoodItem[]>([]);
-  const [ingredientMeta, setIngredientMeta] = useState<PaginationMeta | null>(null);
-  const [ingredientPage, setIngredientPage] = useState(1);
-  const [ingredientLoading, setIngredientLoading] = useState(false);
-  const [ingredientSearchError, setIngredientSearchError] = useState<string | null>(null);
+
   const [nutritionSource, setNutritionSource] = useState("ingredients");
   const [labelAmount, setLabelAmount] = useState("100");
   const [labelUnit, setLabelUnit] = useState("g");
@@ -83,31 +77,8 @@ export function MenuItemCreateForm({ onCreate, onCancel }: {
     return { key: rowKey++, food: null, quantity: "", unit: "g" };
   }
 
-  useEffect(() => {
-    if (pickerRowKey === null) return;
-    let cancelled = false;
-    setIngredientLoading(true);
-    setIngredientSearchError(null);
-    const timer = window.setTimeout(async () => {
-      try {
-        const result = await fetchFoodItems(ingredientQuery.trim(), "all", ingredientPage);
-        if (!cancelled) { setIngredientResults(result.data); setIngredientMeta(result.meta ?? null); }
-      } catch (cause) {
-        if (!cancelled) setIngredientSearchError(cause instanceof Error ? cause.message : "Ingredient search failed. Try again.");
-      } finally {
-        if (!cancelled) setIngredientLoading(false);
-      }
-    }, 180);
-    return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [ingredientPage, ingredientQuery, pickerRowKey]);
-
   function openIngredientPicker(key: number) {
     setPickerRowKey(key);
-    setIngredientQuery("");
-    setIngredientPage(1);
-    setIngredientResults([]);
-    setIngredientMeta(null);
-    setIngredientSearchError(null);
   }
 
   const updateRow = (idx: number, patch: Partial<IngredientRow>) =>
@@ -308,7 +279,7 @@ export function MenuItemCreateForm({ onCreate, onCancel }: {
           <Button type="submit" variant="primary" loading={saving} className="w-auto px-6 py-2.5">{onCreate ? "Use in this plan" : "Save Menu Item"}</Button>
         </div>
       </form>
-      {pickerRowKey !== null && <MenuItemPicker title="Add Ingredient" itemLabel="Ingredient" query={ingredientQuery} onQueryChange={(value) => { setIngredientQuery(value); setIngredientPage(1); setIngredientResults([]); }} loading={ingredientLoading} error={ingredientSearchError} items={ingredientResults.map((food) => ({ id: food.id, name: food.name, detail: `${food.calories} kcal · P ${food.protein ?? 0}g · C ${food.carbs ?? 0}g · F ${food.fat ?? 0}g` }))} onSelect={(id) => { const food = ingredientResults.find((item) => item.id === id); if (food) selectFood(pickerRowKey, food); }} onClose={() => setPickerRowKey(null)} meta={ingredientMeta} page={ingredientPage} onPageChange={setIngredientPage} />}
+      {pickerRowKey !== null && <IngredientPicker onSelect={food => selectFood(pickerRowKey, food)} onClose={() => setPickerRowKey(null)} />}
     </div>
   );
 }

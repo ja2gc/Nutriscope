@@ -782,6 +782,7 @@ function CycleEditor({ cycleId, readOnly, onBack, kind = "cycle" }: { cycleId: s
                   return (
                     <td key={key} data-day={d} data-meal={m} className="px-2 py-2 align-top relative">
                       <MenuEditorSlots
+                        minimumItems={Math.max(1, ...DAYS.map(day => (displayGrid[cellKey(day, m)] ?? []).length))}
                         itemActions={lines.map((cell, lineIndex) => ({ id: `menu-item-${Boolean(preview)}-${d}-${m}-${lineIndex}`, label: `View ${cell.recipe_name}`, onOpen: (trigger) => displayTemplate ? void openTemplateProfile(cell, trigger.id) : void openSlot(d, m, cell, lineIndex) }))}
                         items={lines.map((cell, lineIndex) => (
                           <div key={cell.id ?? `${key}-${lineIndex}`} className="flex h-full flex-col justify-between gap-1 text-left">

@@ -145,9 +145,44 @@ class MealPlanController extends Controller
     public function update(UpdateMealPlanRequest $request, NcpRecord $ncpRecord, MealPlan $mealPlan): JsonResponse
     {
         $this->assertPlanWritable($ncpRecord, $mealPlan);
-        $this->audited(fn () => $mealPlan->update($request->validated()));
+        $this->audited(function () use ($request, $ncpRecord, $mealPlan): void {
+            $ncpRecord->interventions()->whereKey($mealPlan->intervention_id)->lockForUpdate()->firstOrFail();
+            $this->assertPlanWritable($ncpRecord, $mealPlan);
+            $data = $request->validated();
+            if (array_key_exists('snacks_hidden', $data)) {
+                $data['needs_rescaling'] = true;
+                $data['scaled_at'] = null;
+            }
+            $mealPlan->update($data);
+        });
 
         return response()->json(['data' => new MealPlanResource($mealPlan->fresh()->load(['intervention', 'days']))]);
+    }
+
+    public function editCarbs(Request $request, NcpRecord $ncpRecord, MealPlan $mealPlan): JsonResponse
+    {
+        $this->assertPlanWritable($ncpRecord, $mealPlan);
+        $data = $request->validate([
+            'source_recipe_id' => ['sometimes', 'uuid'],
+            'remove' => ['sometimes', 'boolean', 'prohibits:recipe_id,quantity,multiplier,ingredients'],
+            'recipe_id' => ['required_without:source_recipe_id', 'uuid'],
+            'quantity' => ['sometimes', 'numeric', 'between:0.01,99999.99', 'decimal:0,2', 'prohibits:multiplier'],
+            'multiplier' => ['sometimes', 'numeric', 'gt:0', 'prohibits:quantity'],
+            'ingredients' => ['sometimes', 'array', 'min:1'],
+            'ingredients.*.food_item_id' => ['required', 'uuid', 'exists:food_items,uuid'],
+            'ingredients.*.quantity' => ['required', 'numeric', 'between:0.000001,100000'],
+            'ingredients.*.unit' => ['required', 'string', 'max:50'],
+        ]);
+        $this->audited(function () use ($data, $request, $ncpRecord, $mealPlan): void {
+            $ncpRecord->interventions()->whereKey($mealPlan->intervention_id)->lockForUpdate()->firstOrFail();
+            $this->assertPlanWritable($ncpRecord, $mealPlan);
+            $this->mealPlanService->editCarbs($mealPlan, $data, (int) $request->user()->id);
+            $this->auditLogger->record(AuditAction::Updated, AuditCategory::Clinical, AuditDomain::Ncp,
+                subject: $mealPlan, context: $ncpRecord, details: ['fields' => ['meal_plan_carbs'], 'status' => 200]);
+        });
+
+        return response()->json(['data' => new MealPlanResource($mealPlan->fresh()->load(['intervention', 'days'])),
+            'items' => MealPlanItemResource::collection($mealPlan->fresh()->load('days.items.recipe')->days->flatMap->items)]);
     }
 
     public function scaleToPrescription(NcpRecord $ncpRecord, MealPlan $mealPlan): JsonResponse
@@ -307,6 +342,7 @@ class MealPlanController extends Controller
         $template = $this->audited(function () use ($validated, $ncpRecord, $mealPlan, $request) {
             $template = MealPlanTemplate::create([
                 'rnd_user_id' => $request->user()->id,
+                'snacks_hidden' => $mealPlan->snacks_hidden,
                 'name' => $validated['name'],
                 'description' => $validated['description'] ?? null,
                 'goal_type' => $validated['goal_type'] ?? $ncpRecord->intervention?->goal_type,
@@ -452,6 +488,7 @@ class MealPlanController extends Controller
                 'id' => $item->uuid,
                 'food_item_id' => $item->foodItem?->uuid,
                 'recipe_id' => $item->recipe?->uuid,
+                'recipe_category' => $item->nutrient_snapshot['recipe_category'] ?? $item->recipe?->category,
                 'quantity' => $item->quantity,
                 'unit' => $item->unit,
                 'food_name' => $item->nutrient_snapshot['name']
@@ -486,6 +523,7 @@ class MealPlanController extends Controller
             'created_at' => $template->created_at,
             'days' => $days,
             'nutrition_support' => $template->nutrition_support,
+            'snacks_hidden' => (bool) $template->snacks_hidden,
             'formula_items' => $template->formula_items ?? [],
         ]]);
     }
@@ -515,6 +553,7 @@ class MealPlanController extends Controller
             'week_start_date' => ['required', 'date'],
             'preview' => ['sometimes', 'boolean'],
             'scale' => ['sometimes', 'boolean'],
+            'snacks_hidden' => ['sometimes', 'boolean'],
             'lines' => ['sometimes', 'array'],
             'lines.*.source_template_item_id' => ['nullable', 'uuid'],
             'lines.*.source_meal_plan_item_id' => ['nullable', 'uuid'],
@@ -547,7 +586,8 @@ class MealPlanController extends Controller
         $templateMode = $template instanceof MealPlan ? $template->intervention->nutrition_support : $template->nutrition_support;
         abort_unless(($templateMode ?? 'oral') === 'oral', 422, 'Choose an Oral template for a weekly menu.');
         $lines = $this->resolvedTemplateLines($template, $validated['lines'] ?? null);
-        $build = function () use ($intervention, $ncpRecord, $validated, $lines, $preview, $request): ?MealPlan {
+        $snacksHidden = $validated['snacks_hidden'] ?? (bool) $template->snacks_hidden;
+        $build = function () use ($intervention, $ncpRecord, $validated, $lines, $preview, $request, $snacksHidden): ?MealPlan {
             $lockedIntervention = $ncpRecord->interventions()->whereKey($intervention->id)->lockForUpdate()->firstOrFail();
             $this->assertInterventionEditable($ncpRecord, $lockedIntervention->id);
             $existing = $lockedIntervention->mealPlan()->lockForUpdate()->first();
@@ -562,6 +602,7 @@ class MealPlanController extends Controller
                 'intervention_id' => $lockedIntervention->id, 'patient_id' => $ncpRecord->patient_id,
                 'week_start_date' => $validated['week_start_date'], 'generation_type' => 'manual',
                 'needs_rescaling' => true, 'scaled_at' => null, 'status' => 'draft',
+                'snacks_hidden' => $snacksHidden,
             ];
             $plan = $preview ? new MealPlan($attributes) : ($existing ?? new MealPlan);
             if ($preview) {
@@ -788,6 +829,7 @@ class MealPlanController extends Controller
             'description' => ['nullable', 'string', 'max:2000'],
             'goal_type' => ['nullable', 'string', 'max:255'],
             'disease_stage' => ['nullable', 'string', 'max:100'],
+            'snacks_hidden' => ['sometimes', 'boolean'],
             'lines' => ['required', 'array', 'min:1', 'max:350'],
             'lines.*.source_template_item_id' => ['nullable', 'uuid'],
             'lines.*.day_of_week' => ['required', 'in:Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday'],
@@ -797,6 +839,10 @@ class MealPlanController extends Controller
             'lines.*.recipe_id' => ['required', 'uuid', 'exists:recipes,uuid'],
             'lines.*.quantity' => ['required', 'numeric', 'between:0.01,99999.99', 'decimal:0,2'],
             'lines.*.unit' => ['required', 'in:serving'],
+            'lines.*.ingredients' => ['sometimes', 'array', 'min:1'],
+            'lines.*.ingredients.*.food_item_id' => ['required', 'uuid', 'exists:food_items,uuid'],
+            'lines.*.ingredients.*.quantity' => ['required', 'numeric', 'between:0.000001,100000'],
+            'lines.*.ingredients.*.unit' => ['required', 'string', 'max:50'],
         ]);
         $lines = $validated['lines'];
         $recipes = Recipe::query()->where('rnd_user_id', $request->user()->id)
@@ -814,7 +860,11 @@ class MealPlanController extends Controller
                 if ($source->nutrient_snapshot !== null) {
                     $line['food_item_id'] = null;
                     $line['recipe_id'] = $source->recipe_id;
-                    $line['snapshot'] = $source->nutrient_snapshot;
+                    try {
+                        $line['snapshot'] = isset($line['ingredients']) ? $source->recipe->planSnapshot([], $source->nutrient_snapshot, $line['ingredients']) : $source->nutrient_snapshot;
+                    } catch (\InvalidArgumentException $error) {
+                        throw ValidationException::withMessages(["lines.{$index}.ingredients" => $error->getMessage()]);
+                    }
 
                     continue;
                 }
@@ -825,6 +875,13 @@ class MealPlanController extends Controller
             }
             $line['food_item_id'] = null;
             $line['recipe_id'] = $recipe->id;
+            if (isset($line['ingredients'])) {
+                try {
+                    $line['snapshot'] = $recipe->planSnapshot([], null, $line['ingredients']);
+                } catch (\InvalidArgumentException $error) {
+                    throw ValidationException::withMessages(["lines.{$index}.ingredients" => $error->getMessage()]);
+                }
+            }
         }
         unset($line);
         unset($validated['lines']);

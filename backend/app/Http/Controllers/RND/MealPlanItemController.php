@@ -60,7 +60,7 @@ class MealPlanItemController extends Controller
         // Eager-load day/recipe/food-item so the resource can expose their public uuids
         // (used for the day lookup and the recipe-detail fetch) without an N+1.
         $items = MealPlanItem::whereIn('meal_plan_day_id', $dayIds)
-            ->with('mealPlanDay:id,uuid', 'recipe:id,uuid,servings', 'recipe.ingredients:id,recipe_id,food_item_id,quantity,unit', 'recipe.ingredients.foodItem:id,name', 'foodItem:id,uuid')
+            ->with('mealPlanDay:id,uuid', 'recipe:id,uuid,servings,category', 'recipe.ingredients:id,recipe_id,food_item_id,quantity,unit', 'recipe.ingredients.foodItem:id,name', 'foodItem:id,uuid')
             ->get();
 
         return response()->json(['data' => MealPlanItemResource::collection($items)]);
@@ -70,7 +70,7 @@ class MealPlanItemController extends Controller
     {
         $this->assertScope($ncpRecord, $mealPlan, $day);
         $items = MealPlanItem::where('meal_plan_day_id', $day->id)
-            ->with('mealPlanDay:id,uuid', 'recipe:id,uuid,servings', 'recipe.ingredients:id,recipe_id,food_item_id,quantity,unit', 'recipe.ingredients.foodItem:id,name', 'foodItem:id,uuid')
+            ->with('mealPlanDay:id,uuid', 'recipe:id,uuid,servings,category', 'recipe.ingredients:id,recipe_id,food_item_id,quantity,unit', 'recipe.ingredients.foodItem:id,name', 'foodItem:id,uuid')
             ->get();
 
         return response()->json(['data' => MealPlanItemResource::collection($items)]);
@@ -79,6 +79,7 @@ class MealPlanItemController extends Controller
     public function store(StoreMealPlanItemRequest $request, NcpRecord $ncpRecord, MealPlan $mealPlan, MealPlanDay $day): JsonResponse
     {
         $this->assertScope($ncpRecord, $mealPlan, $day);
+        abort_if($mealPlan->snacks_hidden && in_array($day->meal_type, ['am_snack', 'pm_snack'], true), 422, 'Add snack rows before adding snack items.');
         if ($request->filled('recipe_id') && ! Recipe::with('ingredients')->findOrFail($request->recipe_id)->hasValidPortionData()) {
             return response()->json([
                 'message' => 'Check the recipe yield and ingredient units before adding it to a meal plan.',
@@ -196,6 +197,7 @@ class MealPlanItemController extends Controller
             }, $request->input('ingredient_overrides'))]);
         }
         $validated = $request->validate([
+            'recipe_id' => ['sometimes', 'uuid', 'prohibits:ingredients,ingredient_overrides'],
             'quantity' => 'sometimes|numeric|min:0.01',
             'unit' => 'sometimes|string|max:50',
             'ingredient_overrides' => 'sometimes|array',
@@ -206,6 +208,21 @@ class MealPlanItemController extends Controller
             'ingredients.*.quantity' => ['required', 'numeric', 'between:0.000001,100000'],
             'ingredients.*.unit' => ['required', 'string', 'max:50'],
         ]);
+
+        if (isset($validated['recipe_id'])) {
+            $replacement = Recipe::with('ingredients.foodItem')->where('uuid', $validated['recipe_id'])
+                ->where('rnd_user_id', $request->user()->id)->where('category', 'carb')->first();
+            if (! $replacement || ! $replacement->hasValidPortionData()) {
+                throw ValidationException::withMessages(['recipe_id' => 'Choose a measured Carb Menu Item.']);
+            }
+            $allergens = $replacement->ingredients->flatMap(fn ($row) => $row->foodItem?->allergens ?? []);
+            if ($allergens->map(fn ($value) => strtolower(trim($value)))->intersect($this->lc($ncpRecord->assessment?->allergies ?? []))->isNotEmpty()) {
+                throw ValidationException::withMessages(['recipe_id' => 'This Carb contains a recorded patient allergen.']);
+            }
+            $item->recipe_id = $replacement->id;
+            $item->nutrient_snapshot = $replacement->planSnapshot();
+            $item->unit = 'serving';
+        }
 
         $original = $item->nutrient_snapshot['recipe_reset_baseline'] ?? $item->nutrient_snapshot;
         $originalQuantity = $item->nutrient_snapshot['recipe_reset_quantity'] ?? (float) $item->quantity;

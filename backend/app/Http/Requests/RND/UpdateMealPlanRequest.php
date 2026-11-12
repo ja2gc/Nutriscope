@@ -14,6 +14,7 @@ class UpdateMealPlanRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'snacks_hidden' => ['sometimes', 'boolean'],
             'status' => ['nullable', 'string', 'in:draft,active,completed'],
             'week_start_date' => ['nullable', 'date'],
         ];

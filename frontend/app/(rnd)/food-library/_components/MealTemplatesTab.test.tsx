@@ -3,10 +3,10 @@
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, expect, it, vi } from "vitest";
-import { fireEvent } from '@testing-library/dom';
+import { fireEvent, getByRole } from '@testing-library/dom';
 import { MealTemplatesTab } from "./MealTemplatesTab";
 import { saveLibraryMealPlanTemplate } from "@/services/mealPlanService";
-import { fetchRecipes, type Recipe } from "@/services/foodLibraryService";
+import { fetchRecipes, fetchRecipeById, type Recipe } from "@/services/foodLibraryService";
 
 vi.mock("@/services/foodLibraryService", () => ({
   fetchRecipes: vi.fn(async () => ({ data: [], meta: null })),
@@ -35,6 +35,27 @@ const recipeChoice: Recipe = {
   prepared_portion_amount: '100', prepared_portion_unit: 'g', micronutrients: {}, ingredients: [], created_at: '', updated_at: '',
 };
 afterEach(async () => { if (root) await act(async () => root.unmount()); document.body.innerHTML = ""; vi.clearAllMocks(); });
+
+it('adds a chosen carb to 21 main slots and saves explicit snack visibility', async () => {
+  const carb = { ...recipeChoice, id: 'rice', name: 'White Rice', category: 'carb', ingredients: [{ id: 1, food_item_id: 1, quantity: '100', unit: 'g', food_item: { id: 'food', name: 'Rice', serving_size: '100', serving_unit: 'g', calories: '100', protein: '1', carbs: '20', fat: '0', micronutrients: {} } }] } as Recipe;
+  vi.mocked(fetchRecipes).mockResolvedValueOnce({ data: [carb] });
+  vi.mocked(fetchRecipeById).mockResolvedValueOnce(carb);
+  const container = document.createElement('div'); document.body.append(container); root = createRoot(container);
+  await act(async () => root.render(<MealTemplatesTab />));
+  await act(async () => getByRole(container, 'button', { name: 'New Template' }).click());
+  await act(async () => fireEvent.change(getByRole(container, 'textbox', { name: 'Template name' }), { target: { value: 'Main meals' } }));
+  await act(async () => getByRole(container, 'button', { name: 'Add carbs' }).click());
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 200)); });
+  const carbDialog = getByRole(container, 'dialog', { name: 'Add Menu Item' });
+  await act(async () => getByRole(carbDialog, 'button', { name: 'Add White Rice' }).click());
+  await act(async () => getByRole(container, 'button', { name: 'Save Changes' }).click());
+  expect(container.querySelectorAll('[data-menu-editor-item]')).toHaveLength(21);
+  await act(async () => getByRole(container, 'checkbox', { name: 'Show snack slots' }).click());
+  expect(container.querySelectorAll('td[data-day]')).toHaveLength(21);
+  await act(async () => getByRole(container, 'button', { name: 'Save template' }).click());
+  expect(saveLibraryMealPlanTemplate).toHaveBeenCalledWith(expect.objectContaining({ snacks_hidden: true, lines: expect.any(Array) }), undefined);
+  expect(vi.mocked(saveLibraryMealPlanTemplate).mock.calls[0][0].lines).toHaveLength(21);
+});
 
 it("edits ordered Menu Items without quantity controls and opens profiles from clickable slots", async () => {
   const container = document.createElement("div"); document.body.append(container); root = createRoot(container);
@@ -74,7 +95,7 @@ it("edits ordered Menu Items without quantity controls and opens profiles from c
   ] }), 'template-1');
 });
 
-it("opens a complete read-only profile from the editable template and returns without losing lines", async () => {
+it("opens the standard planned-portion profile and returns without losing lines", async () => {
   const container = document.createElement('div'); document.body.append(container); root = createRoot(container);
   await act(async () => root.render(<MealTemplatesTab />));
   expect(container.querySelector('[aria-label="View Measured week"]')).toBeNull();
@@ -89,10 +110,10 @@ it("opens a complete read-only profile from the editable template and returns wi
   expect(container.querySelector('table[aria-label="Weekly menu calendar"]')).toBeNull();
   expect(profile.textContent).toContain('Papaya');
   expect(profile.textContent).toContain('Recipe makes: 5.6 servings');
-  expect(profile.textContent).toContain('750 g');
+  expect(profile.textContent).toContain('168.9 g');
   expect(profile.textContent).toContain('<0.1 g');
   expect(profile.textContent).not.toContain('750.000000');
-  const back = profile.querySelector<HTMLButtonElement>('[aria-label="Back"]')!;
+  const back = profile.querySelector<HTMLButtonElement>('[aria-label="Back to template"]')!;
   await act(async () => back.click());
   expect(container.querySelector('[aria-label="Menu Item profile"]')).toBeNull();
   expect(document.activeElement).toBe(container.querySelector('[aria-label="View Fruit cup"]'));

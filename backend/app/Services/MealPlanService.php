@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\FoodItem;
 use App\Models\Intervention;
 use App\Models\MealPlan;
 use App\Models\MealPlanDay;
@@ -16,6 +17,96 @@ use Illuminate\Validation\ValidationException;
 
 class MealPlanService
 {
+    public function editCarbs(MealPlan $plan, array $data, int $ownerId): void
+    {
+        $plan->load('days.items.recipe', 'intervention.ncpRecord.assessment');
+        $source = isset($data['source_recipe_id']) ? Recipe::withTrashed()->where('uuid', $data['source_recipe_id'])->firstOrFail() : null;
+        $items = $plan->days->reject(fn ($day) => $plan->snacks_hidden && $this->isSnackSlot($day->meal_type))->flatMap->items->filter(fn ($item) => $source && $item->recipe_id === $source->id
+            && ($item->nutrient_snapshot['recipe_category'] ?? $item->recipe?->category) === 'carb');
+        if ($source && $items->isEmpty()) {
+            throw ValidationException::withMessages(['source_recipe_id' => 'Choose a Carb Menu Item present in this menu.']);
+        }
+        if ($source && ($data['remove'] ?? false)) {
+            $items->each->delete();
+            $plan->update(['needs_rescaling' => true, 'scaled_at' => null]);
+
+            return;
+        }
+        $replacement = isset($data['recipe_id']) ? Recipe::with('ingredients.foodItem')
+            ->where('rnd_user_id', $ownerId)->where('category', 'carb')->where('uuid', $data['recipe_id'])->first() : null;
+        if (isset($data['recipe_id']) && (! $replacement || ! $replacement->hasValidPortionData())) {
+            throw ValidationException::withMessages(['recipe_id' => 'Choose an available Carb Menu Item with measured Ingredients.']);
+        }
+        if (! $source && ! $replacement) {
+            throw ValidationException::withMessages(['recipe_id' => 'Choose a Carb Menu Item to add.']);
+        }
+        if ($replacement) {
+            $allergens = collect($plan->intervention->ncpRecord->assessment?->allergies ?? [])->map(fn ($value) => strtolower(trim($value)));
+            $conflicts = $replacement->ingredients->flatMap(fn ($ingredient) => $ingredient->foodItem?->allergens ?? [])
+                ->map(fn ($value) => strtolower(trim($value)))->intersect($allergens);
+            if ($conflicts->isNotEmpty()) {
+                throw ValidationException::withMessages(['recipe_id' => 'This Carb contains a recorded patient allergen.']);
+            }
+        }
+        if (isset($data['ingredients'])) {
+            $allergies = collect($plan->intervention->ncpRecord->assessment?->allergies ?? [])->map(fn ($value) => strtolower(trim($value)));
+            $conflicts = FoodItem::whereIn('uuid', array_column($data['ingredients'], 'food_item_id'))->get()
+                ->flatMap(fn ($food) => $food->allergens ?? [])->map(fn ($value) => strtolower(trim($value)))->intersect($allergies);
+            if ($conflicts->isNotEmpty()) {
+                throw ValidationException::withMessages(['ingredients' => 'These Ingredients contain a recorded patient allergen.']);
+            }
+        }
+        $changes = [];
+        foreach ($items as $item) {
+            $quantity = isset($data['quantity']) ? (float) $data['quantity'] : round((float) $item->quantity * ($data['multiplier'] ?? 1), 2);
+            if ($quantity < 0.01 || $quantity > 99999.99) {
+                throw ValidationException::withMessages(['quantity' => 'Resulting servings must be between 0.01 and 99999.99.']);
+            }
+            $snapshot = $item->nutrient_snapshot;
+            $recipe = $replacement ?? $item->recipe;
+            try {
+                if ($replacement && $replacement->id !== $item->recipe_id) {
+                    $snapshot = $replacement->planSnapshot();
+                }
+                if (isset($data['ingredients'])) {
+                    $original = $snapshot['recipe_reset_baseline'] ?? $snapshot;
+                    $originalQuantity = $snapshot['recipe_reset_quantity'] ?? (float) $item->quantity;
+                    $snapshot = [...$recipe->planSnapshot([], $snapshot, $data['ingredients']), 'recipe_reset_baseline' => $original, 'recipe_reset_quantity' => $originalQuantity];
+                }
+            } catch (\InvalidArgumentException $error) {
+                throw ValidationException::withMessages(['ingredients' => $error->getMessage()]);
+            }
+            $changes[] = [$item, $quantity, $snapshot];
+        }
+        $additionSnapshot = null;
+        if (! $source) {
+            try {
+                $additionSnapshot = $replacement->planSnapshot([], null, $data['ingredients'] ?? null);
+            } catch (\InvalidArgumentException $error) {
+                throw ValidationException::withMessages(['ingredients' => $error->getMessage()]);
+            }
+        }
+        foreach ($changes as [$item, $quantity, $snapshot]) {
+            $item->quantity = $quantity;
+            $item->nutrient_snapshot = $snapshot;
+            if ($replacement && $replacement->id !== $item->recipe_id) {
+                $item->recipe_id = $replacement->id;
+                $item->unit = 'serving';
+            }
+            $item->save();
+        }
+        if (! $source) {
+            foreach ($plan->days->whereIn('meal_type', ['breakfast', 'lunch', 'dinner']) as $day) {
+                if ($day->items->contains('recipe_id', $replacement->id)) {
+                    continue;
+                }
+                $day->items()->create(['recipe_id' => $replacement->id, 'quantity' => $data['quantity'] ?? 1,
+                    'unit' => 'serving', 'nutrient_snapshot' => $additionSnapshot]);
+            }
+        }
+        $plan->update(['needs_rescaling' => true, 'scaled_at' => null]);
+    }
+
     private const FOOD_MATCHING_TARGET_KEYS = ['energy', 'protein', 'carbs', 'fat'];
 
     /**
@@ -94,7 +185,7 @@ class MealPlanService
             $problemDays = [];
             $varianceByDay = [];
 
-            foreach ($mealPlan->days->groupBy('day_of_week') as $dayName => $slots) {
+            foreach ($mealPlan->days->reject(fn ($day) => $mealPlan->snacks_hidden && $this->isSnackSlot($day->meal_type))->groupBy('day_of_week') as $dayName => $slots) {
                 $items = $slots->flatMap->items->values();
                 $overrides = $items->mapWithKeys(fn (MealPlanItem $item): array => [
                     $item->id => (float) $item->quantity,
@@ -289,6 +380,7 @@ class MealPlanService
                 'patient_id' => $ncpRecord->patient_id,
                 'week_start_date' => $weekStartDate,
                 'generation_type' => 'auto',
+                'snacks_hidden' => $excludeSnacks && ($existing?->snacks_hidden ?? false),
                 'needs_rescaling' => true,
                 'scaled_at' => null,
                 'status' => 'draft',
