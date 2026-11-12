@@ -24,7 +24,7 @@ export function ClinicalMenuItemEditor({ item, readOnly = false, allowMixedQuant
   // Edit meal item
   const editRequest = useRef(0);
   const [editServings, setEditServings]       = useState<string>('1');
-  const [editReset, setEditReset] = useState<{ snapshot: NutrientSnapshot; quantity: number } | null>(null);
+  const [editReset, setEditReset] = useState<{ snapshot: NutrientSnapshot; quantity: number | null } | null>(null);
   const [editRecipe, setEditRecipe]           = useState<Pick<Recipe, 'name' | 'servings' | 'ingredients'> | null>(null);
   const [editIngredients, setEditIngredients] = useState<{ id: number; qty: string; ing: RecipeIngredient; added?: boolean }[]>([]);
   const [editAmountDrafts, setEditAmountDrafts] = useState<Record<number, string>>({});
@@ -53,7 +53,7 @@ export function ClinicalMenuItemEditor({ item, readOnly = false, allowMixedQuant
     function initializeIngredients(rows: typeof editIngredients) {
       initialIngredients.current = ingredientSignature(rows); setEditIngredients(rows);
     }
-    setEditReset(item.nutrient_snapshot ? { snapshot: structuredClone(item.nutrient_snapshot.recipe_reset_baseline ?? item.nutrient_snapshot), quantity: item.nutrient_snapshot.recipe_reset_quantity ?? Number(item.quantity) } : null);
+    setEditReset(item.nutrient_snapshot ? { snapshot: structuredClone(item.nutrient_snapshot.recipe_reset_baseline ?? item.nutrient_snapshot), quantity: allowMixedQuantity && item.quantity === '' ? null : item.nutrient_snapshot.recipe_reset_quantity ?? Number(item.quantity) } : null);
     const request = ++editRequest.current;
     setEditError(null);
     setEditServings(item.quantity ?? '1');
@@ -87,7 +87,7 @@ export function ClinicalMenuItemEditor({ item, readOnly = false, allowMixedQuant
       }).catch((cause) => { if (request === editRequest.current) setEditError(cause instanceof Error ? cause.message : 'Could not load ingredients. Try again.'); }).finally(() => { if (request === editRequest.current) setEditLoadingRecipe(false); });
     }
     return () => { editRequest.current = request + 1; };
-  }, [item, readOnly]);
+  }, [item, readOnly, allowMixedQuantity]);
   // Every row stores whole-recipe amounts; the portion applies uniformly.
   const ingredientBatchQuantity = (row: (typeof editIngredients)[number]) => Number(row.qty);
 
@@ -99,7 +99,7 @@ export function ClinicalMenuItemEditor({ item, readOnly = false, allowMixedQuant
     return {
       ...totals,
       recipe_reset_baseline: editReset?.snapshot,
-      recipe_reset_quantity: editReset?.quantity,
+      recipe_reset_quantity: editReset?.quantity ?? undefined,
       name: editTarget?.item.nutrient_snapshot?.name ?? editRecipe.name,
       serving_size: 1,
       serving_unit: 'serving',
@@ -157,7 +157,7 @@ export function ClinicalMenuItemEditor({ item, readOnly = false, allowMixedQuant
           const rows = (captured.snapshot.recipe_original_ingredients ?? []).map(row => ({ ...row, quantity: captured.snapshot.recipe_ingredients?.find(planned => planned.id === row.id)?.quantity ?? row.quantity }));
           setEditRecipe({ name: captured.snapshot.name, servings: captured.snapshot.recipe_yield ?? null, ingredients: rows.map(row => ({ ...row, quantity: String(row.quantity) })) });
           setEditIngredients(rows.map((row, index) => ({ id: row.id ?? index + 1, qty: String(row.quantity), ing: { ...row, quantity: String(row.quantity) } })));
-          setEditServings(String(captured.quantity)); setEditAmountDrafts({});
+          setEditServings(captured.quantity === null ? '' : String(captured.quantity)); setEditAmountDrafts({});
         }}>Reset recipe</Button>}
         {!readOnly && <div className="flex gap-2"><Button variant={editTab === 'scale' ? 'secondary' : 'ghost'} size="sm" onClick={() => setEditTab('scale')}>Portion</Button><Button variant={editTab === 'ingredients' ? 'secondary' : 'ghost'} size="sm" onClick={() => setEditTab('ingredients')}>Ingredients</Button></div>}
         {editLoadingRecipe && <p role="status" className="text-sm text-warm-500">Loading ingredients…</p>}
