@@ -57,9 +57,11 @@ class InterventionCalculationReportTest extends TestCase
         $report = new Report(['type' => 'patient_menu_plan', 'parameters' => ['intervention_plan_id' => $plan->uuid]]);
         $data = app(PatientMenuPlanGenerator::class)->data($report);
         $html = view('reports.patient-menu-plan', [...$data, 'report' => $report, 'branding' => new ReportBranding, 'signatories' => []])->render();
-        $this->assertStringContainsString('(10 × 70 kg + 6.25 × 170 cm − 5 × 40 years + 5) × activity factor 1.2', $html);
-        $this->assertStringContainsString('− 300 kcal deficit', $html);
-        $this->assertStringContainsString('= 1581 kcal/day.', $html);
+        $this->assertStringNotContainsString('Energy calculation:', $html);
+        $this->assertStringNotContainsString('10 × 70', $html);
+        $this->assertStringNotContainsString('kcal deficit', $html);
+        $this->assertStringContainsString('1581', $html);
+        $this->assertArrayNotHasKey('energy_calculation', $data['prescription']);
         $this->assertStringContainsString('Remaining upper allowance', $html);
         $this->assertSame($before, $plan->fresh()->getAttributes());
         $bytes = app(ReportService::class)->buildPdf($report)['bytes'];

@@ -32,6 +32,16 @@ test("existing Menu Item keeps batch amounts and converts macro and micro previe
     const micros = Array.from(container.querySelectorAll("button")).find((button) => button.textContent?.includes("View Micronutrient"))!;
     await act(async () => micros.click());
     expect(container.textContent).toContain("10 mg");
+    const card = () => container.querySelector('[aria-label="Choose ingredient 1"]')!;
+    expect(card().textContent).toContain("500.0 kcal");
+    const user = userEvent.setup();
+    const quantity = container.querySelector('[aria-label="Ingredient 1 quantity"]')!;
+    await act(async () => { await user.clear(quantity); await user.type(quantity, "0.2"); });
+    expect(card().textContent).toContain("200.0 kcal");
+    await act(async () => user.selectOptions(unit, "g"));
+    expect(card().textContent).toContain("0.2 kcal");
+    await act(async () => user.clear(quantity));
+    expect(card().textContent).not.toContain("kcal");
   } finally {
     await act(async () => root.unmount());
     container.remove();

@@ -29,7 +29,7 @@ export default function PrescriptionCalculationPanel({ trace, expanded, onToggle
 
   return (
     <div className="rounded-lg border border-warm-200 bg-warm-25">
-      <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:p-3">
         <div>
           <p className="text-sm font-extrabold text-warm-800">Calculation details</p>
         </div>
@@ -46,7 +46,7 @@ export default function PrescriptionCalculationPanel({ trace, expanded, onToggle
       </div>
 
       {expanded && (
-        <div id={panelId} className="space-y-4 border-t border-warm-200 p-3">
+        <div id={panelId} className="space-y-4 border-t border-warm-200 py-3 sm:p-3">
           <section aria-labelledby={`${panelId}-context`}>
             <h4 id={`${panelId}-context`} className="text-xs font-extrabold uppercase tracking-wider text-warm-500">
               Measurements
@@ -79,9 +79,9 @@ export default function PrescriptionCalculationPanel({ trace, expanded, onToggle
               {trace.targets.map((target) => (
                 <div
                   key={target.key}
-                  className="grid gap-2 border-b border-warm-100 px-3 py-3 last:border-b-0 md:grid-cols-[minmax(7rem,0.7fr)_minmax(12rem,1.3fr)_minmax(14rem,1.5fr)_minmax(7rem,0.6fr)] md:gap-3"
+                  className="grid gap-2 border-b border-warm-100 py-3 last:border-b-0 sm:px-3 md:grid-cols-[minmax(7rem,0.7fr)_minmax(12rem,1.3fr)_minmax(14rem,1.5fr)_minmax(7rem,0.6fr)] md:gap-3"
                 >
-                  <div className="flex items-start justify-between gap-2 md:block">
+                  <div className="flex flex-wrap items-start justify-between gap-2 md:block">
                     <p className="text-sm font-extrabold text-warm-900">{target.label}</p>
                     <span className={`w-fit rounded-full border px-2 py-0.5 text-xs font-bold md:mt-1 ${statusClasses[target.status]}`}>
                       {statusText[target.status]}

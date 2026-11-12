@@ -94,14 +94,21 @@ export function buildPrescriptionCalculationTrace(input: BuildPrescriptionCalcul
   };
 }
 
-function baselineFormula(s: CalculationSnapshot): string {
+function baselineFormula(s: CalculationSnapshot): string | undefined {
+  const i = s.inputs;
+  const number = (value: number) => fmt(value, 3).replaceAll("-", "−");
   if (s.baseline_kind === "pediatric_eer") {
     const terms = s.eer_coefficients;
-    if (terms) return `${terms.map(term => fmt(term, 3)).map((term, index) => index === 0 ? term : `${term} × ${['', 'age(y)', 'height(cm)', 'weight(kg)'][index]}`).join(' + ')} + ${fmt(s.growth_energy_kcal ?? 0, 0)} (normal growth)`;
+    if (terms?.length === 4 && i.ageYears != null && i.heightCm != null && i.weightKg != null && s.growth_energy_kcal != null) {
+      return `${number(terms[0])} + ${number(terms[1])} × ${number(i.ageYears)} years + ${number(terms[2])} × ${number(i.heightCm)} cm + ${number(terms[3])} × ${number(i.weightKg)} kg + ${number(s.growth_energy_kcal)} (normal growth)`;
+    }
+    return undefined;
   }
-  if (s.energy_per_kg != null) return `${fmt(s.energy_per_kg, 3)} kcal/kg × ${fmt(s.weight_kg ?? s.inputs.weightKg ?? 0)} kg`;
-  const i = s.inputs;
-  return `(10 × ${fmt(i.weightKg ?? 0)} + 6.25 × ${fmt(i.heightCm ?? 0)} − 5 × ${fmt(i.ageYears ?? 0)} ${i.sex === "Male" ? "+ 5" : "− 161"}) × ${fmt(i.activityFactor ?? 1, 3)}`;
+  if (s.energy_per_kg != null && s.weight_kg != null) return `${number(s.energy_per_kg)} kcal/kg × ${number(s.weight_kg)} kg`;
+  if (s.baseline_kind === "estimated_maintenance" && i.weightKg != null && i.heightCm != null && i.ageYears != null && i.activityFactor != null && (i.sex === "Male" || i.sex === "Female")) {
+    return `(10 × ${number(i.weightKg)} kg + 6.25 × ${number(i.heightCm)} cm − 5 × ${number(i.ageYears)} years ${i.sex === "Male" ? "+ 5" : "− 161"}) × ${number(i.activityFactor)}`;
+  }
+  return undefined;
 }
 
 function targetFormula(key: string, s?: CalculationSnapshot | null): { formula: string; calculation: string } {
@@ -110,7 +117,7 @@ function targetFormula(key: string, s?: CalculationSnapshot | null): { formula: 
   switch (key) {
     case "energy_kcal": return {
       formula: "round(baseline + maternal addition + selected fixed adjustment)",
-      calculation: `${fmt(s.baseline_energy_kcal ?? 0, 0)} + ${fmt(s.maternal_energy_kcal ?? 0, 0)} ${(s.signed_adjustment_kcal ?? 0) < 0 ? "−" : "+"} ${fmt(Math.abs(s.signed_adjustment_kcal ?? 0), 0)} = ${fmt(calculated.energy_kcal!, 0)} kcal`,
+      calculation: `round(${baselineFormula(s) ?? (s.baseline_energy_kcal == null ? "Baseline not recorded" : `Saved baseline ${fmt(s.baseline_energy_kcal, 0)}`)} + ${fmt(s.maternal_energy_kcal ?? 0, 0)} ${(s.signed_adjustment_kcal ?? 0) < 0 ? "−" : "+"} ${fmt(Math.abs(s.signed_adjustment_kcal ?? 0), 0)}) = ${fmt(calculated.energy_kcal!, 0)} kcal`,
     };
     case "protein_g": return s.protein_fraction != null ? {
       formula: "round(final energy × selected protein fraction ÷ 4)",

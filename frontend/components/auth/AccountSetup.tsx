@@ -116,10 +116,10 @@ export function AccountSetup() {
     }
   }
 
-  if (initializing || !user) return <main className="min-h-dvh animate-pulse bg-warm-50" aria-busy="true" />;
+  if (initializing || !user) return <main className="app-content min-h-dvh animate-pulse bg-warm-50" aria-busy="true" />;
 
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-warm-50 p-5 sm:p-8">
+    <main className="app-content flex min-h-dvh items-center justify-center bg-warm-50 p-5 sm:p-8">
       <section className="w-full max-w-lg space-y-5 rounded-3xl border border-warm-200 bg-white p-6 shadow-sm sm:p-8">
         <div className="border-b border-warm-100 pb-5">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">First login</p>

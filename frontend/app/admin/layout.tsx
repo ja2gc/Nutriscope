@@ -98,7 +98,7 @@ export default function AdminLayout({
         <TopBar onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Scrollable Content Canvas */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden p-6 lg:p-8">
+        <main className="app-content flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-8">
           <div className="max-w-7xl mx-auto w-full min-w-0">
             {children}
           </div>

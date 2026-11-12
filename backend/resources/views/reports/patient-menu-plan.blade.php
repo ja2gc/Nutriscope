@@ -29,11 +29,6 @@
             <div>Target weight: @include('reports.partials.nutrient-prescription', ['limit' => [...$prescription['weight_target'], 'unit' => 'kg']])</div>
         @endif
         <div class="muted" style="margin-top:2px;">Daily prescription: ≤ maximum, ≥ minimum; unmarked amounts are targets. These are not the nutrient totals of this menu.</div>
-        @if($prescription['energy_calculation'])
-            <div style="margin-top:2px;">
-                <span class="bold">Energy calculation:</span> {{ $prescription['energy_calculation'] }}
-            </div>
-        @endif
         <div class="muted" style="margin-top:2px;">
             Fluid prescription: @include('reports.partials.nutrient-prescription', ['limit' => [($prescription['nutrient_operators']['fluid_ml'] ?? 'target') => $fluid_balance['required_fluid_ml'], 'unit' => 'mL/day']]) ·
             Fluid from planned foods: {{ number_format($fluid_balance['food_fluid_ml']) }} mL/day average ·

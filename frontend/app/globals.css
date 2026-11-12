@@ -60,6 +60,35 @@ body {
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
+/* Phone content uses one white canvas; controls and overlays keep their own boundaries. */
+@media (width < 40rem) {
+  body,
+  .app-content {
+    background-color: #fff;
+  }
+
+  .app-content {
+    overflow-wrap: anywhere;
+  }
+
+  .app-content :where(div, section, article, form, dl, ul, ol):is(
+    .bg-white, .bg-warm-25, .bg-warm-50
+  ):is(
+    .rounded-lg, .rounded-xl, .rounded-2xl, .rounded-3xl
+  ):is(.border, .shadow-sm):not(
+    .fixed, .fixed *, .absolute, .absolute *,
+    [role="dialog"], [role="dialog"] *, [role="alert"], [role="status"],
+    [role="button"], [role="group"], [role="listbox"], [role="listbox"] *,
+    [role="menu"], [role="menu"] *, [tabindex]
+  ) {
+    background-color: transparent;
+    border-width: 0;
+    border-radius: 0;
+    box-shadow: none;
+    padding-inline: 0;
+  }
+}
+
 /* Space Grotesk for all numeric / tabular data — clean oval 0, no slash */
 @layer utilities {
   .font-numeric {

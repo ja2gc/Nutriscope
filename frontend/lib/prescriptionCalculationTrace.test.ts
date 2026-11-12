@@ -36,13 +36,13 @@ describe("persisted prescription calculation trace", () => {
     expect(trace.context.find(row => row.label === 'Baseline estimated maintenance')?.value).toBe('1,386 kcal/day');
     expect(JSON.stringify(trace)).not.toMatch(/\d\.\d{4,}|Calculation version/);
     expect(saved.inputs.ageYears).toBe(51.5972602739726);
-    expect(trace.context.find(row => row.label === 'Baseline estimated maintenance')?.formulaName).toContain('51.6');
+    expect(trace.context.find(row => row.label === 'Baseline estimated maintenance')?.formulaName).toContain('51.597 years');
   });
   test("shows baseline and the selected fixed deficit exactly once", () => {
     const trace = build();
     expect(trace.context.find(row => row.label === "Baseline estimated maintenance")?.value).toBe("1,881 kcal/day");
     expect(trace.targets.find(row => row.key === "energy_kcal")).toMatchObject({
-      status: "matches", calculation: "1,881 + 0 − 300 = 1,581 kcal",
+      status: "matches", calculation: "round((10 × 70 kg + 6.25 × 170 cm − 5 × 40 years + 5) × 1.2 + 0 − 300) = 1,581 kcal",
     });
     expect(trace.targets.find(row => row.key === "fluid_ml")?.value?.text).toBe("≤ 1,700 mL");
     expect(JSON.stringify(trace)).not.toMatch(/caloric floor|starting dose|undefined/);
@@ -83,7 +83,7 @@ describe("persisted prescription calculation trace", () => {
       ...snapshot, maternal_energy_kcal: 300, maternal_protein_g: 27, signed_adjustment_kcal: 0,
       calculated: { ...snapshot.calculated, energy_kcal: 2181, protein_g: 97 },
     });
-    expect(trace.targets.find(row => row.key === "energy_kcal")?.calculation).toBe("1,881 + 300 + 0 = 2,181 kcal");
+    expect(trace.targets.find(row => row.key === "energy_kcal")?.calculation).toBe("round((10 × 70 kg + 6.25 × 170 cm − 5 × 40 years + 5) × 1.2 + 300 + 0) = 2,181 kcal");
     expect(trace.targets.find(row => row.key === "protein_g")?.calculation).toBe("1 × 70 + 27 = 97 g");
     expect(trace.notes.join(" ")).not.toMatch(/rounding|notes only|Mifflin/);
   });
@@ -91,5 +91,25 @@ describe("persisted prescription calculation trace", () => {
     const trace = build({}, { version: 2, method: "Clinician-entered prescription", inputs: {}, calculated: {} });
     expect(trace.context.find(row => row.label === "Age")?.value).toBe("Not recorded");
     expect(JSON.stringify(trace)).not.toContain("0 years");
+  });
+  test("substitutes saved pediatric age, height, weight and growth in the energy row", () => {
+    const trace = build({}, { ...snapshot, baseline_kind: "pediatric_eer", method: "NASEM 2023 EER",
+      inputs: { ageYears: 5, heightCm: 115, weightKg: 20, sex: "Male" },
+      eer_coefficients: [-447.51, 3.68, 13.01, 13.15], growth_energy_kcal: 15,
+      calculated: { ...snapshot.calculated, energy_kcal: 1345 }, signed_adjustment_kcal: 0 });
+    expect(trace.targets.find(row => row.key === "energy_kcal")?.calculation)
+      .toBe("round(−447.51 + 3.68 × 5 years + 13.01 × 115 cm + 13.15 × 20 kg + 15 (normal growth) + 0 + 0) = 1,345 kcal");
+  });
+  test("uses the recorded clinical weight rather than measured weight for kcal per kg", () => {
+    const trace = build({}, { ...snapshot, baseline_kind: "clinical_target", energy_per_kg: 30,
+      weight_kg: 60, baseline_energy_kcal: 1800, signed_adjustment_kcal: -300,
+      calculated: { ...snapshot.calculated, energy_kcal: 1500 } });
+    expect(trace.targets.find(row => row.key === "energy_kcal")?.calculation)
+      .toBe("round(30 kcal/kg × 60 kg + 0 − 300) = 1,500 kcal");
+  });
+  test("keeps an incomplete historical equation unknown instead of substituting zero measurements", () => {
+    const trace = build({}, { ...snapshot, inputs: {}, baseline_energy_kcal: 1881 });
+    expect(trace.targets.find(row => row.key === "energy_kcal")?.calculation).toContain("Saved baseline 1,881");
+    expect(JSON.stringify(trace)).not.toContain("10 × 0");
   });
 });

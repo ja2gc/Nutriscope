@@ -5,7 +5,7 @@ import { Logo } from "@/components/ui/Logo";
 
 export default function MobileAppPage() {
   return (
-    <main className="min-h-dvh bg-warm-50 px-4 py-8 sm:px-6 sm:py-12">
+    <main className="app-content min-h-dvh bg-warm-50 px-4 py-8 sm:px-6 sm:py-12">
       <div className="mx-auto w-full max-w-xl">
         <Link
           href="/login"

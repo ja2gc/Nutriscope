@@ -273,28 +273,29 @@ export function MenuItemCreateForm({ onCreate, onCancel }: {
             </button>
           </div>
           <div className="space-y-3">
-            {ingredients.map((row, idx) => (
-              <div key={row.key} className="flex gap-2 items-start">
-                <div className="flex-1">
+            {ingredients.map((row, idx) => {
+              const factor = row.food ? clinicalIngredientFactor(Number(row.quantity), row.unit, Number(row.food.serving_size), row.food.serving_unit ?? "") : null;
+              return <div key={row.key} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-start gap-2 sm:flex">
+                <div className="col-span-3 min-w-0 sm:flex-1">
                   <button type="button" aria-label={`Choose ingredient ${idx + 1}`} onClick={() => openIngredientPicker(row.key)} className="flex min-h-11 w-full items-center gap-2 rounded-lg border border-warm-300 bg-white px-3 py-2 text-left text-base text-warm-900 hover:bg-warm-50">
                     <Search className="h-3.5 w-3.5 shrink-0 text-warm-400" />
                     <span className="min-w-0 flex-1 truncate">{row.food?.name ?? "Select ingredient"}</span>
-                    {row.food && <span className="shrink-0 text-xs font-bold text-emerald-600">{row.food.calories} kcal</span>}
+                    {row.food && factor !== null && <span className="shrink-0 text-xs font-bold text-emerald-600">{(Number(row.food.calories) * factor).toFixed(1)} kcal</span>}
                   </button>
                 </div>
                 <input aria-label={`Ingredient ${idx + 1} quantity`} type="number" value={quantityInputValue(row.quantity)} onChange={(e) => updateRow(idx, { quantity: e.target.value })} min={numericStepBase(quantityInputValue(row.quantity))} max="100000" step="0.1" required
-                  className="w-20 px-3 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600" />
+                  className="min-h-11 w-full min-w-0 px-3 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 sm:min-h-0 sm:w-20" />
                 <select aria-label={`Ingredient ${idx + 1} unit`} value={row.unit} onChange={(e) => updateRow(idx, { unit: e.target.value })} disabled={!row.food}
-                  className="w-20 px-2 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none cursor-pointer">
+                  className="min-h-11 w-full min-w-0 px-2 py-2 text-base border border-warm-300 rounded-lg text-warm-900 focus:outline-none cursor-pointer sm:min-h-0 sm:w-20">
                   {clinicalRecipeUnits(row.food?.serving_unit ?? "").map((u) => <option key={u} value={u}>{u}</option>)}
                 </select>
                 <button type="button" aria-label={`Remove ingredient ${idx + 1}`} onClick={() => setIngredients((prev) => prev.filter((_, i) => i !== idx))}
                   disabled={ingredients.length === 1}
-                  className="p-2 rounded-lg text-warm-400 hover:text-red-500 hover:bg-red-50 disabled:opacity-30 cursor-pointer transition-colors">
+                  className="min-h-11 min-w-11 p-2 rounded-lg text-warm-400 hover:text-red-500 hover:bg-red-50 disabled:opacity-30 cursor-pointer transition-colors sm:min-h-0 sm:min-w-0">
                   <X className="h-3.5 w-3.5" />
                 </button>
-              </div>
-            ))}
+              </div>;
+            })}
           </div>
         </div>
 

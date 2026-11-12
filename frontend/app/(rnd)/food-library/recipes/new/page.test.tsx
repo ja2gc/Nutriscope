@@ -49,6 +49,14 @@ test("Menu Item editor uses canonical categories, measured units, and converted 
   expect(quantity.getAttribute("step")).toBe("0.1");
   await act(async () => user.type(quantity, "0.5"));
   expect(container.textContent).toContain("500.0");
+  const card = () => container.querySelector('[aria-label="Choose ingredient 1"]')!;
+  expect(card().textContent).toContain("500.0 kcal");
+  await act(async () => { await user.clear(quantity); await user.type(quantity, "0.2"); });
+  expect(card().textContent).toContain("200.0 kcal");
+  await act(async () => user.selectOptions(unit, "g"));
+  expect(card().textContent).toContain("0.2 kcal");
+  await act(async () => user.clear(quantity));
+  expect(card().textContent).not.toContain("kcal");
 });
 
 test('loads paginated ingredients when opened and selects a paginated ingredient into the active row', async () => {

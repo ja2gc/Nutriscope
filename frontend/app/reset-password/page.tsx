@@ -41,7 +41,7 @@ function ResetPasswordForm() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-warm-50 px-4 sm:px-6 lg:px-8 font-sans">
+    <div className="app-content flex min-h-screen items-center justify-center bg-warm-50 px-4 sm:px-6 lg:px-8 font-sans">
       <div className="w-full max-w-md space-y-6">
         <div className="flex flex-col items-center text-center">
           <Logo variant="light" />
