@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\AuditsChanges;
 use App\Models\Concerns\HasPublicId;
+use App\Services\MonitoringPlanService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -131,9 +132,14 @@ class Intervention extends Model
         };
     }
 
+    public function normalizedMicronutrientLimits(): array
+    {
+        return MonitoringPlanService::normalizeMicronutrientLimits($this->micronutrient_limits ?? []);
+    }
+
     public function foodNutrientLimits(): array
     {
-        $limits = $this->micronutrient_limits ?? [];
+        $limits = $this->normalizedMicronutrientLimits();
         foreach (['energy_kcal' => 'energy', 'protein_g' => 'protein', 'carbs_g' => 'carbs', 'fat_g' => 'fat'] as $field => $key) {
             $operator = $this->nutrient_operators[$field] ?? null;
             if (in_array($operator, ['min', 'max'], true) && $this->{$field} !== null) {

@@ -6,6 +6,9 @@ use App\Models\Assessment;
 use App\Models\Monitoring;
 use App\Models\NcpRecord;
 use App\Support\ClinicalAiContext;
+use App\Support\UnitConverter;
+use Illuminate\Validation\ValidationException;
+use InvalidArgumentException;
 
 /**
  * Builds the per-patient Monitoring Plan — the focused set of indicators a
@@ -106,6 +109,38 @@ class MonitoringPlanService
     public static function micronutrientUnit(string $key): string
     {
         return self::MICROS[$key][1] ?? '';
+    }
+
+    public static function normalizeMicronutrientLimits(array $limits): array
+    {
+        foreach ($limits as $key => $limit) {
+            $unit = self::micronutrientUnit((string) $key);
+            if ($unit === '' || ! is_array($limit)) {
+                throw ValidationException::withMessages(["micronutrient_limits.{$key}" => 'Choose a supported micronutrient target or limit.']);
+            }
+            $source = $limit['unit'] ?? $unit;
+            if (! is_string($source)) {
+                throw ValidationException::withMessages(["micronutrient_limits.{$key}.unit" => 'Choose a compatible mass unit for this nutrient.']);
+            }
+            $source = trim($source) === '' ? $unit : $source;
+            try {
+                foreach (['target', 'min', 'max'] as $bound) {
+                    if (isset($limit[$bound])) {
+                        if (! is_numeric($limit[$bound])) {
+                            throw new InvalidArgumentException('Enter a numeric nutrient amount.');
+                        }
+                        $limit[$bound] = UnitConverter::convertNutrientAmount((float) $limit[$bound], $source, $unit);
+                    }
+                }
+                UnitConverter::convertNutrientAmount(0, $source, $unit);
+            } catch (InvalidArgumentException $exception) {
+                throw ValidationException::withMessages(["micronutrient_limits.{$key}.unit" => $exception->getMessage()]);
+            }
+            $limit['unit'] = $unit;
+            $limits[$key] = $limit;
+        }
+
+        return $limits;
     }
 
     public function __construct(
@@ -375,7 +410,8 @@ class MonitoringPlanService
 
     private function microIndicators($intervention, $monitorings): array
     {
-        $keys = array_merge($intervention?->displayed_nutrients ?? [], array_keys($intervention?->micronutrient_limits ?? []), $intervention?->displayed_nutrients === null ? (self::GOAL_MICROS[$intervention?->goal_type] ?? []) : []);
+        $limits = $intervention?->normalizedMicronutrientLimits() ?? [];
+        $keys = array_merge($intervention?->displayed_nutrients ?? [], array_keys($limits), $intervention?->displayed_nutrients === null ? (self::GOAL_MICROS[$intervention?->goal_type] ?? []) : []);
         foreach ($monitorings as $monitoring) {
             foreach (array_keys($monitoring->lab_values ?? []) as $key) {
                 if (str_starts_with($key, 'micro_')) {
@@ -389,7 +425,7 @@ class MonitoringPlanService
                 continue;
             }
             [$label, $unit] = self::MICROS[$key];
-            $limit = $intervention?->micronutrient_limits[$key] ?? [];
+            $limit = $limits[$key] ?? [];
             $min = isset($limit['min']) ? (float) $limit['min'] : null;
             $max = isset($limit['max']) ? (float) $limit['max'] : null;
             $reference = $min !== null || $max !== null ? ['min' => $min, 'max' => $max] : null;

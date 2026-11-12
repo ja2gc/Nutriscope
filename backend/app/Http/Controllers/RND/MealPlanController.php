@@ -746,7 +746,7 @@ class MealPlanController extends Controller
             $request->conditions,
             $request->stages ?? null,
             [],
-            $ncpRecord->latestIntervention?->micronutrient_limits ?? [],
+            $ncpRecord->latestIntervention?->normalizedMicronutrientLimits() ?? [],
         );
 
         return response()->json(['data' => $result]);

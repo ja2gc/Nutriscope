@@ -36,7 +36,7 @@ class InterventionResource extends JsonResource
             'carbs_g' => $this->carbs_g,
             'fat_g' => $this->fat_g,
             'fluid_ml' => $this->fluid_ml,
-            'micronutrient_limits' => $this->micronutrient_limits,
+            'micronutrient_limits' => $this->micronutrient_limits === null ? null : $this->normalizedMicronutrientLimits(),
             'nutrient_operators' => $this->nutrient_operators,
             'weight_target' => $this->weight_target,
             'education_notes' => $this->education_notes,

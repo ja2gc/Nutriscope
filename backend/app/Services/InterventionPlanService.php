@@ -54,6 +54,9 @@ class InterventionPlanService
 
     public function prepareAttributes(NcpRecord $record, array $attributes, ?Intervention $existing = null): array
     {
+        if (isset($attributes['micronutrient_limits'])) {
+            $attributes['micronutrient_limits'] = MonitoringPlanService::normalizeMicronutrientLimits($attributes['micronutrient_limits']);
+        }
         $mode = $existing?->nutrition_support ?? $record->nutrition_support;
         if (! in_array($mode, NutritionSupport::VALUES, true)) {
             throw ValidationException::withMessages(['nutrition_support' => 'Select Nutrition support in Assessment before creating an Intervention Plan.']);

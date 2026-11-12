@@ -271,7 +271,7 @@ class MealPlanService
         }
 
         // Micronutrient limits (e.g. ['sodium_mg' => ['max' => 1500, 'unit' => 'mg']])
-        $microLimits = $intervention->micronutrient_limits ?? [];
+        $microLimits = $intervention->normalizedMicronutrientLimits();
 
         // Target macro ratios for scoring
         $targetProteinRatio = ($dailyProtein * 4) / $dailyKcal;

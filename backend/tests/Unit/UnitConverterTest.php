@@ -8,6 +8,23 @@ use Tests\TestCase;
 
 class UnitConverterTest extends TestCase
 {
+    #[DataProvider('nutrientAmounts')]
+    public function test_nutrient_amounts_preserve_equivalence_at_unit_boundaries(float $amount, string $from, string $to, float $expected): void
+    {
+        $this->assertSame($expected, UnitConverter::convertNutrientAmount($amount, $from, $to));
+    }
+
+    public static function nutrientAmounts(): array
+    {
+        return [
+            [2, 'g', 'mg', 2000.0], [2000, 'mg', 'g', 2.0],
+            [1, 'mg', 'mcg', 1000.0], [0.025, 'mg', 'mcg', 25.0],
+            [25, 'µg', 'mg', 0.025], [25, 'μg', 'mcg', 25.0],
+            [25, 'ug', 'mcg', 25.0], [0.002, 'kg', 'mg', 2000.0],
+            [0, 'g', 'mcg', 0.0],
+        ];
+    }
+
     public function test_same_unit_is_identity(): void
     {
         $this->assertSame(200.0, UnitConverter::convert(200, 'g', 'g'));

@@ -204,7 +204,7 @@ class InterventionController extends Controller
         $intervention = $ncpRecord->latestIntervention()->firstOrFail();
         $guidance = InterventionGuidance::for($intervention->goal_type ?? 'custom', $intervention->disease_stage, $intervention->calculation_options ?? []);
         $limits = [];
-        foreach ($intervention->micronutrient_limits ?? [] as $tag => $limit) {
+        foreach ($intervention->normalizedMicronutrientLimits() as $tag => $limit) {
             foreach (['target', 'min', 'max'] as $operator) {
                 if (isset($limit[$operator])) {
                     $limits[] = ['tag' => $tag, 'condition' => $intervention->goal_type,

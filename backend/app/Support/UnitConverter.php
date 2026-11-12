@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use Brick\Math\BigRational;
 use InvalidArgumentException;
 
 /**
@@ -60,6 +61,28 @@ class UnitConverter
     public static function isKnown(string $unit): bool
     {
         return self::isMass($unit) || self::isVolume($unit);
+    }
+
+    public static function convertNutrientAmount(float $amount, string $from, string $to): float
+    {
+        $normalize = static fn (string $unit): string => match (self::normalize($unit)) {
+            'ug', 'µg', 'μg', 'microgram', 'micrograms' => 'mcg',
+            'milligram', 'milligrams' => 'mg',
+            default => self::normalize($unit),
+        };
+        $source = $normalize($from);
+        $target = $normalize($to);
+        $micrograms = array_map(static fn (float $grams): float => $grams * 1000000, self::MASS_TO_G) + ['mcg' => 1.0];
+        if (! isset($micrograms[$source], $micrograms[$target]) || ! is_finite($amount) || $amount < 0) {
+            throw new InvalidArgumentException('Enter a nonnegative amount in a compatible mass unit.');
+        }
+        $converted = $source === $target ? $amount : BigRational::of(json_encode($amount, JSON_THROW_ON_ERROR))
+            ->multipliedBy((string) $micrograms[$source])->dividedBy((string) $micrograms[$target])->toFloat();
+        if (! is_finite($converted)) {
+            throw new InvalidArgumentException('Enter a finite nutrient amount.');
+        }
+
+        return $converted;
     }
 
     public static function isCompatible(string $from, string $to): bool

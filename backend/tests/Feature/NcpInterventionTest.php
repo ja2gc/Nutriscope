@@ -21,6 +21,63 @@ class NcpInterventionTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_equivalent_micronutrient_units_are_normalized_on_save(): void
+    {
+        $rnd = $this->rnd();
+        $ncp = $this->ncpRecord($this->patient(), $rnd);
+        $this->diagnosis($ncp);
+        $url = "/api/rnd/ncp-records/{$ncp->uuid}/interventions";
+        $response = $this->actingAs($rnd, 'sanctum')->postJson($url, ['micronutrient_limits' => [
+            'sodium' => ['max' => 2, 'unit' => ' g '],
+            'fiber' => ['min' => 25000, 'max' => 35000, 'unit' => 'MG'],
+            'vitamin_d' => ['target' => 0.025, 'unit' => 'mg'],
+            'vitamin_b12' => ['min' => 0.000002, 'unit' => 'g'],
+        ]])->assertCreated()
+            ->assertJsonPath('data.micronutrient_limits.sodium', fn (array $limit): bool => $limit == ['max' => 2000, 'unit' => 'mg'])
+            ->assertJsonPath('data.micronutrient_limits.fiber', fn (array $limit): bool => $limit == ['min' => 25, 'max' => 35, 'unit' => 'g'])
+            ->assertJsonPath('data.micronutrient_limits.vitamin_d', fn (array $limit): bool => $limit == ['target' => 25, 'unit' => 'mcg'])
+            ->assertJsonPath('data.micronutrient_limits.vitamin_b12', fn (array $limit): bool => $limit == ['min' => 2, 'unit' => 'mcg']);
+        $this->assertSame(2000.0, (float) Intervention::sole()->micronutrient_limits['sodium']['max']);
+        $this->patchJson($url.'/'.$response->json('data.id'), ['micronutrient_limits' => [
+            'sodium' => ['max' => 2000000, 'unit' => 'µg'],
+        ]])->assertOk()->assertJsonPath('data.micronutrient_limits.sodium', fn (array $limit): bool => $limit == ['max' => 2000, 'unit' => 'mg']);
+        $small = $this->patchJson($url.'/'.$response->json('data.id'), ['micronutrient_limits' => [
+            'sodium' => ['max' => 0.000001, 'unit' => 'mcg'],
+        ]])->assertOk()->assertJsonPath('data.micronutrient_limits.sodium.max', 0.000000001);
+        $this->patchJson($url.'/'.$response->json('data.id'), ['micronutrient_limits' => $small->json('data.micronutrient_limits')])
+            ->assertOk()->assertJsonPath('data.micronutrient_limits.sodium.max', 0.000000001);
+    }
+
+    public function test_historical_alternate_units_are_interpreted_without_rewriting_stored_bounds(): void
+    {
+        $rnd = $this->rnd();
+        $ncp = $this->ncpRecord($this->patient(), $rnd);
+        $this->diagnosis($ncp);
+        $plan = Intervention::factory()->create(['ncp_record_id' => $ncp->id, 'micronutrient_limits' => [
+            'sodium' => ['max' => 2, 'unit' => 'g'], 'fiber' => ['min' => 25],
+        ]]);
+        Intervention::factory()->create(['ncp_record_id' => $ncp->id, 'created_at' => now()->addDay()]);
+        $before = $plan->refresh()->getRawOriginal('micronutrient_limits');
+        $this->actingAs($rnd, 'sanctum')->getJson("/api/rnd/ncp-records/{$ncp->uuid}/interventions/{$plan->uuid}")
+            ->assertOk()->assertJsonPath('data.micronutrient_limits.sodium', fn (array $limit): bool => $limit == ['max' => 2000, 'unit' => 'mg'])
+            ->assertJsonPath('data.micronutrient_limits.fiber', fn (array $limit): bool => $limit == ['min' => 25, 'unit' => 'g']);
+        $this->assertSame($before, $plan->fresh()->getRawOriginal('micronutrient_limits'));
+    }
+
+    public function test_unsupported_micronutrient_units_are_rejected_without_saving(): void
+    {
+        $rnd = $this->rnd();
+        $ncp = $this->ncpRecord($this->patient(), $rnd);
+        $this->diagnosis($ncp);
+        $this->actingAs($rnd, 'sanctum');
+        foreach (['mL', 'IU', 'mEq/L'] as $unit) {
+            $this->postJson("/api/rnd/ncp-records/{$ncp->uuid}/interventions", ['micronutrient_limits' => [
+                'sodium' => ['max' => 2, 'unit' => $unit],
+            ]])->assertUnprocessable()->assertJsonValidationErrors('micronutrient_limits.sodium.unit');
+        }
+        $this->assertDatabaseCount('interventions', 0);
+    }
+
     public function test_latest_plan_can_be_updated_and_historical_plans_can_only_be_deleted(): void
     {
         $rnd = $this->rnd();
