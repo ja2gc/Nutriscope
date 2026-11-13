@@ -28,6 +28,6 @@ class MealPrepLogLine extends Model
 
     public function fsItem(): BelongsTo
     {
-        return $this->belongsTo(FsItem::class, 'fs_item_id');
+        return $this->belongsTo(FsItem::class, 'fs_item_id')->withTrashed();
     }
 }

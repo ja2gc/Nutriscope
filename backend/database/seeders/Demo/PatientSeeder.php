@@ -78,7 +78,7 @@ class PatientSeeder extends DemoSeeder
         $svc = resolve(MealPlanService::class);
         $svc->setRngSeed(42);
         $allergens = $record->assessment?->allergies ?? [];
-        $carb = Recipe::query()->where('category', 'carb')->where('name', 'Sweet Potato / Kamote')->first();
+        $carb = Recipe::query()->where('category', 'carb')->where('seed_key', 'clinical:kamote')->first();
         $result = $svc->generate(
             $record->fresh(), $weekStart, [], is_array($allergens) ? $allergens : [],
             intervention: $intervention, carbMenuItemId: $carb?->uuid,

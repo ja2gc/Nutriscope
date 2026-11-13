@@ -8,6 +8,7 @@ use App\Support\UnitConverter;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * Food-service catalog item — the kitchen's own list of things it buys.
@@ -23,6 +24,12 @@ class FsItem extends Model
     use AuditsChanges;
     use HasFactory;
     use HasPublicId;
+    use SoftDeletes;
+
+    protected static function booted(): void
+    {
+        static::deleting(fn (self $item) => MenuCycleTemplateDay::where('fs_item_id', $item->id)->delete());
+    }
 
     protected $table = 'fs_items';
 

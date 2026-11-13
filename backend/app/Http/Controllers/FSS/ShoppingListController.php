@@ -226,7 +226,7 @@ class ShoppingListController extends Controller
         }
 
         if ($data['preview'] ?? false) {
-            $itemUuids = FsItem::query()->whereIn('id', array_column($plan['items'], 'fs_item_id'))
+            $itemUuids = FsItem::withTrashed()->whereIn('id', array_column($plan['items'], 'fs_item_id'))
                 ->get(['id', 'uuid', 'base_unit'])->keyBy('id');
             $supplierUuids = Supplier::query()->whereIn('id', array_column($plan['items'], 'supplier_id'))
                 ->get(['id', 'uuid'])->keyBy('id');
@@ -313,7 +313,16 @@ class ShoppingListController extends Controller
     {
         $seen = [];
         foreach ($lines as $line) {
-            $fsItem = FsItem::query()->where('uuid', $line['fs_item_uuid'])->firstOrFail();
+            $fsItem = FsItem::withTrashed()->where('uuid', $line['fs_item_uuid'])->firstOrFail();
+            if ($fsItem->trashed()) {
+                $retained = $list->items()->where('fs_item_id', $fsItem->id)->where('source', $line['source']);
+                if (isset($line['id'])) {
+                    $retained->where('uuid', $line['id']);
+                } elseif ($line['source'] !== 'generated') {
+                    abort(422, 'Choose an available Inventory item for new manual entries.');
+                }
+                abort_unless($retained->exists(), 422, 'This removed Inventory item is not part of the saved list or selected Menu Calendar days.');
+            }
             abort_if($fsItem->kind !== ($list->isSupplies() ? 'supply' : 'ingredient'), 422, 'Choose an Inventory item that matches this list type.');
             $unit = (string) $line['purchase_unit'];
             $physical = UnitConverter::isCompatible((string) $fsItem->base_unit, $unit)
@@ -507,7 +516,7 @@ class ShoppingListController extends Controller
         $isSupplies = $shoppingList->isSupplies();
 
         $data = $request->validate([
-            'fs_item_id' => [$isSupplies ? 'required' : 'nullable', 'string', 'exists:fs_items,uuid'],
+            'fs_item_id' => [$isSupplies ? 'required' : 'nullable', 'string', 'exists:fs_items,uuid,deleted_at,NULL'],
             'ingredient_name' => ['nullable', 'string', 'max:255'],
             'qty' => ['required', 'numeric', 'min:0'],
             'unit' => [$isSupplies ? 'nullable' : 'required', 'string', 'max:50'],

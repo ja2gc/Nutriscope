@@ -338,7 +338,7 @@ class MealPlanController extends Controller
             'disease_stage' => 'nullable|string|max:100',
         ]);
 
-        $mealPlan->loadMissing('days.items');
+        $mealPlan->loadMissing('days.items.recipe', 'days.items.foodItem');
         $template = $this->audited(function () use ($validated, $ncpRecord, $mealPlan, $request) {
             $template = MealPlanTemplate::create([
                 'rnd_user_id' => $request->user()->id,
@@ -353,7 +353,12 @@ class MealPlanController extends Controller
             ]);
 
             foreach ($mealPlan->days as $day) {
-                $items = $day->items->sortBy('id')->values();
+                $items = $day->items->filter(fn ($item): bool => (! $item->recipe_id || ($item->recipe && ! $item->recipe->trashed()))
+                    && (! $item->food_item_id || ($item->foodItem && ! $item->foodItem->trashed())))
+                    ->sortBy('id')->values();
+                if ($items->isEmpty()) {
+                    continue;
+                }
                 $firstItem = $items->first();
                 $templateDay = MealPlanTemplateDay::create([
                     'template_id' => $template->id,

@@ -7,11 +7,18 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Tests\Support\UsdaFoodImportFixture;
 use Tests\TestCase;
 
 class DatabaseSeederRepeatabilityTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        UsdaFoodImportFixture::fake();
+    }
 
     public function test_complete_demo_seed_is_repeatable_across_all_application_tables(): void
     {

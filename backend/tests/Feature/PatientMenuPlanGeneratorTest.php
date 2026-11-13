@@ -25,11 +25,18 @@ use Database\Seeders\RecipeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Tests\Support\UsdaFoodImportFixture;
 use Tests\TestCase;
 
 class PatientMenuPlanGeneratorTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        UsdaFoodImportFixture::fake();
+    }
 
     public function test_hidden_snacks_are_preserved_but_excluded_from_scaling_and_report(): void
     {
@@ -349,10 +356,10 @@ class PatientMenuPlanGeneratorTest extends TestCase
             'parameters' => ['intervention_plan_id' => $plan->intervention->uuid], 'created_at' => '2026-10-16 08:00:00',
         ]));
         $this->assertStringStartsWith('%PDF-', $built['bytes']);
-        $this->assertLessThanOrEqual(2, preg_match_all('~/Type\s*/Page\b~', $built['bytes']));
         if ($artifact = getenv('NUTRISCOPE_PDF_QA_PATH')) {
             $this->assertSame(strlen($built['bytes']), file_put_contents(substr($artifact, 0, -4).'-realistic.pdf', $built['bytes']));
         }
+        $this->assertLessThanOrEqual(3, preg_match_all('~/Type\s*/Page\b~', $built['bytes']), 'Keep the ingredient-rich catalog cards readable and together.');
     }
 
     public function test_legacy_count_portion_never_invents_a_gram_equivalent_from_a_mass_baseline(): void

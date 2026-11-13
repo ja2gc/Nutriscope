@@ -18,8 +18,95 @@ class InterventionMealPlanTemplateSeeder extends Seeder
 
     public function run(): void
     {
-        $this->seedTemplates();
+        $this->seedReferenceTemplates();
     }
+
+    private function seedReferenceTemplates(): void
+    {
+        $owner = $this->referenceOwner();
+        $catalog = json_decode(file_get_contents(database_path('seeders/data/clinical-recipes.json')), true, flags: JSON_THROW_ON_ERROR);
+        $recipes = Recipe::with('ingredients.foodItem')->where('rnd_user_id', $owner->id)
+            ->whereIn('seed_key', array_map(fn (string $key): string => 'clinical:'.$key, array_keys($catalog['recipes'])))
+            ->get()->keyBy('seed_key');
+
+        DB::transaction(function () use ($owner, $catalog, $recipes): void {
+            foreach ($this->profiles() as $key => $profile) {
+                $definition = $catalog['templates'][$key];
+                $withSnacks = in_array($key, ['liver_disease', 'weight_gain', 'malnutrition'], true);
+                $goal = array_key_exists('goal_type', $profile) ? $profile['goal_type'] : $key;
+                $seedKey = 'clinical:'.$key;
+                $aliases = array_map(fn (string $variant): string => "Demo — {$profile['label']} — {$variant}", ['Standard', 'Balanced', 'Frequent Meals', 'No Snacks', 'Soft Frequent Meals']);
+                $legacy = MealPlanTemplate::where('rnd_user_id', $owner->id)->whereNull('seed_key')->whereIn('name', $aliases)
+                    ->get()->filter(fn (MealPlanTemplate $template): bool => $template->goal_type === $goal
+                        && $template->disease_stage === $profile['stage']
+                        && $template->maternal_status === ($profile['maternal_status'] ?? null));
+                $template = MealPlanTemplate::where('rnd_user_id', $owner->id)->where('seed_key', $seedKey)->first()
+                    ?? $legacy->first()
+                    ?? new MealPlanTemplate;
+                $template->forceFill([
+                    'seed_key' => $seedKey,
+                    'rnd_user_id' => $owner->id,
+                    'name' => $profile['label'],
+                    'description' => $definition['description'].' Review portions and nutrient limits against the individual prescription.',
+                    'goal_type' => $goal,
+                    'disease_stage' => $profile['stage'],
+                    'maternal_status' => $profile['maternal_status'] ?? null,
+                    'nutrition_support' => 'oral',
+                    'snacks_hidden' => ! $withSnacks,
+                ])->save();
+                $template->days()->delete();
+                foreach (self::DAYS as $index => $dayName) {
+                    $breakfast = $this->rotate($definition['breakfasts'], $index);
+                    $carb = $definition['carb'];
+                    $side = $this->rotate($definition['vegetables'], $index);
+                    $fruit = $this->rotate($definition['fruit'], $index);
+                    $slots = [
+                        'breakfast' => [$breakfast],
+                        'lunch' => [$this->rotate($definition['mains'], $index), $carb, $side, $fruit],
+                        'dinner' => [$this->rotate($definition['mains'], $index + 1), $carb, $this->rotate($definition['vegetables'], $index + 1)],
+                    ];
+                    if ($withSnacks) {
+                        $slots['am_snack'] = [$this->rotate($definition['snacks'], $index)];
+                        $slots['pm_snack'] = [$this->rotate($definition['snacks'], $index + 1)];
+                    }
+                    if (isset($profile['maternal_status'])) {
+                        $slots['breakfast'][] = 'milk';
+                        if ($profile['maternal_status'] === 'lactating') {
+                            $slots['dinner'][] = 'milk';
+                        }
+                    }
+                    foreach ($slots as $slot => $names) {
+                        $day = $template->days()->create(['day_of_week' => $dayName, 'meal_type' => $slot, 'quantity' => 1, 'unit' => 'serving']);
+                        foreach ($names as $line => $recipeKey) {
+                            $recipe = $recipes->get('clinical:'.$recipeKey);
+                            $name = $catalog['recipes'][$recipeKey]['name'] ?? $recipeKey;
+                            if (! $recipe || ! $recipe->hasValidPortionData()) {
+                                throw new RuntimeException("Template '{$template->name}' requires measured recipe '{$name}'.");
+                            }
+                            $quantity = 1.0;
+                            if ($recipe->category === 'carb') {
+                                $quantity = $profile['carb_quantity_g'] / (float) $recipe->prepared_portion_amount;
+                            } elseif (isset($profile['maternal_status']) && in_array($recipeKey, ['papaya', 'saging'], true)) {
+                                $quantity = ($recipeKey === 'papaya' ? 90 : 80) / (float) $recipe->prepared_portion_amount;
+                            }
+                            $day->items()->create(['recipe_id' => $recipe->id, 'quantity' => round($quantity, 2), 'unit' => 'serving',
+                                'line_order' => $line + 1, 'nutrient_snapshot' => $recipe->planSnapshot()]);
+                            if ($line === 0) {
+                                $day->update(['recipe_id' => $recipe->id, 'quantity' => round($quantity, 2)]);
+                            }
+                        }
+                    }
+                }
+                foreach ($legacy as $duplicate) {
+                    if ($duplicate->id !== $template->id) {
+                        $duplicate->delete();
+                    }
+                }
+            }
+        });
+    }
+
+    // These repair entry points are called by the October 16 migration.
 
     public function seedMissingTemplates(): void
     {

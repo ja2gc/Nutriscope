@@ -24,6 +24,18 @@ class MealPlanServiceTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_vegetable_sides_cannot_fill_the_generated_main_dish_pool(): void
+    {
+        $this->seedCanonicalMenuItems();
+        Recipe::where('category', 'meal')->update(['component_type' => 'side']);
+        $ncp = $this->makeNcpWithIntervention();
+        $result = (new MealPlanService)->generate($ncp, now()->startOfWeek()->toDateString(), excludeCarbs: true);
+        $this->assertIsArray($result);
+        $this->assertTrue($result['insufficient_suitable_foods']);
+        $this->assertDatabaseCount('meal_plans', 0);
+        $this->assertSame(5, Recipe::where('component_type', 'side')->count());
+    }
+
     private function seedRecipes(int $count = 15): void
     {
         $rnd = User::forceCreate([

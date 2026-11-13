@@ -13,6 +13,11 @@ class FoodItem extends Model
     use HasPublicId;
     use SoftDeletes;
 
+    protected static function booted(): void
+    {
+        static::deleting(fn (self $food) => MealPlanTemplateDay::removeSource('food_item_id', $food->id));
+    }
+
     protected $fillable = [
         'name', 'category', 'usda_fdc_id', 'calories', 'protein', 'carbs', 'fat', 'water_g',
         'micronutrients', 'allergens', 'unit_price', 'serving_unit', 'serving_size',

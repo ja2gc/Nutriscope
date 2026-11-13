@@ -517,7 +517,7 @@ class MenuCycleController extends Controller
         $recipe = $entry['recipe'] ?? null;
 
         if ($recipe) {
-            $items = FsItem::query()->whereIn('id', collect($recipe['ingredients'])->pluck('fs_item_id'))->get()->keyBy('id');
+            $items = FsItem::withTrashed()->whereIn('id', collect($recipe['ingredients'])->pluck('fs_item_id'))->get()->keyBy('id');
             $ingredients = collect($recipe['ingredients'])->map(function (array $ingredient) use ($estimateSet, $items, $reference, $target, $usage): array {
                 $item = $items->get($ingredient['fs_item_id']);
                 $quantity = isset($ingredient['quantity']) ? (float) $ingredient['quantity'] : null;
@@ -582,7 +582,7 @@ class MenuCycleController extends Controller
         $planned = max(1, (int) ($snapshot['population'] ?? $slot->servings_override ?? 1));
         $usage = collect($snapshot['ingredient_usage'] ?? []);
         $profileIngredients = collect($snapshot['ingredients'] ?? $usage->all());
-        $items = FsItem::query()->whereIn('id', $profileIngredients->pluck('fs_item_id'))->get()->keyBy('id');
+        $items = FsItem::withTrashed()->whereIn('id', $profileIngredients->pluck('fs_item_id'))->get()->keyBy('id');
         $usageByItem = $usage->keyBy('fs_item_id');
 
         return [

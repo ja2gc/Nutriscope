@@ -16,15 +16,15 @@ class FoodItemPricesSeeder extends Seeder
     // Prices are ₱ per 100 g (rough Philippine wet-market / supermarket rates)
     private const PRICES = [
         // Grains / Carbs
-        'Steamed White Rice' => 4.50,
-        'Steamed Brown Rice' => 6.00,
+        'Cooked White Rice' => 4.50,
+        'Cooked Brown Rice' => 6.00,
         'Rice Porridge (Lugaw)' => 3.50,
         'Oatmeal (Plain, Cooked)' => 8.00,
         'White Bread' => 12.00,
         'Wheat Crackers' => 15.00,
-        'Sweet Corn (Cooked)' => 6.00,
+        'Boiled Corn' => 6.00,
         'Glutinous Rice (Cooked)' => 5.50,
-        'Cassava / Kamoteng Kahoy' => 5.00,
+        'Cooked Cassava' => 5.00,
 
         // Proteins
         'Chicken Breast (Cooked)' => 28.00,
@@ -48,7 +48,7 @@ class FoodItemPricesSeeder extends Seeder
         'Carrots (Cooked)' => 6.00,
         'Cabbage / Repolyo (Cooked)' => 4.00,
         'String Beans / Sitaw' => 5.00,
-        'Sweet Potato / Kamote' => 6.00,
+        'Sweet Potato, Raw' => 6.00,
         'Squash / Kalabasa (Cooked)' => 5.00,
         'Tomato (Raw)' => 5.00,
         'Tomato (Cooked)' => 5.00,
@@ -80,8 +80,23 @@ class FoodItemPricesSeeder extends Seeder
     public function run(): void
     {
         $updated = 0;
+        $dataset = json_decode(file_get_contents(database_path('seeders/data/clinical-foods.json')), true, flags: JSON_THROW_ON_ERROR);
+        $fdcIds = collect($dataset['foods'])->pluck('usda_fdc_id', 'name');
         foreach (self::PRICES as $name => $price) {
-            $rows = FoodItem::where('name', $name)->update(['unit_price' => $price]);
+            $name = match ($name) {
+                'Low-fat Milk (1%)' => 'Low-fat Milk',
+                'Coconut Milk (Canned)' => 'Coconut Milk',
+                'Egg (Hard Boiled)' => 'Chicken Egg, Hard-boiled',
+                'Sardines (Canned in Water)' => 'Sardines, Canned',
+                'String Beans / Sitaw' => 'Green Beans, Boiled',
+                'Calamansi / Lime Juice' => 'Lime Juice, Raw',
+                'Chayote / Sayote (Cooked)' => 'Sayote, Boiled with Salt',
+                default => $name,
+            };
+            if (! $fdcIds->has($name)) {
+                continue;
+            }
+            $rows = FoodItem::where('usda_fdc_id', $fdcIds[$name])->update(['unit_price' => $price]);
             $updated += $rows;
         }
 

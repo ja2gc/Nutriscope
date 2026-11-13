@@ -9,12 +9,19 @@ use App\Support\UnitConverter;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Log;
 
 class FoodServiceRecipe extends Model
 {
     use AuditsChanges;
     use HasPublicId;
+    use SoftDeletes;
+
+    protected static function booted(): void
+    {
+        static::deleting(fn (self $recipe) => MenuCycleTemplateDay::where('recipe_id', $recipe->id)->delete());
+    }
 
     protected $table = 'food_service_recipes';
 

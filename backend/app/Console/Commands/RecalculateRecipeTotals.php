@@ -7,10 +7,8 @@ use Illuminate\Console\Command;
 
 /**
  * Backfill / refresh recipe nutrient totals (macros + water + micronutrients)
- * from their ingredients. Seeded recipes ship with macro totals but no aggregated
- * micronutrients or water, which left meal-plan micro validation reporting
- * "cannot_validate" and the water-with-macros display blank. Idempotent — safe to
- * re-run after any reseed or ingredient edit.
+ * from their ingredients. Current seeders calculate these totals on write;
+ * this command refreshes older records after verified ingredient corrections.
  */
 class RecalculateRecipeTotals extends Command
 {

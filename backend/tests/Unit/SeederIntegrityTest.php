@@ -2,8 +2,14 @@
 
 namespace Tests\Unit;
 
+use App\Models\FoodItem;
+use App\Models\Recipe;
+use App\Models\User;
+use Database\Seeders\Demo\AdminUserSeeder;
 use Database\Seeders\FoodItemsSeeder;
+use Database\Seeders\RecipeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Support\UsdaFoodImportFixture;
 use Tests\TestCase;
 
 /**
@@ -13,16 +19,16 @@ use Tests\TestCase;
  * - FssFoodItemsSeeder is gone from DatabaseSeeder
  * - RecipeSeeder ingredient names match USDA food names
  * - RecipeSeeder is idempotent (running twice produces same count)
- * - FoodItemsSeeder uses a committed USDA snapshot and preserves manual foods
+ * - FoodItemsSeeder reuses USDA imports and preserves existing nutrients
  */
 class SeederIntegrityTest extends TestCase
 {
-    public function test_food_items_seeder_uses_a_pinned_local_dataset_without_runtime_usda_access(): void
+    public function test_food_items_seeder_reuses_the_shared_usda_importer(): void
     {
         $content = file_get_contents(database_path('seeders/FoodItemsSeeder.php'));
 
         $this->assertStringContainsString('clinical-foods.json', $content);
-        $this->assertStringNotContainsString('UsdaService', $content);
+        $this->assertStringContainsString('UsdaService', $content);
         $this->assertStringNotContainsString('usleep(', $content);
         $this->assertStringNotContainsString('Http::', $content);
     }
@@ -38,6 +44,12 @@ class SeederIntegrityTest extends TestCase
     }
 
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        UsdaFoodImportFixture::fake();
+    }
 
     /** 1a/1b — FssFoodItemsSeeder must not exist / must not be referenced */
     public function test_fss_food_items_seeder_file_does_not_exist(): void
@@ -148,11 +160,16 @@ class SeederIntegrityTest extends TestCase
             'RecipeSeeder must not truncate recipe_ingredients — use firstOrCreate for idempotency'
         );
 
-        $this->assertStringContainsString(
-            'updateOrCreate',
-            $content,
-            'RecipeSeeder must refresh its named demo recipes without duplicating them'
-        );
+        $this->seed([AdminUserSeeder::class, FoodItemsSeeder::class]);
+        $manual = Recipe::factory()->create(['rnd_user_id' => User::where('role', 'RND')->value('id')]);
+        $food = FoodItem::factory()->create();
+        $ingredient = $manual->ingredients()->create(['food_item_id' => $food->id, 'quantity' => 100, 'unit' => 'g']);
+        $this->seed(RecipeSeeder::class);
+        $ids = Recipe::orderBy('id')->pluck('uuid')->all();
+        $this->seed(RecipeSeeder::class);
+        $this->assertSame($ids, Recipe::orderBy('id')->pluck('uuid')->all());
+        $this->assertModelExists($manual);
+        $this->assertModelExists($ingredient);
     }
 
     public function test_base_database_seeding_suppresses_audit_noise_without_muting_model_events(): void

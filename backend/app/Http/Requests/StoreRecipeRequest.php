@@ -33,7 +33,7 @@ class StoreRecipeRequest extends FormRequest
             'ingredients' => $isPost
                 ? 'required_without:nutrition_label|prohibits:nutrition_label|array|min:1'
                 : 'sometimes|array|min:1',
-            'ingredients.*.food_item_id' => 'required_with:ingredients.*|string|exists:food_items,uuid',
+            'ingredients.*.food_item_id' => 'required_with:ingredients.*|string|exists:food_items,uuid,deleted_at,NULL',
             'ingredients.*.quantity' => 'required_with:ingredients.*|numeric|between:0.000001,100000|decimal:0,6',
             'ingredients.*.unit' => 'required_with:ingredients.*|string|max:50',
             'nutrition_label' => $isPost ? 'sometimes|array:serving_size,serving_unit,calories,protein,carbs,fat,water_g,micronutrients,allergens' : 'prohibited',

@@ -17,6 +17,11 @@ class Recipe extends Model
     use HasPublicId;
     use SoftDeletes;
 
+    protected static function booted(): void
+    {
+        static::deleting(fn (self $recipe) => MealPlanTemplateDay::removeSource('recipe_id', $recipe->id));
+    }
+
     protected $fillable = [
         'rnd_user_id', 'name', 'category', 'meal_types', 'component_type', 'prep_notes', 'cost',
         'total_calories', 'total_protein', 'total_carbs', 'total_fat', 'total_water_g',

@@ -48,7 +48,7 @@ class ShoppingListItem extends Model
 
     public function fsItem()
     {
-        return $this->belongsTo(FsItem::class, 'fs_item_id');
+        return $this->belongsTo(FsItem::class, 'fs_item_id')->withTrashed();
     }
 
     public function supplier()

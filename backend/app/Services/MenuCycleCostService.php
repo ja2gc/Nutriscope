@@ -189,7 +189,7 @@ class MenuCycleCostService
         ];
 
         if ($override = $day->recipe_override) {
-            $items = FsItem::query()
+            $items = FsItem::withTrashed()
                 ->whereIn('id', collect($override['ingredients'] ?? [])->pluck('fs_item_id'))
                 ->get()
                 ->keyBy('id');

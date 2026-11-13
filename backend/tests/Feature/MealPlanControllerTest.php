@@ -22,6 +22,7 @@ use Database\Seeders\RecipeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Activitylog\Models\Activity;
+use Tests\Support\UsdaFoodImportFixture;
 use Tests\TestCase;
 
 class MealPlanControllerTest extends TestCase
@@ -198,6 +199,7 @@ class MealPlanControllerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        UsdaFoodImportFixture::fake();
         $this->rnd = User::factory()->create([
             'role' => 'RND',
             'password' => Hash::make('password'),
@@ -1415,7 +1417,7 @@ class MealPlanControllerTest extends TestCase
                 'sodium' => ['max' => 2000, 'unit' => 'mg'],
             ],
         ]);
-        $template = MealPlanTemplate::query()->where('name', 'Demo — Maternal Nutrition — Pregnancy — Balanced')->sole();
+        $template = MealPlanTemplate::query()->where('seed_key', 'clinical:pregnant')->sole();
 
         $response = $this->actingAs($this->rnd)
             ->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans/from-template", [
@@ -1428,6 +1430,23 @@ class MealPlanControllerTest extends TestCase
         $this->postJson("/api/rnd/ncp-records/{$ncpRecord->uuid}/meal-plans/{$response->json('data.id')}/scale-to-prescription")
             ->assertOk()
             ->assertJsonPath('data.scale_status', 'already_scaled');
+    }
+
+    public function test_all_seeded_templates_preview_with_measured_lines_and_their_saved_snack_visibility(): void
+    {
+        $this->seed([FoodItemsSeeder::class, RecipeSeeder::class, InterventionMealPlanTemplateSeeder::class]);
+        [$ncp, $intervention] = $this->makeInterventionWithNcpRecord();
+        $templates = MealPlanTemplate::whereNotNull('seed_key')->with('days.items')->get();
+        $this->assertCount(12, $templates);
+        foreach ($templates as $template) {
+            $response = $this->actingAs($this->rnd)->postJson("/api/rnd/ncp-records/{$ncp->uuid}/meal-plans/from-template", [
+                'template_id' => $template->uuid, 'intervention_plan_id' => $intervention->uuid,
+                'week_start_date' => '2026-11-09', 'preview' => true,
+            ])->assertOk()->assertJsonPath('data.snacks_hidden', $template->snacks_hidden);
+            $this->assertCount($template->days->flatMap->items->count(), $response->json('items'), $template->name);
+        }
+        $this->assertDatabaseCount('meal_plans', 0);
+        $this->assertDatabaseCount('meal_plan_items', 0);
     }
 
     public function test_unchanged_auto_generated_plan_rejects_meaningless_scaling(): void

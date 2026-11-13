@@ -3,87 +3,85 @@
 namespace Database\Seeders;
 
 use App\Models\FoodItem;
+use App\Services\UsdaService;
+use App\Support\UnitConverter;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
-use JsonException;
 use RuntimeException;
 
 class FoodItemsSeeder extends Seeder
 {
-    private const DATASET = 'seeders/data/clinical-foods.json';
-
     public function run(): void
     {
-        $foods = $this->loadDataset();
+        $definitions = json_decode(file_get_contents(database_path('seeders/data/clinical-foods.json')), true, flags: JSON_THROW_ON_ERROR)['foods'];
+        $this->validateDefinitions($definitions);
+        $usda = app(UsdaService::class);
+        $prepared = [];
 
-        DB::transaction(function () use ($foods): void {
-            foreach ($foods as $food) {
-                $this->synchronizeFood($food);
+        // Resolve all missing imports before writing any library records.
+        foreach ($definitions as $definition) {
+            $fdcId = $definition['usda_fdc_id'] ?? null;
+            $query = FoodItem::query();
+            $existing = $fdcId !== null
+                ? $query->where('usda_fdc_id', $fdcId)->first()
+                : $query->whereNull('usda_fdc_id')->where('name', $definition['name'])->first();
+            $overrides = Arr::only($definition, ['name', 'category', 'allergens']);
+            if ($existing) {
+                $attributes = $overrides;
+            } elseif ($fdcId !== null) {
+                $attributes = [...$usda->prepareImport($fdcId), ...$overrides];
+                if ((string) $attributes['usda_fdc_id'] !== (string) $fdcId) {
+                    throw new RuntimeException('The USDA response did not match the requested food identifier.');
+                }
+            } else {
+                $attributes = $definition;
+            }
+            $prepared[] = [$existing, $attributes];
+        }
+
+        DB::transaction(function () use ($prepared, $usda): void {
+            foreach ($prepared as [$existing, $attributes]) {
+                if ($existing) {
+                    $existing->update($attributes);
+                } else {
+                    $usda->persistImport($attributes);
+                }
             }
         });
-
-        $this->command?->info('Synchronized '.count($foods).' USDA-derived clinical foods from the pinned local dataset.');
+        $this->command?->info('Synchronized '.count($definitions).' clinical foods using USDA imports and configured edits.');
     }
 
-    /**
-     * @return list<array<string, mixed>>
-     */
-    private function loadDataset(): array
+    private function validateDefinitions(array $definitions): void
     {
-        $path = database_path(self::DATASET);
-        $contents = file_get_contents($path);
+        $identities = [];
+        foreach ($definitions as $definition) {
+            $name = $definition['name'] ?? null;
+            $fdcId = $definition['usda_fdc_id'] ?? null;
+            if (! is_string($name) || trim($name) === '' || ($fdcId !== null && (! is_int($fdcId) || $fdcId < 1))) {
+                throw new RuntimeException('Clinical food definitions require a name and a valid USDA identifier when importing.');
+            }
+            $identity = $fdcId !== null ? 'usda:'.$fdcId : 'manual:'.$name;
+            if (isset($identities[$identity])) {
+                throw new RuntimeException('Clinical food definitions contain a duplicate identity.');
+            }
+            $identities[$identity] = true;
+            if ($fdcId !== null) {
+                if (array_diff(array_keys($definition), ['usda_fdc_id', 'name', 'category', 'allergens']) !== []) {
+                    throw new RuntimeException('USDA food definitions may contain only their identifier and configuration overrides.');
+                }
 
-        if (! is_string($contents) || $contents === '') {
-            throw new RuntimeException("Clinical food dataset is missing or unreadable: {$path}");
-        }
-
-        try {
-            $payload = json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException $exception) {
-            throw new RuntimeException('Clinical food dataset contains invalid JSON.', previous: $exception);
-        }
-
-        $foods = $payload['foods'] ?? null;
-        if (! is_array($foods) || $foods === []) {
-            throw new RuntimeException('Clinical food dataset does not contain any foods.');
-        }
-
-        foreach ($foods as $food) {
-            if (! is_array($food)
-                || ! is_string($food['name'] ?? null)
-                || ! is_int($food['usda_fdc_id'] ?? null)
-                || (float) ($food['calories'] ?? 0) <= 0
-            ) {
-                throw new RuntimeException('Clinical food dataset contains an invalid canonical food record.');
+                continue;
+            }
+            foreach (['calories', 'protein', 'carbs', 'fat', 'water_g'] as $field) {
+                if (! is_numeric($definition[$field] ?? null) || ! is_finite((float) $definition[$field]) || $definition[$field] < 0) {
+                    throw new RuntimeException('Manual clinical foods require verified nonnegative nutrient amounts.');
+                }
+            }
+            if (! is_numeric($definition['serving_size'] ?? null) || ! is_finite((float) $definition['serving_size'])
+                || $definition['serving_size'] <= 0 || ! UnitConverter::isKnown($definition['serving_unit'] ?? '')) {
+                throw new RuntimeException('Manual clinical foods require a positive measured nutrient basis.');
             }
         }
-
-        return array_values($foods);
-    }
-
-    /**
-     * @param  array<string, mixed>  $food
-     */
-    private function synchronizeFood(array $food): void
-    {
-        unset($food['source']);
-
-        $fdcId = (string) $food['usda_fdc_id'];
-        $name = $food['name'];
-
-        $canonical = FoodItem::query()
-            ->where('usda_fdc_id', $fdcId)
-            ->orWhere(function ($query) use ($name): void {
-                $query->where('name', $name)->whereNotNull('usda_fdc_id');
-            })
-            ->first();
-
-        if ($canonical === null) {
-            FoodItem::query()->create($food);
-
-            return;
-        }
-
-        $canonical->update($food);
     }
 }

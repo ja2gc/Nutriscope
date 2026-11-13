@@ -41,16 +41,24 @@ use Database\Seeders\Demo\FsCatalogSeeder;
 use Database\Seeders\Demo\NotificationSeeder;
 use Database\Seeders\Demo\PatientSeeder;
 use Database\Seeders\Demo\SopSeeder;
+use Database\Seeders\FoodItemsSeeder;
 use Database\Seeders\RecipeSeeder;
 use Database\Seeders\ReportTemplateSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
+use Tests\Support\UsdaFoodImportFixture;
 use Tests\TestCase;
 
 class DemoSeederCurrentContractTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        UsdaFoodImportFixture::fake();
+    }
 
     protected function tearDown(): void
     {
@@ -65,7 +73,7 @@ class DemoSeederCurrentContractTest extends TestCase
         $this->seedClinicalFoodFixtures();
 
         $rnd = User::query()->where('role', 'RND')->firstOrFail();
-        $food = FoodItem::query()->where('name', 'Steamed White Rice')->firstOrFail();
+        $food = FoodItem::query()->where('name', 'Cooked White Rice')->firstOrFail();
         $custom = Recipe::factory()->for($rnd, 'rnd')->create(['name' => 'Ward Custom Recipe']);
         $custom->ingredients()->create([
             'food_item_id' => $food->id,
@@ -74,7 +82,7 @@ class DemoSeederCurrentContractTest extends TestCase
         ]);
 
         $this->seed(RecipeSeeder::class);
-        $seeded = Recipe::query()->where('name', 'Boiled Chicken Breast')->firstOrFail();
+        $seeded = Recipe::query()->where('name', 'Adobong Manok')->firstOrFail();
         $seeded->update(['category' => 'STALE CATEGORY']);
         $firstCount = Recipe::query()->count();
 
@@ -91,15 +99,15 @@ class DemoSeederCurrentContractTest extends TestCase
     {
         $this->seed(AdminUserSeeder::class);
         $this->seedClinicalFoodFixtures();
-        FoodItem::query()->where('name', 'Steamed White Rice')->delete();
+        FoodItem::query()->where('name', 'Cooked White Rice')->delete();
 
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage("Template Menu Item requires missing USDA food 'Steamed White Rice'.");
+        $this->expectExceptionMessage("Recipe 'sinangag' requires missing ingredient 'Cooked White Rice'.");
 
         try {
             $this->seed(RecipeSeeder::class);
         } finally {
-            $this->assertDatabaseMissing('recipes', ['name' => 'Boiled Chicken Breast']);
+            $this->assertDatabaseCount('recipes', 0);
         }
     }
 
@@ -151,7 +159,8 @@ class DemoSeederCurrentContractTest extends TestCase
                     foreach ($mainSlots as $slot) {
                         $carbs = $slot->items->filter(fn ($item) => $item->recipe?->category === 'carb');
                         $this->assertCount(1, $carbs);
-                        $this->assertSame('Sweet Potato / Kamote', $carbs->sole()->recipe->name);
+                        $this->assertSame('clinical:kamote', $carbs->sole()->recipe->seed_key);
+                        $this->assertSame('Boiled Sweet Potato', $carbs->sole()->recipe->name);
                         $this->assertGreaterThan(0, (float) $carbs->sole()->quantity);
                     }
                     $this->assertTrue(
@@ -511,21 +520,7 @@ class DemoSeederCurrentContractTest extends TestCase
 
     private function seedClinicalFoodFixtures(): void
     {
-        $dataset = json_decode(file_get_contents(database_path('seeders/data/clinical-foods.json')), true, 512, JSON_THROW_ON_ERROR);
-        $names = collect($dataset['foods'])->pluck('name')->all();
-        foreach ($names as $index => $name) {
-            FoodItem::factory()->create([
-                'name' => $name,
-                'usda_fdc_id' => 8_000_000 + $index,
-                'serving_size' => 100,
-                'serving_unit' => 'g',
-                'calories' => 150,
-                'protein' => 8,
-                'carbs' => 20,
-                'fat' => 4,
-                'water_g' => 50,
-            ]);
-        }
+        $this->seed(FoodItemsSeeder::class);
     }
 
     /** @return array<string, int> */

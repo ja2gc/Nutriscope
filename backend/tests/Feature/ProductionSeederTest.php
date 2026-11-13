@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
+use Tests\Support\UsdaFoodImportFixture;
 use Tests\TestCase;
 
 class ProductionSeederTest extends TestCase
@@ -32,6 +33,7 @@ class ProductionSeederTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        UsdaFoodImportFixture::fake();
         Storage::fake((string) config('filesystems.private_uploads'));
         Http::preventStrayRequests();
         config()->set('seeding.admin', [

@@ -509,7 +509,9 @@ class MealPlanService
 
     private function filterByMealType(Collection $recipes, string $slotType): Collection
     {
-        return $recipes->where('category', $this->isSnackSlot($slotType) ? 'snack' : 'meal')->values();
+        return $recipes->where('category', $this->isSnackSlot($slotType) ? 'snack' : 'meal')
+            ->reject(fn ($recipe): bool => ($recipe->component_type ?? null) === 'side')
+            ->values();
     }
 
     private function isSnackSlot(string $slotType): bool

@@ -241,7 +241,7 @@ class ShoppingListPopulationService
     private function purchaseRows(array $acc, int $targetPopulation): array
     {
         $ids = array_keys($acc);
-        $fsItems = FsItem::whereIn('id', $ids)->get()->keyBy('id');
+        $fsItems = FsItem::withTrashed()->whereIn('id', $ids)->get()->keyBy('id');
 
         $rows = [];
         foreach ($acc as $id => $row) {

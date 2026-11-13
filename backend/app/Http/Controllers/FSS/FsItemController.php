@@ -22,6 +22,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class FsItemController extends Controller
 {
@@ -141,7 +142,7 @@ class FsItemController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:255', 'unique:fs_items,name'],
+            'name' => ['required', 'string', 'max:255', Rule::unique('fs_items', 'name')->withoutTrashed()],
             'kind' => ['required', 'in:ingredient,supply'],
             'category' => ['nullable', 'string', 'max:100'],
             'base_unit' => ['required', 'string', 'max:20'],
@@ -189,7 +190,7 @@ class FsItemController extends Controller
     public function update(Request $request, FsItem $fsItem): JsonResponse
     {
         $data = $request->validate([
-            'name' => ['sometimes', 'string', 'max:255', 'unique:fs_items,name,'.$fsItem->id],
+            'name' => ['sometimes', 'string', 'max:255', Rule::unique('fs_items', 'name')->ignore($fsItem->id)->withoutTrashed()],
             'category' => ['nullable', 'string', 'max:100'],
             'purchase_price' => ['sometimes', 'numeric', 'min:0'],
             'base_unit' => ['sometimes', 'string', 'max:20'],
@@ -377,13 +378,6 @@ class FsItemController extends Controller
     /** Remove a catalog item — blocked while any recipe still references it. */
     public function destroy(FsItem $fsItem): JsonResponse
     {
-        $usedBy = FoodServiceRecipeIngredient::where('fs_item_id', $fsItem->id)->count();
-        if ($usedBy > 0) {
-            return response()->json([
-                'message' => "Can't delete: this item is used by {$usedBy} recipe ingredient(s). Remove it from those recipes first.",
-            ], 409);
-        }
-
         $this->audited(function () use ($fsItem): void {
             $before = $this->auditValues->values($fsItem);
             $fields = array_keys(array_filter($before, fn (mixed $value): bool => $value !== null));

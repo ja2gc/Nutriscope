@@ -22,11 +22,11 @@ class FoodServiceRecipeIngredient extends Model
     /** The food-service catalog item this line uses. */
     public function fsItem(): BelongsTo
     {
-        return $this->belongsTo(FsItem::class, 'fs_item_id');
+        return $this->belongsTo(FsItem::class, 'fs_item_id')->withTrashed();
     }
 
     public function recipe(): BelongsTo
     {
-        return $this->belongsTo(FoodServiceRecipe::class, 'food_service_recipe_id');
+        return $this->belongsTo(FoodServiceRecipe::class, 'food_service_recipe_id')->withTrashed();
     }
 }

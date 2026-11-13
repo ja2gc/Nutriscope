@@ -115,7 +115,7 @@ class EditorConsistencyRegressionTest extends TestCase
         $this->putJson('/api/rnd/recipes/'.$recipe->uuid, ['prep_notes' => null])->assertOk()->assertJsonPath('data.prep_notes', null);
     }
 
-    public function test_template_rename_preserves_saved_nutrients_after_library_changes_or_deletion(): void
+    public function test_template_rename_preserves_saved_nutrients_and_deleted_sources_are_removed(): void
     {
         $actor = User::factory()->rnd()->create();
         $this->actingAs($actor);
@@ -128,11 +128,15 @@ class EditorConsistencyRegressionTest extends TestCase
         $item = $saved['days'][0]['items'][0];
         $food->update(['calories' => 999]);
         $recipe->recalculateTotals();
-        $this->deleteJson('/api/rnd/recipes/'.$recipe->uuid)->assertNoContent();
         $payload['name'] = 'Renamed template';
         $payload['lines'][0]['source_template_item_id'] = $item['id'];
         $changed = $this->putJson('/api/rnd/meal-plan-templates/'.$saved['id'], $payload)->assertOk()->json('data');
         $this->assertSame($item['nutrient_snapshot'], $changed['days'][0]['items'][0]['nutrient_snapshot']);
+        $payload['lines'][0]['source_template_item_id'] = $changed['days'][0]['items'][0]['id'];
+        $this->deleteJson('/api/rnd/recipes/'.$recipe->uuid)->assertNoContent();
+        $this->getJson('/api/rnd/meal-plan-templates/'.$saved['id'])->assertOk()->assertJsonPath('data.days', []);
+        $this->putJson('/api/rnd/meal-plan-templates/'.$saved['id'], $payload)
+            ->assertUnprocessable()->assertJsonValidationErrors('lines.0.source_template_item_id');
     }
 
     public function test_fractional_physical_purchase_units_are_not_rounded_to_whole_kilograms(): void

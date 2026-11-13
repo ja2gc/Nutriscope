@@ -38,4 +38,18 @@ class MealPlanTemplateDay extends Model
     {
         return $this->hasMany(MealPlanTemplateItem::class, 'template_day_id')->orderBy('line_order');
     }
+
+    public static function removeSource(string $column, int $id): void
+    {
+        static::where($column, $id)->orWhereHas('items', fn ($query) => $query->where($column, $id))
+            ->get()->each(function (self $day) use ($column, $id): void {
+                $day->items()->where($column, $id)->delete();
+                $first = $day->items()->first();
+                if ($first) {
+                    $day->update($first->only(['food_item_id', 'recipe_id', 'quantity', 'unit']));
+                } else {
+                    $day->delete();
+                }
+            });
+    }
 }

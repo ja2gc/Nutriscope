@@ -9,7 +9,6 @@ use App\Http\Requests\PaginatedRequest;
 use App\Models\FoodServiceRecipe;
 use App\Models\FoodServiceRecipeIngredient;
 use App\Models\FsItem;
-use App\Models\MenuCycleDay;
 use App\Services\Audit\AuditLogger;
 use App\Services\Audit\Revisions\AuditRevisionRegistry;
 use App\Services\Audit\Revisions\AuditRevisionWriter;
@@ -19,6 +18,8 @@ use App\Support\UnitConverter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Validation\Rule;
 
 class FoodServiceRecipeController extends Controller
 {
@@ -164,13 +165,13 @@ class FoodServiceRecipeController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:255', 'unique:food_service_recipes,name'],
+            'name' => ['required', 'string', 'max:255', Rule::unique('food_service_recipes', 'name')->withoutTrashed()],
             'category' => ['required', 'string', 'in:meal,snack,beverage'],
             'prep_notes' => ['nullable', 'string', 'max:2000'],
             'servings' => ['nullable', 'integer', 'between:1,10000'],
             'portion_label' => ['nullable', 'string', 'max:100'],
             'ingredients' => ['required', 'array', 'min:1'],
-            'ingredients.*.fs_item_id' => ['required', 'string', 'exists:fs_items,uuid'],
+            'ingredients.*.fs_item_id' => ['required', 'string', Rule::exists('fs_items', 'uuid')->whereNull('deleted_at')],
             'ingredients.*.quantity' => ['required', 'numeric', 'between:0.01,100000', 'decimal:0,2'],
             'ingredients.*.unit' => ['required', 'string', 'max:30', 'not_regex:/^\s*to\s+taste\s*$/i'],
             'ingredients.*.adjust_to_taste' => ['sometimes', 'boolean'],
@@ -234,13 +235,13 @@ class FoodServiceRecipeController extends Controller
     public function update(Request $request, FoodServiceRecipe $foodServiceRecipe): JsonResponse
     {
         $data = $request->validate([
-            'name' => ['sometimes', 'string', 'max:255', 'unique:food_service_recipes,name,'.$foodServiceRecipe->id],
+            'name' => ['sometimes', 'string', 'max:255', Rule::unique('food_service_recipes', 'name')->ignore($foodServiceRecipe->id)->withoutTrashed()],
             'category' => ['sometimes', 'required', 'string', 'in:meal,snack,beverage'],
             'prep_notes' => ['nullable', 'string', 'max:2000'],
             'servings' => ['nullable', 'integer', 'between:1,10000'],
             'portion_label' => ['nullable', 'string', 'max:100'],
             'ingredients' => ['sometimes', 'array', 'min:1'],
-            'ingredients.*.fs_item_id' => ['required_with:ingredients', 'string', 'exists:fs_items,uuid'],
+            'ingredients.*.fs_item_id' => ['required_with:ingredients', 'string', Rule::exists('fs_items', 'uuid')->whereNull('deleted_at')],
             'ingredients.*.quantity' => ['required_with:ingredients', 'numeric', 'between:0.01,100000', 'decimal:0,2'],
             'ingredients.*.unit' => ['required_with:ingredients', 'string', 'max:30', 'not_regex:/^\s*to\s+taste\s*$/i'],
             'ingredients.*.adjust_to_taste' => ['sometimes', 'boolean'],
@@ -299,11 +300,6 @@ class FoodServiceRecipeController extends Controller
 
     public function destroy(FoodServiceRecipe $foodServiceRecipe): JsonResponse
     {
-        $usedBy = MenuCycleDay::where('recipe_id', $foodServiceRecipe->id)->count();
-        if ($usedBy > 0) {
-            abort(409, "Can't delete: this recipe is used by {$usedBy} menu-cycle slot(s). Remove it from the cycle(s) first.");
-        }
-
         $this->audited(function () use ($foodServiceRecipe): void {
             $before = $this->revisionRegistry->capture($foodServiceRecipe->load('ingredients.fsItem'));
             $oldValues = $this->auditValues($foodServiceRecipe);
@@ -319,6 +315,7 @@ class FoodServiceRecipeController extends Controller
                 $this->revisionWriter->write($activity, $before, null);
             }
         });
+        Cache::flush();
 
         return response()->json(null, 204);
     }

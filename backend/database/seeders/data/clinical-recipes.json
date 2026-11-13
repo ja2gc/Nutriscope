@@ -1,0 +1,1340 @@
+{
+  "recipes": {
+    "calderetang-manok": {
+      "name": "Calderetang Manok",
+      "category": "meal",
+      "component_type": "main_dish",
+      "servings": 4,
+      "portion": [1,"serving"],
+      "source": "https://panlasangpinoy.com/chicken-caldereta/",
+      "ingredients": [
+        ["Chicken Breast, Raw",907.18474,"g"],
+        ["Carrot, Raw",122,"g"],
+        ["Potato, Raw",426,"g"],
+        ["Tomato Sauce",226.796185,"g"],
+        ["Red Bell Pepper, Raw",119,"g"],
+        ["Green Bell Pepper, Raw",119,"g"],
+        ["Palm Liver Spread",56,"g"],
+        ["Tomato, Raw",123,"g"],
+        ["Onion (Raw)",110,"g"],
+        ["Garlic (Raw)",9,"g"],
+        ["Water",355.5,"mL"],
+        ["Canola Oil",56,"g"]
+      ],
+      "notes": "Simmer browned chicken and aromatics in tomato sauce and water, then cook vegetables until tender and stir in liver spread. Adaptations: skinless boneless breast replaces chicken parts; 56 g weighed liver spread replaces the source's unweighed spoon quantity. Cheese and bouillon are omitted. Quantities are measured inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed.",
+      "aliases": []
+    },
+    "calderetang-baka": {
+      "name": "Calderetang Baka",
+      "category": "meal",
+      "component_type": "main_dish",
+      "servings": 6,
+      "portion": [1,"serving"],
+      "source": "https://panlasangpinoy.com/beef-kaldereta/",
+      "ingredients": [
+        ["Beef Chuck, Lean, Raw",907.18474,"g"],
+        ["Garlic (Raw)",9,"g"],
+        ["Onion (Raw)",110,"g"],
+        ["Soy Sauce",63.75,"g"],
+        ["Water",474,"mL"],
+        ["Tomato Sauce",245,"g"],
+        ["Palm Liver Spread",112,"g"],
+        ["Red Bell Pepper, Raw",119,"g"],
+        ["Green Bell Pepper, Raw",119,"g"],
+        ["Potato, Raw",300,"g"],
+        ["Carrot, Raw",244,"g"],
+        ["Ground Red Pepper",1.8,"g"],
+        ["Canola Oil",54.5,"g"]
+      ],
+      "notes": "Braise beef until tender before adding vegetables and thickening with liver spread. Adaptations: trimmed lean chuck; water replaces broth; two 56 g Palm label servings replace the unweighed half-cup of spread. Olives and extra salt omitted. Counted produce uses the documented USDA reference size. Quantities are ingredient inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed; record measured additions when used.",
+      "aliases": []
+    },
+    "menudo": {
+      "name": "Menudo",
+      "category": "meal",
+      "component_type": "main_dish",
+      "servings": 6,
+      "portion": [1,"serving"],
+      "source": "https://panlasangpinoy.com/pork-menudo-recipe/",
+      "ingredients": [
+        ["Pork Shoulder, Lean, Raw",907.18474,"g"],
+        ["Pork Liver, Raw",113.398093,"g"],
+        ["Potato, Raw",150,"g"],
+        ["Carrot, Raw",61,"g"],
+        ["Soy Sauce",127.5,"g"],
+        ["Lemon Juice",24,"g"],
+        ["Onion (Raw)",110,"g"],
+        ["Garlic (Raw)",9,"g"],
+        ["White Sugar",4.2,"g"],
+        ["Tomato Sauce",183.75,"g"],
+        ["Water",237,"mL"],
+        ["Canola Oil",28,"g"]
+      ],
+      "notes": "Marinate pork with citrus and soy sauce. Saute aromatics and pork, simmer with tomato sauce and water, then cook potatoes, carrot and liver through. Adaptations: trimmed shoulder; optional hotdogs and extra salt omitted. Counted produce uses the documented USDA reference size. Quantities are ingredient inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed; record measured additions when used.",
+      "aliases": []
+    },
+    "adobong-manok": {
+      "name": "Adobong Manok",
+      "category": "meal",
+      "component_type": "main_dish",
+      "servings": 4,
+      "portion": [1,"serving"],
+      "source": "https://www.nhlbi.nih.gov/health/heart-healthy-living/healthy-foods/healthy-eating-recipes/marinated-chicken-adobong-manok",
+      "ingredients": [
+        ["Canola Oil",4.5,"g"],
+        ["Garlic (Raw)",6,"g"],
+        ["Onion (Raw)",220,"g"],
+        ["Chicken Breast, Raw",453.59237,"g"],
+        ["Reduced-sodium Soy Sauce",28.4,"g"],
+        ["Vinegar",59.5,"g"]
+      ],
+      "notes": "Saute chicken, onion and garlic, add soy sauce and vinegar, then simmer until cooked. Broil the chicken and reduce the sauce separately. Adaptations: one measured teaspoon of canola oil replaces olive oil; paprika, the source pepper amount and optional garnish are omitted. Quantities are measured inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed.",
+      "aliases": []
+    },
+    "adobong-baboy": {
+      "name": "Adobong Baboy",
+      "category": "meal",
+      "component_type": "main_dish",
+      "servings": 4,
+      "portion": [1,"serving"],
+      "source": "https://panlasangpinoy.com/filipino-food-pork-adobo-recipe/",
+      "ingredients": [
+        ["Pork Belly, Raw",907.18474,"g"],
+        ["Garlic (Raw)",17.000057,"g"],
+        ["Vinegar",59.6,"g"],
+        ["Soy Sauce",127.5,"g"],
+        ["Black Pepper",6.9,"g"],
+        ["Water",474,"mL"]
+      ],
+      "notes": "Simmer pork with garlic, vinegar, soy sauce, bay leaves and pepper until tender. Retains the source pork-belly preparation; no extra salt added. Counted produce uses the documented USDA reference size. Quantities are ingredient inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed; record measured additions when used.",
+      "aliases": []
+    },
+    "asadong-manok": {
+      "name": "Asadong Manok",
+      "category": "meal",
+      "component_type": "main_dish",
+      "servings": 4,
+      "portion": [1,"serving"],
+      "source": "https://www.kawalingpinoy.com/chicken-asado/",
+      "ingredients": [
+        ["Chicken Breast, Raw",1360.77711,"g"],
+        ["Lemon Juice",122,"g"],
+        ["Soy Sauce",63.75,"g"],
+        ["Onion (Raw)",110,"g"],
+        ["Garlic (Raw)",9,"g"],
+        ["Black Pepper",0.575,"g"],
+        ["Canola Oil",54.5,"g"],
+        ["Potato, Raw",738,"g"],
+        ["Tomato Sauce",245,"g"],
+        ["Water",237,"mL"],
+        ["Palm Liver Spread",28,"g"]
+      ],
+      "notes": "Marinate chicken, brown it and braise in the citrus-tomato sauce; cook potatoes separately and add at serving. Adaptations: skinless breast and fresh lemon juice; 28 g weighed Palm spread replaces the unweighed two tablespoons. Source oil is included in full; discarded frying oil is not measured. Counted produce uses the documented USDA reference size. Quantities are ingredient inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed; record measured additions when used.",
+      "aliases": []
+    },
+    "paksiw-na-bangus": {
+      "name": "Paksiw na Bangus",
+      "category": "meal",
+      "component_type": "main_dish",
+      "servings": 4,
+      "portion": [1,"serving"],
+      "source": "https://www.kawalingpinoy.com/paksiw-na-bangus/",
+      "ingredients": [
+        ["Bangus, Raw",340,"g"],
+        ["Talong, Raw",548,"g"],
+        ["Onion (Raw)",110,"g"],
+        ["Garlic (Raw)",12,"g"],
+        ["Ginger Root (Raw)",2,"g"],
+        ["Vinegar",119,"g"],
+        ["Water",237,"mL"],
+        ["Salt",9,"g"],
+        ["Black Pepper",2.3,"g"],
+        ["Canola Oil",4.5,"g"]
+      ],
+      "notes": "Simmer fish and vegetables gently in vinegar and water until cooked. Whole-fish counts are replaced with four weighed 85 g edible portions; bones and trimming waste are excluded. Adaptations: measured ginger; optional whole chili omitted. Counted produce uses the documented USDA reference size. Quantities are ingredient inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed; record measured additions when used.",
+      "aliases": [
+        "Paksiw na Bangus with Rice"
+      ]
+    },
+    "ginataang-tilapia": {
+      "name": "Ginataang Tilapia",
+      "category": "meal",
+      "component_type": "main_dish",
+      "servings": 3,
+      "portion": [1,"serving"],
+      "source": "https://panlasangpinoy.com/ginataang-tilapia/",
+      "ingredients": [
+        ["Tilapia, Raw",232,"g"],
+        ["Coconut Milk",452,"g"],
+        ["Garlic (Raw)",12,"g"],
+        ["Onion (Raw)",110,"g"],
+        ["Ginger Root (Raw)",2,"g"],
+        ["Fish Sauce",36,"g"],
+        ["Black Pepper",0.575,"g"],
+        ["Pechay, Raw",60,"g"],
+        ["Canola Oil",42,"g"]
+      ],
+      "notes": "Saute aromatics, add coconut milk and simmer the fish until cooked. Add pechay near the end. Adaptations: two USDA-measured 116 g fillets replace whole fish; fresh fish is used without pre-frying; measured ginger and optional chilies omitted. Counted produce uses the documented USDA reference size. Quantities are ingredient inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed; record measured additions when used.",
+      "aliases": []
+    },
+    "ginataang-kalabasa-at-sitaw": {
+      "name": "Ginataang Kalabasa at Sitaw",
+      "category": "meal",
+      "component_type": "main_dish",
+      "servings": 6,
+      "portion": [1,"serving"],
+      "source": "https://panlasangpinoy.com/ginataang-kalabasa-at-sitaw/",
+      "ingredients": [
+        ["Butternut Squash, Raw",680.388555,"g"],
+        ["Sitaw, Raw",216,"g"],
+        ["Pork Shoulder, Lean, Raw",85.048569,"g"],
+        ["Coconut Milk",904,"g"],
+        ["Onion (Raw)",110,"g"],
+        ["Ginger Root (Raw)",4,"g"],
+        ["Garlic (Raw)",15,"g"],
+        ["Black Pepper",0.575,"g"],
+        ["Canola Oil",14,"g"]
+      ],
+      "notes": "Brown pork and saute aromatics, then simmer squash and sitaw in coconut milk. Eighteen yardlong-bean pods use the USDA reference weight of 12 g each. Adaptations: butternut squash and lean pork are the measured source foods; bouillon and unquantified fish sauce are omitted. Quantities are measured inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed.",
+      "aliases": []
+    },
+    "tortang-talong": {
+      "name": "Tortang Talong",
+      "category": "meal",
+      "component_type": "main_dish",
+      "servings": 1,
+      "portion": [1,"serving"],
+      "source": "https://nutrium.com/p/youpercent/recipes/572364",
+      "ingredients": [
+        ["Talong, Raw",180,"g"],
+        ["Chicken Egg, Raw",50,"g"],
+        ["Canola Oil",5,"g"]
+      ],
+      "notes": "Boil the weighed eggplant until tender, flatten, coat with beaten egg and pan-cook in the measured oil. Adaptation: one 50 g chicken egg replaces the source 70 g duck egg. Use the source oil weight of 5 g; its printed drop count is not used. Unweighed seasoning is excluded. Counted produce uses the documented USDA reference size. Quantities are ingredient inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed; record measured additions when used.",
+      "aliases": []
+    },
+    "suam-na-mais": {
+      "name": "Suam na Mais",
+      "category": "meal",
+      "component_type": "main_dish",
+      "servings": 4,
+      "portion": [1,"serving"],
+      "source": "https://www.kawalingpinoy.com/suam-na-mais/",
+      "ingredients": [
+        ["White Corn Kernels, Raw",360,"g"],
+        ["Canola Oil",14,"g"],
+        ["Onion (Raw)",70,"g"],
+        ["Garlic (Raw)",6,"g"],
+        ["Shrimp, Raw",226.796185,"g"],
+        ["Barrio Fiesta Regular Bagoong",15,"g"],
+        ["Water",1422,"mL"],
+        ["Pechay, Raw",340,"g"]
+      ],
+      "notes": "Cut kernels from the cobs and scrape their pulp. Saute aromatics, shrimp and bagoong, simmer with corn and water, then wilt the spinach. Adaptation: USDA sweet white corn replaces native glutinous corn; texture can differ. Bagoong is the named Barrio Fiesta product. Counted produce uses the documented USDA reference size. Quantities are ingredient inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed; record measured additions when used.",
+      "aliases": []
+    },
+    "bulanglang-na-bangus-at-hipon": {
+      "name": "Bulanglang na Bangus at Hipon",
+      "category": "meal",
+      "component_type": "main_dish",
+      "servings": 4,
+      "portion": [1,"serving"],
+      "source": "https://www.kawalingpinoy.com/bulanglang-na-bangus-at-hipon/",
+      "ingredients": [
+        ["Water",1659,"mL"],
+        ["Guava (Raw)",550,"g"],
+        ["Onion (Raw)",110,"g"],
+        ["Kangkong, Raw",340,"g"],
+        ["Fish Sauce",18,"g"],
+        ["Bangus, Raw",340,"g"],
+        ["Shrimp, Raw",226.796185,"g"]
+      ],
+      "notes": "Simmer guava and onion, strain the guava seeds, then cook fish and shrimp gently and add kangkong. Uses 340 g weighed edible bangus and 340 g weighed kangkong in place of unweighed whole-fish and bunch counts. Guava nutrients count the edible input; straining losses are not measured. Quantities are inputs for four portions; cooked weight and evaporation are not measured.",
+      "aliases": []
+    },
+    "bringhe": {
+      "name": "Bringhe",
+      "category": "meal",
+      "component_type": "complete_meal",
+      "servings": 6,
+      "portion": [1,"serving"],
+      "source": "https://www.kawalingpinoy.com/bringhe/",
+      "ingredients": [
+        ["Canola Oil",28,"g"],
+        ["Chicken Breast, Raw",453.59237,"g"],
+        ["Onion (Raw)",110,"g"],
+        ["Garlic (Raw)",6,"g"],
+        ["Fish Sauce",18,"g"],
+        ["Glutinous Rice, Uncooked",370,"g"],
+        ["Coconut Milk",452,"g"],
+        ["Water",474,"mL"],
+        ["Carrot, Raw",72,"g"],
+        ["Red Bell Pepper, Raw",59.5,"g"],
+        ["Green Bell Pepper, Raw",59.5,"g"],
+        ["Green Peas, Frozen",134,"g"],
+        ["Raisins",36.25,"g"],
+        ["Turmeric Powder",6,"g"],
+        ["Chicken Egg, Hard-boiled",100,"g"]
+      ],
+      "notes": "Saute chicken and aromatics, add rice, coconut milk, water and turmeric, then cook covered with vegetables and raisins until the rice is done. Garnish with the listed eggs. Adaptations: skinless breast replaces thigh; chorizo is omitted; water is the source alternative to broth. Quantities are measured inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed.",
+      "aliases": []
+    },
+    "sipo-egg": {
+      "name": "Sipo Egg",
+      "category": "meal",
+      "component_type": "main_dish",
+      "servings": 6,
+      "portion": [1,"serving"],
+      "source": "https://www.kawalingpinoy.com/sipo-egg/",
+      "ingredients": [
+        ["Quail Egg, Raw",108,"g"],
+        ["Unsalted Butter",14.2,"g"],
+        ["Onion (Raw)",110,"g"],
+        ["Garlic (Raw)",6,"g"],
+        ["Fish Sauce",18,"g"],
+        ["Carrot, Raw",144,"g"],
+        ["Singkamas, Raw",1200,"g"],
+        ["Water",118.5,"mL"],
+        ["Green Peas, Frozen",134,"g"],
+        ["Evaporated Milk",252,"g"]
+      ],
+      "notes": "Boil and peel the quail eggs. Saute aromatics and vegetables, simmer in water until tender, then add milk and eggs over gentle heat. Adaptation: one measured cup of evaporated milk replaces the source cup of cream. Quantities are measured inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed.",
+      "aliases": []
+    },
+    "pesang-isda": {
+      "name": "Pesang Isda",
+      "category": "meal",
+      "component_type": "main_dish",
+      "servings": 6,
+      "portion": [1,"serving"],
+      "source": "https://www.nhlbi.nih.gov/files/docs/resources/heart/filipino-health-manual/session-7/fish.pdf",
+      "ingredients": [
+        ["Water",948,"mL"],
+        ["Tomato, Raw",180,"g"],
+        ["Ginger Root (Raw)",24,"g"],
+        ["Onion (Raw)",115,"g"],
+        ["Red Snapper, Raw",907.18474,"g"],
+        ["Pechay, Raw",140,"g"],
+        ["Salt",3,"g"],
+        ["Black Pepper",1.15,"g"]
+      ],
+      "notes": "Simmer aromatics in water, poach fish gently, then add pechay stems followed by leaves. Adaptations: snapper is the selected fleshy fish; optional green-onion garnish omitted. Counted produce uses the documented USDA reference size. Quantities are ingredient inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed; record measured additions when used.",
+      "aliases": []
+    },
+    "cardillong-isda": {
+      "name": "Cardillong Isda",
+      "category": "meal",
+      "component_type": "main_dish",
+      "servings": 6,
+      "portion": [1,"serving"],
+      "source": "https://www.nhlbi.nih.gov/sites/default/files/media/docs/Recipes-Filipino.pdf",
+      "ingredients": [
+        ["Red Snapper, Raw",453.59237,"g"],
+        ["Canola Oil",18,"g"],
+        ["All-purpose Flour",31.25,"g"],
+        ["Onion (Raw)",150,"g"],
+        ["Tomato, Raw",369,"g"],
+        ["Egg White, Raw",121.5,"g"],
+        ["Water",118.5,"mL"]
+      ],
+      "notes": "Coat fish lightly with flour and pan-cook in the listed oil. Cook onions and tomatoes with water, then simmer with fish and egg whites until cooked. Uses three tomatoes from the source range; pepper and green-onion garnish omitted. Counted produce uses the documented USDA reference size. Quantities are ingredient inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed; record measured additions when used.",
+      "aliases": []
+    },
+    "tinolang-manok": {
+      "name": "Tinolang Manok",
+      "category": "meal",
+      "component_type": "main_dish",
+      "servings": 8,
+      "portion": [1,"serving"],
+      "source": "https://nutritioncenter.ctahr.hawaii.edu/wp-content/uploads/2025/09/FINAL-MERGED-HNC-COOKBOOK-V2.pdf",
+      "ingredients": [
+        ["Ginger Root (Raw)",4.4,"g"],
+        ["Garlic (Raw)",6,"g"],
+        ["Onion (Raw)",110,"g"],
+        ["Sayote, Raw",406,"g"],
+        ["Chicken Breast, Raw",907.18474,"g"],
+        ["Canola Oil",14,"g"],
+        ["Water",711,"mL"],
+        ["Malunggay, Raw",42,"g"],
+        ["Fish Sauce",5.999984,"g"]
+      ],
+      "notes": "Saute chicken and aromatics, simmer in water, then cook sayote and add malunggay near the end. Uses the Hawaii Nutrition Center recipe's malunggay and permitted breast and chayote alternatives. Two cups of malunggay are 42 g using the USDA chopped-leaf measure; ginger uses a measured amount. Quantities are measured inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed.",
+      "aliases": [
+        "Tinolang Manok (Chicken Ginger Soup)"
+      ]
+    },
+    "lugaw": {
+      "name": "Lugaw",
+      "category": "meal",
+      "component_type": "complete_meal",
+      "servings": 8,
+      "portion": [1,"serving"],
+      "source": "https://www.kawalingpinoy.com/lugaw/",
+      "ingredients": [
+        ["Glutinous Rice, Uncooked",185,"g"],
+        ["Water",1896,"mL"],
+        ["Ginger Root (Raw)",4,"g"],
+        ["Salt",12,"g"]
+      ],
+      "notes": "Simmer rice and ginger in water until the grains soften and the porridge thickens. Adaptation: this is the source porridge component without its separate fried-tofu accompaniment; ginger uses a measured amount. Counted produce uses the documented USDA reference size. Quantities are ingredient inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed; record measured additions when used.",
+      "aliases": [
+        "Lugaw (Plain Rice Porridge)"
+      ]
+    },
+    "lugaw-na-may-itlog": {
+      "name": "Lugaw na may Itlog",
+      "category": "meal",
+      "component_type": "complete_meal",
+      "servings": 8,
+      "portion": [1,"serving"],
+      "source": "https://www.kawalingpinoy.com/lugaw/",
+      "ingredients": [
+        ["Glutinous Rice, Uncooked",185,"g"],
+        ["Water",1896,"mL"],
+        ["Ginger Root (Raw)",4,"g"],
+        ["Salt",12,"g"],
+        ["Chicken Egg, Hard-boiled",400,"g"]
+      ],
+      "notes": "Prepare the source porridge component and add one measured hard-boiled egg per portion. This egg addition is an explicit adaptation; no swallowing-texture claim is made. Counted produce uses the documented USDA reference size. Quantities are ingredient inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed; record measured additions when used.",
+      "aliases": [
+        "Lugaw with Egg (Soft Diet)"
+      ]
+    },
+    "arroz-caldo": {
+      "name": "Arroz Caldo",
+      "category": "meal",
+      "component_type": "complete_meal",
+      "servings": 6,
+      "portion": [1,"serving"],
+      "source": "https://www.kawalingpinoy.com/arroz-caldo/",
+      "ingredients": [
+        ["Chicken Breast, Raw",1360.77711,"g"],
+        ["Canola Oil",14,"g"],
+        ["Onion (Raw)",110,"g"],
+        ["Garlic (Raw)",9,"g"],
+        ["Ginger Root (Raw)",24.000065,"g"],
+        ["Fish Sauce",36,"g"],
+        ["White Rice, Uncooked",185,"g"],
+        ["Water",1422,"mL"],
+        ["Chicken Egg, Hard-boiled",150,"g"]
+      ],
+      "notes": "Saute aromatics and chicken, add rice and water, then simmer until chicken and rice are cooked. Divide the eggs among portions. Adaptations: the lower three-pound source amount is boneless breast; bouillon and separate fried-garlic garnish omitted. Counted produce uses the documented USDA reference size. Quantities are ingredient inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed; record measured additions when used.",
+      "aliases": [
+        "Lugaw with Chicken (Soft Diet)",
+        "Arroz Caldo (Chicken Rice Soup)"
+      ]
+    },
+    "champorado": {
+      "name": "Champorado",
+      "category": "meal",
+      "component_type": "complete_meal",
+      "servings": 6,
+      "portion": [1,"serving"],
+      "source": "https://www.kawalingpinoy.com/champorado/",
+      "ingredients": [
+        ["Water",1185,"mL"],
+        ["Glutinous Rice, Uncooked",185,"g"],
+        ["Cocoa Powder (Unsweetened)",15,"g"],
+        ["White Sugar",100,"g"],
+        ["Evaporated Milk",126,"g"]
+      ],
+      "notes": "Simmer glutinous rice in water, stir in chocolate and sugar, and serve with the measured milk. Adaptation: 15 g unsweetened cocoa is the defined replacement for source tablea; it is not asserted equivalent in weight or sweetness. Counted produce uses the documented USDA reference size. Quantities are ingredient inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed; record measured additions when used.",
+      "aliases": [
+        "Champorado (Chocolate Rice Porridge)"
+      ]
+    },
+    "ginisang-monggo": {
+      "name": "Ginisang Monggo",
+      "category": "meal",
+      "component_type": "main_dish",
+      "servings": 6,
+      "portion": [1,"serving"],
+      "source": "https://www.kawalingpinoy.com/ginisang-munggo-at-chicharon/",
+      "ingredients": [
+        ["Monggo, Dry",207,"g"],
+        ["Water",1422,"mL"],
+        ["Canola Oil",14,"g"],
+        ["Onion (Raw)",110,"g"],
+        ["Garlic (Raw)",9,"g"],
+        ["Tomato, Raw",182,"g"],
+        ["Malunggay, Raw",42,"g"],
+        ["Fish Sauce",18,"g"]
+      ],
+      "notes": "Simmer monggo in water until tender. Saute aromatics and tomato, combine with the beans and liquid, then add malunggay and fish sauce. Adaptations: 42 g malunggay replaces the source spinach; chicharon is omitted. Quantities are measured inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed.",
+      "aliases": [
+        "Plain Ginisang Monggo",
+        "Mongo Guisado (Mung Bean Stew)",
+        "Monggo with Brown Rice",
+        "Mongo Guisado with Rice (Mung Bean Stew)"
+      ]
+    },
+    "ginisang-monggo-sa-sardinas": {
+      "name": "Ginisang Monggo sa Sardinas",
+      "category": "meal",
+      "component_type": "main_dish",
+      "servings": 6,
+      "portion": [1,"serving"],
+      "source": "https://www.kawalingpinoy.com/ginisang-munggo-at-chicharon/",
+      "ingredients": [
+        ["Monggo, Dry",207,"g"],
+        ["Water",1422,"mL"],
+        ["Canola Oil",14,"g"],
+        ["Onion (Raw)",110,"g"],
+        ["Garlic (Raw)",9,"g"],
+        ["Tomato, Raw",182,"g"],
+        ["Malunggay, Raw",42,"g"],
+        ["Fish Sauce",18,"g"],
+        ["Sardines, Canned",300,"g"]
+      ],
+      "notes": "Simmer monggo in water until tender. Saute aromatics and tomato, combine with the beans and liquid, then add malunggay and fish sauce. Adaptations: 42 g malunggay replaces the source spinach; chicharon is omitted. Add the listed weighed canned sardines. Quantities are measured inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed.",
+      "aliases": [
+        "Ginisang Monggo with Sardines"
+      ]
+    },
+    "ginisang-sayote": {
+      "name": "Ginisang Sayote",
+      "category": "meal",
+      "component_type": "side",
+      "servings": 6,
+      "portion": [1,"serving"],
+      "source": "https://www.kawalingpinoy.com/chayote-and-egg-stir-fry/",
+      "ingredients": [
+        ["Canola Oil",28,"g"],
+        ["Chicken Egg, Raw",300,"g"],
+        ["Onion (Raw)",110,"g"],
+        ["Garlic (Raw)",6,"g"],
+        ["Sayote, Raw",812,"g"]
+      ],
+      "notes": "Cook the beaten eggs separately, saute aromatics and sayote until tender, then combine. Adaptation: seasoning powder and unquantified pepper omitted. Counted produce uses the documented USDA reference size. Quantities are ingredient inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed; record measured additions when used.",
+      "aliases": [
+        "Ginisang Sayote (Sautéed Chayote)"
+      ]
+    },
+    "pinakbet": {
+      "name": "Pinakbet",
+      "category": "meal",
+      "component_type": "main_dish",
+      "servings": 4,
+      "portion": [1,"serving"],
+      "source": "https://www.kawalingpinoy.com/pinakbet/",
+      "ingredients": [
+        ["Canola Oil",14,"g"],
+        ["Onion (Raw)",110,"g"],
+        ["Garlic (Raw)",6,"g"],
+        ["Pork Belly, Raw",226.796185,"g"],
+        ["Barrio Fiesta Regular Bagoong",15,"g"],
+        ["Tomato, Raw",124,"g"],
+        ["Water",474,"mL"],
+        ["Butternut Squash, Raw",140,"g"],
+        ["Okra, Raw",95,"g"],
+        ["Sitaw, Raw",120,"g"],
+        ["Ampalaya, Raw",124,"g"],
+        ["Talong, Raw",458,"g"]
+      ],
+      "notes": "Saute pork and aromatics with bagoong, add water, then cook vegetables in stages until tender. Adaptations: measured butternut squash replaces the unweighed source squash; 120 g sitaw replaces the unweighed bean bunch. The named bagoong product supplies its label nutrients. No extra salt. Quantities are measured inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed.",
+      "aliases": [
+        "Pinakbet (Hospital Version)"
+      ]
+    },
+    "chopsuey": {
+      "name": "Chopsuey",
+      "category": "meal",
+      "component_type": "main_dish",
+      "servings": 4,
+      "portion": [1,"serving"],
+      "source": "https://www.kawalingpinoy.com/chop-suey/",
+      "ingredients": [
+        ["Carrot, Raw",72,"g"],
+        ["Broccoli, Raw",304,"g"],
+        ["Cauliflower, Raw",294,"g"],
+        ["Cabbage, Raw",454,"g"],
+        ["Red Bell Pepper, Raw",59.5,"g"],
+        ["Green Bell Pepper, Raw",59.5,"g"],
+        ["Canola Oil",42,"g"],
+        ["Chicken Liver, Raw",113.398093,"g"],
+        ["Onion (Raw)",110,"g"],
+        ["Garlic (Raw)",6,"g"],
+        ["Chicken Breast, Raw",226.796185,"g"],
+        ["Water",533.25,"mL"],
+        ["Oyster Sauce",36,"g"],
+        ["Quail Egg, Raw",54,"g"],
+        ["Cornstarch",8.000027,"g"]
+      ],
+      "notes": "Parboil vegetables, retain the listed water for the sauce, then stir-fry meat and aromatics. Add vegetables, oyster sauce, cooked quail eggs and cornstarch slurry. Adaptations: breast replaces thigh, broccoli uses half a USDA bunch and cauliflower half a medium head; baby corn omitted. Counted produce uses the documented USDA reference size. Quantities are ingredient inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed; record measured additions when used.",
+      "aliases": [
+        "Chopsuey with Rice"
+      ]
+    },
+    "lumpiang-sariwa": {
+      "name": "Lumpiang Sariwa",
+      "category": "meal",
+      "component_type": "complete_meal",
+      "servings": 4,
+      "portion": [1,"serving"],
+      "source": "https://homefoodie.com.ph/recipe/lumpiang-sariwa-with-peanut-sauce",
+      "ingredients": [
+        ["Red Leaf Lettuce, Raw",250,"g"],
+        ["Singkamas, Raw",250,"g"],
+        ["Carrot, Raw",100,"g"],
+        ["All-purpose Flour",60,"g"],
+        ["Salt",1.5,"g"],
+        ["White Sugar",2.1,"g"],
+        ["Chicken Egg, Raw",50,"g"],
+        ["Low-fat Milk",244,"g"],
+        ["Peanut Butter (Unsalted)",170,"g"],
+        ["Water",592.5,"mL"],
+        ["Soy Sauce",63.75,"g"],
+        ["Brown Sugar",100,"g"]
+      ],
+      "notes": "Cook four crepe wrappers from flour, salt, sugar, egg and milk. Blanch the weighed filling vegetables. Simmer the peanut sauce, fill wrappers with vegetables and lettuce, and divide the sauce among four portions. Adaptations: jicama replaces ubod; low-fat milk and unsalted peanut butter replace the source branded dairy and spread. All listed sauce is counted. Counted produce uses the documented USDA reference size. Quantities are ingredient inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed; record measured additions when used.",
+      "aliases": []
+    },
+    "sinangag": {
+      "name": "Sinangag",
+      "category": "carb",
+      "component_type": "staple",
+      "servings": 6,
+      "portion": [1,"serving"],
+      "source": "https://www.youtube.com/watch?v=O1iZ5e_Grzc",
+      "ingredients": [
+        ["Cooked White Rice",948,"g"],
+        ["Garlic (Raw)",18,"g"],
+        ["Canola Oil",56,"g"],
+        ["Salt",6,"g"]
+      ],
+      "notes": "Cook garlic in oil, add cooked rice, separate the grains and stir-fry until heated through; season with the measured salt. Adaptation: six measured cloves replace the unweighed garlic head. Counted produce uses the documented USDA reference size. Quantities are ingredient inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed; record measured additions when used.",
+      "aliases": [
+        "Sinangag (Garlic Fried Rice)"
+      ]
+    },
+    "white-rice": {
+      "name": "Cooked White Rice",
+      "category": "carb",
+      "component_type": "staple",
+      "servings": 1,
+      "portion": [100,"g"],
+      "source": "https://fdc.nal.usda.gov/food-details/169708/nutrients",
+      "ingredients": [
+        ["Cooked White Rice",100,"g"]
+      ],
+      "notes": "One measured portion of the named food in its recorded preparation state.",
+      "aliases": [
+        "Steamed White Rice"
+      ]
+    },
+    "brown-rice": {
+      "name": "Cooked Brown Rice",
+      "category": "carb",
+      "component_type": "staple",
+      "servings": 1,
+      "portion": [100,"g"],
+      "source": "https://fdc.nal.usda.gov/food-details/169704/nutrients",
+      "ingredients": [
+        ["Cooked Brown Rice",100,"g"]
+      ],
+      "notes": "One measured portion of the named food in its recorded preparation state.",
+      "aliases": [
+        "Steamed Brown Rice"
+      ]
+    },
+    "kamote": {
+      "name": "Boiled Sweet Potato",
+      "category": "carb",
+      "component_type": "staple",
+      "servings": 1,
+      "portion": [100,"g"],
+      "source": "https://fdc.nal.usda.gov/food-details/168484/nutrients",
+      "ingredients": [
+        ["Boiled Sweet Potato",100,"g"]
+      ],
+      "notes": "One measured portion of the named food in its recorded preparation state.",
+      "aliases": [
+        "Boiled Kamote (Sweet Potato)",
+        "Sweet Potato / Kamote",
+        "Nilagang Kamote"
+      ]
+    },
+    "mais": {
+      "name": "Boiled Corn",
+      "category": "carb",
+      "component_type": "staple",
+      "servings": 1,
+      "portion": [100,"g"],
+      "source": "https://fdc.nal.usda.gov/food-details/169999/nutrients",
+      "ingredients": [
+        ["Boiled Corn",100,"g"]
+      ],
+      "notes": "One measured portion of the named food in its recorded preparation state.",
+      "aliases": [
+        "Boiled Corn (Mais)",
+        "Sweet Corn (Cooked)",
+        "Nilagang Mais"
+      ]
+    },
+    "cassava": {
+      "name": "Cooked Cassava",
+      "category": "carb",
+      "component_type": "staple",
+      "servings": 1,
+      "portion": [100,"g"],
+      "source": "https://fdc.nal.usda.gov/food-details/2709564/nutrients",
+      "ingredients": [
+        ["Cooked Cassava",100,"g"]
+      ],
+      "notes": "Cooked cassava using the specified USDA survey record. The record does not establish a plain-boiled preparation.",
+      "aliases": [
+        "Boiled Cassava (Kamoteng Kahoy)",
+        "Kamoteng Kahoy"
+      ]
+    },
+    "egg": {
+      "name": "Nilagang Itlog",
+      "category": "snack",
+      "component_type": "other",
+      "servings": 1,
+      "portion": [50,"g"],
+      "source": "https://fdc.nal.usda.gov/food-details/173424/nutrients",
+      "ingredients": [
+        ["Chicken Egg, Hard-boiled",50,"g"]
+      ],
+      "notes": "One measured portion of the named food in its recorded preparation state.",
+      "aliases": [
+        "Hard-Boiled Egg",
+        "Egg and Rice Breakfast"
+      ]
+    },
+    "milk": {
+      "name": "Gatas",
+      "category": "snack",
+      "component_type": "other",
+      "servings": 1,
+      "portion": [244,"g"],
+      "source": "https://fdc.nal.usda.gov/food-details/170872/nutrients",
+      "ingredients": [
+        ["Low-fat Milk",244,"g"]
+      ],
+      "notes": "One measured portion of the named food in its recorded preparation state.",
+      "aliases": [
+        "Low-fat Milk (1%)"
+      ]
+    },
+    "saging": {
+      "name": "Saging",
+      "category": "snack",
+      "component_type": "other",
+      "servings": 1,
+      "portion": [100,"g"],
+      "source": "https://fdc.nal.usda.gov/food-details/173944/nutrients",
+      "ingredients": [
+        ["Banana (Raw)",100,"g"]
+      ],
+      "notes": "One measured portion of the named food in its recorded preparation state.",
+      "aliases": [
+        "Banana Snack",
+        "Banana (Raw)"
+      ]
+    },
+    "papaya": {
+      "name": "Papaya",
+      "category": "snack",
+      "component_type": "other",
+      "servings": 1,
+      "portion": [100,"g"],
+      "source": "https://fdc.nal.usda.gov/food-details/169926/nutrients",
+      "ingredients": [
+        ["Papaya (Raw)",100,"g"]
+      ],
+      "notes": "One measured portion of the named food in its recorded preparation state.",
+      "aliases": [
+        "Papaya Snack",
+        "Papaya (Raw)"
+      ]
+    },
+    "mangga": {
+      "name": "Mangga",
+      "category": "snack",
+      "component_type": "other",
+      "servings": 1,
+      "portion": [100,"g"],
+      "source": "https://fdc.nal.usda.gov/food-details/169910/nutrients",
+      "ingredients": [
+        ["Mango (Raw)",100,"g"]
+      ],
+      "notes": "One measured portion of the named food in its recorded preparation state.",
+      "aliases": [
+        "Fresh Mango Serving"
+      ]
+    },
+    "pakwan": {
+      "name": "Pakwan",
+      "category": "snack",
+      "component_type": "other",
+      "servings": 1,
+      "portion": [100,"g"],
+      "source": "https://fdc.nal.usda.gov/food-details/167765/nutrients",
+      "ingredients": [
+        ["Watermelon (Raw)",100,"g"]
+      ],
+      "notes": "One measured portion of the named food in its recorded preparation state.",
+      "aliases": [
+        "Fresh Watermelon Snack"
+      ]
+    },
+    "bayabas": {
+      "name": "Bayabas",
+      "category": "snack",
+      "component_type": "other",
+      "servings": 1,
+      "portion": [100,"g"],
+      "source": "https://fdc.nal.usda.gov/food-details/173044/nutrients",
+      "ingredients": [
+        ["Guava (Raw)",100,"g"]
+      ],
+      "notes": "One measured portion of the named food in its recorded preparation state.",
+      "aliases": [
+        "Guava Snack"
+      ]
+    },
+    "pinya": {
+      "name": "Pinya",
+      "category": "snack",
+      "component_type": "other",
+      "servings": 1,
+      "portion": [100,"g"],
+      "source": "https://fdc.nal.usda.gov/food-details/169124/nutrients",
+      "ingredients": [
+        ["Pineapple (Raw)",100,"g"]
+      ],
+      "notes": "One measured portion of the named food in its recorded preparation state.",
+      "aliases": [
+        "Pineapple Snack"
+      ]
+    },
+    "langka": {
+      "name": "Langka",
+      "category": "snack",
+      "component_type": "other",
+      "servings": 1,
+      "portion": [100,"g"],
+      "source": "https://fdc.nal.usda.gov/food-details/174687/nutrients",
+      "ingredients": [
+        ["Jackfruit (Raw)",100,"g"]
+      ],
+      "notes": "One measured portion of the named food in its recorded preparation state.",
+      "aliases": [
+        "Jackfruit (Langka) Snack"
+      ]
+    },
+    "pechay": {
+      "name": "Pechay",
+      "category": "meal",
+      "component_type": "side",
+      "servings": 1,
+      "portion": [100,"g"],
+      "source": "https://fdc.nal.usda.gov/food-details/170391/nutrients",
+      "ingredients": [
+        ["Bok Choy / Pechay (Cooked)",100,"g"]
+      ],
+      "notes": "One measured portion of the named food in its recorded preparation state.",
+      "aliases": [
+        "Bok Choy / Pechay (Cooked)"
+      ]
+    },
+    "carrots": {
+      "name": "Carrots",
+      "category": "meal",
+      "component_type": "side",
+      "servings": 1,
+      "portion": [100,"g"],
+      "source": "https://fdc.nal.usda.gov/food-details/170394/nutrients",
+      "ingredients": [
+        ["Carrots (Cooked)",100,"g"]
+      ],
+      "notes": "One measured portion of the named food in its recorded preparation state.",
+      "aliases": [
+        "Carrots (Cooked)"
+      ]
+    },
+    "kalabasa": {
+      "name": "Kalabasa",
+      "category": "meal",
+      "component_type": "side",
+      "servings": 1,
+      "portion": [100,"g"],
+      "source": "https://fdc.nal.usda.gov/food-details/169296/nutrients",
+      "ingredients": [
+        ["Squash / Kalabasa (Cooked)",100,"g"]
+      ],
+      "notes": "One measured portion of the named food in its recorded preparation state.",
+      "aliases": [
+        "Squash / Kalabasa (Cooked)"
+      ]
+    },
+    "green-beans": {
+      "name": "Green Beans",
+      "category": "meal",
+      "component_type": "side",
+      "servings": 1,
+      "portion": [100,"g"],
+      "source": "https://fdc.nal.usda.gov/food-details/169141/nutrients",
+      "ingredients": [
+        ["Green Beans, Boiled",100,"g"]
+      ],
+      "notes": "One measured portion of the named food in its recorded preparation state.",
+      "aliases": [
+        "String Beans / Sitaw"
+      ]
+    },
+    "talong": {
+      "name": "Talong",
+      "category": "meal",
+      "component_type": "side",
+      "servings": 1,
+      "portion": [100,"g"],
+      "source": "https://fdc.nal.usda.gov/food-details/169229/nutrients",
+      "ingredients": [
+        ["Eggplant / Talong (Cooked)",100,"g"]
+      ],
+      "notes": "One measured portion of the named food in its recorded preparation state.",
+      "aliases": [
+        "Eggplant / Talong (Cooked)"
+      ]
+    },
+    "kangkong": {
+      "name": "Kangkong",
+      "category": "meal",
+      "component_type": "side",
+      "servings": 1,
+      "portion": [100,"g"],
+      "source": "https://fdc.nal.usda.gov/food-details/169302/nutrients",
+      "ingredients": [
+        ["Water Spinach (Kangkong)",100,"g"]
+      ],
+      "notes": "One measured portion of the named food in its recorded preparation state.",
+      "aliases": [
+        "Water Spinach (Kangkong)"
+      ]
+    },
+    "oatmeal": {
+      "name": "Oatmeal",
+      "category": "meal",
+      "component_type": "complete_meal",
+      "servings": 1,
+      "portion": [1,"serving"],
+      "source": "https://fdc.nal.usda.gov/food-details/173904/nutrients",
+      "ingredients": [
+        ["Oats, Dry",40,"g"],
+        ["Water",240,"mL"]
+      ],
+      "notes": "Cook the measured dry oats in water. This is a defined ingredient-input portion; no cooked gram or cup yield is asserted. Counted produce uses the documented USDA reference size. Quantities are ingredient inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed; record measured additions when used.",
+      "aliases": [
+        "Plain Oatmeal with Brown Sugar"
+      ]
+    },
+    "oatmeal-na-may-saging": {
+      "name": "Oatmeal na may Saging",
+      "category": "meal",
+      "component_type": "complete_meal",
+      "servings": 1,
+      "portion": [1,"serving"],
+      "source": "https://fdc.nal.usda.gov/food-details/173904/nutrients",
+      "ingredients": [
+        ["Oats, Dry",40,"g"],
+        ["Water",240,"mL"],
+        ["Banana (Raw)",80,"g"]
+      ],
+      "notes": "Cook measured oats in water and add the weighed banana. This is a defined ingredient-input portion. Counted produce uses the documented USDA reference size. Quantities are ingredient inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed; record measured additions when used.",
+      "aliases": [
+        "Oatmeal with Banana"
+      ]
+    },
+    "tinapay-at-itlog": {
+      "name": "Tinapay at Itlog",
+      "category": "meal",
+      "component_type": "complete_meal",
+      "servings": 1,
+      "portion": [1,"serving"],
+      "source": "https://fdc.nal.usda.gov/food-details/174924/nutrients",
+      "ingredients": [
+        ["White Bread",80,"g"],
+        ["Chicken Egg, Hard-boiled",50,"g"]
+      ],
+      "notes": "Serve the weighed white bread with one measured hard-boiled egg. White bread is the actual nutrient record; it is not presented as a verified pandesal record. Counted produce uses the documented USDA reference size. Quantities are ingredient inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed; record measured additions when used.",
+      "aliases": [
+        "Pandesal with Egg"
+      ]
+    }
+  },
+  "references": {
+    "Lugaw with Egg (Soft Diet)": "Rice porridge with hard-boiled egg. Suitable for post-op, soft diet, and swallowing difficulty orders.",
+    "Lugaw with Chicken (Soft Diet)": "Rice porridge with shredded chicken breast. High-protein soft diet option.",
+    "Boiled Chicken Breast": "Unseasoned boiled chicken breast. Low sodium, high protein. Suitable for most therapeutic diets.",
+    "Chicken Breast with Pechay": "Boiled chicken breast with cooked pechay. Pair with a separately selected carbohydrate only when prescribed.",
+    "Steamed Tilapia": "Lean white fish. Low sodium, good phosphate source. Suitable for most diets except CKD (monitor phosphate).",
+    "Steamed Milkfish (Bangus)": "Steamed milkfish. Rich in omega-3. Avoid in fish allergy patients.",
+    "Drained Sardines": "Canned sardines in water (drained). Cost-effective protein. Note: moderate sodium.",
+    "Hard-Boiled Egg": "One plain hard-boiled egg. Add a separately measured carbohydrate only when prescribed.",
+    "Tokwa with Kangkong": "Firm tofu with water spinach. Plant-based protein. Contains soy — avoid for soybean allergy.",
+    "Plain Ginisang Monggo": "Plain cooked mung beans. High fiber; add a separately measured carbohydrate only when prescribed.",
+    "Ampalaya with Tokwa": "Bitter melon with firm tofu. High-fiber Filipino dish; add a separately measured carbohydrate only when prescribed.",
+    "Oatmeal with Banana": "Plain oatmeal with banana. No added sugar. Suitable for DM breakfast — monitor potassium if renal diet.",
+    "Sweet Potato with Chicken": "Baked sweet potato with boiled chicken breast. Low GI carbohydrate alternative.",
+    "Mixed Vegetable Plate": "Boiled mixed vegetables. Low calorie, high fiber side dish suitable for all therapeutic diets.",
+    "Banana Snack": "One banana. Quick, potassium-rich snack — avoid in high-K and renal-restricted diets.",
+    "Crackers and Milk Snack": "Wheat crackers with low-fat milk. Between-meal nourishment. Contains wheat and milk.",
+    "Papaya Snack": "Fresh papaya. Rich in vitamin C, fiber. Suitable for most diets.",
+    "Roasted Pork Loin": "Plain roasted pork loin. Moderate fat. Add a separately measured carbohydrate only when prescribed.",
+    "Champorado (Chocolate Rice Porridge)": "Filipino chocolate rice porridge made with glutinous rice and cocoa. Very carb-heavy, low protein. Good for weight gain and high-energy needs.",
+    "Sinangag (Garlic Fried Rice)": "Filipino garlic fried rice. Mostly carbohydrates. Common Filipino breakfast staple. Low sodium version without soy sauce.",
+    "Arroz Caldo (Chicken Rice Soup)": "Filipino chicken congee with ginger. Balanced protein and carbs. Excellent for sick patients and soft diet.",
+    "Plain Oatmeal with Brown Sugar": "Plain cooked oatmeal lightly sweetened. High fiber, low protein. Suitable for diabetic and cardiac diets (reduce or omit sugar for diabetic patients).",
+    "Pandesal with Egg": "Filipino bread roll with boiled egg. Standard Filipino breakfast. Contains wheat.",
+    "Fresh Mango Serving": "Fresh ripe Philippine mango. Naturally sweet, rich in vitamin C and A. Monitor potassium in renal diets.",
+    "Fresh Watermelon Snack": "Fresh watermelon. Very low calorie, hydrating. Good for general diet. Limit in dialysis/fluid restriction.",
+    "Papaya with Calamansi": "Fresh papaya with calamansi squeeze. Rich in vitamin C, fiber, and beta-carotene. Suitable for all diets.",
+    "Guava Snack": "Fresh guava. Very high in vitamin C. High fiber. Low calorie. Suitable for diabetic and weight loss diets.",
+    "Boiled Corn (Mais)": "Plain boiled corn on the cob or kernels. Filipino street food staple. Good carbohydrate source, moderate fiber.",
+    "Boiled Kamote (Sweet Potato)": "Plain boiled sweet potato. Low GI, high in beta-carotene and fiber. Excellent for diabetic and weight management diets.",
+    "Pineapple Snack": "Fresh pineapple. Contains bromelain, good for digestion. Monitor potassium in renal diet.",
+    "Jackfruit (Langka) Snack": "Fresh jackfruit. Naturally sweet, high fiber, moderate carbohydrates. Rich in B vitamins.",
+    "Pinakbet (Hospital Version)": "Mixed vegetable stew without bagoong (shrimp paste) for low-sodium hospital version. Suitable for cardiac and hypertension diets.",
+    "Chopsuey": "Chinese-Filipino mixed vegetable stir-fry, lightly seasoned. Serve any prescribed carbohydrate separately.",
+    "Bulanglang (Vegetable Soup)": "Tagalog-Visayan mixed vegetable soup. Very low calorie, high micronutrients. Suitable for all diets.",
+    "Ginisang Sayote (Sautéed Chayote)": "Lightly sautéed chayote with garlic and onion. Low calorie, good for renal diet (low potassium), suitable as side dish.",
+    "Ensaladang Talong (Eggplant Salad)": "Roasted eggplant salad with tomato and onion. Low calorie Filipino salad. Good for cardiac and weight loss diets.",
+    "Ampalaya Salad with Tomato": "Bitter melon salad with tomato. Low calorie, high fiber. Traditional diabetes management food in Filipino culture.",
+    "Mongo Guisado (Mung Bean Stew)": "Sautéed mung bean stew with kangkong and garlic. High fiber, moderate protein, very Filipino. Good for diabetic and cardiac diets.",
+    "Paksiw na Bangus": "Milkfish braised in vinegar and spices. Filipino fish dish. Moderate sodium from vinegar braising. Monitor in strict low-sodium diets.",
+    "Sinigang na Bangus (Simplified)": "Milkfish in tamarind-style sour broth with vegetables. Hospital version without commercial sinigang mix (lower sodium). High in omega-3.",
+    "Tinolang Manok (Chicken Ginger Soup)": "Filipino chicken soup with ginger, chayote, and malunggay. Balanced, low fat. Suitable for most therapeutic diets.",
+    "Ginisang Monggo with Sardines": "Mung bean soup with canned sardines and kangkong. Budget-friendly, high fiber, good omega-3.",
+    "Tilapia Sinigang (Simplified)": "Tilapia in light sour broth with vegetables. Low fat, lean protein. Hospital version without commercial sinigang mix.",
+    "Mackerel Adobo Flakes": "Mackerel flaked in light adobo sauce with garlic. Good omega-3, moderate protein. Suitable for most diets.",
+    "Boiled Cassava (Kamoteng Kahoy)": "Plain boiled cassava. Very high carbohydrate, low protein. Traditional Filipino root crop snack. Good for weight gain diets.",
+    "Ginataan (Coconut Fruit Dessert)": "Filipino dessert with sweet potato and banana in coconut milk. High energy, moderate fat. Good for weight gain and high-energy needs.",
+    "Lugaw (Plain Rice Porridge)": "Plain rice porridge without any topping. Very low protein, mostly carbohydrates. Suitable for strict renal diets, post-op, and low-residue orders.",
+    "Steamed White Rice": "Single-ingredient menu item using the source Ingredient's 100 g nutrient basis.",
+    "Steamed Brown Rice": "Single-ingredient menu item using the source Ingredient's 100 g nutrient basis.",
+    "Sweet Potato / Kamote": "Single-ingredient menu item using the source Ingredient's 100 g nutrient basis.",
+    "Sweet Corn (Cooked)": "Single-ingredient menu item using the source Ingredient's 100 g nutrient basis.",
+    "Bok Choy / Pechay (Cooked)": "Single-ingredient menu item using the source Ingredient's 100 g nutrient basis.",
+    "Carrots (Cooked)": "Single-ingredient menu item using the source Ingredient's 100 g nutrient basis.",
+    "Squash / Kalabasa (Cooked)": "Single-ingredient menu item using the source Ingredient's 100 g nutrient basis.",
+    "String Beans / Sitaw": "Single-ingredient menu item using the source Ingredient's 100 g nutrient basis.",
+    "Eggplant / Talong (Cooked)": "Single-ingredient menu item using the source Ingredient's 100 g nutrient basis.",
+    "Water Spinach (Kangkong)": "Single-ingredient menu item using the source Ingredient's 100 g nutrient basis.",
+    "Low-fat Milk (1%)": "Single-ingredient menu item using the source Ingredient's 100 g nutrient basis.",
+    "Banana (Raw)": "Single-ingredient menu item using the source Ingredient's 100 g nutrient basis.",
+    "Papaya (Raw)": "Single-ingredient menu item using the source Ingredient's 100 g nutrient basis."
+  },
+  "retired": {
+    "Boiled Chicken Breast": "Unseasoned boiled chicken breast. Low sodium, high protein. Suitable for most therapeutic diets.",
+    "Chicken Breast with Pechay": "Boiled chicken breast with cooked pechay. Pair with a separately selected carbohydrate only when prescribed.",
+    "Steamed Tilapia": "Lean white fish. Low sodium, good phosphate source. Suitable for most diets except CKD (monitor phosphate).",
+    "Steamed Milkfish (Bangus)": "Steamed milkfish. Rich in omega-3. Avoid in fish allergy patients.",
+    "Drained Sardines": "Canned sardines in water (drained). Cost-effective protein. Note: moderate sodium.",
+    "Tokwa with Kangkong": "Firm tofu with water spinach. Plant-based protein. Contains soy — avoid for soybean allergy.",
+    "Ampalaya with Tokwa": "Bitter melon with firm tofu. High-fiber Filipino dish; add a separately measured carbohydrate only when prescribed.",
+    "Sweet Potato with Chicken": "Baked sweet potato with boiled chicken breast. Low GI carbohydrate alternative.",
+    "Mixed Vegetable Plate": "Boiled mixed vegetables. Low calorie, high fiber side dish suitable for all therapeutic diets.",
+    "Crackers and Milk Snack": "Wheat crackers with low-fat milk. Between-meal nourishment. Contains wheat and milk.",
+    "Roasted Pork Loin": "Plain roasted pork loin. Moderate fat. Add a separately measured carbohydrate only when prescribed.",
+    "Papaya with Calamansi": "Fresh papaya with calamansi squeeze. Rich in vitamin C, fiber, and beta-carotene. Suitable for all diets.",
+    "Bulanglang (Vegetable Soup)": "Tagalog-Visayan mixed vegetable soup. Very low calorie, high micronutrients. Suitable for all diets.",
+    "Ensaladang Talong (Eggplant Salad)": "Roasted eggplant salad with tomato and onion. Low calorie Filipino salad. Good for cardiac and weight loss diets.",
+    "Ampalaya Salad with Tomato": "Bitter melon salad with tomato. Low calorie, high fiber. Traditional diabetes management food in Filipino culture.",
+    "Sinigang na Bangus (Simplified)": "Milkfish in tamarind-style sour broth with vegetables. Hospital version without commercial sinigang mix (lower sodium). High in omega-3.",
+    "Tilapia Sinigang (Simplified)": "Tilapia in light sour broth with vegetables. Low fat, lean protein. Hospital version without commercial sinigang mix.",
+    "Mackerel Adobo Flakes": "Mackerel flaked in light adobo sauce with garlic. Good omega-3, moderate protein. Suitable for most diets.",
+    "Ginataan (Coconut Fruit Dessert)": "Filipino dessert with sweet potato and banana in coconut milk. High energy, moderate fat. Good for weight gain and high-energy needs."
+  },
+  "templates": {
+    "renal_diet": {
+      "breakfasts": [
+        "lugaw-na-may-itlog",
+        "tinapay-at-itlog"
+      ],
+      "mains": [
+        "pesang-isda",
+        "tinolang-manok"
+      ],
+      "carb": "white-rice",
+      "vegetables": [
+        "pechay",
+        "carrots"
+      ],
+      "fruit": [
+        "pinya",
+        "papaya"
+      ],
+      "snacks": [],
+      "description": "Filipino reference rotation with measured food portions. Recipe availability is shared across goals; the RND selects suitable dishes."
+    },
+    "diabetic_control": {
+      "breakfasts": [
+        "oatmeal-na-may-saging",
+        "tinapay-at-itlog"
+      ],
+      "mains": [
+        "adobong-manok",
+        "pesang-isda",
+        "ginisang-monggo"
+      ],
+      "carb": "brown-rice",
+      "vegetables": [
+        "pechay",
+        "green-beans"
+      ],
+      "fruit": [
+        "bayabas",
+        "papaya"
+      ],
+      "snacks": [],
+      "description": "Filipino reference rotation with measured food portions. Recipe availability is shared across goals; the RND selects suitable dishes."
+    },
+    "cardiac_diet": {
+      "breakfasts": [
+        "oatmeal-na-may-saging",
+        "tinapay-at-itlog"
+      ],
+      "mains": [
+        "adobong-manok",
+        "pesang-isda",
+        "tinolang-manok"
+      ],
+      "carb": "brown-rice",
+      "vegetables": [
+        "pechay",
+        "carrots"
+      ],
+      "fruit": [
+        "papaya",
+        "pinya"
+      ],
+      "snacks": [],
+      "description": "Filipino reference rotation with measured food portions. Recipe availability is shared across goals; the RND selects suitable dishes."
+    },
+    "weight_loss": {
+      "breakfasts": [
+        "oatmeal",
+        "tinapay-at-itlog"
+      ],
+      "mains": [
+        "pesang-isda",
+        "tinolang-manok",
+        "tortang-talong"
+      ],
+      "carb": "kamote",
+      "vegetables": [
+        "pechay",
+        "carrots"
+      ],
+      "fruit": [
+        "pakwan",
+        "bayabas"
+      ],
+      "snacks": [],
+      "description": "Filipino reference rotation with measured food portions. Recipe availability is shared across goals; the RND selects suitable dishes."
+    },
+    "weight_gain": {
+      "breakfasts": [
+        "champorado",
+        "arroz-caldo"
+      ],
+      "mains": [
+        "calderetang-manok",
+        "asadong-manok",
+        "ginisang-monggo-sa-sardinas"
+      ],
+      "carb": "white-rice",
+      "vegetables": [
+        "kalabasa",
+        "carrots"
+      ],
+      "fruit": [
+        "mangga",
+        "saging"
+      ],
+      "snacks": [
+        "milk",
+        "egg",
+        "saging"
+      ],
+      "description": "Filipino reference rotation with measured food portions. Recipe availability is shared across goals; the RND selects suitable dishes. Includes between-meal nourishment. Source: https://www.nhs.uk/live-well/healthy-weight/managing-your-weight/healthy-ways-to-gain-weight/"
+    },
+    "high_protein": {
+      "breakfasts": [
+        "arroz-caldo",
+        "tinapay-at-itlog"
+      ],
+      "mains": [
+        "adobong-manok",
+        "pesang-isda",
+        "tinolang-manok"
+      ],
+      "carb": "brown-rice",
+      "vegetables": [
+        "pechay",
+        "green-beans"
+      ],
+      "fruit": [
+        "papaya",
+        "saging"
+      ],
+      "snacks": [],
+      "description": "Filipino reference rotation with measured food portions. Recipe availability is shared across goals; the RND selects suitable dishes."
+    },
+    "liver_disease": {
+      "breakfasts": [
+        "arroz-caldo",
+        "oatmeal-na-may-saging"
+      ],
+      "mains": [
+        "tinolang-manok",
+        "pesang-isda",
+        "ginisang-monggo"
+      ],
+      "carb": "white-rice",
+      "vegetables": [
+        "pechay",
+        "carrots"
+      ],
+      "fruit": [
+        "papaya",
+        "saging"
+      ],
+      "snacks": [
+        "milk",
+        "egg",
+        "saging"
+      ],
+      "description": "Filipino reference rotation with measured food portions. Recipe availability is shared across goals; the RND selects suitable dishes. Includes between-meal food; arrange any prescribed bedtime snack individually. Source: https://www.niddk.nih.gov/health-information/liver-disease/cirrhosis/eating-diet-nutrition"
+    },
+    "malnutrition": {
+      "breakfasts": [
+        "arroz-caldo",
+        "champorado"
+      ],
+      "mains": [
+        "calderetang-manok",
+        "asadong-manok",
+        "ginisang-monggo-sa-sardinas"
+      ],
+      "carb": "white-rice",
+      "vegetables": [
+        "kalabasa",
+        "carrots"
+      ],
+      "fruit": [
+        "mangga",
+        "saging"
+      ],
+      "snacks": [
+        "milk",
+        "egg",
+        "saging"
+      ],
+      "description": "Filipino reference rotation with measured food portions. Recipe availability is shared across goals; the RND selects suitable dishes. Includes between-meal nourishment. Source: https://www.nhs.uk/live-well/healthy-weight/managing-your-weight/healthy-ways-to-gain-weight/"
+    },
+    "general_diet": {
+      "breakfasts": [
+        "oatmeal-na-may-saging",
+        "tinapay-at-itlog",
+        "arroz-caldo"
+      ],
+      "mains": [
+        "adobong-manok",
+        "menudo",
+        "pesang-isda",
+        "ginisang-monggo"
+      ],
+      "carb": "brown-rice",
+      "vegetables": [
+        "pechay",
+        "green-beans",
+        "carrots"
+      ],
+      "fruit": [
+        "papaya",
+        "pinya",
+        "saging"
+      ],
+      "snacks": [],
+      "description": "Filipino reference rotation with measured food portions. Recipe availability is shared across goals; the RND selects suitable dishes."
+    },
+    "custom": {
+      "breakfasts": [
+        "oatmeal-na-may-saging",
+        "tinapay-at-itlog",
+        "arroz-caldo"
+      ],
+      "mains": [
+        "adobong-manok",
+        "menudo",
+        "pesang-isda",
+        "ginisang-monggo"
+      ],
+      "carb": "brown-rice",
+      "vegetables": [
+        "pechay",
+        "green-beans",
+        "carrots"
+      ],
+      "fruit": [
+        "papaya",
+        "pinya",
+        "saging"
+      ],
+      "snacks": [],
+      "description": "Filipino reference rotation with measured food portions. Recipe availability is shared across goals; the RND selects suitable dishes."
+    },
+    "pregnant": {
+      "breakfasts": [
+        "oatmeal-na-may-saging",
+        "tinapay-at-itlog",
+        "arroz-caldo"
+      ],
+      "mains": [
+        "adobong-manok",
+        "tinolang-manok",
+        "ginisang-monggo"
+      ],
+      "carb": "brown-rice",
+      "vegetables": [
+        "pechay",
+        "carrots",
+        "green-beans"
+      ],
+      "fruit": [
+        "papaya",
+        "saging"
+      ],
+      "snacks": [],
+      "description": "Filipino reference rotation with measured food portions. Recipe availability is shared across goals; the RND selects suitable dishes."
+    },
+    "lactating": {
+      "breakfasts": [
+        "oatmeal-na-may-saging",
+        "tinapay-at-itlog",
+        "arroz-caldo"
+      ],
+      "mains": [
+        "tinolang-manok",
+        "adobong-manok",
+        "ginisang-monggo-sa-sardinas"
+      ],
+      "carb": "brown-rice",
+      "vegetables": [
+        "pechay",
+        "carrots",
+        "green-beans"
+      ],
+      "fruit": [
+        "papaya",
+        "saging"
+      ],
+      "snacks": [],
+      "description": "Filipino reference rotation with measured food portions. Recipe availability is shared across goals; the RND selects suitable dishes."
+    }
+  }
+}

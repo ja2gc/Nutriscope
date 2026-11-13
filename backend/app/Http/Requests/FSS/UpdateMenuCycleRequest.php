@@ -41,6 +41,30 @@ class UpdateMenuCycleRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
+            if ($validator->errors()->isNotEmpty() || ! is_array($this->input('days'))) {
+                return;
+            }
+            $existing = $this->route('menu_cycle')->days()->get();
+            foreach (['recipe_id' => FoodServiceRecipe::class, 'fs_item_id' => FsItem::class] as $field => $model) {
+                $sources = $model::withTrashed()->whereIn('uuid', array_column($this->input('days'), $field))->get()->keyBy('uuid');
+                $retained = [];
+                foreach ($this->input('days') as $index => $day) {
+                    $source = $sources->get($day[$field] ?? null);
+                    if (! $source?->trashed()) {
+                        continue;
+                    }
+                    $saved = $existing->first(fn ($saved): bool => ! isset($retained[$saved->id]) && $saved->{$field} === $source->id
+                        && $saved->day_of_week === $day['day_of_week'] && $saved->meal_type === $day['meal_type']
+                        && (empty($day['id']) || $saved->uuid === $day['id']));
+                    if (! $saved) {
+                        $validator->errors()->add("days.{$index}.{$field}", 'Choose an available menu item.');
+                    } else {
+                        $retained[$saved->id] = true;
+                    }
+                }
+            }
+        });
+        $validator->after(function (Validator $validator): void {
             $date = $this->input('week_start_date');
             if (! $date) {
                 return;
@@ -62,10 +86,10 @@ class UpdateMenuCycleRequest extends FormRequest
         if ($this->has('days')) {
             $days = collect($this->input('days'))->map(function ($d) {
                 if (! empty($d['recipe_id'])) {
-                    $d['recipe_id'] = FoodServiceRecipe::idFromUuid($d['recipe_id']);
+                    $d['recipe_id'] = FoodServiceRecipe::withTrashed()->where('uuid', $d['recipe_id'])->value('id');
                 }
                 if (! empty($d['fs_item_id'])) {
-                    $d['fs_item_id'] = FsItem::idFromUuid($d['fs_item_id']);
+                    $d['fs_item_id'] = FsItem::withTrashed()->where('uuid', $d['fs_item_id'])->value('id');
                 }
 
                 return $d;

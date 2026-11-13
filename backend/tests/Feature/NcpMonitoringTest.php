@@ -143,6 +143,7 @@ class NcpMonitoringTest extends TestCase
 
     public function test_store_creates_a_scheduled_appointment_from_follow_up_details(): void
     {
+        $this->travelTo(CarbonImmutable::parse('2026-11-01 08:00:00'));
         $rnd = $this->rnd();
         $patient = $this->patient();
         $ncp = $this->ncpRecord($patient, $rnd);

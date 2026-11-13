@@ -169,6 +169,7 @@ class MenuCycleTemplateController extends Controller
     /** Save an existing menu cycle as a reusable template (copies its day grid). */
     public function fromCycle(Request $request, MenuCycle $menuCycle): JsonResponse
     {
+        $menuCycle->loadMissing('days.recipe', 'days.fsItem');
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
@@ -183,6 +184,10 @@ class MenuCycleTemplateController extends Controller
                     'cycle_days' => $menuCycle->cycle_days ?? 7,
                 ]);
                 foreach ($menuCycle->days as $d) {
+                    if (($d->recipe_id && (! $d->recipe || $d->recipe->trashed()))
+                        || ($d->fs_item_id && (! $d->fsItem || $d->fsItem->trashed()))) {
+                        continue;
+                    }
                     $template->days()->create([
                         'day_of_week' => $d->day_of_week,
                         'meal_type' => $d->meal_type,
@@ -244,6 +249,9 @@ class MenuCycleTemplateController extends Controller
                     'status' => 'draft',
                 ]);
                 foreach ($menuCycleTemplate->days as $d) {
+                    if (($d->recipe_id && ! $d->recipe) || ($d->fs_item_id && ! $d->fsItem)) {
+                        continue;
+                    }
                     $cycle->days()->create([
                         'day_of_week' => $d->day_of_week,
                         'meal_type' => $d->meal_type,
@@ -287,8 +295,8 @@ class MenuCycleTemplateController extends Controller
             'days.*.day_of_week' => ['required_with:days', 'in:Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday'],
             'days.*.meal_type' => ['required_with:days', 'in:breakfast,am_snack,lunch,pm_snack,dinner'],
             'days.*.line_order' => ['nullable', 'integer', 'min:1'],
-            'days.*.recipe_id' => ['nullable', 'string', 'exists:food_service_recipes,uuid'],
-            'days.*.fs_item_id' => ['nullable', 'string', 'exists:fs_items,uuid'],
+            'days.*.recipe_id' => ['nullable', 'string', 'exists:food_service_recipes,uuid,deleted_at,NULL'],
+            'days.*.fs_item_id' => ['nullable', 'string', 'exists:fs_items,uuid,deleted_at,NULL'],
             'days.*.quantity' => ['nullable', 'numeric', 'min:0'],
         ]);
 

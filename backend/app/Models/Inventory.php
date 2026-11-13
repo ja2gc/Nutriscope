@@ -20,12 +20,12 @@ class Inventory extends Model
     /** Legacy association to a catalog item (ingredient or supply). */
     public function fsItem(): BelongsTo
     {
-        return $this->belongsTo(FsItem::class, 'fs_item_id');
+        return $this->belongsTo(FsItem::class, 'fs_item_id')->withTrashed();
     }
 
     /** Legacy association to a prepared food-service recipe. */
     public function recipe(): BelongsTo
     {
-        return $this->belongsTo(FoodServiceRecipe::class, 'recipe_id');
+        return $this->belongsTo(FoodServiceRecipe::class, 'recipe_id')->withTrashed();
     }
 }

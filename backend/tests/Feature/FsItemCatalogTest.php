@@ -113,7 +113,7 @@ class FsItemCatalogTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_delete_blocked_while_used_by_recipe(): void
+    public function test_delete_preserves_linked_recipe_ingredients(): void
     {
         $item = FsItem::factory()->create(['kind' => 'ingredient']);
         $recipe = FoodServiceRecipe::create(['rnd_user_id' => $this->rnd->id, 'name' => 'Stew', 'servings' => 10]);
@@ -124,9 +124,10 @@ class FsItemCatalogTest extends TestCase
 
         $this->actingAs($this->rnd)
             ->deleteJson("/api/fss/fs-items/{$item->uuid}")
-            ->assertStatus(409);
+            ->assertNoContent();
 
-        $this->assertDatabaseHas('fs_items', ['id' => $item->id]);
+        $this->assertSoftDeleted($item);
+        $this->assertSame($item->name, $recipe->fresh()->ingredients->sole()->fsItem->name);
     }
 
     public function test_rnd_can_delete_unused_item(): void
@@ -137,6 +138,6 @@ class FsItemCatalogTest extends TestCase
             ->deleteJson("/api/fss/fs-items/{$item->uuid}")
             ->assertNoContent();
 
-        $this->assertDatabaseMissing('fs_items', ['id' => $item->id]);
+        $this->assertSoftDeleted($item);
     }
 }

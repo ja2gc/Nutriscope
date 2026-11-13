@@ -6,42 +6,57 @@ use PHPUnit\Framework\TestCase;
 
 class ClinicalFoodDatasetTest extends TestCase
 {
-    public function test_approved_sources_have_their_own_per_100_gram_nutrients(): void
+    private function foods(): array
     {
-        $dataset = json_decode(file_get_contents(dirname(__DIR__, 2).'/database/seeders/data/clinical-foods.json'), true, flags: JSON_THROW_ON_ERROR);
-        $foods = array_column($dataset['foods'], null, 'name');
+        return json_decode(file_get_contents(dirname(__DIR__, 2).'/database/seeders/data/clinical-foods.json'), true, flags: JSON_THROW_ON_ERROR)['foods'];
+    }
 
-        foreach ([
-            'Pork Loin (Cooked)' => [209, 28.62, 0, 9.63, 61.02],
-            'Tomato (Cooked)' => [18, 0.95, 4.01, 0.11, 94.34],
-            'Coconut Milk (Canned)' => [197, 2.02, 2.81, 21.33, 72.88],
-            'Calamansi / Lime Juice' => [25, 0.42, 8.42, 0.07, 90.79],
-            'Glutinous Rice (Cooked)' => [97, 2.02, 21.09, 0.19, 76.63],
-            'Corn Grits (Cooked)' => [71, 1.71, 14.76, 0.46, 82.93],
-        ] as $name => $expected) {
-            foreach (array_combine(['calories', 'protein', 'carbs', 'fat', 'water_g'], $expected) as $key => $amount) {
-                $this->assertEquals($amount, $foods[$name][$key], "$name $key");
+    public function test_carb_names_and_usda_identities_are_unambiguous(): void
+    {
+        $definitions = $this->foods();
+        $foods = array_column($definitions, null, 'name');
+        $ids = array_column($definitions, 'usda_fdc_id');
+        $this->assertCount(count($definitions), $foods);
+        $this->assertCount(count($ids), array_unique($ids));
+        foreach (['Cooked White Rice' => 169708, 'Cooked Brown Rice' => 169704, 'Boiled Sweet Potato' => 168484,
+            'Boiled Corn' => 169999, 'Cooked Cassava' => 2709564, 'Malunggay, Raw' => 168416, 'Sitaw, Raw' => 169222] as $name => $fdcId) {
+            $this->assertArrayHasKey($name, $foods);
+            $this->assertSame($fdcId, $foods[$name]['usda_fdc_id']);
+        }
+        $this->assertArrayNotHasKey('Steamed White Rice', $foods);
+        $this->assertArrayNotHasKey('Steamed Brown Rice', $foods);
+    }
+
+    public function test_usda_definitions_contain_only_identifiers_and_configuration_edits(): void
+    {
+        foreach ($this->foods() as $food) {
+            if (! isset($food['usda_fdc_id'])) {
+                continue;
             }
+            $this->assertIsInt($food['usda_fdc_id']);
+            $this->assertGreaterThan(0, $food['usda_fdc_id']);
+            $this->assertSame([], array_diff(array_keys($food), ['usda_fdc_id', 'name', 'category', 'allergens']), $food['name']);
         }
     }
 
-    public function test_curated_foods_use_the_approved_food_and_preparation_sources(): void
+    public function test_water_is_the_only_manual_food_and_recipes_use_the_selected_foods(): void
     {
-        $dataset = json_decode(file_get_contents(dirname(__DIR__, 2).'/database/seeders/data/clinical-foods.json'), true, flags: JSON_THROW_ON_ERROR);
-        $foods = array_column($dataset['foods'], null, 'name');
-        foreach ([
-            'Pork Loin (Cooked)' => [168233, 'Pork, fresh, loin, whole, separable lean only, cooked, roasted'],
-            'Tomato (Cooked)' => [170050, 'Tomatoes, red, ripe, cooked'],
-            'Coconut Milk (Canned)' => [170173, 'Nuts, coconut milk, canned (liquid expressed from grated meat and water)'],
-            'Calamansi / Lime Juice' => [168156, 'Lime juice, raw'],
-            'Glutinous Rice (Cooked)' => [169711, 'Rice, white, glutinous, unenriched, cooked'],
-            'Corn Grits (Cooked)' => [171655, 'Cereals, corn grits, white, regular and quick, enriched, cooked with water, without salt'],
-        ] as $name => [$fdcId, $description]) {
-            $this->assertSame($fdcId, $foods[$name]['usda_fdc_id'], $name);
-            $this->assertSame($fdcId, $foods[$name]['source']['fdc_id'], $name);
-            $this->assertSame($description, $foods[$name]['source']['description'], $name);
-            $this->assertEquals(100, $foods[$name]['serving_size'], $name);
-            $this->assertSame('g', $foods[$name]['serving_unit'], $name);
+        $foods = $this->foods();
+        $manual = array_values(array_filter($foods, fn (array $food): bool => ! isset($food['usda_fdc_id'])));
+        $this->assertSame(['Water'], array_column($manual, 'name'));
+        $this->assertSame('mL', $manual[0]['serving_unit']);
+        $this->assertSame(100, $manual[0]['water_g']);
+        $catalog = json_decode(file_get_contents(dirname(__DIR__, 2).'/database/seeders/data/clinical-recipes.json'), true, flags: JSON_THROW_ON_ERROR);
+        $names = array_column($foods, 'name');
+        foreach ($catalog['recipes'] as $recipe) {
+            foreach ($recipe['ingredients'] as [$name, $quantity, $unit]) {
+                $this->assertContains($name, $names, $recipe['name']);
+                $this->assertGreaterThan(0, $quantity);
+                $this->assertSame($name === 'Water' ? 'mL' : 'g', $unit);
+            }
         }
+        $this->assertNotContains('Cheddar Cheese', $names);
+        $this->assertNotContains('Pork Chorizo, Raw', $names);
+        $this->assertContains('Raisins', $names);
     }
 }

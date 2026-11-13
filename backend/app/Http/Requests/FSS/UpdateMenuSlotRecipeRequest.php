@@ -21,7 +21,7 @@ class UpdateMenuSlotRecipeRequest extends FormRequest
             'planned_servings' => ['nullable', 'integer', 'min:1'],
             'prep_notes' => ['nullable', 'string', 'max:5000'],
             'ingredients' => ['required', 'array', 'min:1'],
-            'ingredients.*.fs_item_id' => ['required', 'string', 'distinct', 'exists:fs_items,uuid'],
+            'ingredients.*.fs_item_id' => ['required', 'string', 'distinct', 'exists:fs_items,uuid,deleted_at,NULL'],
             'ingredients.*.quantity' => ['required', 'numeric', 'gt:0'],
             'ingredients.*.unit' => ['required', 'string', 'max:30', 'not_regex:/^\s*to\s+taste\s*$/i'],
             'ingredients.*.adjust_to_taste' => ['sometimes', 'boolean'],

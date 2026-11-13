@@ -77,6 +77,11 @@ class RecipeController extends Controller
                 'rnd_user_id' => $request->user()->id,
                 'name' => $data['name'],
                 'category' => $data['category'] ?? null,
+                'component_type' => match ($data['category'] ?? null) {
+                    'carb' => 'staple',
+                    'meal' => 'main_dish',
+                    default => 'other',
+                },
                 'meal_types' => $data['meal_types'] ?? null,
                 'prep_notes' => $data['prep_notes'] ?? null,
                 'servings' => $data['servings'],
@@ -133,6 +138,12 @@ class RecipeController extends Controller
             $recipe->update([
                 'name' => $data['name'] ?? $recipe->name,
                 'category' => $data['category'] ?? $recipe->category,
+                'component_type' => isset($data['category']) && $data['category'] !== $recipe->category
+                    ? match ($data['category']) {
+                        'carb' => 'staple',
+                        'meal' => 'main_dish',
+                        default => 'other',
+                    } : $recipe->component_type,
                 'meal_types' => $data['meal_types'] ?? $recipe->meal_types,
                 'prep_notes' => array_key_exists('prep_notes', $data) ? $data['prep_notes'] : $recipe->prep_notes,
                 'servings' => $data['servings'] ?? $recipe->servings,

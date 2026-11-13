@@ -4,20 +4,25 @@ namespace Tests\Feature;
 
 use App\Models\FoodItem;
 use App\Models\Recipe;
-use App\Services\UsdaService;
 use Database\Seeders\Demo\AdminUserSeeder;
 use Database\Seeders\FoodItemPricesSeeder;
 use Database\Seeders\FoodItemsSeeder;
 use Database\Seeders\RecipeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Mockery;
+use Tests\Support\UsdaFoodImportFixture;
 use Tests\TestCase;
 
 class ClinicalFoodSeederSafetyTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_food_seeding_is_offline_repeatable_and_preserves_manual_foods(): void
+    protected function setUp(): void
+    {
+        parent::setUp();
+        UsdaFoodImportFixture::fake();
+    }
+
+    public function test_food_imports_are_repeatable_and_preserve_manual_foods(): void
     {
         $manualFood = FoodItem::factory()->create([
             'name' => 'Ward Dietitian Custom Food',
@@ -25,19 +30,14 @@ class ClinicalFoodSeederSafetyTest extends TestCase
             'calories' => 88,
         ]);
 
-        $usda = Mockery::mock(UsdaService::class);
-        $usda->shouldNotReceive('search');
-        $usda->shouldNotReceive('import');
-        $this->app->instance(UsdaService::class, $usda);
-
         $this->seed(FoodItemsSeeder::class);
         $firstCount = FoodItem::query()->count();
         $this->seed(FoodItemsSeeder::class);
 
         $this->assertTrue(FoodItem::query()->whereKey($manualFood->id)->exists());
         $this->assertSame($firstCount, FoodItem::query()->count());
-        $this->assertSame(1, FoodItem::query()->where('name', 'Steamed White Rice')->count());
-        $this->assertNotNull(FoodItem::query()->where('name', 'Steamed White Rice')->value('usda_fdc_id'));
+        $this->assertSame(1, FoodItem::query()->where('name', 'Cooked White Rice')->count());
+        $this->assertNotNull(FoodItem::query()->where('name', 'Cooked White Rice')->value('usda_fdc_id'));
         $garlic = FoodItem::query()->where('name', 'Garlic (Raw)')->firstOrFail();
         $this->assertGreaterThan(0, (float) $garlic->calories);
         $this->assertArrayNotHasKey('ready_to_eat', $garlic->getAttributes());
@@ -51,9 +51,9 @@ class ClinicalFoodSeederSafetyTest extends TestCase
 
         $this->seed(FoodItemPricesSeeder::class);
 
-        $this->assertGreaterThan(0, (float) FoodItem::query()->where('name', 'Steamed White Rice')->value('unit_price'));
+        $this->assertGreaterThan(0, (float) FoodItem::query()->where('name', 'Cooked White Rice')->value('unit_price'));
         $this->assertDatabaseMissing('recipes', ['name' => 'Plain White Rice Meal']);
-        $this->assertGreaterThan(0, (float) Recipe::query()->where('name', 'Boiled Chicken Breast')->value('cost'));
+        $this->assertGreaterThan(0, (float) Recipe::query()->where('name', 'Adobong Manok')->value('cost'));
     }
 
     public function test_seeded_recipes_have_explicit_meal_component_and_prepared_portion_contracts(): void
@@ -67,21 +67,21 @@ class ClinicalFoodSeederSafetyTest extends TestCase
         $this->assertNotEmpty($recipes);
         foreach ($recipes as $recipe) {
             $this->assertNotEmpty($recipe->meal_types, $recipe->name.' needs explicit meal types.');
-            $this->assertContains($recipe->component_type, ['main_dish', 'staple', 'complete_meal', 'other']);
+            $this->assertContains($recipe->component_type, ['main_dish', 'staple', 'complete_meal', 'side', 'other']);
             $this->assertGreaterThan(0, (float) $recipe->prepared_portion_amount);
             $this->assertNotSame('', trim((string) $recipe->prepared_portion_unit));
             $this->assertGreaterThan(0, $recipe->servings);
-            $this->assertSame($recipe->category === 'meal' ? 5 : 1, (int) $recipe->servings);
         }
-        $meal = Recipe::where('name', 'Lugaw with Egg (Soft Diet)')->firstOrFail();
+        $this->assertSame(4, Recipe::where('name', 'Adobong Manok')->firstOrFail()->servings);
+        $this->assertSame(6, Recipe::where('name', 'Calderetang Baka')->firstOrFail()->servings);
+        $meal = Recipe::where('name', 'Lugaw na may Itlog')->firstOrFail();
+        $this->assertSame(8, $meal->servings);
         $first = $meal->planSnapshot();
-        $this->assertSame(1500.0, (float) $first['recipe_ingredients'][0]['quantity']);
+        $this->assertSame(185.0, (float) $first['recipe_ingredients'][0]['quantity']);
         $this->seed(RecipeSeeder::class);
         $second = $meal->fresh()->planSnapshot();
         foreach (['recipe_ingredients', 'recipe_original_ingredients'] as $key) {
-            foreach ([$first[$key], $second[$key]] as $rows) {
-                $this->assertSame([1500.0, 250.0], array_column($rows, 'quantity'));
-            }
+            $this->assertSame(array_column($first[$key], 'quantity'), array_column($second[$key], 'quantity'));
             unset($first[$key], $second[$key]);
         }
         $this->assertSame($first, $second);
@@ -94,20 +94,15 @@ class ClinicalFoodSeederSafetyTest extends TestCase
         $this->seed(RecipeSeeder::class);
 
         $sideRiceDishes = [
-            'Boiled Chicken Breast',
-            'Chicken Breast with Pechay',
-            'Steamed Tilapia',
-            'Steamed Milkfish (Bangus)',
-            'Drained Sardines',
-            'Hard-Boiled Egg',
-            'Tokwa with Kangkong',
-            'Plain Ginisang Monggo',
-            'Ampalaya with Tokwa',
-            'Roasted Pork Loin',
+            'Adobong Manok',
+            'Adobong Baboy',
+            'Calderetang Manok',
+            'Calderetang Baka',
+            'Menudo',
+            'Nilagang Itlog',
+            'Ginisang Monggo',
             'Chopsuey',
-            'Mongo Guisado (Mung Bean Stew)',
             'Paksiw na Bangus',
-            'Mackerel Adobo Flakes',
         ];
 
         foreach ($sideRiceDishes as $name) {
@@ -116,22 +111,21 @@ class ClinicalFoodSeederSafetyTest extends TestCase
 
             $this->assertFalse(
                 $recipe->ingredients()->whereHas('foodItem', fn ($query) => $query->whereIn('name', [
-                    'Steamed White Rice',
-                    'Steamed Brown Rice',
+                    'Cooked White Rice',
+                    'Cooked Brown Rice',
                 ]))->exists(),
                 $name.' still embeds side rice.'
             );
         }
 
-        foreach (['Arroz Caldo (Chicken Rice Soup)', 'Champorado (Chocolate Rice Porridge)'] as $name) {
+        foreach (['Arroz Caldo', 'Champorado', 'Bringhe'] as $name) {
             $recipe = Recipe::query()->where('name', $name)->first();
             $this->assertNotNull($recipe, $name.' was not seeded.');
 
             $this->assertTrue(
                 $recipe->ingredients()->whereHas('foodItem', fn ($query) => $query->whereIn('name', [
-                    'Steamed White Rice',
-                    'Glutinous Rice (Cooked)',
-                    'Rice Porridge (Lugaw)',
+                    'White Rice, Uncooked',
+                    'Glutinous Rice, Uncooked',
                 ]))->exists(),
                 $name.' must retain structurally defining rice.'
             );

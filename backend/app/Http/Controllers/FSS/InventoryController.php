@@ -4,6 +4,7 @@ namespace App\Http\Controllers\FSS;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\InventoryResource;
+use App\Models\FoodServiceRecipe;
 use App\Models\FsItem;
 use App\Models\Inventory;
 use Illuminate\Http\JsonResponse;
@@ -50,7 +51,7 @@ class InventoryController extends Controller
                 ],
                 'stats' => Cache::remember('catalog_row_stats', 30, function (): array {
                     $catalogItems = FsItem::query()->where('is_active', true)->count();
-                    $recipes = DB::table('food_service_recipes')->count();
+                    $recipes = FoodServiceRecipe::query()->count();
 
                     return [
                         'total' => $catalogItems + $recipes,
@@ -74,7 +75,7 @@ class InventoryController extends Controller
             $sql = 'SELECT f.uuid AS item_id, f.name, f.category, f.kind AS item_type,
                            f.base_unit, f.purchase_unit, f.purchase_price, f.units_per_purchase,
                            NULL AS recipe_cost, NULL AS recipe_servings
-                    FROM fs_items f WHERE f.is_active = 1';
+                    FROM fs_items f WHERE f.is_active = 1 AND f.deleted_at IS NULL';
             if ($type !== 'all') {
                 $sql .= ' AND f.kind = ?';
                 $bindings[] = $type;
@@ -90,9 +91,9 @@ class InventoryController extends Controller
             $sql = "SELECT r.uuid AS item_id, r.name, r.category, 'recipe' AS item_type,
                            NULL AS base_unit, NULL AS purchase_unit, NULL AS purchase_price, NULL AS units_per_purchase,
                            r.cost AS recipe_cost, r.servings AS recipe_servings
-                    FROM food_service_recipes r";
+                    FROM food_service_recipes r WHERE r.deleted_at IS NULL";
             if ($search !== '') {
-                $sql .= ' WHERE r.name LIKE ?';
+                $sql .= ' AND r.name LIKE ?';
                 $bindings[] = "%{$search}%";
             }
             $parts[] = $sql;

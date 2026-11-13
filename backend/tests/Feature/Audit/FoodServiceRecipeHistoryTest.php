@@ -133,7 +133,7 @@ class FoodServiceRecipeHistoryTest extends TestCase
             ->assertNoContent();
 
         $activity = AuditActivity::query()->where('subject_type', FoodServiceRecipe::class)->sole();
-        $this->assertDatabaseMissing('food_service_recipes', ['id' => $recipe->id]);
+        $this->assertSoftDeleted($recipe);
         $this->assertSame('Retired Recipe', $activity->revision->before['name']);
         $this->assertNull($activity->revision->after);
         $this->actingAs($this->admin)
@@ -143,7 +143,7 @@ class FoodServiceRecipeHistoryTest extends TestCase
             ->assertJsonPath('data.after', null);
     }
 
-    public function test_blocked_delete_leaves_no_audit_event_or_revision(): void
+    public function test_delete_of_a_used_recipe_preserves_the_menu_and_records_its_revision(): void
     {
         $item = $this->item('Rice', 80);
         $recipe = $this->recipeWithIngredient($item, 'Menu Recipe', 1000);
@@ -157,10 +157,14 @@ class FoodServiceRecipeHistoryTest extends TestCase
 
         $this->actingAs($this->rnd)
             ->deleteJson("/api/fss/food-service-recipes/{$recipe->uuid}")
-            ->assertConflict();
+            ->assertNoContent();
 
-        $this->assertDatabaseHas('food_service_recipes', ['id' => $recipe->id]);
-        $this->assertSame(0, AuditActivity::query()->where('subject_type', FoodServiceRecipe::class)->count());
+        $this->assertSoftDeleted($recipe);
+        $this->assertSame($recipe->id, $cycle->fresh()->days->sole()->recipe->id);
+        $activity = AuditActivity::query()->where('subject_type', FoodServiceRecipe::class)->sole();
+        $this->assertSame('deleted', $activity->event);
+        $this->assertSame('Menu Recipe', $activity->revision->before['name']);
+        $this->assertNull($activity->revision->after);
     }
 
     public function test_food_categories_require_a_canonical_choice_and_partial_updates_preserve_it(): void

@@ -18,6 +18,17 @@ class RecipeControllerTest extends TestCase
 
     private User $rnd;
 
+    public function test_category_changes_update_component_classification_and_other_edits_preserve_it(): void
+    {
+        $recipe = Recipe::factory()->create(['rnd_user_id' => $this->rnd->id, 'category' => 'meal', 'component_type' => 'side']);
+        $this->actingAs($this->rnd)->putJson("/api/rnd/recipes/{$recipe->uuid}", ['name' => 'Edited side', 'category' => 'meal'])->assertOk();
+        $this->assertSame('side', $recipe->fresh()->component_type);
+        foreach (['carb' => 'staple', 'snack' => 'other', 'meal' => 'main_dish'] as $category => $component) {
+            $this->actingAs($this->rnd)->putJson("/api/rnd/recipes/{$recipe->uuid}", ['category' => $category])->assertOk();
+            $this->assertSame($component, $recipe->fresh()->component_type);
+        }
+    }
+
     public function test_menu_item_can_save_label_nutrients_with_a_measured_reusable_ingredient(): void
     {
         $response = $this->actingAs($this->rnd)->postJson('/api/rnd/recipes', [

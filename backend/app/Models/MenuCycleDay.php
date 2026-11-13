@@ -70,12 +70,12 @@ class MenuCycleDay extends Model
     /** Food-service recipe (NOT the NCP recipe). */
     public function recipe(): BelongsTo
     {
-        return $this->belongsTo(FoodServiceRecipe::class, 'recipe_id');
+        return $this->belongsTo(FoodServiceRecipe::class, 'recipe_id')->withTrashed();
     }
 
     /** Single catalog item (alternative to a recipe). */
     public function fsItem(): BelongsTo
     {
-        return $this->belongsTo(FsItem::class, 'fs_item_id');
+        return $this->belongsTo(FsItem::class, 'fs_item_id')->withTrashed();
     }
 }

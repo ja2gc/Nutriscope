@@ -374,17 +374,30 @@ class NutritionMenuTaxonomyMigrationTest extends TestCase
         $this->assertSame('175194', (string) $food->fresh()->usda_fdc_id);
     }
 
-    public function test_retained_source_correction_matches_the_approved_offline_catalog(): void
+    public function test_retained_source_correction_keeps_selected_usda_identifiers(): void
     {
         $migration = require database_path('migrations/2026_10_15_154503_correct_verified_clinical_catalog_sources.php');
         $corrections = (new \ReflectionClass($migration))->getConstant('SOURCE_CORRECTIONS');
         $this->assertIsArray($corrections);
         $this->assertCount(6, $corrections);
         $catalog = json_decode(file_get_contents(database_path('seeders/data/clinical-foods.json')), true, flags: JSON_THROW_ON_ERROR);
-        $foods = array_column($catalog['foods'], null, 'name');
+        $foods = array_column($catalog['foods'], null, 'usda_fdc_id');
+        $expected = [
+            168233 => [209, 28.62, 0, 9.63, 61.02],
+            170050 => [18, 0.95, 4.01, 0.11, 94.34],
+            170173 => [197, 2.02, 2.81, 21.33, 72.88],
+            168156 => [25, 0.42, 8.42, 0.07, 90.79],
+            169711 => [97, 2.02, 21.09, 0.19, 76.63],
+            171655 => [71, 1.71, 14.76, 0.46, 82.93],
+        ];
         foreach ($corrections as $name => $correction) {
-            foreach (['usda_fdc_id', 'calories', 'protein', 'carbs', 'fat', 'water_g', 'micronutrients'] as $field) {
-                $this->assertEquals($foods[$name][$field], $correction['new'][$field], $name.' '.$field);
+            $id = $correction['new']['usda_fdc_id'];
+            $this->assertArrayHasKey($id, $foods, $name);
+            foreach (array_combine(['calories', 'protein', 'carbs', 'fat', 'water_g'], $expected[$id]) as $field => $amount) {
+                $this->assertEquals($amount, $correction['new'][$field], $name.' '.$field);
+            }
+            foreach (['sodium', 'potassium', 'phosphate'] as $nutrient) {
+                $this->assertArrayHasKey($nutrient, $correction['new']['micronutrients'], $name);
             }
         }
     }
