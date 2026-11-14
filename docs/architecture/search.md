@@ -1,6 +1,6 @@
 # Search Architecture
 
-This document describes NutriScope search behavior as of August 8, 2026. The design intentionally uses the existing database and small shared helpers. It does not require Laravel Scout, Elasticsearch, Meilisearch, or a new cache service.
+NutriScope search uses the existing database and small shared helpers. It does not require Laravel Scout, Elasticsearch, Meilisearch, or a new cache service.
 
 ## User-facing rules
 

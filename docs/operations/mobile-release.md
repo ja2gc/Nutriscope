@@ -1,7 +1,5 @@
 # EAS Cloud and Android app releases
 
-Document version: 1.0 | Issued: 5 November 2026
-
 Purpose: transfer build ownership and publish updates to the existing sideloaded Android app. Commands below are operator instructions for build and release work.
 
 ## Ownership and prerequisites

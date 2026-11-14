@@ -1,7 +1,5 @@
 # Backup and recovery maintenance
 
-Document version: 1.0 | Issued: 5 November 2026
-
 Purpose: distinguish stored backup objects from evidence that the system can recover.
 
 ## Current owners

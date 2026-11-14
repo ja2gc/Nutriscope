@@ -1,7 +1,5 @@
 # Acceptance and maintenance
 
-Document version: 1.0 | Issued: 5 November 2026
-
 Use this page after [VPS setup](vps-setup.md). Keep the same deploy user, `~/Nutriscope` directory and Compose project on every visit. Do not paste application logs, database contents, environment values or private paths into tickets.
 
 ## Open an operator session

@@ -105,7 +105,7 @@ REE is predicted resting expenditure. Estimated maintenance is not a guarantee o
 
 The existing multipliers **1.2 / 1.375 / 1.55 / 1.725 / 1.9** may be retained as **local pragmatic adult activity estimates**, requiring RND confirmation. The cited Roza–Shizgal paper reevaluates Harris–Benedict; this review did not establish that it validates those exact multipliers. Do not attribute them to Mifflin, label them measured PAL, or apply them as a validated pediatric/hospital-stress protocol.
 
-Implementation review (2026-10-30, `e7dea1a9` plus corrections): the five labels are **Sedentary / Lightly active / Moderately active / Very active / Extra active**, consistently presented as **Activity estimate**. Sedentary does not mean bed-bound, ICU or inpatient; functional status is recorded separately. Source checks: FAO/WHO/UNU *Human energy requirements*, adult chapter (PAL reflects overall work and leisure), and NIH NIDDK *Body Weight Planner* (typical PAL 1.4–2.5). Neither establishes the exact five local factors above. Retain existing numeric behavior and historical snapshots; do not substitute either organization's PAL ranges into this engine without a separate clinical calculation change.
+The five labels are **Sedentary / Lightly active / Moderately active / Very active / Extra active**, consistently presented as **Activity estimate**. Sedentary does not mean bed-bound, ICU or inpatient; functional status is recorded separately. References: FAO/WHO/UNU *Human energy requirements*, adult chapter (PAL reflects overall work and leisure), and NIH NIDDK *Body Weight Planner* (typical PAL 1.4–2.5). Neither establishes the exact five local factors above. Retain existing numeric behavior and historical snapshots; do not substitute either organization's PAL ranges into this engine without a separate clinical calculation change.
 
 The adult workflow boundary remains 18 years, but the original Mifflin cohort was 19–78. At age 18 or outside the derivation population, disclose extrapolation and require clinical assessment. PDRI's own 16–18 reference band still includes age 18.
 
@@ -362,26 +362,24 @@ All examples below are fictional arithmetic checks, not recommended patient pres
 
 If a manual final prescription differs, identify the override explicitly: e.g. **calculated 1,581; prescribed 1,650 kcal/day**. Do not generate an override from a refeeding note or use a starting-intake formula as the final-target formula.
 
-## 14. Source currency, legacy boundary and implementation verification
-
-Live QA identified old seeded text still containing obsolete numeric targets and feeding ramps after prescription conversion. The follow-up forward-only repair matches the exact six pre-review PatientSeeder template fingerprints before replacing a field with reviewed guidance. Modified/manual text and barriers are preserved; prescribed amounts and dates do not change. Verified encrypted originals precede mutation. Active linked reports refresh through normal preparation; archived report bytes remain frozen. This repair is separate from the routine suggestion/copy UI, which never writes to a field.
+## 14. Source currency and report behavior
 
 Clinical report formatting uses the existing Monitoring Plan micronutrient-unit definitions when a saved unit is absent or blank. Explicitly entered units and prescribed values are preserved. The same shared prescription partial serves the Intervention Plan and NCP Summary; normal preview preparation refreshes active report bytes.
 
-Version 2 is implemented in the shared PHP calculation path; local and deployed verification are separate. See the [clinical maintenance map](../developers/ncp/README.md) for current owners and regression tests. The retired implementation plan remains in Git history.
+Prescription calculations use the shared PHP calculation path. See the [clinical maintenance map](../developers/ncp/README.md) for source owners and regression tests.
 
 - Keep original Mifflin attribution; correct its input use. Age alone does not make a historical equation obsolete.
 - PDRI2015 summary revised2018 remains the verified published local reference used here. A workshop or current PDF copyright is not proof of new numeric tables.
 - Use the actual **ADA2026**, **AHA2026 dietary guidance**, **ESPEN surgery2025**, and **WHO2023 wasting** documents for their populations. ESPEN liver2020 is a practical presentation of the2019 scientific guideline, not evidence all2019 recommendations became invalid.
 - KDOQI2020 and KDIGO2024 have different scopes/recommendations; retain both transparently.
 - Existing Hamwi bias claims, the30-kg floor rationale, exact activity-factor attribution, pediatric full-TEE chain and some old diagnostic thresholds were not established by the reviewed sources. Do not reproduce them as verified.
-- Preserve version-1 numerical fixtures as legacy behavior. Add independently worked version-2 cases; passing PHP/TypeScript mirror tests proves agreement, not medical validity.
+- Preserve legacy numerical fixtures. Add independently worked cases for current calculations; passing PHP/TypeScript mirror tests proves agreement, not medical validity.
 - Verify precise age/date, both sexes, weight basis, both diabetes types at opposite weight extremes, grouped CKD with actual diagnosis, dialysis fluid orders, both cirrhosis stages with/without muscle loss, coexisting conditions, maternal cases, notes/foods and manual overrides.
 - Verify numerical invariance: the same confirmed inputs, coefficients, maternal context, fixed energy adjustment and fluid order must produce identical energy/protein/carbohydrate/fat/fluid values with or without refeeding or gradual-change notes. Test malnutrition context explicitly; no low starting-dose value may replace the final endpoint.
 - The general pediatric EER path is automated; disease-specific treatment and specialist protocols remain clinician-entered. Passing arithmetic tests does not certify individual clinical suitability.
 - Historical prescriptions and reports remain immutable. Current application behavior, release status and deployed clinical-rule rows require separate verification.
 
-### Sources used for the revised contract
+### Clinical sources
 
 [mifflin]: https://pubmed.ncbi.nlm.nih.gov/2305711/?format=pubmed
 [pdri]: https://www.fnri.dost.gov.ph/images/images/news/PDRI-2018.pdf
@@ -399,16 +397,16 @@ Version 2 is implemented in the shared PHP calculation path; local and deployed 
 [kidney-foods]: https://www.kidney.org/news-stories/6-kidney-disease-diet-myths
 [liver-foods]: https://www.niddk.nih.gov/health-information/liver-disease/cirrhosis/eating-diet-nutrition
 
-Source access: full official PDFs were checked for PDRI, KDIGO, ESPEN liver/hospital/pediatric/surgery; WHS publisher text and KDOQI publisher-indexed recommendation text were checked. Some direct publisher, FDA and legacy URLs were blocked/unavailable. Such access limits do not prove a source false and do not support unverified claims. The exact applicable recommendations, rather than generic source homepages, govern the statements above.
+The exact applicable clinical recommendations govern the statements above; generic source homepages and source-access failures do not establish clinical claims.
 
-Follow-up access on 25 October 2026: KDIGO 2024, ESPEN hospital/liver/surgery PDFs, NASEM 2023 Table 5-15, the Academy's official 2020 CKD macronutrient recommendations and official NNC PDRI-based tables were accessible. The KDOQI journal URL returned 403; [the original publication record](https://pubmed.ncbi.nlm.nih.gov/32829751/) identifies DOI `10.1053/j.ajkd.2020.05.006`. The source link above now points to the Academy's accessible recommendation text. FNRI's original summary PDF returned 503. [NNC's official tables, p. 5](https://www.nnc.gov.ph/phocadownloadpap/FINAL_2017%20NM%20Talking%20Points.pdf) independently confirm the macro ranges and maternal energy additions; the maternal +27 g protein addition was not independently reverified in this follow-up. [NASEM 2023 Table 5-15, pp. 99–100](https://www.nationalacademies.org/read/26818/chapter/7) matches the implemented pediatric EER coefficients and growth additions. Prior source-access claims above describe the earlier review, not successful retrieval of every source on this date.
+The [KDOQI publication record](https://pubmed.ncbi.nlm.nih.gov/32829751/) identifies DOI `10.1053/j.ajkd.2020.05.006`; the Academy recommendation text supplies the linked clinical guidance. [NNC's official tables, p. 5](https://www.nnc.gov.ph/phocadownloadpap/FINAL_2017%20NM%20Talking%20Points.pdf) support the macro ranges and maternal energy additions. Independent source confirmation for the maternal +27 g protein addition remains unresolved. [NASEM 2023 Table 5-15, pp. 99–100](https://www.nationalacademies.org/read/26818/chapter/7) provides the implemented pediatric EER coefficients and growth additions.
 
 ---
 
 ## 15. Meal-Plan Composition Research and Runtime Boundary
 
-This section records the source review performed for the meal-plan generator and seeded clinical
-templates on 2026-09-28. It controls composition and candidate selection only. The energy,
+This section describes composition and candidate selection for the meal-plan generator and seeded clinical
+templates. The energy,
 protein, carbohydrate, fat, fluid, and micronutrient prescription remains controlled by the
 goal-specific sections above and the RND-confirmed patient prescription.
 
@@ -418,11 +416,11 @@ Lists and Nutritional Guidelines for Filipino meal planning → Pinggang Pinoy a
 composition cross-check only. Pinggang Pinoy is not the nutrient-calculation engine and must not
 override an individualized prescription.
 
-### 15.1 Source record
+### 15.1 Source references
 
-| Source reviewed | Exact location reviewed | Finding used | Runtime/template decision |
+| Source | Location | Clinical basis | Runtime/template behavior |
 |---|---|---|---|
-| Academy of Nutrition and Dietetics, *Nutrition Care Process Model* and *What Is Medical Nutrition Therapy?* | NCP Model sections on the individual/RDN relationship and evidence-based practice; MNT sections “What Is Medical Nutrition Therapy?” and “What to Expect at Your Appointment,” reviewed March 3, 2026 | Nutrition intervention follows assessment and diagnosis; MNT is a personalized, culturally appropriate plan based on health, history, nutrition status, activity, lifestyle, and goals. | NutriScope never treats a generic plate as an individual prescription. The saved RND prescription, allergies, intervention goal/stage, maternal status, and current assessment remain authoritative; templates and auto-generation are reviewable starting points. |
+| Academy of Nutrition and Dietetics, *Nutrition Care Process Model* and *What Is Medical Nutrition Therapy?* | NCP Model sections on the individual/RDN relationship and evidence-based practice; MNT sections “What Is Medical Nutrition Therapy?” and “What to Expect at Your Appointment” | Nutrition intervention follows assessment and diagnosis; MNT is a personalized, culturally appropriate plan based on health, history, nutrition status, activity, lifestyle, and goals. | NutriScope never treats a generic plate as an individual prescription. The saved RND prescription, allergies, intervention goal/stage, maternal status, and current assessment remain authoritative; templates and auto-generation are reviewable starting points. |
 | Academy of Nutrition and Dietetics, *Nutrition and Physical Activity Interventions for Adults in the General Population* | Current Academy position page, intervention-plan and individualized counseling/coaching discussion | General-population guidance supports evidence-based nutrition interventions while distinguishing population programming from individualized care. | Academy material is used for the care-process/personalization boundary, not for Philippines-specific numeric constants or a fixed U.S. meal pattern. |
 | DOST-FNRI, *Philippine Dietary Reference Intakes 2015: Summary Tables*, revised September 2018 | Summary Tables pp. 1–8: energy, AMDR, protein, vitamins, minerals, electrolytes, water, fiber, free sugars, and maternal additions by age/sex/life stage | PDRI is the Philippine quantitative reference for healthy population groups. For adults, the summary gives age/sex reference energy and AMDR of 10–15% protein, 15–30% fat, and 55–75% carbohydrate; requirements differ by life stage rather than forming one universal “normal adult” value. | PDRI supplies baseline nutrient boundaries and maternal modifiers already documented in §§2 and 4. The generator does not hard-code one general calorie target: it scores foods against the saved patient prescription, which accounts for the patient and selected goal. |
 | National Nutrition Council Governing Board Resolution No. 6, Series of 2012, and the *2012 Nutritional Guidelines for Filipinos* | Resolution adopting the guideline; ten public-health messages summarized by NNC | General guidance calls for food variety, fish/lean meat/poultry/egg/beans/nuts, more vegetables and fruits, calcium-rich foods, and limits on salty, fried, fatty, and sugar-rich foods. | The `custom` base varies culturally familiar foods and favors lean protein, vegetables, fruit, and less-refined carbohydrate choices. It does not turn public-health advice into unsupported disease-specific limits. |

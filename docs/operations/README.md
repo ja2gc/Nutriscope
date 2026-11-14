@@ -1,7 +1,5 @@
 # NutriScope installation and turnover manual
 
-Document version: 1.0 | Issued: 5 November 2026
-
 Prepared by: EMPhive — Louis Figo, Jhobe Fajardo, Maria Beatriz Dela Cruz and Jared Abriol. The receiving institution assigns the system owner, technical administrator, backup administrator and support contact in its private handoff register.
 
 Use this manual to collect account information, prepare a server, enter configuration and operate NutriScope. Choose **new installation** for an empty database, or **existing-system transfer** to retain records and files. A transfer preserves encryption keys, signing identity and data; it is not an empty installation.

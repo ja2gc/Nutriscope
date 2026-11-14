@@ -1,7 +1,5 @@
 # Accounts and information collection
 
-Document version: 1.0 | Issued: 5 November 2026
-
 Start from [the installation manual](README.md). Complete this collection before entering production configuration. Use institution-controlled email, billing, MFA and recovery access. Save values in a password-manager collection called **NutriScope** with the labels below. Labels are references, not secret values to commit. For a retained resource, obtain access and existing values instead of creating a replacement unnecessarily.
 
 ## 1. GitHub repository

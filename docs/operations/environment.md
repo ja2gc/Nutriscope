@@ -1,7 +1,5 @@
 # Environment settings
 
-Document version: 1.0 | Issued: 5 November 2026
-
 Purpose: identify where settings belong. This is a variable-name map; supply secret values yourself through a password manager or protected server files. See [integrations](integrations.md) for account/key setup.
 
 ## Precedence and files

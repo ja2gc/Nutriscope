@@ -1,7 +1,5 @@
 # Platform requirements
 
-Document version: 1.0 | Issued: 5 November 2026
-
 Preserve the service contract below when choosing a plan or changing hosting providers. **Minimum VPS RAM: 2 GB.** The project's reference VPS was **DigitalOcean Premium Intel, 2 GB RAM, 70 GB NVMe SSD**. Clients may choose any plan with at least 2 GB RAM or use another VPS provider. The reference disk size and branded plan are examples, not required purchases.
 
 | Role | Requirement / source |

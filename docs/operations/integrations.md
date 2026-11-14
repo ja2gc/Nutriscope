@@ -1,7 +1,5 @@
 # External integrations
 
-Document version: 1.0 | Issued: 5 November 2026
-
 Set up institution-owned accounts and collect their configuration. Dashboard labels and available plans can change; use the linked provider instructions alongside the steps below. The institution chooses its plans. Store keys outside Git/docs/chat.
 
 ## Collect provider values

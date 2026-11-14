@@ -1,7 +1,5 @@
 # Role user manuals and daily routines
 
-Document version: 1.0 | Issued: 5 November 2026
-
 The repository-root [Storyboarding directory](../Storyboarding) contains the maintained **user manuals**, organized by role:
 
 - [RND Website User Manual](<../Storyboarding/RND User Manual.md>): clinical data setup, ADIME/visits, intervention prerequisites, food-service Inventory/Menu Items, templates, weekly menus, purchasing, receiving, budget, reports and account tools.

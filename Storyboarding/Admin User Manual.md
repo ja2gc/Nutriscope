@@ -1,7 +1,5 @@
 # Admin Website User Manual
 
-Document version: 1.0 | Issued: 5 November 2026
-
 Prepared by: EMPhive — Louis Figo, Jhobe Fajardo, Maria Beatriz Dela Cruz and Jared Abriol.
 
 Use this manual for routine work and staff training. Start with the prerequisites, follow the visible navigation and numbered steps, and confirm the saved result before continuing. Actions depend on account role, ownership and record state.

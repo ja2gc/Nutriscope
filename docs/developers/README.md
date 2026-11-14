@@ -1,7 +1,5 @@
 # Developer documentation
 
-Document version: 1.0 | Issued: 5 November 2026
-
 Choose the business area first. Each area links to its backend owners, web/mobile consumers, tests and data meaning; platform guides hold cross-cutting implementation details.
 
 | Group | Read for |

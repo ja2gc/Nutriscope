@@ -1,8 +1,8 @@
 # Person-name compatibility architecture
 
-## Status and scope
+## Scope
 
-The July 15, 2026 additive migration separates names for accounts and patients while preserving the deployed `name` columns. It does not migrate food, recipe, ingredient, supplier, menu, shopping-list, report-title, physician, or signatory names.
+Accounts and patients store separate name fields while preserving the `name` columns for compatibility. This contract does not apply to food, recipe, ingredient, supplier, menu, shopping-list, report-title, physician, or signatory names.
 
 The compatibility period has four goals:
 

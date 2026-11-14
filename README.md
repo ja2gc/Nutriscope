@@ -1,7 +1,5 @@
 # NutriScope
 
-Document version: 1.0 | Issued: 5 November 2026
-
 NutriScope supports clinical nutrition care, meal planning and food-service operations. Laravel provides the shared API; Next.js provides the web console; Expo provides the food-service mobile app.
 
 - **Maintaining or changing the system:** [Developer map](DEVELOPERS.md).

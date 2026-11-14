@@ -1,7 +1,5 @@
 # Documentation index
 
-Document version: 1.0 | Issued: 5 November 2026
-
 Start with [DEVELOPERS.md](../DEVELOPERS.md) for task-to-source routing. The guides below describe current responsibilities; source and authorized runtime evidence outrank older narrative.
 
 | Need | Documentation |

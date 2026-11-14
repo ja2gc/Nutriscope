@@ -1,7 +1,5 @@
 # Ownership transfer and VPS cutover
 
-Document version: 1.0 | Issued: 5 November 2026
-
 Purpose: transfer a maintainable existing system without losing data, keys or installed-client access. This is a checklist, not authorization or evidence of production access.
 
 ## Start here: transfer ownership or rebuild resources?

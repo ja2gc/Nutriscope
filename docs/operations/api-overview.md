@@ -1,7 +1,5 @@
 # API overview
 
-Document version: 1.0 | Issued: 5 November 2026
-
 Laravel owns authentication, authorization, validation, business rules and persistence. Next.js proxies browser API calls. The Expo FSS app calls Laravel through the mobile proxy. This overview explains those contracts; exact endpoint fields and response variants are defined by [routes](../../backend/routes/api.php), [FormRequests](../../backend/app/Http/Requests), [Resources](../../backend/app/Http/Resources) and their controllers. There is no generated OpenAPI/Swagger specification in the repository.
 
 ## URLs and routing

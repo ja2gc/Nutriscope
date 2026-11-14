@@ -1,7 +1,5 @@
 # Set up a replacement VPS
 
-Document version: 1.0 | Issued: 5 November 2026
-
 Use these commands on a fresh Ubuntu 24.04 LTS **amd64/x86-64** VPS with at least **2 GB RAM**. The project reference was DigitalOcean Premium Intel, 2 GB RAM, 70 GB NVMe SSD. The client may select another plan or VPS provider; use the [provider-change checklist](platform-requirements.md#changing-the-vps-provider-or-plan). Commands change the target host unless marked read-only. Complete [account/value collection](accounts.md) first.
 
 For an existing system, follow [turnover/cutover](turnover.md) before the data/release steps. Do not treat a move as a fresh empty installation.

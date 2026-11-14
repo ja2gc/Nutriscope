@@ -146,7 +146,7 @@ Prepare the following through the normal application workflow or an already auth
 | Accomplishment period | A current/past reporting period that can genuinely be fully logged; have earlier duties/off-duty entries already recorded and explain this. Leave an eligible date missing for the progress/correction demonstration |
 | Evidence and reports | Fictional receipt and proof, matching actual quantities/prices and a clearly identified optional cash-rounding example. Let normal completion/approval prepare derived outputs |
 
-Rehearse every chosen scene against the actual installation before the recording session. Record the website/build, source revision if known, recording date and scene outcomes in the session notes below. If the installed UI differs, reconcile it before using source-only wording in narration.
+Rehearse every chosen scene against the actual installation before recording. Narration and demonstrations must match the installed controls and saved results.
 
 ## Detailed scene reference
 
