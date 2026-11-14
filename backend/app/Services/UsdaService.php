@@ -199,8 +199,8 @@ class UsdaService
             $basisUnit = match ($data['dataType'] ?? null) {
                 'SR Legacy', 'Foundation', 'Survey (FNDDS)' => 'g',
                 'Branded' => match (strtolower(trim($data['servingSizeUnit'] ?? ''))) {
-                    'g' => 'g',
-                    'ml' => 'mL',
+                    'g', 'grm' => 'g',
+                    'ml', 'mlt' => 'mL',
                     default => null,
                 },
                 default => null,

@@ -9,6 +9,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use PHPUnit\Framework\Attributes\TestWith;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -354,6 +355,22 @@ class UsdaServiceTest extends TestCase
         $this->assertEquals(100, $food->serving_size);
         $this->assertSame('g', $food->serving_unit);
         $this->assertEquals(110, $food->calories);
+    }
+
+    #[TestWith(['GRM', 'g'])]
+    #[TestWith(['MLT', 'mL'])]
+    public function test_branded_coded_metric_units_preserve_native_nutrients_and_100_unit_basis(string $providerUnit, string $nativeUnit): void
+    {
+        $data = array_replace($this->detailResponse, ['dataType' => 'Branded', 'servingSize' => 15, 'servingSizeUnit' => $providerUnit]);
+        Http::fake([self::DETAIL_URL => Http::response($data, 200)]);
+
+        $result = $this->service->prepareImport(12345);
+
+        $this->assertSame($nativeUnit, $result['serving_unit']);
+        $this->assertSame(100, $result['serving_size']);
+        $this->assertSame(110.0, $result['calories']);
+        $this->assertSame(23.1, $result['protein']);
+        $this->assertSame(0, FoodItem::count());
     }
 
     public function test_branded_import_rejects_unverified_basis_without_saving(): void
