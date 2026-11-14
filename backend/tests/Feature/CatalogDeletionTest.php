@@ -21,12 +21,83 @@ use App\Models\User;
 use App\Services\MenuCycleCostService;
 use Database\Seeders\FoodServiceRecipeSeeder;
 use Database\Seeders\FsCatalogSeeder;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class CatalogDeletionTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_recipe_history_round_trips_through_full_row_dump_inserts(): void
+    {
+        $rnd = User::factory()->rnd()->create();
+        $retired = FoodServiceRecipe::create(['rnd_user_id' => $rnd->id, 'name' => 'Recorded dish', 'servings' => 1]);
+        $retired->delete();
+        $active = FoodServiceRecipe::create(['rnd_user_id' => $rnd->id, 'name' => 'Recorded dish', 'servings' => 1]);
+        DB::statement('CREATE TEMPORARY TABLE food_service_recipe_restore_probe LIKE food_service_recipes');
+        try {
+            $rows = DB::table('food_service_recipes')->orderBy('id')->get()->map(fn ($row): array => (array) $row)->all();
+            DB::table('food_service_recipe_restore_probe')->insert($rows);
+            $this->assertSame(2, DB::table('food_service_recipe_restore_probe')->count());
+            $this->assertSame($active->id, DB::table('food_service_recipe_restore_probe')->whereNull('deleted_at')->value('id'));
+            $duplicate = $rows[1];
+            unset($duplicate['id']);
+            $duplicate['uuid'] = fake()->uuid();
+            try {
+                DB::table('food_service_recipe_restore_probe')->insert($duplicate);
+                $this->fail('The restored table must still reject duplicate active recipe names.');
+            } catch (QueryException $exception) {
+                $this->assertSame(1062, $exception->errorInfo[1]);
+            }
+        } finally {
+            DB::statement('DROP TEMPORARY TABLE food_service_recipe_restore_probe');
+        }
+    }
+
+    public function test_expression_index_upgrade_preserves_existing_active_and_deleted_recipes(): void
+    {
+        $database = 'food_library_catalog_contract_'.Str::lower(Str::random(10));
+        $original = DB::getDefaultConnection();
+        $base = config('database.connections.mysql');
+        config([
+            'database.connections.catalog_contract_admin' => [...$base, 'url' => null, 'database' => 'information_schema'],
+            'database.connections.catalog_contract' => [...$base, 'url' => null, 'database' => $database],
+        ]);
+        try {
+            DB::connection('catalog_contract_admin')->statement("CREATE DATABASE `{$database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+            DB::setDefaultConnection('catalog_contract');
+            DB::statement(<<<'SQL'
+                CREATE TABLE food_service_recipes (
+                    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                    name VARCHAR(255) NOT NULL,
+                    deleted_at DATETIME NULL,
+                    active_name VARCHAR(255) GENERATED ALWAYS AS (CASE WHEN deleted_at IS NULL THEN name ELSE NULL END) VIRTUAL,
+                    UNIQUE INDEX food_service_recipes_active_name_unique (active_name)
+                )
+                SQL);
+            DB::table('food_service_recipes')->insert([
+                ['name' => 'Recorded dish', 'deleted_at' => null],
+                ['name' => 'Recorded dish', 'deleted_at' => '2026-11-01 08:00:00'],
+                ['name' => 'Recorded dish', 'deleted_at' => '2026-11-02 08:00:00'],
+            ]);
+            $before = DB::table('food_service_recipes')->orderBy('id')->get(['id', 'name', 'deleted_at'])->toArray();
+            $migration = require database_path('migrations/2026_11_14_091153_replace_recipe_generated_name_with_unique_expression_index.php');
+            $migration->up();
+            $this->assertEquals($before, DB::table('food_service_recipes')->orderBy('id')->get()->toArray());
+            $migration->down();
+            $this->assertEquals($before, DB::table('food_service_recipes')->orderBy('id')->get(['id', 'name', 'deleted_at'])->toArray());
+            $migration->up();
+            $this->assertEquals($before, DB::table('food_service_recipes')->orderBy('id')->get()->toArray());
+        } finally {
+            DB::setDefaultConnection($original);
+            DB::purge('catalog_contract');
+            DB::connection('catalog_contract_admin')->statement("DROP DATABASE IF EXISTS `{$database}`");
+            DB::purge('catalog_contract_admin');
+        }
+    }
 
     public function test_clinical_recipe_deletion_prunes_template_lines_and_preserves_patient_data(): void
     {
