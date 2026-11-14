@@ -5,7 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, expect, test, vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import EditFoodPage from "./page";
-import { updateFoodItem } from "@/services/foodLibraryService";
+import { fetchFoodItemById, updateFoodItem } from "@/services/foodLibraryService";
 import { RecipeCorrectionsRequiredError } from "@/services/fsCatalogService";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
@@ -31,6 +31,20 @@ async function renderEditor() {
   await act(async () => root.render(<Suspense fallback={null}><EditFoodPage params={params} /></Suspense>));
   return userEvent.setup();
 }
+
+test("Other category stays selected and is preserved on save", async () => {
+  vi.mocked(fetchFoodItemById).mockResolvedValueOnce({
+    id: "food-1", name: "Water", category: "other", usda_fdc_id: null,
+    serving_size: "100", serving_unit: "mL", calories: "0", protein: "0", carbs: "0", fat: "0", water_g: 100,
+    allergens: [], micronutrients: {}, created_at: "", updated_at: "",
+  });
+  await renderEditor();
+  const category = container.querySelector('[aria-label="Category"]') as HTMLSelectElement;
+  expect(category.value).toBe("other");
+  expect(category.selectedOptions[0].textContent).toBe("Other");
+  await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+  expect(updateFoodItem).toHaveBeenCalledWith("food-1", expect.objectContaining({ category: "other", serving_unit: "mL", serving_size: 100 }));
+});
 
 test("baseline unit change converts size and preserves nutrient values", async () => {
   const user = await renderEditor();

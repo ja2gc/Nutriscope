@@ -8,10 +8,10 @@
       "portion": [1,"serving"],
       "source": "https://panlasangpinoy.com/chicken-caldereta/",
       "ingredients": [
-        ["Chicken Breast, Raw",907.18474,"g"],
+        ["Chicken Breast, Raw",907,"g"],
         ["Carrot, Raw",122,"g"],
         ["Potato, Raw",426,"g"],
-        ["Tomato Sauce",226.796185,"g"],
+        ["Tomato Sauce",227,"g"],
         ["Red Bell Pepper, Raw",119,"g"],
         ["Green Bell Pepper, Raw",119,"g"],
         ["Palm Liver Spread",56,"g"],
@@ -32,10 +32,10 @@
       "portion": [1,"serving"],
       "source": "https://panlasangpinoy.com/beef-kaldereta/",
       "ingredients": [
-        ["Beef Chuck, Lean, Raw",907.18474,"g"],
+        ["Beef Chuck, Lean, Raw",907,"g"],
         ["Garlic (Raw)",9,"g"],
         ["Onion (Raw)",110,"g"],
-        ["Soy Sauce",63.75,"g"],
+        ["Soy Sauce",64,"g"],
         ["Water",474,"mL"],
         ["Tomato Sauce",245,"g"],
         ["Palm Liver Spread",112,"g"],
@@ -43,7 +43,7 @@
         ["Green Bell Pepper, Raw",119,"g"],
         ["Potato, Raw",300,"g"],
         ["Carrot, Raw",244,"g"],
-        ["Ground Red Pepper",1.8,"g"],
+        ["Ground Red Pepper",2,"g"],
         ["Canola Oil",54.5,"g"]
       ],
       "notes": "Braise beef until tender before adding vegetables and thickening with liver spread. Adaptations: trimmed lean chuck; water replaces broth; two 56 g Palm label servings replace the unweighed half-cup of spread. Olives and extra salt omitted. Counted produce uses the documented USDA reference size. Quantities are ingredient inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed; record measured additions when used.",
@@ -57,16 +57,16 @@
       "portion": [1,"serving"],
       "source": "https://panlasangpinoy.com/pork-menudo-recipe/",
       "ingredients": [
-        ["Pork Shoulder, Lean, Raw",907.18474,"g"],
-        ["Pork Liver, Raw",113.398093,"g"],
+        ["Pork Shoulder, Lean, Raw",907,"g"],
+        ["Pork Liver, Raw",113.5,"g"],
         ["Potato, Raw",150,"g"],
         ["Carrot, Raw",61,"g"],
         ["Soy Sauce",127.5,"g"],
         ["Lemon Juice",24,"g"],
         ["Onion (Raw)",110,"g"],
         ["Garlic (Raw)",9,"g"],
-        ["White Sugar",4.2,"g"],
-        ["Tomato Sauce",183.75,"g"],
+        ["White Sugar",4,"g"],
+        ["Tomato Sauce",184,"g"],
         ["Water",237,"mL"],
         ["Canola Oil",28,"g"]
       ],
@@ -84,8 +84,8 @@
         ["Canola Oil",4.5,"g"],
         ["Garlic (Raw)",6,"g"],
         ["Onion (Raw)",220,"g"],
-        ["Chicken Breast, Raw",453.59237,"g"],
-        ["Reduced-sodium Soy Sauce",28.4,"g"],
+        ["Chicken Breast, Raw",453.5,"g"],
+        ["Reduced-sodium Soy Sauce",28.5,"g"],
         ["Vinegar",59.5,"g"]
       ],
       "notes": "Saute chicken, onion and garlic, add soy sauce and vinegar, then simmer until cooked. Broil the chicken and reduce the sauce separately. Adaptations: one measured teaspoon of canola oil replaces olive oil; paprika, the source pepper amount and optional garnish are omitted. Quantities are measured inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed.",
@@ -99,11 +99,11 @@
       "portion": [1,"serving"],
       "source": "https://panlasangpinoy.com/filipino-food-pork-adobo-recipe/",
       "ingredients": [
-        ["Pork Belly, Raw",907.18474,"g"],
-        ["Garlic (Raw)",17.000057,"g"],
-        ["Vinegar",59.6,"g"],
+        ["Pork Belly, Raw",907,"g"],
+        ["Garlic (Raw)",17,"g"],
+        ["Vinegar",59.5,"g"],
         ["Soy Sauce",127.5,"g"],
-        ["Black Pepper",6.9,"g"],
+        ["Black Pepper",7,"g"],
         ["Water",474,"mL"]
       ],
       "notes": "Simmer pork with garlic, vinegar, soy sauce, bay leaves and pepper until tender. Retains the source pork-belly preparation; no extra salt added. Counted produce uses the documented USDA reference size. Quantities are ingredient inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed; record measured additions when used.",
@@ -117,12 +117,12 @@
       "portion": [1,"serving"],
       "source": "https://www.kawalingpinoy.com/chicken-asado/",
       "ingredients": [
-        ["Chicken Breast, Raw",1360.77711,"g"],
+        ["Chicken Breast, Raw",1361,"g"],
         ["Lemon Juice",122,"g"],
-        ["Soy Sauce",63.75,"g"],
+        ["Soy Sauce",64,"g"],
         ["Onion (Raw)",110,"g"],
         ["Garlic (Raw)",9,"g"],
-        ["Black Pepper",0.575,"g"],
+        ["Black Pepper",0.5,"g"],
         ["Canola Oil",54.5,"g"],
         ["Potato, Raw",738,"g"],
         ["Tomato Sauce",245,"g"],
@@ -148,7 +148,7 @@
         ["Vinegar",119,"g"],
         ["Water",237,"mL"],
         ["Salt",9,"g"],
-        ["Black Pepper",2.3,"g"],
+        ["Black Pepper",2.5,"g"],
         ["Canola Oil",4.5,"g"]
       ],
       "notes": "Simmer fish and vegetables gently in vinegar and water until cooked. Whole-fish counts are replaced with four weighed 85 g edible portions; bones and trimming waste are excluded. Adaptations: measured ginger; optional whole chili omitted. Counted produce uses the documented USDA reference size. Quantities are ingredient inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed; record measured additions when used.",
@@ -170,7 +170,7 @@
         ["Onion (Raw)",110,"g"],
         ["Ginger Root (Raw)",2,"g"],
         ["Fish Sauce",36,"g"],
-        ["Black Pepper",0.575,"g"],
+        ["Black Pepper",0.5,"g"],
         ["Pechay, Raw",60,"g"],
         ["Canola Oil",42,"g"]
       ],
@@ -185,14 +185,14 @@
       "portion": [1,"serving"],
       "source": "https://panlasangpinoy.com/ginataang-kalabasa-at-sitaw/",
       "ingredients": [
-        ["Butternut Squash, Raw",680.388555,"g"],
+        ["Butternut Squash, Raw",680.5,"g"],
         ["Sitaw, Raw",216,"g"],
-        ["Pork Shoulder, Lean, Raw",85.048569,"g"],
+        ["Pork Shoulder, Lean, Raw",85,"g"],
         ["Coconut Milk",904,"g"],
         ["Onion (Raw)",110,"g"],
         ["Ginger Root (Raw)",4,"g"],
         ["Garlic (Raw)",15,"g"],
-        ["Black Pepper",0.575,"g"],
+        ["Black Pepper",0.5,"g"],
         ["Canola Oil",14,"g"]
       ],
       "notes": "Brown pork and saute aromatics, then simmer squash and sitaw in coconut milk. Eighteen yardlong-bean pods use the USDA reference weight of 12 g each. Adaptations: butternut squash and lean pork are the measured source foods; bouillon and unquantified fish sauce are omitted. Quantities are measured inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed.",
@@ -225,12 +225,12 @@
         ["Canola Oil",14,"g"],
         ["Onion (Raw)",70,"g"],
         ["Garlic (Raw)",6,"g"],
-        ["Shrimp, Raw",226.796185,"g"],
+        ["Shrimp, Raw",227,"g"],
         ["Barrio Fiesta Regular Bagoong",15,"g"],
         ["Water",1422,"mL"],
         ["Pechay, Raw",340,"g"]
       ],
-      "notes": "Cut kernels from the cobs and scrape their pulp. Saute aromatics, shrimp and bagoong, simmer with corn and water, then wilt the spinach. Adaptation: USDA sweet white corn replaces native glutinous corn; texture can differ. Bagoong is the named Barrio Fiesta product. Counted produce uses the documented USDA reference size. Quantities are ingredient inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed; record measured additions when used.",
+      "notes": "Cut kernels from the cobs and scrape their pulp. Saute aromatics, shrimp and bagoong, simmer with corn and water, then wilt the pechay. Adaptations: USDA sweet white corn replaces native glutinous corn, so texture can differ; 340 g measured pechay replaces the source's unweighed spinach bunch. Bagoong is the named Barrio Fiesta product. Counted produce uses the documented USDA reference size. Quantities are ingredient inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed; record measured additions when used.",
       "aliases": []
     },
     "bulanglang-na-bangus-at-hipon": {
@@ -247,7 +247,7 @@
         ["Kangkong, Raw",340,"g"],
         ["Fish Sauce",18,"g"],
         ["Bangus, Raw",340,"g"],
-        ["Shrimp, Raw",226.796185,"g"]
+        ["Shrimp, Raw",227,"g"]
       ],
       "notes": "Simmer guava and onion, strain the guava seeds, then cook fish and shrimp gently and add kangkong. Uses 340 g weighed edible bangus and 340 g weighed kangkong in place of unweighed whole-fish and bunch counts. Guava nutrients count the edible input; straining losses are not measured. Quantities are inputs for four portions; cooked weight and evaporation are not measured.",
       "aliases": []
@@ -261,7 +261,7 @@
       "source": "https://www.kawalingpinoy.com/bringhe/",
       "ingredients": [
         ["Canola Oil",28,"g"],
-        ["Chicken Breast, Raw",453.59237,"g"],
+        ["Chicken Breast, Raw",453.5,"g"],
         ["Onion (Raw)",110,"g"],
         ["Garlic (Raw)",6,"g"],
         ["Fish Sauce",18,"g"],
@@ -272,7 +272,7 @@
         ["Red Bell Pepper, Raw",59.5,"g"],
         ["Green Bell Pepper, Raw",59.5,"g"],
         ["Green Peas, Frozen",134,"g"],
-        ["Raisins",36.25,"g"],
+        ["Raisins",36.5,"g"],
         ["Turmeric Powder",6,"g"],
         ["Chicken Egg, Hard-boiled",100,"g"]
       ],
@@ -288,7 +288,7 @@
       "source": "https://www.kawalingpinoy.com/sipo-egg/",
       "ingredients": [
         ["Quail Egg, Raw",108,"g"],
-        ["Unsalted Butter",14.2,"g"],
+        ["Unsalted Butter",14,"g"],
         ["Onion (Raw)",110,"g"],
         ["Garlic (Raw)",6,"g"],
         ["Fish Sauce",18,"g"],
@@ -313,10 +313,10 @@
         ["Tomato, Raw",180,"g"],
         ["Ginger Root (Raw)",24,"g"],
         ["Onion (Raw)",115,"g"],
-        ["Red Snapper, Raw",907.18474,"g"],
+        ["Red Snapper, Raw",907,"g"],
         ["Pechay, Raw",140,"g"],
         ["Salt",3,"g"],
-        ["Black Pepper",1.15,"g"]
+        ["Black Pepper",1,"g"]
       ],
       "notes": "Simmer aromatics in water, poach fish gently, then add pechay stems followed by leaves. Adaptations: snapper is the selected fleshy fish; optional green-onion garnish omitted. Counted produce uses the documented USDA reference size. Quantities are ingredient inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed; record measured additions when used.",
       "aliases": []
@@ -329,9 +329,9 @@
       "portion": [1,"serving"],
       "source": "https://www.nhlbi.nih.gov/sites/default/files/media/docs/Recipes-Filipino.pdf",
       "ingredients": [
-        ["Red Snapper, Raw",453.59237,"g"],
+        ["Red Snapper, Raw",453.5,"g"],
         ["Canola Oil",18,"g"],
-        ["All-purpose Flour",31.25,"g"],
+        ["All-purpose Flour",31.5,"g"],
         ["Onion (Raw)",150,"g"],
         ["Tomato, Raw",369,"g"],
         ["Egg White, Raw",121.5,"g"],
@@ -348,15 +348,15 @@
       "portion": [1,"serving"],
       "source": "https://nutritioncenter.ctahr.hawaii.edu/wp-content/uploads/2025/09/FINAL-MERGED-HNC-COOKBOOK-V2.pdf",
       "ingredients": [
-        ["Ginger Root (Raw)",4.4,"g"],
+        ["Ginger Root (Raw)",4.5,"g"],
         ["Garlic (Raw)",6,"g"],
         ["Onion (Raw)",110,"g"],
         ["Sayote, Raw",406,"g"],
-        ["Chicken Breast, Raw",907.18474,"g"],
+        ["Chicken Breast, Raw",907,"g"],
         ["Canola Oil",14,"g"],
         ["Water",711,"mL"],
         ["Malunggay, Raw",42,"g"],
-        ["Fish Sauce",5.999984,"g"]
+        ["Fish Sauce",6,"g"]
       ],
       "notes": "Saute chicken and aromatics, simmer in water, then cook sayote and add malunggay near the end. Uses the Hawaii Nutrition Center recipe's malunggay and permitted breast and chayote alternatives. Two cups of malunggay are 42 g using the USDA chopped-leaf measure; ginger uses a measured amount. Quantities are measured inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed.",
       "aliases": [
@@ -369,7 +369,7 @@
       "component_type": "complete_meal",
       "servings": 8,
       "portion": [1,"serving"],
-      "source": "https://www.kawalingpinoy.com/lugaw/",
+      "source": "https://www.kawalingpinoy.com/lugaw-at-tokwa/",
       "ingredients": [
         ["Glutinous Rice, Uncooked",185,"g"],
         ["Water",1896,"mL"],
@@ -387,7 +387,7 @@
       "component_type": "complete_meal",
       "servings": 8,
       "portion": [1,"serving"],
-      "source": "https://www.kawalingpinoy.com/lugaw/",
+      "source": "https://www.kawalingpinoy.com/lugaw-at-tokwa/",
       "ingredients": [
         ["Glutinous Rice, Uncooked",185,"g"],
         ["Water",1896,"mL"],
@@ -408,11 +408,11 @@
       "portion": [1,"serving"],
       "source": "https://www.kawalingpinoy.com/arroz-caldo/",
       "ingredients": [
-        ["Chicken Breast, Raw",1360.77711,"g"],
+        ["Chicken Breast, Raw",1361,"g"],
         ["Canola Oil",14,"g"],
         ["Onion (Raw)",110,"g"],
         ["Garlic (Raw)",9,"g"],
-        ["Ginger Root (Raw)",24.000065,"g"],
+        ["Ginger Root (Raw)",24,"g"],
         ["Fish Sauce",36,"g"],
         ["White Rice, Uncooked",185,"g"],
         ["Water",1422,"mL"],
@@ -521,7 +521,7 @@
         ["Canola Oil",14,"g"],
         ["Onion (Raw)",110,"g"],
         ["Garlic (Raw)",6,"g"],
-        ["Pork Belly, Raw",226.796185,"g"],
+        ["Pork Belly, Raw",227,"g"],
         ["Barrio Fiesta Regular Bagoong",15,"g"],
         ["Tomato, Raw",124,"g"],
         ["Water",474,"mL"],
@@ -551,14 +551,14 @@
         ["Red Bell Pepper, Raw",59.5,"g"],
         ["Green Bell Pepper, Raw",59.5,"g"],
         ["Canola Oil",42,"g"],
-        ["Chicken Liver, Raw",113.398093,"g"],
+        ["Chicken Liver, Raw",113.5,"g"],
         ["Onion (Raw)",110,"g"],
         ["Garlic (Raw)",6,"g"],
-        ["Chicken Breast, Raw",226.796185,"g"],
-        ["Water",533.25,"mL"],
+        ["Chicken Breast, Raw",227,"g"],
+        ["Water",533.5,"mL"],
         ["Oyster Sauce",36,"g"],
         ["Quail Egg, Raw",54,"g"],
-        ["Cornstarch",8.000027,"g"]
+        ["Cornstarch",8,"g"]
       ],
       "notes": "Parboil vegetables, retain the listed water for the sauce, then stir-fry meat and aromatics. Add vegetables, oyster sauce, cooked quail eggs and cornstarch slurry. Adaptations: breast replaces thigh, broccoli uses half a USDA bunch and cauliflower half a medium head; baby corn omitted. Counted produce uses the documented USDA reference size. Quantities are ingredient inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed; record measured additions when used.",
       "aliases": [
@@ -578,12 +578,12 @@
         ["Carrot, Raw",100,"g"],
         ["All-purpose Flour",60,"g"],
         ["Salt",1.5,"g"],
-        ["White Sugar",2.1,"g"],
+        ["White Sugar",2,"g"],
         ["Chicken Egg, Raw",50,"g"],
         ["Low-fat Milk",244,"g"],
         ["Peanut Butter (Unsalted)",170,"g"],
         ["Water",592.5,"mL"],
-        ["Soy Sauce",63.75,"g"],
+        ["Soy Sauce",64,"g"],
         ["Brown Sugar",100,"g"]
       ],
       "notes": "Cook four crepe wrappers from flour, salt, sugar, egg and milk. Blanch the weighed filling vegetables. Simmer the peanut sauce, fill wrappers with vegetables and lettuce, and divide the sauce among four portions. Adaptations: jicama replaces ubod; low-fat milk and unsalted peanut butter replace the source branded dairy and spread. All listed sauce is counted. Counted produce uses the documented USDA reference size. Quantities are ingredient inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed; record measured additions when used.",
@@ -593,16 +593,16 @@
       "name": "Sinangag",
       "category": "carb",
       "component_type": "staple",
-      "servings": 6,
+      "servings": 3,
       "portion": [1,"serving"],
-      "source": "https://www.youtube.com/watch?v=O1iZ5e_Grzc",
+      "source": "https://panlasangpinoy.com/sinangag-recipe/",
       "ingredients": [
-        ["Cooked White Rice",948,"g"],
-        ["Garlic (Raw)",18,"g"],
-        ["Canola Oil",56,"g"],
-        ["Salt",6,"g"]
+        ["Cooked White Rice",474,"g"],
+        ["Garlic (Raw)",15,"g"],
+        ["Canola Oil",35,"g"],
+        ["Salt",3,"g"]
       ],
-      "notes": "Cook garlic in oil, add cooked rice, separate the grains and stir-fry until heated through; season with the measured salt. Adaptation: six measured cloves replace the unweighed garlic head. Counted produce uses the documented USDA reference size. Quantities are ingredient inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed; record measured additions when used.",
+      "notes": "Slowly toast crushed garlic in oil until golden, then stir-fry the cold cooked rice with salt until heated through. Uses the published three-serving batch: three cups cooked rice, five cloves garlic, two and a half tablespoons oil and half a teaspoon salt. Rice uses the USDA 158 g cup, garlic the 3 g clove, canola oil 14 g per tablespoon and salt 6 g per teaspoon. Quantities are ingredient inputs for the listed batch, divided by its serving count. Cooked weight and evaporation are not measured. Extra salt, oil and garnishes are excluded unless listed.",
       "aliases": [
         "Sinangag (Garlic Fried Rice)"
       ]

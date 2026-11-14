@@ -22,7 +22,7 @@ import {
   FoodItem, Recipe, UsdaSearchResult, type PaginatedResponse,
 } from "@/services/foodLibraryService";
 
-const FOOD_CATEGORIES = ["all", "protein", "carbs", "vegetable", "fat", "dairy", "fruit"];
+const FOOD_CATEGORIES = ["all", "protein", "carbs", "vegetable", "fat", "dairy", "fruit", "other"];
 
 const NUTRIENT_GROUPS = {
   Minerals: ["sodium","potassium","phosphate","calcium","iron","magnesium","zinc","copper","manganese","selenium","iodine"],

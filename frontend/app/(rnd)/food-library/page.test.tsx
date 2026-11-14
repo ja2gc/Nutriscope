@@ -118,7 +118,10 @@ describe("Food Library USDA search", () => {
     expect(container.querySelector('[aria-label="Food Library sections"]')?.className).toContain('overflow-x-auto');
     expect(tabs.map((tab) => tab.textContent)).toEqual(["Ingredients", "Menu Items", "Templates", "Food Calculator"]);
     const ingredientFilters = container.querySelector('[aria-label="Ingredient groups"]')!;
-    expect(Array.from(ingredientFilters.querySelectorAll("button")).map((button) => button.textContent)).toEqual(["All", "protein", "carbs", "vegetable", "fat", "dairy", "fruit"]);
+    expect(Array.from(ingredientFilters.querySelectorAll("button")).map((button) => button.textContent)).toEqual(["All", "protein", "carbs", "vegetable", "fat", "dairy", "fruit", "other"]);
+    await act(async () => { (Array.from(ingredientFilters.querySelectorAll("button")).find((button) => button.textContent === "other") as HTMLButtonElement).click(); });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 300)); });
+    expect(fetchFoodItems).toHaveBeenLastCalledWith("", "other", 1);
     await act(async () => { (tabs[1] as HTMLButtonElement).click(); });
     const filters = container.querySelector('[aria-label="Menu Item categories"]')!;
     expect(Array.from(filters.querySelectorAll("button")).map((button) => button.textContent)).toEqual(["All", "Meal", "Carb", "Snack", "Tube Feeding"]);

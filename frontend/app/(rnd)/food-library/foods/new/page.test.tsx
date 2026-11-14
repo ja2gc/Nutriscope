@@ -22,6 +22,8 @@ test("new Ingredient offers canonical measured baselines and tenths for serving-
     expect(amount.min).toBe("0");
     expect(amount.step).toBe("0.1");
     expect(container.querySelector('[aria-label="Ingredient unit families"]')).not.toBeNull();
+    const category = container.querySelector('[aria-label="Category"]') as HTMLSelectElement;
+    expect(Array.from(category.options).some((option) => option.value === "other" && option.textContent === "Other")).toBe(true);
     expect(container.textContent).not.toContain("Ready-to-Eat Snack");
   } finally {
     await act(async () => root.unmount());

@@ -12,7 +12,7 @@ import { InfoHint } from "@/components/ui/InfoHint";
 import { CLINICAL_BASELINE_UNITS, CLINICAL_UNIT_HINT } from "@/lib/clinicalUnits";
 import { createFoodItem } from "@/services/foodLibraryService";
 
-const CATEGORIES = ["protein", "carbs", "vegetable", "fat", "dairy", "fruit"];
+const CATEGORIES = ["protein", "carbs", "vegetable", "fat", "dairy", "fruit", "other"];
 const SERVING_UNITS = CLINICAL_BASELINE_UNITS;
 const COMMON_ALLERGENS = ["milk", "eggs", "fish", "shellfish", "tree nuts", "peanuts", "wheat", "soybeans"];
 

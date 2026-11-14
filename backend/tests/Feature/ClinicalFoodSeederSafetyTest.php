@@ -131,4 +131,36 @@ class ClinicalFoodSeederSafetyTest extends TestCase
             );
         }
     }
+
+    public function test_seeded_recipe_inputs_use_positive_whole_or_half_measured_quantities(): void
+    {
+        $this->seed([AdminUserSeeder::class, FoodItemsSeeder::class, RecipeSeeder::class]);
+
+        foreach (Recipe::with('ingredients')->get() as $recipe) {
+            foreach ($recipe->ingredients as $ingredient) {
+                $quantity = (float) $ingredient->quantity;
+                $this->assertGreaterThan(0, $quantity, $recipe->name);
+                $this->assertSame(round($quantity * 2), $quantity * 2, $recipe->name.' needs practical measured inputs.');
+            }
+        }
+    }
+
+    public function test_source_corrections_keep_explicit_adaptations_and_the_published_rice_yield(): void
+    {
+        $this->seed([AdminUserSeeder::class, FoodItemsSeeder::class, RecipeSeeder::class]);
+
+        $suam = Recipe::where('name', 'Suam na Mais')->sole();
+        $this->assertStringContainsString('pechay replaces', $suam->prep_notes);
+        $this->assertStringNotContainsString('wilt the spinach', $suam->prep_notes);
+        foreach (['Lugaw', 'Lugaw na may Itlog'] as $name) {
+            $this->assertStringContainsString('https://www.kawalingpinoy.com/lugaw-at-tokwa/', Recipe::where('name', $name)->sole()->prep_notes);
+        }
+        $rice = Recipe::where('name', 'Sinangag')->sole();
+        $this->assertSame(3, $rice->servings);
+        $this->assertStringContainsString('https://panlasangpinoy.com/sinangag-recipe/', $rice->prep_notes);
+        $ingredients = collect($rice->planSnapshot()['recipe_ingredients'])->keyBy('name');
+        foreach (['Cooked White Rice' => 474, 'Garlic (Raw)' => 15, 'Canola Oil' => 35, 'Salt' => 3] as $name => $batchQuantity) {
+            $this->assertSame((float) $batchQuantity, (float) $ingredients[$name]['quantity']);
+        }
+    }
 }

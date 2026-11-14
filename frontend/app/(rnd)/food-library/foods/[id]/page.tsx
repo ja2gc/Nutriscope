@@ -14,7 +14,7 @@ import { canonicalClinicalUnit, clinicalIngredientFactor, clinicalRecipeUnits, C
 import { RecipeCorrectionsRequiredError, type AffectedRecipe } from "@/services/fsCatalogService";
 import { fetchFoodItemById, updateFoodItem, FoodItem } from "@/services/foodLibraryService";
 
-const CATEGORIES = ["protein", "carbs", "vegetable", "fat", "dairy", "fruit"];
+const CATEGORIES = ["protein", "carbs", "vegetable", "fat", "dairy", "fruit", "other"];
 const SERVING_UNITS = CLINICAL_BASELINE_UNITS;
 const COMMON_ALLERGENS = ["milk", "eggs", "fish", "shellfish", "tree nuts", "peanuts", "wheat", "soybeans"];
 
